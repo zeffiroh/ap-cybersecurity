@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patching and regular updates, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Patching and regular updates  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.3.c: Patch-prioritization engine</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.3.B, 4.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A patch-management team needs to triage a queue of pending vulnerabilities and decide how
+urgently each must be addressed. Each vulnerability has a CVSS severity score, a flag for
+whether it is being actively exploited in the wild, a flag for whether the affected asset is
+internet-facing, and a flag for whether the affected software is end-of-life (no patch will ever
+be released). Build the triage engine that assigns one urgency label to each vulnerability.</p>
+<h2>Function contract</h2>
+<p>Implement <code>def solve(vulns: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A list of dicts, each with keys: <code>id</code> (str), <code>cvss</code> (float, 0.0-10.0), <code>exploited_in_wild</code>
+(bool), <code>internet_facing</code> (bool), <code>end_of_life</code> (bool).</p>
+<h2>Output</h2>
+<p>A list of dicts, one per input vulnerability (same order as input), each with keys <code>id</code> (str,
+copied from input) and <code>urgency</code> (str), where <code>urgency</code> is one of: <code>"emergency"</code>,
+<code>"scheduled"</code>, <code>"routine"</code>, <code>"compensate"</code>.</p>
+<h2>Decision rule (apply in this exact order, first match wins, per vulnerability)</h2>
+<ol>
+<li><code>end_of_life</code> is <code>True</code> → <code>"compensate"</code> (no patch will ever exist; patching is not an
+   option regardless of severity or exploitation status).</li>
+<li>Else, <code>exploited_in_wild</code> is <code>True</code> AND <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code>.</li>
+<li>Else, <code>cvss &gt;= 9.0</code> AND <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code> (a working exploit is
+   likely imminent for a critical, internet-facing flaw even without confirmed in-the-wild
+   activity).</li>
+<li>Else, <code>cvss &gt;= 9.0</code> → <code>"scheduled"</code> (critical severity but not internet-facing).</li>
+<li>Else, <code>cvss &gt;= 7.0</code> AND <code>internet_facing</code> is <code>True</code> → <code>"scheduled"</code>.</li>
+<li>Else → <code>"routine"</code>.</li>
+</ol>
+<p>Rule order matters: <code>end_of_life</code> is checked first and overrides every other condition, an
+end-of-life system is never <code>"emergency"</code> or <code>"scheduled"</code> even at CVSS 10.0, because patching is
+not a valid remediation at all.</p>
+<h2>Examples</h2>
+<pre><code>[{&quot;id&quot;: &quot;V1&quot;, &quot;cvss&quot;: 9.1, &quot;exploited_in_wild&quot;: True, &quot;internet_facing&quot;: True, &quot;end_of_life&quot;: False}]
+    -&gt; [{&quot;id&quot;: &quot;V1&quot;, &quot;urgency&quot;: &quot;emergency&quot;}]
+
+[{&quot;id&quot;: &quot;V2&quot;, &quot;cvss&quot;: 8.8, &quot;exploited_in_wild&quot;: False, &quot;internet_facing&quot;: False, &quot;end_of_life&quot;: True}]
+    -&gt; [{&quot;id&quot;: &quot;V2&quot;, &quot;urgency&quot;: &quot;compensate&quot;}]
+
+[{&quot;id&quot;: &quot;V3&quot;, &quot;cvss&quot;: 4.2, &quot;exploited_in_wild&quot;: False, &quot;internet_facing&quot;: False, &quot;end_of_life&quot;: False}]
+    -&gt; [{&quot;id&quot;: &quot;V3&quot;, &quot;urgency&quot;: &quot;routine&quot;}]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Preserve input order in the output list.</li>
+<li>Exactly one urgency label per vulnerability.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(vulns: list) -&gt; list
+</code></pre>
+<h3>Input (<code>vulns</code>)</h3>
+<p>A list of dicts, each describing one vulnerability:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>type</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>str</td>
+<td>vulnerability identifier, echoed unchanged into the output</td>
+</tr>
+<tr>
+<td><code>cvss</code></td>
+<td>float</td>
+<td>CVSS severity score, 0.0-10.0</td>
+</tr>
+<tr>
+<td><code>exploited_in_wild</code></td>
+<td>bool</td>
+<td>whether the vulnerability is confirmed being actively exploited</td>
+</tr>
+<tr>
+<td><code>internet_facing</code></td>
+<td>bool</td>
+<td>whether the affected asset is reachable from the public internet</td>
+</tr>
+<tr>
+<td><code>end_of_life</code></td>
+<td>bool</td>
+<td>whether the affected software is end-of-life (no patch will ever ship)</td>
+</tr>
+</tbody>
+</table>
+<h3>Output (<code>result</code>)</h3>
+<p>A list of dicts, same length and same order as the input, each with:
+- <code>"id"</code>: the same id string from the corresponding input entry
+- <code>"urgency"</code>: one of <code>"emergency"</code>, <code>"scheduled"</code>, <code>"routine"</code>, <code>"compensate"</code></p>
+<h3>Decision rule (exact priority order, evaluate top to bottom per vulnerability, return on</h3>
+<p>first match)
+1. If <code>end_of_life</code> is <code>True</code> → <code>"compensate"</code>. This overrides everything else, no CVSS score
+   or exploitation status changes this, because patching an end-of-life product is not possible.
+2. Else if <code>exploited_in_wild</code> is <code>True</code> and <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code>.
+3. Else if <code>cvss &gt;= 9.0</code> and <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code>.
+4. Else if <code>cvss &gt;= 9.0</code> → <code>"scheduled"</code>.
+5. Else if <code>cvss &gt;= 7.0</code> and <code>internet_facing</code> is <code>True</code> → <code>"scheduled"</code>.
+6. Else → <code>"routine"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
+<li>CVSS thresholds are inclusive (<code>&gt;=</code>), not strict.</li>
+<li>Input order is preserved in the output.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.3.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+
+def solve(vulns: list) -&gt; list:
+    """Assign an urgency label to each vulnerability per the patch-triage priority rules.
+
+    Args:
+        vulns: list of dicts with keys id (str), cvss (float), exploited_in_wild (bool),
+            internet_facing (bool), end_of_life (bool).
+
+    Returns:
+        list of dicts, same order, each {"id": ..., "urgency": ...} where urgency is one of
+        "emergency", "scheduled", "routine", "compensate".
+    """
+    results = []
+    for v in vulns:
+        vid = v["id"]
+        cvss = v.get("cvss", 0.0)
+        exploited = v.get("exploited_in_wild", False)
+        internet_facing = v.get("internet_facing", False)
+        end_of_life = v.get("end_of_life", False)
+
+        if end_of_life:
+            urgency = "compensate"
+        elif exploited and internet_facing:
+            urgency = "emergency"
+        elif cvss &gt;= 9.0 and internet_facing:
+            urgency = "emergency"
+        elif cvss &gt;= 9.0:
+            urgency = "scheduled"
+        elif cvss &gt;= 7.0 and internet_facing:
+            urgency = "scheduled"
+        else:
+            urgency = "routine"
+
+        results.append({"id": vid, "urgency": urgency})
+
+    return results
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_emergency_exploited_internet_facing():
+    vulns = [{"id": "V1", "cvss": 9.1, "exploited_in_wild": True,
+              "internet_facing": True, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V1", "urgency": "emergency"}]
+
+
+def test_example_2_compensate_end_of_life_overrides_severity():
+    vulns = [{"id": "V2", "cvss": 8.8, "exploited_in_wild": False,
+              "internet_facing": False, "end_of_life": True}]
+    assert impl.solve(vulns) == [{"id": "V2", "urgency": "compensate"}]
+
+
+def test_example_3_routine_low_severity():
+    vulns = [{"id": "V3", "cvss": 4.2, "exploited_in_wild": False,
+              "internet_facing": False, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V3", "urgency": "routine"}]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_list():
+    assert impl.solve([]) == []
+
+
+def test_critical_internal_is_scheduled_not_emergency():
+    vulns = [{"id": "V4", "cvss": 9.8, "exploited_in_wild": False,
+              "internet_facing": False, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V4", "urgency": "scheduled"}]
+
+
+def test_critical_internet_facing_not_yet_exploited_is_emergency():
+    vulns = [{"id": "V5", "cvss": 9.0, "exploited_in_wild": False,
+              "internet_facing": True, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V5", "urgency": "emergency"}]
+
+
+def test_moderate_severity_internet_facing_is_scheduled():
+    vulns = [{"id": "V6", "cvss": 7.5, "exploited_in_wild": False,
+              "internet_facing": True, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V6", "urgency": "scheduled"}]
+
+
+def test_moderate_severity_internal_is_routine():
+    vulns = [{"id": "V7", "cvss": 7.0, "exploited_in_wild": False,
+              "internet_facing": False, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V7", "urgency": "routine"}]
+
+
+def test_end_of_life_overrides_exploited_and_internet_facing():
+    vulns = [{"id": "V8", "cvss": 10.0, "exploited_in_wild": True,
+              "internet_facing": True, "end_of_life": True}]
+    assert impl.solve(vulns) == [{"id": "V8", "urgency": "compensate"}]
+
+
+def test_boundary_cvss_exactly_seven_internet_facing():
+    vulns = [{"id": "V9", "cvss": 7.0, "exploited_in_wild": False,
+              "internet_facing": True, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V9", "urgency": "scheduled"}]
+
+
+def test_boundary_cvss_just_below_seven_internet_facing_is_routine():
+    vulns = [{"id": "V10", "cvss": 6.9, "exploited_in_wild": False,
+              "internet_facing": True, "end_of_life": False}]
+    assert impl.solve(vulns) == [{"id": "V10", "urgency": "routine"}]
+
+
+def test_order_preserved_and_multiple_entries():
+    vulns = [
+        {"id": "A", "cvss": 2.0, "exploited_in_wild": False,
+         "internet_facing": False, "end_of_life": False},
+        {"id": "B", "cvss": 9.9, "exploited_in_wild": True,
+         "internet_facing": True, "end_of_life": False},
+        {"id": "C", "cvss": 5.0, "exploited_in_wild": False,
+         "internet_facing": False, "end_of_life": True},
+    ]
+    assert impl.solve(vulns) == [
+        {"id": "A", "urgency": "routine"},
+        {"id": "B", "urgency": "emergency"},
+        {"id": "C", "urgency": "compensate"},
+    ]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

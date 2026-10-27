@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Symmetric encryption and key management, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Symmetric encryption and key management</h1>
+<h1>Coding problem, 5.3.b: Symmetric key-management toolkit</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.3.A, 5.3.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build three small helpers a security engineer would use when reasoning about symmetric key
+management, without relying on any real crypto library (standard library only, this is a toy,
+pedagogical model, not production cryptography).</p>
+<ol>
+<li><strong>Key wrapping (envelope encryption).</strong> Implement <code>wrap_key(dek, kek)</code> and
+   <code>unwrap_key(wrapped, kek)</code> using a repeating-XOR keystream: each byte of <code>dek</code> is XORed with
+   the KEK byte at the same position modulo <code>len(kek)</code>. This models how a Key Encryption Key
+   (KEK) wraps a Data Encryption Key (DEK) for storage (see atom.md, "Key wrapping (Envelope
+   Encryption)"). Unwrapping with the same KEK must recover the original DEK exactly, since
+   XOR is its own inverse.</li>
+<li><strong>Weak-RNG detection.</strong> Implement <code>looks_like_csprng(key_bytes)</code>, a heuristic that flags keys
+   that could NOT plausibly have come from a CSPRNG because they show low entropy / obvious
+   structure (e.g., a single repeated byte, a short repeating pattern, or a strictly
+   monotonic/arithmetic byte sequence like <code>0,1,2,3...</code>). Real CSPRNG output has no such
+   structure.</li>
+<li><strong>ECB pattern-leakage detection.</strong> Implement <code>detect_ecb_leakage(ciphertext_blocks)</code>, which
+   takes a list of same-size <code>bytes</code> blocks (as an ECB-mode block cipher would produce) and
+   returns <code>True</code> if any two blocks are identical, the tell-tale sign that ECB mode is leaking
+   repeated plaintext patterns into the ciphertext (see atom.md, "Electronic Codebook (ECB) Mode
+   (Insecure)").</li>
+</ol>
+<h2>Function contract</h2>
+<p>Implement all three functions in the code editor (see the Reference section below):</p>
+<pre><code class="language-python">def wrap_key(dek: bytes, kek: bytes) -&gt; bytes
+def unwrap_key(wrapped: bytes, kek: bytes) -&gt; bytes
+def looks_like_csprng(key_bytes: bytes) -&gt; bool
+def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool
+</code></pre>
+<h2>Input</h2>
+<ul>
+<li><code>wrap_key</code>/<code>unwrap_key</code>: <code>dek</code>/<code>wrapped</code> are <code>bytes</code> (may be empty); <code>kek</code> is non-empty <code>bytes</code>.</li>
+<li><code>looks_like_csprng</code>: <code>key_bytes</code> is <code>bytes</code>, at least 1 byte.</li>
+<li><code>detect_ecb_leakage</code>: <code>ciphertext_blocks</code> is <code>list[bytes]</code>, all blocks the same length.</li>
+</ul>
+<h2>Output</h2>
+<ul>
+<li><code>wrap_key</code>/<code>unwrap_key</code> return <code>bytes</code> the same length as their key argument.</li>
+<li><code>looks_like_csprng</code> returns <code>bool</code>.</li>
+<li><code>detect_ecb_leakage</code> returns <code>bool</code>.</li>
+</ul>
+<h2>Examples</h2>
+<pre><code class="language-python">wrap_key(b&quot;\x01\x02\x03\x04&quot;, b&quot;\xff\x00&quot;)
+# -&gt; bytes([0x01^0xff, 0x02^0x00, 0x03^0xff, 0x04^0x00]) == b&quot;\xfe\x02\xfc\x04&quot;
+
+unwrap_key(wrap_key(dek, kek), kek) == dek   # always, for any non-empty kek
+
+looks_like_csprng(bytes([5]*16))            -&gt; False   # single repeated byte
+looks_like_csprng(bytes(range(16)))         -&gt; False   # arithmetic/monotonic sequence
+looks_like_csprng(b&quot;\x4e\x91\x0a\xd3\x77\xbb\x02\xf8&quot;)  -&gt; True   # no obvious structure
+
+detect_ecb_leakage([b&quot;AAAAAAAA&quot;, b&quot;BBBBBBBB&quot;, b&quot;AAAAAAAA&quot;]) -&gt; True    # block 0 == block 2
+detect_ecb_leakage([b&quot;AAAAAAAA&quot;, b&quot;BBBBBBBB&quot;, b&quot;CCCCCCCC&quot;]) -&gt; False
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only. No <code>import random</code>, no real crypto libraries
+  (<code>cryptography</code>, <code>pycryptodome</code>, <code>hashlib</code>-based ciphers, etc.).</li>
+<li><code>kek</code> is always non-empty for <code>wrap_key</code>/<code>unwrap_key</code>; <code>dek</code> may be empty (returns <code>b""</code>).</li>
+<li><code>looks_like_csprng</code> receives at least 1 byte; treat any input shorter than 8 bytes as
+  "too short to judge" and return <code>False</code> (not enough data to look random).</li>
+<li><code>detect_ecb_leakage</code> receives zero or more equal-length <code>bytes</code> blocks.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry points</h3>
+<pre><code class="language-python">def wrap_key(dek: bytes, kek: bytes) -&gt; bytes
+def unwrap_key(wrapped: bytes, kek: bytes) -&gt; bytes
+def looks_like_csprng(key_bytes: bytes) -&gt; bool
+def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool
+</code></pre>
+<h3>Input / output</h3>
+<h4><code>wrap_key(dek, kek) -&gt; bytes</code></h4>
+<ul>
+<li><code>dek</code>: <code>bytes</code>, the plaintext Data Encryption Key to wrap (may be empty).</li>
+<li><code>kek</code>: <code>bytes</code>, the Key Encryption Key, non-empty.</li>
+<li>Returns <code>bytes</code> of the same length as <code>dek</code>, where output byte <code>i</code> is
+  <code>dek[i] XOR kek[i % len(kek)]</code> (repeating-XOR keystream).</li>
+</ul>
+<h4><code>unwrap_key(wrapped, kek) -&gt; bytes</code></h4>
+<ul>
+<li>Inverse of <code>wrap_key</code>: <code>unwrap_key(wrap_key(dek, kek), kek) == dek</code> for any <code>dek</code> and any
+  non-empty <code>kek</code>, since XOR is its own inverse.</li>
+</ul>
+<h4><code>looks_like_csprng(key_bytes) -&gt; bool</code></h4>
+<ul>
+<li><code>key_bytes</code>: <code>bytes</code>, a candidate generated key.</li>
+<li>Returns <code>False</code> if <code>len(key_bytes) &lt; 8</code> (too short to judge).</li>
+<li>Returns <code>False</code> if the bytes show obvious low-entropy structure:</li>
+<li>all bytes identical, OR</li>
+<li>the byte sequence is a short repeating pattern (period <code>p</code> with
+    <code>1 &lt;= p &lt;= len(key_bytes)//2</code>) that tiles the whole input, OR</li>
+<li>the byte sequence is strictly a constant-step arithmetic sequence (e.g. <code>0,1,2,3...</code> or
+    <code>10,8,6,4...</code>), taken modulo 256.</li>
+<li>Returns <code>True</code> otherwise.</li>
+</ul>
+<h4><code>detect_ecb_leakage(ciphertext_blocks) -&gt; bool</code></h4>
+<ul>
+<li><code>ciphertext_blocks</code>: <code>list[bytes]</code>, all the same length (as ECB-mode block-cipher output would
+  be); may be empty or contain a single block.</li>
+<li>Returns <code>True</code> if any two blocks in the list are byte-for-byte identical (indicating the
+  plaintext blocks that produced them were also identical, the ECB pattern-leakage weakness).</li>
+<li>Returns <code>False</code> if all blocks are distinct, or if there are fewer than 2 blocks.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure functions, deterministic, no I/O, no network. Standard library only.</li>
+<li>No use of <code>random</code>, <code>os.urandom</code>, <code>secrets</code>, or any real cipher/hash primitive, the point of
+  this toy toolkit is to reason about structure and wrapping mechanics, not to be secure.</li>
+<li><code>wrap_key</code>/<code>unwrap_key</code>: <code>kek</code> non-empty is a caller guarantee, not something the function must
+  validate defensively beyond raising on empty <code>kek</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.3.b. Student completes the TODOs.
+This file intentionally FAILS the tests until implemented."""
+
+
+def wrap_key(dek: bytes, kek: bytes) -&gt; bytes:
+    """Wrap a Data Encryption Key (DEK) with a Key Encryption Key (KEK) using a
+    repeating-XOR keystream (toy envelope encryption — NOT real crypto).
+
+    Args:
+        dek: plaintext key to wrap (may be empty).
+        kek: non-empty wrapping key.
+    Returns:
+        bytes of len(dek), where byte i = dek[i] XOR kek[i % len(kek)].
+    """
+    # TODO: XOR each byte of dek with the KEK byte at the same position, wrapping
+    #       the KEK index around with modulo len(kek).
+    raise NotImplementedError("implement wrap_key() — see the problem statement above")
+
+
+def unwrap_key(wrapped: bytes, kek: bytes) -&gt; bytes:
+    """Inverse of wrap_key(): recovers the original DEK given the same KEK.
+
+    Args:
+        wrapped: bytes produced by wrap_key(dek, kek).
+        kek: the same non-empty KEK used to wrap.
+    Returns:
+        the original dek bytes.
+    """
+    # TODO: XOR is its own inverse — this can reuse the same logic as wrap_key.
+    raise NotImplementedError("implement unwrap_key() — see the problem statement above")
+
+
+def looks_like_csprng(key_bytes: bytes) -&gt; bool:
+    """Heuristically flag whether key_bytes could plausibly have come from a
+    CSPRNG, vs. showing obvious low-entropy structure (repeated byte, short
+    repeating pattern, or an arithmetic/monotonic sequence).
+
+    Args:
+        key_bytes: candidate generated key.
+    Returns:
+        False if len(key_bytes) &lt; 8 (too short to judge), or if the bytes show
+        obvious structure. True otherwise.
+    """
+    # TODO: check length &lt; 8 -&gt; False.
+    # TODO: check all-identical bytes -&gt; False.
+    # TODO: check for a short repeating pattern (period 1..len//2) that tiles
+    #       the whole input -&gt; False.
+    # TODO: check for a constant-step arithmetic sequence (mod 256) -&gt; False.
+    # TODO: otherwise -&gt; True.
+    raise NotImplementedError("implement looks_like_csprng() — see the problem statement above")
+
+
+def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool:
+    """Detect ECB-mode pattern leakage: True if any two blocks are identical.
+
+    Args:
+        ciphertext_blocks: list[bytes], all the same length.
+    Returns:
+        True if any duplicate block exists, False otherwise (or if &lt; 2 blocks).
+    """
+    # TODO: compare blocks pairwise (or use a set) to find any duplicate.
+    raise NotImplementedError("implement detect_ecb_leakage() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- wrap_key / unwrap_key -----------------------------------------------
+def test_wrap_key_basic_xor():
+    dek = b"\x01\x02\x03\x04"
+    kek = b"\xff\x00"
+    assert impl.wrap_key(dek, kek) == bytes([0x01 ^ 0xFF, 0x02 ^ 0x00, 0x03 ^ 0xFF, 0x04 ^ 0x00])
+
+
+def test_wrap_unwrap_round_trip():
+    dek = b"top-secret-dek-1234"
+    kek = b"kekmaterial"
+    wrapped = impl.wrap_key(dek, kek)
+    assert wrapped != dek
+    assert impl.unwrap_key(wrapped, kek) == dek
+
+
+def test_wrap_key_empty_dek():
+    assert impl.wrap_key(b"", b"anykek") == b""
+
+
+def test_wrap_key_kek_shorter_than_dek_repeats():
+    dek = b"\x00\x00\x00\x00"
+    kek = b"\x01\x02"
+    assert impl.wrap_key(dek, kek) == b"\x01\x02\x01\x02"
+
+
+# ---- looks_like_csprng -----------------------------------------------------
+def test_repeated_byte_is_weak():
+    assert impl.looks_like_csprng(bytes([5] * 16)) is False
+
+
+def test_arithmetic_sequence_is_weak():
+    assert impl.looks_like_csprng(bytes(range(16))) is False
+
+
+def test_short_repeating_pattern_is_weak():
+    assert impl.looks_like_csprng(b"abab" * 4) is False
+
+
+def test_too_short_is_weak():
+    assert impl.looks_like_csprng(b"\x01\x02\x03") is False
+
+
+def test_plausible_csprng_output_is_strong():
+    assert impl.looks_like_csprng(b"\x4e\x91\x0a\xd3\x77\xbb\x02\xf8") is True
+
+
+def test_another_plausible_csprng_output():
+    assert impl.looks_like_csprng(bytes([0x9F, 0x02, 0x77, 0xC1, 0x3A, 0x5E, 0x00, 0xE4, 0x6B])) is True
+
+
+# ---- detect_ecb_leakage -----------------------------------------------------
+def test_duplicate_blocks_flagged():
+    blocks = [b"AAAAAAAA", b"BBBBBBBB", b"AAAAAAAA"]
+    assert impl.detect_ecb_leakage(blocks) is True
+
+
+def test_all_distinct_blocks_not_flagged():
+    blocks = [b"AAAAAAAA", b"BBBBBBBB", b"CCCCCCCC"]
+    assert impl.detect_ecb_leakage(blocks) is False
+
+
+def test_single_block_not_flagged():
+    assert impl.detect_ecb_leakage([b"AAAAAAAA"]) is False
+
+
+def test_empty_blocks_not_flagged():
+    assert impl.detect_ecb_leakage([]) is False
+
+
+def test_duplicate_at_end_of_longer_list():
+    blocks = [b"11111111", b"22222222", b"33333333", b"44444444", b"22222222"]
+    assert impl.detect_ecb_leakage(blocks) is True
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IoT device vulnerabilities, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>IoT device vulnerabilities  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.1.c: Audit an IoT device for its dominant vulnerability</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 4.1.A, 4.1.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A security analyst is auditing smart devices on a network. Each device is described by a
+dictionary of attributes. Build the classifier that inspects a device and returns its single most
+severe vulnerability category, or <code>"secure"</code> if none of the checked issues are present.</p>
+<p>A device can technically have more than one issue at once; when it does, report only the most
+severe one, using this fixed priority order (highest severity first):</p>
+<ol>
+<li><code>"default_credentials"</code>, the device still uses its factory default password</li>
+<li><code>"outdated_firmware"</code>, the device's firmware is out of date</li>
+<li><code>"exposed_port"</code>, the device has an insecure management port open (23 = Telnet, 21 = FTP)</li>
+<li><code>"unauthenticated_api"</code>, the device's API accepts requests with no authentication</li>
+<li><code>"unencrypted_traffic"</code>, the device's network traffic is not encrypted</li>
+<li><code>"secure"</code>, none of the above apply</li>
+</ol>
+<h2>Function contract</h2>
+<p>Implement <code>solve(device: dict) -&gt; str</code> in the code editor (see the Reference section below).
+Return the single verdict label string.</p>
+<h2>Input</h2>
+<p>A dictionary with the following keys:
+- <code>default_password</code> (bool), True if the factory default password is still in use
+- <code>firmware_outdated</code> (bool), True if the firmware is out of date
+- <code>open_ports</code> (list[int]), list of open network ports on the device
+- <code>unauthenticated_api</code> (bool), True if the device's API requires no authentication
+- <code>encrypted_traffic</code> (bool), True if the device's traffic is encrypted (note: False means
+  traffic is UNencrypted, which is the risk condition)</p>
+<p>An insecure management port is any of <code>23</code> (Telnet) or <code>21</code> (FTP) appearing in <code>open_ports</code>.</p>
+<h2>Output</h2>
+<p>One of: <code>"default_credentials"</code>, <code>"outdated_firmware"</code>, <code>"exposed_port"</code>,
+<code>"unauthenticated_api"</code>, <code>"unencrypted_traffic"</code>, <code>"secure"</code>.</p>
+<h2>Examples</h2>
+<pre><code>{&quot;default_password&quot;: True, &quot;firmware_outdated&quot;: True, &quot;open_ports&quot;: [23], &quot;unauthenticated_api&quot;: True, &quot;encrypted_traffic&quot;: False}  -&gt;  &quot;default_credentials&quot;
+{&quot;default_password&quot;: False, &quot;firmware_outdated&quot;: True, &quot;open_ports&quot;: [443], &quot;unauthenticated_api&quot;: False, &quot;encrypted_traffic&quot;: True}  -&gt;  &quot;outdated_firmware&quot;
+{&quot;default_password&quot;: False, &quot;firmware_outdated&quot;: False, &quot;open_ports&quot;: [23, 443], &quot;unauthenticated_api&quot;: False, &quot;encrypted_traffic&quot;: True}  -&gt;  &quot;exposed_port&quot;
+{&quot;default_password&quot;: False, &quot;firmware_outdated&quot;: False, &quot;open_ports&quot;: [443], &quot;unauthenticated_api&quot;: True, &quot;encrypted_traffic&quot;: True}  -&gt;  &quot;unauthenticated_api&quot;
+{&quot;default_password&quot;: False, &quot;firmware_outdated&quot;: False, &quot;open_ports&quot;: [443], &quot;unauthenticated_api&quot;: False, &quot;encrypted_traffic&quot;: False}  -&gt;  &quot;unencrypted_traffic&quot;
+{&quot;default_password&quot;: False, &quot;firmware_outdated&quot;: False, &quot;open_ports&quot;: [443], &quot;unauthenticated_api&quot;: False, &quot;encrypted_traffic&quot;: True}  -&gt;  &quot;secure&quot;
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Priority order is fixed as listed above and must be applied exactly.</li>
+<li>Only ports <code>23</code> and <code>21</code> count as insecure/exposed management ports.</li>
+<li>Exactly one label returned (string, not list).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(device: dict) -&gt; str
+</code></pre>
+<h3>Input (<code>device</code>)</h3>
+<p>A dictionary with keys:
+- <code>default_password</code> (bool), True if the factory default password is still in use.
+- <code>firmware_outdated</code> (bool), True if the firmware is out of date.
+- <code>open_ports</code> (list[int]), open network ports on the device.
+- <code>unauthenticated_api</code> (bool), True if the device's API requires no authentication.
+- <code>encrypted_traffic</code> (bool), True if the device's traffic is encrypted (False = the risk
+  condition: traffic is unencrypted).</p>
+<p>Insecure/exposed management ports: <code>{23, 21}</code> (Telnet, FTP). Any other port does not count as
+"exposed" for this problem.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>Exactly one string from:
+<code>{"default_credentials", "outdated_firmware", "exposed_port", "unauthenticated_api",
+"unencrypted_traffic", "secure"}</code></p>
+<h3>Priority order (highest severity first)</h3>
+<p>When a device matches more than one condition, return only the highest-priority match:
+1. <code>default_password is True</code> -&gt; <code>"default_credentials"</code>
+2. <code>firmware_outdated is True</code> -&gt; <code>"outdated_firmware"</code>
+3. any of <code>{23, 21}</code> present in <code>open_ports</code> -&gt; <code>"exposed_port"</code>
+4. <code>unauthenticated_api is True</code> -&gt; <code>"unauthenticated_api"</code>
+5. <code>encrypted_traffic is False</code> -&gt; <code>"unencrypted_traffic"</code>
+6. none of the above -&gt; <code>"secure"</code></p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>open_ports</code> may be empty or contain any integers; only <code>23</code> and <code>21</code> trigger <code>"exposed_port"</code>.</li>
+<li>Missing keys should be treated as the "safe" default for that key (<code>False</code> for booleans,
+  <code>[]</code> for <code>open_ports</code>, and <code>True</code> for <code>encrypted_traffic</code>, i.e. "assume secure/encrypted if
+  not specified").</li>
+<li>Returns a single string (not a list).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.1.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+INSECURE_PORTS = {23, 21}
+
+
+def solve(device: dict) -&gt; str:
+    """Audit an IoT device dict and return its single dominant vulnerability verdict.
+
+    Args:
+        device: dict with keys default_password (bool), firmware_outdated (bool),
+            open_ports (list[int]), unauthenticated_api (bool), encrypted_traffic (bool).
+            Missing keys default to the "safe" value for that key.
+
+    Returns:
+        One of: "default_credentials", "outdated_firmware", "exposed_port",
+        "unauthenticated_api", "unencrypted_traffic", "secure".
+    """
+    if not isinstance(device, dict):
+        return "secure"
+
+    default_password = bool(device.get("default_password", False))
+    firmware_outdated = bool(device.get("firmware_outdated", False))
+    open_ports = device.get("open_ports", []) or []
+    unauthenticated_api = bool(device.get("unauthenticated_api", False))
+    encrypted_traffic = bool(device.get("encrypted_traffic", True))
+
+    # Priority order: default_credentials &gt; outdated_firmware &gt; exposed_port &gt;
+    # unauthenticated_api &gt; unencrypted_traffic &gt; secure
+
+    if default_password:
+        return "default_credentials"
+
+    if firmware_outdated:
+        return "outdated_firmware"
+
+    if any(port in INSECURE_PORTS for port in open_ports):
+        return "exposed_port"
+
+    if unauthenticated_api:
+        return "unauthenticated_api"
+
+    if not encrypted_traffic:
+        return "unencrypted_traffic"
+
+    return "secure"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_default_credentials():
+    device = {"default_password": True, "firmware_outdated": True, "open_ports": [23],
+              "unauthenticated_api": True, "encrypted_traffic": False}
+    assert impl.solve(device) == "default_credentials"
+
+
+def test_example_outdated_firmware():
+    device = {"default_password": False, "firmware_outdated": True, "open_ports": [443],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "outdated_firmware"
+
+
+def test_example_exposed_port():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [23, 443],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "exposed_port"
+
+
+def test_example_unauthenticated_api():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [443],
+              "unauthenticated_api": True, "encrypted_traffic": True}
+    assert impl.solve(device) == "unauthenticated_api"
+
+
+def test_example_unencrypted_traffic():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [443],
+              "unauthenticated_api": False, "encrypted_traffic": False}
+    assert impl.solve(device) == "unencrypted_traffic"
+
+
+def test_example_secure():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [443],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "secure"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_dict_is_secure():
+    # missing keys default to the safe value for that key
+    assert impl.solve({}) == "secure"
+
+
+def test_edge_empty_open_ports():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "secure"
+
+
+def test_port_21_also_exposed():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [21, 8080],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "exposed_port"
+
+
+def test_other_ports_do_not_count():
+    device = {"default_password": False, "firmware_outdated": False, "open_ports": [80, 8080, 3389],
+              "unauthenticated_api": False, "encrypted_traffic": True}
+    assert impl.solve(device) == "secure"
+
+
+def test_priority_order():
+    # everything is wrong at once — must return the HIGHEST priority verdict
+    device = {"default_password": True, "firmware_outdated": True, "open_ports": [23, 21],
+              "unauthenticated_api": True, "encrypted_traffic": False}
+    assert impl.solve(device) == "default_credentials"
+
+    # no default password, but everything else wrong -&gt; outdated_firmware wins next
+    device2 = {"default_password": False, "firmware_outdated": True, "open_ports": [23],
+               "unauthenticated_api": True, "encrypted_traffic": False}
+    assert impl.solve(device2) == "outdated_firmware"
+
+    # only port + api + traffic wrong -&gt; exposed_port wins over the two below it
+    device3 = {"default_password": False, "firmware_outdated": False, "open_ports": [23],
+               "unauthenticated_api": True, "encrypted_traffic": False}
+    assert impl.solve(device3) == "exposed_port"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

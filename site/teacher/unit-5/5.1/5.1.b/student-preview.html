@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross-site scripting (XSS), Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Cross-site scripting (XSS)</h1>
+<h1>Coding problem, 5.1.b: Fix the Reflected Comment</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.1.A, 5.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>The situation</h2>
+<p><code>render_comment</code> builds the HTML that shows a visitor's comment on a page. It works for
+ordinary text, but it drops the username and comment <strong>straight into the HTML</strong> by string
+concatenation. That is reflected cross-site scripting (XSS): whatever the user typed is parsed
+by the next visitor's browser as markup, so <code>&lt;script&gt;...&lt;/script&gt;</code> in a comment becomes a live
+script running in that visitor's session.</p>
+<p>The starter is the vulnerable version. A comment of <code>&lt;script&gt;steal()&lt;/script&gt;</code> comes back out
+as a real <code>&lt;script&gt;</code> tag.</p>
+<h2>Your task</h2>
+<p>Fix <code>render_comment</code> so user input can never be parsed as HTML. The correct defense is
+<strong>context-aware output encoding</strong>: HTML-encode every user-supplied value before it goes into the
+page, so <code>&lt;</code> becomes <code>&amp;lt;</code>, <code>&gt;</code> becomes <code>&amp;gt;</code>, <code>&amp;</code> becomes <code>&amp;amp;</code>, and the quote characters
+are encoded too. Python's standard library does exactly this:</p>
+<pre><code class="language-python">import html
+safe = html.escape(user_value, quote=True)
+</code></pre>
+<p>Encode the <code>username</code> and <code>comment</code> values, then place them into the same HTML template. Do
+<strong>not</strong> detect, strip, or blocklist payloads — the point is that <em>encoded</em> input is harmless no
+matter what it contains, while the app's own structural tags stay intact.</p>
+<h2>Function contract</h2>
+<p>Implement <code>render_comment(username: str, comment: str) -&gt; str</code>:
+- Return the comment card HTML: <code>&lt;div class="c"&gt;&lt;b&gt;USERNAME&lt;/b&gt;: COMMENT&lt;/div&gt;</code>, where
+  <code>USERNAME</code> and <code>COMMENT</code> are the HTML-encoded user values.
+- The structural tags (<code>&lt;div class="c"&gt;</code>, <code>&lt;b&gt;</code>) are the app's own output and stay as real HTML.</p>
+<p>A correct solution passes every test, including the injection cases. The concatenation version
+fails them because the raw <code>&lt;script&gt;</code> and <code>&lt;img onerror=...&gt;</code> payloads reach the output as markup.</p>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def render_comment(username: str, comment: str) -&gt; str
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>username</code>: the commenter's display name (untrusted input).</li>
+<li><code>comment</code>: the comment body (untrusted input).</li>
+</ul>
+<h3>Output</h3>
+<p>A single HTML string, the comment card:</p>
+<pre><code>&lt;div class=&quot;c&quot;&gt;&lt;b&gt;USERNAME&lt;/b&gt;: COMMENT&lt;/div&gt;
+</code></pre>
+<p>where <code>USERNAME</code> and <code>COMMENT</code> are the HTML-encoded forms of the two inputs.</p>
+<h3>Encoding rules</h3>
+<ul>
+<li>User values are HTML-encoded with <code>html.escape(value, quote=True)</code> semantics:
+  <code>&amp;</code> → <code>&amp;amp;</code>, <code>&lt;</code> → <code>&amp;lt;</code>, <code>&gt;</code> → <code>&amp;gt;</code>, <code>"</code> → <code>&amp;quot;</code>, <code>'</code> → <code>&amp;#x27;</code>.</li>
+<li>The structural markup the function itself emits (<code>&lt;div class="c"&gt;</code>, <code>&lt;b&gt;</code>, <code>&lt;/b&gt;</code>, <code>&lt;/div&gt;</code>)
+  is real HTML and is <strong>not</strong> encoded.</li>
+<li>No detection, stripping, or blocklisting of input. Encoding alone is the defense.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only (<code>html</code>).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).
+user values are encoded rather than concatenated raw.</p></div>
+<div class="nb-cell nb-code"># Your implementation
+import html  # noqa: F401  (you will need this to fix the function)
+
+
+def render_comment(username: str, comment: str) -&gt; str:
+    """
+    Return the HTML card that displays a visitor's comment:
+
+        &lt;div class="c"&gt;&lt;b&gt;USERNAME&lt;/b&gt;: COMMENT&lt;/div&gt;
+
+    VULNERABLE starter: it concatenates the username and comment straight into
+    the HTML, so a comment like &lt;script&gt;steal()&lt;/script&gt; is sent to the next
+    visitor's browser as a real script tag (reflected XSS).
+
+    Fix it with context-aware OUTPUT ENCODING: HTML-encode each user value
+    (html.escape(value, quote=True)) before placing it into the template, so the
+    browser can never parse user input as markup. Do not strip or blocklist input;
+    keep the structural &lt;div&gt;/&lt;b&gt; tags as real HTML.
+    """
+    return '&lt;div class="c"&gt;&lt;b&gt;' + username + "&lt;/b&gt;: " + comment + "&lt;/div&gt;"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import html
+
+
+# ---- ordinary content is shown normally, template stays intact -----------
+def test_plain_comment_renders():
+    out = impl.render_comment("jordan", "Nice, clear write-up")
+    assert "jordan" in out
+    assert "Nice, clear write-up" in out
+
+
+def test_structural_tags_present():
+    out = impl.render_comment("jordan", "hello")
+    assert '&lt;div class="c"&gt;' in out
+    assert "&lt;b&gt;" in out and "&lt;/b&gt;" in out and "&lt;/div&gt;" in out
+
+
+# ---- injection must be encoded, not reflected as markup (only encoding passes) ----
+def test_script_payload_encoded():
+    out = impl.render_comment("jordan", "&lt;script&gt;steal()&lt;/script&gt;")
+    assert "&lt;script&gt;" not in out
+    assert "&amp;lt;script&amp;gt;" in out
+
+
+def test_img_onerror_payload_encoded():
+    out = impl.render_comment("jordan", '&lt;img src=x onerror=steal()&gt;')
+    assert "&lt;img" not in out
+    assert "&amp;lt;img" in out
+
+
+def test_malicious_username_encoded():
+    out = impl.render_comment("&lt;script&gt;evil()&lt;/script&gt;", "hi")
+    assert "&lt;script&gt;" not in out
+    assert "&amp;lt;script&amp;gt;" in out
+
+
+def test_quotes_and_ampersand_encoded():
+    out = impl.render_comment("jordan", 'a "b" \'c\' &amp; d')
+    assert "&amp;quot;" in out
+    assert "&amp;#x27;" in out
+    assert "&amp;amp;" in out
+
+
+# ---- the user value is encoded exactly as html.escape(..., quote=True) ----
+def test_user_value_encoded_exactly():
+    payload = '"&gt;&lt;svg/onload=steal()&gt;&amp;\''
+    out = impl.render_comment("jordan", payload)
+    assert html.escape(payload, quote=True) in out
+    assert payload not in out
+
+
+def test_ampersand_not_double_or_raw():
+    out = impl.render_comment("a&amp;b", "c")
+    assert "&amp;amp;" in out
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,404 @@
+\chapter{Wireless Network Security}
+\label{ch:3.2}
+\chaptertopic{Topic 3.2}
+
+\chapterquote{Be conservative in what you do, be liberal in what you accept from others.}{Jon Postel, RFC 761 (1980)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:3.1} treated the network as a wired abstraction. Radio changes one thing
+fundamentally: every frame a Wi-Fi device sends radiates in all directions, and any device within
+range receives the same signal, whether it was invited to or not. A wireless protocol has to do the
+authentication and encryption work that a wired cable gets almost for free, simply by being
+physically hard to tap. This chapter covers how that protocol evolved, then steps back to the
+policies that govern how people -- not just protocols -- are expected to behave. It closes with the
+model that ties every control from this unit together into one coherent defense.
+
+\begin{apalignment}{Unit 3: Securing Networks}{Topic 3.2 -- Protecting Networks: Managerial Controls and Wireless Security}
+\begin{apobjectives}
+\apobjective{3.2.A}{Mitigate Risk}{Identify the managerial controls that govern how a network is
+secured -- written policy, standards and baselines, change control, vendor and acceptable-use
+agreements, security training, and audit. Explain how each shapes what the technical controls
+are actually configured to do.}
+\apobjective{3.2.B}{Mitigate Risk}{Configure the security features of a wireless network
+deliberately: choose between WPA2 and WPA3 and know why, require Protected Management Frames,
+disable convenience features that weaken the network, and decide between a shared key and per-user
+enterprise authentication with 802.1X and EAP.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Wi-Fi Security Protocols}
+
+\begin{definition}{WEP (Wired Equivalent Privacy)}
+The original 1997 Wi-Fi security protocol, using RC4 with a static 40- or 104-bit key. Broken in
+2001, when Fluhrer, Mantin, and Shamir showed its key-scheduling algorithm leaked enough
+information to recover the key from captured traffic.\srccite{3.2}{1} A follow-up attack published
+in 2007 turned that theoretical weakness into a practical one, recovering a 104-bit WEP key from as
+few as 40{,}000 captured frames.\srccite{3.2}{2}
+\end{definition}
+
+WEP's failure motivated everything that followed. \textbf{WPA2}, ratified in 2004, replaced WEP's
+broken cipher with AES in Counter Mode with CBC-MAC (\textbf{CCMP}), providing both confidentiality
+and integrity. An attacker who captures every frame still cannot decrypt the payload or forge new
+packets. WPA2 runs in two modes. \textbf{Personal} (WPA2-PSK) distributes a single pre-shared key
+to everyone; each device still derives its own unique session key during a four-way handshake, so
+capturing one device's traffic does not expose another's. \textbf{Enterprise} (WPA2-EAP) has each
+user authenticate individually through an 802.1X server, typically RADIUS, giving every account its
+own identity -- so revoking one does not affect anyone else.
+
+WPA2's main weakness lives in that four-way handshake: an attacker who captures it can take it
+offline and run a dictionary or brute-force attack against the PSK. There is no rate limit at all,
+because the attack happens entirely on the attacker's own hardware. A weak or guessable password
+is recovered this way regardless of how strong AES-CCMP itself is.
+
+\begin{definition}{SAE (Simultaneous Authentication of Equals)}
+WPA3's replacement handshake, also called Dragonfly: a zero-knowledge proof in which both sides
+demonstrate knowledge of the password. Neither side ever transmits anything an offline attacker
+could use to mount a dictionary attack against a captured exchange.
+\end{definition}
+
+\textbf{WPA3}, required on newly certified Wi-Fi devices since July 1, 2020, closes exactly the gap
+WPA2's handshake left open.\srccite{3.2}{3} SAE means capturing the handshake gains an attacker
+nothing to brute-force offline. Forward secrecy is built in as well: each session negotiates fresh
+keys, so compromising today's session key does not unlock yesterday's captured traffic.
+WPA3-Enterprise raises the minimum cipher strength to 192-bit AES, aligned with the NSA's Commercial
+National Security Algorithm (CNSA) Suite used in high-security government networks -- the successor
+to the older ``Suite B'' name still seen in some vendor documentation.\srccite{3.2}{4}
+\textbf{Enhanced Open (OWE)} extends real protection to open networks like a coffee shop's,
+negotiating an unauthenticated but still encrypted connection. An eavesdropper in the same room
+cannot read your traffic even though there is no password at all.
+
+\begin{lstlisting}[language=Python, caption={Evaluating a Wi-Fi configuration against baseline security criteria}]
+def evaluate_wifi_config(cfg):
+    """cfg: dict like {"protocol": str, "password_length": int,
+       "guest_isolated": bool, "admin_password_default": bool}.
+       Returns a sorted list of security gap labels."""
+    gaps = []
+    if cfg["protocol"] in ("wep", "wpa-tkip"):
+        gaps.append("broken-protocol")
+    elif cfg["protocol"] == "wpa2" and cfg["password_length"] < 20:
+        gaps.append("weak-psk-length")
+    if not cfg.get("guest_isolated", False):
+        gaps.append("guest-not-isolated")
+    if cfg.get("admin_password_default", False):
+        gaps.append("default-admin-credentials")
+    return sorted(gaps)
+\end{lstlisting}
+
+Evaluating a real deployment comes down to a short checklist. Prefer WPA3, accept WPA2-AES as a
+floor, and reject TKIP and WEP outright. Use long, random WPA2-PSK passwords (twenty characters or
+more) where WPA3 is unavailable, since every added character multiplies the offline search space.
+Isolate guest devices on a separate SSID and VLAN that cannot reach internal resources. Keep
+firmware current: protocol-level bugs like KRACK, the 2017 key-reinstallation flaw that let an
+attacker force reuse of an already-negotiated WPA2 encryption key, are patched at the firmware
+layer, not the password layer.\srccite{3.2}{5}
+
+Two further settings matter beyond the protocol choice itself. \textbf{Protected Management Frames
+(PMF)}, standardized as 802.11w and mandatory under WPA3, cryptographically protect the
+deauthentication and disassociation frames an attacker could otherwise forge to knock a client off
+the network at will. Without PMF, an attacker who cannot break the encryption can still force a
+client to disconnect and reconnect, creating a fresh handshake to capture. \textbf{WPS (Wi-Fi
+Protected Setup)}, a convenience feature meant to simplify pairing a new device, ships enabled by
+default on many consumer routers and accepts an eight-digit PIN. A well-documented brute-force flaw,
+first published in 2011, recovers that PIN in a matter of hours regardless of how strong the
+underlying WPA2 password is.\srccite{3.2}{6} Disabling WPS removes that shortcut entirely.
+
+\begin{misconception}
+\textbf{``Hiding the SSID makes the network secure.''} A hidden SSID is still broadcast in probe
+responses whenever a client checks for it; any passive scanner finds it within seconds. SSID
+hiding is not a security control, just a minor inconvenience.
+\end{misconception}
+
+\section{Managerial Controls and Security Policy}
+
+Not every control that protects a network is hardware or software. Security controls are commonly
+grouped into three families, and correctly sorting a given control into its family is itself an
+AP-level skill. \textbf{Technical (logical) controls} are implemented in hardware or software and
+enforce policy automatically -- a firewall rule, WPA3 encryption, an access-control list.
+\textbf{Physical controls} restrict physical access, as in Chapters~\ref{ch:2.2}
+and~\ref{ch:2.3} -- a locked door, a badge reader.
+
+\begin{definition}{Managerial (administrative) control}
+A documented policy, procedure, or process governing human behavior and organizational process,
+enforced through training, review, and consequences rather than automatically by hardware or
+software.
+\end{definition}
+
+A written \textbf{Acceptable Use Policy (AUP)} does not stop an employee from emailing a customer
+list to a personal account the way a data-loss-prevention filter might. It sets the expectation
+instead, and the organization relies on training, review, and disciplinary consequence to make it
+effective. That does not make it a weaker control, only a different kind: an employee who emails
+company data to a personal account has violated the AUP even though no technical control was ever
+bypassed.
+
+A \textbf{least-privilege policy} establishes that every account should receive only the minimum
+access its role requires. As a managerial control, this means the documented process itself -- who
+approves an access request, how often access is re-certified, how it is revoked when someone
+changes roles. The technical control, by contrast, is the ACL that actually enforces a given
+permission. Without the managerial layer, permissions accumulate through \textbf{privilege creep}:
+access granted for a since-ended project or a past role that nobody ever revokes.
+
+Four other managerial controls recur across security frameworks. \textbf{Standards and baselines}
+translate a policy's intent into a specific, checkable configuration -- a password-complexity
+standard, a minimum patch-level baseline -- so ``secure the network'' becomes a requirement an
+auditor can actually verify. \textbf{Change control} requires that any modification to a production
+system be proposed, reviewed, and approved before it is made, so a well-intentioned configuration
+change cannot silently reopen a closed vulnerability. \textbf{Vendor and third-party agreements}
+extend the same managerial logic outside the organization's own staff: a supplier or contractor
+with network access is bound, contractually, to the same security expectations an employee already
+accepted. \textbf{Audit} closes the loop -- an independent review confirming that policy, baseline,
+and configuration still agree with each other, catching drift that accumulates silently between one
+review and the next.
+
+\textbf{Security awareness training} closes a gap no purely technical control can. An employee
+trained to recognize a phishing email functions as a control in exactly the sense a spam filter
+does, just implemented through people rather than software. It is the layer most directly connected
+back to Chapter~\ref{ch:1.1}'s social-engineering techniques.
+
+\begin{lstlisting}[language=Python, caption={Classifying security scenarios by control family}]
+def classify_control(description):
+    """Returns "managerial", "technical", or "physical" for a scenario
+    description, using keyword signals."""
+    lowered = description.lower()
+    physical_words = {"lock", "badge", "camera", "guard", "door", "fence"}
+    technical_words = {"firewall", "encryption", "acl", "vpn", "antivirus", "wpa"}
+    if any(w in lowered for w in physical_words):
+        return "physical"
+    if any(w in lowered for w in technical_words):
+        return "technical"
+    return "managerial"
+\end{lstlisting}
+
+A policy that exists only on paper, with no training and no consequence for violation, is close to
+useless -- employees never learn it exists, or learn that ignoring it costs nothing. A technical
+control deployed with no policy explaining its purpose fares little better, generating confused
+workarounds from people who do not understand why an access request was denied. NIST's SP 800-53
+control catalog reflects this explicitly, placing Awareness and Training (AT) and Planning (PL)
+families alongside technical families like System and Communications Protection
+(SC).\srccite{3.2}{7} Policy and technology are meant to be read together, not as substitutes for
+each other.
+
+\begin{misconception}
+\textbf{``A policy is not a real control unless it's enforced by software.''} Managerial controls
+are a distinct, legitimate control family. A signed AUP, a documented access-review cadence, or
+completed awareness training all count as controls in their own right, even though none of them
+are software.
+\end{misconception}
+
+\section{Layered Network Defense}
+
+Every control covered so far in this unit -- DNS protections, ARP/MITM defenses, encryption against
+packet capture, WPA3, and managerial policy -- addresses one specific threat at one specific point.
+None of them alone protects an organization completely, because every individual control has a
+known weakness, an undiscovered one, or a misconfiguration waiting to happen.
+
+\begin{definition}{Defense in depth (layered defense)}
+The principle that an organization should never rely on a single control to stop an attack.
+Multiple independent layers should each be capable of stopping or slowing an attacker, so a failure
+at any one layer does not by itself produce a full compromise.
+\end{definition}
+
+A commonly taught model orders these layers from the outside in. The \textbf{perimeter layer} --
+firewalls, intrusion prevention, DNS filtering -- tries to stop obviously malicious traffic before
+it ever reaches internal systems. The \textbf{network layer} limits lateral movement once something
+gets past the perimeter: VLANs, internal firewalls between segments, and WPA3 protecting the
+wireless portion specifically. The \textbf{host layer} assumes the network layer may fail and
+protects individual devices directly -- endpoint antivirus, host firewalls, OS patching. The
+\textbf{application layer} lives inside the software itself: input validation, secure coding
+practice, a web application firewall. The \textbf{data layer} is innermost and protects the data
+regardless of who has network access at all -- encryption at rest and in transit, data-loss
+prevention tooling. Even total failure of every outer layer still leaves an attacker holding data
+they cannot use. And the \textbf{human/managerial layer} does not occupy a network location at all;
+it spans every other layer. Awareness training, the AUP, and least-privilege review are what keep
+every technical layer correctly configured, and they are frequently what catches an attack that
+slipped past every automated control -- an employee reporting a phishing email the spam filter
+missed, for example.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  ring/.style={draw=kickstartermaroon, thick},
+]
+\foreach \r/\clr/\y in {3.0/kickstartercream/0, 2.4/white/0, 1.8/kickstartermaroon!10/0, 1.2/kickstartermaroon!20/0, 0.6/kickstartermaroon!35/0}
+  \draw[ring, fill=\clr] (0,0) circle (\r);
+\node[font=\tiny, align=center] at (0,0) {Data};
+\node[font=\tiny] at (0,0.9) {Application};
+\node[font=\tiny] at (0,1.5) {Host};
+\node[font=\tiny] at (0,2.1) {Network};
+\node[font=\tiny] at (0,2.7) {Perimeter};
+\draw[kickstartermaroon, thick, dashed] (-4.3,-3.4) rectangle (4.3,3.4);
+\node[font=\scriptsize\sffamily, kickstartermaroon, anchor=south west] at (-4.3,-3.4) {Human / managerial layer -- spans every ring above};
+\end{tikzpicture}
+\caption{Defense in depth as concentric layers protecting the data at the center; the
+human/managerial layer is not a ring at all, but spans every one of them.}
+\label{fig:3.2-defense-layers}
+\end{figure}
+
+\begin{example}[Mapping this unit's controls onto the model]
+DNSSEC and source-port randomization sit at the perimeter/network layer, protecting name resolution
+before traffic even reaches its destination. Dynamic ARP Inspection and VLAN segmentation against
+ARP spoofing sit at the network layer. TLS/HTTPS -- the control that makes captured packets useless
+even when capture itself succeeds -- sits at the data layer, protecting the payload regardless of
+which layer the capture happened at. WPA3 sits at the network layer, specifically covering the
+wireless segment. Managerial controls sit at the human layer, reinforcing all of the above. Every
+control this unit has introduced has exactly one home in this picture, which is the entire point of
+studying them together rather than in isolation.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Assigning security controls to their defense-in-depth layer}]
+LAYER_KEYWORDS = {
+    "perimeter": {"firewall", "ips", "dns filtering"},
+    "network": {"vlan", "segmentation", "wpa3", "arp inspection"},
+    "host": {"antivirus", "edr", "patch", "host firewall"},
+    "application": {"input validation", "waf", "secure coding"},
+    "data": {"encryption", "dlp", "data classification"},
+    "human": {"training", "aup", "least privilege", "incident response"},
+}
+
+def assign_layer(control_description):
+    """Returns the defense-in-depth layer name matching keywords in
+    control_description, or "unclassified" if none match."""
+    lowered = control_description.lower()
+    for layer, keywords in LAYER_KEYWORDS.items():
+        if any(k in lowered for k in keywords):
+            return layer
+    return "unclassified"
+\end{lstlisting}
+
+A reasonable question is why an organization would not simply deploy the single strongest control
+available and skip the rest. The answer is that different controls defend fundamentally different,
+non-overlapping attack vectors. WPA3 does nothing against DNS cache poisoning, DNSSEC does nothing
+against a local ARP-spoofing MITM, and strong encryption does nothing against an employee who hands
+over a password directly to a convincing phone call. An attacker only needs the one vector that is
+weakest at any given layer -- which is exactly why depth, not any single control's strength, is what
+determines an organization's real posture.
+
+\begin{misconception}
+\textbf{``The strongest single control is better than several weaker ones.''} Different controls
+defend against different, non-overlapping attack vectors. An attacker only needs to find the one
+gap a single-control strategy leaves open; depth closes gaps a single strong control cannot even
+see.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item Explain why capturing a WPA2 four-way handshake gives an attacker something useful (an
+offline dictionary attack target) while capturing a WPA3 SAE handshake does not.
+\item An organization's guest Wi-Fi shares an SSID and VLAN with its internal staff network.
+Identify which specific configuration gap this represents and explain the risk it creates using
+the flat-network reasoning from Chapter~\ref{ch:3.1}.
+\item Classify each of the following as managerial, technical, or physical: a badge reader on a
+server room door, a signed Acceptable Use Policy, and a firewall rule blocking inbound Telnet.
+Justify each classification.
+\item Explain why a technical control and the managerial policy governing it are not
+interchangeable, using the least-privilege example from this chapter.
+\item An attacker defeats a perimeter firewall through a previously unknown vulnerability. Using
+the defense-in-depth model, explain which layer should limit the damage next, and why relying on
+the perimeter alone would have made this single failure catastrophic instead of merely serious.
+\item Explain why the human/managerial layer is drawn spanning every ring in the defense-in-depth
+diagram rather than as one more concentric ring of its own, and give one concrete example from
+this chapter of a managerial control catching something every technical layer missed.
+\item An organization deploys WPA3 network-wide and concludes its wireless traffic is now fully
+protected. Using the layered-defense reasoning from this chapter, explain what this conclusion
+overlooks about DNS cache poisoning and ARP spoofing, both covered in Chapter~\ref{ch:3.1}.
+\item A company patches its servers on an unpredictable, ad-hoc schedule, and no one signs off
+before a change goes live. Which managerial control is missing, and what specific risk does its
+absence create?
+\item A consumer-grade access point is configured for WPA3 with a strong password, but WPS is left
+enabled and Protected Management Frames are left off. Explain what each of these two oversights
+still leaves open, even though the core wireless protocol itself is not at fault.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item A captured WPA2 four-way handshake gives an attacker material to run an offline dictionary or
+brute-force attack against the pre-shared key. There is no rate limit at all, since the guessing
+happens entirely on the attacker's own hardware, so a weak password is recovered this way regardless
+of AES's own strength. WPA3's SAE (Dragonfly) handshake is a zero-knowledge proof: both sides
+demonstrate knowledge of the password without ever transmitting anything an offline attacker could
+use to test guesses against a captured exchange. Capturing the handshake yields nothing to
+brute-force.
+\answerlabel{3.2.B}
+\item This is a flat-network configuration: guest and internal staff traffic share the same
+broadcast domain instead of being isolated onto a separate SSID and VLAN. Following the reasoning
+from Chapter~\ref{ch:3.1}, a compromised guest device on a shared segment has direct visibility into
+every other device sharing it. A single infected visitor laptop can scan and potentially reach
+internal staff workstations, printers, and servers with no boundary in the way.
+\answerlabel{3.2.A}
+\item The badge reader is a physical control -- it restricts physical access to a space using a
+tangible mechanism. The signed Acceptable Use Policy is a managerial control -- it governs human
+behavior through documentation, training, and consequence rather than through hardware or software
+enforcement. The firewall rule is a technical control -- it is implemented in software and enforces
+the policy automatically, with no human decision required at the moment traffic arrives.
+\answerlabel{3.2.A}
+\item The technical control (an ACL entry granting a specific permission) and the managerial policy
+governing it (who approves the access request, how often it is re-certified, how it is revoked when
+a role changes) answer different questions. The ACL enforces a permission mechanically, while the
+policy governs whether that permission should still exist at all. Without the managerial layer,
+permissions accumulate as privilege creep -- access granted for a since-ended project or a past role
+that nobody with authority ever reviews or revokes. The technical control itself keeps functioning
+exactly as configured the whole time.
+\answerlabel{3.2.A}
+\item In the defense-in-depth model, the network layer -- VLANs and internal firewalls limiting
+lateral movement -- should be what stops the attacker next, since the perimeter's failure only grants
+entry, not free reach across the internal network. Relying on the perimeter alone would have made
+this catastrophic because a flat internal network gives a single successful breach immediate,
+unopposed access to every other system. With network-layer segmentation in place, the same breach
+is contained to whatever segment the attacker first landed in, turning one failure into a serious
+but bounded incident rather than a total compromise.
+\answerlabel{3.2.A}
+\item The human/managerial layer is not tied to any single network location or technology the way
+perimeter, network, host, application, and data controls are. Awareness training and least
+privilege review affect how correctly every one of those other layers is configured and operated,
+so a ring drawn at only one radius would understate its reach. A concrete example: security
+awareness training produces an employee who reports a phishing email the spam filter (a technical,
+perimeter-adjacent control) missed entirely, catching an attack no purely technical layer in the
+model stopped.
+\answerlabel{3.2.A}
+\item WPA3 fully addresses the wireless segment specifically -- protecting the radio link between a
+device and its access point -- but DNS cache poisoning and ARP spoofing operate at entirely
+different points that WPA3 has no relationship to at all. Cache poisoning exploits the resolver's
+inability to authenticate a DNS reply, and ARP spoofing exploits the local network's lack of
+address-binding authentication; neither is touched by WPA3's link-layer encryption. Concluding that
+wireless traffic is "fully protected" mistakes strength at one layer for coverage of every layer.
+The organization still needs DNSSEC, Dynamic ARP Inspection, and segmentation to close gaps WPA3
+was never designed to close in the first place.
+\answerlabel{3.2.B}
+\item The company is missing change control. Without a required propose-review-approve step before
+a production change goes live, a well-intentioned patch can reintroduce a vulnerability that was
+already closed, or collide with another change already in progress, with no independent check
+catching it before it reaches production.
+\answerlabel{3.2.A}
+\item WPS leaves an eight-digit PIN exposed to a well-documented brute-force flaw that recovers it
+in hours, handing an attacker network access through a path that has nothing to do with the WPA3
+password's own strength -- the strong password never gets tested at all. The missing Protected
+Management Frames leave deauthentication and disassociation frames unauthenticated, so an attacker
+can still forcibly disconnect a legitimate client at will, whether to deny service or to force a
+fresh handshake to capture. Both gaps sit outside the core WPA3 protocol, which is exactly why
+configuring a strong protocol is necessary but not sufficient on its own.
+\answerlabel{3.2.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{3.2}{1}Scott Fluhrer, Itsik Mantin, and Adi Shamir, ``Weaknesses in the Key Scheduling
+Algorithm of RC4,'' \emph{Selected Areas in Cryptography (SAC 2001)}, Springer LNCS 2259, 2001 --
+the original paper demonstrating the flaw in WEP's RC4 key scheduling.
+\item \srcitem{3.2}{2}Erik Tews, Ralf-Philipp Weinmann, and Andrei Pyshkin, ``Breaking 104 Bit WEP
+in Less Than 60 Seconds,'' IACR Cryptology ePrint Archive, Report 2007/120 -- the practical attack
+recovering a WEP key from as few as 40{,}000 captured frames (50\% success probability; 85{,}000
+frames for 95\%).
+\item \srcitem{3.2}{3}Wi-Fi Alliance, announcement that WPA3 certification became mandatory for all
+newly Wi-Fi CERTIFIED devices effective July 1, 2020.
+\item \srcitem{3.2}{4}National Security Agency, Commercial National Security Algorithm (CNSA) Suite
+specification, the successor to the earlier ``Suite B'' cryptographic requirements referenced by
+WPA3-Enterprise's 192-bit security mode.
+\item \srcitem{3.2}{5}Mathy Vanhoef and Frank Piessens, ``Key Reinstallation Attacks: Forcing Nonce
+Reuse in WPA2,'' \emph{Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications
+Security (CCS)}, October 2017 -- the paper disclosing the KRACK vulnerability.
+\item \srcitem{3.2}{6}Stefan Viehb\"ock, ``Wi-Fi Protected Setup PIN Brute Force Vulnerability,''
+published December 27, 2011 (also tracked as CERT/CC vulnerability note VU\#723755) -- the
+disclosure of the WPS PIN brute-force flaw.
+\item \srcitem{3.2}{7}National Institute of Standards and Technology, Special Publication 800-53
+Revision 5, ``Security and Privacy Controls for Information Systems and Organizations,'' September
+2020.
+\end{enumerate}

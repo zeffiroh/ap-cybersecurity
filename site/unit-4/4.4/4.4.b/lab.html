@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.4.b Lab, Finding the Attack in the Logs</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Finding the Attack in the Logs</h1>
+  <p class="sub">Triage a real auth log with grep-style search, find the attacker, and prove the breach.</p>
+
+  <div class="brief">
+    <p>Below is an <b>authentication log</b> from an SSH server, the kind an analyst reviews after an
+    alert. One source address ran a password-guessing campaign against the server, and one of those
+    guesses eventually worked. The log is noisy with normal traffic, so you will not spot the attack by
+    reading top to bottom. Instead you will filter it the way a real analyst does, with search, exactly
+    as <code>grep</code> would on the command line. Your search box accepts plain text or a regular
+    expression.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="attacker"><span>Isolate the failed logins and identify the <b>attacking source IP</b>.</span>
+      <div class="hint"><details><summary>Hint</summary>Search for <code>FAILED</code>, then scan the source column. One IP appears far more than any other, in a tight burst. That volume is the brute-force signature.</details></div></li>
+    <li data-m="account"><span>Find the one <b>successful</b> login from the attacker IP, and submit the compromised <b>username</b>.</span>
+      <div class="hint"><details><summary>Hint</summary>Search for the attacker IP, then look for the single <code>ACCEPTED</code> line among its many <code>FAILED</code> lines. A success from a brute-force source means that account fell.</details></div></li>
+    <li data-m="count"><span>Report the exact number of <b>failed attempts</b> from the attacker IP.</span>
+      <div class="hint"><details><summary>Hint</summary>Build a search that matches both the attacker IP and <code>FAILED</code> (try a regex like <code>IP.*FAILED</code> after swapping in the address). The match count is shown above the results.</details></div></li>
+  </ul>
+
+  <div class="panel">
+    <h3>Search the log (grep)</h3>
+    <div class="row">
+      <input type="text" id="q" placeholder="plain text or /regex/, e.g. FAILED  or  203\.0\.113\.\d+" style="flex:1;min-width:220px" spellcheck="false">
+      <button class="primary" id="run">Search</button>
+      <button id="clear">Show all</button>
+    </div>
+    <p class="note" id="matchline">Showing all lines.</p>
+    <div class="console" id="log" style="max-height:300px"></div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel">
+      <h3>Mission 1, attacker source IP</h3>
+      <label class="field" for="ip">Source IP</label>
+      <input type="text" id="ip" placeholder="e.g. 203.0.113.0" spellcheck="false">
+      <div class="row"><button id="subip">Submit IP</button></div>
+      <p class="verdict" id="vip"></p>
+    </div>
+    <div class="panel">
+      <h3>Mission 2, compromised account</h3>
+      <label class="field" for="acct">Username that was breached</label>
+      <input type="text" id="acct" placeholder="e.g. jordan" spellcheck="false">
+      <div class="row"><button id="subacct">Submit username</button></div>
+      <p class="verdict" id="vacct"></p>
+      <h3 style="margin-top:16px">Mission 3, failed-attempt count</h3>
+      <label class="field" for="cnt">Number of FAILED lines from the attacker IP</label>
+      <input type="number" id="cnt" min="0" style="max-width:140px">
+      <div class="row"><button id="subcnt">Submit count</button></div>
+      <p class="verdict" id="vcnt"></p>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">What the triage proved</h2>
+    <p>No single log line says "attack." The signal is in the <i>shape</i> of the set: one source address
+    producing a dense run of authentication failures, followed by one success. Reading the whole log is
+    impractical, so analysts filter it, grouping by source and by outcome until the pattern stands out.
+    That is why LO 4.4.B stresses correlating multiple entries over time rather than trusting any one event,
+    and why centralized, searchable logs are a core detection control. The success line is the moment the
+    account fell; in a real incident it marks the start of the response: isolate that host and reset that
+    credential.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc;var missions=new Lab.Missions("4.4.b",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});var seed=90211;function rnd(){seed=(seed+0x6D2B79F5)|0;var t=Math.imul(seed^(seed>>>15),1|seed);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;}
+function between(a,b){return a+Math.floor(rnd()*(b-a+1));}
+function pick(list){return list[Math.floor(rnd()*list.length)];}
+var USERS=["jordan","priya","sam","lena","arun","mara","devin"];var NORMAL_SUBNET="10.0.4.";var ATTACKER_IP="198.51.100.23";var BREACHED_USER="sam";var lines=[];var ts=1750000000;function stamp(t){var d=new Date(t*1000);return d.toISOString().replace("T"," ").slice(0,19);}
+function fmt(t,outcome,user,ip,port){var verb=outcome==="ACCEPTED"?"ACCEPTED password":"FAILED password";return stamp(t)+" host sshd["+between(1000,9999)+"]: "+verb+" for "+(outcome==="INVALID"?"invalid user ":"")+user+" from "+ip+" port "+port+" ssh2";}
+var normal=[];for(var i=0;i<40;i++){normal.push({t:ts,outcome:rnd()>0.1?"ACCEPTED":"FAILED",user:pick(USERS),ip:NORMAL_SUBNET+between(2,60),port:between(40000,61000)});ts+=between(25,180);}
+var attackStart=1750002400;var at=attackStart;var attackerEvents=[];var FAIL_COUNT=37;for(var j=0;j<FAIL_COUNT;j++){attackerEvents.push({t:at,outcome:"FAILED",user:pick(USERS),ip:ATTACKER_IP,port:between(50000,59000)});at+=between(2,6);}
+attackerEvents.push({t:at,outcome:"ACCEPTED",user:BREACHED_USER,ip:ATTACKER_IP,port:between(50000,59000)});var all=normal.concat(attackerEvents).sort(function(a,b){return a.t-b.t;});all.forEach(function(e){lines.push(fmt(e.t,e.outcome,e.user,e.ip,e.port));});var logEl=document.getElementById("log");var matchline=document.getElementById("matchline");function show(filtered,label){logEl.innerHTML=filtered.map(function(ln){return/ACCEPTED/.test(ln)?'<span class="ok">'+esc(ln)+'</span>':esc(ln);}).join("\n");matchline.textContent=label;}
+show(lines,"Showing all "+lines.length+" lines.");function search(){var raw=document.getElementById("q").value.trim();if(!raw){show(lines,"Showing all "+lines.length+" lines.");return;}
+var rx;try{var m=raw.match(/^\/(.*)\/([a-z]*)$/);rx=m?new RegExp(m[1],m[2]):new RegExp(raw.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));if(!m&&/[\\^$.*+?()[\]{}|]/.test(raw))rx=new RegExp(raw);}catch(e){matchline.innerHTML='<span style="color:#8a1c1c">invalid pattern: '+esc(e.message)+'</span>';return;}
+var hits=lines.filter(function(ln){return rx.test(ln);});show(hits,hits.length+" of "+lines.length+" lines match.");}
+document.getElementById("run").addEventListener("click",search);document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter")search();});document.getElementById("clear").addEventListener("click",function(){document.getElementById("q").value="";show(lines,"Showing all "+lines.length+" lines.");});function verdict(el,ok,good,bad){el.className="verdict "+(ok?"ok":"bad");el.textContent=ok?good:bad;}
+document.getElementById("subip").addEventListener("click",function(){var ok=document.getElementById("ip").value.trim()===ATTACKER_IP;verdict(document.getElementById("vip"),ok,"Correct. "+ATTACKER_IP+" ran the brute-force campaign.","Not quite. Filter on FAILED and find the one source IP that dominates the failures.");if(ok)missions.complete("attacker");});document.getElementById("subacct").addEventListener("click",function(){var ok=document.getElementById("acct").value.trim().toLowerCase()===BREACHED_USER;verdict(document.getElementById("vacct"),ok,"Correct. '"+BREACHED_USER+"' is the account the attacker finally guessed, the one ACCEPTED line from "+ATTACKER_IP+".","Not quite. Search the attacker IP and find the single ACCEPTED line among its failures.");if(ok)missions.complete("account");});document.getElementById("subcnt").addEventListener("click",function(){var ok=parseInt(document.getElementById("cnt").value,10)===FAIL_COUNT;verdict(document.getElementById("vcnt"),ok,"Correct. "+FAIL_COUNT+" failed attempts from "+ATTACKER_IP+" before the success.","Not quite. Match both the attacker IP and FAILED, then read the match count.");if(ok)missions.complete("count");});})();</script>
+</body>
+</html>

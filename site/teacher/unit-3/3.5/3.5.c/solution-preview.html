@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident response sequence, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Incident response sequence  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.5.c: Incident response phase sorter</h1>
+<p><strong>Skill:</strong> Detect Attacks, Collaborate · <strong>Maps to:</strong> 3.5.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>The NIST SP 800-61 incident response lifecycle has six phases, in this canonical order:</p>
+<pre><code>1. Preparation
+2. Identification
+3. Containment
+4. Eradication
+5. Recovery
+6. Lessons Learned
+</code></pre>
+<p>You will implement a function that takes a list of response-action records, each tagged with the
+phase it belongs to, but given in shuffled order, and returns the actions sorted into correct
+lifecycle order. Actions within the same phase keep their original relative order (a stable sort).</p>
+<p>An <strong>action record</strong> is a dict with:
+- <code>"action"</code>, string description of the action
+- <code>"phase"</code>, string, one of the six canonical phase names exactly as spelled above</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(actions)</code> in the code editor (see the Reference section below).</p>
+<ul>
+<li><code>actions</code>, list of action record dicts, in arbitrary order</li>
+</ul>
+<p>Return a <code>list[str]</code> of the <code>"action"</code> text values, reordered so that all actions from an earlier
+phase (per the canonical order above) come before all actions from a later phase. Within the same
+phase, preserve the original input order (stable sort). If an action's <code>"phase"</code> value is not one
+of the six canonical names, raise <code>ValueError</code>.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">actions = [
+    {&quot;action&quot;: &quot;Rebuild the server from a clean backup&quot;, &quot;phase&quot;: &quot;Recovery&quot;},
+    {&quot;action&quot;: &quot;Write the incident response plan&quot;, &quot;phase&quot;: &quot;Preparation&quot;},
+    {&quot;action&quot;: &quot;Isolate the infected host from the network&quot;, &quot;phase&quot;: &quot;Containment&quot;},
+    {&quot;action&quot;: &quot;Confirm the IDS alert is a real compromise&quot;, &quot;phase&quot;: &quot;Identification&quot;},
+]
+solve(actions) == [
+    &quot;Write the incident response plan&quot;,
+    &quot;Confirm the IDS alert is a real compromise&quot;,
+    &quot;Isolate the infected host from the network&quot;,
+    &quot;Rebuild the server from a clean backup&quot;,
+]
+</code></pre>
+<pre><code class="language-python">actions = [
+    {&quot;action&quot;: &quot;Bogus phase&quot;, &quot;phase&quot;: &quot;Investigation&quot;},
+]
+solve(actions)  # raises ValueError
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>Sort is stable within a phase.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(actions: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input</h3>
+<h4><code>actions</code>, list of action record dicts, in arbitrary order</h4>
+<p>Each dict has:
+- <code>"action"</code> (str): description of the response action
+- <code>"phase"</code> (str): one of the six canonical NIST IR phase names, spelled exactly:
+  <code>"Preparation"</code>, <code>"Identification"</code>, <code>"Containment"</code>, <code>"Eradication"</code>, <code>"Recovery"</code>,
+  <code>"Lessons Learned"</code></p>
+<h3>Canonical phase order</h3>
+<pre><code>1. Preparation
+2. Identification
+3. Containment
+4. Eradication
+5. Recovery
+6. Lessons Learned
+</code></pre>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[str]</code> of the <code>"action"</code> text values from the input, reordered so actions belonging to an
+earlier phase (per the canonical order) precede actions from a later phase. Actions within the
+same phase retain their relative order from the input (stable sort).</p>
+<h3>Errors</h3>
+<ul>
+<li>If any action's <code>"phase"</code> is not one of the six canonical names exactly, raise <code>ValueError</code>.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function; deterministic; no I/O; no network access.</li>
+<li><code>actions</code> is not mutated by <code>solve</code>.</li>
+<li>Standard library only.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.5.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements a stable sort of incident-response actions into NIST SP 800-61 phase order.
+"""
+from typing import Dict, List
+
+PHASE_ORDER = [
+    "Preparation",
+    "Identification",
+    "Containment",
+    "Eradication",
+    "Recovery",
+    "Lessons Learned",
+]
+_PHASE_RANK = {name: i for i, name in enumerate(PHASE_ORDER)}
+
+
+def solve(actions: List[Dict]) -&gt; List[str]:
+    """Sort action records into canonical NIST IR phase order (stable within a phase).
+
+    Args:
+        actions: list of {"action": str, "phase": str} dicts, phase must be one of
+                 the six canonical NIST SP 800-61 phase names.
+
+    Returns:
+        List of "action" strings, reordered by phase.
+
+    Raises:
+        ValueError: if any action's phase is not a canonical phase name.
+    """
+    for entry in actions:
+        if entry["phase"] not in _PHASE_RANK:
+            raise ValueError(f"Unknown IR phase: {entry['phase']!r}")
+
+    # sorted() is stable, so entries with equal rank keep their original relative order.
+    ordered = sorted(actions, key=lambda entry: _PHASE_RANK[entry["phase"]])
+    return [entry["action"] for entry in ordered]
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import pytest
+
+
+def test_basic_reordering():
+    actions = [
+        {"action": "Rebuild the server from a clean backup", "phase": "Recovery"},
+        {"action": "Write the incident response plan", "phase": "Preparation"},
+        {"action": "Isolate the infected host from the network", "phase": "Containment"},
+        {"action": "Confirm the IDS alert is a real compromise", "phase": "Identification"},
+    ]
+    assert impl.solve(actions) == [
+        "Write the incident response plan",
+        "Confirm the IDS alert is a real compromise",
+        "Isolate the infected host from the network",
+        "Rebuild the server from a clean backup",
+    ]
+
+
+def test_all_six_phases():
+    actions = [
+        {"action": "Document a timeline and update the IR plan", "phase": "Lessons Learned"},
+        {"action": "Remove the backdoor account", "phase": "Eradication"},
+        {"action": "Reconnect the rebuilt host and monitor", "phase": "Recovery"},
+        {"action": "Run a tabletop exercise", "phase": "Preparation"},
+        {"action": "Block the malicious IP at the firewall", "phase": "Containment"},
+        {"action": "Triage the alert queue", "phase": "Identification"},
+    ]
+    result = impl.solve(actions)
+    assert result == [
+        "Run a tabletop exercise",
+        "Triage the alert queue",
+        "Block the malicious IP at the firewall",
+        "Remove the backdoor account",
+        "Reconnect the rebuilt host and monitor",
+        "Document a timeline and update the IR plan",
+    ]
+
+
+def test_stable_within_same_phase():
+    actions = [
+        {"action": "Contain host A", "phase": "Containment"},
+        {"action": "Contain host B", "phase": "Containment"},
+        {"action": "Prep step 1", "phase": "Preparation"},
+    ]
+    assert impl.solve(actions) == ["Prep step 1", "Contain host A", "Contain host B"]
+
+
+def test_already_in_order_unchanged():
+    actions = [
+        {"action": "p", "phase": "Preparation"},
+        {"action": "i", "phase": "Identification"},
+        {"action": "c", "phase": "Containment"},
+    ]
+    assert impl.solve(actions) == ["p", "i", "c"]
+
+
+def test_invalid_phase_raises_value_error():
+    actions = [{"action": "Bogus phase", "phase": "Investigation"}]
+    with pytest.raises(ValueError):
+        impl.solve(actions)
+
+
+def test_empty_list():
+    assert impl.solve([]) == []
+
+
+def test_single_action():
+    assert impl.solve([{"action": "only one", "phase": "Recovery"}]) == ["only one"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

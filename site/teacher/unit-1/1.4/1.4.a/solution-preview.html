@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice/image cloning for impersonation, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Voice/image cloning for impersonation  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.4.a: Classify deepfake/clone call signals</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 1.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the classifier a call-center security tool would use to flag potentially cloned or deepfake
+calls. Given a dictionary of observable signals about an inbound call or video session, return
+whether the interaction is <code>"suspect"</code> (likely AI-cloned) or <code>"ok"</code> (no rule triggered).</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(signals: dict) -&gt; str</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A dict with boolean-valued keys describing what was observed. Missing keys are treated as False.
+Possible keys: <code>"unverified_channel"</code>, <code>"urgent_money_request"</code>, <code>"audio_artifact"</code>,
+<code>"no_shared_secret"</code>, <code>"caller_id_spoofed"</code>, <code>"video_face_mismatch"</code>, <code>"refused_callback"</code>.</p>
+<h2>Output</h2>
+<p>The string <code>"suspect"</code> if any rule fires, or <code>"ok"</code> if none do.</p>
+<h2>Examples</h2>
+<pre><code>{&quot;no_shared_secret&quot;: True}                                             -&gt; &quot;suspect&quot;
+{&quot;audio_artifact&quot;: True, &quot;urgent_money_request&quot;: True}                -&gt; &quot;suspect&quot;
+{&quot;caller_id_spoofed&quot;: True, &quot;unverified_channel&quot;: True}               -&gt; &quot;suspect&quot;
+{&quot;urgent_money_request&quot;: True}                                         -&gt; &quot;ok&quot;
+{}                                                                     -&gt; &quot;ok&quot;
+{&quot;audio_artifact&quot;: True}                                               -&gt; &quot;ok&quot;
+</code></pre>
+<h2>Classification rules (in order; first match wins)</h2>
+<ol>
+<li><code>"no_shared_secret"</code> is True -&gt; <code>"suspect"</code></li>
+<li><code>"refused_callback"</code> is True -&gt; <code>"suspect"</code></li>
+<li><code>"audio_artifact"</code> AND <code>"urgent_money_request"</code> -&gt; <code>"suspect"</code></li>
+<li><code>"caller_id_spoofed"</code> AND <code>"unverified_channel"</code> -&gt; <code>"suspect"</code></li>
+<li><code>"video_face_mismatch"</code> is True -&gt; <code>"suspect"</code></li>
+<li><code>"urgent_money_request"</code> AND <code>"unverified_channel"</code> -&gt; <code>"suspect"</code></li>
+<li>Otherwise -&gt; <code>"ok"</code></li>
+</ol>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(signals: dict) -&gt; str
+</code></pre>
+<h3>Input (<code>signals</code>)</h3>
+<p>A <code>dict</code> with one or more of the following string keys (all optional; missing keys are treated
+as absent/False):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"unverified_channel"</code></td>
+<td>bool</td>
+<td>Call came in on an unexpected or unregistered channel</td>
+</tr>
+<tr>
+<td><code>"urgent_money_request"</code></td>
+<td>bool</td>
+<td>Caller requests money, wire transfer, or credentials urgently</td>
+</tr>
+<tr>
+<td><code>"audio_artifact"</code></td>
+<td>bool</td>
+<td>Robotic cadence, missing background noise, or flat emotional baseline</td>
+</tr>
+<tr>
+<td><code>"no_shared_secret"</code></td>
+<td>bool</td>
+<td>Caller could not supply the pre-agreed code word when asked</td>
+</tr>
+<tr>
+<td><code>"caller_id_spoofed"</code></td>
+<td>bool</td>
+<td>CallerID does not match the authentic registered number</td>
+</tr>
+<tr>
+<td><code>"video_face_mismatch"</code></td>
+<td>bool</td>
+<td>Lighting or sync artifact visible on video</td>
+</tr>
+<tr>
+<td><code>"refused_callback"</code></td>
+<td>bool</td>
+<td>Caller declined when offered a callback on the official number</td>
+</tr>
+</tbody>
+</table>
+<h3>Output (<code>result</code>)</h3>
+<p>A single string: <code>"suspect"</code> or <code>"ok"</code>.</p>
+<h3>Classification rules (applied in order; first match wins)</h3>
+<ol>
+<li>If <code>"no_shared_secret"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>If <code>"refused_callback"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>If <code>"audio_artifact"</code> is True AND <code>"urgent_money_request"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>If <code>"caller_id_spoofed"</code> is True AND <code>"unverified_channel"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>If <code>"video_face_mismatch"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>If <code>"urgent_money_request"</code> is True AND <code>"unverified_channel"</code> is True -&gt; <code>"suspect"</code>.</li>
+<li>Otherwise -&gt; <code>"ok"</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Missing keys in <code>signals</code> are equivalent to <code>False</code>.</li>
+<li>Output is always exactly <code>"suspect"</code> or <code>"ok"</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.4.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict
+
+
+def solve(signals: Dict[str, bool]) -&gt; str:
+    """Classify an inbound call/video session as 'suspect' or 'ok'.
+
+    Rules applied in order (first match wins); missing keys treated as False.
+    See the Reference section below for full contract.
+    """
+    g = signals.get
+
+    # Rule 1: failed shared-secret check is definitive
+    if g("no_shared_secret"):
+        return "suspect"
+
+    # Rule 2: refusing a callback is a strong indicator
+    if g("refused_callback"):
+        return "suspect"
+
+    # Rule 3: audio artifact + financial urgency together
+    if g("audio_artifact") and g("urgent_money_request"):
+        return "suspect"
+
+    # Rule 4: spoofed caller-ID on an unexpected channel
+    if g("caller_id_spoofed") and g("unverified_channel"):
+        return "suspect"
+
+    # Rule 5: visible video artifact
+    if g("video_face_mismatch"):
+        return "suspect"
+
+    # Rule 6: financial urgency arriving on an unexpected channel
+    if g("urgent_money_request") and g("unverified_channel"):
+        return "suspect"
+
+    return "ok"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_no_shared_secret_suspect():
+    assert impl.solve({"no_shared_secret": True}) == "suspect"
+
+
+def test_refused_callback_suspect():
+    assert impl.solve({"refused_callback": True}) == "suspect"
+
+
+def test_audio_plus_money_suspect():
+    assert impl.solve({"audio_artifact": True, "urgent_money_request": True}) == "suspect"
+
+
+def test_spoofed_plus_unverified_suspect():
+    assert impl.solve({"caller_id_spoofed": True, "unverified_channel": True}) == "suspect"
+
+
+def test_video_face_mismatch_suspect():
+    assert impl.solve({"video_face_mismatch": True}) == "suspect"
+
+
+def test_money_plus_unverified_suspect():
+    assert impl.solve({"urgent_money_request": True, "unverified_channel": True}) == "suspect"
+
+
+def test_empty_ok():
+    assert impl.solve({}) == "ok"
+
+
+def test_single_money_ok():
+    # urgent money alone (no second signal) is NOT enough under rules 3 or 6
+    assert impl.solve({"urgent_money_request": True}) == "ok"
+
+
+def test_audio_only_ok():
+    # audio artifact alone does not trigger without money request
+    assert impl.solve({"audio_artifact": True}) == "ok"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_missing_keys_treated_false():
+    # caller_id_spoofed True but unverified_channel absent -&gt; rule 4 does not fire
+    assert impl.solve({"caller_id_spoofed": True}) == "ok"
+
+
+def test_all_false_ok():
+    signals = {k: False for k in [
+        "unverified_channel", "urgent_money_request", "audio_artifact",
+        "no_shared_secret", "caller_id_spoofed", "video_face_mismatch", "refused_callback",
+    ]}
+    assert impl.solve(signals) == "ok"
+
+
+def test_rule1_takes_priority():
+    # even if other signals are also set, rule 1 should still fire first
+    assert impl.solve({
+        "no_shared_secret": True,
+        "audio_artifact": True,
+        "urgent_money_request": True,
+        "refused_callback": True,
+    }) == "suspect"
+
+
+def test_unverified_channel_alone_ok():
+    assert impl.solve({"unverified_channel": True}) == "ok"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

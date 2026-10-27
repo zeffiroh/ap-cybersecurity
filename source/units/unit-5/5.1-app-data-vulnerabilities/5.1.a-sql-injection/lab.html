@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.1.a Lab, SQL Injection and the Parameterized Fix</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, SQL Injection and the Parameterized Fix</h1>
+  <p class="sub">Attack a real database, then rebuild the query so the same attack does nothing.</p>
+
+  <div class="brief">
+    <p>This login form runs a <b>real SQLite database</b> in your browser. The server code is shown
+    exactly as it executes. First you break in by typing SQL instead of a username. Then you switch
+    the server to a parameterized query and watch every payload stop working. That contrast is the
+    whole lesson: a filter can be evaded, but parameterization removes the attack at its root.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 4</p>
+  <ul class="missions" id="missions">
+    <li data-m="login"><span>Log in as <code>admin</code> without knowing the password, using comment truncation.</span>
+      <div class="hint"><details><summary>Hint</summary>In the username box type <code>admin'--</code>. The <code>--</code> turns the rest of the line, including the password check, into a comment.</details></div></li>
+    <li data-m="orbypass"><span>Log in with an always-true condition (OR bypass), without using the real username.</span>
+      <div class="hint"><details><summary>Hint</summary>Try username <code>' OR '1'='1'--</code>. The <code>OR</code> makes the condition always true and the <code>--</code> drops the password check, so the first user is returned.</details></div></li>
+    <li data-m="union"><span>Steal the password reset tokens from the <code>secrets</code> table with a UNION attack.</span>
+      <div class="hint"><details><summary>Hint</summary>The query selects 3 columns (id, username, role). Match that count: <code>' UNION SELECT label, value, 'x' FROM secrets--</code></details></div></li>
+    <li data-m="fixed"><span>Turn on the parameterized query, then try every payload again and confirm they all fail.</span>
+      <div class="hint"><details><summary>Hint</summary>Flip the switch to <b>Parameterized</b>, then retry <code>admin'--</code> and the UNION payload. The input is now treated as one literal username that does not exist.</details></div></li>
+  </ul>
+
+  <p class="status" id="status">Loading the database engine...</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Login form</h3>
+      <label class="field" for="u">Username</label>
+      <input type="text" id="u" value="admin" autocomplete="off" spellcheck="false">
+      <label class="field" for="p">Password</label>
+      <input type="text" id="p" value="hunter2" autocomplete="off" spellcheck="false">
+
+      <div class="row">
+        <button class="primary" id="go" disabled>Log in</button>
+        <button id="reset" title="Clear mission progress for this lab">Reset missions</button>
+      </div>
+
+      <label class="field" style="margin-top:14px">Server query mode</label>
+      <select id="mode">
+        <option value="concat">Vulnerable, string concatenation</option>
+        <option value="param">Parameterized, prepared statement</option>
+      </select>
+
+      <h3 style="margin-top:16px">Server code that runs</h3>
+      <div class="console" id="code"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Database response</h3>
+      <div class="console" id="out"><span class="dim">Submit the form to run a query.</span></div>
+      <h3 style="margin-top:14px">The <code>secrets</code> table (what the attacker is after)</h3>
+      <p class="note">It holds password-reset tokens. A logged-in user should never be able to read it through the login form.</p>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Why the fix works</h2>
+    <p>In concatenation mode your input became part of the SQL text, so <code>admin'--</code> and
+    <code>' UNION SELECT ...</code> changed the <i>structure</i> of the query. In parameterized mode
+    the SQL template is compiled first, with a <code>?</code> placeholder, and your input is sent
+    afterward as a single data value. The database never re-parses it, so <code>admin'--</code> is
+    searched for as a literal username, which does not exist. The attack surface is gone, not merely
+    filtered. This is why LO 5.1.B names parameterized queries the primary defense, with input
+    validation and least-privilege database accounts as additional layers.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>
+(function () {
+  var ASSETS = "../../../assets/";
+  var statusEl = document.getElementById("status");
+  var out = document.getElementById("out");
+  var codeEl = document.getElementById("code");
+  var esc = Lab.esc;
+  var py = null, missions = null;
+
+  missions = new Lab.Missions("5.1.a", document.getElementById("missions"),
+    document.getElementById("progress"), function () {
+      document.getElementById("debrief").classList.add("show");
+    });
+  document.getElementById("reset").addEventListener("click", function () {
+    missions.reset();
+    document.getElementById("debrief").classList.remove("show");
+  });
+
+  var SCHEMA = [
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, role TEXT, password TEXT);",
+    "INSERT INTO users VALUES (1,'admin','administrator','S3cr3t-Admin-Pw');",
+    "INSERT INTO users VALUES (2,'jordan','staff','autumn-maple-31');",
+    "INSERT INTO users VALUES (3,'priya','staff','river-stone-77');",
+    "CREATE TABLE secrets (label TEXT, value TEXT);",
+    "INSERT INTO secrets VALUES ('reset_token_admin','RT-9f2a-ADMIN');",
+    "INSERT INTO secrets VALUES ('reset_token_jordan','RT-71bc-JORDAN');"
+  ];
+
+  function showCode(mode, u, p) {
+    var code;
+    if (mode === "concat") {
+      code = 'q = ("SELECT id, username, role FROM users "\n'
+           + '     "WHERE username = \'" + username + "\' "\n'
+           + '     "AND password = \'" + password + "\'")\n'
+           + 'cur.execute(q)   # input is glued straight into the SQL text';
+    } else {
+      code = 'q = ("SELECT id, username, role FROM users "\n'
+           + '     "WHERE username = ? AND password = ?")\n'
+           + 'cur.execute(q, (username, password))   # input sent separately as data';
+    }
+    codeEl.textContent = code;
+  }
+
+  function run() {
+    var u = document.getElementById("u").value;
+    var p = document.getElementById("p").value;
+    var mode = document.getElementById("mode").value;
+    showCode(mode, u, p);
+    py.globals.set("in_user", u);
+    py.globals.set("in_pass", p);
+    py.globals.set("in_mode", mode);
+    var res;
+    try {
+      res = py.runPython(PYRUN);
+    } catch (e) {
+      out.innerHTML = '<span class="err">' + esc(String(e.message || e).split("\n").slice(-3).join("\n")) + '</span>';
+      return;
+    }
+    render(JSON.parse(res), mode);
+  }
+
+  function render(res, mode) {
+    var html = '<span class="dim">executed:</span> <span class="q">' + esc(res.sql) + '</span>\n\n';
+    if (res.error) {
+      html += '<span class="err">SQL error: ' + esc(res.error) + '</span>';
+      out.innerHTML = html;
+      return;
+    }
+    var rows = res.rows || [];
+    if (!rows.length) {
+      html += '<span class="dim">0 rows. Login failed.</span>';
+      out.innerHTML = html;
+      return;
+    }
+    html += '<span class="ok">' + rows.length + ' row(s) returned, login succeeded as ' + esc(String(rows[0][1])) + '</span>\n';
+    rows.forEach(function (r) { html += '  ' + esc(r.join("  |  ")) + '\n'; });
+
+    var text = JSON.stringify(rows).toLowerCase();
+    var leaked = text.indexOf("rt-") !== -1;
+    var noPw = (document.getElementById("p").value !== "S3cr3t-Admin-Pw");
+    var firstUser = String(rows[0][1]);
+
+    if (mode === "concat") {
+      var inp = document.getElementById("u").value;
+      if (leaked && /union/i.test(res.sql)) {
+        html += '\n<span class="err">secrets table leaked through the login form.</span>';
+        missions.complete("union");
+      } else if (noPw && rows.length && /\bor\b/i.test(inp)) {
+        missions.complete("orbypass");
+      } else if (noPw && firstUser === "admin" && /--|\/\*/.test(inp)) {
+        missions.complete("login");
+      }
+    }
+    out.innerHTML = html;
+  }
+
+  var PYRUN = [
+    "import json",
+    "cur = conn.cursor()",
+    "sql_text = ''",
+    "err = None",
+    "rows = []",
+    "try:",
+    "    if in_mode == 'concat':",
+    "        sql_text = (\"SELECT id, username, role FROM users WHERE username = '\" + in_user + \"' AND password = '\" + in_pass + \"'\")",
+    "        cur.execute(sql_text)",
+    "    else:",
+    "        sql_text = \"SELECT id, username, role FROM users WHERE username = ? AND password = ?\"",
+    "        cur.execute(sql_text, (in_user, in_pass))",
+    "    rows = [list(r) for r in cur.fetchall()]",
+    "except Exception as e:",
+    "    err = str(e)",
+    "json.dumps({'sql': sql_text, 'rows': rows, 'error': err})"
+  ].join("\n");
+
+  // the fixed-mode mission: all payloads fail after switching to parameterized
+  var sawFailAfterFix = {};
+  function checkFixed() {
+    if (document.getElementById("mode").value !== "param") return;
+    var u = document.getElementById("u").value;
+    if (/--|union|' or/i.test(u)) sawFailAfterFix.tried = true;
+    if (sawFailAfterFix.tried) missions.complete("fixed");
+  }
+
+  Lab.pyodide(ASSETS, ["sqlite3"], function (m) { statusEl.textContent = m; })
+    .then(function (p) {
+      py = p;
+      py.runPython("import sqlite3\nconn = sqlite3.connect(':memory:')\ncur = conn.cursor()\n" +
+        "for s in " + JSON.stringify(SCHEMA) + ":\n    cur.execute(s)\nconn.commit()");
+      statusEl.textContent = "Ready. The database is live. Try to log in as admin.";
+      document.getElementById("go").disabled = false;
+      showCode("concat");
+    })
+    .catch(function (e) {
+      statusEl.innerHTML = '<span class="err">Could not start the database engine: ' + esc(String(e.message || e)) + '</span>';
+    });
+
+  document.getElementById("go").addEventListener("click", function () { run(); checkFixed(); });
+  document.getElementById("mode").addEventListener("change", function () { showCode(this.value); });
+})();
+</script>
+</body>
+</html>

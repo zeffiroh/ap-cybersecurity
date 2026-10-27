@@ -1,0 +1,356 @@
+\chapter{Suspicious Website Logins}
+\label{ch:1.2}
+\chaptertopic{Topic 1.2}
+
+\chapterquote{If you think technology can solve your security problems, then you don't understand the problems and you don't understand the technology.}{Bruce Schneier, \emph{Secrets and Lies} (2000)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:1.1} was about tricking a human into handing over a credential. This chapter is
+about what happens when an attacker skips the human entirely and attacks the login form itself.
+Just as important is how a defender reads the evidence that attack leaves behind. A
+password is not just a secret; it is a claim about probability. Every password you choose sits
+somewhere on a spectrum from ``a computer can guess this in under a second'' to ``the sun will
+burn out before a computer guesses this by chance.'' This chapter builds the vocabulary to
+locate a password on that spectrum, to recognize an attack against one in progress, and to
+understand why a second factor changes the entire calculation.
+
+\begin{apalignment}{Unit 1: Introduction to Security}{Topic 1.2 -- Suspicious Website Logins}
+\begin{apobjectives}
+\apobjective{1.2.A}{Analyze Risk}{Recognize the common signs that an account is the target of a password attack.}
+\apobjective{1.2.B}{Analyze Risk}{Explain how adversaries take advantage of weak authentication practices.}
+\apobjective{1.2.C}{Mitigate Risk}{Explain the measures that make authentication stronger.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Recognizing an Attack in the Logs}
+
+An automated login attack does not look like a human typing a password wrong once. It looks like
+a machine trying hundreds of guesses per minute, and the traces it leaves in an authentication
+log are distinctive once you know what to look for.
+
+\begin{definition}{Brute-force attack}
+An automated, exhaustive attempt to guess a credential by systematically trying many candidate
+values, typically far faster than a human could type them.
+\end{definition}
+
+Three signals recur across real intrusion-detection systems, and they are far more reliable
+together than any one is alone.
+
+\textbf{Repeated failed attempts.} A single failed login is background noise -- everyone
+mistypes a password occasionally. Five failures for the same account inside sixty seconds is a
+widely used threshold instead. It is fast enough to catch automated tools without flooding a
+security team with false positives from ordinary human error.
+
+\textbf{Unusual times.} People behave in habitual patterns. An account that normally shows
+activity only between 08:00 and 18:00 on weekdays, and then shows a successful login at 02:47 on
+a Saturday, has either an unusually dedicated user or a compromised account. Systems that build a
+per-account behavioral baseline can flag this deviation automatically.
+
+\textbf{Unknown devices.} Most authentication systems track which devices (by MAC address, IP,
+or device fingerprint) have successfully logged in historically. A brand-new device succeeding
+immediately after a burst of failures is close to a confession.
+
+\begin{example}[Why correlation beats any single signal]
+Each signal alone is weak evidence. A new device might just be a new phone. An odd login time
+might be a night-shift worker. A few failures might be a typo. But an account showing five
+failures at 3~a.m., from a device that has never appeared before, followed immediately by a
+success, is a pattern that an innocent explanation struggles to account for. Combining
+independent weak signals into one strong verdict is called \textbf{correlation}. It is the
+organizing principle behind nearly every detection rule you will meet for the rest of this
+course -- physical, network, or application layer.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Flagging accounts under brute-force attack from a stream of login events}]
+from collections import defaultdict
+
+def flag_bruteforce(events, window_seconds=60, threshold=5):
+    """events: list of dicts like
+       {"user": str, "timestamp": int, "result": "FAILED" or "SUCCESS"}
+       Returns the sorted set of usernames with >= threshold failures
+       inside any window_seconds-wide sliding window."""
+    by_user = defaultdict(list)
+    for e in events:
+        if e["result"] == "FAILED":
+            by_user[e["user"]].append(e["timestamp"])
+
+    flagged = set()
+    for user, times in by_user.items():
+        times.sort()
+        left = 0
+        for right in range(len(times)):
+            while times[right] - times[left] > window_seconds:
+                left += 1
+            if right - left + 1 >= threshold:
+                flagged.add(user)
+                break
+    return sorted(flagged)
+\end{lstlisting}
+
+\section{Evaluating Password Strength Like an Attacker}
+
+Detecting an attack in progress is a defensive skill. Understanding why a given password falls
+quickly is a design skill, and it requires seeing the login form the way the attacker does.
+
+\begin{definition}{Dictionary attack}
+A brute-force strategy that replaces exhaustive random guessing with structured guessing from a
+wordlist of likely candidate passwords, ordered roughly by real-world frequency.
+\end{definition}
+
+Attackers rarely start from \texttt{aaaaaaaa} and count upward -- the search space is too large.
+Instead they start from what has already worked before: leaked breach data, target-specific
+information harvested from social media, and \textbf{mangling rules}. The 2009 RockYou leak alone
+contributed fourteen million real passwords to modern wordlists. Mangling rules mechanically
+transform every dictionary word into hundreds of plausible variants: capitalize the first letter,
+append \texttt{1} or \texttt{!}, substitute \texttt{a} with \texttt{@}. A password like
+\texttt{P@ssw0rd!} feels custom-made to a human but is one of the very first variants any
+mangling engine tries.
+
+Four weaknesses are worth checking for explicitly, because they compound:
+
+\begin{enumerate}
+\item \textbf{Too short.} This course uses a 12-character floor. Each additional character
+multiplies the total search space by a full factor of the alphabet size. Going from 8 to 12
+characters, for instance, increases a mixed-character search space by roughly seven orders of magnitude.
+\item \textbf{Dictionary membership.} A password that appears verbatim, or as a simple mangled
+variant, in a known wordlist is cracked in the first pass regardless of any other property it has.
+\item \textbf{Restricted character set.} A password built only from lowercase letters is drawn
+from a pool of 26 symbols per position rather than 90-plus; attackers who suspect this narrow the
+search accordingly.
+\item \textbf{Sequential or repeated patterns.} \texttt{qwerty}, \texttt{aaa111}, and
+\texttt{abcabc} are explicitly enumerated in every modern wordlist and guessed early.
+\end{enumerate}
+
+\begin{misconception}
+\textbf{``Adding a number and a symbol makes a password secure.''} If the underlying word is
+already in the dictionary, mangling rules generate the ``clever'' variant automatically --
+attackers see \texttt{p@ssword} as a five-second guess, not a hard problem. Unpredictability and
+length are what generate real entropy; a predictable substitution pattern generates almost none.
+\end{misconception}
+
+\section{Why Length Beats Complexity}
+
+The math behind the previous section's advice is worth making explicit. A password drawn
+uniformly at random from an alphabet of size $A$, with length $L$, has a search space of $A^{L}$
+possible values. Widening the alphabet from, say, 26 lowercase letters to 94 printable ASCII
+characters multiplies the space by roughly a factor of $(94/26)$ for every position -- a modest,
+one-time gain. Adding a single additional \emph{character} to the password, by contrast,
+multiplies the entire space by another full factor of $A$. Length compounds; complexity merely
+scales. This is precisely why NIST SP 800-63B moved away from mandatory complexity rules: they
+push users toward predictable, mangling-rule-friendly patterns like \texttt{Password1!}. Such a
+pattern offers a smaller entropy gain than four random, unrelated words strung together as a
+passphrase.
+
+\section{Multi-Factor Authentication and TOTP}
+
+Even a genuinely long, random password is still just a single secret. If that secret is
+phished, leaked in a breach, or observed over someone's shoulder, the attacker gains permanent
+access with no further work required. \textbf{Multi-Factor Authentication (MFA)} closes this gap
+by requiring proof of identity from two or more independent categories: something you
+\emph{know} (a password), something you \emph{have} (a phone, a hardware token), or something
+you \emph{are} (a fingerprint). An attacker who has only compromised one category still has
+nothing.
+
+\begin{definition}{Time-based One-Time Password (TOTP)}
+A six-digit authentication code derived from \texttt{HMAC-SHA1(secret, time\_step)}, where
+\texttt{time\_step} is the current 30-second interval since the Unix epoch. Defined in RFC~6238,
+it is the algorithm behind most authenticator-app second factors.
+\end{definition}
+
+TOTP's defining property is that it requires \emph{no network communication at verification
+time}. The server and the authenticator app each independently hold the same shared secret $K$,
+established once during enrollment (typically transmitted over HTTPS as a QR code). From that
+point on, both sides compute
+\[
+T = \left\lfloor \frac{\text{unix\_timestamp}}{30} \right\rfloor, \qquad
+\text{code} = \operatorname{Truncate}\big(\mathrm{HMAC\text{-}SHA1}(K,\, T)\big) \bmod 10^{6},
+\]
+and compare. The code changes every 30 seconds, and the space of possible codes is only
+one million values. An intercepted code becomes useless within moments -- a fundamentally
+different security posture from an SMS code, which travels across a carrier network that can be
+intercepted or redirected via SIM swapping.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.4cm, minimum height=1cm, align=center, font=\small},
+  lbl/.style={font=\scriptsize\sffamily}
+]
+\node[box, fill=kickstartercream] (client) at (0,2.2) {Authenticator app\\shares secret $K$};
+\node[box, fill=kickstartercream] (server) at (6,2.2) {Server\\shares secret $K$};
+\node[box] (ct) at (0,0.9) {compute $T = \lfloor t/30 \rfloor$};
+\node[box] (st) at (6,0.9) {compute $T = \lfloor t/30 \rfloor$};
+\node[box] (cc) at (0,-0.4) {HMAC-SHA1$(K,T)$\\$\to$ 6-digit code};
+\node[box] (sc) at (6,-0.4) {HMAC-SHA1$(K,T)$\\$\to$ 6-digit code};
+\node[box, fill=kickstartermaroon!15] (cmp) at (3,-1.9) {codes equal?\\\textbf{accept / reject}};
+\draw[-{Latex[length=2mm]}] (client) -- (ct);
+\draw[-{Latex[length=2mm]}] (server) -- (st);
+\draw[-{Latex[length=2mm]}] (ct) -- (cc);
+\draw[-{Latex[length=2mm]}] (st) -- (sc);
+\draw[-{Latex[length=2mm]}] (cc) -- (cmp);
+\draw[-{Latex[length=2mm]}] (sc) -- (cmp);
+\node[lbl, gray, align=center] at (3,2.2) {\emph{no network traffic between}\\\emph{these two computations}};
+\end{tikzpicture}
+\caption{Both sides of a TOTP exchange compute the code independently from the same shared secret
+and the same 30-second time step -- only the final comparison, at login, ever crosses the network.}
+\label{fig:1.2-totp-flow}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={A from-scratch TOTP verifier using only the standard library}]
+import hmac, hashlib, struct
+
+def totp_code(secret_bytes: bytes, timestamp: int, step: int = 30, digits: int = 6) -> str:
+    """Compute the TOTP code for the 30-second window containing `timestamp`."""
+    counter = timestamp // step
+    msg = struct.pack(">Q", counter)          # 8-byte big-endian time step
+    digest = hmac.new(secret_bytes, msg, hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F                # dynamic truncation (RFC 4226)
+    truncated = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+    return str(truncated % (10 ** digits)).zfill(digits)
+
+def verify_totp(secret_bytes: bytes, submitted_code: str, timestamp: int) -> bool:
+    return hmac.compare_digest(totp_code(secret_bytes, timestamp), submitted_code)
+\end{lstlisting}
+
+Once you have computed a TOTP code by hand from raw bytes, ``the authenticator app just knows the
+code'' stops being a black box. It becomes an equation you can evaluate yourself -- which is
+precisely why this course asks you to implement it rather than only use it.
+
+\begin{misconception}
+\textbf{``MFA is unbreakable.''} A phished TOTP code can still be relayed to the real login form
+in real time by an attacker fast enough to beat the 30-second window. MFA raises the bar
+dramatically -- an attacker now needs two independent compromises instead of one -- but it does
+not eliminate social engineering; it changes what the attacker has to accomplish through it.
+\end{misconception}
+
+\section{Case Studies in Authentication Failure}
+
+\begin{example}[Colonial Pipeline, 2021: One Dormant Account]
+In May 2021 the operator of the largest refined-fuel pipeline in the United States was forced to
+shut down 5,500 miles of pipeline after a ransomware deployment by the DarkSide group. The initial
+entry point was a legacy VPN account: one that was not meant to still be in use, had never been
+formally decommissioned, and was protected only by a single password with no multi-factor
+authentication behind it at all.\srccite{1.2}{1} Mandiant's
+investigation traced that password to an earlier, unrelated data breach -- the employee had almost
+certainly reused it on a different, already-compromised service. The company paid a ransom of
+roughly \$4.4~million in bitcoin, of which federal investigators later recovered about
+\$2.3~million by seizing the attacker's wallet key.\srccite{1.2}{2} The lesson is not simply
+``enable MFA'' -- true as that is. It is that an account nobody uses is also an account nobody is
+watching. It appears in no active-user risk review, and its compromise triggers no behavioral
+anomaly, because there is no established baseline of normal behavior to deviate from.
+Decommissioning credentials on employee or system departure, and automatically disabling any
+account idle beyond a defined threshold, closes a gap that technical monitoring alone cannot.
+\end{example}
+
+\begin{example}[Cloudflare vs.\ Twilio, Summer 2022: The Same Attack, Two Outcomes]
+The clearest demonstration of why phishing-resistant authentication matters is a controlled
+comparison rather than a single failure. In summer 2022 a campaign later named 0ktapus by
+Group-IB researchers sent near-identical SMS phishing messages to employees at both Twilio and
+Cloudflare, each linking to a convincing replica of the companies' single sign-on login
+page.\srccite{1.2}{3} Twilio was compromised: employees entered credentials and live one-time
+codes, and the attacker relayed both in real time to reach internal systems. Cloudflare was not.
+At Cloudflare, three of 76 employees who received the message did enter their username and
+password into the fake page -- the human layer failed at almost exactly the rate the previous
+section's misconceptions warn about. But Cloudflare does not issue TOTP codes to its employees at
+all; every employee authenticates with a FIDO2 hardware security key instead. A key issued for the
+real single sign-on domain simply produces no cryptographic assertion for a look-alike domain, so
+there was no live one-time code for the phishing page to capture in the first place, and no
+dialogue box to fool.\srccite{1.2}{4} The compromise of three sets of credentials produced zero
+account takeovers, because origin binding turns a successful phish into an authentication that
+still cannot complete. This is the strongest argument in this chapter for treating multi-factor
+authentication as a spectrum rather than a checkbox. A TOTP code and a hardware security key both
+satisfy ``something you have,'' but only one of them is bound to the domain requesting it -- and
+only one of them can be phished out of a human at all.
+\end{example}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An authentication log shows six failed logins for user \texttt{jsmith} between 03:14:02 and
+03:14:47, followed by a success from a device never seen before. Explain which detection signals
+this triggers and why the combination is stronger evidence than any one signal alone.
+\item Explain, in terms of search-space math, why a 20-character passphrase of ordinary English
+words can be stronger than a 10-character password that mixes uppercase, lowercase, digits, and
+symbols.
+\item A password policy requires at least one uppercase letter, one digit, and one symbol, with a
+minimum length of 8. Explain two ways this policy can still permit passwords that a dictionary
+attack cracks in seconds.
+\item Walk through, step by step, how a TOTP verifier decides whether a submitted 6-digit code is
+valid for a given timestamp, and explain why the code becomes permanently invalid after 30
+seconds rather than merely ``expiring.''
+\item Explain why SMS-delivered one-time codes are considered weaker than TOTP codes even though
+both appear, to the user, as a 6-digit number they type into a form.
+\item In the Cloudflare vs.\ Twilio comparison, three Cloudflare employees typed their username and
+password into the same style of fake login page that fully compromised Twilio, yet no Cloudflare
+account was taken over. Identify exactly which property of a FIDO2 hardware key made the
+difference, and explain why a TOTP code does not have that property.
+\item Colonial Pipeline's breach began with a VPN account that was never decommissioned and never
+enrolled in MFA. Explain why this account was more dangerous than an active employee account with
+the same weak, reused password, even though both would technically be vulnerable to the same
+credential-stuffing attempt.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Six failures in under a minute triggers the repeated-failed-attempts signal, and a login
+succeeding from a device with no prior history triggers the unknown-device signal; the 03:14 hour
+also plausibly triggers an unusual-time deviation from a normal baseline. Any one signal alone has
+an innocent explanation -- a typo, a new phone, a night owl -- but the combination, arriving
+together and culminating in a success, is a pattern that correlation-based detection treats as
+strong evidence precisely because independent weak signals reinforcing one another are unlikely to
+occur together by chance.
+\answerlabel{1.2.A}
+\item A 20-character passphrase drawn from ordinary words still multiplies its search space by a
+full factor for every added character, and twenty characters is a much larger exponent than ten,
+even though each individual word is drawn from a comparatively small dictionary. A 10-character
+mixed-character password gains only a modest, one-time widening of the alphabet per position; it
+does not compound the way additional length does. Length dominates the calculation because the
+exponent, not the base, is what the search space scales on.
+\answerlabel{1.2.B}
+\item First, the policy sets no restriction on dictionary membership, so a common word satisfying
+every rule (for example \texttt{Password1!}) is one of the first candidates any mangling engine
+tries. Second, the eight-character floor is short enough that even a fully random string drawn from
+the required character classes sits within a search space crackable in a practical amount of time
+on modern hardware, especially if the underlying hash is unsalted or uses a fast, non-memory-hard
+algorithm.
+\answerlabel{1.2.B}
+\item The verifier computes the current 30-second time step from the submitted timestamp, computes
+\texttt{HMAC-SHA1(secret, time\_step)}, applies dynamic truncation to obtain a 6-digit numeric
+code, and compares that value to the code the user submitted using constant-time comparison. The
+code becomes permanently invalid, not merely stale, because the next time step produces an
+entirely different HMAC output; there is no relationship between consecutive codes that would let
+an old code be extended or reused, so ``expired'' is really ``computed for an interval that has
+already passed and will never recur.''
+\answerlabel{1.2.C}
+\item An SMS code travels over the carrier network and can be intercepted, redirected through SIM
+swapping, or captured on a compromised carrier system -- weaknesses that exist independent of
+anything the user does correctly. A TOTP code requires no network transmission at verification
+time at all: both sides compute it locally from a shared secret established once at enrollment, so
+there is no carrier-network attack surface to exploit, even though a phished TOTP code can still be
+relayed by an attacker fast enough to beat its 30-second window.
+\answerlabel{1.2.C}
+\item A FIDO2 hardware key cryptographically binds its response to the exact origin (domain)
+requesting it, so a look-alike domain receives no valid assertion at all -- there is nothing for
+the key to hand over, no matter how convincing the page looks. A TOTP code has no concept of
+origin: it is just a number derived from time and a shared secret, so a human who is fooled into
+typing it into the wrong page hands the attacker a code that works anywhere, for a few seconds,
+including on the real site the attacker is simultaneously relaying it to.
+\answerlabel{1.2.C}
+\item An active employee account is watched: unusual logins, failed attempts, and behavioral
+deviations all have an established baseline to compare against, and a security team reviewing
+active accounts would eventually notice something amiss. A dormant, never-decommissioned account
+has no active-user review to catch it and no behavioral baseline to deviate from, so a successful
+login on it triggers no anomaly at all -- the same weak password is more dangerous there because
+nothing in the monitoring pipeline is positioned to notice it being used.
+\answerlabel{1.2.A}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{1.2}{1}Joseph Blount (Colonial Pipeline CEO), testimony before the U.S.\ Senate
+Committee on Homeland Security \& Governmental Affairs, June 8, 2021.
+\item \srcitem{1.2}{2}U.S.\ Department of Justice, ``Department of Justice Seizes \$2.3 Million in
+Cryptocurrency Paid to the Ransomware Extortionists Darkside,'' press release, June 7, 2021.
+\item \srcitem{1.2}{3}Group-IB, ``Roasting 0ktapus: The Phishing Campaign Going After Okta Identity
+Credentials,'' Group-IB Blog, August 25, 2022.
+\item \srcitem{1.2}{4}Cloudflare Blog, ``The Mechanics of a Sophisticated Phishing Scam and How We
+Stopped It,'' July 2022.
+\end{enumerate}

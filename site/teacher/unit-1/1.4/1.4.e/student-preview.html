@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI reconnaissance and enhanced malware coding; defenses (shared secrets, MFA, verify output), Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>AI reconnaissance and enhanced malware coding; defenses (shared secrets, MFA, verify output)</h1>
+<h1>Coding problem, 1.4.e: AI-assisted reconnaissance detector</h1>
+<p><strong>Skill:</strong> Analyze Risk, Mitigate Risk · <strong>Maps to:</strong> 1.4.A, 1.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A SIEM (Security Information and Event Management) system has collected a list of server log strings from Meridian Bank's network during a suspicious time window. Your job is to implement the detection engine: scan the log lines, apply four rule-based detectors for AI-assisted reconnaissance patterns, and return both a boolean verdict and the sorted list of defense controls that the detected patterns trigger.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(events: list[str]) -&gt; dict</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>events</code>, a list of strings. Each string is one server log line (plain text, any format). The list may be empty.</p>
+<p>Example input:</p>
+<pre><code>[
+    &quot;WARN  Port scan detected: 1-65535 sequential from 203.0.113.42 in 4s&quot;,
+    &quot;WARN  Login attempts: 312 usernames tried in 8s from 203.0.113.42&quot;,
+    &quot;INFO  SSH login success user=alice src=192.168.1.10&quot;,
+]
+</code></pre>
+<h2>Output</h2>
+<p>A <code>dict</code> with exactly two keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"recon_detected"</code></td>
+<td><code>bool</code></td>
+<td><code>True</code> if at least one event matched any detection rule</td>
+</tr>
+<tr>
+<td><code>"recommended_defenses"</code></td>
+<td><code>list[str]</code></td>
+<td>Sorted, de-duplicated list of defense name strings triggered by matched rules. Empty list <code>[]</code> when <code>recon_detected</code> is <code>False</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Example output for the input above:</p>
+<pre><code class="language-python">{
+    &quot;recon_detected&quot;: True,
+    &quot;recommended_defenses&quot;: [
+        &quot;ip-reputation-blocking&quot;,
+        &quot;login-velocity-controls&quot;,
+        &quot;rate-limit-port-scans&quot;,
+    ]
+}
+</code></pre>
+<h2>Detection rules (implement all four)</h2>
+<p>Apply these rules to each event string using <code>re.search</code> (case-insensitive where noted):</p>
+<p><strong>Rule 1, Port scan:</strong>
+- Pattern: <code>re.search(r'(?i)port scan', event)</code> matches
+- Action: set <code>recon_detected = True</code>; add <code>"rate-limit-port-scans"</code> to defenses</p>
+<p><strong>Rule 2, DNS burst:</strong>
+- Pattern: <code>re.search(r'(?i)dns burst', event)</code> matches
+- Action: set <code>recon_detected = True</code>; add <code>"dns-query-rate-limiting"</code> to defenses</p>
+<p><strong>Rule 3, Login burst:</strong>
+- Pattern: <code>re.search(r'(?i)login attempts', event)</code> matches AND at least one integer &gt;= 100 appears in the event (use <code>re.findall(r'\b(\d+)\b', event)</code>)
+- Action: set <code>recon_detected = True</code>; add <code>"login-velocity-controls"</code> to defenses</p>
+<p><strong>Rule 4, Subdomain enumeration:</strong>
+- Pattern: <code>re.search(r'(?i)subdomain', event)</code> matches AND <code>re.search(r'(?i)quer', event)</code> matches
+- Action: set <code>recon_detected = True</code>; add <code>"dns-query-rate-limiting"</code> to defenses (if not already present)</p>
+<p><strong>Always:</strong> if <code>recon_detected</code> is <code>True</code> after processing all events, add <code>"ip-reputation-blocking"</code> to defenses.</p>
+<h2>Defense name strings (exact, spelling matters for tests)</h2>
+<pre><code>&quot;dns-query-rate-limiting&quot;
+&quot;ip-reputation-blocking&quot;
+&quot;login-velocity-controls&quot;
+&quot;rate-limit-port-scans&quot;
+</code></pre>
+<h2>Examples</h2>
+<pre><code>solve([])
+-&gt; {&quot;recon_detected&quot;: False, &quot;recommended_defenses&quot;: []}
+
+solve([&quot;INFO SSH login success user=alice&quot;, &quot;INFO Backup completed&quot;])
+-&gt; {&quot;recon_detected&quot;: False, &quot;recommended_defenses&quot;: []}
+
+solve([&quot;WARN Port scan detected: 1-65535 from 203.0.113.42 in 4s&quot;])
+-&gt; {&quot;recon_detected&quot;: True, &quot;recommended_defenses&quot;: [&quot;ip-reputation-blocking&quot;, &quot;rate-limit-port-scans&quot;]}
+
+solve([&quot;WARN DNS burst: 847 subdomain queries from 203.0.113.42 in 2s&quot;])
+-&gt; {&quot;recon_detected&quot;: True, &quot;recommended_defenses&quot;: [&quot;dns-query-rate-limiting&quot;, &quot;ip-reputation-blocking&quot;]}
+
+solve([&quot;WARN Login attempts: 50 usernames tried&quot;])
+-&gt; {&quot;recon_detected&quot;: False, &quot;recommended_defenses&quot;: []}
+</code></pre>
+<p>Note the login-burst threshold: 50 &lt; 100, so Rule 3 does not fire.</p>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only (<code>re</code>, <code>typing</code>).</li>
+<li>Must pass all cases in the tests.</li>
+</ul>
+<h2>How to run</h2>
+<pre><code>cd problem
+Your code passes when every test below shows a checkmark (some are hidden until you run them).
+</code></pre>
+<p>To test your starter against solution:</p>
+<pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
+Your code passes when every test below shows a checkmark (some are hidden until you run them).
+</code></pre>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list[str]) -&gt; dict
+</code></pre>
+<h3>Input (<code>events</code>)</h3>
+<p><code>list[str]</code>, a list of zero or more server log line strings. Each string is plain text; no guaranteed format. May be empty.</p>
+<p>Example:</p>
+<pre><code class="language-python">[
+    &quot;[2024-03-15 02:14:22] WARN  Port scan detected: 1-65535 sequential from 203.0.113.42 in 4s&quot;,
+    &quot;[2024-03-15 02:14:23] INFO  DNS query: www.meridianbank.com A 192.0.2.1&quot;,
+    &quot;[2024-03-15 02:14:24] WARN  DNS burst: 847 subdomain queries from 203.0.113.42 in 2s&quot;,
+]
+</code></pre>
+<h3>Output (<code>result</code>)</h3>
+<p><code>dict</code> with exactly two keys:</p>
+<pre><code class="language-python">{
+    &quot;recon_detected&quot;: bool,           # True if any rule matched
+    &quot;recommended_defenses&quot;: list[str] # sorted, de-duplicated defense name strings
+}
+</code></pre>
+<p>When <code>recon_detected</code> is <code>False</code>, <code>recommended_defenses</code> must be <code>[]</code>.</p>
+<h3>Detection rules</h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Trigger condition</th>
+<th>Defense added</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Port scan</td>
+<td><code>re.search(r'(?i)port scan', event)</code></td>
+<td><code>"rate-limit-port-scans"</code></td>
+</tr>
+<tr>
+<td>DNS burst</td>
+<td><code>re.search(r'(?i)dns burst', event)</code></td>
+<td><code>"dns-query-rate-limiting"</code></td>
+</tr>
+<tr>
+<td>Login burst</td>
+<td><code>re.search(r'(?i)login attempts', event)</code> AND any integer &gt;= 100 in event</td>
+<td><code>"login-velocity-controls"</code></td>
+</tr>
+<tr>
+<td>Subdomain enum</td>
+<td><code>re.search(r'(?i)subdomain', event)</code> AND <code>re.search(r'(?i)quer', event)</code></td>
+<td><code>"dns-query-rate-limiting"</code></td>
+</tr>
+</tbody>
+</table>
+<p>Additionally: if <code>recon_detected</code> is <code>True</code> after all events are processed, add <code>"ip-reputation-blocking"</code>.</p>
+<h3>Defense name strings (exact spelling)</h3>
+<pre><code>&quot;dns-query-rate-limiting&quot;
+&quot;ip-reputation-blocking&quot;
+&quot;login-velocity-controls&quot;
+&quot;rate-limit-port-scans&quot;
+</code></pre>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only (<code>re</code>, <code>typing</code>).</li>
+<li><code>recommended_defenses</code> must be sorted (<code>sorted(...)</code>) and de-duplicated (use a <code>set</code> internally, convert to sorted list at return).</li>
+<li>The login burst rule fires only when the integer extracted from the event is &gt;= 100. Integers below 100 do not trigger the rule even if "login attempts" appears.</li>
+<li>Both DNS burst and subdomain enum rules map to the same defense string; de-duplication ensures it appears only once.</li>
+</ul>
+<h3>Acceptance</h3>
+<pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
+</code></pre>
+<p>All tests must pass when <code>IMPL</code> is unset (defaults to the reference solution) or set to any conforming implementation.</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 1.4.e. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+import re
+from typing import Dict, List
+
+
+def solve(events: List[str]) -&gt; Dict[str, object]:
+    """Detect AI-assisted reconnaissance patterns in a list of log line strings.
+
+    Args:
+        events: list of server log line strings (any format; may be empty).
+    Returns:
+        {"recon_detected": bool, "recommended_defenses": sorted, de-duplicated list[str]}.
+        When nothing matches, recommended_defenses must be [].
+    """
+    # TODO: apply the four detection rules from the problem statement above / the Reference section below:
+    #   1. port scan          -&gt; "rate-limit-port-scans"
+    #   2. dns burst          -&gt; "dns-query-rate-limiting"
+    #   3. login attempts + an integer &gt;= 100 -&gt; "login-velocity-controls"
+    #   4. subdomain + query  -&gt; "dns-query-rate-limiting"
+    # Then, if any rule fired, add "ip-reputation-blocking".
+    # Return recommended_defenses sorted and de-duplicated.
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_empty_log():
+    assert impl.solve([]) == {"recon_detected": False, "recommended_defenses": []}
+
+
+def test_clean_traffic():
+    out = impl.solve([
+        "INFO  SSH login success user=alice src=192.168.1.10",
+        "INFO  Backup completed in 42s",
+    ])
+    assert out == {"recon_detected": False, "recommended_defenses": []}
+
+
+def test_port_scan():
+    out = impl.solve(["WARN  Port scan detected: 1-65535 from 203.0.113.42 in 4s"])
+    assert out == {
+        "recon_detected": True,
+        "recommended_defenses": ["ip-reputation-blocking", "rate-limit-port-scans"],
+    }
+
+
+def test_dns_burst():
+    out = impl.solve(["WARN  DNS burst: 847 subdomain queries from 203.0.113.42 in 2s"])
+    assert out == {
+        "recon_detected": True,
+        "recommended_defenses": ["dns-query-rate-limiting", "ip-reputation-blocking"],
+    }
+
+
+def test_login_burst_below_threshold_does_not_fire():
+    out = impl.solve(["WARN  Login attempts: 50 usernames tried"])
+    assert out == {"recon_detected": False, "recommended_defenses": []}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_login_burst_at_threshold_fires():
+    # 100 is the inclusive boundary (&gt;= 100).
+    out = impl.solve(["WARN  Login attempts: 100 usernames tried in 9s"])
+    assert out == {
+        "recon_detected": True,
+        "recommended_defenses": ["ip-reputation-blocking", "login-velocity-controls"],
+    }
+
+
+def test_subdomain_enum_requires_both_tokens():
+    # "subdomain" alone (no query token) must not trigger rule 4.
+    out = impl.solve(["INFO  Discovered subdomain api.meridianbank.com"])
+    assert out == {"recon_detected": False, "recommended_defenses": []}
+    # Both tokens present -&gt; fires.
+    out2 = impl.solve(["WARN  312 subdomain queries observed"])
+    assert out2 == {
+        "recon_detected": True,
+        "recommended_defenses": ["dns-query-rate-limiting", "ip-reputation-blocking"],
+    }
+
+
+def test_case_insensitive():
+    out = impl.solve(["warn  PORT SCAN from 203.0.113.42"])
+    assert out == {
+        "recon_detected": True,
+        "recommended_defenses": ["ip-reputation-blocking", "rate-limit-port-scans"],
+    }
+
+
+def test_defense_deduplicated_across_rules():
+    # DNS burst (rule 2) and subdomain enum (rule 4) both map to dns-query-rate-limiting;
+    # it must appear exactly once.
+    out = impl.solve([
+        "WARN  DNS burst: 900 lookups from 203.0.113.42",
+        "WARN  847 subdomain queries from 203.0.113.42",
+    ])
+    assert out["recon_detected"] is True
+    assert out["recommended_defenses"] == ["dns-query-rate-limiting", "ip-reputation-blocking"]
+    assert out["recommended_defenses"].count("dns-query-rate-limiting") == 1
+
+
+def test_full_multi_rule_scenario():
+    out = impl.solve([
+        "[02:14:22] WARN  Port scan detected: 1-65535 sequential from 203.0.113.42 in 4s",
+        "[02:14:23] WARN  DNS burst: 847 subdomain queries from 203.0.113.42 in 2s",
+        "[02:14:24] WARN  Login attempts: 312 usernames tried in 8s from 203.0.113.42",
+        "[02:14:25] INFO  SSH login success user=alice src=192.168.1.10",
+    ])
+    assert out == {
+        "recon_detected": True,
+        "recommended_defenses": [
+            "dns-query-rate-limiting",
+            "ip-reputation-blocking",
+            "login-velocity-controls",
+            "rate-limit-port-scans",
+        ],
+    }
+
+
+def test_defenses_sorted():
+    out = impl.solve([
+        "Port scan from x",
+        "Login attempts: 500 from x",
+    ])
+    assert out["recommended_defenses"] == sorted(out["recommended_defenses"])
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

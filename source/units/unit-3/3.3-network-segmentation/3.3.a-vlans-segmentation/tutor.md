@@ -1,0 +1,9 @@
+# 3.3.a tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The image worth holding onto walking in: a flat network is a building with no interior walls, where a fire that starts in the lobby reaches the server room with nothing in its way. VLANs are those interior walls, built in switch software rather than drywall, and the entire justification for segmentation is that a compromise of one device should never automatically mean a compromise of everything plugged into the same switch. That's the direct payoff of 3.1.a's flat-network warning from the start of this unit, this skill is where you finally get the tool that actually builds the walls it warned you were missing.
+
+## The big picture
+The distinction worth locking in for the exam is that a VLAN is a *logical* separation on *shared* physical hardware, not an air gap, which means the wall only holds if the router and firewall rules governing inter-VLAN traffic are actually configured to deny what they should deny. A misconfigured router that permits all inter-VLAN traffic doesn't just weaken segmentation, it defeats it completely, which is the same lesson 3.2.b taught about policy without enforcement, now showing up as a technical-control version of the same failure mode. Keep trunk ports and access ports straight too: an access port is invisible-tag, single-VLAN, end-user-facing; a trunk port carries multiple VLANs' tagged traffic between switches and routers, and it's precisely the kind of link an attacker would want to reach if they were trying to jump VLANs illegitimately. This skill is also your bridge into 3.3.b, VLANs get you zone-level isolation (guests can't reach servers), but notice the gap already lurking in this skill's four-VLAN design: nothing stops two devices *inside* the same VLAN from talking to each other freely, which is exactly the weakness the next atom exists to close.

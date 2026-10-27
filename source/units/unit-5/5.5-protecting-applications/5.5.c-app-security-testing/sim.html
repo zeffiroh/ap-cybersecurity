@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<!-- 5.5.c SIM, classify findings as SAST-catchable, DAST-catchable, or neither.
+     Single-file, offline, deterministic. No emoji/icons. Theme tokens inline (THEME.md). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.5.c, Application security testing (SAST/DAST), Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active,.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{font-weight:bold;background:#d8d8ff;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.theme-linux .btn.sel{background:#dbe7ff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:10px 12px;white-space:pre-wrap;line-height:1.4;min-height:110px;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:10px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:8px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>5.5.c, SAST / DAST Triage Queue</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Each case shows a finding: either a source-code snippet or a live-scan result.
+         Classify it as something <b>SAST</b> would catch (static, reads source, no running app),
+         something <b>DAST</b> would catch (dynamic, needs a running/reachable app), or
+         <b>NEITHER</b> (requires human judgment, e.g. business-logic flaw). Reach
+         <b id="goal">5</b> correct to meet the objective.</p>
+
+      <div class="terminal" id="case"><span class="prompt">finding&gt; </span>...</div>
+
+      <div style="margin-top:8px">
+        <button class="btn" id="predSast" onclick="predict('SAST')">SAST</button>
+        <button class="btn" id="predDast" onclick="predict('DAST')">DAST</button>
+        <button class="btn" id="predNeither" onclick="predict('NEITHER')">NEITHER</button>
+        <button class="btn" onclick="submitCase()">Submit</button>
+        <button class="btn" onclick="next()">Next case</button>
+      </div>
+
+      <div class="terminal" id="fb" style="min-height:50px;margin-top:8px"></div>
+
+      <div class="statusbar" id="score">SCORE 0 / 5 | case 1 of 8 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. Deterministic case queue with a fixed answer key
+        reflecting how a real static/dynamic scanning program would classify each finding.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Deterministic case queue ---- */
+var CASES = [
+  { text:"Source review: query = \"SELECT * FROM users WHERE id=\" + user_id  (string-concatenated SQL, no app running)",
+    answer:"SAST", why:"A static tool reads this line directly from the source file; it never needs to execute the app." },
+  { text:"Live scan result: submitting <script>alert(1)<\/script> into the comment field caused it to render unescaped in the response HTML",
+    answer:"DAST", why:"This required actually sending a request to a running application and observing the reflected response." },
+  { text:"Manual review finding: a regular user can change a hidden order-id parameter in a request to view another customer's invoice",
+    answer:"NEITHER", why:"This is a business-logic authorization flaw; automated SAST/DAST tools don't reason about 'whose invoice should this be'." },
+  { text:"Source review: password = \"hunter2\" hardcoded in config.py",
+    answer:"SAST", why:"A hardcoded secret is visible directly in the source text, no execution required." },
+  { text:"Live scan result: fuzzing the /api/login endpoint with malformed JSON caused a 500 error revealing a full stack trace",
+    answer:"DAST", why:"The scanner had to send a live malformed request to the running service to trigger and observe this." },
+  { text:"Source review: eval(user_supplied_expression) found in calculator.py",
+    answer:"SAST", why:"Dangerous function calls are matched directly against source-code patterns." },
+  { text:"Manual review finding: the checkout flow lets a user apply the same single-use discount code twice by opening two browser tabs",
+    answer:"NEITHER", why:"A race-condition business-logic flaw like this needs human/pentest-style reasoning, not pattern matching." },
+  { text:"Live scan result: crawler found /admin/debug reachable without authentication and returning internal config",
+    answer:"DAST", why:"Discovering a live, unauthenticated endpoint requires probing the running deployment." }
+];
+
+var idx=0, score=0, GOAL=5, met=false, chosen=null, answered=false;
+
+function render(){
+  var c=CASES[idx];
+  document.getElementById('case').innerHTML = '<span class="prompt">finding&gt; </span>'+c.text;
+  chosen=null; answered=false;
+  ['predSast','predDast','predNeither'].forEach(function(id){document.getElementById(id).classList.remove('sel');});
+  document.getElementById('fb').textContent='';
+  updateBar();
+}
+function predict(choice){
+  chosen=choice;
+  document.getElementById('predSast').classList.toggle('sel', choice==='SAST');
+  document.getElementById('predDast').classList.toggle('sel', choice==='DAST');
+  document.getElementById('predNeither').classList.toggle('sel', choice==='NEITHER');
+}
+function submitCase(){
+  if(answered) return;
+  if(chosen===null){
+    document.getElementById('fb').innerHTML='<span class="bad">Choose SAST, DAST, or NEITHER first.</span>';
+    return;
+  }
+  answered=true;
+  var c=CASES[idx];
+  var ok = chosen===c.answer;
+  var fb=document.getElementById('fb');
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+c.answer+' — '+c.why; }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+c.answer+' — '+c.why; }
+  if(score>=GOAL) met=true;
+  updateBar();
+}
+function next(){ idx=(idx+1)%CASES.length; render(); }
+function updateBar(){
+  document.getElementById('score').innerHTML =
+    'SCORE '+score+' / '+GOAL+' | case '+(idx+1)+' of '+CASES.length+' | OBJECTIVE: '+
+    (met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');
+}
+document.getElementById('goal').textContent=GOAL;
+render();
+</script>
+</body>
+</html>

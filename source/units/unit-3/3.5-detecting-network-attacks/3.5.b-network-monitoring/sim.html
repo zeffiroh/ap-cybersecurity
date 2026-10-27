@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!-- 3.5.b SIM, "Meridian High School Traffic Baseline Review". Single-file, offline, deterministic.
+     No emoji/icons. Theme tokens inline from THEME.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.5.b - Network monitoring and traffic analysis - Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:980px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px 4px 2px 0;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre-wrap;line-height:1.4;min-height:80px;margin-top:10px;}
+.terminal .dim{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+h2{font-size:14px;margin:10px 0 4px;}
+.toolbar{margin-bottom:8px;}
+table{border-collapse:collapse;width:100%;margin-bottom:6px;background:#fff;}
+th,td{padding:5px 7px;border:1px solid #808080;text-align:left;font-size:12.5px;vertical-align:top;}
+th{background:var(--win-face);}
+select{font-family:var(--ui-font);font-size:12.5px;padding:1px;}
+.section{margin-top:12px;background:#fff;padding:10px;border:1px solid #808080;}
+.mono{font-family:var(--mono-font);}
+p.note{font-size:12px;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.5.b - Meridian High School Traffic Baseline Review</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Compare today's observed traffic against each host's baseline profile. Classify every
+      host as <b>NORMAL</b> or name its anomaly type: <b>PORT</b> (unusual destination port),
+      <b>VOLUME</b> (byte total exceeds baseline), or <b>BEACON</b> (regular-interval connection
+      pattern, even if volume and port are both within baseline). Score all 5 correctly to meet
+      the objective.</p>
+
+      <div class="section">
+        <h2>Baseline profile</h2>
+        <table>
+          <tr><th>Host</th><th>Max bytes/day</th><th>Allowed ports</th><th>Role</th></tr>
+          <tr><td class="mono">10.0.1.5</td><td class="mono">500,000,000</td><td class="mono">445, 139</td><td>File server</td></tr>
+          <tr><td class="mono">10.0.2.9</td><td class="mono">5,000,000</td><td class="mono">80, 443</td><td>Staff workstation</td></tr>
+          <tr><td class="mono">10.0.2.14</td><td class="mono">5,000,000</td><td class="mono">80, 443</td><td>Staff workstation</td></tr>
+          <tr><td class="mono">10.0.3.20</td><td class="mono">2,000,000</td><td class="mono">80, 443, 3389</td><td>Lab workstation</td></tr>
+          <tr><td class="mono">10.0.4.2</td><td class="mono">50,000,000</td><td class="mono">25, 587</td><td>Mail relay</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2>Observed traffic window (today)</h2>
+        <table id="obstbl">
+          <tr><th>Host</th><th>Total bytes</th><th>Ports used</th><th>Notes</th><th>Your classification</th></tr>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="verify()">Submit classifications</button>
+        <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="terminal" id="log"><span class="dim">monitor# </span>Classify every host, then submit.</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+      <p class="note">Reminder: a host can pass BOTH the volume and port checks and still be
+      anomalous if its connection timing is suspiciously regular (beaconing).</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+var observed = [
+  {host:"10.0.1.5",  bytes:"420,000,000", ports:"445",           notes:"Normal file-share load",                                   answer:"NORMAL"},
+  {host:"10.0.2.9",  bytes:"4,800,000",   ports:"80, 443",       notes:"Normal browsing",                                          answer:"NORMAL"},
+  {host:"10.0.2.14", bytes:"1,200,000",   ports:"443, 4444",     notes:"Small volume but port 4444 never seen before",             answer:"PORT"},
+  {host:"10.0.3.20", bytes:"2,900,000",   ports:"80, 443, 3389", notes:"Volume slightly over baseline",                           answer:"VOLUME"},
+  {host:"10.0.4.2",  bytes:"50,900 (x60)",ports:"587",           notes:"One connection every ~60 sec to the same external IP",     answer:"BEACON"}
+];
+
+function buildTable(){
+  var tbl = document.getElementById("obstbl");
+  observed.forEach(function(o, idx){
+    var row = document.createElement("tr");
+    row.innerHTML =
+      "<td class=\"mono\">" + o.host + "</td>" +
+      "<td class=\"mono\">" + o.bytes + "</td>" +
+      "<td class=\"mono\">" + o.ports + "</td>" +
+      "<td>" + o.notes + "</td>" +
+      "<td><select id=\"c_" + idx + "\"><option value=\"\">--</option>" +
+      "<option value=\"NORMAL\">NORMAL</option><option value=\"PORT\">PORT anomaly</option>" +
+      "<option value=\"VOLUME\">VOLUME anomaly</option><option value=\"BEACON\">BEACON anomaly</option></select></td>";
+    tbl.appendChild(row);
+  });
+}
+buildTable();
+
+function verify(){
+  var lines = [];
+  var score = 0;
+  observed.forEach(function(o, idx){
+    var sel = document.getElementById("c_" + idx).value;
+    var ok = sel === o.answer;
+    if (ok) score++;
+    lines.push(o.host + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + o.answer + "]"));
+  });
+  var met = (score === observed.length);
+  document.getElementById("log").innerHTML = "<span class=\"dim\">monitor# </span>show classification results\n\n" +
+    lines.join("\n") + "\n\n" +
+    (met ? "BASELINE REVIEW COMPLETE: all anomalies correctly identified." : "Some classifications incorrect. Re-check volume, ports, and timing notes.");
+  document.getElementById("score").innerHTML = "SCORE " + score + " / " + observed.length + " &#9474; OBJECTIVE: " +
+    (met ? "<span class=\"ok\">MET</span>" : "<span class=\"bad\">not yet met</span>");
+}
+
+function resetAll(){
+  observed.forEach(function(o, idx){
+    document.getElementById("c_" + idx).value = "";
+  });
+  document.getElementById("log").innerHTML = "<span class=\"dim\">monitor# </span>Reset. Classify every host, then submit.";
+  document.getElementById("score").innerHTML = "SCORE 0 / 5 &#9474; OBJECTIVE: <span class=\"bad\">not yet met</span>";
+}
+</script>
+</body>
+</html>

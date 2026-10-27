@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Passwords and password policies, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Passwords and password policies</h1>
+<h1>Coding problem, 4.2.a: Passwords and password policies</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.2.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A system administrator has defined a password policy (minimum length, complexity requirements,
+a banned/breached-password list, and a history of previously used passwords). Build the checker
+that evaluates a candidate password against that policy and reports every rule it violates, so
+the login form can show the user exactly what to fix.</p>
+<h2>Function contract</h2>
+<p>Implement <code>validate_password(password: str, policy: dict) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>password</code>, a string, the candidate password.</li>
+<li><code>policy</code>, a dict. Example:
+  <code>python
+  policy = {
+      "min_length": 12,
+      "require_upper": True,
+      "require_lower": True,
+      "require_digit": True,
+      "require_symbol": True,
+      "banned_list": ["password123", "letmein", "qwerty123456"],
+      "history": ["OldPass2023!", "OldPass2024!"],
+  }</code>
+  Any key may be omitted; a missing key means that rule is not enforced (see the Reference section below for
+  exact defaults).</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code> of violated rule names, in the fixed order defined in the Reference section below:
+<code>too_short</code>, <code>no_upper</code>, <code>no_lower</code>, <code>no_digit</code>, <code>no_symbol</code>, <code>in_banned_list</code>,
+<code>reused_password</code>. An empty list <code>[]</code> means the password is fully compliant.</p>
+<h2>Examples</h2>
+<pre><code>validate_password(&quot;abc&quot;, {&quot;min_length&quot;: 12, &quot;require_upper&quot;: True, &quot;require_digit&quot;: True})
+    -&gt; [&quot;too_short&quot;, &quot;no_upper&quot;, &quot;no_digit&quot;]
+
+validate_password(&quot;Password123&quot;, {&quot;banned_list&quot;: [&quot;password123&quot;]})
+    -&gt; [&quot;in_banned_list&quot;]
+
+validate_password(
+    &quot;Tr0ub4dor&amp;3xtra!&quot;,
+    {&quot;min_length&quot;: 12, &quot;require_upper&quot;: True, &quot;require_lower&quot;: True,
+     &quot;require_digit&quot;: True, &quot;require_symbol&quot;: True,
+     &quot;banned_list&quot;: [&quot;password123&quot;], &quot;history&quot;: [&quot;OldPass2023!&quot;]},
+) -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Missing policy keys are treated as "not required" (see the Reference section below for exact defaults).</li>
+<li>Violated rule names must be returned in the fixed order given above, even when several rules
+  are violated at once.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def validate_password(password: str, policy: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>password</code>, <code>policy</code>)</h3>
+<ul>
+<li><code>password</code>, a string, the candidate password. May be empty.</li>
+<li><code>policy</code>, a dict describing the policy. All keys are optional; a missing key is treated as
+  "not required" / empty. Recognized keys and defaults:</li>
+<li><code>min_length</code> (int, default <code>0</code>), minimum required length.</li>
+<li><code>require_upper</code> (bool, default <code>False</code>), require at least one uppercase letter (<code>str.isupper()</code>).</li>
+<li><code>require_lower</code> (bool, default <code>False</code>), require at least one lowercase letter (<code>str.islower()</code>).</li>
+<li><code>require_digit</code> (bool, default <code>False</code>), require at least one digit (<code>str.isdigit()</code>).</li>
+<li><code>require_symbol</code> (bool, default <code>False</code>), require at least one character that is not
+    alphanumeric (<code>not c.isalnum()</code>, e.g. <code>! @ # $ % - _ space</code>).</li>
+<li><code>banned_list</code> (list[str], default <code>[]</code>), forbidden/breached passwords. Matched
+    case-insensitively against <code>password</code> (e.g. <code>"Password1"</code> matches a banned entry <code>"password1"</code>).</li>
+<li><code>history</code> (list[str], default <code>[]</code>), previously used passwords for this account. Matched
+    case-sensitively, exact string equality, against <code>password</code>.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> of violated rule names. Only rules that are actually violated appear in the list.
+The list MUST be built by checking rules in this exact fixed order, and any violated rule name
+is appended in that order (this order is part of the contract, tests assert exact list equality):</p>
+<ol>
+<li><code>"too_short"</code>, <code>len(password) &lt; policy["min_length"]</code></li>
+<li><code>"no_upper"</code>, <code>require_upper</code> is true and no character in <code>password</code> is uppercase</li>
+<li><code>"no_lower"</code>, <code>require_lower</code> is true and no character in <code>password</code> is lowercase</li>
+<li><code>"no_digit"</code>, <code>require_digit</code> is true and no character in <code>password</code> is a digit</li>
+<li><code>"no_symbol"</code>, <code>require_symbol</code> is true and no character in <code>password</code> is a non-alphanumeric symbol</li>
+<li><code>"in_banned_list"</code>, <code>password.lower()</code> equals (case-insensitively) any entry in <code>banned_list</code></li>
+<li><code>"reused_password"</code>, <code>password</code> exactly matches (case-sensitive) any entry in <code>history</code></li>
+</ol>
+<p>If none of the above are violated, return <code>[]</code> (fully compliant password).</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>policy</code> may omit any subset of keys; missing keys use the defaults above.</li>
+<li>An empty <code>password</code> (<code>""</code>) is valid input and is evaluated normally against the rules
+  (it will violate <code>too_short</code> whenever <code>min_length &gt; 0</code>, and any <code>require_*</code> rule that is on,
+  since an empty string contains no uppercase/lowercase/digit/symbol characters).</li>
+<li>Rule checks are independent, a password can violate multiple rules simultaneously, and all
+  violated rules are reported (not just the first).</li>
+<li>Returns a <code>list[str]</code>, never <code>None</code>, never a set or tuple.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 4.2.a. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+
+
+def validate_password(password: str, policy: dict) -&gt; list:
+    """Validate a candidate password against a policy dict.
+
+    Args:
+        password: The candidate password string.
+        policy: A dict describing the policy. Recognized keys (all optional):
+            min_length (int, default 0)          — minimum required length.
+            require_upper (bool, default False)  — require an uppercase letter.
+            require_lower (bool, default False)  — require a lowercase letter.
+            require_digit (bool, default False)  — require a digit.
+            require_symbol (bool, default False) — require a non-alphanumeric symbol.
+            banned_list (list[str], default [])  — forbidden/breached passwords,
+                matched case-insensitively.
+            history (list[str], default [])      — previously used passwords, matched
+                case-sensitively (exact match) to prevent reuse.
+
+    Returns:
+        A list of violated rule-name strings, in this fixed order:
+        ["too_short", "no_upper", "no_lower", "no_digit", "no_symbol",
+         "in_banned_list", "reused_password"]. Only the names of violated rules
+        are included. Returns [] if the password is fully compliant.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement validate_password() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases (from prompt.md) --------------------------------------
+def test_example_1_multiple_violations():
+    result = impl.validate_password(
+        "abc", {"min_length": 12, "require_upper": True, "require_digit": True}
+    )
+    assert result == ["too_short", "no_upper", "no_digit"]
+
+
+def test_example_2_banned_list():
+    result = impl.validate_password("Password123", {"banned_list": ["password123"]})
+    assert result == ["in_banned_list"]
+
+
+def test_example_3_fully_compliant():
+    policy = {
+        "min_length": 12,
+        "require_upper": True,
+        "require_lower": True,
+        "require_digit": True,
+        "require_symbol": True,
+        "banned_list": ["password123"],
+        "history": ["OldPass2023!"],
+    }
+    result = impl.validate_password("Tr0ub4dor&amp;3xtra!", policy)
+    assert result == []
+
+
+# ---- hidden / edge cases ---------------------------------------------------
+def test_edge_empty_password_with_requirements():
+    policy = {
+        "min_length": 8,
+        "require_upper": True,
+        "require_lower": True,
+        "require_digit": True,
+        "require_symbol": True,
+    }
+    result = impl.validate_password("", policy)
+    assert result == ["too_short", "no_upper", "no_lower", "no_digit", "no_symbol"]
+
+
+def test_edge_empty_policy_dict():
+    # No keys at all -&gt; everything defaults to "not required" -&gt; compliant.
+    assert impl.validate_password("anything", {}) == []
+    assert impl.validate_password("", {}) == []
+
+
+def test_reused_password_case_sensitive():
+    policy = {"history": ["OldPass2023!", "OldPass2024!"]}
+    assert impl.validate_password("OldPass2023!", policy) == ["reused_password"]
+    # Different case does not count as reused (history is case-sensitive exact match).
+    assert impl.validate_password("oldpass2023!", policy) == []
+
+
+def test_banned_list_case_insensitive():
+    policy = {"banned_list": ["LetMeIn"]}
+    assert impl.validate_password("letmein", policy) == ["in_banned_list"]
+    assert impl.validate_password("LETMEIN", policy) == ["in_banned_list"]
+
+
+def test_require_symbol_definition():
+    policy = {"require_symbol": True}
+    assert impl.validate_password("abcXYZ123", policy) == ["no_symbol"]
+    assert impl.validate_password("abcXYZ123!", policy) == []
+    assert impl.validate_password("abc XYZ123", policy) == []  # space counts as a symbol
+
+
+def test_exact_ordering_multiple_violations():
+    # Violates every rule at once; asserts EXACT order per interface.md.
+    policy = {
+        "min_length": 20,
+        "require_upper": True,
+        "require_lower": True,
+        "require_digit": True,
+        "require_symbol": True,
+        "banned_list": ["short"],
+        "history": ["short"],
+    }
+    result = impl.validate_password("short", policy)
+    assert result == [
+        "too_short",
+        "no_upper",
+        "no_digit",
+        "no_symbol",
+        "in_banned_list",
+        "reused_password",
+    ]
+
+
+def test_only_min_length_enforced():
+    policy = {"min_length": 6}
+    assert impl.validate_password("abc", policy) == ["too_short"]
+    assert impl.validate_password("abcdef", policy) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

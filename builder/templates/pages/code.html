@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${page_title}</title>
+<link rel="stylesheet" href="${assets}/assignments/assignment-theme.css">
+<link rel="stylesheet" href="${assets}/vendor/codemirror-5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="${assets}/vendor/codemirror-5.65.16/monokai.min.css">
+</head>
+<body>
+<div class="hub-header">
+  <h1 class="hub-title">${title}</h1>
+  <p class="hub-subtitle">Skill ${aid} &middot; ${points} points</p>
+</div>
+
+<div class="playground-wrap">
+  <div class="pg-panel pg-problem-panel">
+    <h3>Problem</h3>
+    <div class="pg-prompt-body" id="prompt-body"></div>
+  </div>
+  <div class="pg-panel pg-code-panel">
+    <div class="pg-code-toolbar">
+      <span class="pg-code-tab">solution.py</span>
+      <span class="pg-toolbar-spacer"></span>
+      <button class="pg-icon-btn" id="reset-btn" title="Reset to starter code">&#8634; Reset</button>
+    </div>
+    <textarea class="pg-editor" id="editor" spellcheck="false"></textarea>
+    <div class="pg-controls">
+      <button class="pg-btn run" id="run-btn">&#9654; Run Tests</button>
+      <button class="pg-btn submit" id="submit-btn">Submit</button>
+      <span class="pg-status" id="status"></span>
+    </div>
+    <div class="pg-output">
+      <div class="pg-output-summary" id="summary">
+        <span class="pg-output-placeholder">Run your code to see test results here.</span>
+      </div>
+      <div class="pg-results" id="results"></div>
+    </div>
+  </div>
+</div>
+
+<script src="${assets}/config.js"></script>
+<script src="${assets}/shared/neon.js"></script>
+<script src="${assets}/shared/identity.js"></script>
+<script src="${assets}/shared/backend-client.js"></script>
+<script src="${assets}/vendor/codemirror-5.65.16/codemirror.min.js"></script>
+<script src="${assets}/vendor/codemirror-5.65.16/mode/python/python.min.js"></script>
+<script src="${assets}/assignments/md-lite.js"></script>
+<script src="${assets}/assignments/pyodide-runner.js"></script>
+<script>
+fetch("${data_url}").then(function(r){ return r.json(); }).then(function(p){
+  var promptHtml = MDLite.render(p.prompt_md);
+  if (p.interface_md) {
+    promptHtml += '<details class="pg-reference"><summary>Reference, exact rules used for grading</summary>' +
+      MDLite.render(p.interface_md) + '</details>';
+  }
+  document.getElementById("prompt-body").innerHTML = promptHtml;
+  PyodideRunner.init({
+    editorEl: document.getElementById("editor"),
+    runBtnEl: document.getElementById("run-btn"),
+    submitBtnEl: document.getElementById("submit-btn"),
+    resetBtnEl: document.getElementById("reset-btn"),
+    statusEl: document.getElementById("status"),
+    resultsEl: document.getElementById("results"),
+    summaryEl: document.getElementById("summary"),
+    starterPy: p.starter_py,
+    testsPy: p.tests_py,
+    topicId: p.topic_id,
+    atomId: p.atom_id,
+    points: p.points,
+    packages: p.packages || []
+  });
+});
+</script>
+</body>
+</html>

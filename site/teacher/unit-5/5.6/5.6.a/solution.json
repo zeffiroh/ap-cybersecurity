@@ -1,0 +1,6 @@
+{
+  "atom_id": "5.6.a",
+  "topic_id": "5.6",
+  "title": "Application monitoring and logging",
+  "solution_py": "\"\"\"Reference solution for 5.6.a. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\nfrom collections import defaultdict\nfrom typing import Dict, List\n\n\ndef solve(entries: List[Dict[str, object]], threshold: int, window_seconds: int) -> List[str]:\n    \"\"\"Flag source IPs whose failed-login count reaches >= threshold within some rolling\n    window of window_seconds, per the SIEM brute-force rule described in the lesson.\"\"\"\n    by_ip: Dict[str, List[int]] = defaultdict(list)\n    for e in entries:\n        if e.get(\"status\") == 401:\n            by_ip[e[\"ip\"]].append(e[\"ts\"])\n\n    flagged = set()\n    for ip, times in by_ip.items():\n        times = sorted(times)\n        for start in times:\n            count = sum(1 for t in times if start <= t <= start + window_seconds)\n            if count >= threshold:\n                flagged.add(ip)\n                break\n\n    return sorted(flagged)\n"
+}

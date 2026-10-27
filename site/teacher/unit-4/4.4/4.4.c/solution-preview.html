@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Identifying compromised devices (indicators of compromise), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Identifying compromised devices (indicators of compromise)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.4.c: Weighted IOC-scoring engine</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 4.4.B, 4.4.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Each device under investigation reports a set of observed indicators of compromise (IOCs). Each
+IOC type carries a fixed severity weight. Build the scoring engine that sums the weights of the
+IOCs observed on a device and returns an overall compromise verdict.</p>
+<h2>Function contract</h2>
+<p>Implement <code>def solve(iocs: list) -&gt; str</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A list of strings, each an IOC type observed on one device. Duplicate entries in the list count
+only once (an IOC type either is or is not present on the device).</p>
+<h2>IOC weight table</h2>
+<table>
+<thead>
+<tr>
+<th>IOC type string</th>
+<th>weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"known_malicious_hash"</code></td>
+<td>6</td>
+</tr>
+<tr>
+<td><code>"av_disabled"</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td><code>"new_admin_account"</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>"unusual_outbound_traffic"</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>"unexpected_scheduled_task"</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>"registry_run_key_added"</code></td>
+<td>2</td>
+</tr>
+<tr>
+<td><code>"failed_login_cluster"</code></td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p>Any IOC type string not in this table contributes a weight of 0 (it is ignored, not an error).</p>
+<h2>Output</h2>
+<p>One of the strings: <code>"clean"</code> (total score &lt; 4), <code>"suspicious"</code> (4 &lt;= total score &lt; 8),
+<code>"compromised"</code> (total score &gt;= 8).</p>
+<h2>Examples</h2>
+<pre><code>[&quot;av_disabled&quot;, &quot;new_admin_account&quot;]
+    -&gt; &quot;compromised&quot;   # 5 + 4 = 9 &gt;= 8
+
+[&quot;failed_login_cluster&quot;]
+    -&gt; &quot;clean&quot;          # 1 &lt; 4
+
+[&quot;new_admin_account&quot;, &quot;failed_login_cluster&quot;]
+    -&gt; &quot;suspicious&quot;      # 4 + 1 = 5, in [4, 8)
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Duplicate IOC types in the input list must not be double-counted.</li>
+<li>Unknown/unrecognized IOC type strings contribute 0 and must not raise an error.</li>
+<li>Thresholds are: <code>&lt; 4</code> clean, <code>4 &lt;= score &lt; 8</code> suspicious, <code>&gt;= 8</code> compromised.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(iocs: list) -&gt; str
+</code></pre>
+<h3>Input (<code>iocs</code>)</h3>
+<p>A list of <code>str</code> IOC type identifiers observed on a single device. Duplicates may appear in the
+list but each IOC type is counted at most once toward the total score.</p>
+<h3>IOC weight table</h3>
+<pre><code class="language-python">WEIGHTS = {
+    &quot;known_malicious_hash&quot;: 6,
+    &quot;av_disabled&quot;: 5,
+    &quot;new_admin_account&quot;: 4,
+    &quot;unusual_outbound_traffic&quot;: 3,
+    &quot;unexpected_scheduled_task&quot;: 3,
+    &quot;registry_run_key_added&quot;: 2,
+    &quot;failed_login_cluster&quot;: 1,
+}
+</code></pre>
+<p>Any string not present in this table contributes a weight of <code>0</code>.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>One of <code>"clean"</code>, <code>"suspicious"</code>, <code>"compromised"</code>, based on the total score (sum of unique
+matched weights):
+- <code>score &lt; 4</code> -&gt; <code>"clean"</code>
+- <code>4 &lt;= score &lt; 8</code> -&gt; <code>"suspicious"</code>
+- <code>score &gt;= 8</code> -&gt; <code>"compromised"</code></p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
+<li>Duplicate IOC type strings in the input are de-duplicated before scoring.</li>
+<li>Unrecognized IOC strings do not raise; they simply add 0 to the score.</li>
+<li>Thresholds are as specified above (lower bound inclusive, upper bound exclusive per band).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.4.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+WEIGHTS = {
+    "known_malicious_hash": 6,
+    "av_disabled": 5,
+    "new_admin_account": 4,
+    "unusual_outbound_traffic": 3,
+    "unexpected_scheduled_task": 3,
+    "registry_run_key_added": 2,
+    "failed_login_cluster": 1,
+}
+
+
+def solve(iocs: list) -&gt; str:
+    """Sum the weights of unique observed IOCs and classify a compromise verdict.
+
+    Args:
+        iocs: list of str IOC type identifiers observed on one device.
+
+    Returns:
+        "clean" (score &lt; 4), "suspicious" (4 &lt;= score &lt; 8), or "compromised" (score &gt;= 8).
+    """
+    unique_iocs = set(iocs)
+    score = sum(WEIGHTS.get(ioc, 0) for ioc in unique_iocs)
+
+    if score &gt;= 8:
+        return "compromised"
+    if score &gt;= 4:
+        return "suspicious"
+    return "clean"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_compromised():
+    assert impl.solve(["av_disabled", "new_admin_account"]) == "compromised"
+
+
+def test_example_2_clean():
+    assert impl.solve(["failed_login_cluster"]) == "clean"
+
+
+def test_example_3_suspicious():
+    assert impl.solve(["new_admin_account", "failed_login_cluster"]) == "suspicious"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_list_is_clean():
+    assert impl.solve([]) == "clean"
+
+
+def test_unknown_ioc_contributes_zero():
+    assert impl.solve(["unrecognized_ioc_type"]) == "clean"
+
+
+def test_duplicate_iocs_not_double_counted():
+    # av_disabled alone = 5 (suspicious). If duplicated and double-counted it would
+    # wrongly become 10 (compromised).
+    assert impl.solve(["av_disabled", "av_disabled", "av_disabled"]) == "suspicious"
+
+
+def test_boundary_score_exactly_four_is_suspicious():
+    assert impl.solve(["new_admin_account"]) == "suspicious"
+
+
+def test_boundary_score_just_below_four_is_clean():
+    assert impl.solve(["unusual_outbound_traffic"]) == "clean"
+
+
+def test_boundary_score_exactly_eight_is_compromised():
+    assert impl.solve(["av_disabled", "unusual_outbound_traffic"]) == "compromised"
+
+
+def test_boundary_score_seven_is_suspicious():
+    assert impl.solve(["unusual_outbound_traffic", "unexpected_scheduled_task",
+                        "failed_login_cluster"]) == "suspicious"
+
+
+def test_high_severity_combination_is_compromised():
+    assert impl.solve(["known_malicious_hash", "unusual_outbound_traffic",
+                        "registry_run_key_added"]) == "compromised"
+
+
+def test_all_iocs_combined_is_compromised():
+    all_iocs = ["known_malicious_hash", "av_disabled", "new_admin_account",
+                "unusual_outbound_traffic", "unexpected_scheduled_task",
+                "registry_run_key_added", "failed_login_cluster"]
+    assert impl.solve(all_iocs) == "compromised"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

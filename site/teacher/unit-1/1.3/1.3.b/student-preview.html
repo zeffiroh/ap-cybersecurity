@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evil twin attack, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Evil twin attack</h1>
+<h1>Coding problem, 1.3.b: Detect evil-twin access points</h1>
+<p><strong>Skill:</strong> Analyze Risk, Detect Attacks · <strong>Maps to:</strong> 1.3.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A wireless scanner returns a list of detected access points. Each AP is a dict with keys:
+- <code>ssid</code> (str), the human-readable network name
+- <code>bssid</code> (str), the hardware MAC address of the radio (normalized to uppercase)
+- <code>security</code> (str), one of <code>"OPEN"</code>, <code>"WEP"</code>, <code>"WPA"</code>, <code>"WPA2"</code>, <code>"WPA3"</code>
+- <code>signal</code> (int), received signal strength in dBm (negative; stronger = closer to 0)</p>
+<p>An AP is <strong>suspicious</strong> (potential evil twin) if ANY of the following holds:</p>
+<ol>
+<li><strong>Duplicate SSID / multiple BSSIDs</strong>, the same SSID is being broadcast by more than one
+   BSSID in the scan. Every BSSID in such a group is flagged.</li>
+<li><strong>Security downgrade</strong>, an SSID appears with at least two different security levels and the
+   AP in question does not have the strongest security level seen for that SSID. Those weaker
+   entries are flagged.</li>
+</ol>
+<p>Rules combine: an AP is flagged if either condition is true for it.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(aps: list[dict]) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<p>Return a <strong>sorted, de-duplicated</strong> list of suspicious BSSIDs.</p>
+<h2>Input</h2>
+<p>A list of dicts, each with keys <code>ssid</code>, <code>bssid</code>, <code>security</code>, <code>signal</code>.
+The list may be empty. BSSIDs are already uppercase.</p>
+<h2>Output</h2>
+<p>A sorted list of BSSIDs (strings) that are suspicious. Empty list if none.</p>
+<h2>Security ordering (weakest to strongest)</h2>
+<p><code>OPEN</code> &lt; <code>WEP</code> &lt; <code>WPA</code> &lt; <code>WPA2</code> &lt; <code>WPA3</code></p>
+<h2>Examples</h2>
+<pre><code># Two APs share SSID &quot;CafeGuest&quot; — different BSSIDs -&gt; both flagged (rule 1)
+# The OPEN entry also has weaker security (rule 2)
+aps = [
+    {&quot;ssid&quot;: &quot;CafeGuest&quot;, &quot;bssid&quot;: &quot;AA:BB:CC:11:22:33&quot;, &quot;security&quot;: &quot;WPA2&quot;, &quot;signal&quot;: -55},
+    {&quot;ssid&quot;: &quot;CafeGuest&quot;, &quot;bssid&quot;: &quot;DE:AD:BE:EF:00:01&quot;, &quot;security&quot;: &quot;OPEN&quot;, &quot;signal&quot;: -42},
+    {&quot;ssid&quot;: &quot;HotelLobby&quot;,&quot;bssid&quot;: &quot;11:22:33:44:55:66&quot;, &quot;security&quot;: &quot;WPA2&quot;, &quot;signal&quot;: -65},
+]
+solve(aps) -&gt; [&quot;AA:BB:CC:11:22:33&quot;, &quot;DE:AD:BE:EF:00:01&quot;]
+
+# Empty scan
+solve([]) -&gt; []
+
+# Single SSID, single BSSID, no anomaly
+solve([{&quot;ssid&quot;: &quot;HomeNet&quot;, &quot;bssid&quot;: &quot;00:11:22:33:44:55&quot;, &quot;security&quot;: &quot;WPA3&quot;, &quot;signal&quot;: -50}]) -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(aps: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>aps</code>)</h3>
+<p>A list of access-point dicts. Each dict has exactly these keys:
+- <code>ssid</code> (str), human-readable network name
+- <code>bssid</code> (str), hardware MAC address, uppercase, colon-separated (e.g. <code>"AA:BB:CC:11:22:33"</code>)
+- <code>security</code> (str), one of <code>"OPEN"</code>, <code>"WEP"</code>, <code>"WPA"</code>, <code>"WPA2"</code>, <code>"WPA3"</code>
+- <code>signal</code> (int), dBm (negative integer; e.g. -55)</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of suspicious BSSIDs. Empty list if no anomaly.</p>
+<h3>Detection rules (both are OR-combined per AP)</h3>
+<ol>
+<li><strong>Duplicate SSID</strong>: an SSID appears with more than one distinct BSSID in the scan.
+   All BSSIDs for that SSID are flagged.</li>
+<li><strong>Security downgrade</strong>: an SSID appears with multiple security levels. Any AP for that
+   SSID whose security level is not the maximum (strongest) for that SSID is flagged.</li>
+</ol>
+<p>Security strength order (weakest to strongest):
+<code>OPEN</code> &lt; <code>WEP</code> &lt; <code>WPA</code> &lt; <code>WPA2</code> &lt; <code>WPA3</code></p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>BSSIDs in input are already uppercase.</li>
+<li>Output is always sorted ascending and de-duplicated.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 1.3.b. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import List
+
+
+def solve(aps: List[dict]) -&gt; List[str]:
+    """Return a sorted, de-duplicated list of suspicious BSSIDs from a wireless scan.
+
+    An AP is suspicious if:
+      1. Its SSID is advertised by more than one BSSID (duplicate-SSID rule), OR
+      2. Its SSID appears with multiple security levels and this AP does not have
+         the strongest security level seen for that SSID (security-downgrade rule).
+
+    Security strength order (weakest -&gt; strongest): OPEN &lt; WEP &lt; WPA &lt; WPA2 &lt; WPA3
+
+    Args:
+        aps: list of dicts with keys ssid, bssid, security, signal
+    Returns:
+        sorted list of suspicious BSSIDs (empty list if none)
+    """
+    # TODO: implement the two detection rules described above and in the Reference section below
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+
+def test_duplicate_ssid_flags_all():
+    """Rule 1: same SSID, two different BSSIDs -&gt; both flagged."""
+    aps = [
+        {"ssid": "CafeGuest", "bssid": "AA:BB:CC:11:22:33", "security": "WPA2", "signal": -55},
+        {"ssid": "CafeGuest", "bssid": "DE:AD:BE:EF:00:01", "security": "WPA2", "signal": -42},
+        {"ssid": "HotelLobby", "bssid": "11:22:33:44:55:66", "security": "WPA2", "signal": -65},
+    ]
+    result = impl.solve(aps)
+    assert result == ["AA:BB:CC:11:22:33", "DE:AD:BE:EF:00:01"]
+
+
+def test_security_downgrade_flags_weaker():
+    """Rule 2: same SSID with different security -&gt; weaker entry flagged."""
+    aps = [
+        {"ssid": "Airport-Free", "bssid": "00:11:22:33:44:55", "security": "WPA2", "signal": -70},
+        {"ssid": "Airport-Free", "bssid": "FF:EE:DD:CC:BB:AA", "security": "OPEN", "signal": -48},
+        {"ssid": "SafeNet", "bssid": "AA:00:BB:11:CC:22", "security": "WPA3", "signal": -60},
+    ]
+    result = impl.solve(aps)
+    # Both rule 1 (dup SSID) and rule 2 (OPEN &lt; WPA2) apply; stronger BSSID also flagged by rule 1
+    assert "FF:EE:DD:CC:BB:AA" in result  # weaker entry always flagged
+    assert "00:11:22:33:44:55" in result  # rule 1 also flags the stronger entry
+    assert "AA:00:BB:11:CC:22" not in result  # clean single BSSID WPA3
+
+
+def test_clean_scan_empty_result():
+    """No anomaly: each SSID has exactly one BSSID and consistent security."""
+    aps = [
+        {"ssid": "HomeNet", "bssid": "00:11:22:33:44:55", "security": "WPA3", "signal": -50},
+        {"ssid": "OfficeNet", "bssid": "66:77:88:99:AA:BB", "security": "WPA2", "signal": -60},
+    ]
+    assert impl.solve(aps) == []
+
+
+def test_empty_input():
+    assert impl.solve([]) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_three_bssids_same_ssid():
+    """Three BSSIDs for one SSID: all three flagged by rule 1."""
+    aps = [
+        {"ssid": "MallWifi", "bssid": "AA:AA:AA:AA:AA:01", "security": "WPA2", "signal": -50},
+        {"ssid": "MallWifi", "bssid": "AA:AA:AA:AA:AA:02", "security": "WPA2", "signal": -55},
+        {"ssid": "MallWifi", "bssid": "AA:AA:AA:AA:AA:03", "security": "WPA2", "signal": -60},
+    ]
+    result = impl.solve(aps)
+    assert result == ["AA:AA:AA:AA:AA:01", "AA:AA:AA:AA:AA:02", "AA:AA:AA:AA:AA:03"]
+
+
+def test_downgrade_only_open_flagged_when_no_dup():
+    """Rule 2 alone (same SSID, two BSSIDs, different sec).
+    Since two BSSIDs are present, rule 1 also fires, but let's verify both are flagged."""
+    aps = [
+        {"ssid": "LibraryNet", "bssid": "BB:CC:DD:EE:FF:01", "security": "WPA3", "signal": -55},
+        {"ssid": "LibraryNet", "bssid": "BB:CC:DD:EE:FF:02", "security": "OPEN",  "signal": -40},
+    ]
+    result = impl.solve(aps)
+    assert "BB:CC:DD:EE:FF:02" in result  # weaker + dup SSID
+    assert "BB:CC:DD:EE:FF:01" in result  # dup SSID (rule 1)
+
+
+def test_single_ap_no_flag():
+    """One AP, unique SSID -&gt; nothing flagged."""
+    aps = [{"ssid": "OnlyNet", "bssid": "11:22:33:44:55:66", "security": "WPA2", "signal": -70}]
+    assert impl.solve(aps) == []
+
+
+def test_output_sorted_and_deduped():
+    """Output must be sorted ascending and contain no duplicate BSSIDs."""
+    aps = [
+        {"ssid": "Net", "bssid": "CC:CC:CC:CC:CC:CC", "security": "WPA2", "signal": -50},
+        {"ssid": "Net", "bssid": "AA:AA:AA:AA:AA:AA", "security": "OPEN",  "signal": -45},
+        {"ssid": "Net", "bssid": "BB:BB:BB:BB:BB:BB", "security": "WPA",   "signal": -55},
+    ]
+    result = impl.solve(aps)
+    assert result == sorted(set(result))
+    assert len(result) == len(set(result))
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

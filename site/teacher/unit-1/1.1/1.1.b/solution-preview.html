@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elicitation; malicious links and files, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Elicitation; malicious links and files  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.1.b: Malicious link and file indicator detector</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 1.1.A, 1.1.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the analyzer a phishing-awareness tool would use to flag suspicious URLs and filenames.
+Given a single string that is either a URL or a filename, return which malicious indicators
+it exhibits.</p>
+<p>Four indicator categories are defined:</p>
+<ul>
+<li><code>"lookalike-domain"</code>, the URL hostname resembles a known brand but is not the real domain
+  (typosquatting rules defined in the Reference section below)</li>
+<li><code>"ip-url"</code>, the URL uses a raw IPv4 address as its host instead of a domain name</li>
+<li><code>"dangerous-extension"</code>, the filename (or URL path) ends in an executable or script extension</li>
+<li><code>"mismatched-link"</code>, the URL contains a brand keyword in a path or subdomain while the
+  actual registrable domain belongs to a different host (defined precisely in the Reference section below)</li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(url_or_filename: str) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<p>Return the detected indicator labels as a <strong>sorted, de-duplicated</strong> list.</p>
+<h2>Input</h2>
+<p>A single string, either a URL (starting with <code>http://</code> or <code>https://</code>) or a bare filename.</p>
+<h2>Output</h2>
+<p>A sorted list of zero or more indicator labels drawn from
+<code>{"dangerous-extension", "ip-url", "lookalike-domain", "mismatched-link"}</code>.</p>
+<h2>Examples</h2>
+<pre><code>&quot;http://paypa1.com/verify&quot; -&gt; [&quot;lookalike-domain&quot;]
+&quot;http://192.168.4.99/reset&quot; -&gt; [&quot;ip-url&quot;]
+&quot;invoice.pdf.exe&quot; -&gt; [&quot;dangerous-extension&quot;]
+&quot;http://bankofamerica.com.secure-login.xyz&quot; -&gt; [&quot;lookalike-domain&quot;, &quot;mismatched-link&quot;]
+&quot;http://shop.example/track/44821&quot; -&gt; []
+&quot;http://dropbx.com/s/Q3.scr&quot; -&gt; [&quot;dangerous-extension&quot;, &quot;lookalike-domain&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(url_or_filename: str) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>url_or_filename</code>)</h3>
+<p>A single string. If it starts with <code>http://</code> or <code>https://</code> it is a URL; otherwise it is treated
+as a bare filename.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> drawn from
+<code>{"dangerous-extension", "ip-url", "lookalike-domain", "mismatched-link"}</code>.
+Empty list if no indicator is present.</p>
+<h3>Detection rules (all case-insensitive)</h3>
+<h4><code>ip-url</code></h4>
+<p>The hostname portion of the URL matches an IPv4 address: four decimal octets separated by dots,
+optionally followed by a port (e.g. <code>192.168.4.99</code>, <code>10.0.0.1:8080</code>).
+Detection regex (applied to hostname only): <code>^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$</code></p>
+<h4><code>lookalike-domain</code></h4>
+<p>The registrable domain (last two labels of the hostname, e.g. <code>paypa1.com</code>) matches any entry in
+the LOOKALIKE_DOMAINS set below.</p>
+<p>LOOKALIKE_DOMAINS (exact match after lowercasing the registrable domain):</p>
+<pre><code>paypa1.com, arnazon.com, dropbx.com, g00gle.com, faceb00k.com,
+rn1crosoft.com, rnicrosott.com, rnicrosoft.com, linkedln.com,
+app1e.com, twiitter.com, lnstagram.com
+</code></pre>
+<h4><code>dangerous-extension</code></h4>
+<p>The final extension of the string (extracted from the last path segment, or from the bare
+filename if no URL) is in the DANGEROUS_EXTENSIONS set.</p>
+<p>DANGEROUS_EXTENSIONS:</p>
+<pre><code>.exe, .scr, .bat, .cmd, .ps1, .vbs, .vbe, .js, .jse, .wsf, .wsh,
+.jar, .pif, .com, .hta, .msi, .dll, .cpl, .reg
+</code></pre>
+<p>For double-extension filenames like <code>report.pdf.exe</code>, the final extension is <code>.exe</code>, that
+extension alone triggers the indicator.</p>
+<h4><code>mismatched-link</code></h4>
+<p>Applies only to URLs (not bare filenames).
+A URL is a mismatched-link if:
+1. The registrable domain is NOT in the TRUSTED_DOMAINS set below, AND
+2. The URL contains at least one TRUSTED_BRAND keyword anywhere in the full URL string
+   (scheme + host + path) EXCLUDING the registrable domain itself.</p>
+<p>This models the pattern <code>http://bankofamerica.com.evil.net/...</code> where <code>bankofamerica.com</code>
+appears as a subdomain of <code>evil.net</code>.</p>
+<p>TRUSTED_DOMAINS (the real registrable domains):</p>
+<pre><code>paypal.com, amazon.com, dropbox.com, google.com, facebook.com,
+microsoft.com, linkedin.com, apple.com, twitter.com, instagram.com,
+bankofamerica.com, chase.com, wellsfargo.com, company.example,
+shop.example, meridian-corp.example
+</code></pre>
+<p>TRUSTED_BRAND keywords (substring match in the full URL, case-insensitive):</p>
+<pre><code>paypal, amazon, dropbox, google, facebook, microsoft, linkedin,
+apple, twitter, instagram, bankofamerica, chase, wellsfargo
+</code></pre>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Matching is case-insensitive throughout.</li>
+<li>Output is always sorted ascending and de-duplicated.</li>
+<li>A single input may trigger multiple indicators simultaneously.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.1.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+import re
+from typing import List
+from urllib.parse import urlparse
+
+# --- constants from the Reference section below ---
+
+LOOKALIKE_DOMAINS = {
+    "paypa1.com", "arnazon.com", "dropbx.com", "g00gle.com", "faceb00k.com",
+    "rn1crosoft.com", "rnicrosott.com", "rnicrosoft.com", "linkedln.com",
+    "app1e.com", "twiitter.com", "lnstagram.com",
+}
+
+DANGEROUS_EXTENSIONS = {
+    ".exe", ".scr", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse",
+    ".wsf", ".wsh", ".jar", ".pif", ".com", ".hta", ".msi", ".dll", ".cpl", ".reg",
+}
+
+TRUSTED_DOMAINS = {
+    "paypal.com", "amazon.com", "dropbox.com", "google.com", "facebook.com",
+    "microsoft.com", "linkedin.com", "apple.com", "twitter.com", "instagram.com",
+    "bankofamerica.com", "chase.com", "wellsfargo.com", "company.example",
+    "shop.example", "meridian-corp.example",
+}
+
+TRUSTED_BRANDS = [
+    "paypal", "amazon", "dropbox", "google", "facebook", "microsoft", "linkedin",
+    "apple", "twitter", "instagram", "bankofamerica", "chase", "wellsfargo",
+]
+
+_IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$')
+
+
+def _registrable_domain(hostname: str) -&gt; str:
+    """Return last two labels of a hostname, lowercased (e.g. 'evil.net' from 'foo.evil.net')."""
+    parts = hostname.lower().split(".")
+    if len(parts) &gt;= 2:
+        return ".".join(parts[-2:])
+    return hostname.lower()
+
+
+def _final_extension(s: str) -&gt; str:
+    """Return the final dot-extension of a string (path segment or filename), lowercased."""
+    # take the last path segment
+    segment = s.rstrip("/").split("/")[-1].split("?")[0].split("#")[0]
+    dot_idx = segment.rfind(".")
+    if dot_idx == -1:
+        return ""
+    return segment[dot_idx:].lower()
+
+
+def solve(url_or_filename: str) -&gt; List[str]:
+    """Return sorted, de-duplicated malicious indicators present in url_or_filename."""
+    s = url_or_filename or ""
+    found = set()
+    is_url = s.lower().startswith("http://") or s.lower().startswith("https://")
+
+    if is_url:
+        parsed = urlparse(s)
+        hostname = parsed.hostname or ""
+        reg_domain = _registrable_domain(hostname)
+
+        # ip-url
+        if _IP_RE.match(parsed.netloc.lower()):
+            found.add("ip-url")
+
+        # lookalike-domain
+        if reg_domain in LOOKALIKE_DOMAINS:
+            found.add("lookalike-domain")
+
+        # mismatched-link: not a trusted domain, but URL contains a trusted brand keyword
+        if reg_domain not in TRUSTED_DOMAINS:
+            url_lower = s.lower()
+            # check keyword presence outside the registrable domain portion
+            # strip reg_domain from the string and check remaining
+            url_without_reg = url_lower.replace(reg_domain, "", 1)
+            for brand in TRUSTED_BRANDS:
+                if brand in url_without_reg:
+                    found.add("mismatched-link")
+                    break
+
+        # dangerous-extension (from URL path)
+        ext = _final_extension(parsed.path)
+        if ext in DANGEROUS_EXTENSIONS:
+            found.add("dangerous-extension")
+    else:
+        # bare filename — only dangerous-extension applies
+        ext = _final_extension(s)
+        if ext in DANGEROUS_EXTENSIONS:
+            found.add("dangerous-extension")
+
+    return sorted(found)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+
+def test_lookalike_domain():
+    assert impl.solve("http://paypa1.com/verify?id=38291") == ["lookalike-domain"]
+
+
+def test_ip_url():
+    assert impl.solve("http://192.168.4.99/reset?user=jsmith") == ["ip-url"]
+
+
+def test_dangerous_extension_filename():
+    assert impl.solve("new_hire_form.pdf.exe") == ["dangerous-extension"]
+
+
+def test_lookalike_and_mismatched():
+    # bankofamerica.com.secure-login.xyz: reg domain is secure-login.xyz (not trusted),
+    # but bankofamerica appears in the URL outside the reg domain =&gt; mismatched-link.
+    # secure-login.xyz is not in LOOKALIKE_DOMAINS so no lookalike-domain here.
+    result = impl.solve("http://bankofamerica.com.secure-login.xyz/stmt/2026-05.pdf")
+    assert "mismatched-link" in result
+
+
+def test_clean_url():
+    assert impl.solve("http://shop.example/track/44821") == []
+
+
+def test_lookalike_and_dangerous_extension_url():
+    result = impl.solve("http://dropbx.com/s/Q3.scr")
+    assert result == ["dangerous-extension", "lookalike-domain"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_empty_string():
+    assert impl.solve("") == []
+
+
+def test_scr_extension_filename():
+    assert impl.solve("Q3_Report.scr") == ["dangerous-extension"]
+
+
+def test_ps1_extension():
+    assert impl.solve("http://company.example/setup.ps1") == ["dangerous-extension"]
+
+
+def test_case_insensitive_extension():
+    assert impl.solve("malware.EXE") == ["dangerous-extension"]
+
+
+def test_ip_url_with_port():
+    assert impl.solve("http://10.0.0.1:8080/admin") == ["ip-url"]
+
+
+def test_clean_filename():
+    assert impl.solve("report.pdf") == []
+
+
+def test_sorted_output():
+    result = impl.solve("http://dropbx.com/s/Q3.scr")
+    assert result == sorted(result)
+
+
+def test_dedup():
+    # Even if multiple rules could fire the same indicator, it appears once
+    result = impl.solve("http://paypa1.com/path.exe")
+    assert result == sorted(set(result))
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

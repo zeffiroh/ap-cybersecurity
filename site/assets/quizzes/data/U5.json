@@ -1,0 +1,1754 @@
+{
+  "unit_id": "U5",
+  "unit_title": "Securing Applications and Data",
+  "stimulus_sets": [
+    {
+      "id": "U5-S01",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "code_diff",
+        "label": "Exhibit A -- Code Review Excerpt: Meridian Outfitters Storefront Search",
+        "context": "During a Q3 application security review, an AppSec engineer at Meridian Outfitters flagged the product search function below. The exhibit includes the flagged source code, a sample request/response captured while testing the endpoint, and the reviewer's risk register entry as originally logged.",
+        "provenance": "Fictional. All organizations, code, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "code_diff",
+          "data": {
+            "repo": "meridian-outfitters/storefront",
+            "file": "app/search.py",
+            "flagged_code": "def search_products(term):\n    query = (\n        \"SELECT id, name, price, stock_qty FROM products \"\n        \"WHERE name LIKE '%\" + term + \"%'\"\n    )\n    cursor.execute(query)\n    try:\n        results = cursor.fetchall()\n    except Exception as db_error:\n        # Convenience for QA -- returns the raw driver exception to the caller\n        return render_template(\"error.html\", detail=str(db_error))\n    return results",
+            "test_request": "$ curl -s \"https://shop.meridianoutfitters.com/search?term=%25%27%20UNION%20SELECT%20username%2Cpassword_hash%2C1%2C1%20FROM%20admin_users--%20-\"",
+            "test_response": "{\"error\": \"You have an error in your SQL syntax; check the manual for your MySQL server version near 'UNION SELECT username,password_hash,1,1 FROM admin_users-- -' at line 1. Query executed against table 'meridian.admin_users', columns [username, password_hash, id, name].\"}",
+            "risk_register_entry": {
+              "logged_by": "J. Alvarez, AppSec",
+              "date_logged": "2024-08-12",
+              "entry_text": "Medium priority -- search bug."
+            },
+            "@attrs": {
+              "format": "code_diff"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S01-Q1",
+          "stimulus_ref": "U5-S01",
+          "topic_refs": [
+            "5.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.1.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 5.1.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.35,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 45,
+            "prerequisite_topics": [
+              "5.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "In `search_products`, the variable `term` is concatenated directly into the SQL query string before it is executed. Which attack does this coding practice most directly enable?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Cross-site request forgery (CSRF)"
+            },
+            {
+              "key": "B",
+              "text": "Distributed denial-of-service (DDoS)"
+            },
+            {
+              "key": "C",
+              "text": "SQL injection"
+            },
+            {
+              "key": "D",
+              "text": "ARP spoofing"
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "Concatenating unvalidated user input directly into a SQL query allows an attacker to alter the query's logic -- exactly what the test request demonstrates by appending `UNION SELECT username,password_hash,1,1 FROM admin_users`. Parameterized queries, which compile the query structure separately from user-supplied data, are the standard mitigation. CSRF, DDoS, and ARP spoofing exploit session tokens, bandwidth, and link-layer resolution respectively -- none are caused by unvalidated SQL string concatenation.",
+          "distractor_rationale": {
+            "A": "CSRF exploits a user's authenticated session to trigger unauthorized requests; it is unrelated to how the server builds its database queries.",
+            "B": "DDoS attacks overwhelm server resources with traffic volume, not with a crafted query string in a single request.",
+            "D": "ARP spoofing is a link-layer attack on MAC-to-IP mapping and has no connection to how an application constructs SQL queries."
+          }
+        },
+        {
+          "id": "U5-S01-Q2",
+          "stimulus_ref": "U5-S01",
+          "topic_refs": [
+            "5.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.1.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 5.1.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.35,
+            "a_param": 1.05,
+            "c_param": 0.25,
+            "est_response_time_sec": 70,
+            "prerequisite_topics": [
+              "5.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The captured `test_response` returns the raw database exception directly to the caller, revealing the table name `admin_users` and its column names. Which risk does this behavior most directly create?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "It increases the application's availability by surfacing server-side diagnostics to the client."
+            },
+            {
+              "key": "B",
+              "text": "It provides attackers with schema details and query structure useful for crafting further injection attacks."
+            },
+            {
+              "key": "C",
+              "text": "It reduces the need for user authentication on the search endpoint."
+            },
+            {
+              "key": "D",
+              "text": "It automatically encrypts sensitive data sent to the browser."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Verbose error messages -- exactly like the one captured here, which discloses the table name `admin_users` and its column list -- hand an attacker the reconnaissance information needed to craft a targeted injection payload. Production applications should suppress detailed database errors from the client and log them server-side only. The remaining choices describe no actual consequence of error verbosity.",
+          "distractor_rationale": {
+            "A": "Surfacing raw database errors to end users is a security anti-pattern, not an availability feature -- it discloses internal structure rather than improving uptime.",
+            "C": "Authentication requirements on the endpoint are unrelated to how verbose the error output is.",
+            "D": "Error message display has no effect on transport encryption (TLS/HTTPS); the two are unrelated layers."
+          }
+        },
+        {
+          "id": "U5-S01-Q3",
+          "stimulus_ref": "U5-S01",
+          "topic_refs": [
+            "5.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.1.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.D",
+              "lo": "LO 5.1.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "5.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "J. Alvarez's entire risk register entry for this finding reads: \"Medium priority -- search bug.\" Why is this documentation insufficient for risk management purposes?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Medium severity is always an inappropriate rating for SQL injection findings, which must be rated critical."
+            },
+            {
+              "key": "B",
+              "text": "Vulnerabilities should only be formally documented after exploitation is confirmed, to ensure the accuracy of impact data."
+            },
+            {
+              "key": "C",
+              "text": "Developers are not authorized to log security risks; documentation authority belongs exclusively to security analysts."
+            },
+            {
+              "key": "D",
+              "text": "The entry omits likelihood of exploitation, potential impact on systems and data, affected assets, and recommended remediation -- information the organization needs to prioritize and act on the risk."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "A risk entry that states only a vague label and a severity word cannot drive prioritization or remediation. The team needs to know how likely exploitation is, what an attacker could achieve (here, extraction of `admin_users` credentials via the demonstrated UNION-based payload), which systems and data are in scope, and what the recommended fix is (parameterized queries and suppressed error output). Without these, the entry is a label rather than a managed risk.",
+          "distractor_rationale": {
+            "A": "Severity must be assessed in context using likelihood and impact; asserting a fixed rating for a vulnerability class sidesteps the actual documentation gap.",
+            "B": "Documenting risks before exploitation is the entire point of proactive risk management; the search endpoint has already been shown exploitable in the test request, and waiting for confirmed exploitation before documenting contradicts standard practice.",
+            "C": "Many organizations expect or require developers who discover vulnerabilities to log them; restricting documentation authority to analysts would only delay risk visibility, not fix this entry's missing content."
+          }
+        },
+        {
+          "id": "U5-S01-Q4",
+          "stimulus_ref": "U5-S01",
+          "topic_refs": [
+            "5.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.1.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 5.1.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.95,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Meridian's storefront search endpoint is reachable by anyone on the internet, and injection vulnerabilities of this kind are consistently ranked in the OWASP Top 10. When re-evaluating this finding's risk rating, which factor most directly justifies classifying its likelihood as high?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The number of product rows currently stored in the `products` table."
+            },
+            {
+              "key": "B",
+              "text": "The broad internet exposure of the search endpoint combined with documented, widely available exploitation techniques for this vulnerability class."
+            },
+            {
+              "key": "C",
+              "text": "The sensitivity classification of the data that could be accessed if the vulnerability is exploited."
+            },
+            {
+              "key": "D",
+              "text": "The absence of multi-factor authentication on Meridian's customer accounts."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Likelihood is driven by attacker opportunity and capability. A publicly reachable endpoint expands the attacker pool to anyone on the internet, and OWASP Top 10 inclusion confirms exploitation techniques -- like the UNION-based payload demonstrated in the test request -- are well-known and widely tooled (e.g., sqlmap). Together these factors make exploitation probable. Row count and data sensitivity are impact factors, not likelihood factors, and customer MFA affects credential-based account takeover, not the search endpoint's injection surface.",
+          "distractor_rationale": {
+            "A": "The number of rows affects the scope of what could be exfiltrated -- an impact factor, not a likelihood factor.",
+            "C": "Data sensitivity drives the severity of consequences; it does not change how probable an attacker is to find and exploit the flaw.",
+            "D": "Missing MFA increases the risk of credential-based account takeover, not of a SQL injection attack, which bypasses the database layer directly rather than authentication."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S02",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "terminal_session",
+        "label": "Exhibit B -- Terminal Session: Vitahealth Solutions R&D Server Audit",
+        "context": "A security auditor at Vitahealth Solutions is reviewing Linux file permissions on the R&D department's file server. The auditor captured a directory listing alongside an excerpt of Vitahealth's internal access policy for the /RandD share.",
+        "provenance": "Fictional. Vitahealth Solutions, its staff, and its infrastructure are invented for assessment purposes only.",
+        "artifact": {
+          "format": "terminal_session",
+          "data": {
+            "host": "vitahealth-rnd-srv01",
+            "session": "$ ls -l /RandD\ndrwxr-xr-x  4 hresearcher rnd  4096 Aug 14 09:02 .\ndrwxrwx---  3 hresearcher rnd  4096 Aug 14 09:03 Research\ndrwxr-x---  2 hresearcher rnd  4096 Aug 14 09:04 Formula\n\n$ stat -c '%A %U %G %n' /RandD /RandD/Research /RandD/Formula\ndrwxr-xr-x hresearcher rnd /RandD\ndrwxrwx--- hresearcher rnd /RandD/Research\ndrwxr-x--- hresearcher rnd /RandD/Formula",
+            "policy_excerpt": "Vitahealth Solutions -- R&D File Server Access Policy (excerpt)\n(1) The R&D group must have full (read, write, execute) access to /RandD; other users may read and traverse it.\n(2) Only members of the R&D group may have any access to /RandD/Research.\n(3) Only the head researcher may have full access to /RandD/Formula; the R&D group may read and execute but not write; all other users have no access.",
+            "@attrs": {
+              "format": "terminal_session"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S02-Q1",
+          "stimulus_ref": "U5-S02",
+          "topic_refs": [
+            "5.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.2.D"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 5.2.D",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Based on the permission string `drwxr-x---` shown for `/RandD/Formula`, what level of access does a user who belongs to the `rnd` group have?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Read, write, and execute"
+            },
+            {
+              "key": "B",
+              "text": "No access"
+            },
+            {
+              "key": "C",
+              "text": "Read only"
+            },
+            {
+              "key": "D",
+              "text": "Read and execute only"
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "The permission string `rwxr-x---` divides into three segments: owner (rwx), group (r-x), and others (---). The group segment `r-x` grants read and execute but not write, so group members (the R&D team) can read and traverse the directory but cannot create, modify, or delete files in it.",
+          "distractor_rationale": {
+            "A": "`rwx` -- read, write, and execute -- describes the owner's permissions (the first three characters), not the group's.",
+            "B": "No access (`---`) describes what \"others\" -- users who are neither the owner nor in the `rnd` group -- have on this directory.",
+            "C": "Read-only would appear as `r--` for the group. The `x` in `r-x` confirms execute access is also granted."
+          }
+        },
+        {
+          "id": "U5-S02-Q2",
+          "stimulus_ref": "U5-S02",
+          "topic_refs": [
+            "5.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.2.D"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 5.2.D",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "5.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Per policy item (3), `/RandD/Formula` must give the head researcher (owner) full access, the R&D group (group) read and execute only, and all other users no access. Which numeric `chmod` value correctly implements this policy?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "chmod 754 /RandD/Formula"
+            },
+            {
+              "key": "B",
+              "text": "chmod 740 /RandD/Formula"
+            },
+            {
+              "key": "C",
+              "text": "chmod 750 /RandD/Formula"
+            },
+            {
+              "key": "D",
+              "text": "chmod 700 /RandD/Formula"
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "Owner = rwx = 7, group = r-x = 5 (read=4, execute=1, no write), others = --- = 0. Combined: 750 -- exactly what the terminal session shows is already applied to `/RandD/Formula`, confirming it is policy-compliant. Execute permission on a directory is required for users to traverse into it; without it, even read permission would not let the R&D group list the directory's contents.",
+          "distractor_rationale": {
+            "A": "754 = owner rwx (7), group r-x (5), others r-- (4). Others would gain read access, violating the no-access-for-others requirement in policy (3).",
+            "B": "740 = owner rwx (7), group r-- (4), others none. The R&D group could read file names via other means but could not execute (traverse into) the directory at all.",
+            "D": "700 = owner only (rwx). The entire R&D group would have no access, contradicting the policy requirement that they retain read and execute rights."
+          }
+        },
+        {
+          "id": "U5-S02-Q3",
+          "stimulus_ref": "U5-S02",
+          "topic_refs": [
+            "5.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.2.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 5.2.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.45,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "5.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Vitahealth wants `/RandD/Formula` write access restricted to whoever holds the head researcher role, with access decisions based on defined job roles rather than individual user identities -- so that when a new head researcher is appointed, access follows the role automatically. Which access control model best fits this requirement?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Discretionary Access Control (DAC)"
+            },
+            {
+              "key": "B",
+              "text": "Role-Based Access Control (RBAC)"
+            },
+            {
+              "key": "C",
+              "text": "Mandatory Access Control (MAC)"
+            },
+            {
+              "key": "D",
+              "text": "Attribute-Based Access Control (ABAC)"
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "RBAC assigns permissions to roles -- \"Head Researcher,\" \"R&D Member\" -- rather than to individual user accounts. This maps directly to the requirement: permissions follow the job role, so onboarding a new head researcher or offboarding the current one automatically adjusts access without per-user reconfiguration. DAC relies on the resource owner's discretion; MAC uses centrally assigned classification labels and clearances; ABAC is more expressive but more complex than this straightforward role-based use case requires.",
+          "distractor_rationale": {
+            "A": "DAC gives control to the resource owner, who can grant or revoke permissions arbitrarily -- this makes systematic role-based enforcement inconsistent and error-prone.",
+            "C": "MAC enforces access through centrally assigned classification labels and security clearances, designed for government/military-style environments, not a straightforward job-role scenario.",
+            "D": "ABAC could implement role-based decisions using role attributes, but it is significantly more complex than RBAC and is not the canonical model when job role is the sole access criterion."
+          }
+        },
+        {
+          "id": "U5-S02-Q4",
+          "stimulus_ref": "U5-S02",
+          "topic_refs": [
+            "5.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.2.D",
+            "LO",
+            "5.2.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 5.2.D",
+              "weight": "0.65"
+            },
+            "secondary": {
+              "skill": "2.C",
+              "lo": "LO 5.2.C",
+              "weight": "0.35"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.95,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Comparing the `stat` output against the policy excerpt: policy (1) requires the R&D group to have full (rwx) access to `/RandD`, with other users able to read and traverse it. Which directory's current permissions violate policy, and why?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "/RandD only -- the R&D group is assigned r-x (5) but policy (1) requires full rwx (7) for the group; the correct value is 775."
+            },
+            {
+              "key": "B",
+              "text": "/RandD/Research only -- its permissions allow others to access and write to the directory, violating policy (2)."
+            },
+            {
+              "key": "C",
+              "text": "/RandD/Formula only -- its permissions grant the R&D group more access than policy (3) allows."
+            },
+            {
+              "key": "D",
+              "text": "All three directories are correctly configured per policy."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "`/RandD` is currently `755` = owner rwx (7), group r-x (5), others r-x (5). Policy (1) requires the R&D group to have full access (rwx = 7), but the group currently has only r-x (5) -- no write permission. The corrected value is `775` (owner rwx, group rwx, others r-x). `/RandD/Research` at `770` is correctly configured per policy (2): group has full access, others have none. `/RandD/Formula` at `750` is correctly configured per policy (3): owner rwx, group r-x, others none.",
+          "distractor_rationale": {
+            "B": "`/RandD/Research` at `770` = owner rwx (7), group rwx (7), others none (0). Others have zero access -- this fully complies with policy (2); there is no violation here.",
+            "C": "`/RandD/Formula` at `750` = owner rwx (7), group r-x (5), others none (0) -- exactly what policy (3) specifies. There is no excess permission granted to the group.",
+            "D": "All three are not compliant: `/RandD` currently gives the group only r-x (5) when policy (1) requires rwx (7) for the group."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S03",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "incident_ticket",
+        "label": "Exhibit C -- Incident Ticket: Cascade Federal Credit Union",
+        "context": "Cascade Federal Credit Union's security operations team opened the following incident ticket after an employee reported a stolen laptop. The forensics notes also capture an unrelated audit finding surfaced during the same review cycle, plus a pending architecture decision for a new data field.",
+        "provenance": "Fictional. Cascade Federal Credit Union, its staff, and its systems are invented for assessment purposes only.",
+        "artifact": {
+          "format": "incident_ticket",
+          "data": {
+            "ticket_id": "CFC-INC-2026-0417",
+            "priority": "High",
+            "opened_by": "R. Delgado, Physical Security Liaison",
+            "category": "Data Loss / Device Theft",
+            "description": "Employee laptop (asset tag CFC-LT-2291) reported stolen from a personal vehicle overnight. The device held a local synced cache of member payment records for offline underwriting review. IT confirms the laptop's hard drive was protected with AES-256 full-disk encryption, and the recovery key is not stored on the device.",
+            "forensics_notes": "Unrelated finding surfaced during this review cycle: the authentication database shows two employee portal accounts (jsantos, mreyes) sharing the same login password, and both produce the identical SHA-256 hash value in the credentials table -- no per-account salt is applied. Separately, the platform team is finalizing the encryption approach for a new 'member health savings' data field and is deciding between AES-128 and AES-256.",
+            "@attrs": {
+              "format": "incident_ticket"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S03-Q1",
+          "stimulus_ref": "U5-S03",
+          "topic_refs": [
+            "5.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.3.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.3.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "IT confirms the stolen laptop's drive was encrypted with AES-256. Which statement best explains how this control mitigates the risk of member data exposure?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Without the correct decryption key, the ciphertext on the stolen drive is computationally infeasible to recover in any useful timeframe."
+            },
+            {
+              "key": "B",
+              "text": "AES-256 prevents the thief from connecting the laptop to any external network, isolating the data."
+            },
+            {
+              "key": "C",
+              "text": "AES-256 encryption automatically triggers a remote data wipe once the laptop is reported stolen."
+            },
+            {
+              "key": "D",
+              "text": "The encryption ensures the data was backed up to a secure server immediately before the theft occurred."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "Full-disk encryption converts all stored data into ciphertext. An adversary who physically possesses the drive but does not hold the key cannot read the plaintext member records; brute-forcing AES-256 is computationally infeasible with current technology. The other options describe network access control, mobile device management (remote wipe), and backup systems -- distinct controls that encryption alone does not provide.",
+          "distractor_rationale": {
+            "B": "Encryption does not restrict network connectivity; this conflates a confidentiality control with a network-layer control.",
+            "C": "Remote wipe is a separate mobile device management (MDM) capability, not a feature of disk encryption itself.",
+            "D": "Encryption transforms data at rest; it has no relationship to whether or when the data was backed up elsewhere."
+          }
+        },
+        {
+          "id": "U5-S03-Q2",
+          "stimulus_ref": "U5-S03",
+          "topic_refs": [
+            "5.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.3.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.3.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "5.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The forensics notes describe two accounts (jsantos, mreyes) with the same password producing identical SHA-256 hash values, because no per-account salt is applied. Which additional control would eliminate this vulnerability, and why does it work?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Add a unique, randomly generated salt to each password before hashing, so identical passwords produce different hash outputs."
+            },
+            {
+              "key": "B",
+              "text": "Encrypt each stored hash value with AES-256 to prevent anyone from reading the credentials table."
+            },
+            {
+              "key": "C",
+              "text": "Replace SHA-256 with AES-256, since AES is a stronger algorithm for storing passwords."
+            },
+            {
+              "key": "D",
+              "text": "Store the original plaintext passwords alongside their hashes so an administrator can verify correctness manually."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "A salt is a random value appended to a password before the hash is computed. Because each account gets a unique salt, two users with the same password -- like jsantos and mreyes -- produce different hash values. This also defeats precomputed rainbow-table attacks. Encrypting the hash values (B) does not solve the duplicate-hash problem. AES (C) is a symmetric encryption algorithm, not a suitable one-way function for credential storage. Storing plaintext (D) eliminates all benefit of hashing in the first place.",
+          "distractor_rationale": {
+            "B": "Encrypting hashes that are already duplicated does not stop two identical passwords from mapping to the same underlying hash value before encryption.",
+            "C": "AES is reversible symmetric encryption, not a one-way hash function; it is not designed for password storage.",
+            "D": "Storing plaintext passwords defeats the entire purpose of hashing and creates a far worse exposure if the credentials table is breached."
+          }
+        },
+        {
+          "id": "U5-S03-Q3",
+          "stimulus_ref": "U5-S03",
+          "topic_refs": [
+            "5.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.3.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.5,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "5.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The platform team is choosing between AES-128 and AES-256 for the new 'member health savings' data field. Which option provides stronger security, and which property of the algorithm accounts for the difference?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "AES-128 is stronger because a shorter key is processed through more internal rounds, compressing the output more securely."
+            },
+            {
+              "key": "B",
+              "text": "AES-256 is stronger because it stores twice as many data blocks per operation, reducing the number of encryption passes needed."
+            },
+            {
+              "key": "C",
+              "text": "AES-128 and AES-256 are equally secure because both use the same 128-bit block size for data processing."
+            },
+            {
+              "key": "D",
+              "text": "AES-256 is stronger because its longer key exponentially increases the number of possible key values, making brute-force attacks significantly harder."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "AES-128 uses a 128-bit key (2^128 possible values) while AES-256 uses a 256-bit key (2^256 possible values). The key space of AES-256 is astronomically larger, making exhaustive key search far more computationally expensive. Both variants use the same 128-bit block size, so block size is not the distinguishing factor, and AES-128 actually uses fewer internal rounds (10) than AES-256 (14) -- the reverse of what option A claims.",
+          "distractor_rationale": {
+            "A": "AES-128 has fewer rounds than AES-256, not more; fewer rounds does not translate into tighter compression or more security.",
+            "B": "This confuses key length with data throughput per operation; AES-256's advantage is keyspace size, not block volume.",
+            "C": "Block size is a shared property of both variants and is not what differentiates their brute-force resistance -- key size is."
+          }
+        },
+        {
+          "id": "U5-S03-Q4",
+          "stimulus_ref": "U5-S03",
+          "topic_refs": [
+            "5.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.3.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.3.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 1.0,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Cascade's data classification policy requires files labelled \"Confidential\" to satisfy two independent requirements: (1) their contents must be unreadable if the storage media is seized, and (2) any unauthorized modification must be detectable before the file is used. Which combination of cryptographic controls best satisfies both requirements simultaneously?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Full-disk encryption with AES-256 only"
+            },
+            {
+              "key": "B",
+              "text": "SHA-256 hashing of each file, with hashes stored in a secure registry"
+            },
+            {
+              "key": "C",
+              "text": "Triple-DES encryption applied in two passes to each file"
+            },
+            {
+              "key": "D",
+              "text": "AES-256 encryption of each file combined with a SHA-256 hash of the plaintext stored in a separate access-controlled registry"
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "Requirement (1) -- confidentiality -- is addressed by AES-256 encryption, which renders ciphertext unreadable without the key. Requirement (2) -- integrity verification -- is addressed by the SHA-256 hash of the plaintext: before using a decrypted file, the system recomputes its hash and compares it to the stored value; any tampering produces a mismatch. Option A satisfies only (1). Option B satisfies only (2). Option C addresses neither requirement adequately: 3DES is outdated and provides no integrity mechanism.",
+          "distractor_rationale": {
+            "A": "Encryption alone hides the contents but provides no way to detect whether the ciphertext was tampered with before or after decryption.",
+            "B": "Hashing alone provides no confidentiality -- anyone with access to the file can read it in the clear.",
+            "C": "Applying an outdated cipher twice does not add an integrity-checking mechanism, and 3DES is no longer considered a strong choice for new deployments."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S04",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "composite",
+        "label": "Exhibit D -- PGP Message Log and Keyserver Notice: LightningGrid",
+        "context": "LightningGrid security engineers at two plants coordinate encrypted inter-plant communications over PGP. A security analyst reviewing key management practices captured the following message log and a subsequent automated keyserver notice.",
+        "provenance": "Fictional. LightningGrid, its staff, and its infrastructure are invented for assessment purposes only.",
+        "artifact": {
+          "format": "composite",
+          "data": {
+            "component": [
+              {
+                "tool": "PGP Message Log -- Plant 7 / Plant 12 Secure Channel",
+                "lines": "R. Oyelaran (Plant 7): Ready to send the Q3 turbine diagnostics report over. I'll sign it with my key before I encrypt so you know it's really from me.\nT. Voss (Plant 12): Sounds good. Encrypt it with my public key so only I can open it on this end.\nR. Oyelaran: Copy. Signing with my private key now, then encrypting the signed file to your public key before I send.",
+                "@attrs": {
+                  "id": "D1",
+                  "type": "pgp_message_log"
+                }
+              },
+              {
+                "tool": "LightningGrid PKI Keyserver -- Automated Notice",
+                "lines": "Key ID: 0x8F2BEA71 (T. Voss, Plant 12 Security Engineering)\nEvent: Reported lost/stolen device (laptop) containing local private key material. Reported 09:14 UTC.\nStatus: NO REVOCATION CERTIFICATE has been published for this key as of this notice.\nCorrespondents currently trusting this key: 14 (unchanged since incident).",
+                "@attrs": {
+                  "id": "D2",
+                  "type": "keyserver_notice"
+                }
+              }
+            ],
+            "@attrs": {
+              "format": "composite"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S04-Q1",
+          "stimulus_ref": "U5-S04",
+          "topic_refs": [
+            "5.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.4.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.B",
+              "lo": "LO 5.4.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "In Component D1, R. Oyelaran encrypts the report so that only T. Voss can read it. Which key should R. Oyelaran use to encrypt the message?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "T. Voss's public key"
+            },
+            {
+              "key": "B",
+              "text": "R. Oyelaran's own private key"
+            },
+            {
+              "key": "C",
+              "text": "T. Voss's private key"
+            },
+            {
+              "key": "D",
+              "text": "R. Oyelaran's own public key"
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "In asymmetric encryption, a message intended for a specific recipient is encrypted using that recipient's public key. Only T. Voss's corresponding private key -- never shared with anyone -- can decrypt it, ensuring confidentiality.",
+          "distractor_rationale": {
+            "B": "Private keys are used to sign outgoing messages, not to encrypt messages for a recipient -- a common conflation between encryption and signing.",
+            "C": "Private keys are never shared. If T. Voss's private key were used by the sender, it would have had to be transmitted, defeating the entire security model.",
+            "D": "Encrypting with the sender's own public key would mean only the sender could decrypt -- T. Voss would have no way to read the message."
+          }
+        },
+        {
+          "id": "U5-S04-Q2",
+          "stimulus_ref": "U5-S04",
+          "topic_refs": [
+            "5.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.4.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.B",
+              "lo": "LO 5.4.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.1,
+            "a_param": 0.9,
+            "c_param": 0.25,
+            "est_response_time_sec": 55,
+            "prerequisite_topics": [
+              "5.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "R. Oyelaran says the report will be signed \"before I encrypt so you know it's really from me.\" Which key is used to create that digital signature?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "R. Oyelaran's own private key"
+            },
+            {
+              "key": "B",
+              "text": "T. Voss's private key"
+            },
+            {
+              "key": "C",
+              "text": "R. Oyelaran's own public key"
+            },
+            {
+              "key": "D",
+              "text": "T. Voss's public key"
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "Digital signatures are created using the sender's private key. T. Voss will verify the signature using R. Oyelaran's public key, confirming both authenticity (the message came from the claimed sender) and non-repudiation (R. Oyelaran cannot later deny sending it).",
+          "distractor_rationale": {
+            "B": "T. Voss's private key is not accessible to R. Oyelaran; using it would require T. Voss to share it, which violates key security.",
+            "C": "Public keys are freely distributed and known to all parties; signing with one's own public key would let anyone forge the signature since the key is not secret.",
+            "D": "T. Voss's public key is used to encrypt messages for T. Voss, not to sign outgoing messages from R. Oyelaran."
+          }
+        },
+        {
+          "id": "U5-S04-Q3",
+          "stimulus_ref": "U5-S04",
+          "topic_refs": [
+            "5.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.4.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 5.4.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "5.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "R. Oyelaran's plan -- \"signing with my private key now, then encrypting the signed file to your public key\" -- must achieve both confidentiality (only T. Voss can read it) and authenticity (T. Voss can confirm it came from R. Oyelaran). Which sequence of operations, in this order, actually achieves both requirements?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Encrypt the document with the sender's private key, then sign it with the recipient's public key."
+            },
+            {
+              "key": "B",
+              "text": "Sign the document with the sender's private key, then encrypt the signed document with the recipient's public key."
+            },
+            {
+              "key": "C",
+              "text": "Encrypt the document with the sender's public key, then sign it with the recipient's private key."
+            },
+            {
+              "key": "D",
+              "text": "Sign the document with the recipient's public key, then encrypt it with the sender's private key."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Achieving both confidentiality and authenticity requires two operations in this order: (1) sign with the sender's private key -- proving authorship, since only R. Oyelaran holds that key; and (2) encrypt the signed document with the recipient's public key -- ensuring only T. Voss can decrypt and read it. This is the canonical PGP send sequence and the basis of authenticated encrypted messaging, matching exactly what R. Oyelaran described.",
+          "distractor_rationale": {
+            "A": "Encrypting with the sender's private key would let anyone holding the sender's public key (which is public) decrypt the document -- no confidentiality. Signing with the recipient's public key would let anyone forge that signature -- no authenticity.",
+            "C": "The sender's public key is not used for encryption to the recipient; encrypting with it would allow only the sender to decrypt. The recipient's private key is also inaccessible to the sender.",
+            "D": "Public keys cannot be used to create valid signatures in standard asymmetric schemes; signing requires a private key. This option reverses the roles of both key types."
+          }
+        },
+        {
+          "id": "U5-S04-Q4",
+          "stimulus_ref": "U5-S04",
+          "topic_refs": [
+            "5.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.4.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 5.4.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.85,
+            "a_param": 1.25,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Per Component D2, T. Voss's laptop -- which stores their PGP private key -- was reported stolen at 09:14 UTC, and no revocation certificate has yet been published; 14 correspondents still trust this key. What is the most appropriate immediate mitigation?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Generate a new key pair and silently replace the public key on the key server without notifying correspondents."
+            },
+            {
+              "key": "B",
+              "text": "Continue using the old key pair until all in-flight encrypted messages are recovered and read."
+            },
+            {
+              "key": "C",
+              "text": "Ask all 14 correspondents to re-encrypt past messages they sent to T. Voss using T. Voss's new key."
+            },
+            {
+              "key": "D",
+              "text": "Publish a revocation certificate for the compromised key to the key server, notify all correspondents, and generate a new key pair with a new public key to distribute."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "A compromised private key must be immediately revoked by publishing a revocation certificate to the key server, signalling to all parties that they should stop encrypting to that key. All 14 correspondents must be explicitly notified since they may not routinely check revocation status. A new key pair is then generated and the new public key redistributed through a trusted channel. Silent replacement without revocation leaves the old key trusted by correspondents, enabling the attacker to decrypt intercepted future messages.",
+          "distractor_rationale": {
+            "A": "Silent replacement without revoking the old key leaves the 14 correspondents continuing to trust and encrypt to a compromised key, since they have no way to know it was replaced.",
+            "B": "Continuing to use a compromised key pair allows the attacker to decrypt any message encrypted to the stolen key and to forge T. Voss's signature -- neither is acceptable.",
+            "C": "Messages already encrypted and sent cannot be retroactively re-encrypted; the plaintext is not available to re-encrypt. Past confidentiality is permanently lost for messages encrypted to the compromised key."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S05",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "chat_transcript",
+        "label": "Exhibit E -- Slack Transcript: BrightCart Engineering Review",
+        "context": "During a pre-launch code review at online retailer BrightCart, engineers discussed the new account signup flow and two findings on the product-review and invoice-download features in the #eng-reviews channel.",
+        "provenance": "Fictional. BrightCart, its staff, and its application are invented for assessment purposes only.",
+        "artifact": {
+          "format": "chat_transcript",
+          "data": {
+            "platform": "Slack -- #eng-reviews (BrightCart, 42 members)",
+            "date": "Wednesday, 3 Jun 20XX -- 15:02 to 15:11 UTC",
+            "messages": {
+              "msg": [
+                "quick q on the new account signup flow -- are we defaulting new accounts to standard-user role, or do they start with elevated perms until an admin locks it down?",
+                "defaults are minimal -- standard-user only, nothing elevated. admin has to explicitly bump someone to manager/admin role",
+                "good, that's how it should ship",
+                "separate thing -- I found the product-review field renders raw HTML server-side, no sanitization. tested with a <script> tag and it fired on my own page load",
+                "yeah I saw that ticket. PM wants to launch Friday, said we can patch it in the next release",
+                "that's not great, it's not a UI polish thing, it's stored XSS -- every customer who opens that review page runs whatever script is in it",
+                "also flagging: the invoice-download endpoint takes ?file=<path> straight from the querystring and reads it off disk, no validation at all. raised it with the endpoint owner and they said users have to be logged in to hit it anyway, so it's low risk and can wait"
+              ]
+            },
+            "@attrs": {
+              "format": "chat_transcript"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S05-Q1",
+          "stimulus_ref": "U5-S05",
+          "topic_refs": [
+            "5.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.5.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "New BrightCart accounts are created with minimal, standard-user permissions by default, and elevated access must be explicitly granted by an administrator. Which application security principle does this best illustrate?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Secure by design"
+            },
+            {
+              "key": "B",
+              "text": "Security by default"
+            },
+            {
+              "key": "C",
+              "text": "Defense in depth"
+            },
+            {
+              "key": "D",
+              "text": "Vulnerability management"
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Security by default means the application ships in its most secure configuration without requiring the end user or administrator to harden it manually. Granting minimal permissions from account creation -- the principle of least privilege applied as a default state -- is the textbook example. Secure by design refers to the development-lifecycle practice of building security in from the start, not specifically to the shipped runtime configuration.",
+          "distractor_rationale": {
+            "A": "Secure by design and security by default are closely related and frequently confused; secure by design is a development-phase principle, while security by default describes the out-of-the-box configuration state of the shipped product.",
+            "C": "Defense in depth describes layering multiple overlapping controls at different layers -- it does not specifically address default account permissions.",
+            "D": "Vulnerability management is an operational process for tracking and patching flaws, unrelated to the default permission posture at account creation."
+          }
+        },
+        {
+          "id": "U5-S05-Q2",
+          "stimulus_ref": "U5-S05",
+          "topic_refs": [
+            "5.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.5.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "5.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Suppose BrightCart's engineers instead rewrite the vulnerable database queries elsewhere in the app to use parameterized statements. How does this change protect the application from injection attacks?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The database encrypts each query before execution, making it unreadable to attackers monitoring network traffic."
+            },
+            {
+              "key": "B",
+              "text": "The application rate-limits the number of queries any single user can submit per minute, slowing down automated attacks."
+            },
+            {
+              "key": "C",
+              "text": "The database rejects any query that contains more than one SQL statement, blocking multi-statement injection payloads."
+            },
+            {
+              "key": "D",
+              "text": "The query structure is compiled separately from the user-supplied data, so user input can never be interpreted as executable SQL code."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "Parameterized queries (prepared statements) send the SQL template to the database engine to be compiled first, then supply user input as strictly typed data parameters -- never as part of the SQL text. Even if an attacker enters `'; DROP TABLE users; --`, the database treats it as a literal string value, not as SQL to execute. This eliminates the injection surface for that query entirely.",
+          "distractor_rationale": {
+            "A": "Parameterization operates at the query-building layer, not the transport or storage encryption layer; the two are independent, complementary controls.",
+            "B": "Rate-limiting reduces the window for automated attack campaigns but does not prevent a single well-crafted injection payload from succeeding on the first attempt.",
+            "C": "Rejecting multi-statement queries is one configuration mitigation, but it can be bypassed by single-statement injections (e.g., `OR 1=1`); parameterized queries prevent all injection regardless of statement count."
+          }
+        },
+        {
+          "id": "U5-S05-Q3",
+          "stimulus_ref": "U5-S05",
+          "topic_refs": [
+            "5.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.5.A",
+            "LO",
+            "5.5.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.A",
+              "weight": "0.6"
+            },
+            "secondary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.B",
+              "weight": "0.4"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.95,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The PM wants to launch Friday and defer the stored XSS fix in the product-review field to the next release. Evaluate this decision from the perspective of application security principles.",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The decision is acceptable because stored XSS is a low-severity issue that primarily affects only the attacker's own browser session."
+            },
+            {
+              "key": "B",
+              "text": "The decision is problematic because it exposes every customer who views a poisoned review to malicious script execution, and it reflects a failure of both secure by design and security by default principles."
+            },
+            {
+              "key": "C",
+              "text": "The decision is acceptable because HTTPS encryption will prevent injected scripts embedded in page content from executing in customers' browsers."
+            },
+            {
+              "key": "D",
+              "text": "The decision is problematic only if BrightCart stores payment card data, since PCI-DSS would mandate an immediate fix."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Stored XSS is a high-severity vulnerability ranked in the OWASP Top 10. A script injected into a review -- as the engineer confirmed by triggering their own `<script>` tag -- is served to every customer who loads that page, enabling session hijacking, credential harvesting, or malicious redirection without further attacker interaction. Delaying the fix also reveals two compounding design failures: the application was not built with sanitization architected in (secure by design), and it does not restrict unsafe HTML by default (security by default).",
+          "distractor_rationale": {
+            "A": "Stored XSS is persistent and affects every visitor who views the infected page, not just the attacker's own session -- unlike reflected XSS, which requires targeting a specific victim.",
+            "C": "HTTPS is a transport-layer control; it protects data moving between the browser and server but cannot remove or neutralize a script the server has already embedded in a legitimate HTML response.",
+            "D": "Application security obligations exist independently of what data type is involved; any customer's browser session is at risk from XSS regardless of whether payment data is stored."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S06",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "log_excerpt",
+        "label": "Exhibit F -- SOC Log Review: Cascade Federal Credit Union Member Portal",
+        "context": "A SOC analyst at Cascade Federal Credit Union is triaging an alert on the member portal's application server. The exhibit combines a web server access log excerpt, a database activity monitor summary, and a note on the current WAF deployment mode.",
+        "provenance": "Fictional. Cascade Federal Credit Union, its infrastructure, and this incident are invented for assessment purposes only.",
+        "artifact": {
+          "format": "log_excerpt",
+          "data": {
+            "source": "Apache access log, app-server-03 (member portal)",
+            "log_lines": {
+              "line": [
+                "203.0.113.44 - - [15/Aug/2026:09:14:02 +0000] \"GET /../../etc/passwd HTTP/1.1\" 403 512",
+                "203.0.113.44 - - [15/Aug/2026:09:14:05 +0000] \"GET /admin/config.php HTTP/1.1\" 200 4821",
+                "203.0.113.44 - - [15/Aug/2026:09:14:07 +0000] \"GET /admin/users.php HTTP/1.1\" 200 9342",
+                "203.0.113.44 - - [15/Aug/2026:09:14:09 +0000] \"POST /admin/users.php HTTP/1.1\" 200 512"
+              ]
+            },
+            "db_activity_summary": "09:16:41 UTC -- Database activity monitor flagged 4,012 queries in 28 seconds from app-server-03, each containing the fragment: UNION SELECT",
+            "soc_note": "WAF is currently deployed in monitoring-only mode with no SQL injection detection signature set enabled.",
+            "@attrs": {
+              "format": "log_excerpt"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S06-Q1",
+          "stimulus_ref": "U5-S06",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.D"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.D",
+              "lo": "LO 5.6.D",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Which of the four Apache access log entries is most likely an indicator of a directory traversal attack?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "POST /admin/users.php HTTP/1.1 200"
+            },
+            {
+              "key": "B",
+              "text": "GET /admin/config.php HTTP/1.1 200"
+            },
+            {
+              "key": "C",
+              "text": "GET /admin/users.php HTTP/1.1 200"
+            },
+            {
+              "key": "D",
+              "text": "GET /../../etc/passwd HTTP/1.1 403"
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "The `../../` sequence in the URI is a classic directory traversal pattern. The attacker attempted to navigate above the web root using relative path components to access `/etc/passwd`, a sensitive OS file outside the intended application directory. The 403 response indicates the server rejected the request, but the attempt itself is an indicator of attack that must be logged and investigated.",
+          "distractor_rationale": {
+            "A": "A POST to an existing admin endpoint is not a traversal pattern; it is a data-modification request, relevant to a different indicator (see Q2).",
+            "B": "A 200 response for an admin configuration page is not itself a traversal indicator -- it becomes suspicious only in the context of the broader access pattern examined in Q2.",
+            "C": "Similarly, this entry reflects normal application-layer access, not a path-manipulation attempt."
+          }
+        },
+        {
+          "id": "U5-S06-Q2",
+          "stimulus_ref": "U5-S06",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.E"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.D",
+              "lo": "LO 5.6.E",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.35,
+            "a_param": 1.05,
+            "c_param": 0.25,
+            "est_response_time_sec": 70,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The same source IP (203.0.113.44) accesses `/admin/config.php`, then `/admin/users.php`, then POSTs to `/admin/users.php` -- all within 4 seconds and all returning HTTP 200. Which attack behavior do these entries most likely indicate?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "A brute-force credential stuffing attack targeting the admin login page"
+            },
+            {
+              "key": "B",
+              "text": "A denial-of-service attack consuming server resources through repeated HTTP requests"
+            },
+            {
+              "key": "C",
+              "text": "A legitimate administrator performing routine site maintenance tasks"
+            },
+            {
+              "key": "D",
+              "text": "An attacker systematically enumerating and interacting with administrative pages after gaining unauthorized access"
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "Three distinct administrative endpoints are accessed sequentially from a single IP in under four seconds -- all returning HTTP 200 (successful). The POST to `users.php` with a small response body (512 bytes) suggests a data-modification action. The rapid, systematic traversal of config and user-management endpoints, right after the traversal attempt in Q1, is consistent with an attacker who has already gained access and is performing post-compromise reconnaissance and manipulation of the admin interface.",
+          "distractor_rationale": {
+            "A": "Credential stuffing targets authentication endpoints with repeated attempts and typically produces many 401 or 403 responses, not sequential 200s across diverse admin pages.",
+            "B": "A DoS attack would generate far higher request volume targeting the same endpoint to exhaust resources, not a handful of methodical requests to different admin pages.",
+            "C": "Legitimate administrator activity is possible but unlikely given the sub-4-second span across distinct administrative areas, especially following a blocked traversal attempt from the same IP moments earlier."
+          }
+        },
+        {
+          "id": "U5-S06-Q3",
+          "stimulus_ref": "U5-S06",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.E"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.D",
+              "lo": "LO 5.6.E",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The database activity monitor flagged 4,012 queries in 28 seconds, each containing the SQL fragment `UNION SELECT`. Which attack class is most consistent with this pattern?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "A cross-site scripting (XSS) attack injecting malicious scripts through the database"
+            },
+            {
+              "key": "B",
+              "text": "A denial-of-service attack aimed at exhausting the database connection pool through query flooding"
+            },
+            {
+              "key": "C",
+              "text": "A UNION-based SQL injection attack attempting to extract data by appending attacker-controlled SELECT statements"
+            },
+            {
+              "key": "D",
+              "text": "A brute-force attack cycling through common database user passwords"
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "UNION SELECT is a specific SQL injection technique where an attacker appends a second SELECT statement to a legitimate query using the UNION operator, extracting data from other tables in the same response. The high query volume in a compressed time window is characteristic of automated injection tooling (e.g., sqlmap) cycling through column-count probes and data-type compatibility tests to construct a successful UNION payload.",
+          "distractor_rationale": {
+            "A": "XSS is a client-side attack; payloads are injected into HTML responses served to browsers, not into SQL database queries. XSS does not produce `UNION SELECT` patterns in database logs.",
+            "B": "DoS attacks against a database connection pool generate high-volume connection requests or long-running queries, not syntactically structured `UNION SELECT` statements.",
+            "D": "Password brute-force attacks operate at the authentication layer using credential inputs, not SQL syntax in the query layer."
+          }
+        },
+        {
+          "id": "U5-S06-Q4",
+          "stimulus_ref": "U5-S06",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.B",
+              "lo": "LO 5.6.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.3,
+            "a_param": 1.0,
+            "c_param": 0.25,
+            "est_response_time_sec": 70,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The SOC note confirms the WAF is running in monitoring-only mode with no SQL injection signature set enabled. Which control would be most appropriate to detect (and ultimately block) attacks like the UNION-based injection observed here in real time?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Encrypting the database at rest using AES-256"
+            },
+            {
+              "key": "B",
+              "text": "Deploying the WAF with SQL injection detection signatures active in blocking mode"
+            },
+            {
+              "key": "C",
+              "text": "Enforcing multi-factor authentication for all database administrators"
+            },
+            {
+              "key": "D",
+              "text": "Applying role-based access control to database tables"
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "A WAF with active SQL injection signatures inspects incoming HTTP request payloads in real time, matching content against known injection patterns before the request reaches the application. This provides real-time detection (and, in blocking mode, prevention) at the network boundary -- the most direct control for this detection requirement, and the one component the SOC note confirms is currently missing.",
+          "distractor_rationale": {
+            "A": "Encryption at rest protects data confidentiality if storage media is stolen; it does nothing to detect active injection attempts against the running application.",
+            "C": "MFA limits who can log in to administer the database but does not analyze or detect malformed query patterns originating from the application layer.",
+            "D": "RBAC is a preventive control restricting what an authenticated principal can access; it does not detect attack attempts from externally-facing attack traffic like the traversal and injection observed here."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U5-S07",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "email_thread",
+        "label": "Exhibit G -- Email Thread: SecurePath Retail Pentest Findings",
+        "context": "An external penetration tester reports two findings from a Q2 engagement at SecurePath Retail to the security lead, tying a secure-design gap to a detection gap that let related tampering go unnoticed.",
+        "provenance": "Fictional. SecurePath Retail, its staff, and its systems are invented for assessment purposes only.",
+        "artifact": {
+          "format": "email_thread",
+          "data": {
+            "email": [
+              {
+                "from": "K. Ibarra <k.ibarra@redteam-consulting.example>",
+                "to": "M. Okafor <m.okafor@securepathretail.com>",
+                "date": "Tue, 09 Jun 20XX 11:02:00 -0400",
+                "subject": "Pentest findings -- SecurePath Retail Q2 engagement",
+                "body": "Mariam,\n\nTwo findings from this week's engagement.\n\n(1) The invoice-download endpoint takes a raw file path from the querystring (?file=...) and reads it directly off disk, with no validation. When I flagged this to the endpoint owner, they said everyone hitting that endpoint is already logged in, so it's low risk and can wait until next quarter.\n\n(2) Separately -- I found that the SHA-256 hash of a production binary, payment-gateway-connector.exe, no longer matches the hash published by the vendor. I checked your FIM console: it never fired an alert on this file, even though FIM is deployed on that host. It looks like FIM is currently configured to alert on every single file write in that directory, including nightly log rotation -- there's a multi-week backlog of thousands of unreviewed alerts and nobody has been working through them.\n\n-- Kavya",
+                "@attrs": {
+                  "seq": "1"
+                }
+              },
+              {
+                "from": "M. Okafor <m.okafor@securepathretail.com>",
+                "to": "K. Ibarra <k.ibarra@redteam-consulting.example>",
+                "date": "Tue, 09 Jun 20XX 11:41:00 -0400",
+                "subject": "Re: Pentest findings -- SecurePath Retail Q2 engagement",
+                "body": "Kavya,\n\nThanks. For the incident ticket on finding (2) -- how should we classify the hash mismatch itself, before we've confirmed what happened?\n\n-- Mariam",
+                "@attrs": {
+                  "seq": "2"
+                }
+              },
+              {
+                "from": "K. Ibarra <k.ibarra@redteam-consulting.example>",
+                "to": "M. Okafor <m.okafor@securepathretail.com>",
+                "date": "Tue, 09 Jun 20XX 11:57:00 -0400",
+                "subject": "Re: Pentest findings -- SecurePath Retail Q2 engagement",
+                "body": "Classify it as an indicator of compromise (IoC) -- the binary may have been replaced or backdoored. Until proven otherwise, treat the host as compromised and quarantine it.\n\n-- Kavya",
+                "@attrs": {
+                  "seq": "3"
+                }
+              }
+            ],
+            "@attrs": {
+              "format": "email_thread"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U5-S07-Q1",
+          "stimulus_ref": "U5-S07",
+          "topic_refs": [
+            "5.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.5.A",
+            "LO",
+            "5.5.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.B",
+              "weight": "0.6"
+            },
+            "secondary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.A",
+              "weight": "0.4"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.95,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "5.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The endpoint owner argues that because all users must be authenticated to reach the invoice-download endpoint, the unsanitized `?file=` path parameter is low risk and remediation can wait. Evaluate this reasoning and identify the correct remediation approach.",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The reasoning is sound; authentication ensures that only authorized users access the system, which sufficiently limits the impact of an unsanitized file path."
+            },
+            {
+              "key": "B",
+              "text": "The reasoning is flawed; authentication does not prevent an authenticated user from supplying traversal sequences such as ../../etc/shadow to read files outside the intended directory, and remediation requires canonicalizing and allowlist-validating the resolved path before any file operation."
+            },
+            {
+              "key": "C",
+              "text": "The reasoning is sound; path traversal is only exploitable over unauthenticated connections, so the finding should be marked informational."
+            },
+            {
+              "key": "D",
+              "text": "The reasoning is flawed, but the correct remediation is to replace the file system with a database, eliminating direct file-path handling entirely."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Path traversal allows an attacker to use sequences like `../` to navigate outside the intended directory and read sensitive server files. Authentication confirms identity but does not constrain what file paths an authenticated user can supply -- a legitimate user can be the attacker, or a legitimate session can be hijacked. Correct remediation involves stripping or rejecting traversal sequences, resolving the full canonical path, and verifying it starts within an approved base directory before any file operation.",
+          "distractor_rationale": {
+            "A": "Authentication and authorization are different controls -- authentication establishes identity, but a malicious or compromised authenticated user can still exploit application-layer flaws like path traversal.",
+            "C": "Insider threats, session hijacking, and privilege-escalation scenarios all involve authenticated actors, making authentication an insufficient boundary for access-control decisions.",
+            "D": "Replacing the storage medium does not address the root cause -- unsanitized input; the fix is input sanitization and path validation, not a full system replacement."
+          }
+        },
+        {
+          "id": "U5-S07-Q2",
+          "stimulus_ref": "U5-S07",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.B",
+              "lo": "LO 5.6.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.9,
+            "a_param": 1.25,
+            "c_param": 0.25,
+            "est_response_time_sec": 85,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "SecurePath's FIM is configured to alert on every file change in the relevant directory, including routine nightly log rotation, producing a multi-week backlog of unreviewed alerts. Which consequence is most likely to undermine the detection strategy?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Security analysts will experience alert fatigue, reducing the probability that genuine tampering events -- like the payment-gateway-connector.exe hash mismatch -- receive timely investigation."
+            },
+            {
+              "key": "B",
+              "text": "The FIM system will be unable to compute valid hashes for files that have been updated by routine processes."
+            },
+            {
+              "key": "C",
+              "text": "Application log files will be automatically excluded from FIM coverage by the operating system."
+            },
+            {
+              "key": "D",
+              "text": "The organization will automatically satisfy continuous monitoring compliance requirements by generating a higher alert volume."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "When FIM is misconfigured to fire on every routine system change, it produces excessive false-positive alerts that bury genuine tampering events. Alert fatigue causes analysts to deprioritize or dismiss alerts without investigation -- exactly what allowed the connector binary's hash mismatch to sit unreviewed. Effective FIM requires a curated exclusion list for known-good change events (log rotation schedules, patch windows) so that remaining alerts represent high-confidence anomalies.",
+          "distractor_rationale": {
+            "B": "FIM continues to compute hashes normally for changed files; the system still functions technically. The problem is analyst response failure, not hash computation failure.",
+            "C": "Operating systems do not automatically exclude files from third-party monitoring tools; exclusions must be explicitly configured by the administrator.",
+            "D": "Alert volume has no bearing on compliance status; generating excessive noise while missing real events is contrary to effective continuous monitoring, not a substitute for it."
+          }
+        },
+        {
+          "id": "U5-S07-Q3",
+          "stimulus_ref": "U5-S07",
+          "topic_refs": [
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.6.D"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.D",
+              "lo": "LO 5.6.D",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.25,
+            "a_param": 0.9,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "K. Ibarra classifies the hash mismatch on `payment-gateway-connector.exe` -- where the file's SHA-256 hash no longer matches the vendor-published value -- as which type of finding?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "A false positive caused by antivirus software quarantining part of the file"
+            },
+            {
+              "key": "B",
+              "text": "An indicator of compromise (IoC) suggesting the file may have been replaced or backdoored"
+            },
+            {
+              "key": "C",
+              "text": "An expected result of operating system localization adapting the binary for the regional environment"
+            },
+            {
+              "key": "D",
+              "text": "A routine outcome when software is updated through an automated patch management system"
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "A hash mismatch between a production executable and its vendor-published digest is a textbook indicator of compromise. The file may have been replaced by a weaponized version, injected with a backdoor, or corrupted by an attacker. Until proven otherwise through investigation, it must be treated as a compromise -- exactly why K. Ibarra recommends quarantining the host.",
+          "distractor_rationale": {
+            "A": "Antivirus quarantine typically moves or deletes a file rather than silently modifying it; even if quarantine were the cause, the correct response is to investigate, not dismiss as a false positive.",
+            "C": "OS localization does not modify compiled executable binaries; locale settings affect text display, not binary content.",
+            "D": "Legitimate patches do change hashes, but a well-managed patch process updates the FIM baseline at the time of patching. An unexplained mismatch with no corresponding authorized change record remains an IoC."
+          }
+        },
+        {
+          "id": "U5-S07-Q4",
+          "stimulus_ref": "U5-S07",
+          "topic_refs": [
+            "5.5",
+            "5.6"
+          ],
+          "lo_refs": [
+            "LO",
+            "5.5.B",
+            "LO",
+            "5.6.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 5.5.B",
+              "weight": "0.55"
+            },
+            "secondary": {
+              "skill": "3.B",
+              "lo": "LO 5.6.C",
+              "weight": "0.45"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.5,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 85,
+            "prerequisite_topics": [
+              "5.5",
+              "5.6"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Considering both findings together, which combination of a design-phase control and a detection-phase control would most effectively address the full chain of gaps at SecurePath Retail?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Rely on the login requirement alone to secure the download endpoint, and increase FIM's scan frequency from daily to hourly without changing its alert rules."
+            },
+            {
+              "key": "B",
+              "text": "Disable FIM entirely on the affected directory since it produces too many false alerts, and replace the file system-based storage with a database to eliminate path handling."
+            },
+            {
+              "key": "C",
+              "text": "Canonicalize and allowlist-validate file paths before the file-read operation, closing the traversal vector at the design layer, and reconfigure FIM with an exclusion list for known-good routine changes so that genuine binary-tampering alerts are not buried in noise."
+            },
+            {
+              "key": "D",
+              "text": "Encrypt the downloaded files with AES-256 so unauthorized path traversal cannot expose their contents, and configure FIM to alert only on changes made outside business hours."
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "The two findings share a common structural cause: neither the design-time control (path validation) nor the runtime detection control (well-tuned FIM) was actually doing its job. Canonicalizing and allowlist-validating the resolved path closes the traversal vector regardless of authentication status. Reconfiguring FIM with an exclusion list for known-good routine changes (log rotation, patch windows) restores its ability to surface genuine tampering -- like the connector binary's hash mismatch -- instead of drowning it in a backlog. Increasing scan frequency (A) does not fix the alert-fatigue root cause; disabling detection (B) removes a needed control and database migration does not address unsanitized input; encryption and time-of-day alerting (D) neither prevents traversal for an authorized session nor catches tampering that occurs during business hours.",
+          "distractor_rationale": {
+            "A": "More frequent scanning does not resolve the underlying problem: FIM is already generating far more alerts than analysts can review, so scanning more often only adds to the backlog rather than fixing the noise.",
+            "B": "Removing detection coverage rather than tuning it eliminates the organization's ability to catch tampering at all, and moving to a database does not address the root cause of unsanitized path input.",
+            "D": "Encryption at rest does not stop an authorized session from being used to traverse and read files it should not reach, and limiting alerts to off-hours would miss the exact kind of business-hours tampering event described here."
+          }
+        }
+      ]
+    }
+  ]
+}

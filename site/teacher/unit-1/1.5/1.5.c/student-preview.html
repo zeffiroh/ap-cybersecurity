@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI suggesting detection rules, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>AI suggesting detection rules</h1>
+<h1>Coding problem, 1.5.c: Generate detection rules from a login log</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 1.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A SOC receives a stream of authentication log events. Your task is to implement a
+brute-force detection engine: scan the log for source IPs that generate 5 or more
+<code>login_fail</code> events within any 60-second window, and emit a structured detection-rule
+string for each flagged IP.</p>
+<p>This mirrors how an AI-assisted SIEM generates candidate detection rules from raw log data.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(logs: list[dict]) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>logs</code>, a list of dicts, each with:
+- <code>ts</code> (int): Unix timestamp in seconds
+- <code>src</code> (str): source IP address
+- <code>event</code> (str): event type; only <code>"login_fail"</code> counts toward brute-force detection
+- <code>ok</code> (bool): True = success, False = failure</p>
+<h2>Output</h2>
+<p>A <strong>sorted</strong> list of detection-rule strings. Format for each triggered IP:</p>
+<pre><code>ALERT brute_force src=&lt;IP&gt; count=&lt;N&gt; window=60s
+</code></pre>
+<p>where <code>&lt;N&gt;</code> is the maximum number of <code>login_fail</code> events from that IP found within any
+contiguous 60-second window (i.e., events where <code>max_ts - min_ts &lt;= 59</code>).
+Rules are sorted lexicographically. At most one rule per IP.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">logs = [
+    {&quot;ts&quot;: 0,  &quot;src&quot;: &quot;1.2.3.4&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 10, &quot;src&quot;: &quot;1.2.3.4&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 20, &quot;src&quot;: &quot;1.2.3.4&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 30, &quot;src&quot;: &quot;1.2.3.4&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 40, &quot;src&quot;: &quot;1.2.3.4&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+]
+solve(logs) -&gt; [&quot;ALERT brute_force src=1.2.3.4 count=5 window=60s&quot;]
+
+logs = [
+    {&quot;ts&quot;: 0,  &quot;src&quot;: &quot;9.9.9.9&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 10, &quot;src&quot;: &quot;9.9.9.9&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False},
+]
+solve(logs) -&gt; []   # only 2 failures — below threshold
+
+solve([]) -&gt; []     # empty log
+</code></pre>
+<h2>Algorithm (sliding window)</h2>
+<ol>
+<li>Collect all <code>login_fail</code> events and group by <code>src</code>.</li>
+<li>Sort each group by <code>ts</code>.</li>
+<li>For each group, slide a window: for each event at position <code>i</code>, count how many
+   events starting at <code>i</code> have <code>ts &lt;= events[i].ts + 59</code>.</li>
+<li>If the maximum window count for any source is &gt;= 5, emit its rule string.</li>
+<li>Return the list sorted lexicographically.</li>
+</ol>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(logs: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>logs</code>)</h3>
+<p>A list of log-event dicts. Each dict has exactly these keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ts</code></td>
+<td>int</td>
+<td>Unix timestamp (seconds, non-negative integer)</td>
+</tr>
+<tr>
+<td><code>src</code></td>
+<td>str</td>
+<td>Source IP address string (e.g. <code>"10.0.0.1"</code>)</td>
+</tr>
+<tr>
+<td><code>event</code></td>
+<td>str</td>
+<td>Event type string; <code>"login_fail"</code> is the only type that counts toward the brute-force rule</td>
+</tr>
+<tr>
+<td><code>ok</code></td>
+<td>bool</td>
+<td><code>True</code> = success, <code>False</code> = failure (redundant with event, included for completeness)</td>
+</tr>
+</tbody>
+</table>
+<p>Example single entry:</p>
+<pre><code class="language-python">{&quot;ts&quot;: 1000, &quot;src&quot;: &quot;10.0.0.5&quot;, &quot;event&quot;: &quot;login_fail&quot;, &quot;ok&quot;: False}
+</code></pre>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted</strong> <code>list[str]</code> of detection-rule strings. One rule string is emitted per source IP
+that triggers the brute-force condition. The exact rule string format is:</p>
+<pre><code>ALERT brute_force src=&lt;IP&gt; count=&lt;N&gt; window=60s
+</code></pre>
+<p>Where:
+- <code>&lt;IP&gt;</code> is the source IP string exactly as it appears in the log entries.
+- <code>&lt;N&gt;</code> is the integer count of <code>login_fail</code> events from that IP within any contiguous 60-second
+  window (the maximum count observed across all possible 60-second windows for that IP).
+- <code>window=60s</code> is the literal string (fixed).</p>
+<p>The list is sorted lexicographically (Python default <code>str</code> sort on the full rule string).</p>
+<h3>Brute-force detection rule</h3>
+<p>An IP triggers the rule when it produces <strong>5 or more</strong> <code>login_fail</code> events where all events fall
+within a 60-second window (i.e., <code>max_ts - min_ts &lt;= 59</code> for some subset of size &gt;= 5 from that
+IP's <code>login_fail</code> events).</p>
+<p>Detection algorithm (reference implementation uses this):
+1. Group all <code>login_fail</code> events by <code>src</code>.
+2. For each source, sort events by <code>ts</code>.
+3. Use a sliding window: for each event at index <code>i</code>, count how many subsequent events have
+   <code>ts &lt;= events[i].ts + 59</code> (inclusive). The window size is the length of that group.
+4. If the maximum window size for that source is &gt;= 5, emit the rule with <code>count=</code> set to that
+   maximum window size.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li><code>logs</code> is a list (may be empty); entries are dicts with the schema above.</li>
+<li><code>ts</code> values are non-negative integers; multiple events can share the same <code>ts</code>.</li>
+<li>Other event types (e.g. <code>"login_ok"</code>, <code>"logout"</code>) are ignored.</li>
+<li>Output is always sorted ascending (lexicographic) and de-duplicated (at most one rule per IP).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 1.5.c. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import List, Dict, Any
+
+
+def solve(logs: List[Dict[str, Any]]) -&gt; List[str]:
+    """Generate detection-rule strings for IPs that exceed the brute-force threshold.
+
+    Args:
+        logs: list of dicts with keys ts (int), src (str), event (str), ok (bool).
+              Only 'login_fail' events count toward the brute-force rule.
+    Returns:
+        Sorted list of rule strings of the form:
+        'ALERT brute_force src=&lt;IP&gt; count=&lt;N&gt; window=60s'
+        One entry per IP that has &gt;= 5 login_fail events within any 60-second window.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() -- see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _fail(src, ts_list):
+    """Helper: build login_fail events for src at given timestamps."""
+    return [{"ts": t, "src": src, "event": "login_fail", "ok": False} for t in ts_list]
+
+
+def _ok(src, ts):
+    return {"ts": ts, "src": src, "event": "login_ok", "ok": True}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_single_ip_exactly_threshold():
+    logs = _fail("10.0.0.1", [0, 10, 20, 30, 40])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=10.0.0.1 count=5 window=60s"]
+
+
+def test_below_threshold_not_flagged():
+    logs = _fail("10.0.0.2", [0, 30, 59])
+    assert impl.solve(logs) == []
+
+
+def test_empty_logs():
+    assert impl.solve([]) == []
+
+
+def test_two_ips_one_flagged():
+    logs = _fail("192.168.1.1", [0, 5, 10, 15, 20]) + _fail("192.168.1.2", [0, 100])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=192.168.1.1 count=5 window=60s"]
+
+
+def test_login_ok_events_ignored():
+    # 4 failures + many successes = should NOT trigger
+    logs = _fail("172.16.0.1", [0, 10, 20, 30]) + [_ok("172.16.0.1", t) for t in range(100)]
+    assert impl.solve(logs) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_window_boundary_inclusive():
+    # Events at ts=0 and ts=59 are exactly 59 apart -- same 60-second window
+    logs = _fail("10.1.1.1", [0, 10, 20, 30, 59])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=10.1.1.1 count=5 window=60s"]
+
+
+def test_window_boundary_exclusive():
+    # Events at ts=0 and ts=60 are 60 apart -- outside the 60-second window
+    # Only events 0..4 fit in window starting at 0 if last is ts=60
+    # But only events ts=1..59 fit for window starting 1, etc.
+    # With ts=[0,15,30,45,60]: window [0..59] covers [0,15,30,45] -&gt; 4 only
+    logs = _fail("10.1.1.2", [0, 15, 30, 45, 60])
+    assert impl.solve(logs) == []
+
+
+def test_two_ips_both_flagged_sorted():
+    logs = _fail("203.0.113.5", [0, 1, 2, 3, 4]) + _fail("198.51.100.1", [100, 101, 102, 103, 104])
+    result = impl.solve(logs)
+    assert result == sorted(result)
+    assert len(result) == 2
+    assert "ALERT brute_force src=198.51.100.1 count=5 window=60s" in result
+    assert "ALERT brute_force src=203.0.113.5 count=5 window=60s" in result
+
+
+def test_count_reflects_max_window():
+    # 7 events within 60s; count should be 7 not 5
+    logs = _fail("10.2.2.2", [0, 5, 10, 15, 20, 25, 30])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=10.2.2.2 count=7 window=60s"]
+
+
+def test_events_spread_across_two_windows():
+    # 3 in first window, 5 in second; only second triggers
+    logs = _fail("10.3.3.3", [0, 20, 40, 100, 110, 120, 130, 140])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=10.3.3.3 count=5 window=60s"]
+
+
+def test_no_login_fail_events():
+    logs = [_ok("10.4.4.4", t) for t in range(20)]
+    assert impl.solve(logs) == []
+
+
+def test_duplicate_timestamps():
+    # 5 events at same timestamp -- all within 60s window
+    logs = _fail("10.5.5.5", [50, 50, 50, 50, 50])
+    result = impl.solve(logs)
+    assert result == ["ALERT brute_force src=10.5.5.5 count=5 window=60s"]
+
+
+def test_output_is_sorted():
+    # Multiple IPs -- output must be lexicographically sorted
+    ips = ["99.1.1.1", "10.0.0.1", "172.16.0.1"]
+    logs = []
+    for ip in ips:
+        logs += _fail(ip, [0, 1, 2, 3, 4])
+    result = impl.solve(logs)
+    assert result == sorted(result)
+    assert len(result) == 3
+
+
+def test_exactly_four_failures_not_flagged():
+    logs = _fail("10.6.6.6", [0, 10, 20, 30])
+    assert impl.solve(logs) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

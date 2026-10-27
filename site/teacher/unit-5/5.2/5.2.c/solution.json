@@ -1,0 +1,6 @@
+{
+  "atom_id": "5.2.c",
+  "topic_id": "5.2",
+  "title": "Credential theft prevention and lateral movement",
+  "solution_py": "\"\"\"Reference solution for 5.2.c. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\nfrom collections import defaultdict\nfrom typing import Dict, List\n\n\ndef solve(events: List[Dict[str, object]], threshold: int, window_minutes: int) -> List[str]:\n    \"\"\"Flag accounts whose authentication events hit >= threshold distinct hosts\n    within some rolling window of `window_minutes`.\"\"\"\n    by_account: Dict[str, List[Dict[str, object]]] = defaultdict(list)\n    for ev in events:\n        by_account[ev[\"account\"]].append(ev)\n\n    flagged = set()\n    for account, evs in by_account.items():\n        starts = sorted(set(e[\"ts\"] for e in evs))\n        for start in starts:\n            window_hosts = set(\n                e[\"host\"] for e in evs if start <= e[\"ts\"] <= start + window_minutes\n            )\n            if len(window_hosts) >= threshold:\n                flagged.add(account)\n                break\n\n    return sorted(flagged)\n"
+}

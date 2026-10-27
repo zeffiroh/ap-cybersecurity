@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PKI and digital certificates, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>PKI and digital certificates</h1>
+<h1>Coding problem, 5.4.d: Validate a certificate chain</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.4.B, 5.4.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A browser has just received a TLS certificate chain from a server: a leaf (end-entity) certificate
+and one or more issuing CA certificates, and it needs to decide whether to trust it. Real browsers
+call into a full X.509 library to do this; you are going to implement the <em>validation logic itself</em>, the same logic that library runs under the hood, using the small-number RSA sign/verify math from
+5.4.b/5.4.c.</p>
+<p>Each certificate is a plain <code>dict</code>:</p>
+<pre><code class="language-python">{
+  &quot;subject&quot;: &quot;www.meridianbank.example&quot;,     # who this certificate identifies
+  &quot;issuer&quot;: &quot;Meridian Intermediate CA&quot;,       # who issued (signed) it
+  &quot;public_key&quot;: [17, 2501],                   # [e, n] -- this cert's own public key
+  &quot;signature&quot;: 1271,                          # issuer's signature over this cert's fields
+  &quot;not_before&quot;: 1000,                         # validity window, integer &quot;time units&quot;
+  &quot;not_after&quot;: 9000,
+  &quot;revoked&quot;: False,
+}
+</code></pre>
+<p>A <strong>chain</strong> is a list of these dicts ordered leaf-first: <code>[leaf, intermediate..., root]</code>. The last
+entry is claimed to be a root CA certificate (self-signed: its own <code>issuer</code> equals its own
+<code>subject</code>).</p>
+<h2>What you implement (in the code editor)</h2>
+<ul>
+<li><code>compute_digest(cert: dict) -&gt; int</code>, a deterministic, keyless digest of a certificate's identity
+  fields (everything except <code>signature</code> and <code>revoked</code>), used as the thing that actually gets signed.
+  Canonicalize as the string
+  <code>f"{subject}|{issuer}|{public_key[0]}:{public_key[1]}|{not_before}|{not_after}"</code>
+  and reduce it with the rolling hash:
+  <code>python
+  h = 0
+  for ch in s:
+      h = (h * 131 + ord(ch)) % (2**61 - 1)</code></li>
+<li><code>rsa_sign(digest: int, d: int, n: int) -&gt; int</code>, <code>signature = (digest mod n) ** d mod n</code>.</li>
+<li><code>rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool</code>, return whether
+  <code>signature ** e mod n == digest mod n</code>.</li>
+<li><code>validate_chain(chain: list[dict], trusted_roots: dict[str, list[int]], current_time: int) -&gt; dict</code>, validate the whole chain (see below). <code>trusted_roots</code> maps a trusted root CA's <code>subject</code> name to
+  its known-good <code>[e, n]</code> public key (this is the browser's local trust store, never taken from the
+  chain itself).</li>
+<li><code>solve(data: dict) -&gt; dict</code>, blackbox dispatcher (see the Reference section below).</li>
+</ul>
+<h2>Validation algorithm</h2>
+<p>Walk the chain from the leaf (index 0) upward. For each certificate <code>cert</code> at index <code>i</code>:</p>
+<ol>
+<li><strong>Validity window</strong>, if <code>current_time &lt; cert["not_before"]</code> or <code>current_time &gt;
+   cert["not_after"]</code> -&gt; reason <code>"expired"</code>.</li>
+<li><strong>Revocation</strong>, if <code>cert["revoked"]</code> is <code>True</code> -&gt; reason <code>"revoked"</code>.</li>
+<li><strong>Chain linkage / signer's public key:</strong></li>
+<li>If this is <em>not</em> the last certificate in the chain, the next certificate up (<code>chain[i+1]</code>) must
+     be its issuer: <code>cert["issuer"] == chain[i+1]["subject"]</code>. If not -&gt; reason <code>"broken_chain"</code>. The
+     public key used to check this cert's signature is <code>chain[i+1]["public_key"]</code>.</li>
+<li>If this <em>is</em> the last certificate in the chain, it must be a certificate for a root in
+     <code>trusted_roots</code>: <code>cert["subject"]</code> must be a key in <code>trusted_roots</code>, and
+     <code>trusted_roots[cert["subject"]]</code> must equal <code>cert["public_key"]</code> exactly. If either check fails
+     -&gt; reason <code>"untrusted_root"</code>. The public key used to check this cert's own (self-)signature is
+     <code>trusted_roots[cert["subject"]]</code>.</li>
+<li><strong>Signature check</strong>, recompute <code>compute_digest(cert)</code> and check <code>rsa_verify(digest,
+   cert["signature"], e, n)</code> using the public key established in step 3. If it fails -&gt; reason
+   <code>"bad_signature"</code>.</li>
+</ol>
+<p>If every certificate in the chain passes all four checks, the chain is valid -&gt; reason <code>"valid"</code>.
+Stop at the <em>first</em> certificate (starting from the leaf) that fails any check and return that
+specific reason -- do not keep scanning past a failure.</p>
+<h2>Input / Output</h2>
+<ul>
+<li><code>validate_chain(chain, trusted_roots, current_time)</code> -&gt; <code>{"valid": bool, "reason": str}</code> where
+  <code>reason</code> is one of: <code>"valid"</code>, <code>"expired"</code>, <code>"revoked"</code>, <code>"broken_chain"</code>, <code>"untrusted_root"</code>,
+  <code>"bad_signature"</code>.</li>
+<li><code>solve(data)</code>: <code>data = {"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time":
+  int}</code> -&gt; <code>validate_chain(...)</code>'s return dict directly. <code>data = {"op": "digest", "cert": {...}}</code> -&gt;
+  <code>{"digest": int}</code>.</li>
+</ul>
+<h2>Examples</h2>
+<pre><code>validate_chain([leaf, intermediate, root], {&quot;Meridian Root CA&quot;: [17, 2773]}, 5000)
+  -&gt; {&quot;valid&quot;: True, &quot;reason&quot;: &quot;valid&quot;}
+
+validate_chain([expired_leaf, intermediate, root], {&quot;Meridian Root CA&quot;: [17, 2773]}, 9500)
+  -&gt; {&quot;valid&quot;: False, &quot;reason&quot;: &quot;expired&quot;}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only. No <code>cryptography</code>, no <code>ssl</code>, no <code>hashlib</code> -- this
+  is a from-scratch textbook-RSA exercise (same style as 5.4.b/5.4.c), not a real X.509 parser.</li>
+<li><code>trusted_roots</code> is the only source of truth for which root keys are trusted -- a self-signed
+  certificate whose subject is not in <code>trusted_roots</code> must be rejected as <code>"untrusted_root"</code>, even if
+  its self-signature verifies correctly.</li>
+<li>Must pass all cases in the tests (visible + hidden): a fully valid chain, an expired leaf, a
+  revoked intermediate, a broken issuer/subject link, an untrusted (self-signed but unrecognized)
+  root, and a tampered signature.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry points</h3>
+<pre><code class="language-python">def compute_digest(cert: dict) -&gt; int
+def rsa_sign(digest: int, d: int, n: int) -&gt; int
+def rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool
+def validate_chain(chain: list, trusted_roots: dict, current_time: int) -&gt; dict
+def solve(data: dict) -&gt; dict
+</code></pre>
+<p><code>solve()</code> is the blackbox entry point; the other functions are the underlying primitives it is
+built on and are tested directly as well.</p>
+<h3>Input</h3>
+<ul>
+<li><code>compute_digest(cert)</code>: <code>cert</code> is a <code>dict</code> with keys <code>subject</code> (<code>str</code>), <code>issuer</code> (<code>str</code>),
+  <code>public_key</code> (<code>[e, n]</code> list of two <code>int</code>), <code>not_before</code> (<code>int</code>), <code>not_after</code> (<code>int</code>). (<code>signature</code>
+  and <code>revoked</code> may also be present but are not part of the digest.)</li>
+<li><code>rsa_sign(digest, d, n)</code> / <code>rsa_verify(digest, signature, e, n)</code>: all <code>int</code>.</li>
+<li><code>validate_chain(chain, trusted_roots, current_time)</code>:</li>
+<li><code>chain</code>: <code>list[dict]</code>, leaf-first, each dict shaped like <code>cert</code> above plus <code>signature</code> (<code>int</code>,
+    the issuer's signature over <code>compute_digest(cert)</code>) and <code>revoked</code> (<code>bool</code>).</li>
+<li><code>trusted_roots</code>: <code>dict[str, list[int]]</code> mapping a trusted root CA's <code>subject</code> name to its known
+    <code>[e, n]</code> public key (the local trust store).</li>
+<li><code>current_time</code>: <code>int</code>.</li>
+<li><code>solve(data)</code>: <code>data</code> is a <code>dict</code> with <code>"op"</code> equal to <code>"validate"</code> or <code>"digest"</code>.</li>
+<li><code>"validate"</code>: <code>{"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time": int}</code></li>
+<li><code>"digest"</code>: <code>{"op": "digest", "cert": {...}}</code></li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<ul>
+<li><code>compute_digest(...)</code> returns an <code>int</code>.</li>
+<li><code>rsa_sign(...)</code> returns an <code>int</code>.</li>
+<li><code>rsa_verify(...)</code> returns <code>bool</code>.</li>
+<li><code>validate_chain(...)</code> returns <code>{"valid": bool, "reason": str}</code>, where <code>reason</code> is one of
+  <code>"valid"</code>, <code>"expired"</code>, <code>"revoked"</code>, <code>"broken_chain"</code>, <code>"untrusted_root"</code>, <code>"bad_signature"</code>.</li>
+<li><code>solve(...)</code> returns <code>validate_chain(...)</code>'s dict for op <code>"validate"</code>, or <code>{"digest": int}</code> for op
+  <code>"digest"</code>.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure functions, deterministic, no I/O, no network. Standard library only -- no <code>cryptography</code>,
+  <code>ssl</code>, or <code>hashlib</code>; this is a from-scratch textbook-RSA exercise, not a real X.509 parser.</li>
+<li><code>compute_digest</code> canonicalizes as
+  <code>f"{subject}|{issuer}|{e}:{n}|{not_before}|{not_after}"</code> and reduces with the rolling hash
+  <code>h = (h * 131 + ord(ch)) % (2**61 - 1)</code> over every character.</li>
+<li><code>validate_chain</code> walks the chain leaf-first (index 0) to root (last index) and, for each
+  certificate, checks in this order: validity window, revocation, issuer/subject chain linkage
+  (or trusted-root membership for the last certificate), then signature -- returning the first
+  failure encountered.</li>
+<li>The public key used to verify a non-root certificate's signature is always the <em>next</em>
+  certificate's <code>public_key</code>, never the certificate's own key. The public key used to verify the
+  root's self-signature is always looked up from <code>trusted_roots</code>, never trusted from the chain data
+  itself.</li>
+<li>A self-signed certificate whose subject is absent from <code>trusted_roots</code> is <code>"untrusted_root"</code>, even
+  if its own signature verifies correctly.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.4.d. Student completes the TODOs.
+This file intentionally FAILS the tests until implemented."""
+from typing import Any
+
+_MODULUS = (2 ** 61) - 1  # large Mersenne prime used only to bound the rolling hash
+
+
+def compute_digest(cert: dict) -&gt; int:
+    """Deterministic, keyless digest of a certificate's identity fields (everything except
+    'signature' and 'revoked' -- those aren't part of what gets signed)."""
+    # TODO: canonicalize as f'{subject}|{issuer}|{e}:{n}|{not_before}|{not_after}' and reduce
+    #       it with the rolling hash h = (h * 131 + ord(ch)) % _MODULUS for each character.
+    raise NotImplementedError("implement compute_digest() — see the problem statement above")
+
+
+def rsa_sign(digest: int, d: int, n: int) -&gt; int:
+    """signature = (digest mod n) ** d mod n, using the issuer's private exponent d."""
+    # TODO: implement textbook RSA signing.
+    raise NotImplementedError("implement rsa_sign() — see the problem statement above")
+
+
+def rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool:
+    """True iff signature ** e mod n recovers digest mod n, using the issuer's public key (e, n)."""
+    # TODO: implement textbook RSA verification.
+    raise NotImplementedError("implement rsa_verify() — see the problem statement above")
+
+
+def validate_chain(chain: list, trusted_roots: dict, current_time: int) -&gt; dict:
+    """Validate a leaf-first certificate chain against a local trust store.
+
+    Walks leaf -&gt; root, checking (in order, per certificate) validity window, revocation,
+    issuer/subject linkage (or trusted-root membership at the top), and signature. Returns the
+    first failure encountered, or {"valid": True, "reason": "valid"} if the whole chain checks out.
+    """
+    # TODO: for each cert (leaf to root, index i):
+    #   1. check current_time against not_before/not_after -&gt; "expired"
+    #   2. check cert["revoked"] -&gt; "revoked"
+    #   3. if not the last cert: check cert["issuer"] == chain[i+1]["subject"] -&gt; "broken_chain",
+    #      and use chain[i+1]["public_key"] as the issuer key.
+    #      if the last cert: check cert["subject"] is in trusted_roots AND
+    #      trusted_roots[cert["subject"]] == cert["public_key"] -&gt; "untrusted_root",
+    #      and use trusted_roots[cert["subject"]] as the issuer key.
+    #   4. recompute compute_digest(cert) and rsa_verify it against cert["signature"] with the
+    #      issuer key from step 3 -&gt; "bad_signature"
+    # Return {"valid": False, "reason": &lt;reason&gt;} on the first failure, else
+    # {"valid": True, "reason": "valid"}.
+    raise NotImplementedError("implement validate_chain() — see the problem statement above")
+
+
+def solve(data: Any) -&gt; Any:
+    """Blackbox entry point. Dispatches on data['op']:
+      - {"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time": int}
+            -&gt; validate_chain(...)'s result dict
+      - {"op": "digest", "cert": {...}}
+            -&gt; {"digest": int}
+    """
+    # TODO: dispatch on data["op"] to validate_chain() or compute_digest().
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import copy
+
+
+_MODULUS = (2 ** 61) - 1
+
+
+def _oracle_digest(cert: dict) -&gt; int:
+    """Independent reference digest, computed the same way tests build fixtures below."""
+    e, n = cert["public_key"]
+    canonical = f'{cert["subject"]}|{cert["issuer"]}|{e}:{n}|{cert["not_before"]}|{cert["not_after"]}'
+    h = 0
+    for ch in canonical:
+        h = (h * 131 + ord(ch)) % _MODULUS
+    return h
+
+
+# ---- fixture chain: root -&gt; intermediate -&gt; leaf, all hand-verified ------
+ROOT_E, ROOT_N, ROOT_D = 17, 2773, 157
+INT_E, INT_N, INT_D = 17, 2537, 1433
+LEAF_E, LEAF_N = 17, 2501
+
+ROOT_CERT = {
+    "subject": "Meridian Root CA",
+    "issuer": "Meridian Root CA",
+    "public_key": [ROOT_E, ROOT_N],
+    "not_before": 1000,
+    "not_after": 9000,
+    "revoked": False,
+    "signature": 1287,  # sign(digest(ROOT_CERT), ROOT_D, ROOT_N)
+}
+
+INTERMEDIATE_CERT = {
+    "subject": "Meridian Intermediate CA",
+    "issuer": "Meridian Root CA",
+    "public_key": [INT_E, INT_N],
+    "not_before": 1000,
+    "not_after": 9000,
+    "revoked": False,
+    "signature": 884,  # sign(digest(INTERMEDIATE_CERT), ROOT_D, ROOT_N)
+}
+
+LEAF_CERT = {
+    "subject": "www.meridianbank.example",
+    "issuer": "Meridian Intermediate CA",
+    "public_key": [LEAF_E, LEAF_N],
+    "not_before": 1000,
+    "not_after": 9000,
+    "revoked": False,
+    "signature": 1271,  # sign(digest(LEAF_CERT), INT_D, INT_N)
+}
+
+TRUSTED_ROOTS = {"Meridian Root CA": [ROOT_E, ROOT_N]}
+
+
+def _chain():
+    return [copy.deepcopy(LEAF_CERT), copy.deepcopy(INTERMEDIATE_CERT), copy.deepcopy(ROOT_CERT)]
+
+
+# ---- visible cases -------------------------------------------------------
+def test_valid_chain_is_trusted():
+    result = impl.validate_chain(_chain(), TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": True, "reason": "valid"}
+
+
+def test_digest_matches_oracle():
+    assert impl.compute_digest(LEAF_CERT) == _oracle_digest(LEAF_CERT)
+    assert impl.compute_digest(INTERMEDIATE_CERT) == _oracle_digest(INTERMEDIATE_CERT)
+    assert impl.compute_digest(ROOT_CERT) == _oracle_digest(ROOT_CERT)
+
+
+def test_rsa_sign_and_verify_round_trip():
+    digest = _oracle_digest(LEAF_CERT)
+    sig = impl.rsa_sign(digest, INT_D, INT_N)
+    assert sig == LEAF_CERT["signature"]
+    assert impl.rsa_verify(digest, sig, INT_E, INT_N) is True
+
+
+def test_expired_leaf_is_rejected():
+    chain = _chain()
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=9500)
+    assert result == {"valid": False, "reason": "expired"}
+
+
+def test_revoked_intermediate_is_rejected():
+    chain = _chain()
+    chain[1]["revoked"] = True
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": False, "reason": "revoked"}
+
+
+def test_solve_validate_op():
+    result = impl.solve({
+        "op": "validate",
+        "chain": _chain(),
+        "trusted_roots": TRUSTED_ROOTS,
+        "current_time": 5000,
+    })
+    assert result == {"valid": True, "reason": "valid"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_broken_issuer_subject_link_is_rejected():
+    chain = _chain()
+    chain[0]["issuer"] = "Some Other CA"  # leaf no longer names the intermediate as its issuer
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": False, "reason": "broken_chain"}
+
+
+def test_untrusted_self_signed_root_is_rejected():
+    chain = _chain()
+    result = impl.validate_chain(chain, trusted_roots={}, current_time=5000)
+    assert result == {"valid": False, "reason": "untrusted_root"}
+
+
+def test_root_with_mismatched_trusted_key_is_rejected():
+    chain = _chain()
+    tampered_roots = {"Meridian Root CA": [ROOT_E, ROOT_N + 2]}  # wrong key on file
+    result = impl.validate_chain(chain, tampered_roots, current_time=5000)
+    assert result == {"valid": False, "reason": "untrusted_root"}
+
+
+def test_tampered_leaf_signature_is_rejected():
+    chain = _chain()
+    chain[0]["signature"] = chain[0]["signature"] + 1  # one-off tamper, still same fields
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": False, "reason": "bad_signature"}
+
+
+def test_tampered_leaf_subject_is_rejected_as_bad_signature():
+    chain = _chain()
+    chain[0]["subject"] = "www.evil.example"  # identity swapped after signing
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": False, "reason": "bad_signature"}
+
+
+def test_expired_check_takes_priority_over_broken_chain():
+    chain = _chain()
+    chain[0]["not_after"] = 2000  # leaf expired
+    chain[0]["issuer"] = "Nonexistent CA"  # ALSO broken chain -- expiry must win (checked first)
+    result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
+    assert result == {"valid": False, "reason": "expired"}
+
+
+def test_solve_digest_op():
+    result = impl.solve({"op": "digest", "cert": LEAF_CERT})
+    assert result == {"digest": _oracle_digest(LEAF_CERT)}
+
+
+def test_current_time_at_exact_boundaries_is_valid():
+    chain = _chain()
+    result_start = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=1000)
+    result_end = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=9000)
+    assert result_start == {"valid": True, "reason": "valid"}
+    assert result_end == {"valid": True, "reason": "valid"}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

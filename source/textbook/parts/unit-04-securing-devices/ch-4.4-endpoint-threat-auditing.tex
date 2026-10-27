@@ -1,0 +1,435 @@
+\chapter{Endpoint Threat Auditing}
+\label{ch:4.4}
+\chaptertopic{Topic 4.4}
+
+\chapterquote{It is a capital mistake to theorize before one has all the evidence.}{Arthur Conan Doyle, \emph{A Study in Scarlet} (1887)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:4.3} hardened the device, watched it continuously, and patched its known flaws.
+This closing chapter of Unit~4 asks the question those controls cannot fully answer on their own:
+given everything that happened on a device, was it actually compromised? Three complementary
+disciplines answer this together -- live behavioral monitoring on the device itself, correlating
+historical log entries across time, and combining scattered forensic clues into one confident
+verdict. None of the three is sufficient alone; each catches what the others miss.
+
+\begin{apalignment}{Unit 4: Securing Devices}{Topic 4.4 -- Detecting Attacks on Devices}
+\begin{apobjectives}
+\apobjective{4.4.A}{Detect Attacks}{Account for how an attack on a device is noticed at all: what
+the operating system and its security tooling record, why that record has to leave the machine
+before an attacker can reach it, and what makes a sequence of events evidence when no single one of
+them is.}
+\apobjective{4.4.B}{Detect Attacks}{Choose the detective controls that suit a given device and a
+given threat -- audit policy and the events it turns on, off-host forwarding, correlation logic,
+tamper-evident retention -- and be able to say which attack each one would and would not catch.}
+\apobjective{4.4.C}{Detect Attacks}{Judge a detection method by what it does in practice: the
+coverage it provides, the volume it generates, whether the people receiving its output can act on
+it, and the failure it will still miss -- recognizing that a rule nobody can triage lowers detection
+capability rather than raising it.}
+\apobjective{4.4.D}{Detect Attacks}{Work through real authentication logs and identify the traces
+of a credential attack, separating exhaustive guessing against one account from low-and-slow
+guessing across many, and stating which distinctions the log can support and which it cannot.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Endpoint Detection and Response}
+
+A firewall guards the network boundary, but once malicious code is already running inside a
+machine, a boundary control cannot see it at all.
+
+\begin{definition}{Endpoint Detection and Response (EDR)}
+Security software that runs as an agent on a device, continuously collecting telemetry -- process,
+file system, registry, network, and user-account events -- and using both signature matching and
+behavioral modeling to detect and respond to threats on the endpoint itself.
+\end{definition}
+
+The telemetry an EDR agent records is dense. It includes process events (every program starting,
+stopping, or spawning a child), file system events (creation, modification, deletion), and registry
+changes on Windows (a common mechanism for \textbf{persistence}, letting malware restart after a
+reboot). It also includes network connections (which process opened a socket, to where, and how
+much data moved) and user-account events (logins, privilege escalation). \textbf{Signature matching}
+compares this stream against known-bad indicators, fast and precise for cataloged threats but blind
+to anything novel, exactly as in Chapter~\ref{ch:4.3}. \textbf{Behavioral detection} instead builds a
+model of what normal looks like on a specific host and flags deviations from it. That catches not
+just novel malware but \textbf{living-off-the-land} techniques, where an attacker misuses entirely
+legitimate tools like PowerShell or WMI to carry out malicious actions. No file-based signature would
+ever flag those actions, because the tool itself is not malware.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  src/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[src, fill=kickstartercream] (proc) at (0,1.5) {Process events};
+\node[src, fill=kickstartercream] (file) at (0,0.5) {File system events};
+\node[src, fill=kickstartercream] (reg) at (0,-0.5) {Registry changes};
+\node[src, fill=kickstartercream] (net) at (0,-1.5) {Network connections};
+\node[src, fill=kickstartermaroon!20] (model) at (4.2,0) {Behavioral model\\(what's normal\\on \emph{this} host)};
+\node[src, fill=kickstartermaroon!30] (verdict) at (8.2,0) {Combined score\\$\to$ alert / isolate /\\kill / quarantine};
+\foreach \s in {proc, file, reg, net}
+  \draw[-{Latex[length=2mm]}, kickstartermaroon] (\s) -- (model);
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (model) -- (verdict);
+\node[font=\scriptsize\sffamily, gray, align=center] at (4.2,1.6) {no single stream is damning alone --\\the combination is what scores as high-risk};
+\end{tikzpicture}
+\caption{EDR telemetry sources feed one behavioral model per host; the response action follows from
+the combined score, not from any single stream in isolation.}
+\label{fig:4.4-edr-telemetry}
+\end{figure}
+
+\begin{example}[A living-off-the-land chain]
+An employee opens an email attachment whose macro uses PowerShell -- a legitimate Windows tool --
+to download a second-stage payload. Traditional antivirus misses this entirely, since PowerShell
+itself is not malicious. An EDR agent instead records the full chain: an unusual parent-child
+relationship (the Office application spawned PowerShell) and an unusual outbound network connection
+from a process that normally never touches the network. It also records a new executable written to
+a temp directory. No single event in that chain is damning on its own, but the behavioral model scores the
+\emph{combination} as high-risk and can isolate the laptop automatically before the payload ever
+reaches another system.
+\end{example}
+
+Detection is only the first step. EDR is distinguished by its \textbf{response} capability once
+confidence is high enough: it can alert a SOC with full telemetry context rather than one isolated
+event; \textbf{isolate} the endpoint from the network to stop lateral movement while leaving an
+analyst able to investigate remotely; kill the malicious process outright; quarantine a file; or
+preserve forensic evidence with a memory or disk snapshot.
+
+\begin{lstlisting}[language=Python, caption={Flagging suspicious process events by parent-child relationship and network behavior}]
+SUSPICIOUS_PARENTS = {"winword.exe", "excel.exe", "outlook.exe"}
+SUSPICIOUS_CHILDREN = {"powershell.exe", "cmd.exe", "wscript.exe"}
+
+def flag_suspicious_processes(events):
+    """events: list of dicts like {"pid": str, "process": str,
+       "parent_process": str, "made_network_connection": bool}.
+       Returns sorted PIDs showing a suspicious parent-child spawn
+       combined with unexpected network activity."""
+    flagged = []
+    for e in events:
+        spawn_suspicious = (e["parent_process"] in SUSPICIOUS_PARENTS and
+                             e["process"] in SUSPICIOUS_CHILDREN)
+        if spawn_suspicious and e["made_network_connection"]:
+            flagged.append(e["pid"])
+    return sorted(flagged)
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``EDR is just better antivirus.''} Antivirus primarily checks files against known
+signatures at rest. EDR monitors continuous runtime behavior across process, file, network, and
+registry streams simultaneously, and can respond by isolating, killing, or quarantining -- not
+merely scanning and reporting.
+\end{misconception}
+
+\section{Log Analysis}
+
+EDR watches live behavior on one device; logs extend that visibility across time and across every
+system that generates one -- operating systems, web servers, firewalls, authentication systems.
+
+\begin{definition}{Correlation}
+Linking multiple log entries together -- by the same user, the same source IP, or the same time
+window -- to reveal a pattern that no single entry shows on its own.
+\end{definition}
+
+A single failed login line is entirely ordinary; anyone mistypes a password occasionally. Five
+failed attempts for the same username within a ten-second window, all from the same source IP, is
+a different fact entirely. No single line in that sequence looks alarming in isolation, but the
+pattern itself is a textbook \textbf{brute-force} signature: rapid, clustered failures targeting one
+account. Analysts formalize this into a \textbf{detection rule}: flag any account with five or
+more failures within any sixty-second window. A \textbf{SIEM} platform then runs rules like this
+automatically across every log source in an organization at once.
+
+None of this works if the attacker can simply delete the evidence. An attacker with local
+administrator access can clear the Windows Event Log or edit \texttt{auth.log} directly, erasing
+exactly the entries that would reveal the intrusion. This is why detection programs forward logs off
+the host, ideally in near-real-time, to a centralized collector or SIEM. Once a copy of an event
+leaves the machine that generated it, an attacker who compromises that machine afterward can no
+longer reach it. Centralized storage adds a second layer with \textbf{tamper-evident retention} --
+write-once storage or cryptographically chained log entries, where altering or deleting a past entry
+breaks a verifiable chain and is immediately detectable. Together, off-host forwarding and
+tamper-evident retention answer a question local logging alone cannot: not just what happened, but
+whether the record of what happened can still be trusted.
+
+\begin{example}[Reading real authentication events]
+On Windows, a failed logon is recorded as \textbf{Event ID 4625}, and its \texttt{Status} and
+\texttt{Sub Status} fields distinguish \emph{why} it failed. Sub status \texttt{0xC000006A} means
+the account name was correct but the password was wrong (a genuine guess). Sub status
+\texttt{0xC0000064} means the account name itself does not exist, which is useful for spotting an
+attacker enumerating usernames. \textbf{Event ID 4624} is the corresponding successful logon,
+recorded on the machine the session was created on. \textbf{Event ID 4740} fires when an account is
+locked out after too many failures. On a domain using Kerberos, \textbf{Event ID 4771} records a
+failed Kerberos pre-authentication instead -- a Kerberos-specific failure signal distinct from 4625.
+A detection rule built only around 4625 would silently miss it entirely.\srccite{4.4}{1}
+\begin{center}
+\ttfamily 4625 (repeated) $\rightarrow$ 4740 (lockout) $\rightarrow$ 4624 (success, new IP)
+\end{center}
+is the signature of a single account under sustained attack. On Linux, the equivalent evidence lives
+in \texttt{/var/log/auth.log}:
+\begin{lstlisting}[language=bash, caption={Linux auth.log lines showing a failed then successful SSH login}]
+Sep  2 03:14:07 web01 sshd[8841]: Failed password for admin from 203.0.113.9 port 51322 ssh2
+Sep  2 03:14:09 web01 sshd[8843]: Failed password for admin from 203.0.113.9 port 51330 ssh2
+Sep  2 03:14:41 web01 sshd[8850]: Accepted password for admin from 203.0.113.9 port 51401 ssh2
+\end{lstlisting}
+No single line above is alarming by itself, but the same correlation principle applies. Repeated
+failures for one account from one source, followed by success, at 3~a.m., form the pattern -- not
+the final "Accepted" line read in isolation.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Detecting a brute-force login pattern via log correlation}]
+def find_bruteforce_accounts(events, threshold=5, window_seconds=60):
+    """events: list of dicts like {"user": str, "timestamp": int,
+       "result": "FAILED"|"SUCCESS"}.
+       Returns sorted usernames with >= threshold failures inside any
+       window_seconds-wide sliding window."""
+    from collections import defaultdict
+    by_user = defaultdict(list)
+    for e in events:
+        if e["result"] == "FAILED":
+            by_user[e["user"]].append(e["timestamp"])
+
+    flagged = set()
+    for user, times in by_user.items():
+        times.sort()
+        left = 0
+        for right in range(len(times)):
+            while times[right] - times[left] > window_seconds:
+                left += 1
+            if right - left + 1 >= threshold:
+                flagged.add(user)
+                break
+    return sorted(flagged)
+\end{lstlisting}
+
+Threshold tuning here is the same tension seen throughout this course. A threshold set too low --
+flagging after two failures -- generates constant false alarms from users who simply mistyped a
+password, training analysts into \textbf{alert fatigue}. A threshold set too high, on the other hand,
+lets a real, deliberately slow brute-force attempt pass through undetected. Logs matter beyond
+real-time detection as well: they are frequently the \emph{only} record of what an attacker did once
+that attacker has already left the system. That makes them essential for \textbf{forensics} --
+reconstructing an incident after the fact rather than catching it as it happens.
+
+\begin{example}[Distinguishing a brute-force attack from a password spray]
+The brute-force detector above watches one account for many failures. A \textbf{password spray}
+inverts that pattern: an attacker tries one or two common passwords against \emph{many} different
+accounts from the same source. The attacker deliberately stays under any single account's lockout
+threshold, so the per-account brute-force rule never fires at all. Detecting a spray requires correlating by
+source IP across the whole account population instead of by username:
+\begin{lstlisting}[language=Python, caption={Detecting a password-spray pattern by source IP fan-out}]
+from collections import defaultdict
+
+def find_spray_sources(events, min_accounts=8, window_seconds=300):
+    """events: list of dicts like {"source_ip": str, "user": str,
+       "timestamp": int, "result": "FAILED"|"SUCCESS"}.
+       Returns source IPs that hit >= min_accounts distinct usernames
+       with a FAILED result inside any window_seconds-wide window."""
+    by_ip = defaultdict(list)
+    for e in events:
+        if e["result"] == "FAILED":
+            by_ip[e["source_ip"]].append((e["timestamp"], e["user"]))
+
+    flagged = set()
+    for ip, hits in by_ip.items():
+        hits.sort()
+        left = 0
+        seen = defaultdict(int)
+        for right in range(len(hits)):
+            ts, user = hits[right]
+            seen[user] += 1
+            while hits[right][0] - hits[left][0] > window_seconds:
+                seen[hits[left][1]] -= 1
+                if seen[hits[left][1]] == 0:
+                    del seen[hits[left][1]]
+                left += 1
+            if len(seen) >= min_accounts:
+                flagged.add(ip)
+                break
+    return sorted(flagged)
+\end{lstlisting}
+This function was run against a synthetic 20-account, one-source-IP event log during preparation of
+this chapter. It correctly returned the spraying IP once that IP touched eight distinct accounts
+within the five-minute window, while leaving a single legitimate user's occasional mistyped password
+unflagged. The distinction matters operationally: a rule tuned only to catch many failures on one
+account is structurally blind to a spray, since no individual account in a spray ever crosses that
+account's own threshold.
+\end{example}
+
+\begin{misconception}
+\textbf{``A single failed login is proof of an attack.''} One failed login is ordinary human
+error. Attacks are recognized through correlated patterns -- multiple entries linked by user, IP,
+and a tight time window -- never from one log line in isolation.
+\end{misconception}
+
+\section{Indicators of Compromise}
+
+EDR and log analysis both ultimately produce the same kind of output: individual clues that
+something may be wrong.
+
+\begin{definition}{Indicator of compromise (IOC)}
+A piece of forensic evidence -- an artifact left behind on a system or network -- that suggests a
+device has been breached.
+\end{definition}
+
+IOCs come from several layers. \textbf{File-based} IOCs include a file matching a known-malicious
+hash or an unexpected executable in a startup directory. \textbf{Network-based} IOCs include a
+connection to a known command-and-control IP or DNS lookups for algorithmically generated domain
+names, a technique malware uses to find its C2 server without ever hardcoding one address.
+\textbf{Host-based} IOCs include a new administrator account nobody remembers creating, a
+persistence mechanism like an unowned scheduled task, or antivirus protection silently disabled.
+\textbf{Behavioral} IOCs are patterns rather than single artifacts -- a login at 3~a.m.\ from an
+account that has never logged in outside business hours.
+
+\begin{example}[Why one IOC is rarely a verdict]
+A new administrator account appears on a server. Alone, this could easily be an IT technician's
+legitimate maintenance action, or it could be an attacker establishing persistence -- the IOC alone
+cannot distinguish the two. If that same account appears \emph{alongside} a disabled antivirus
+service and a connection to a known-malicious IP, the combination becomes far more convincing. Three
+independent artifacts pointing toward the same conclusion form dramatically stronger evidence than
+any one of them alone. That is the identical correlation principle from log analysis, applied here
+to compromise evidence broadly rather than login timestamps specifically.
+\end{example}
+
+Because different IOC types carry very different severity, mature detection systems assign each a
+\textbf{weight} rather than simply counting how many are present. A confirmed known-malicious file
+hash is strong evidence and receives a high weight, while a handful of failed logins is comparatively
+weak evidence and receives a low one. Summing every observed IOC's weight produces a
+\textbf{compromise score}, compared against thresholds to reach a verdict: clean below a low
+threshold, suspicious in a middle band warranting investigation, and compromised -- warranting
+immediate isolation -- above a high one. That is the same weighted-scoring logic CVSS applies to
+vulnerabilities in Chapter~\ref{ch:4.3}.
+
+\begin{lstlisting}[language=Python, caption={Scoring a device's compromise level from weighted IOCs}]
+IOC_WEIGHTS = {
+    "known_malicious_hash": 10,
+    "c2_connection": 8,
+    "new_unapproved_admin": 5,
+    "antivirus_disabled": 6,
+    "off_hours_login": 2,
+}
+
+def compromise_verdict(observed_iocs, suspicious_threshold=6, compromised_threshold=15):
+    """observed_iocs: list of IOC name strings observed on a device.
+       Returns "clean", "suspicious", or "compromised"."""
+    score = sum(IOC_WEIGHTS.get(ioc, 0) for ioc in observed_iocs)
+    if score >= compromised_threshold:
+        return "compromised"
+    if score >= suspicious_threshold:
+        return "suspicious"
+    return "clean"
+\end{lstlisting}
+
+An \textbf{indicator of attack (IOA)} is a related but distinct concept. It focuses on an attacker's
+intent and technique \emph{while} it is happening -- a process attempting to enumerate every file
+with a specific extension, which is exactly what ransomware does moments before encrypting them. An
+IOC, by contrast, is typically evidence left \emph{after} a step has already occurred, such as a file
+with a \texttt{.locked} extension that already exists. IOAs aim to catch an
+attack in progress; IOCs confirm that something already happened. Real detection programs use both,
+which is the point of studying EDR, log correlation, and IOC scoring together rather than as three
+unrelated tools.
+
+\begin{misconception}
+\textbf{``Any single suspicious artifact proves a device is compromised.''} One IOC alone is
+usually ambiguous and often has an entirely innocent explanation. Confident verdicts come from
+combining multiple independent IOCs, exactly as correlating multiple log entries does in the
+previous section.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An email macro launches PowerShell, which then opens an outbound network connection.
+Explain why traditional signature-based antivirus is likely to miss this chain entirely, and
+explain which EDR detection method catches it instead and why.
+\item An authentication log shows five failed logins for one account within eight seconds, all
+from the same IP, followed by a successful login from that same IP. Explain why reading the final
+successful login in isolation is misleading, and describe the correlation that reveals the true
+pattern.
+\item A detection rule is tuned to flag any account with two or more failed logins in a day.
+Explain the specific operational problem this creates and name the phenomenon it produces among
+analysts.
+\item An organization keeps its authentication logs only on each local device, with no forwarding
+to a central collector. Explain the specific evidentiary weakness this creates once an attacker
+gains administrative access to a device, and explain what tamper-evident retention adds even after
+logs are forwarded somewhere else.
+\item A server shows a new administrator account and a disabled antivirus service, but no known-
+malicious network connection. Using the weighted-scoring approach from this chapter, explain why
+this combination might still cross a "suspicious" threshold even without every category of IOC
+present.
+\item Explain the difference between an indicator of compromise and an indicator of attack, and
+explain why a mature detection program needs both rather than relying on just one.
+\item A security team notices that a source IP triggers no per-account brute-force alert despite
+having failed logins against twenty different accounts over a few minutes. Explain why the
+brute-force detector from this chapter misses this entirely, and describe the specific
+correlation dimension a password-spray detector uses instead.
+\item Using the EDR telemetry diagram, explain why an attacker using only living-off-the-land
+techniques (legitimate tools like PowerShell, no custom malware file at all) can still be caught,
+even though every individual telemetry stream -- the process list, the file system, the registry --
+shows nothing that would trigger a signature match on its own.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Traditional signature-based antivirus checks files against known-malicious hashes at rest;
+PowerShell itself is a legitimate signed Windows binary with no malicious signature to match, so it
+never triggers a file-based check. EDR's behavioral detection instead catches the chain by scoring
+the unusual \emph{combination} of events -- an Office application spawning PowerShell, an unexpected
+outbound network connection, a new file written to a temp directory. None of those events is damning
+alone, but together they score as high-risk living-off-the-land activity.
+\answerlabel{4.4.A}
+\item Reading only the final successful login is misleading because, in isolation, one successful
+login line looks entirely ordinary. The correlation that reveals the true pattern links the five
+failed attempts to the same username, the same source IP, and a tight eight-second window. Together
+those link to Event ID 4625 with sub status \texttt{0xC000006A} repeated in rapid succession, followed
+by the eventual 4624 success -- a textbook brute-force signature. It only becomes visible once the
+entries are linked rather than read one at a time.
+\answerlabel{4.4.D}
+\item A threshold of two failures in a day is set far too low: ordinary users who simply mistype a
+password will routinely cross it, generating constant false alarms. The phenomenon this produces
+among analysts is \textbf{alert fatigue}, where a flood of low-value alerts trains analysts to
+deprioritize or ignore the detection rule entirely, which paradoxically lowers real detection
+capability.
+\answerlabel{4.4.C}
+\item Using the weighted-scoring approach, a new unapproved admin account (weight 5) plus a
+disabled antivirus service (weight 6) sums to 11. That exceeds the suspicious threshold of 6, even
+though no network-based IOC (such as a C2 connection) is present. The scoring model does not require
+every IOC category to be represented. It only requires the sum of observed weights to cross a
+threshold -- two independent, moderately weighted artifacts together can be as convincing as one
+heavily weighted one.
+\answerlabel{4.4.C}
+\item Local-only logs are only as trustworthy as the device that generates them: once an attacker
+has administrative access, they can edit or delete the very Event ID or \texttt{auth.log} entries
+that would reveal the intrusion, destroying the evidence before anyone reads it. Forwarding a copy
+of each event off the host, ideally in near-real-time, removes it from the attacker's reach the
+moment it is written -- the attacker would have to compromise the collector too, a categorically
+harder task. Tamper-evident retention closes the remaining gap: even at the centralized store,
+write-once storage or cryptographically chained entries mean that any later edit or deletion breaks
+a verifiable chain and is caught, rather than trusted silently.
+\answerlabel{4.4.B}
+\item An indicator of compromise (IOC) is evidence that a step has already occurred, such as a file
+with a \texttt{.locked} extension. An indicator of attack (IOA) focuses on an attacker's intent and
+technique while it is happening, such as a process enumerating every file with a specific extension
+moments before ransomware would encrypt them. A mature program needs both because IOAs aim to
+interrupt an attack in progress while it can still be stopped, while IOCs confirm what already
+happened and support the forensic reconstruction that follows.
+\answerlabel{4.4.B}
+\item The brute-force detector correlates failures by username, counting how many times one
+account was attacked. A password spray deliberately stays under any single account's threshold
+instead, trying only one or two passwords per account before moving to the next, so no individual
+username ever accumulates enough failures to fire the rule. A password-spray detector instead
+correlates by source IP across the entire account population, counting how many distinct usernames
+one source touched within a time window. The fan-out across accounts is the signal, not the failure
+count against any one of them.
+\answerlabel{4.4.D}
+\item Living-off-the-land techniques use tools that are individually legitimate. No single
+telemetry stream -- the process list showing PowerShell running, the file system showing a
+temp-directory write, the network stream showing an outbound connection -- contains anything a
+signature check would flag, since none of those artifacts is malicious in isolation. The
+behavioral model in the diagram does not evaluate any one stream alone. It scores the combination
+across all of them at once -- an unusual parent-child spawn relationship, together with unexpected
+network activity, together with a new file. That combined, cross-stream pattern is exactly what a
+purely per-stream signature check has no way to see.
+\answerlabel{4.4.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{4.4}{1}Microsoft Corporation, ``4625(F) An account failed to log on'' and
+``4771(F) Kerberos pre-authentication failed,'' \emph{Windows Security Auditing Events} reference,
+Microsoft Learn -- documenting the failure sub status codes \texttt{0xC000006A} (wrong password) and
+\texttt{0xC0000064} (account does not exist), and confirming Event ID 4771 is logged only on domain
+controllers.
+\end{enumerate}

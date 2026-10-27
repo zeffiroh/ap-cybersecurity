@@ -1,0 +1,9 @@
+# 3.2.b tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The habit worth building before this lecture: whenever you meet a new control anywhere in this course, ask "is this a piece of hardware or software enforcing something automatically, or is this a document telling a human what they're supposed to do?" That one question is the entire managerial-versus-technical-versus-physical sort, and it matters because this skill is explicitly calling out a bias most students (and most real organizations) have without realizing it: technical controls feel like "real security" and policy feels like paperwork, when in practice policy is usually what determines whether the technical controls even stay configured correctly.
+
+## The big picture
+The sentence worth keeping from this skill is the one about the relationship, not either family alone: a policy without enforcement is close to useless, but a technical control without a policy explaining its purpose gets quietly circumvented by frustrated employees who don't understand why it's there. That's the same insight Unit 2 built around physical and technical controls stacking to cover each other's blind spots, here it's the managerial layer doing that job for the technical and physical layers instead. Keep least privilege and privilege creep especially sharp for the exam: the *technical* enforcement is an ACL denying a specific file read, but the *managerial* control is the recurring review process that catches when someone's access should have been revoked months ago and wasn't, miss that distinction and you'll misclassify half of this skill's practice scenarios. This skill is also the hinge that connects Unit 3's very technical first half (protocols, spoofing, sniffing) to 3.2.c's layered-defense model, where you'll see the managerial layer named explicitly as the one that spans and reinforces every other layer rather than sitting in its own separate lane.

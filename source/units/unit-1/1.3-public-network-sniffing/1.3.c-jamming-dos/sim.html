@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<!-- 1.3.c SIM, "Noise Floor Monitor" jamming detector. Single-file, offline, deterministic.
+     Theme tokens inlined from assets/theme/theme.css (THEME.md). No emoji / no icons.
+     Fake Network Engine: scripted deterministic noise-floor sample series. Score panel. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.3.c - Noise Floor Monitor</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:860px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+  font-weight:bold;background:#d8d8ff;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.theme-linux .btn.sel{background:#dbe7ff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre;line-height:1.3;overflow-x:auto;}
+.dim{color:var(--term-dim);}
+.hi{color:#ffff00;}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+.feedback{font-family:var(--mono-font);margin-top:6px;min-height:18px;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.classify{margin:8px 0;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+  <div class="window">
+    <div class="titlebar"><span>1.3.c - Noise Floor Monitor</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Each round shows a noise-floor sample series from a wireless channel monitor.
+         Classify it: does it show <b>sustained jamming</b> or <b>normal/transient</b> noise?
+         Detection rule: <b>5 or more consecutive samples strictly above 80 = jamming</b>.
+         Reach <b id="goaldisp">5</b> correct to meet the objective.</p>
+
+      <div class="terminal" id="display">Loading...</div>
+
+      <div class="classify">
+        <button class="btn" id="btnJam"  onclick="classify(true)">JAMMING DETECTED</button>
+        <button class="btn" id="btnClean" onclick="classify(false)">NORMAL / TRANSIENT</button>
+      </div>
+      <div>
+        <button class="btn" onclick="nextRound()">Next series</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+      <div class="statusbar" id="score">SCORE 0 / 5 | series 1 of 6 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. Sample data is simulated and deterministic. Threshold T=80, window N=5. Values shown as bar charts using ASCII block characters.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Fake Network Engine: scripted noise-floor sample series ---- */
+
+// Each series: samples array + expected classification
+var SERIES = [
+  { samples:[20,25,90,22,30,18,24],
+    jamming:false,
+    note:"One spike at index 2 (value 90). Run length = 1. Below window of 5." },
+  { samples:[15,82,85,88,91,83,87,20],
+    jamming:true,
+    note:"Consecutive run: indices 1-6 all >80. Run = 6 >= 5. JAMMING." },
+  { samples:[70,72,75,71,73,74,76],
+    jamming:false,
+    note:"All values below 80. No threshold crossings at all." },
+  { samples:[50,81,82,83,84,85,86,87,88,30],
+    jamming:true,
+    note:"Consecutive run: indices 1-8 all >80. Run = 8 >= 5. JAMMING." },
+  { samples:[10,81,82,83,84,10,81,82,83,84],
+    jamming:false,
+    note:"Two bursts of 4 each, separated by a clean sample. Neither run reaches 5." },
+  { samples:[90,91,92,93,94,10,10,10],
+    jamming:true,
+    note:"Run at the start: indices 0-4 all >80. Run = 5 exactly. JAMMING." }
+];
+
+var ridx=0, score=0, GOAL=5, met=false, answered=false;
+
+function bar(v){
+  // ASCII bar: scale 0-100 to 0-20 chars using block characters
+  var len=Math.round(v/5);
+  var s='';
+  for(var i=0;i<len;i++) s+=(v>80?'█':'░');
+  return s;
+}
+
+function renderSeries(){
+  var r=SERIES[ridx];
+  var lines=[];
+  lines.push('Series '+(ridx+1)+' of '+SERIES.length+' | Rule: T=80, N=5');
+  lines.push('');
+  lines.push('Idx  Value  Chart');
+  lines.push('---  -----  '+'-'.repeat(22));
+  for(var i=0;i<r.samples.length;i++){
+    var v=r.samples[i];
+    var marker=(v>80)?'*':' ';
+    var idx=('  '+i).slice(-3);
+    var val=('   '+v).slice(-5);
+    lines.push(idx+'  '+val+'  '+bar(v)+marker);
+  }
+  lines.push('');
+  lines.push('* = sample above threshold T=80');
+  document.getElementById('display').innerHTML=lines.join('\n');
+  answered=false;
+  document.getElementById('fb').textContent='';
+  document.getElementById('btnJam').classList.remove('sel');
+  document.getElementById('btnClean').classList.remove('sel');
+  updateBar();
+}
+
+function classify(isJamming){
+  if(answered)return;
+  answered=true;
+  var r=SERIES[ridx];
+  var ok=(isJamming===r.jamming);
+  if(isJamming){document.getElementById('btnJam').classList.add('sel');}
+  else{document.getElementById('btnClean').classList.add('sel');}
+  var fb=document.getElementById('fb');
+  if(ok){
+    score++;
+    fb.innerHTML='<span class="ok">CORRECT.</span> '+r.note;
+  } else {
+    fb.innerHTML='<span class="bad">NOT QUITE.</span> '+r.note;
+  }
+  if(score>=GOAL)met=true;
+  updateBar();
+}
+
+function nextRound(){
+  ridx=(ridx+1)%SERIES.length;
+  renderSeries();
+}
+
+function updateBar(){
+  document.getElementById('score').innerHTML=
+    'SCORE '+score+' / '+GOAL+' | series '+(ridx+1)+' of '+SERIES.length+' | OBJECTIVE: '+
+    (met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');
+}
+
+document.getElementById('goaldisp').textContent=GOAL;
+renderSeries();
+</script>
+</body>
+</html>

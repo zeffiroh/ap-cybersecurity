@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.2.b, Multi-factor authentication, Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.wrap{max-width:880px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--bg);padding:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 16px;cursor:pointer;margin:4px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:12px;white-space:pre-wrap;line-height:1.4;min-height:180px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .terminal{border:1px solid #ccc}.terminal .prompt{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.scorepanel .ok{color:#008000;font-weight:bold}.scorepanel .bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 8px}.toolbar{margin-bottom:8px}.controls-area{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>4.2.b, MFA login-attempt evaluator</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Login Attempt Review</h1>
+      <p>Review each reported login attempt in the security terminal. Judge whether it satisfies TRUE multi-factor authentication (two or more DIFFERENT factor categories), or if it is effectively SINGLE-FACTOR, or if it is multi-factor but PHISHABLE (relies on SMS/OTP relay or unverified push approval rather than a phishing-resistant factor). Achieve a perfect score of 5 / 5 to complete the drill.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">soc@auth-review:~$ </span>Loading login attempts...</div>
+
+      <div class="controls-area" id="controls">
+        <button class="btn" onclick="FNE.act('single_factor')">Single-factor</button>
+        <button class="btn" onclick="FNE.act('mfa_phishable')">MFA (phishable)</button>
+        <button class="btn" onclick="FNE.act('mfa_phishing_resistant')">MFA (phishing-resistant)</button>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 │ OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){if(document.body.classList.contains('theme-win')){document.body.classList.remove('theme-win');document.body.classList.add('theme-linux');}else{document.body.classList.remove('theme-linux');document.body.classList.add('theme-win');}}
+var FNE=(function(){var score=0,MAX=5,met=false;var currentIndex=0;var attempts=[{report:"LOGIN: user 'jdoe' entered their account password, then was asked for a second password (a 'security PIN') stored in the same password manager. Access granted.",category:"single_factor",explain:"Both credentials are 'something you know' -- a password and a PIN are the same factor category. Two knowledge credentials is still single-factor in category terms, not true MFA."},{report:"LOGIN: user 'mchen' entered their password, then a 6-digit code was texted to their registered phone number and entered correctly. Access granted.",category:"mfa_phishable",explain:"This combines knowledge (password) and possession (phone number), so it is technically MFA -- but SMS codes are vulnerable to SIM swapping and real-time phishing relay, making this the phishable class."},{report:"LOGIN: user 'rpatel' entered their password, then completed a challenge-response with a FIDO2 hardware security key plugged into their laptop. Access granted.",category:"mfa_phishing_resistant",explain:"Password (knowledge) plus a FIDO2/WebAuthn hardware key (possession) is phishing-resistant: the key cryptographically binds the response to the legitimate site's domain, so a fake login page cannot capture a valid response."},{report:"LOGIN: user 'ksingh' entered their password. Their phone received five push-approval prompts within two minutes despite not attempting to log in; on the sixth prompt they tapped Approve to stop the notifications. Access granted.",category:"mfa_phishable",explain:"This is an MFA-fatigue (push-bombing) attack: two categories were technically presented, but the possession factor was rubber-stamped without verification, so it provided no real phishing/social-engineering resistance."},{report:"LOGIN: user 'agreen' entered only their account password. No further verification was requested before access was granted.",category:"single_factor",explain:"Only one factor category (knowledge) was presented at all -- this is plain single-factor authentication."}];function render(){var el=document.getElementById('stage');if(currentIndex<attempts.length){el.innerHTML='<span class="prompt">soc@auth-review:~$ </span><strong>[LOGIN ATTEMPT #'+(currentIndex+1)+']</strong>\n\n'+attempts[currentIndex].report;}else{if(score===MAX){met=true;el.innerHTML='<span class="prompt">soc@auth-review:~$ </span><strong>REVIEW COMPLETE</strong>\n\nAll login attempts evaluated. Perfect score achieved. Objective Met.';}else{el.innerHTML='<span class="prompt">soc@auth-review:~$ </span><strong>REVIEW COMPLETE</strong>\n\nScore: '+score+'/'+MAX+'. You must achieve 5/5. Press "Restart" to retry.';document.getElementById('controls').innerHTML='<button class="btn" onclick="FNE.restart()">Restart</button>';}}
+setScore();}
+function setScore(){var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+MAX+' │ OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+function act(category){if(currentIndex>=attempts.length)return;var current=attempts[currentIndex];var isCorrect=(category===current.category);if(isCorrect){score++;}
+var el=document.getElementById('stage');el.innerHTML='<span class="prompt">soc@auth-review:~$ </span>'+
+(isCorrect?'<strong>CORRECT!</strong>':'<strong>INCORRECT.</strong>')+'\n\n'+
+current.explain+'\n\nPress "Next" to continue.';document.getElementById('controls').innerHTML='<button class="btn" onclick="FNE.next()">Next</button>';}
+function next(){currentIndex++;if(currentIndex<attempts.length){document.getElementById('controls').innerHTML='<button class="btn" onclick="FNE.act(\'single_factor\')">Single-factor</button>'+'<button class="btn" onclick="FNE.act(\'mfa_phishable\')">MFA (phishable)</button>'+'<button class="btn" onclick="FNE.act(\'mfa_phishing_resistant\')">MFA (phishing-resistant)</button>';}
+render();}
+function restart(){score=0;currentIndex=0;met=false;document.getElementById('controls').innerHTML='<button class="btn" onclick="FNE.act(\'single_factor\')">Single-factor</button>'+'<button class="btn" onclick="FNE.act(\'mfa_phishable\')">MFA (phishable)</button>'+'<button class="btn" onclick="FNE.act(\'mfa_phishing_resistant\')">MFA (phishing-resistant)</button>';render();}
+setTimeout(render,10);return{act:act,next:next,restart:restart};})();</script>
+</body>
+</html>

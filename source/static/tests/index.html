@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit tests · Aayat-AP-Prep</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --chrome:   #d4d0c8;
+  --white:    #ffffff;
+  --black:    #000000;
+  --red:      #111111;
+  --red-lt:   #444444;
+  --hi:       #ffffff;       /* border highlight */
+  --sh:       #808080;       /* border shadow */
+  --sh2:      #404040;       /* border deep shadow */
+  --hi2:      #dfdfdf;       /* border outer highlight */
+  --correct:  #006400;
+  --wrong:    #8B0000;
+  --warn:     #8B6914;
+  --serif:    'Times New Roman', Times, serif;
+  --mono:     'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; min-height: 100vh;
+  background: var(--chrome);
+  color: var(--black);
+  font-family: var(--serif);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ─── utility ─────────────────────────────────────────────── */
+.hidden   { display: none !important; }
+.correct  { color: var(--correct); font-weight: bold; }
+.wrong    { color: var(--wrong);   font-weight: bold; }
+.warn     { color: var(--warn); }
+.mono     { font-family: var(--mono); }
+.muted    { color: var(--sh); }
+
+/* ─── Win95 border mixins ─────────────────────────────────── */
+.raised {
+  border: 2px solid;
+  border-color: var(--hi) var(--sh) var(--sh) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh2);
+}
+.sunken {
+  border: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--sh2), inset -1px -1px 0 var(--hi2);
+}
+
+/* ─── Red ribbon bar ──────────────────────────────────────── */
+.ribbon {
+  background: var(--red);
+  color: var(--white);
+  font-family: var(--serif);
+  font-weight: bold;
+  padding: 3px 8px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.ribbon-sm {
+  background: var(--red);
+  color: var(--white);
+  font-family: var(--serif);
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  user-select: none;
+}
+
+/* ─── Main application window ─────────────────────────────── */
+.app-window {
+  position: fixed; inset: 6px;
+  background: var(--chrome);
+  display: flex; flex-direction: column;
+  border: 2px solid;
+  border-color: var(--hi) var(--sh2) var(--sh2) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh);
+  overflow: hidden;
+}
+
+/* ─── App title bar ───────────────────────────────────────── */
+.app-titlebar {
+  background: var(--red);
+  color: var(--white);
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 6px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.app-titlebar .logo {
+  height: 20px; width: 20px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.app-titlebar .logo-fallback {
+  width: 20px; height: 20px;
+  background: var(--white);
+  color: var(--red);
+  font-size: 12px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.app-titlebar .title-text {
+  flex: 1; font-size: 12px; font-weight: bold; letter-spacing: 0.02em;
+}
+/* ─── App content area ────────────────────────────────────── */
+.app-content {
+  flex: 1; overflow: hidden;
+  background: var(--white);
+  border: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  margin: 4px;
+  position: relative;
+}
+
+/* ─── Status bar ──────────────────────────────────────────── */
+.app-statusbar {
+  background: var(--chrome);
+  border-top: 1px solid var(--sh);
+  padding: 2px 8px;
+  font-size: 11px; flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.app-statusbar .status-left {
+  border: 1px solid var(--sh); border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  padding: 1px 8px; font-size: 11px;
+}
+.app-statusbar .copyright {
+  font-size: 10px; color: var(--sh);
+}
+
+#screen-start {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--white);
+}
+.start-dialog {
+  width: 380px;
+  background: var(--chrome);
+  border: 2px solid;
+  border-color: var(--hi) var(--sh2) var(--sh2) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh);
+}
+.start-dialog-titlebar {
+  background: var(--red);
+  color: var(--white);
+  padding: 3px 8px;
+  font-size: 12px; font-weight: bold;
+  display: flex; align-items: center; gap: 6px;
+}
+.start-dialog-titlebar img {
+  height: 16px; object-fit: contain; image-rendering: pixelated;
+}
+.start-dialog-body { padding: 16px; }
+
+.field { margin-bottom: 10px; }
+.field label {
+  display: block; font-size: 12px;
+  font-weight: bold; margin-bottom: 3px;
+}
+.field input, .field select {
+  width: 100%; padding: 3px 5px;
+  font-family: var(--serif); font-size: 13px;
+  background: var(--white); color: var(--black);
+  border: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  outline: none;
+}
+.field input:focus, .field select:focus {
+  outline: 1px dotted var(--black);
+  outline-offset: -3px;
+}
+.field select option { background: var(--white); }
+
+.start-divider {
+  height: 2px; margin: 10px 0;
+  border-top: 1px solid var(--sh);
+  border-bottom: 1px solid var(--hi);
+}
+.start-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+
+/* ─── Win95 buttons ───────────────────────────────────────── */
+.btn95 {
+  background: var(--chrome);
+  border: 2px solid;
+  border-color: var(--hi) var(--sh2) var(--sh2) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh);
+  color: var(--black);
+  font-family: var(--serif); font-size: 13px;
+  padding: 4px 16px; cursor: pointer;
+  min-width: 80px;
+}
+.btn95:hover { background: #e0dcd4; }
+.btn95:active, .btn95.pressed {
+  border-color: var(--sh2) var(--hi) var(--hi) var(--sh2);
+  box-shadow: inset 1px 1px 0 var(--sh), inset -1px -1px 0 var(--hi2);
+  padding: 5px 15px 3px 17px;
+}
+.btn95:disabled {
+  color: var(--sh); cursor: default;
+  text-shadow: 1px 1px 0 var(--hi);
+}
+.btn95.primary {
+  font-weight: bold;
+  border: 3px solid var(--black); /* default button indicator */
+  padding: 3px 15px;
+}
+.btn95.danger { color: var(--red); }
+
+#screen-quiz {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--white);
+}
+
+/* ─── Quiz ribbon bar ─────────────────────────────────────── */
+.quiz-ribbon {
+  background: var(--red);
+  color: var(--white);
+  display: flex; align-items: center; gap: 10px;
+  padding: 3px 8px; flex-shrink: 0;
+  font-size: 12px;
+}
+.quiz-ribbon .item-counter { font-weight: bold; white-space: nowrap; }
+.progress-track {
+  flex: 1; height: 10px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,0,0,0.4);
+  border-radius: 0;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%; width: 0%;
+  background: var(--white);
+  transition: width 0.4s ease;
+}
+#timer {
+  font-family: var(--mono); font-size: 12px;
+  font-weight: bold; white-space: nowrap;
+}
+#timer.warn   { color: #ffcc00; }
+#timer.danger { color: #ff6666; }
+.skill-badge {
+  font-size: 11px; font-weight: bold;
+  padding: 1px 6px;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  white-space: nowrap;
+}
+
+/* ─── Two-panel layout ────────────────────────────────────── */
+.quiz-panels {
+  flex: 1; display: flex; overflow: hidden;
+  gap: 0;
+}
+
+/* LEFT PANEL — stimulus */
+.panel-left {
+  width: 44%; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-right: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  overflow: hidden;
+}
+.panel-left .panel-titlebar {
+  background: var(--red);
+  color: var(--white);
+  padding: 2px 8px;
+  font-size: 12px; font-weight: bold;
+  flex-shrink: 0;
+}
+.panel-left .panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 8px; background: var(--white);
+}
+
+/* Stimulus metadata */
+.stim-label {
+  font-size: 11px; font-weight: bold;
+  color: var(--red); border-bottom: 1px solid var(--red);
+  padding-bottom: 2px; margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.stim-context {
+  font-size: 12px; color: #333;
+  margin-bottom: 8px; font-style: italic;
+}
+.stim-divider {
+  height: 1px; background: var(--red);
+  margin: 6px 0;
+}
+
+/* ─── Artifact rendering ──────────────────────────────────── */
+.artifact-block {
+  background: var(--white);
+  border: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  font-size: 11.5px; overflow: hidden;
+}
+.artifact-block .artifact-header {
+  background: var(--chrome);
+  border-bottom: 1px solid var(--sh);
+  padding: 2px 8px; font-size: 11px; font-weight: bold;
+}
+.artifact-block pre, .artifact-block .log-body {
+  font-family: var(--mono); font-size: 10.5px;
+  padding: 6px 8px; overflow-x: auto;
+  white-space: pre; line-height: 1.55;
+  background: var(--white);
+}
+.artifact-block .email-header {
+  background: #f0f0f0; padding: 4px 8px;
+  font-size: 11px; border-bottom: 1px solid var(--sh);
+}
+.artifact-block .email-body {
+  padding: 6px 8px; font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap;
+}
+.artifact-block .cert-row {
+  display: flex; gap: 8px; padding: 2px 8px; font-size: 11px;
+  border-bottom: 1px solid #eee;
+}
+.artifact-block .cert-row .cert-key {
+  font-weight: bold; min-width: 120px; color: var(--red);
+}
+.artifact-block .warning-row {
+  background: #fff8e0; padding: 2px 8px; font-size: 11px;
+  border-top: 1px solid #e0c040; color: #664400;
+}
+.artifact-block .composite-part { border-top: 2px solid var(--red); }
+.artifact-block .composite-part:first-child { border-top: none; }
+
+/* RIGHT PANEL — question + theta */
+.panel-right {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* Question sub-panel */
+.question-panel {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  border-bottom: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+}
+.question-panel .panel-titlebar {
+  background: var(--red);
+  color: var(--white);
+  padding: 2px 8px;
+  font-size: 12px; font-weight: bold;
+  flex-shrink: 0;
+}
+.question-panel .panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 10px; background: var(--white);
+  display: flex; flex-direction: column;
+}
+.q-stem {
+  font-size: 13.5px; line-height: 1.6;
+  margin-bottom: 10px; font-family: var(--serif);
+}
+
+/* Choices */
+.choice-btn {
+  width: 100%; text-align: left;
+  background: var(--chrome);
+  border: 2px solid;
+  border-color: var(--hi) var(--sh) var(--sh) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh2);
+  padding: 5px 8px; margin-bottom: 5px;
+  font-family: var(--serif); font-size: 12.5px;
+  cursor: pointer; display: flex; align-items: flex-start; gap: 8px;
+  color: var(--black); line-height: 1.5;
+}
+.choice-btn .key {
+  min-width: 18px; font-weight: bold;
+  color: var(--red); flex-shrink: 0;
+  font-family: var(--serif);
+}
+.choice-btn:hover:not(:disabled) { background: #e8e4dc; }
+.choice-btn.selected {
+  background: #dde8ff;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--sh2), inset -1px -1px 0 var(--hi2);
+  outline: 1px dotted var(--black); outline-offset: -3px;
+}
+.choice-btn.correct {
+  background: #d0f0d0;
+  border-color: var(--correct) !important;
+}
+.choice-btn.wrong {
+  background: #f8d0d0;
+  border-color: var(--wrong) !important;
+}
+.choice-btn:disabled { cursor: default; }
+
+/* Action bar */
+.action-bar {
+  display: flex; gap: 6px; justify-content: flex-end;
+  padding-top: 8px; margin-top: auto;
+  border-top: 1px solid var(--sh);
+}
+
+/* Theta sub-panel */
+.theta-panel {
+  flex-shrink: 0; max-height: 170px;
+  background: var(--chrome); overflow-y: auto;
+  padding: 6px 8px;
+}
+.theta-panel-title {
+  font-size: 11px; font-weight: bold; color: var(--red);
+  border-bottom: 1px solid var(--red);
+  padding-bottom: 2px; margin-bottom: 5px;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.theta-row {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 3px; font-size: 10.5px;
+}
+.theta-label { min-width: 130px; font-size: 10.5px; color: #333; }
+.theta-bar {
+  flex: 1; height: 8px; background: var(--white);
+  border: 1px solid var(--sh);
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  overflow: hidden;
+}
+.theta-fill { height: 100%; background: var(--red); transition: width .4s; }
+.theta-val { width: 40px; text-align: right; font-family: var(--mono); font-size: 10px; }
+.mastery-pip { font-size: 10px; }
+
+#screen-review {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.review-dialog {
+  width: 580px; max-height: 82vh;
+  background: var(--chrome);
+  border: 2px solid;
+  border-color: var(--hi) var(--sh2) var(--sh2) var(--hi);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.4),
+              inset 1px 1px 0 var(--hi2), inset -1px -1px 0 var(--sh);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.review-titlebar {
+  background: var(--red);
+  color: var(--white);
+  padding: 3px 8px; font-weight: bold; font-size: 12px;
+  flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+}
+.review-body {
+  flex: 1; overflow-y: auto; padding: 12px;
+  background: var(--white);
+}
+.result-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; margin-bottom: 10px;
+  border: 2px solid; background: var(--chrome);
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+}
+.result-icon { font-size: 22px; flex-shrink: 0; }
+.result-text h2 { font-size: 14px; margin-bottom: 2px; }
+.result-text p { font-size: 12px; color: #333; }
+
+.review-section-title {
+  font-size: 11px; font-weight: bold; color: var(--red);
+  border-bottom: 1px solid var(--red);
+  padding-bottom: 1px; margin: 8px 0 5px;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.expl-box {
+  background: #fffdf5;
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  padding: 8px; font-size: 12.5px; line-height: 1.6;
+  margin-bottom: 8px;
+}
+.distractor-item {
+  font-size: 11.5px; line-height: 1.5; padding: 3px 0;
+  border-bottom: 1px dotted var(--sh);
+}
+.distractor-key {
+  font-weight: bold; color: var(--red); margin-right: 4px;
+}
+.review-footer {
+  padding: 6px 8px; background: var(--chrome);
+  border-top: 1px solid var(--sh);
+  display: flex; justify-content: flex-end; gap: 6px; flex-shrink: 0;
+}
+
+#screen-report {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--white);
+  overflow: hidden;
+}
+.report-titlebar {
+  background: var(--red);
+  color: var(--white);
+  padding: 3px 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.report-titlebar h2 { font-size: 12px; font-weight: bold; }
+.report-titlebar .rpt-meta { font-size: 11px; opacity: 0.85; }
+.report-toolbar {
+  background: var(--chrome);
+  border-bottom: 2px solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  padding: 4px 8px; display: flex; gap: 6px; align-items: center; flex-shrink: 0;
+}
+.report-body-wrap {
+  flex: 1; overflow-y: auto; padding: 10px; background: var(--white);
+}
+.report-grid {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-card {
+  background: var(--chrome); text-align: center;
+  padding: 8px 4px;
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+}
+.stat-val { font-size: 20px; font-weight: bold; color: var(--red); }
+.stat-lbl { font-size: 10.5px; color: var(--sh); margin-top: 2px; }
+.report-section { margin-bottom: 14px; }
+.rpt-ribbon {
+  background: var(--red); color: var(--white);
+  padding: 2px 8px; font-size: 11px; font-weight: bold;
+  letter-spacing: 0.04em; margin-bottom: 6px;
+}
+.rpt-section-body { padding: 0 4px; }
+.skill-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px; font-size: 12px;
+}
+.skill-row-name { width: 160px; font-size: 11.5px; line-height: 1.3; }
+.skill-row-bar {
+  flex: 1; height: 10px;
+  border: 1px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  background: var(--white); overflow: hidden;
+}
+.skill-row-fill { height: 100%; background: var(--red); }
+.skill-row-pct { width: 44px; text-align: right; font-family: var(--mono); font-size: 10.5px; }
+.skill-row-level {
+  font-size: 10px; padding: 1px 5px;
+  border: 1px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  background: var(--chrome); font-weight: bold;
+}
+.chart-wrap { height: 160px; margin-top: 12px; }
+.str-gap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.str-gap-title { font-size: 11px; font-weight: bold; border-bottom: 1px solid; padding-bottom: 2px; margin-bottom: 5px; }
+.str-gap-title.green { color: var(--correct); border-color: var(--correct); }
+.str-gap-title.red   { color: var(--wrong);   border-color: var(--wrong); }
+.str-gap-item { font-size: 11.5px; padding: 2px 0; }
+/* Item table */
+.item-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.item-table th {
+  background: var(--chrome); text-align: left;
+  padding: 3px 6px; border: 1px solid var(--sh);
+  font-size: 11px; font-weight: bold; white-space: nowrap;
+}
+.item-table td { padding: 3px 6px; border: 1px solid #ddd; vertical-align: top; }
+.item-table tr:nth-child(even) td { background: #f8f8f8; }
+.item-expand {
+  font-size: 10.5px; color: var(--red);
+  cursor: pointer; text-decoration: underline;
+  display: block; margin-top: 2px;
+}
+.item-detail {
+  margin-top: 5px; padding: 6px;
+  background: #fffdf5;
+  border: 1px solid var(--sh); font-size: 11px; line-height: 1.5;
+}
+.expl-title { font-weight: bold; font-size: 10.5px; color: var(--red); margin-bottom: 3px; text-transform: uppercase; }
+.reco-item {
+  padding: 4px 8px; margin-bottom: 4px; font-size: 12px;
+  background: var(--chrome); border-left: 3px solid var(--red);
+}
+.view-btn {
+  font-family: var(--serif); font-size: 11.5px;
+}
+.view-btn.active {
+  background: #dde8ff !important;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh) !important;
+  box-shadow: inset 1px 1px 0 var(--sh2), inset -1px -1px 0 var(--hi2) !important;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 16px; height: 16px; }
+::-webkit-scrollbar-track { background: var(--chrome); border: 1px solid var(--sh); }
+::-webkit-scrollbar-thumb {
+  background: var(--chrome);
+  border: 1px solid; border-color: var(--hi) var(--sh) var(--sh) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--hi2);
+}
+::-webkit-scrollbar-button {
+  background: var(--chrome);
+  border: 1px solid; border-color: var(--hi) var(--sh) var(--sh) var(--hi);
+  width: 16px; height: 16px;
+}
+</style>
+</head>
+<body>
+
+<div class="app-window">
+
+  <!-- Title bar -->
+  <div class="app-titlebar">
+    <img class="logo" src="logo.png"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="logo-fallback" style="display:none">AP</div>
+    <span class="title-text">Unit test</span>
+  </div>
+
+  <!-- Content area (all screens mount here) -->
+  <div class="app-content">
+
+    <div id="screen-start">
+      <div class="start-dialog">
+        <div class="start-dialog-titlebar">
+          <img src="logo.png" style="height:14px"
+               onerror="this.style.display='none'">
+          New Assessment Session
+        </div>
+        <div class="start-dialog-body">
+
+          <div style="text-align:center;margin-bottom:12px">
+            <img src="logo.png"
+                 style="height:48px;image-rendering:pixelated"
+                 onerror="this.style.display='none'">
+            <div style="font-size:11px;color:#666;margin-top:4px">
+              Adaptive IRT-Based Assessment · Units 1–5
+            </div>
+          </div>
+
+          <div class="start-divider"></div>
+
+          <div class="field">
+            <label>Student Name:</label>
+            <input id="inp-name" type="text" placeholder="e.g. Jane Smith">
+          </div>
+          <div class="field">
+            <label>Student ID (optional):</label>
+            <input id="inp-id" type="text" placeholder="e.g. S12345">
+          </div>
+          <div class="field">
+            <label>Unit:</label>
+            <select id="inp-unit">
+              <option value="">Loading units…</option>
+            </select>
+          </div>
+
+          <div class="start-divider"></div>
+
+          <div class="start-actions">
+            <button class="btn95" onclick="window.close()">Cancel</button>
+            <button class="btn95 primary" onclick="startSession()">Begin Assessment →</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /screen-start -->
+
+    <div id="screen-quiz" class="hidden">
+
+      <!-- Red progress ribbon -->
+      <div class="quiz-ribbon">
+        <span class="item-counter">Item <span id="q-num">1</span> of 24</span>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <span id="timer">00:00</span>
+        <span class="skill-badge" id="skill-badge">1.A</span>
+      </div>
+
+      <!-- Two-panel body -->
+      <div class="quiz-panels">
+
+        <!-- LEFT: stimulus -->
+        <div class="panel-left">
+          <div class="panel-titlebar">Stimulus Material</div>
+          <div class="panel-body">
+            <div class="stim-label" id="stim-label"></div>
+            <div class="stim-context" id="stim-context"></div>
+            <div class="stim-divider"></div>
+            <div id="stim-body"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: question + theta -->
+        <div class="panel-right">
+
+          <!-- Question panel -->
+          <div class="question-panel">
+            <div class="panel-titlebar">❓ Question</div>
+            <div class="panel-body">
+              <div class="q-stem" id="q-stem"></div>
+              <div id="choices-container"></div>
+              <div class="action-bar">
+                <button class="btn95 danger" id="btn-skip" onclick="skipQuestion()">Skip</button>
+                <button class="btn95" id="btn-submit" onclick="submitAnswer()" disabled>Submit Answer</button>
+                <button class="btn95 primary hidden" id="btn-next" onclick="nextQuestion()">Next →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Theta estimates panel -->
+          <div class="theta-panel">
+            <div class="theta-panel-title">Skill Estimates (θ)</div>
+            <div id="theta-bars"></div>
+          </div>
+
+        </div><!-- /panel-right -->
+      </div><!-- /quiz-panels -->
+    </div><!-- /screen-quiz -->
+
+    <div id="screen-review" class="hidden">
+      <div class="review-dialog">
+
+        <div class="review-titlebar">
+          <span id="review-title-icon"></span>
+          <span id="review-title-text">Answer Review</span>
+        </div>
+
+        <div class="review-body">
+
+          <!-- Result banner -->
+          <div class="result-banner" id="review-result">
+            <div class="result-icon">—</div>
+            <div class="result-text"><h2>—</h2></div>
+          </div>
+
+          <!-- Choices mini-list -->
+          <div class="review-section-title">Answer Choices</div>
+          <div id="review-choices"></div>
+
+          <!-- Explanation -->
+          <div class="review-section-title">Explanation</div>
+          <div class="expl-box" id="review-explanation"></div>
+
+          <!-- Distractor rationale -->
+          <div id="distractor-block" class="hidden">
+            <div class="review-section-title">Why the Wrong Choices Are Wrong</div>
+            <div id="distractor-list"></div>
+          </div>
+
+          <!-- Theta delta placeholder -->
+          <div id="theta-delta"></div>
+
+        </div><!-- /review-body -->
+
+        <div class="review-footer">
+          <button class="btn95" onclick="hide('review')">Keep Reviewing</button>
+          <button class="btn95 primary" id="btn-next-review" onclick="nextQuestion()">Next Question →</button>
+        </div>
+
+      </div><!-- /review-dialog -->
+    </div><!-- /screen-review -->
+
+    <div id="screen-report" class="hidden">
+
+      <div class="report-titlebar">
+        <h2>Assessment Report</h2>
+        <span class="rpt-meta" id="rpt-subtitle"></span>
+      </div>
+
+      <div class="report-toolbar">
+        <button class="btn95 view-btn active" onclick="setView('student')">Student View</button>
+        <button class="btn95 view-btn" onclick="setView('tutor')">Tutor View</button>
+        <div style="flex:1"></div>
+        <button class="btn95" onclick="window.print()">Print</button>
+        <button class="btn95" onclick="show('start');hide('report')">New Session</button>
+      </div>
+
+      <div class="report-body-wrap">
+        <div class="report-body" id="report-body"></div>
+      </div>
+
+    </div><!-- /screen-report -->
+
+  </div><!-- /app-content -->
+
+  <!-- Status bar -->
+  <div class="app-statusbar">
+    <div class="status-left" id="status-text">Ready, Select a unit to begin.</div>
+    <div class="copyright">© mitali120501@gmail.com · Aayat-AP-Prep</div>
+  </div>
+
+</div><!-- /app-window -->
+
+<script src="../assets/config.js"></script>
+<script src="../assets/shared/neon.js"></script>
+<script src="../assets/shared/identity.js"></script>
+<script src="engine.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════
+let SESSION       = null;
+let CURRENT_Q     = null;
+let SELECTED_KEY  = null;
+let TIMER_INT     = null;
+let ELAPSED_SEC   = 0;
+let SESSION_START = Date.now();
+let REPORT_DATA   = null;
+let VIEW_MODE     = 'student';
+let SESSION_DONE  = false;
+
+const SKILL_COLORS = {
+  '1.A':'#8B0000','1.B':'#A52020','1.C':'#C03030','1.D':'#D04040',
+  '2.A':'#7B2D8B','2.B':'#5B3A8B','3.A':'#1A5C8B','3.B':'#155C4A'
+};
+const SKILL_NAMES = {
+  '1.A':'Identify Concepts','1.B':'Identify Adversaries','1.C':'Explain Mechanisms',
+  '1.D':'Determine / Document','2.A':'Apply Controls','2.B':'Implement Controls',
+  '3.A':'Evaluate Posture','3.B':'Analyze Incidents'
+};
+
+// ══════════════════════════════════════════════════════════════
+//  Bootstrap, populate unit selector
+// ══════════════════════════════════════════════════════════════
+(async () => {
+  try {
+    const units = await Engine.units();
+    const sel   = document.getElementById('inp-unit');
+    sel.innerHTML = units.map(u =>
+      `<option value="${u.id||u.unit_id}">${u.id||u.unit_id} — ${u.title} (${u.count} items)</option>`
+    ).join('');
+    const want = new URLSearchParams(location.search).get('unit');
+    if (want && units.some(u => (u.id||u.unit_id) === want)) sel.value = want;
+    setStatus('Ready, select a unit and enter your name to begin.');
+  } catch(e) { setStatus('Error loading units: ' + e.message); }
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  Start session
+// ══════════════════════════════════════════════════════════════
+async function startSession() {
+  const name = document.getElementById('inp-name').value.trim();
+  const sid  = document.getElementById('inp-id').value.trim();
+  const unit = document.getElementById('inp-unit').value;
+  if (!name) { alert('Please enter your name.'); return; }
+  // The email ties this test to the student's record on the rest of the site.
+  Identity.ensureEmail(email => {
+    SESSION = Engine.start({ student_name: name, student_id: sid, student_email: email, unit });
+    SESSION_START = Date.now();
+    SESSION_DONE = false;
+    show('quiz'); hide('start');
+    setStatus(`Session ${SESSION.id} active, Unit ${unit}`);
+    loadNext();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Load next question
+// ══════════════════════════════════════════════════════════════
+async function loadNext(skip) {
+  stopTimer();
+  hide('review');
+  setStatus('Loading next question…');
+  const data = await Engine.next(SESSION, skip);
+  if (data.done) { loadReport(); return; }
+
+  CURRENT_Q    = data;
+  SELECTED_KEY = null;
+  SESSION_DONE = false;
+
+  // Stimulus
+  document.getElementById('stim-label').textContent   = data.stimulus_label   || '';
+  document.getElementById('stim-context').textContent = data.stimulus_context || '';
+  document.getElementById('stim-body').innerHTML      = data.stimulus_html    || '';
+
+  // Skill badge
+  const skill = data.primary_skill || '1.A';
+  const sb = document.getElementById('skill-badge');
+  sb.textContent = `${skill} · ${SKILL_NAMES[skill] || skill}`;
+
+  // Stem
+  document.getElementById('q-stem').textContent = data.stem || '';
+
+  // Choices
+  const cc = document.getElementById('choices-container');
+  cc.innerHTML = '';
+  for (const [key, text] of Object.entries(data.choices || {})) {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="key">${key}</span><span>${text}</span>`;
+    btn.onclick = () => selectChoice(key, btn);
+    cc.appendChild(btn);
+  }
+
+  // Progress
+  const pct = Math.min(100, ((data.item_number - 1) / Engine.MAX_ITEMS) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('q-num').textContent = data.item_number;
+
+  // Theta bars
+  updateThetaBars(data.theta_estimates || {}, data.overall);
+
+  // Button state
+  document.getElementById('btn-submit').disabled = true;
+  document.getElementById('btn-next').classList.add('hidden');
+  document.querySelectorAll('.choice-btn').forEach(b => { b.disabled = false; b.classList.remove('selected','correct','wrong'); });
+
+  // Timer
+  ELAPSED_SEC = 0;
+  startTimer(parseInt(data.est_time, 10) || 60);
+  setStatus(`Item ${data.item_number} · Skill: ${skill}`);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Choice selection
+// ══════════════════════════════════════════════════════════════
+function selectChoice(key, btn) {
+  SELECTED_KEY = key;
+  document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('btn-submit').disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Submit answer
+// ══════════════════════════════════════════════════════════════
+async function submitAnswer() {
+  if (!SELECTED_KEY) return;
+  stopTimer();
+  document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+  document.getElementById('btn-submit').disabled = true;
+  setStatus('Submitting…');
+
+  const data = await Engine.respond(SESSION, CURRENT_Q.question_id, SELECTED_KEY, ELAPSED_SEC);
+
+  updateThetaBars(data.theta_estimates || {}, data.overall);
+
+  // Highlight choices
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    const key = btn.querySelector('.key').textContent;
+    if (key === data.correct_answer) btn.classList.add('correct');
+    else if (key === SELECTED_KEY && !data.correct) btn.classList.add('wrong');
+  });
+
+  SESSION_DONE = !!data.done;
+
+  // Show review
+  showReview(data);
+
+  // Update quiz-panel next button
+  const nb = document.getElementById('btn-next');
+  nb.classList.remove('hidden');
+  if (data.done) {
+    nb.textContent = 'View Report →';
+    nb.onclick = loadReport;
+  } else {
+    nb.textContent = 'Next →';
+    nb.onclick = nextQuestion;
+  }
+  // Sync review footer next button
+  const rnb = document.getElementById('btn-next-review');
+  if (data.done) {
+    rnb.textContent = 'View Report →';
+    rnb.onclick = loadReport;
+  } else {
+    rnb.textContent = 'Next Question →';
+    rnb.onclick = nextQuestion;
+  }
+
+  const res2 = data.correct ? 'Correct ✓' : `Incorrect, answer was ${data.correct_answer}`;
+  setStatus(res2);
+}
+
+function nextQuestion() { hide('review'); loadNext(); }
+function skipQuestion()  { hide('review'); loadNext(true); }
+
+// ══════════════════════════════════════════════════════════════
+//  Review overlay
+// ══════════════════════════════════════════════════════════════
+function showReview(data) {
+  const correct = data.correct;
+  const icon    = correct ? '✓' : '✗';
+  const title   = correct ? 'Correct!' : 'Incorrect';
+
+  document.getElementById('review-title-icon').textContent = icon;
+  document.getElementById('review-title-text').textContent = title;
+
+  const sub = correct
+    ? 'Great work. Review the explanation below.'
+    : `The correct answer was <strong>${data.correct_answer}</strong>.`;
+
+  document.getElementById('review-result').innerHTML = `
+    <div class="result-icon">${icon}</div>
+    <div class="result-text">
+      <h2 class="${correct ? 'correct' : 'wrong'}">${title}</h2>
+      <p style="font-size:12px">${sub}</p>
+    </div>`;
+
+  // Mini choices
+  const rc = document.getElementById('review-choices');
+  rc.innerHTML = Object.entries(data.choices || {}).map(([k, txt]) => {
+    let cls = '';
+    if (k === data.correct_answer) cls = 'correct';
+    else if (k === SELECTED_KEY && !correct) cls = 'wrong';
+    return `<div class="choice-btn ${cls}" style="pointer-events:none;margin-bottom:3px">
+      <span class="key">${k}</span><span style="font-size:11.5px">${txt}</span></div>`;
+  }).join('');
+
+  document.getElementById('review-explanation').textContent = data.explanation || '';
+
+  const db = document.getElementById('distractor-block');
+  if (!correct && data.distractor_rationale && Object.keys(data.distractor_rationale).length) {
+    const dl = document.getElementById('distractor-list');
+    dl.innerHTML = Object.entries(data.distractor_rationale)
+      .filter(([k]) => k !== data.correct_answer)
+      .map(([k, txt]) => `<div class="distractor-item"><span class="distractor-key">${k} —</span> ${txt}</div>`)
+      .join('');
+    db.classList.remove('hidden');
+  } else { db.classList.add('hidden'); }
+
+  document.getElementById('theta-delta').innerHTML = '';
+  show('review');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Theta bars
+// ══════════════════════════════════════════════════════════════
+function updateThetaBars(thetas, overall) {
+  if (!thetas || !Object.keys(thetas).length) return;
+  const el = document.getElementById('theta-bars');
+  const o = overall || { theta: 0, se: 1 };
+  const opct = Math.max(0, Math.min(100, Math.round((o.theta + 4) / 8 * 100)));
+  el.innerHTML = `<div class="theta-row" title="Overall ability from every answer; decides the unit gate">
+      <span class="theta-label"><b>Overall</b></span>
+      <div class="theta-bar"><div class="theta-fill" style="width:${opct}%;background:#000"></div></div>
+      <span class="theta-val">${o.theta.toFixed(2)}</span>
+      <span class="mastery-pip" title="standard error">±${o.se.toFixed(2)}</span>
+    </div>` + Object.entries(thetas).map(([skill, theta]) => {
+    const pct     = Math.max(0, Math.min(100, Math.round((theta + 4) / 8 * 100)));
+    const color   = SKILL_COLORS[skill] || '#8B0000';
+    const mastered = theta >= 0.55;
+    return `<div class="theta-row">
+      <span class="theta-label" title="${SKILL_NAMES[skill]||skill}">${SKILL_NAMES[skill]||skill}</span>
+      <div class="theta-bar"><div class="theta-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="theta-val">${theta.toFixed(2)}</span>
+      <span class="mastery-pip">${mastered ? '✓' : '·'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Timer
+// ══════════════════════════════════════════════════════════════
+function startTimer(estSec) {
+  const el = document.getElementById('timer');
+  ELAPSED_SEC = 0;
+  TIMER_INT = setInterval(() => {
+    ELAPSED_SEC++;
+    const m = Math.floor(ELAPSED_SEC / 60);
+    const s = ELAPSED_SEC % 60;
+    el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    el.className = ELAPSED_SEC > estSec * 1.5 ? 'danger' : ELAPSED_SEC > estSec ? 'warn' : '';
+  }, 1000);
+}
+function stopTimer() { clearInterval(TIMER_INT); }
+
+// ══════════════════════════════════════════════════════════════
+//  Report
+// ══════════════════════════════════════════════════════════════
+async function loadReport() {
+  hide('review');
+  setStatus('Generating report…');
+  REPORT_DATA = await Engine.report(SESSION);
+  renderReport(REPORT_DATA, 'student');
+  show('report'); hide('quiz');
+  setStatus('Report complete.');
+}
+
+function setView(mode) {
+  VIEW_MODE = mode;
+  document.querySelectorAll('.view-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim().toLowerCase().startsWith(mode)));
+  renderReport(REPORT_DATA, mode);
+}
+
+function renderReport(d, view) {
+  if (!d) return;
+  document.getElementById('rpt-subtitle').textContent =
+    `${d.student_name||''}${d.student_id ? ' · '+d.student_id : ''} · Unit ${d.unit||''} · ${(d.summary||{}).elapsed_fmt||''}`;
+
+  const body = document.getElementById('report-body');
+  const s    = d.summary || {};
+  const accCol = (s.accuracy_pct||0) >= 75 ? '#006400' : (s.accuracy_pct||0) >= 50 ? '#8B6914' : '#8B0000';
+
+  const o = d.overall || {};
+  let html = `
+  <div class="report-section">
+    <div class="rpt-ribbon">Overall Result</div>
+    <div class="rpt-section-body">
+      <div style="font-size:15px;font-weight:bold;color:${o.level_color||'#000'}">${o.level||'—'} · θ = ${(o.theta||0).toFixed(2)} <span style="font-size:11px;color:#808080">± ${(o.se||0).toFixed(2)}</span></div>
+      <div style="font-size:12px;margin-top:4px">${d.done ? (o.meets_gate ? '✓ Meets the unit gate (Proficient or above).' : '✗ Below the unit gate (Proficient, θ ≥ 0.50). Book a tutoring session before moving on.') : 'Test in progress.'}</div>
+    </div>
+  </div>
+  <div class="report-grid">
+    <div class="stat-card"><div class="stat-val">${s.total||0}</div><div class="stat-lbl">Items</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:${accCol}">${s.accuracy_pct||0}%</div><div class="stat-lbl">Accuracy</div></div>
+    <div class="stat-card"><div class="stat-val">${s.elapsed_fmt||'—'}</div><div class="stat-lbl">Time</div></div>
+    <div class="stat-card"><div class="stat-val">${s.avg_sec||0}s</div><div class="stat-lbl">Avg/Item</div></div>
+  </div>`;
+
+  // Skill Profile
+  html += `<div class="report-section">
+    <div class="rpt-ribbon">Skill Profile</div>
+    <div class="rpt-section-body">`;
+  for (const [skill, sk] of Object.entries(d.skill_profile || {})) {
+    html += `<div class="skill-row">
+      <div class="skill-row-name">${sk.name||skill}<br><span style="font-size:10px;color:#808080">${skill}</span></div>
+      <div class="skill-row-bar"><div class="skill-row-fill" style="width:${sk.pct||0}%;background:${sk.color||'#8B0000'}"></div></div>
+      <div class="skill-row-pct">${(sk.theta||0).toFixed(2)}</div>
+      <div class="skill-row-level">${sk.level||'—'}</div>
+      <span style="font-size:10px;color:#006400">${sk.mastered ? '✓' : ''}</span>
+    </div>`;
+  }
+  html += `<div class="chart-wrap"><canvas id="rpt-chart" height="160"></canvas></div>`;
+  html += `</div></div>`;
+
+  // Strengths / Gaps
+  const str = d.strengths || []; const gap = d.gaps || [];
+  if (str.length || gap.length) {
+    html += `<div class="report-section">
+      <div class="rpt-ribbon">Strengths &amp; Gaps</div>
+      <div class="rpt-section-body">
+        <div class="str-gap-grid">
+          <div><div class="str-gap-title green">Strengths</div>
+            ${str.length ? str.map(s=>`<div class="str-gap-item correct">✓ ${s}</div>`).join('') : '<div class="str-gap-item muted">No mastered skills yet.</div>'}
+          </div>
+          <div><div class="str-gap-title red">Areas for Growth</div>
+            ${gap.length ? gap.map(g=>`<div class="str-gap-item wrong">▸ ${g}</div>`).join('') : '<div class="str-gap-item muted">No significant gaps.</div>'}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Item table
+  html += `<div class="report-section">
+    <div class="rpt-ribbon">Question Review</div>
+    <div class="rpt-section-body" style="padding:0">
+    <table class="item-table">
+      <thead><tr><th>#</th><th>Question</th><th>Skill</th><th>Difficulty</th><th>Answer</th><th>Result</th></tr></thead>
+      <tbody>`;
+  for (const it of (d.items || [])) {
+    const rs = it.correct
+      ? `<span class="correct">✓ Correct</span>`
+      : `<span class="wrong">✗ Wrong (${it.correct_answer})</span>`;
+    html += `<tr>
+      <td class="muted">${it.seq}</td>
+      <td>
+        <div style="font-size:11.5px;line-height:1.5">${it.stem||''}</div>
+        <span class="item-expand" onclick="toggleDetail(${it.seq})">▸ Explanation</span>
+        <div id="det-${it.seq}" class="item-detail hidden">
+          <div class="expl-title">Explanation</div>
+          <div style="font-size:11px">${it.explanation||''}</div>
+          ${view==='tutor' && Object.keys(it.distractor_rationale||{}).length ? `
+          <div style="margin-top:6px"><div class="expl-title" style="color:#8B6914">Distractor Analysis</div>
+          ${Object.entries(it.distractor_rationale||{}).filter(([k])=>k!==it.correct_answer)
+            .map(([k,v])=>`<div class="distractor-item"><span class="distractor-key">${k}</span> ${v}</div>`).join('')}
+          </div>` : ''}
+          <div style="margin-top:4px;font-size:10px;color:#808080">Topics: ${it.topic_refs||''} · b = ${it.b_param||''}</div>
+        </div>
+      </td>
+      <td><span style="font-size:10.5px;font-weight:bold;color:${SKILL_COLORS[it.primary_skill]||'#8B0000'}">${it.primary_skill||''}</span></td>
+      <td><span style="color:${it.diff_col||'#000'};font-size:11px;font-weight:bold">${it.diff_label||''}</span></td>
+      <td class="mono" style="font-size:12px;font-weight:bold">${it.answer||''}</td>
+      <td>${rs}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+
+  // Tutor recommendations
+  if (view === 'tutor') {
+    html += `<div class="report-section">
+      <div class="rpt-ribbon">Tutor Recommendations</div>
+      <div class="rpt-section-body">
+        ${(d.recommendations||[]).map(r=>`<div class="reco-item">${r}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+
+  setTimeout(() => {
+    const ctx = document.getElementById('rpt-chart');
+    if (!ctx) return;
+    const skills = Object.values(d.skill_profile || {});
+    if (!skills.length) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: skills.map(s => s.skill),
+        datasets: [{
+          label: 'θ Estimate',
+          data: skills.map(s => s.theta || 0),
+          backgroundColor: skills.map(s => hexAlpha(s.color||'#8B0000', .6)),
+          borderColor: skills.map(s => s.color||'#8B0000'),
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { min: -2, max: 2.5,
+               grid: { color: '#e0e0e0' }, ticks: { color: '#000', font: {family:'Times New Roman'} },
+               title: { display: true, text: 'θ (Ability Estimate)', color: '#000', font: {family:'Times New Roman'} } },
+          x: { grid: { display: false }, ticks: { color: '#000', font: {family:'Times New Roman'} } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `θ = ${ctx.raw.toFixed(3)}` } }
+        }
+      }
+    });
+  }, 120);
+}
+
+function toggleDetail(seq) {
+  const el  = document.getElementById(`det-${seq}`);
+  const spn = el.previousElementSibling;
+  if (el.classList.toggle('hidden')) spn.textContent = '▸ Explanation';
+  else spn.textContent = '▾ Hide';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Screen management
+// ══════════════════════════════════════════════════════════════
+function show(name) { document.getElementById('screen-'+name).classList.remove('hidden'); }
+function hide(name) { document.getElementById('screen-'+name).classList.add('hidden'); }
+function setStatus(msg) {
+  const el = document.getElementById('status-text');
+  if (el) el.textContent = msg;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════════════════════
+function hexAlpha(hex, alpha) {
+  if (!hex || hex.length < 7) return `rgba(139,0,0,${alpha})`;
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+</script>
+</body>
+</html>

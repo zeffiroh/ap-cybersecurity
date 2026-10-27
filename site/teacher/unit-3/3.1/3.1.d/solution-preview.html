@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packet capture and traffic sniffing, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Packet capture and traffic sniffing  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.1.d: Packet capture credential-leak detector</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 3.1.B, 3.1.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are triaging a captured packet log at Crestfield Analytics. For each entry, determine whether
+it exposes a plaintext credential ("LEAK") or not ("SAFE"):</p>
+<ul>
+<li><strong>Encrypted ports are always "SAFE"</strong>, regardless of payload content: port <code>443</code> (HTTPS) and
+  port <code>22</code> (SSH) encrypt their payload, so nothing in the payload text can be treated as an
+  actual leaked credential.</li>
+<li><strong>Cleartext-capable ports</strong> are <code>80</code> (HTTP), <code>23</code> (Telnet), and <code>21</code> (FTP). An entry on one of
+  these ports is <strong>"LEAK"</strong> if its payload contains any credential indicator string (case-sensitive
+  substring match), otherwise it is <strong>"SAFE"</strong>.</li>
+<li>Credential indicator strings to check for (substring match anywhere in the payload):
+  <code>"password="</code>, <code>"Password:"</code>, <code>"PASS "</code>.</li>
+<li>Any other port not listed above is treated as <code>"SAFE"</code> (out of scope for this detector).</li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(packets)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>packets</code>: <code>list[dict]</code>, each with:</li>
+<li><code>"port"</code>: <code>int</code>, destination port</li>
+<li><code>"payload"</code>: <code>str</code>, the captured payload text</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code> of classifications, <strong>one per input packet, in the same order as the input</strong>. Each
+entry is one of <code>"LEAK"</code>, <code>"SAFE"</code>.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">packets = [
+    {&quot;port&quot;: 80, &quot;payload&quot;: &quot;POST /login HTTP/1.1\r\n\r\nuser=alice&amp;password=Pass123!&quot;},
+    {&quot;port&quot;: 443, &quot;payload&quot;: &quot;\\x16\\x03\\x03 encrypted application data&quot;},
+]
+solve(packets)  -&gt;  [&quot;LEAK&quot;, &quot;SAFE&quot;]
+
+packets2 = [
+    {&quot;port&quot;: 23, &quot;payload&quot;: &quot;login: admin\r\nPassword: R0uterAdmin!&quot;},
+    {&quot;port&quot;: 80, &quot;payload&quot;: &quot;GET /index.html HTTP/1.1&quot;},
+]
+solve(packets2)  -&gt;  [&quot;LEAK&quot;, &quot;SAFE&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Port check first: if <code>port</code> is <code>443</code> or <code>22</code>, the result is always <code>"SAFE"</code>.</li>
+<li>Otherwise, if <code>port</code> is <code>80</code>, <code>23</code>, or <code>21</code>: check for any of <code>"password="</code>, <code>"Password:"</code>,
+  <code>"PASS "</code> as a substring of <code>payload</code>; if found, <code>"LEAK"</code>, else <code>"SAFE"</code>.</li>
+<li>Any other port: always <code>"SAFE"</code>.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(packets: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>packets</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"port"</code>: <code>int</code>, destination port
+- <code>"payload"</code>: <code>str</code>, captured payload text</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> the same length as <code>packets</code>, in the <strong>same order as the input</strong>, where each element
+is one of <code>"LEAK"</code>, <code>"SAFE"</code>.</p>
+<h3>Classification rules</h3>
+<ol>
+<li>If <code>port</code> is <code>443</code> or <code>22</code>, result is <code>"SAFE"</code> (encrypted; payload content is never checked).</li>
+<li>Else if <code>port</code> is <code>80</code>, <code>23</code>, or <code>21</code>: result is <code>"LEAK"</code> if <code>payload</code> contains any of the
+   substrings <code>"password="</code>, <code>"Password:"</code>, <code>"PASS "</code>; otherwise <code>"SAFE"</code>.</li>
+<li>Else (any other port), result is <code>"SAFE"</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Output order matches input order exactly.</li>
+<li>Substring checks are case-sensitive exact matches of the three literal strings above.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.1.d. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict
+
+_ENCRYPTED_PORTS = {443, 22}
+_CLEARTEXT_PORTS = {80, 23, 21}
+_INDICATORS = ("password=", "Password:", "PASS ")
+
+
+def solve(packets: List[Dict]) -&gt; List[str]:
+    """Classify each packet as LEAK (cleartext credential exposed) or SAFE.
+
+    Rules (see the Reference section below):
+      1. port in {443, 22} -&gt; always SAFE.
+      2. port in {80, 23, 21} -&gt; LEAK if payload contains any credential indicator, else SAFE.
+      3. any other port -&gt; SAFE.
+    """
+    result = []
+    for p in packets:
+        port = p["port"]
+        if port in _ENCRYPTED_PORTS:
+            result.append("SAFE")
+        elif port in _CLEARTEXT_PORTS:
+            payload = p["payload"]
+            leaked = any(ind in payload for ind in _INDICATORS)
+            result.append("LEAK" if leaked else "SAFE")
+        else:
+            result.append("SAFE")
+    return result
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _p(port, payload):
+    return {"port": port, "payload": payload}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_http_login_leak():
+    packets = [_p(80, "POST /login HTTP/1.1\r\n\r\nuser=alice&amp;password=Pass123!")]
+    assert impl.solve(packets) == ["LEAK"]
+
+
+def test_https_always_safe():
+    packets = [_p(443, "password= this looks like a leak but is encrypted TLS payload")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_telnet_password_leak():
+    packets = [_p(23, "login: admin\r\nPassword: R0uterAdmin!")]
+    assert impl.solve(packets) == ["LEAK"]
+
+
+def test_http_no_credential_safe():
+    packets = [_p(80, "GET /index.html HTTP/1.1")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_ftp_pass_leak():
+    packets = [_p(21, "USER backup\r\nPASS Backup#2024")]
+    assert impl.solve(packets) == ["LEAK"]
+
+
+def test_ssh_always_safe():
+    packets = [_p(22, "SSH-2.0-OpenSSH_9.3 key exchange")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_out_of_scope_port_safe():
+    packets = [_p(53, "DNS query: mail.example A?")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_empty_packets():
+    assert impl.solve([]) == []
+
+
+def test_mixed_batch_order_preserved():
+    packets = [
+        _p(80, "password=leaked1"),
+        _p(443, "password=leaked2"),
+        _p(21, "PASS ftpsecret"),
+    ]
+    assert impl.solve(packets) == ["LEAK", "SAFE", "LEAK"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_case_sensitivity_lowercase_pass_not_matched():
+    """Lowercase 'pass ' (not the exact 'PASS ' indicator) should NOT trigger a leak."""
+    packets = [_p(21, "this text says pass phrase but not the exact marker")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_https_with_literal_password_text_still_safe():
+    packets = [_p(443, "Password: totally-visible-but-port-is-encrypted")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_multiple_indicators_still_single_leak():
+    packets = [_p(80, "password=abc\r\nPassword: def\r\nPASS ghi")]
+    assert impl.solve(packets) == ["LEAK"]
+
+
+def test_unrelated_cleartext_port_content_safe():
+    packets = [_p(23, "just some banner text, no credentials here")]
+    assert impl.solve(packets) == ["SAFE"]
+
+
+def test_large_batch_deterministic():
+    packets = []
+    expected = []
+    for i in range(15):
+        if i % 3 == 0:
+            packets.append(_p(80, f"password=leak{i}"))
+            expected.append("LEAK")
+        elif i % 3 == 1:
+            packets.append(_p(443, f"password=leak{i}"))
+            expected.append("SAFE")
+        else:
+            packets.append(_p(9999, f"password=leak{i}"))
+            expected.append("SAFE")
+    assert impl.solve(packets) == expected
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

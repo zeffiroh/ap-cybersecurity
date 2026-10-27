@@ -1,0 +1,544 @@
+\chapter{Linux Permission Controls}
+\label{ch:5.2}
+\chaptertopic{Topic 5.2}
+
+\chapterquote{Every program and every privileged user of the system should operate using the least amount of privilege necessary to complete the job.}{Jerome H. Saltzer and Michael D. Schroeder, ``The Protection of Information in Computer Systems'' (1975)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:5.1} showed what happens when an application trusts input it should not. This
+chapter is about a different trust question: once a request is authenticated, how does a system
+decide what that identity is actually allowed to do? Every application, database, and operating
+system answers this with some access-control model. The three canonical models -- owner-
+controlled, centrally labeled, and role-based -- recur constantly in real systems, often blended
+together in the same deployment. The chapter then goes one level deeper into the model that
+dominates enterprise practice. It closes with what happens when a stolen credential meets a
+poorly designed access-control scheme: lateral movement across an entire network.
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.2 -- Protecting Applications and Data: Managerial Controls and Access Controls}
+\begin{apobjectives}
+\apobjective{5.2.A}{Mitigate Risk}{Explain how two properties of a data item -- the sensitivity band an organization has assigned it, and the state it happens to be in at the moment, whether resting on a disk, moving across a link, or open in a running process -- together decide which protections apply to it and how strong those protections have to be.}
+\apobjective{5.2.B}{Mitigate Risk}{Identify the controls that operate through policy and process rather than through code: classification schemes, named data owners, least privilege and separation of duties, periodic access review, acceptable-use and retention rules, and the vetting an organization applies to the software it buys.}
+\apobjective{5.2.C}{Mitigate Risk}{Decide which access control model -- discretionary, mandatory, role-based, or attribute-based -- suits a given body of applications and data, given who must decide on access, how often the answer changes, and how much administrative effort the organization can sustain.}
+\apobjective{5.2.D}{Mitigate Risk}{Put an access decision into effect on a Linux system: set ownership and group, choose a permission mode in octal or symbolic form, apply the special bits where they are warranted, control what new files inherit, and reach for a POSIX access control list when the three-class model cannot express the requirement.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Data States and Classification}
+
+Two questions decide how much protection a piece of data deserves, and neither is technical. The
+first is \emph{what} the data is -- a marketing brochure and a payroll register are both, mechanically,
+just bytes on the same disk, but only one creates an obligation if it leaves the building. The
+second is \emph{where} the data is at the moment you want to protect it, because the available
+mechanisms differ completely by answer.
+
+\begin{definition}{The three states of data}
+\textbf{Data at rest} is written to persistent storage -- a database file, a bucket object, a backup
+tape -- and is protected by filesystem/object permissions and by storage encryption. \textbf{Data in
+transit} is crossing a network link and is protected by transport encryption: TLS for application
+traffic, IPsec or SSH tunnels host-to-host, including internal links. \textbf{Data in use} is loaded
+into memory and actively being processed, and generally must exist as plaintext for computation to
+occur. It is the hardest state to protect, addressed only by process isolation, memory zeroing after
+use, hardware enclaves, and, for narrow cases, homomorphic encryption.
+\end{definition}
+
+Full-disk encryption is a clarifying example of why the states matter separately. It defends a
+powered-down, stolen laptop. But on a running server with the volume already unlocked, every
+process that can read the file reads plaintext, and the encryption contributes nothing at that
+point -- access control and encryption are complementary controls, not substitutes for each other.
+Data in use is precisely the state the Heartbleed vulnerability (CVE-2014-0160, a 2014 buffer
+over-read flaw in OpenSSL) attacked.\srccite{5.2}{1} The private keys it disclosed were properly
+encrypted at rest and properly protected in transit. They were read directly out of process memory
+in between.
+
+A \textbf{classification scheme} assigns each data item to a sensitivity band so handling rules can
+be written once per band instead of once per file. Government practice uses Unclassified,
+Confidential, Secret, and Top Secret; commercial practice typically uses Public, Internal,
+Confidential, and Restricted. The label is administrative, not technical -- nothing about the bytes
+of a Restricted file differs from a Public one. But it is what a policy attaches requirements to:
+this band may be stored only on encrypted volumes, may not leave a jurisdiction, must be retained
+seven years and then destroyed. Classification and state combine rather than substitute. A
+Restricted record at rest needs encrypted storage and a tightly scoped permission set. The same
+record in transit needs TLS with a modern cipher suite and enforced certificate validation. The same
+record in use needs process isolation and a guarantee the plaintext is never written to a log or
+crash dump. \textbf{Aggregation} means a collection can warrant a higher classification than any
+single member -- one employee's extension is Internal, the complete company directory is a
+social-engineering asset. The \textbf{data lifecycle} means classification is not permanent: an
+unreleased earnings figure is Restricted until filed, Public afterward. Data no longer needed
+should be destroyed on a retention schedule, since data that does not exist cannot be breached.
+
+Controls are conventionally sorted by how they operate. \textbf{Technical controls} are enforced by
+machinery -- a permission bit, a firewall rule, an encryption routine. \textbf{Physical controls}
+act on the material world -- a locked rack, a badge reader, a shredder. \textbf{Managerial
+(administrative) controls} operate through policy, procedure, and human decision. They are what make
+the technical controls coherent: a permission bit answers ``may this account read this file,'' but
+only a managerial control answers ``should this account exist at all, and who decided so.''
+
+The managerial controls that bear directly on this chapter are: a \textbf{data classification policy}
+defining the bands; \textbf{data ownership}, distinguishing the \emph{owner} who decides access, the
+\emph{custodian} who operates storage on the owner's behalf, and the \emph{user} who works under the
+rules; and \textbf{least privilege} and \textbf{separation of duties}. Also directly relevant: periodic
+\textbf{access review} that catches privilege accumulation before it is exploited;
+\textbf{onboarding/offboarding} procedures governing when access is granted and revoked;
+\textbf{change management} ensuring a permission change is requested, approved, and recorded;
+\textbf{training and acceptable-use policy}; and \textbf{vendor/third-party assessment} extending the
+same expectations to software the organization did not write itself. Most well-known data losses
+were not defeated cryptography. They were an account that should have been closed, a grant nobody
+re-examined, or a production database copy that policy never forbade a developer from taking home.
+
+\section{Access Control Models}
+
+\begin{definition}{Access control}
+The policy and technical machinery that decides which \textbf{subjects} (users, processes,
+services) can perform which \textbf{permissions} (read, write, delete, execute) on which
+\textbf{objects} (files, database tables, API endpoints).
+\end{definition}
+
+\textbf{Discretionary Access Control (DAC)} lets the owner of an object decide who else may access
+it -- ``discretionary'' meaning the decision sits entirely with that owner. Traditional Unix file
+permissions are the textbook DAC system: whoever owns a file sets its read/write/execute bits for
+owner, group, and others, with no central authority approving the grant. DAC's strength is
+flexibility -- an owner can share access instantly without routing through an administrator -- and
+its weakness is exactly the same fact viewed differently. Owners can carelessly over-grant, and
+nothing enforces an organization-wide minimum standard, so malware running as a user simply
+inherits and abuses whatever that user was permitted to touch. DAC also cannot enforce a rule about
+\emph{where} data may go once it is read -- nothing stops an authorized reader from copying a
+file's contents into a new file they own and make world-readable.
+
+\textbf{Mandatory Access Control (MAC)} removes discretion from the owner entirely. A central
+policy authority assigns \textbf{labels} to both subjects and objects -- UNCLASSIFIED, SECRET, TOP
+SECRET -- and a reference monitor compares the two on every access. MAC originated in government and
+military systems. Its classical formulation, the \textbf{Bell--LaPadula} model, gives two rules
+worth stating carefully because they are frequently reversed. \emph{No read up} means a subject may
+not read an object above its clearance. \emph{No write down} means a subject may not write to an
+object below its clearance -- preventing a cleared user, or malware acting as that user, from
+copying Secret content into an Unclassified file. \begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  lvl/.style={draw=kickstartermaroon, thick, minimum width=6cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[lvl, fill=kickstartermaroon!25] (ts) at (0,1.6) {TOP SECRET};
+\node[lvl, fill=kickstartermaroon!12] (s) at (0,0.8) {SECRET};
+\node[lvl, fill=kickstartercream] (u) at (0,0) {UNCLASSIFIED};
+\node[draw=kickstartermaroon, circle, thick, minimum size=0.5cm, font=\scriptsize] (subj) at (-3.2,0.8) {S};
+\draw[-{Latex[length=2mm]}, gray, dashed] (subj) to[bend left=15] (ts.west) node[midway, above, font=\tiny, gray] {no read up};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (subj) to[bend right=10] (u.west) node[midway, below, font=\tiny] {no write down};
+\draw[{Latex[length=2mm]}-, kickstartermaroon, thick] (subj) -- (s.west);
+\node[font=\tiny, below=0.05cm of subj] {cleared: SECRET};
+\end{tikzpicture}
+\caption{Bell--LaPadula's two rules for a subject cleared at SECRET: reading TOP SECRET is
+forbidden (no read up), and writing down into an UNCLASSIFIED object is forbidden (no write down)
+-- the second rule blocks a cleared user, or malware running as one, from laundering sensitive
+content into a less-protected file.}
+\label{fig:5.2-bell-lapadula}
+\end{figure}
+
+SELinux and AppArmor are MAC's Linux-world descendants,
+layered on top of the discretionary permission bits. That is why an SELinux denial can block an
+operation that \texttt{ls -l} says is permitted: both layers must allow it. MAC's strength is
+enforcement no individual user can override; its weakness is administrative overhead, since labeling
+every object correctly requires careful policy design up front.
+
+\begin{definition}{Role-Based Access Control (RBAC)}
+An access model where permissions attach to named \textbf{roles} rather than to individual users or
+sensitivity labels, and users inherit whatever permissions their assigned role or roles carry.
+\end{definition}
+
+RBAC is today's dominant enterprise model precisely because it scales: a hospital with five
+thousand staff might define thirty roles -- Nurse, Billing Clerk, Auditor -- rather than five
+thousand separate permission lists. When a nurse leaves and a replacement joins, an
+administrator reassigns one role rather than reconstructing an individual grant from scratch. RBAC
+also enforces separation of duties naturally, since a data-entry role can be kept structurally
+distinct from a data-approval role. Its failure mode is \textbf{role proliferation}: an
+organization that creates ever more fine-grained roles (``Junior Billing Clerk in Region~4'')
+recreates DAC's original complexity problem in a different shape.
+
+\begin{definition}{Attribute-Based Access Control (ABAC)}
+An access model that evaluates a policy expression at request time over attributes of the subject,
+the object, the action, and the environment, rather than consulting a fixed list of grants or role
+assignments.
+\end{definition}
+
+ABAC can express conditions the other three models cannot. It can permit a clinician to read a
+record only if four conditions all hold: the clinician is assigned to the patient's care team; the
+record's classification is at or below the clinician's authorization; the request originates from a
+managed device on the hospital network; and the current time falls within the clinician's shift.
+All four conditions are evaluated live, without inventing a distinct role for every combination --
+the \textbf{role explosion} that afflicts large RBAC deployments. The cost is that policies become software: they need authoring, testing, and
+version control, the attribute sources must stay authoritative and current, and a wrong attribute
+silently produces a wrong decision. NIST SP 800-162 is the standard reference for ABAC.\srccite{5.2}{2}
+
+\begin{lstlisting}[language=Python, caption={Enforcing DAC, MAC, RBAC, and ABAC access decisions}]
+LABEL_RANK = {"unclassified": 0, "secret": 1, "top_secret": 2}
+
+def dac_allowed(owner, requester, acl):
+    """acl: set of user names the owner has explicitly granted access to."""
+    return requester == owner or requester in acl
+
+def mac_allowed(subject_label, object_label):
+    return LABEL_RANK[subject_label] >= LABEL_RANK[object_label]
+
+def rbac_allowed(user_roles, role_permissions, requested_permission):
+    """user_roles: set of role names. role_permissions: dict role -> set of
+    permission strings."""
+    granted = set()
+    for role in user_roles:
+        granted |= role_permissions.get(role, set())
+    return requested_permission in granted
+
+def abac_allowed(subject, obj, action, environment, policy):
+    """policy: a callable(subject, obj, action, environment) -> bool,
+    evaluated live against current attributes rather than a stored grant."""
+    return policy(subject, obj, action, environment)
+\end{lstlisting}
+
+In practice the models compose rather than compete. A single enterprise commonly runs RBAC for
+application entitlements, DAC on the filesystems those applications use, MAC through SELinux to
+confine daemons, and ABAC at the API gateway for context-dependent conditions. The design question
+is not which model is universally best but which decision each layer is being asked to make.
+
+In practice, systems frequently blend all three: an operating system enforces MAC-style clearance
+labels overall while an application built on top of it manages job functions through RBAC, with DAC
+as the fallback for user-owned files. Cutting across every model is \textbf{least privilege}: a web
+server process reading a public directory should hold no write or delete permission at all, and an
+intern account should never reach salary tables. Least privilege is what caps the
+\textbf{blast radius} once any single account is compromised -- an attacker who hijacks a
+low-privilege account inherits only that account's narrow reach, not the whole system.
+
+\begin{misconception}
+\textbf{``DAC is weak, so only MAC is secure.''} Each model fits a different context. MAC's
+overhead is impractical for ordinary consumer software; DAC is entirely appropriate when owners can
+be trusted to manage their own data reasonably.
+\end{misconception}
+
+\section{Configuring Access Control on Linux}
+
+Every file and directory on a Linux system carries an \textbf{inode} recording its owner, its
+group, and a compact permission field. The model divides potential accessors into exactly three
+classes -- \textbf{owner}, \textbf{group}, and \textbf{other} (everyone else, including, on an
+internet-facing server, an unauthenticated web-server worker process). It tracks three
+independent bits per class: \textbf{read} (4), \textbf{write} (2), and \textbf{execute} (1). Running
+\texttt{ls -l} displays this as a ten-character string, e.g.\ \texttt{-rw-r-----}. The leading
+character is the file type (\texttt{-} regular file, \texttt{d} directory, \texttt{l} symlink). Each
+of the remaining three triads belongs to owner, group, and other in that order -- a detail
+students routinely miscount by including the type character as part of the owner's bits.
+
+\begin{lstlisting}[caption={Reading and setting Linux permissions}]
+$ ls -l /srv/app/config.yml
+-rw-r----- 1 appsvc appadm 2048 Sep 2 09:14 /srv/app/config.yml
+# owner appsvc: read+write; group appadm: read only; other: nothing -> mode 640
+
+$ chmod 755 /usr/local/bin/deploy.sh   # rwxr-xr-x: typical executable script
+$ chmod 640 /srv/app/config.yml        # rw-r-----: typical config/data file
+$ chmod u+x script.sh                  # symbolic: add execute for owner only
+$ chmod g-w,o= shared.txt              # remove group write; clear other entirely
+\end{lstlisting}
+
+Two evaluation rules are easy to get wrong. First, the three triads are checked in order and the
+\emph{first match wins}: if the requesting process is the file's owner, only the owner triad is
+consulted. So a mode of \texttt{077} denies the owner everything while granting everyone else full
+access. Second, on a \emph{directory} the bits mean something different from a file: \texttt{r}
+permits listing names inside it, \texttt{w} permits creating and deleting entries, and \texttt{x}
+(the search bit) permits traversing into it to reach a named child even without \texttt{r}.
+Because \texttt{w} on a directory governs the directory's entry list rather than the files' contents,
+holding write permission on a directory is enough to delete a file inside it that you cannot read
+and do not own. That is the exact problem the \textbf{sticky bit} (\texttt{chmod +t}, seen as \texttt{t}
+in \texttt{/tmp}'s mode) exists to solve, by restricting deletion inside a shared, world-writable
+directory to a file's own owner. The related \textbf{setuid} and \textbf{setgid} bits make a
+program run with the privileges of its owning user or group rather than the invoking user's. That
+makes them powerful, and consequently a classic privilege-escalation target when set on a file an
+attacker can also modify.
+
+Permissions on a newly created file are not chosen by the creating program alone. The kernel
+computes the mode as the process's requested mode (conventionally 666 for a file, 777 for a
+directory) with every bit set in the process's \textbf{umask} cleared.
+
+\begin{lstlisting}[caption={umask determines what new files inherit}]
+$ umask 0022
+$ touch newfile && ls -l newfile | cut -d' ' -f1
+-rw-r--r--          # 666 with 022 cleared
+
+$ umask 077
+$ touch private && ls -l private | cut -d' ' -f1
+-rw-------          # nothing for group or other
+\end{lstlisting}
+
+A umask is a default, not an enforcement mechanism -- it decides what a file gets at birth, and any
+process may \texttt{chmod} afterward. It is also per-process and inherited, so setting it in an
+interactive shell has no effect on a service started by the system's service manager. That service
+needs its own mask configured directly (e.g.\ \texttt{UMask=} in a systemd unit file).
+
+The three-class model is intentionally coarse: it cannot express ``grant write to exactly these two
+users but not the rest of the group,'' nor different default permissions for different creators
+within one directory. A \textbf{POSIX Access Control List (ACL)}, managed with \texttt{getfacl} and
+\texttt{setfacl}, layers arbitrarily many additional user- and group-specific grants on top of the
+base owner/group/other triad without replacing it. ACLs are additive, so the base bits are always
+evaluated too. A trailing \texttt{+} on an \texttt{ls -l} mode string signals that an ACL is present
+and the nine bits are not the whole story; auditing permissions without noticing it produces a
+confidently wrong conclusion.
+
+\begin{misconception}
+\textbf{``If \texttt{ls -l} shows the permission, the operation is allowed.''} On a system running
+SELinux or AppArmor, a MAC policy can still deny an operation the discretionary bits permit -- both
+layers must agree, and a trailing \texttt{.} on the mode string signals an attached security context
+worth checking separately.
+\end{misconception}
+
+\section{Roles, Permissions, and Least Privilege}
+
+A \textbf{permission} is a single narrow grant -- ``read the invoices table,'' ``restart the web
+service.'' Real systems have hundreds or thousands of possible permissions, and assigning them one
+at a time to every individual user does not scale. It is slow, error-prone, and nearly impossible
+to audit after the fact (``does Dana still need delete-access to payroll from a project two years
+ago?''). RBAC's roles are the answer -- bundling permissions into named units a user is assigned as
+a whole, so a job change means reassigning a role rather than hand-editing a scattered permission
+list.
+
+\begin{example}[Why over-granting is silent and under-granting is loud]
+If a new employee's role is missing a permission they actually need, they notice immediately and
+complain -- the gap is loud and gets fixed fast. If a role carries a permission the employee will
+never use, nothing breaks and nobody notices -- the excess is silent. This asymmetry is exactly why
+\textbf{privilege creep} accumulates unopposed. Over months and years, employees who change teams or
+take on temporary projects gain more and more permissions, because access is added when needed but
+almost never removed once it stops being needed. Removal requires someone to notice a gap
+that, by construction, never announces itself.
+\end{example}
+
+The security stake here is not tidiness -- it is blast radius. A support agent's role scoped tightly
+to ticket-handling permissions means a phished credential lets an attacker read and reply to
+tickets: contained, if unwelcome. The same account, after years of unchecked privilege creep,
+carrying \texttt{delete\_invoice} and \texttt{read\_all\_customer\_pii} because a manager once said
+``just give them access to be safe,'' turns the identical phishing email into a much larger breach.
+\textbf{Role review (recertification)} is the deliberate counterweight: on a periodic schedule,
+managers or system owners must explicitly re-confirm that every person assigned to a role still
+needs it, and anything not re-confirmed is revoked.
+
+\begin{lstlisting}[language=Python, caption={Flagging users whose role permissions exceed their job requirement}]
+def find_overprivileged_users(users, role_permissions, job_requirements):
+    """users: dict user -> set of assigned role names.
+       role_permissions: dict role -> set of permission strings.
+       job_requirements: dict user -> set of permissions actually needed.
+       Returns sorted usernames holding a permission beyond their
+       job requirement."""
+    flagged = []
+    for user, roles in users.items():
+        granted = set()
+        for role in roles:
+            granted |= role_permissions.get(role, set())
+        excess = granted - job_requirements.get(user, set())
+        if excess:
+            flagged.append(user)
+    return sorted(flagged)
+\end{lstlisting}
+
+\textbf{Separation of duties} reinforces least privilege structurally: the person who \emph{creates}
+a vendor payment should never also be the person who \emph{approves} it. That way, completing a fraud
+requires collusion between two people rather than the abuse of a single over-broad role. The most
+common design mistake here is a single giant ``power user'' role bundling every permission a manager
+might conceivably need across every function, rather than composing narrower roles (Approver,
+Report Viewer, Team Editor) assigned only as actually needed. It takes more setup effort up front,
+but it is the difference between answering ``who can delete invoices?'' by listing one role's
+members versus manually auditing a thousand individual accounts.
+
+\begin{misconception}
+\textbf{``Giving extra access `just in case' is harmless if it's never used.''} Unused excess
+permission is exactly what increases blast radius the moment an account is compromised. It is a
+silent risk, not a neutral one, regardless of how rarely it is actually exercised.
+\end{misconception}
+
+\section{Credential Theft and Lateral Movement}
+
+Most large breaches do not end where they begin. A phished marketing employee's laptop usually has
+no direct access to a finance database or a domain controller -- what makes a breach catastrophic is
+what happens next.
+
+\begin{definition}{Lateral movement}
+An attacker using a compromised account or host to reach additional systems within a network after
+an initial foothold, typically by harvesting further credentials at each stop.
+\end{definition}
+
+Credential theft is lateral movement's starting fuel: once an attacker has one foothold, they
+harvest passwords, password hashes, or authentication tokens sitting in memory, configuration
+files, or the OS credential cache. Crucially, an attacker frequently does not need the plaintext
+password at all. Many enterprise authentication protocols accept \textbf{hash-based} or
+\textbf{ticket-based} authentication, so a stolen hash or session ticket can be replayed to
+authenticate as that user elsewhere without ever cracking it. This attack family is known as
+``pass-the-hash'' or ``pass-the-ticket.''
+
+\begin{example}[How least privilege stops lateral movement in its tracks]
+A stolen credential belonging to a normal user with narrow permissions stalls quickly -- this is
+least privilege from earlier in this chapter doing exactly its job. If the compromised account is
+an IT administrator, or if the organization reuses one local-administrator password across every
+machine (a common and genuinely dangerous shortcut), the attacker instead hops from machine to
+machine nearly unopposed. The attacker harvests more credentials at each stop, hunting for a path
+to domain controllers, backup servers, or financial databases. This combination of lateral movement and
+\textbf{privilege escalation} expands an attacker's reach both sideways and upward at once.
+\end{example}
+
+Several access-control practices from this chapter directly blunt this chain. \textbf{Multi-factor
+authentication} breaks the ``stolen password equals access'' assumption outright, since even a
+perfectly stolen credential is useless without the second factor, stopping the vast majority of
+credential-replay attempts cold. \textbf{Credential hygiene} -- unique passwords per system, no
+shared local-admin password across machines, no plaintext credentials in scripts -- removes the
+``one stolen credential unlocks everything'' shortcut that fuels rapid lateral movement in the first
+place. \textbf{Least privilege and network segmentation} limit how far a single stolen credential
+can physically travel, exactly as Chapter~\ref{ch:3.3} described.
+
+\begin{lstlisting}[language=Python, caption={Detecting a lateral-movement pattern in an authentication log}]
+def flag_lateral_movement(events, host_threshold=5, window_seconds=600):
+    """events: list of dicts like {"account": str, "dst_host": str,
+       "timestamp": int}. Returns sorted accounts that authenticated
+       to >= host_threshold distinct hosts within any window_seconds
+       window."""
+    from collections import defaultdict
+    by_account = defaultdict(list)
+    for e in events:
+        by_account[e["account"]].append((e["timestamp"], e["dst_host"]))
+
+    flagged = set()
+    for account, entries in by_account.items():
+        entries.sort()
+        left = 0
+        hosts_in_window = []
+        for right in range(len(entries)):
+            hosts_in_window.append(entries[right])
+            while entries[right][0] - entries[left][0] > window_seconds:
+                left += 1
+            distinct_hosts = {h for _, h in entries[left:right + 1]}
+            if len(distinct_hosts) >= host_threshold:
+                flagged.add(account)
+                break
+    return sorted(flagged)
+\end{lstlisting}
+
+Detection matters as much as prevention, because a sufficiently patient attacker will eventually
+find some foothold. Security teams watch for the same behavioral-anomaly signatures introduced in
+Chapter~\ref{ch:3.5} and Chapter~\ref{ch:4.4}. Three signatures matter most: a single account
+authenticating to an unusually large number of distinct hosts in a short window; authentication at
+odd hours relative to the user's normal pattern; or a user account suddenly invoking administrative
+tools it has never touched before.
+
+\begin{misconception}
+\textbf{``A strong password alone stops credential theft.''} Many lateral-movement techniques
+replay a stolen hash or ticket without ever needing the plaintext password at all. MFA and
+credential hygiene matter more here than password strength alone.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A government system enforces that a user cleared to SECRET cannot read a TOP SECRET document
+even if the document's owner wants to share it. Identify which access control model this is and
+explain why DAC could not enforce this same guarantee.
+\item An RBAC system has a single ``Manager'' role bundling every permission a manager in any
+department might conceivably need. Explain why this violates least privilege even though every
+individual manager is, in fact, a manager.
+\item Explain why privilege creep is described as an asymmetric problem, using the loud-gap versus
+silent-excess distinction from this chapter.
+\item An attacker steals a password hash from a compromised laptop and uses it to authenticate to
+three other machines without ever learning the plaintext password. Explain why MFA would have
+stopped this specific attack while a stronger password policy alone would not have.
+\item Explain how least privilege and network segmentation work together to contain lateral
+movement, using the marketing-employee-versus-domain-admin scenario from this chapter.
+\item A file shows mode \texttt{-rw-r-----} and its owning directory is world-writable. Explain,
+using the directory-write rule from this chapter, how another user could delete this file despite
+having no permission bits on the file itself, and name the mechanism that exists specifically to
+prevent this in a shared directory.
+\item A hospital wants clinicians to read a patient record only if they are on that patient's care
+team, on a managed device, and during their shift. Explain why RBAC cannot express this condition
+without role explosion, and name the model that can.
+\item Using the Bell--LaPadula diagram, explain why ``no write down'' is necessary in addition to
+``no read up'' -- specifically, describe an attack a system enforcing only no-read-up would remain
+vulnerable to.
+\item Malware executing under a SECRET-cleared user's session attempts to copy a TOP SECRET file's
+contents into a new UNCLASSIFIED file the malware creates. Explain which Bell--LaPadula rule blocks
+this, and why the block applies even though the malware is running with a legitimately cleared
+user's own privileges rather than a stolen or escalated identity.
+\item An unreleased quarterly earnings figure is classified Restricted. Explain what protections it
+needs while at rest on a finance server, while in transit to the company's outside auditors, and
+while open in a spreadsheet on an analyst's laptop, and explain why the classification band alone
+does not tell you the answer to any of the three.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item This is Mandatory Access Control, applying Bell--LaPadula's no-read-up rule. DAC could not
+enforce it because DAC leaves the access decision to the object's owner, who could simply choose to
+share the document regardless of the requester's clearance. MAC works precisely because the policy
+is set centrally and cannot be overridden by any individual owner's discretion.
+\answerlabel{5.2.C}
+\item Least privilege requires that an account hold only the access its actual function demands.
+Bundling every permission any manager anywhere might conceivably need into one role grants each
+individual manager far more access than their specific job requires. So a phished or malicious
+manager account has a blast radius sized to the whole bundled role rather than to that manager's
+actual duties.
+\answerlabel{5.2.B}
+\item A missing permission a new employee needs is loud: they notice immediately and report it, so
+it gets fixed quickly. An unused excess permission is silent: nothing breaks and nobody notices, so
+it persists indefinitely. Because access is added on demand but almost never removed without a
+deliberate review process, this asymmetry causes privilege to accumulate one-directionally over
+time.
+\answerlabel{5.2.B}
+\item Pass-the-hash authentication replays the stolen hash directly without ever needing the
+plaintext password, so a stronger password policy changes nothing about how crackable the plaintext
+is -- the attacker never attempts to crack it. MFA stops the attack because the stolen hash alone is
+insufficient to complete authentication without the second factor, which the attacker does not
+possess.
+\answerlabel{5.2.D}
+\item Least privilege ensures a compromised marketing account's credentials only unlock what a
+marketing job actually requires. Network segmentation ensures that even if the attacker tries
+to reach further, the finance database and domain controller sit on network segments the
+marketing host cannot route to in the first place. One control limits what the account is
+permitted to do, the other limits what hosts it can even reach, and together they contain lateral
+movement in two independent dimensions.
+\answerlabel{5.2.B}
+\item Because the directory carries write permission for other, any user can create or delete
+entries in its listing regardless of the permissions on the individual files inside it. Deleting a
+file only requires write permission on its parent directory, not on the file itself. The sticky bit,
+set with \texttt{chmod +t}, exists specifically to prevent this in a shared directory by restricting
+deletion to a file's own owner (or the directory's owner, or root) even when the directory itself is
+world-writable. That is exactly why \texttt{/tmp} carries it by default.
+\answerlabel{5.2.D}
+\item RBAC's roles are static grants: a role either has a permission or it does not, independent of
+time, location, device, or the specific record in question. Expressing ``only during this shift, only
+on a managed device, only for a patient on this clinician's care team'' would require a distinct role
+for every combination of those conditions -- role explosion. Attribute-Based Access Control (ABAC)
+evaluates such conditions live, as a policy expression over the request's actual attributes, so it
+can express this rule directly without enumerating roles for every combination.
+\answerlabel{5.2.C}
+\item A system enforcing only no-read-up still allows a subject cleared at SECRET to write freely
+into any object, including one labeled UNCLASSIFIED. A legitimately cleared user, or malware
+running under that user's session, could read a SECRET or TOP SECRET file -- permitted, since
+reading at or below one's own clearance is always allowed. That user or malware could then write
+the contents into a new UNCLASSIFIED file. That effectively launders sensitive content down to a
+label anyone can read, with no rule in place to stop the write itself. No-write-down closes exactly
+this gap by forbidding a subject from writing to any object below its own clearance level.
+\answerlabel{5.2.C}
+\item No-write-down blocks it: the malware is writing TOP SECRET content into an UNCLASSIFIED
+object, which is below the acting subject's SECRET clearance regardless of what that content
+actually is. The block applies even though the malware runs under a legitimately cleared user's
+own privileges, because Bell--LaPadula's reference monitor evaluates every access by comparing
+labels. It does not evaluate whether the specific action is intentional or malicious. MAC's entire
+strength is that it constrains what an account is permitted to do structurally, so it protects
+against a legitimate account behaving maliciously (through malware or otherwise) exactly as well as
+it protects against a mismatched external request.
+\answerlabel{5.2.C}
+\item At rest, a Restricted item needs encrypted storage and a tightly scoped permission set that
+restricts read access to authorized users. In transit, it needs TLS with a modern cipher suite and
+enforced certificate validation. In use, it needs process isolation and a guarantee the plaintext is
+never written to a log or crash dump. The classification band alone only says how sensitive the data
+is; it says nothing about which specific technical mechanism applies, because that mechanism is
+determined by the item's current state. Sensitivity band and current state have to be combined to
+decide both which protections apply and how strong they have to be.
+\answerlabel{5.2.A}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{5.2}{1}National Vulnerability Database, CVE-2014-0160 (``Heartbleed''), U.S. National
+Institute of Standards and Technology, published April 7, 2014 -- a buffer over-read in the TLS/DTLS
+heartbeat handling of OpenSSL 1.0.1 through 1.0.1f, allowing an attacker to read private keys and
+other sensitive data directly out of process memory.
+\item \srcitem{5.2}{2}Vincent C. Hu, David Ferraiolo, Richard Kuhn, et al., \emph{Guide to Attribute
+Based Access Control (ABAC) Definition and Considerations}, NIST Special Publication 800-162,
+National Institute of Standards and Technology, originally published January 2014, updated August
+2, 2019.
+\end{enumerate}

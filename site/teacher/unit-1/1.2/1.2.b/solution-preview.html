@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weak authentication patterns; adversary dictionary construction, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Weak authentication patterns; adversary dictionary construction  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.2.b: Password weakness reporter</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 1.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the password-weakness checker an authentication backend would use to give users actionable
+feedback when they choose a new password. Given a password string, return a report dict
+identifying whether the password is weak and which specific rules it violates.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(password: str) -&gt; dict</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A single string, the candidate password. May be empty.</p>
+<h2>Output</h2>
+<p>A dict with exactly two keys:
+- <code>"weak"</code> (<code>bool</code>), <code>True</code> if the password fails ANY rule; <code>False</code> only if it passes all rules.
+- <code>"reasons"</code> (<code>list[str]</code>), sorted list of rule-labels for each rule the password fails.
+  Empty list if the password passes all rules.</p>
+<p>Possible reason labels (exact strings, lowercase):
+- <code>"too_short"</code>, length &lt; 12 characters
+- <code>"in_dictionary"</code>, password (lowercased) is in the built-in common wordlist
+- <code>"only_lowercase"</code>, contains no uppercase letters, digits, or non-alphabetic characters
+- <code>"sequential_or_repeated"</code>, contains a sequential run of 3+ characters (e.g. <code>abc</code>, <code>123</code>,
+  <code>xyz</code>) OR a repeated run of 3+ identical characters (e.g. <code>aaa</code>, <code>111</code>)</p>
+<h2>Examples</h2>
+<pre><code>solve(&quot;password&quot;)
+-&gt; {&quot;weak&quot;: True, &quot;reasons&quot;: [&quot;in_dictionary&quot;, &quot;only_lowercase&quot;, &quot;too_short&quot;]}
+
+solve(&quot;P@ssword!2024&quot;)
+-&gt; {&quot;weak&quot;: True, &quot;reasons&quot;: [&quot;in_dictionary&quot;]}
+
+solve(&quot;Tr0ub4dor&amp;3abcde&quot;)
+-&gt; {&quot;weak&quot;: True, &quot;reasons&quot;: [&quot;sequential_or_repeated&quot;]}
+
+solve(&quot;mXk9#vLq2@nP&quot;)
+-&gt; {&quot;weak&quot;: False, &quot;reasons&quot;: []}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>The common wordlist is defined in the Reference section below and must be embedded in your solution.</li>
+<li>Reasons list is always sorted ascending.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(password: str) -&gt; dict
+</code></pre>
+<h3>Input (<code>password</code>)</h3>
+<p>A single <code>str</code>, the candidate password. May be empty or contain any Unicode.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>dict</code> with exactly these keys:
+- <code>"weak"</code> (<code>bool</code>), <code>True</code> if any rule below is triggered; <code>False</code> if all rules pass.
+- <code>"reasons"</code> (<code>list[str]</code>), sorted list of triggered rule labels (see below). Empty if no rules triggered.</p>
+<h3>Rules (all must be checked; collect all failures)</h3>
+<h4>Rule 1: <code>"too_short"</code></h4>
+<p>Triggered when <code>len(password) &lt; 12</code>.</p>
+<h4>Rule 2: <code>"in_dictionary"</code></h4>
+<p>Triggered when <code>password.lower()</code> is a member of the COMMON_WORDS set below.</p>
+<pre><code>COMMON_WORDS = {
+    &quot;password&quot;, &quot;password1&quot;, &quot;password123&quot;, &quot;123456&quot;, &quot;123456789&quot;, &quot;12345678&quot;,
+    &quot;qwerty&quot;, &quot;qwerty123&quot;, &quot;letmein&quot;, &quot;iloveyou&quot;, &quot;admin&quot;, &quot;welcome&quot;,
+    &quot;monkey&quot;, &quot;dragon&quot;, &quot;master&quot;, &quot;abc123&quot;, &quot;sunshine&quot;, &quot;princess&quot;,
+    &quot;shadow&quot;, &quot;superman&quot;, &quot;football&quot;, &quot;baseball&quot;, &quot;login&quot;, &quot;passw0rd&quot;,
+    &quot;pa$$word&quot;, &quot;access&quot;, &quot;mustang&quot;, &quot;1234567890&quot;, &quot;starwars&quot;, &quot;hello&quot;,
+}
+</code></pre>
+<h4>Rule 3: <code>"only_lowercase"</code></h4>
+<p>Triggered when the password contains ONLY lowercase ASCII letters (<code>a</code>-<code>z</code>), i.e.,
+<code>password.isalpha() and password == password.lower()</code>.
+Note: an empty string does NOT trigger this rule (it has no lowercase letters either).</p>
+<h4>Rule 4: <code>"sequential_or_repeated"</code></h4>
+<p>Triggered when the password contains:
+- A run of 3 or more consecutive ASCII characters in ascending order
+  (e.g. <code>abc</code>, <code>bcd</code>, <code>xyz</code>, <code>123</code>, <code>234</code>, <code>789</code>), OR
+- A run of 3 or more identical characters (e.g. <code>aaa</code>, <code>111</code>, <code></code>)</p>
+<p>Detection algorithm:
+For each window of 3 consecutive characters at position i:
+- Repeated: <code>c[i] == c[i+1] == c[i+2]</code>
+- Sequential ascending: <code>ord(c[i+1]) - ord(c[i]) == 1</code> AND <code>ord(c[i+2]) - ord(c[i+1]) == 1</code></p>
+<p>If any window matches either condition, the rule is triggered.</p>
+<h3>Output contract</h3>
+<ul>
+<li><code>"reasons"</code> is always sorted ascending (alphabetical order of the label strings).</li>
+<li><code>"weak"</code> equals <code>len(reasons) &gt; 0</code>.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>The COMMON_WORDS set above is the exact set used by tests.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.2.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+COMMON_WORDS = {
+    "password", "password1", "password123", "123456", "123456789", "12345678",
+    "qwerty", "qwerty123", "letmein", "iloveyou", "admin", "welcome",
+    "monkey", "dragon", "master", "abc123", "sunshine", "princess",
+    "shadow", "superman", "football", "baseball", "login", "passw0rd",
+    "pa$$word", "access", "mustang", "1234567890", "starwars", "hello",
+}
+
+
+def solve(password: str) -&gt; dict:
+    """Return a weakness report dict for the given password.
+
+    Returns:
+        {"weak": bool, "reasons": list[str]} where reasons is a sorted list of
+        triggered rule labels from {"too_short","in_dictionary","only_lowercase",
+        "sequential_or_repeated"}.
+    """
+    reasons = []
+
+    # Rule 1: too_short
+    if len(password) &lt; 12:
+        reasons.append("too_short")
+
+    # Rule 2: in_dictionary
+    if password.lower() in COMMON_WORDS:
+        reasons.append("in_dictionary")
+
+    # Rule 3: only_lowercase
+    # Triggered iff every character is a lowercase ASCII letter (non-empty)
+    if password and password.isalpha() and password == password.lower():
+        reasons.append("only_lowercase")
+
+    # Rule 4: sequential_or_repeated
+    # Scan every window of 3 consecutive characters
+    triggered = False
+    for i in range(len(password) - 2):
+        a, b, c = password[i], password[i + 1], password[i + 2]
+        oa, ob, oc = ord(a), ord(b), ord(c)
+        if a == b == c:
+            triggered = True
+            break
+        if ob - oa == 1 and oc - ob == 1:
+            triggered = True
+            break
+    if triggered:
+        reasons.append("sequential_or_repeated")
+
+    reasons.sort()
+    return {"weak": len(reasons) &gt; 0, "reasons": reasons}
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+
+def test_dict_only_lc_short():
+    """'password' is short, in dictionary, and only lowercase."""
+    result = impl.solve("password")
+    assert result["weak"] is True
+    assert result["reasons"] == ["in_dictionary", "only_lowercase", "too_short"]
+
+
+def test_sequential_only():
+    """'Tr0ub4dor&amp;3abcde' is long, mixed, not in dictionary, but has 'abc'."""
+    result = impl.solve("Tr0ub4dor&amp;3abcde")
+    assert result["weak"] is True
+    assert result["reasons"] == ["sequential_or_repeated"]
+
+
+def test_strong():
+    """'mXk9#vLq2@nP' passes all rules."""
+    result = impl.solve("mXk9#vLq2@nP")
+    assert result["weak"] is False
+    assert result["reasons"] == []
+
+
+def test_dictionary_with_mangling():
+    """'P@ssword!2024' is long and mixed but base 'passw0rd' is in dictionary."""
+    # Note: 'passw0rd' IS in COMMON_WORDS; 'P@ssword!2024'.lower() = 'p@ssword!2024' is NOT.
+    # However 'pa$$word' IS: test a direct dictionary hit with symbols.
+    result = impl.solve("pa$$word")
+    assert result["weak"] is True
+    assert "in_dictionary" in result["reasons"]
+    assert "too_short" in result["reasons"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_empty_string():
+    """Empty string is too_short only (not only_lowercase, not in dictionary)."""
+    result = impl.solve("")
+    assert result["weak"] is True
+    assert result["reasons"] == ["too_short"]
+
+
+def test_repeated_chars():
+    """'HelloWorld111' triggers sequential_or_repeated due to '111'."""
+    result = impl.solve("HelloWorld111")
+    assert result["weak"] is True
+    assert result["reasons"] == ["sequential_or_repeated"]
+
+
+def test_only_lowercase_flag():
+    """All-lowercase short word triggers both too_short and only_lowercase."""
+    result = impl.solve("sunshine")
+    assert "only_lowercase" in result["reasons"]
+    assert "too_short" in result["reasons"]
+    assert "in_dictionary" in result["reasons"]
+
+
+def test_reasons_sorted():
+    """Reasons list is always sorted ascending regardless of check order."""
+    result = impl.solve("qwerty")
+    assert result["reasons"] == sorted(result["reasons"])
+
+
+def test_sequential_digits():
+    """'Abcdef123456!' is long and mixed but contains '123' sequential run."""
+    result = impl.solve("Abcdef123456!")
+    assert result["weak"] is True
+    assert "sequential_or_repeated" in result["reasons"]
+
+
+def test_exactly_12_chars_passes_length():
+    """A 12-character password that is otherwise clean should not trigger too_short."""
+    # 'zQm7!kLp3$Rw' -- 12 chars, mixed, not in dictionary, no sequences
+    result = impl.solve("zQm7!kLp3$Rw")
+    assert "too_short" not in result["reasons"]
+
+
+def test_weak_flag_matches_reasons():
+    """'weak' must be True iff reasons is non-empty."""
+    for pw in ["mXk9#vLq2@nP", "password", "HelloWorld111", ""]:
+        result = impl.solve(pw)
+        assert result["weak"] == (len(result["reasons"]) &gt; 0)
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

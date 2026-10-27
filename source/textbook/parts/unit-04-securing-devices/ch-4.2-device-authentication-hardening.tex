@@ -1,0 +1,511 @@
+\chapter{Device Authentication Hardening}
+\label{ch:4.2}
+\chaptertopic{Topic 4.2}
+
+\chapterquote{Treat your password like your toothbrush. Don't let anybody else use it, and get a new one every six months.}{commonly attributed to Clifford Stoll}
+
+\section{Motivation}
+
+Chapter~\ref{ch:4.1} covered how an endpoint gets compromised. This chapter covers the layer that
+decides who is allowed to touch it in the first place, and what happens after they successfully do.
+Four topics build on each other in sequence. First, the password itself. Second, the factor that
+backs it up when it inevitably leaks. Third, the session that keeps a login active without
+re-asking for a password on every click. Fourth, the access-control model that decides how much a
+successfully authenticated account is actually allowed to do. Each layer assumes the one before it
+can fail.
+
+\begin{apalignment}{Unit 4: Securing Devices}{Topic 4.2 -- Authentication}
+\begin{apobjectives}
+\apobjective{4.2.A}{Analyze Risk}{Account for why a system keeps the output of a one-way function
+-- a hash, digest, or checksum -- in place of the password itself, and what that substitution does
+and does not buy when the credential store is stolen.}
+\apobjective{4.2.B}{Analyze Risk}{Explain the mechanism behind each family of attack on
+credentials -- exhaustive search, wordlists, precomputed tables, reused breach data, and low-and-slow
+guessing across many accounts -- identifying which weakness each one feeds on and which single
+defense removes it.}
+\apobjective{4.2.C}{Mitigate Risk}{Given a description of how a person proved who they were,
+determine which categories of evidence were actually used, whether the combination constitutes more
+than one independent factor, and how resistant the resulting scheme is to interception.}
+\apobjective{4.2.D}{Mitigate Risk}{Distinguish session fixation from session hijacking by when in
+the login lifecycle each attack plants or steals its token, and identify which session control --
+regeneration, the Secure/HttpOnly/SameSite cookie flags, or timeout policy -- defeats which one.}
+\apobjective{4.2.E}{Mitigate Risk}{Choose an access-control model (DAC, MAC, RBAC, or ABAC)
+appropriate to a given scenario, and identify the organizational process that catches privilege
+that accumulates even after an account was originally provisioned correctly.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Passwords and Password Policy}
+
+A password is the oldest authentication mechanism there is: a shared secret known only to the user
+and the system. Two properties dominate its strength -- length and unpredictability -- and they do
+not trade off equally. A \textbf{brute-force attack} tries every possible combination; a
+\textbf{dictionary attack} tries words, names, and common substitutions. Both become exponentially
+more expensive as length increases. Adding one character to a ten-character password drawn from a
+95-character alphabet multiplies the search space by 95; adding four characters multiplies it by
+roughly 81 million. Complexity rules -- mandatory uppercase, digits, symbols -- were introduced to
+push users off dictionary words, but they are not a substitute for length. A long random
+passphrase beats a short, symbol-sprinkled word against every attack class, because a predictable
+substitution pattern (\texttt{p@ssw0rd}) generates almost no additional entropy.
+
+\begin{definition}{Password entropy}
+The number of bits of uncertainty in a password, computed as $H = L \times \log_2(R)$, where $L$ is
+the password's length in characters and $R$ is the size of the character set (\emph{alphabet}) each
+character is independently drawn from. Entropy measures search-space size, not memorability -- a
+password can be long and still low-entropy if $R$ is small or the characters are not independently
+chosen.
+\end{definition}
+
+\begin{example}[Computing entropy for two eight-character passwords]
+Take \texttt{Tr0ub4dor\&3}-style complexity rules versus a long random passphrase, both compared at
+equal length first. An eight-character password drawn from a 95-character keyboard alphabet
+(lowercase, uppercase, digits, symbols) has
+\[
+H = 8 \times \log_2(95) \approx 8 \times 6.57 \approx 52.6 \text{ bits.}
+\]
+Compare a four-word passphrase such as \texttt{correct horse battery staple} drawn from a
+7{,}776-word list (the standard Diceware wordlist, so $R = 7{,}776$ and $L = 4$ words rather than
+characters):
+\[
+H = 4 \times \log_2(7{,}776) \approx 4 \times 12.9 \approx 51.5 \text{ bits.}
+\]
+The two land at nearly identical entropy despite the passphrase requiring no memorized symbol
+substitutions at all. Extending the passphrase to six words pushes it past 77 bits, an increase no
+realistic complexity rule on an eight-character password can match. The reason is that $R$ for a
+human-chosen ``complex'' password is rarely the full 95-character alphabet in practice: people
+overwhelmingly reuse the same handful of substitution patterns (\texttt{a}$\to$\texttt{@},
+\texttt{s}$\to$\texttt{\$}). An attacker's cracking dictionary already encodes those patterns,
+collapsing the effective $R$ back down toward a much smaller number than the nominal keyboard size
+suggests.
+\end{example}
+
+\begin{definition}{NIST SP 800-63B}
+The 2017 federal digital-identity guideline that reshaped modern password policy: it recommends a
+minimum length (8 characters, systems must allow at least 64), checking candidates against known
+breach datasets rather than imposing arbitrary complexity rules, and eliminating forced periodic
+rotation absent evidence of compromise.\srccite{4.2}{1}
+\end{definition}
+
+Forced rotation, in particular, backfires in a specific, well-documented way: users cycle through
+predictable families -- \texttt{Summer2024!}, then \texttt{Fall2024!} -- that are barely different
+from each other and just as guessable as the original. \textbf{Account lockout} after a threshold
+of failures (typically 3--10) closes off online guessing specifically, since an attacker who needs
+millions of tries cannot make them interactively. The lockout duration itself is a tuning problem,
+though: too short, and scripted slow-guessing simply waits it out; too long or indefinite, and an
+attacker can weaponize the lockout itself as a denial-of-service against legitimate users.
+\textbf{Password history} rejects a candidate matching the last several previous passwords,
+closing off the ``cycle between two passwords'' loophole that a naive rotation policy invites.
+
+Two further attack families exploit scale rather than repeated guessing against one account.
+\textbf{Credential stuffing} takes real username/password pairs leaked from an unrelated breach and
+replays them against many other sites, betting that some fraction of users reused the same password
+everywhere. Screening a new password against a known-breach list (the same NIST-recommended control
+described above) blocks this only at the moment a password is chosen; the complementary defense is
+watching logins for pairs already known from public breach corpora and forcing a reset on a match.
+\textbf{Password spraying} inverts the usual lockout assumption: instead of trying many passwords
+against one account, it tries one or two common passwords against thousands of accounts. It stays
+under each individual account's lockout threshold by never repeating a guess on the same one.
+Per-account lockout does nothing against it -- the defense has to watch the account population as a
+whole, rate-limiting failed logins by source or in aggregate rather than per account.
+
+\begin{lstlisting}[language=Python, caption={Validating a candidate password against a policy}]
+def validate_password(password, policy, breach_list=frozenset()):
+    """policy: dict like {"min_length": int, "history": list[str]}.
+       Returns a sorted list of violated rule names."""
+    violations = []
+    if len(password) < policy["min_length"]:
+        violations.append("too-short")
+    if password in breach_list:
+        violations.append("known-breached-password")
+    if password in policy.get("history", []):
+        violations.append("password-reuse")
+    return sorted(violations)
+\end{lstlisting}
+
+Storage matters as much as the policy governing creation. Passwords must never be stored in
+plaintext; the correct mechanism is a \textbf{salted cryptographic hash} using a deliberately slow
+algorithm -- bcrypt, scrypt, or Argon2. The \textbf{salt}, a unique random value prepended before
+hashing, defeats precomputed rainbow tables, and the algorithm's slowness makes each guess
+computationally expensive even after a full database theft. MD5 and SHA-1 are unacceptable for
+this purpose specifically because they are fast general-purpose hashes -- an attacker with a GPU
+can test billions of candidates per second against them.
+
+\begin{example}[The 2012 LinkedIn breach]
+In June 2012, an attacker posted roughly 6.5 million password hashes stolen from LinkedIn to a
+Russian hacking forum. LinkedIn never officially disclosed the attack vector, though court filings
+from the resulting class-action settlement pointed to SQL injection. It later emerged in 2016 that
+the same theft had actually covered 117 million accounts.\srccite{4.2}{2} LinkedIn's storage
+combined two independent failures at once: the hashes were computed with unsalted SHA-1, and no
+deliberately slow key-stretching step (bcrypt, scrypt, or repeated hash iteration) was applied on
+top of it. SHA-1 alone is a fast general-purpose hash, so the missing salt let attackers reuse
+precomputed rainbow tables across every user at once, and the missing key stretching meant each
+individual guess cost a GPU almost nothing to test. Security researchers cracked more than 60\% of
+the exposed hashes within a single day of the leak, and the fraction climbed further in the weeks
+that followed.\srccite{4.2}{2} Salting alone would have defeated the rainbow-table shortcut; key
+stretching alone would have made each guess expensive; LinkedIn had neither, which is why the
+breach is the textbook illustration of why both properties must hold simultaneously, not just one.
+\end{example}
+
+\begin{misconception}
+\textbf{``Changing your password every 90 days improves security.''} Forced rotation produces
+predictable families that are trivially related to each other. NIST's current guidance recommends
+rotating only when there is actual evidence of compromise, not on a fixed calendar.
+\end{misconception}
+
+\section{Multi-Factor Authentication}
+
+A password is a single piece of evidence; once an attacker learns it, through phishing, a breach,
+or a guess, nothing else stops them from logging in as the real user.
+
+\begin{definition}{Multi-factor authentication (MFA)}
+Requiring proof from two or more independent factor \emph{categories} before granting access:
+something you \emph{know} (a password), something you \emph{have} (a phone, a hardware key), and
+something you \emph{are} (a fingerprint, a face scan).
+\end{definition}
+
+The categories matter more than the count -- entering two different passwords is still ``something
+you know'' twice, not true MFA, no matter how much it feels like an extra step. Methods vary sharply
+in how resistant they are to interception. \textbf{SMS codes} are better than a password alone, but
+the phone \emph{number} is not tightly bound to the phone itself. A \textbf{SIM swap} tricks or
+bribes a carrier into porting the victim's number to attacker-controlled hardware, after which every
+SMS code arrives on the attacker's device instead. \textbf{TOTP authenticator codes} remove the
+SIM-swap risk entirely, since the shared secret lives only on the device. The code can still be
+phished and relayed in real time by an adversary-in-the-middle kit, though, because the user is
+still capable of typing it into a convincing fake page. \textbf{Push notifications} are convenient
+but introduce \textbf{MFA fatigue} (push bombing): an attacker who already holds the password
+triggers repeated login attempts until an annoyed or confused user taps ``Approve'' just to make
+the notifications stop.
+
+\begin{definition}{FIDO2 / WebAuthn}
+An open standard for hardware or platform security keys that cryptographically bind an
+authentication response to the exact requesting website domain. This makes the resulting handshake
+\textbf{phishing-resistant}: the key simply will not respond to a domain that does not match, no
+matter how convincing the fake page looks to a human.
+\end{definition}
+
+\begin{example}[Change Healthcare, February 2024: One Portal, No MFA]
+Change Healthcare processes a large share of prescription and medical-claims transactions across
+the U.S. healthcare system. On February 12, 2024, attackers affiliated with the ALPHV/BlackCat
+ransomware operation reached one of its Citrix remote-access portals using a single stolen
+username and password -- nothing more.\srccite{4.2}{3} UnitedHealth Group's own CEO later
+confirmed to Congress that the portal had no multi-factor authentication enabled at all: a leaked
+credential alone was sufficient to reach it. Once inside, the attackers moved laterally for about
+nine days before deploying ransomware on February 21. The resulting outage disrupted pharmacy and
+claims processing nationwide for weeks. UnitedHealth Group's own disclosures put the direct
+response and remediation cost at well over \$2~billion by the end of 2024.\srccite{4.2}{3} The
+vulnerability here was not a zero-day or a novel technique. It was the exact gap this section
+opened with: a password is a single piece of evidence. Once an attacker has it through phishing, a
+breach, or reuse, nothing else stops them from logging in as the real user, unless a second,
+independent factor is actually required. One unprotected remote-access portal was enough
+to cascade into a nationwide outage. That is why MFA enrollment is treated in this chapter as a
+baseline configuration setting, not an optional hardening step reserved for especially sensitive
+systems.
+\end{example}
+
+Evaluating whether a login satisfies real MFA reduces to two questions. First: do the presented
+factors come from two or more genuinely different categories? Second, if so: is at least one of
+them resistant to interception, or does the scheme rely on something relayable, SIM-swappable, or
+rubber-stampable by an exhausted user?
+
+\begin{lstlisting}[language=Python, caption={Classifying an authentication attempt's MFA strength}]
+FACTOR_CATEGORY = {"password": "knowledge", "security_question": "knowledge",
+                    "sms_code": "possession", "totp": "possession",
+                    "hardware_key": "possession", "fingerprint": "inherence"}
+PHISHING_RESISTANT = {"hardware_key"}
+
+def classify_mfa(factors_used):
+    """factors_used: list of factor name strings.
+       Returns "phishing-resistant-mfa", "mfa", or "single-factor"."""
+    categories = {FACTOR_CATEGORY[f] for f in factors_used}
+    if len(categories) < 2:
+        return "single-factor"
+    if PHISHING_RESISTANT & set(factors_used):
+        return "phishing-resistant-mfa"
+    return "mfa"
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``Approving a push notification always means the real user is logging in.''} MFA fatigue
+attacks exploit exactly the fact that a user may approve a prompt they never initiated, purely to
+stop repeated notifications. Approval is not proof of intent unless the prompt itself shows context
+the user actually verifies.
+\end{misconception}
+
+\section{Session Security}
+
+Authentication happens once; staying logged in across many requests without retyping a password
+every time is what a \textbf{session} exists to solve.
+
+\begin{definition}{Session token (session cookie)}
+A long, random, unpredictable string a server issues at successful login, which the browser
+resends with every subsequent request; the server treats any request carrying a valid token as
+coming from the authenticated user it belongs to.
+\end{definition}
+
+That convenience has a cost: the token becomes as valuable as the password itself, since whoever
+holds a valid token \emph{is} that user as far as the server can tell. \textbf{Session hijacking}
+is the theft and reuse of an already-authenticated token -- through cross-site scripting reading it
+directly from the page, through sniffing unencrypted HTTP traffic on a shared network, or through
+malware reading browser storage on the victim's own device. It requires no knowledge of the
+victim's password at all. \textbf{Session fixation} works differently: instead of stealing an
+existing token, the attacker forces the victim to authenticate under a token the attacker already
+knows, for instance by sending a link containing a pre-set session identifier. If the server never
+changes that ID at login, the attacker's known ID becomes attached to a real authenticated session
+the moment the victim logs in.
+
+\begin{example}[Why the defenses for hijacking and fixation differ]
+Fixation plants a known ID \emph{before} login; hijacking steals a live ID \emph{after} the victim
+is already authenticated. \textbf{Session regeneration} -- issuing a brand-new, freshly random
+session ID at the moment of login and again at any privilege change -- defeats fixation completely,
+since any ID an attacker planted beforehand is simply discarded and never becomes authenticated. It
+does nothing for hijacking, though, which instead requires the token itself to be hard to steal.
+The \textbf{Secure} cookie flag restricts transmission to HTTPS; the \textbf{HttpOnly} flag hides
+the cookie from JavaScript entirely, so a successful XSS injection still cannot read it; and
+\textbf{SameSite} restricts whether the cookie rides along with cross-site requests at all.
+\end{example}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  ev/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.3cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[font=\scriptsize\sffamily, kickstartermaroon] at (-2.3,1.1) {Fixation};
+\node[ev, fill=kickstartercream] (f1) at (0,1.1) {Attacker sends link\\with known session ID};
+\node[ev, fill=kickstartercream] (f2) at (3.6,1.1) {Victim logs in --\\ID never regenerated};
+\node[ev, fill=kickstartermaroon!20] (f3) at (7.2,1.1) {Attacker's known ID\\is now authenticated};
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (f1) -- (f2);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (f2) -- (f3);
+\node[font=\scriptsize\sffamily, kickstartermaroon] at (-2.3,-1.1) {Hijacking};
+\node[ev, fill=kickstartercream] (h1) at (0,-1.1) {Victim logs in,\\gets fresh session ID};
+\node[ev, fill=kickstartercream] (h2) at (3.6,-1.1) {Attacker steals live ID\\(XSS, sniffing, malware)};
+\node[ev, fill=kickstartermaroon!20] (h3) at (7.2,-1.1) {Attacker replays\\the stolen ID};
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (h1) -- (h2);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (h2) -- (h3);
+\end{tikzpicture}
+\caption{Fixation plants a known ID before login; hijacking steals a live ID after login. Session
+regeneration defeats fixation specifically; it does nothing against hijacking, which needs the
+token itself to be hard to steal.}
+\label{fig:4.2-fixation-hijacking}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={Classifying a session-security incident}]
+def classify_session_incident(description):
+    """Returns one of "hijacking", "fixation", "improper-timeout",
+    "insecure-cookie-flag", or "secure" based on keyword signals."""
+    lowered = description.lower()
+    if "id set before login" in lowered or "attacker-supplied session id" in lowered:
+        return "fixation"
+    if "stolen token" in lowered or "xss" in lowered or "sniffed" in lowered:
+        return "hijacking"
+    if "no timeout" in lowered or "indefinite session" in lowered:
+        return "improper-timeout"
+    if "missing httponly" in lowered or "missing secure flag" in lowered:
+        return "insecure-cookie-flag"
+    return "secure"
+\end{lstlisting}
+
+Expiration limits how much damage any stolen or fixated token can do, regardless of which theft
+path was used. An \textbf{idle timeout} ends a session after a period of inactivity, protecting a
+user who walks away from a logged-in device. An \textbf{absolute timeout} ends it after a fixed
+total duration regardless of activity, limiting how long a stolen token stays useful even if an
+attacker keeps it alive with periodic requests. Logout must be a server-side action for any of this
+to matter. A ``logout'' that only deletes the browser's cookie leaves the session record alive on
+the server, so a token an attacker captured earlier keeps working indefinitely -- the user's click
+on ``logout'' buys no real protection at all.
+
+\begin{misconception}
+\textbf{``HTTPS alone makes sessions un-hijackable.''} HTTPS protects the token in transit, but a
+cookie missing the HttpOnly flag can still be read directly out of the page's JavaScript context by
+a successful XSS injection, with no network sniffing required at all.
+\end{misconception}
+
+\section{Least Privilege and Access Control Models}
+
+Once an account is authenticated, a separate question remains: how much should it actually be
+allowed to do?
+
+\begin{definition}{Principle of least privilege (PoLP)}
+Every subject -- account, process, or service -- should be granted the minimum access required to
+perform its function, and nothing more.
+\end{definition}
+
+Extra access does not sit harmlessly unused; it expands the \textbf{blast radius} of everything
+that can go wrong with that account. A phished credential with read-only access to one shared drive
+exposes exactly that drive; the same credential with write access to a production database exposes
+the database too, through the identical phishing email. This compounds across three separate
+threats that share one root cause. External compromise inherits whatever privileges the stolen
+account holds; insider misuse is bounded by whatever access the insider actually has; malware
+executing under a user's session inherits that user's privileges outright. An over-privileged
+account that opens one infected attachment can hand ransomware write access to systems far beyond
+its own workstation.
+
+Organizations implement least privilege through a formal access-control model. \textbf{DAC
+(Discretionary Access Control)} lets a resource's owner decide who else can access it -- standard
+Unix file permissions are the textbook case. It is flexible but prone to sprawl, since no central
+authority enforces consistency as individual owners each grant access independently. \textbf{MAC
+(Mandatory Access Control)} moves that decision to a central authority using fixed classification
+labels on both subjects and resources, so a user cannot grant access above their own clearance even
+if they wanted to. It is common in government and military systems: rigid, but strong against
+insider misconfiguration specifically because no individual can override it. \textbf{RBAC
+(Role-Based Access Control)} attaches permissions to roles rather than individuals, so a job change
+means reassigning a role rather than hand-editing dozens of individual grants -- the most common
+model in enterprise IT because it scales. \textbf{ABAC (Attribute-Based Access Control)} decides
+access dynamically at request time from attributes of the user, resource, and environment --
+``allow only if department is finance \emph{and} the time is business hours \emph{and} the device
+is company-managed.'' It is more flexible than RBAC because policy reacts to context, at the cost
+of being harder to audit.
+
+\begin{lstlisting}[language=Python, caption={Auditing an access request against least-privilege rules}]
+def audit_access_request(request):
+    """request: dict like {"has_justification": bool,
+       "days_since_last_review": int, "is_time_bounded": bool}.
+       Returns "approve", "flag-for-review", or "deny", checked in
+       priority order."""
+    if not request["has_justification"]:
+        return "deny"
+    if request["days_since_last_review"] > 180:
+        return "flag-for-review"
+    if not request["is_time_bounded"]:
+        return "flag-for-review"
+    return "approve"
+\end{lstlisting}
+
+\begin{example}[Privilege creep]
+An employee transfers from Sales to Engineering and, as part of onboarding, receives new system
+access for the Engineering role. The old Sales access is routinely never revoked, because removing
+access requires someone to notice and act, while granting new access is a standard onboarding step
+that happens automatically. This silent accumulation -- \textbf{privilege creep} -- undermines
+least privilege even in an organization that started out perfectly configured. That is exactly why
+a \textbf{periodic access review} exists: on a fixed schedule, every access grant a user holds must
+be explicitly re-approved, and anything not re-approved is revoked outright.
+\end{example}
+
+Least privilege pairs naturally with \textbf{separation of duties} -- structuring a sensitive
+process so no single person controls it end to end, so the person who approves a purchase is never
+also the person who can issue the payment. It also pairs with \textbf{just-in-time (JIT) access},
+where elevated privilege is requested for a specific, time-bound window rather than sitting active
+and exploitable all day, expiring automatically once that window closes.
+
+\begin{misconception}
+\textbf{``Giving admin rights to everyone is low-risk if you trust your employees.''} Trust does not
+shrink blast radius. A trusted employee's account can still be phished or infected by malware, and
+malware inherits the privileges of whoever runs it -- over-provisioning turns any single compromise
+into an organization-wide one regardless of how trustworthy the account holder is.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item Explain, using search-space math, why a policy that mandates length and unpredictability
+outperforms one that mandates complexity (uppercase, digits, symbols) against both brute-force and
+dictionary attacks.
+\item A user enters a password, then is asked to answer a security question. Explain why this does
+not constitute true multi-factor authentication, and identify the minimal change that would make it
+qualify.
+\item An attacker sends a victim a link containing a pre-set session ID, and the victim then logs in
+normally. Explain why this is session fixation rather than session hijacking, and identify the
+single server-side control that would have prevented it regardless of what the attacker did.
+\item A marketing employee transfers to engineering and receives new access, but their old
+marketing-drive access is never revoked. Name this phenomenon and explain the specific organizational
+process that is designed to catch and correct it.
+\item Explain why RBAC and ABAC are not interchangeable, using the finance-department example from
+this chapter to illustrate what ABAC can express that RBAC cannot.
+\item In the Change Healthcare breach, a single compromised username and password was sufficient
+to reach a remote-access portal and, eventually, cascade into a nationwide outage. Explain
+specifically what MFA enrollment would have required of the attacker beyond the stolen password,
+and why the absence of that single control is described as the root cause rather than a
+contributing factor.
+\item Using the fixation-versus-hijacking timeline, explain why deploying only session
+regeneration at login, with no HttpOnly or Secure cookie flags, would still leave a system fully
+exposed to one of the two attack families covered in this section.
+\item A security team notices thousands of failed logins spread across many different accounts,
+each attempt trying only one or two common passwords, with no single account ever crossing its
+lockout threshold. Name this attack, explain why per-account lockout fails to stop it, and explain
+how it differs from credential stuffing, a related attack that also spans many accounts.
+\item Explain what storing a salted, slow hash of a password instead of the password itself
+protects against when a credential database is stolen. Using the 2012 LinkedIn breach, explain what
+it does \emph{not} protect against if the salt or the slow algorithm is missing.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Entropy is $H = L \times \log_2(R)$: increasing length $L$ grows the exponent that both
+brute-force and dictionary attacks must search. Increasing complexity only grows $R$, the alphabet
+size, and human-chosen ``complex'' passwords draw from a far smaller effective $R$ than the nominal
+95-character keyboard, because people reuse the same handful of substitution patterns. A long
+random passphrase of the same or even shorter apparent length (e.g., four Diceware words at
+$H \approx 51.5$ bits versus an eight-character complex password at $H \approx 52.6$ bits) matches or
+beats complexity-based policy. Extending the passphrase by two more words adds over 25 bits, an
+increase no realistic complexity mandate on a short password can replicate.
+\answerlabel{4.2.B}
+\item Both factors -- the password and the security question -- fall into the same category,
+\emph{something you know}; true MFA requires evidence from two or more independent categories, not
+two secrets from the same category. The minimal change is replacing the security question with a
+factor from a different category, such as a TOTP code (something you have) or a fingerprint
+(something you are).
+\answerlabel{4.2.C}
+\item This is session fixation because the attacker planted a known session ID \emph{before} the
+victim ever authenticated, rather than stealing an already-authenticated token afterward. Session
+regeneration -- issuing a brand-new random session ID at the moment of login -- would have
+prevented it regardless of the attacker's method. The attacker's pre-planted ID is discarded and
+never becomes attached to the authenticated session.
+\answerlabel{4.2.D}
+\item This phenomenon is \textbf{privilege creep}. A periodic access review is the organizational
+process designed to catch it: on a fixed schedule, every access grant a user holds must be explicitly
+re-approved, and any access not re-approved -- including the marketing employee's stale drive access
+-- is revoked outright.
+\answerlabel{4.2.E}
+\item RBAC assigns permissions to a role and grants them whenever a user holds that role,
+regardless of context. ABAC can express a conditional policy such as ``allow only if department is
+finance \emph{and} the time is business hours \emph{and} the device is company-managed'' instead,
+which requires evaluating multiple contextual attributes at request time rather than a fixed role
+membership. RBAC cannot encode the time-of-day or device-management conditions at all without
+creating a combinatorial explosion of narrower roles.
+\answerlabel{4.2.E}
+\item MFA enrollment would have required the attacker to also possess a second, independent
+factor -- a registered device, a hardware key, or a biometric -- something the stolen password
+alone could never supply, regardless of how the password was obtained. It is described as the root
+cause, not a contributing factor, because every later stage of the breach (lateral movement,
+ransomware deployment, the nationwide outage) was contingent on that first successful login
+succeeding with a password alone. Had a second factor been required, the identical stolen
+credential would have granted the attacker nothing at all, stopping the entire chain at its first
+step.
+\answerlabel{4.2.C}
+\item Session regeneration defeats fixation by discarding any session ID an attacker planted
+before login, but it does nothing to protect a token \emph{after} a legitimate login has already
+happened. Without HttpOnly, a successful XSS injection can still read the live session cookie
+directly out of the page's JavaScript context; without Secure, the cookie can still be transmitted
+over an unencrypted connection and sniffed. A system with regeneration alone is therefore still
+fully exposed to session hijacking, even though it has completely closed off fixation.
+\answerlabel{4.2.D}
+\item Password spraying tries one or two common passwords against thousands of accounts, instead of
+exhausting many passwords against one account. It deliberately stays under each account's lockout
+threshold by never repeating a guess on the same one. Per-account lockout only counts failures on a
+single account, so a scheme that never trips that count goes unnoticed; the defense instead has to
+watch the account population as a whole, such as rate-limiting total failed logins organization-wide.
+Credential stuffing differs in what it guesses with: it replays real username/password pairs leaked
+from an unrelated breach, betting on password reuse, rather than guessing common passwords blind --
+the matching defense is screening logins against known-breached credential pairs, not lockout.
+\answerlabel{4.2.B}
+\item Storing a salted, slow hash means a stolen database never hands an attacker plaintext
+passwords directly; the attacker only gets something they still have to guess and check, one
+candidate at a time, against each hash. It does not protect against the guessing itself. LinkedIn's
+2012 breach used unsalted SHA-1 with no slow key-stretching step, so precomputed rainbow tables
+cracked the unsalted hashes instantly. A GPU tested billions of guesses per second against the fast
+algorithm; more than 60\% of the exposed hashes fell within a single day. Salting alone would
+have defeated the rainbow tables; a slow algorithm alone would have made each guess expensive;
+LinkedIn had neither, which is why both properties have to hold at once.
+\answerlabel{4.2.A}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{4.2}{1}National Institute of Standards and Technology, \emph{Special Publication
+800-63B: Digital Identity Guidelines -- Authentication and Lifecycle Management}, June 2017.
+\item \srcitem{4.2}{2}Brian Krebs, ``As Scope of 2012 Breach Expands, LinkedIn to Again Reset
+Passwords for Some Users,'' KrebsOnSecurity, May 18, 2016 (117 million accounts, unsalted,
+unstretched SHA-1 hashes); cracking-rate figure per Computerworld, ``Hackers Crack More Than 60\%
+of Breached LinkedIn Passwords,'' June 2012, citing Sophos researcher Chester Wisniewski.
+\item \srcitem{4.2}{3}Bill Toulas, ``Change Healthcare Hacked Using Stolen Citrix Account With No
+MFA,'' BleepingComputer, April 30, 2024; Andrew Witty (CEO, UnitedHealth Group), written testimony
+before the U.S.\ House Energy and Commerce Committee, May 1, 2024; cost figure per UnitedHealth
+Group's Q2 2024 earnings disclosure, July 16, 2024, updated in subsequent quarterly filings.
+\end{enumerate}

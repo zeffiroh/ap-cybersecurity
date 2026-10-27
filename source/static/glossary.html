@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glossary · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="assets/shared/site-theme.css">
+<style>
+/* ---- Glossary-specific styling, layered on site-theme.css ---- */
+.gl-toolbar {
+  margin: 0 40px 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  font-family: var(--font-sans);
+}
+.gl-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  padding: 11px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  background: #fff;
+  color: var(--text-primary);
+}
+.gl-search:focus { outline: none; border-color: var(--accent-color); }
+.gl-filters { margin: 0 40px 6px; font-family: var(--font-sans); }
+.gl-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.gl-filter-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
+  color: var(--text-faint); margin-right: 4px; min-width: 66px;
+}
+.gl-chip {
+  font-family: var(--font-sans); font-size: 11.5px; font-weight: 600; padding: 6px 13px;
+  border: 1px solid var(--border-color); border-radius: 14px; background: #fff; color: var(--text-muted);
+  cursor: pointer; transition: all .15s ease; user-select: none;
+}
+.gl-chip:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.gl-chip.on { background: var(--accent-color); border-color: var(--accent-color); color: #fff; }
+.gl-count {
+  margin: 0 40px 18px; font-family: var(--font-sans); font-size: 11.5px; color: var(--text-faint);
+}
+.gl-list { margin: 0 40px 50px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #fff; }
+.gl-item { border-bottom: 1px solid var(--border-color); }
+.gl-item:last-child { border-bottom: none; }
+.gl-item-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 15px 20px; cursor: pointer; user-select: none;
+}
+.gl-item-head:hover { background: var(--accent-tint); }
+.gl-item-left { flex: 1; min-width: 0; }
+.gl-term { font-family: var(--font-sans); font-weight: 700; font-size: 15px; color: #000; margin-bottom: 5px; }
+.gl-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--font-sans); font-size: 11px; color: var(--text-faint); }
+.gl-type {
+  display: inline-block; padding: 2px 9px; border-radius: 3px; font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.gl-type.concept { background: #d4e6f1; color: #1e5a8e; }
+.gl-type.attack  { background: #fadbd8; color: #7a2717; }
+.gl-type.control { background: #d5f4e6; color: #196f3d; }
+.gl-type.process { background: #fdebd0; color: #7d3c14; }
+.gl-topic-tag { font-family: var(--font-mono); color: var(--accent-color); }
+.gl-caret { font-size: 13px; color: var(--text-faint); flex-shrink: 0; margin-top: 3px; transition: transform .15s ease; }
+.gl-item.open .gl-caret { transform: rotate(90deg); }
+.gl-body { display: none; padding: 0 20px 18px 20px; }
+.gl-item.open .gl-body { display: block; }
+.gl-sec { margin-bottom: 10px; }
+.gl-sec:last-child { margin-bottom: 0; }
+.gl-sec-title {
+  font-family: var(--font-sans); font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--accent-color); margin-bottom: 4px;
+}
+.gl-sec-body {
+  font-family: var(--font-serif); font-size: 14px; line-height: 1.7; color: var(--text-primary);
+  background: #fafaf7; border-left: 3px solid var(--accent-color); padding: 10px 14px;
+}
+.gl-empty { padding: 40px 20px; text-align: center; font-family: var(--font-sans); color: var(--text-faint); font-size: 13px; }
+@media (max-width: 900px) {
+  .gl-toolbar, .gl-filters, .gl-count, .gl-list { margin-left: 20px; margin-right: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="site-shell">
+
+  <main class="site-main">
+    <div class="hero">
+      <h1 class="hero-title">Glossary</h1>
+    </div>
+
+    <div class="gl-toolbar">
+      <input class="gl-search" type="text" id="glSearch" placeholder="Search terms, definitions, or examples&hellip;" oninput="glRender()">
+    </div>
+
+    <div class="gl-filters">
+      <div class="gl-filter-row" id="typeRow">
+        <span class="gl-filter-label">Type</span>
+      </div>
+      <div class="gl-filter-row" id="unitRow">
+        <span class="gl-filter-label">Unit</span>
+      </div>
+    </div>
+
+    <div class="gl-count" id="glCount"></div>
+
+    <div class="gl-list" id="glList"></div>
+  </main>
+</div>
+
+
+<script src="assets/config.js"></script>
+<script src="assets/shared/neon.js"></script>
+<script src="assets/shared/sponsor-metrics.js"></script>
+<script src="assets/shared/support.js"></script>
+<script>
+const TERMS = [
+// ---------------- UNIT 1 : Introduction to Security ----------------
+{term:"Social Engineering", type:"concept", unit:"1", topic:"1.1", topicTitle:"Understanding Social Engineering",
+ definition:"The manipulation of human psychology, trust, urgency, authority, fear, to trick a person into bypassing security procedures or revealing information or access, rather than exploiting a technical flaw in software or hardware.",
+ example:"An attacker impersonates a company's IT helpdesk to convince an employee to reset a password over the phone.",
+ confusion:"Don't confuse social engineering (manipulating a person) with technical attacks like SQL injection or port scanning, which exploit software or network weaknesses directly."},
+{term:"Phishing", type:"attack", unit:"1", topic:"1.1", topicTitle:"Understanding Social Engineering",
+ definition:"A deceptive email or message, often impersonating a trusted sender, designed to trick the recipient into clicking a malicious link, opening an attachment, or revealing credentials.",
+ example:"An email from “do-not-reply@g00gle.com” asks a teacher to click a link to “approve a document request.”",
+ confusion:"A lookalike or misspelled sender domain (e.g., zeros replacing the letter O) is a stronger technical indicator of phishing than tone or urgency alone."},
+{term:"Pretexting", type:"attack", unit:"1", topic:"1.1", topicTitle:"Understanding Social Engineering",
+ definition:"Inventing a fabricated scenario or false identity, such as posing as IT support, to build false trust and extract information during a live interaction like a phone call.",
+ example:"A caller claims to be from the IT helpdesk and references the target's manager by name before requesting a password reset.",
+ confusion:"Pretexting relies on an invented identity and story; phishing relies on a deceptive message, and baiting relies on a tempting physical or digital lure."},
+{term:"Tailgating (Piggybacking)", type:"attack", unit:"1", topic:"1.1", topicTitle:"Understanding Social Engineering",
+ definition:"Gaining unauthorized physical access to a secured area by closely following an authorized person through a door or checkpoint, exploiting courtesy rather than a technical flaw.",
+ example:"An employee holds a secured door open for someone carrying boxes who has no visible ID badge.",
+ confusion:"Tailgating is a physical-access technique; vishing and phishing are message- or call-based, not physical entry."},
+
+{term:"Credential Harvesting", type:"attack", unit:"1", topic:"1.2", topicTitle:"Suspicious Website Logins",
+ definition:"The practice of collecting usernames and passwords by directing victims to a fraudulent website built to look identical to a legitimate login page.",
+ example:"A fake “mail-gooogle-login.com” page captures whatever credentials a visitor types in.",
+ confusion:"Credential harvesting is the goal (stealing login data); phishing is often the delivery method used to lure the victim there."},
+{term:"Typosquatting (Lookalike Domain)", type:"attack", unit:"1", topic:"1.2", topicTitle:"Suspicious Website Logins",
+ definition:"Registering a domain name that closely mimics a legitimate one, through misspellings or character substitution, so victims land on a fraudulent site by mistake or deception.",
+ example:"“mail-gooogle-login.com” or “g00gle.com” substitutes characters for a trusted brand's real domain.",
+ confusion:"A page can look pixel-perfect and still be fake, visual styling is trivial to copy, but the exact domain in the address bar cannot be legitimately duplicated by an attacker."},
+{term:"Domain (URL) Verification", type:"process", unit:"1", topic:"1.2", topicTitle:"Suspicious Website Logins",
+ definition:"The practice of checking that a website's address bar shows the exact, correct domain of the service before entering login credentials, rather than trusting page appearance alone.",
+ example:"Confirming a login page reads “accounts.google.com” and not a variant like “google-secure-login.net.”",
+ confusion:"A slow-loading page, unusual page color, or the mere presence of a login form are not reliable legitimacy indicators, the domain is."},
+
+{term:"Packet Sniffing", type:"attack", unit:"1", topic:"1.3", topicTitle:"Best Practices for Public Networks",
+ definition:"Capturing and inspecting data packets as they travel across a network, which can expose unencrypted (cleartext) information such as passwords on unsecured public Wi-Fi.",
+ example:"An attacker on the same coffee-shop Wi-Fi captures another customer's unencrypted login traffic.",
+ confusion:"Sniffing is passive interception; an evil twin or on-path attack actively redirects or manipulates traffic rather than merely observing it."},
+{term:"Evil Twin Attack", type:"attack", unit:"1", topic:"1.3", topicTitle:"Best Practices for Public Networks",
+ definition:"A rogue wireless access point configured to broadcast the same network name (SSID) as a legitimate nearby network, tricking users into connecting to it instead.",
+ example:"A fake “Coffee_Shop_WiFi” hotspot set up next to the real one to intercept anyone who connects to it.",
+ confusion:"An evil twin impersonates the network itself; ARP poisoning instead corrupts address-resolution tables on a network the victim is already connected to."},
+{term:"On-Path (Man-in-the-Middle) Attack", type:"attack", unit:"1", topic:"1.3", topicTitle:"Best Practices for Public Networks",
+ definition:"An attack in which an adversary secretly positions themselves between a user and a legitimate service, intercepting and potentially altering communications without either party's knowledge.",
+ example:"An attacker on a public network intercepts traffic between a laptop and its VPN gateway before forwarding it.",
+ confusion:"On-path attacks intercept an existing connection; an evil twin instead lures the victim onto an attacker-controlled network from the start."},
+{term:"Virtual Private Network (VPN)", type:"control", unit:"1", topic:"1.3", topicTitle:"Best Practices for Public Networks",
+ definition:"A control that encrypts a device's network traffic and routes it through a secure tunnel, protecting data from interception even on untrusted public networks.",
+ example:"A student connects to a school VPN before checking email on airport Wi-Fi so intercepted packets remain encrypted.",
+ confusion:"A VPN protects data in transit between the device and the VPN endpoint; it does not, by itself, prevent phishing or malware already present on the device."},
+
+{term:"Voice Cloning", type:"attack", unit:"1", topic:"1.4", topicTitle:"AI-Based Cybersecurity Attacks",
+ definition:"Using AI to synthesize a realistic replica of a specific person's voice from audio samples, then using that cloned voice to impersonate them, typically over a phone call.",
+ example:"A relative receives a call that sounds exactly like a family member urgently requesting bail money, but the family member never called.",
+ confusion:"Voice cloning is audio-only impersonation; a deepfake specifically refers to fabricated video, and AI-generated phishing refers to text-based messages."},
+{term:"AI-Generated Phishing", type:"attack", unit:"1", topic:"1.4", topicTitle:"AI-Based Cybersecurity Attacks",
+ definition:"Using AI language tools to automatically produce large volumes of personalized, stylistically convincing phishing messages at a scale and quality beyond manual, human-written phishing.",
+ example:"An AI tool drafts hundreds of uniquely worded phishing emails, each referencing the target's real name and role.",
+ confusion:"This is an attack technique, not a defensive tool, it should not be confused with AI-based email filtering, which blocks such messages."},
+{term:"Deepfake", type:"attack", unit:"1", topic:"1.4", topicTitle:"AI-Based Cybersecurity Attacks",
+ definition:"A fabricated video or image, generated or altered using AI, that convincingly depicts a real person saying or doing something they never actually did.",
+ example:"A fabricated video of a company executive appears to authorize a wire transfer, sent to the finance team.",
+ confusion:"Deepfakes are visual/video fabrications; voice cloning is the audio-only equivalent, often used in phone-based scams instead."},
+
+{term:"AI-Powered Intrusion Prevention System (IPS)", type:"control", unit:"1", topic:"1.5", topicTitle:"Leveraging AI in Cyber Defense",
+ definition:"A security control that uses machine learning models trained on traffic patterns to detect and automatically block malicious network activity in real time, extending beyond static rule lists.",
+ example:"An AI-driven IPS recognizes a never-before-seen attack pattern and blocks it without a matching signature existing yet.",
+ confusion:"A legacy firewall blocks traffic using only a static list of known-bad addresses or ports; an AI-powered IPS can recognize and act on novel, previously unseen threats."},
+{term:"Preventive Control", type:"concept", unit:"1", topic:"1.5", topicTitle:"Leveraging AI in Cyber Defense",
+ definition:"A security measure designed to stop a threat from succeeding before it can occur, such as fixing a vulnerability before it can be exploited.",
+ example:"An AI code-review tool flags a security flaw in an application before it is ever deployed.",
+ confusion:"A preventive control acts before an incident; a detective control (like an alert or log) identifies one during or after it happens, and a corrective control repairs the damage afterward."},
+{term:"Anomaly-Based Detection", type:"concept", unit:"1", topic:"1.5", topicTitle:"Leveraging AI in Cyber Defense",
+ definition:"A detection approach that establishes a baseline of normal system or network behavior and flags activity that deviates significantly from it, allowing it to catch previously unknown threats.",
+ example:"A machine-learning model flags an unusual spike in outbound traffic from a device that normally sends very little data.",
+ confusion:"Anomaly-based detection looks for deviations from normal behavior; signature-based detection instead matches traffic against a database of already-known attack patterns."},
+
+// ---------------- UNIT 2 : Securing Spaces ----------------
+{term:"CIA Triad", type:"concept", unit:"2", topic:"2.1", topicTitle:"Cyber Foundations",
+ definition:"The foundational security model built on three goals: Confidentiality (keeping data private), Integrity (ensuring data is accurate and unaltered), and Availability (ensuring systems and data are accessible when needed).",
+ example:"Encrypting a file protects confidentiality; a checksum protects integrity; redundant servers protect availability.",
+ confusion:"A single control often supports more than one goal at once, full-disk encryption protects confidentiality but does nothing for availability."},
+{term:"Threat Actor", type:"concept", unit:"2", topic:"2.1", topicTitle:"Cyber Foundations",
+ definition:"An individual or group that carries out or has the potential to carry out an attack; categories include nation-state actors, hacktivists, insider threats, script kiddies, and opportunistic cybercriminals, each with different motives and resources.",
+ example:"A foreign government agency conducting a prolonged, covert intrusion to steal intellectual property is a nation-state threat actor.",
+ confusion:"Sophistication and motive don't always match assumptions, a rogue public Wi-Fi hotspot set up for financial gain is opportunistic cybercrime, not automatically a sign of nation-state involvement."},
+{term:"Vulnerability vs. Threat", type:"concept", unit:"2", topic:"2.1", topicTitle:"Cyber Foundations",
+ definition:"A vulnerability is a weakness in a system, process, or person that could be exploited; a threat is the potential adversary or event capable of exploiting that vulnerability. Risk exists where a threat can act on a vulnerability.",
+ example:"An unpatched server (vulnerability) can be exploited by an attacker running an exploit kit (threat).",
+ confusion:"Students often use “threat” and “vulnerability” interchangeably, but a vulnerability is the flaw itself while a threat is the actor or event that could exploit it."},
+
+{term:"Physical Attack", type:"concept", unit:"2", topic:"2.2", topicTitle:"Physical Vulnerabilities and Attacks",
+ definition:"An attack that requires physical proximity or access to a facility, device, or document, as opposed to a purely digital or network-based attack.",
+ example:"An unauthorized person tailgates a badged employee through a secured entrance.",
+ confusion:"An attack conducted from a nearby physical location, like brute-forcing a Wi-Fi password from a parking lot, is still a network-layer attack, not a physical one, since it doesn't require entering the premises."},
+{term:"Environmental Threat", type:"concept", unit:"2", topic:"2.2", topicTitle:"Physical Vulnerabilities and Attacks",
+ definition:"A naturally occurring or infrastructure-related event, such as fire, flood, extreme temperature, or power failure, that can damage or destroy physical assets without any deliberate human action.",
+ example:"A burst water pipe floods a ground-floor server room, destroying rack-mounted servers.",
+ confusion:"Environmental threats involve no deliberate attacker; tailgating and shoulder surfing are human-initiated physical threats, not environmental ones."},
+{term:"Shoulder Surfing", type:"attack", unit:"2", topic:"2.2", topicTitle:"Physical Vulnerabilities and Attacks",
+ definition:"Directly observing or photographing a device screen, keypad, or document to steal sensitive information without the victim's knowledge.",
+ example:"A visitor photographs a sensitive document displayed on an unattended monitor.",
+ confusion:"Shoulder surfing requires visual proximity to the victim; it is distinct from a purely digital attack like packet sniffing, which requires no line of sight."},
+
+{term:"Managerial (Administrative) Control", type:"concept", unit:"2", topic:"2.3", topicTitle:"Protecting Physical Spaces",
+ definition:"A security control implemented through policy, procedure, or governance, directing how security should be carried out, rather than through technology or a physical barrier.",
+ example:"A written policy restricting server room access to IT personnel only.",
+ confusion:"A biometric scanner enforcing that same policy is a technical control, not a managerial one, the policy document itself is managerial; the mechanism that enforces it is technical."},
+{term:"Technical Control", type:"concept", unit:"2", topic:"2.3", topicTitle:"Protecting Physical Spaces",
+ definition:"A control that uses hardware, software, or electronic means to restrict, monitor, or record access or activity.",
+ example:"A key-card reader that logs badge ID, timestamp, and door for every entry attempt.",
+ confusion:"A technical control can enforce a managerial policy, but the two are not the same category, an electronic badge reader is technical even though a written access policy told IT to install it."},
+{term:"Physical Control", type:"concept", unit:"2", topic:"2.3", topicTitle:"Protecting Physical Spaces",
+ definition:"A tangible barrier that directly blocks or slows physical entry, independent of any electronics or policy.",
+ example:"A reinforced steel door with a deadbolt lock at a building entrance.",
+ confusion:"A physical control blocks entry through material construction; a technical control (like the badge reader mounted on that same door) restricts entry through electronics layered on top of it."},
+
+{term:"Detective Control", type:"concept", unit:"2", topic:"2.4", topicTitle:"Detecting Physical Attacks",
+ definition:"A control that identifies and records that a security-relevant event occurred, without necessarily preventing it, creating evidence for later review.",
+ example:"A motion-activated CCTV camera inside a server room, or a badge log that records every entry attempt including rejected ones.",
+ confusion:"A detective control (a camera or log) records what happened; a preventive control (a locked door) stops the event from happening in the first place."},
+{term:"Deterrent Control", type:"concept", unit:"2", topic:"2.4", topicTitle:"Detecting Physical Attacks",
+ definition:"A control intended to discourage an attacker from attempting an action in the first place, typically by making the risk of detection or consequence visible.",
+ example:"A clearly visible security camera or a warning sign at a facility entrance.",
+ confusion:"A deterrent only works if the attacker is aware of it, a hidden access log that isn't visible to an intruder has no deterrent effect, even though it is still detective."},
+{term:"Audit Trail (Access Log)", type:"process", unit:"2", topic:"2.4", topicTitle:"Detecting Physical Attacks",
+ definition:"A recorded history of access attempts, including timestamps, identities, and whether the attempt succeeded or failed, used to investigate incidents and identify suspicious patterns.",
+ example:"A badge reader log revealing several rejected access attempts on a door just before a successful entry.",
+ confusion:"An audit trail is a detective, after-the-fact record; it does not itself stop an intrusion, it enables investigation once one has occurred."},
+
+// ---------------- UNIT 3 : Securing Networks ----------------
+{term:"ARP Poisoning (ARP Spoofing)", type:"attack", unit:"3", topic:"3.1", topicTitle:"Network Vulnerabilities and Attacks",
+ definition:"An attack that corrupts a device's ARP (Address Resolution Protocol) cache, falsely associating the attacker's MAC address with a legitimate IP address (such as the network gateway), redirecting local traffic through the attacker's machine.",
+ example:"An attacker poisons ARP tables on a local network to intercept traffic between a workstation and the router.",
+ confusion:"ARP poisoning operates at Layer 2 within a single local network; DNS-based redirection and evil twin attacks work differently and are not the same mechanism."},
+{term:"Denial-of-Service (DoS) / Ping Flood", type:"attack", unit:"3", topic:"3.1", topicTitle:"Network Vulnerabilities and Attacks",
+ definition:"An attack that overwhelms a target system or network with excessive traffic or requests, degrading or completely blocking availability for legitimate users.",
+ example:"An attacker floods a server with a massive volume of ICMP echo requests (a ping flood).",
+ confusion:"A DoS attack targets availability, not confidentiality, it does not steal or expose data the way sniffing or ARP poisoning can."},
+{term:"Port Scanning", type:"process", unit:"3", topic:"3.1", topicTitle:"Network Vulnerabilities and Attacks",
+ definition:"A reconnaissance technique used by both attackers and defenders to discover which network ports and services are open and active on a target host.",
+ example:"Running Nmap against a server to inventory which services are listening.",
+ confusion:"Port scanning by itself does not intercept or redirect traffic, it is passive reconnaissance, not an active man-in-the-middle attack like ARP poisoning."},
+{term:"Risk (Likelihood × Impact)", type:"concept", unit:"3", topic:"3.1", topicTitle:"Network Vulnerabilities and Attacks",
+ definition:"The combination of how probable it is that a threat will exploit a vulnerability (likelihood) and how severe the consequences would be if it succeeded (impact); both dimensions together determine overall risk.",
+ example:"A high-likelihood, low-impact vulnerability may be a lower priority to fix than a low-likelihood, catastrophic-impact one.",
+ confusion:"Likelihood (probability of exploitation) and impact (severity of harm) are two distinct measurements, a common error is treating them as the same thing or ranking risk on just one axis."},
+
+{term:"Acceptable Use Policy (AUP)", type:"control", unit:"3", topic:"3.2", topicTitle:"Protecting Networks: Managerial Controls and Wireless Security",
+ definition:"A managerial (administrative) control that documents the rules governing how users are permitted to use an organization's network and systems.",
+ example:"A school district publishes an AUP outlining permitted network activities for staff and students.",
+ confusion:"An AUP is a governance document; configuring WPA3 encryption on access points enforces security technically, but it is not itself a managerial control."},
+{term:"WPA3", type:"control", unit:"3", topic:"3.2", topicTitle:"Protecting Networks: Managerial Controls and Wireless Security",
+ definition:"The current wireless security protocol standard that encrypts traffic between a device and a Wi-Fi access point, replacing older, weaker standards like WEP and WPA2.",
+ example:"Enabling WPA3 encryption on all access points in a new deployment.",
+ confusion:"WPA3 protects traffic on a legitimate access point; it does nothing to stop a user from being tricked into joining an evil twin access point that also claims to use encryption."},
+{term:"Security Awareness Training", type:"process", unit:"3", topic:"3.2", topicTitle:"Protecting Networks: Managerial Controls and Wireless Security",
+ definition:"An administrative (managerial) control that educates staff or users on recognizing and avoiding security threats, reducing the likelihood of human-error-based incidents.",
+ example:"Mandatory annual training that teaches staff to identify phishing emails before clicking links.",
+ confusion:"Training reduces the likelihood of an incident through human behavior; it is not a technical fix and does not, by itself, block or encrypt anything."},
+
+{term:"Network Segmentation", type:"concept", unit:"3", topic:"3.3", topicTitle:"Protecting Networks: Segmentation",
+ definition:"The practice of dividing a network into smaller, isolated sections so that a compromise in one segment cannot easily spread to others.",
+ example:"Isolating a hospital's medical-device network from its general administrative network.",
+ confusion:"Segmentation limits how far an attacker can move after gaining a foothold; it does not prevent the initial compromise the way a firewall or MFA might."},
+{term:"VLAN (Virtual Local Area Network)", type:"control", unit:"3", topic:"3.3", topicTitle:"Protecting Networks: Segmentation",
+ definition:"A technique that logically separates groups of devices into distinct network segments even when they share the same physical switching hardware; devices in different VLANs cannot communicate directly without passing through a routing device.",
+ example:"Creating separate VLANs to isolate a submarine's weapons systems network from its crew Wi-Fi network.",
+ confusion:"A VLAN creates a logical boundary at the network layer; it is a different mechanism from a firewall's rule-based filtering, though the two are often used together."},
+{term:"Broadcast Domain", type:"concept", unit:"3", topic:"3.3", topicTitle:"Protecting Networks: Segmentation",
+ definition:"The set of devices that receive each other's broadcast network traffic; segmenting a network into VLANs also divides it into separate, smaller broadcast domains.",
+ example:"Placing guest devices on their own VLAN keeps their broadcast traffic from reaching the staff network's devices.",
+ confusion:"A smaller broadcast domain reduces unnecessary traffic and exposure, but it is a side effect of segmentation, not a security control on its own."},
+
+{term:"Stateless Packet-Filtering Firewall", type:"control", unit:"3", topic:"3.4", topicTitle:"Protecting Networks: Firewalls",
+ definition:"A firewall that inspects each packet independently, based only on header fields like source/destination IP and port number, without tracking any ongoing connection state.",
+ example:"An ACL rule that blocks all inbound traffic on port 23 regardless of context.",
+ confusion:"A stateless firewall evaluates each packet in isolation; a stateful firewall instead tracks the full connection and automatically allows return traffic for sessions it already approved."},
+{term:"Stateful Inspection Firewall", type:"control", unit:"3", topic:"3.4", topicTitle:"Protecting Networks: Firewalls",
+ definition:"A firewall that maintains a record of active network connections and automatically permits return traffic that belongs to an already-established, approved session.",
+ example:"A firewall allows a reply packet back in because it matches an outbound request the internal host already sent.",
+ confusion:"Being “stateful” refers to tracking connection state, not to inspecting the content of the traffic, that deeper inspection is the job of a next-generation firewall."},
+{term:"Next-Generation Firewall (NGFW)", type:"control", unit:"3", topic:"3.4", topicTitle:"Protecting Networks: Firewalls",
+ definition:"A firewall that operates at the application layer and performs deep packet inspection, examining payload content, identifying applications regardless of port, and applying identity-based policies, capabilities beyond traditional packet filtering.",
+ example:"An NGFW detects and blocks a malware signature hidden inside what looks like ordinary HTTPS web traffic.",
+ confusion:"Blocking by port number or source IP range is a basic packet-filtering capability available in any firewall; deep inspection of payload content specifically requires an NGFW."},
+
+{term:"Intrusion Detection System (IDS)", type:"control", unit:"3", topic:"3.5", topicTitle:"Detecting Network Attacks",
+ definition:"A tool that passively monitors network or host traffic, compares it against known attack signatures or behavior baselines, and generates an alert when a match is found, without taking action to block it.",
+ example:"A network-based IDS (NIDS) flags traffic matching a known exploit signature and notifies the security team.",
+ confusion:"An IDS only detects and alerts; it cannot block traffic itself, that capability belongs to an IPS."},
+{term:"Intrusion Prevention System (IPS)", type:"control", unit:"3", topic:"3.5", topicTitle:"Detecting Network Attacks",
+ definition:"A tool that sits inline with network traffic and can automatically block or drop packets matching attack signatures or exceeding anomaly thresholds, actively preventing the attack rather than only alerting on it.",
+ example:"An IPS at the corporate gateway automatically drops packets matching a known malicious pattern.",
+ confusion:"The key distinction from an IDS is action, an IDS alerts, an IPS actively blocks."},
+{term:"Packet Analyzer (Sniffer)", type:"process", unit:"3", topic:"3.5", topicTitle:"Detecting Network Attacks",
+ definition:"A tool that captures and decodes raw network traffic for later analysis; used defensively for troubleshooting and forensics, or maliciously to intercept unencrypted data.",
+ example:"A security analyst uses Wireshark to capture and inspect traffic for signs of an intrusion.",
+ confusion:"A sniffer captures traffic for analysis; it takes no automated blocking action on its own, unlike an IPS."},
+
+// ---------------- UNIT 4 : Securing Devices ----------------
+{term:"Spyware", type:"attack", unit:"4", topic:"4.1", topicTitle:"Device Vulnerabilities and Attacks",
+ definition:"Malware designed to covertly monitor a device and exfiltrate data, such as location, keystrokes, or browsing activity, to an external party without the user's knowledge or consent.",
+ example:"Hidden software on a connected tractor silently transmits GPS location data to an external server.",
+ confusion:"Spyware quietly collects and sends data; ransomware instead encrypts data and demands payment, which are very different goals."},
+{term:"Ransomware", type:"attack", unit:"4", topic:"4.1", topicTitle:"Device Vulnerabilities and Attacks",
+ definition:"Malware that encrypts a victim's files or systems, rendering them inaccessible, and demands payment (a ransom) in exchange for the decryption key.",
+ example:"An employee's files become encrypted and a message demands cryptocurrency payment to restore access.",
+ confusion:"Ransomware requires both an encryption component and an extortion demand, malware that only spies or only self-replicates without either of those is not ransomware."},
+{term:"Worm", type:"attack", unit:"4", topic:"4.1", topicTitle:"Device Vulnerabilities and Attacks",
+ definition:"Self-replicating malware that spreads automatically across a network from device to device, without requiring a user to open or execute a file.",
+ example:"Malware spreads on its own from one farm-network sensor to another without any user action.",
+ confusion:"A worm spreads itself automatically across a network; a logic bomb instead lies dormant on a single system until a specific trigger condition occurs."},
+{term:"Logic Bomb", type:"attack", unit:"4", topic:"4.1", topicTitle:"Device Vulnerabilities and Attacks",
+ definition:"Malicious code that lies dormant within a system and activates only when a specific condition is met, such as a particular date or user action.",
+ example:"Code hidden in a payroll system deletes records only if a specific employee's account is ever deactivated.",
+ confusion:"A logic bomb triggers on a condition and then acts; it does not run continuously or self-replicate the way a worm does."},
+
+{term:"Password Hashing", type:"control", unit:"4", topic:"4.2", topicTitle:"Authentication",
+ definition:"A preventive control that transforms a password into a fixed-length, effectively irreversible value before storing it, so that even a stolen database does not expose the original passwords.",
+ example:"A system stores the hash of a password rather than the password itself.",
+ confusion:"Hashing is one-way and cannot be decrypted; encryption is reversible with the right key. If passwords were merely encrypted rather than hashed, anyone with the key could recover them."},
+{term:"Multi-Factor Authentication (MFA)", type:"control", unit:"4", topic:"4.2", topicTitle:"Authentication",
+ definition:"An authentication method requiring credentials from two or more distinct factor categories, something you know, something you have, or something you are, rather than just one.",
+ example:"Entering a password (something you know) and then approving a push notification on a registered phone (something you have).",
+ confusion:"Two passwords, or a password plus a security question, are both still single-factor (both “something you know”), using multiple steps is not the same as using multiple factor categories."},
+{term:"Authentication Factor Categories", type:"concept", unit:"4", topic:"4.2", topicTitle:"Authentication",
+ definition:"The three basic categories credentials can come from: something you know (a password or PIN), something you have (a phone or hardware token), and something you are (a fingerprint or other biometric).",
+ example:"A fingerprint scanner uses the “something you are” factor category.",
+ confusion:"True MFA must combine factors from at least two different categories, stacking multiple credentials from the same category does not increase factor diversity."},
+
+{term:"Anti-Malware Software", type:"control", unit:"4", topic:"4.3", topicTitle:"Protecting Devices",
+ definition:"A technical control that scans for, detects, and removes or quarantines malicious programs on a device, either before execution or on demand.",
+ example:"Endpoint protection software quarantines a malicious file before it can run.",
+ confusion:"Anti-malware acts on files and processes on the device itself; blocking unauthorized network connections at the perimeter is instead the job of a firewall."},
+{term:"Host-Based Firewall", type:"control", unit:"4", topic:"4.3", topicTitle:"Protecting Devices",
+ definition:"A firewall running on an individual device that filters inbound and outbound network traffic specific to that host, independent of any network-perimeter firewall.",
+ example:"A device's built-in firewall blocks an unapproved application from making an outbound connection.",
+ confusion:"A host-based firewall protects one device; a network firewall instead filters traffic at a boundary shared by many devices."},
+{term:"Endpoint Hardening", type:"concept", unit:"4", topic:"4.3", topicTitle:"Protecting Devices",
+ definition:"The overall practice of reducing a device's attack surface, through measures such as screen-lock timeouts, disabling unused services, and applying security patches, to make it more resistant to compromise.",
+ example:"Enforcing automatic screen-lock timeouts on all company workstations.",
+ confusion:"Hardening is a set of technical/operational configuration changes applied directly to a device; a written device-usage policy that mandates hardening is itself a managerial control, not hardening itself."},
+
+{term:"Host-Based Intrusion Detection System (HIDS)", type:"control", unit:"4", topic:"4.4", topicTitle:"Detecting Attacks on Devices",
+ definition:"A tool that monitors events on a single host, file changes, process activity, login attempts, to detect attacks occurring on or against that specific device.",
+ example:"A HIDS agent on a workstation flags an unexpected new process spawned by a suspicious file.",
+ confusion:"A HIDS monitors one device from the inside; a network-based IDS instead monitors traffic flowing across the network and cannot see local file-system or process events."},
+{term:"Indicator of Compromise (IoC)", type:"concept", unit:"4", topic:"4.4", topicTitle:"Detecting Attacks on Devices",
+ definition:"Observable evidence found on or produced by a host, such as an unusual file, registry change, or network connection, that suggests a security incident may have occurred or be in progress.",
+ example:"An unexpected outbound connection to an unfamiliar IP address discovered during a device audit.",
+ confusion:"An IoC is evidence that something already happened or is happening; a vulnerability is instead a weakness that could be exploited in the future, whether or not it ever is."},
+{term:"Security Information and Event Management (SIEM)", type:"control", unit:"4", topic:"4.4", topicTitle:"Detecting Attacks on Devices",
+ definition:"A platform that aggregates and correlates log and event data from many devices and systems, helping analysts detect patterns and investigate incidents across an entire environment rather than one device at a time.",
+ example:"A SIEM correlates failed login attempts across dozens of endpoints to reveal a coordinated attack.",
+ confusion:"A SIEM centralizes and correlates data from many sources; a single HIDS agent only reports on the one device it runs on."},
+
+// ---------------- UNIT 5 : Securing Applications and Data ----------------
+{term:"SQL Injection", type:"attack", unit:"5", topic:"5.1", topicTitle:"Application and Data Vulnerabilities and Attacks",
+ definition:"An attack in which unvalidated user input is inserted directly into a database query, allowing an attacker to alter the query's logic and access or manipulate data it was never meant to expose.",
+ example:"A search field concatenates user input directly into a SQL query without sanitization or parameterization.",
+ confusion:"SQL injection exploits how an application builds database queries; it is unrelated to network-layer attacks like ARP spoofing or to session-based attacks like CSRF."},
+{term:"Cross-Site Scripting (XSS)", type:"attack", unit:"5", topic:"5.1", topicTitle:"Application and Data Vulnerabilities and Attacks",
+ definition:"An attack in which malicious script is injected into a trusted website, which then executes in other users' browsers when they view the affected page.",
+ example:"A comment field that doesn't sanitize input lets an attacker embed a script that steals other visitors' session cookies.",
+ confusion:"XSS runs malicious code in a victim's browser via a trusted site; SQL injection instead targets the application's backend database directly."},
+{term:"Cross-Site Request Forgery (CSRF)", type:"attack", unit:"5", topic:"5.1", topicTitle:"Application and Data Vulnerabilities and Attacks",
+ definition:"An attack that tricks a victim's browser into submitting an unwanted, authenticated request to a site the victim is already logged into, exploiting their active session.",
+ example:"A hidden link causes a logged-in user's browser to unknowingly submit a fund-transfer request on a banking site.",
+ confusion:"CSRF hijacks a legitimate, already-authenticated session to perform an action; it does not require stealing credentials the way phishing or credential harvesting does."},
+
+{term:"Data Classification Policy", type:"control", unit:"5", topic:"5.2", topicTitle:"Protecting Applications and Data: Managerial Controls and Access Controls",
+ definition:"A managerial control that categorizes data (such as Public, Internal, Confidential) and defines handling rules for each category, guiding how data should be protected.",
+ example:"Labeling R&D documents as “Confidential” to trigger stricter handling requirements.",
+ confusion:"The policy itself is managerial; the technical mechanisms that enforce it, like file permissions or encryption, are separate, technical controls."},
+{term:"Data States (At Rest, In Transit, In Use)", type:"concept", unit:"5", topic:"5.2", topicTitle:"Protecting Applications and Data: Managerial Controls and Access Controls",
+ definition:"The three states data can exist in: at rest (stored on a disk or database), in transit (actively moving across a network), and in use (loaded into memory and being actively processed), each requiring different protective controls.",
+ example:"A hard drive's files are data at rest; the same data moving over a VPN is data in transit.",
+ confusion:"“Data in motion” is simply another term for data in transit, both describe data actively traveling over a network, not data sitting on a storage device."},
+{term:"Principle of Least Privilege", type:"concept", unit:"5", topic:"5.2", topicTitle:"Protecting Applications and Data: Managerial Controls and Access Controls",
+ definition:"The practice of granting a user or account only the minimum access rights needed to perform its function, reducing the potential damage from a compromised account.",
+ example:"A new employee's account starts with minimal permissions, and additional access must be explicitly granted by an administrator.",
+ confusion:"Least privilege governs how much access an account has by default; it is a distinct concept from authentication (verifying who someone is) or encryption (protecting data confidentiality)."},
+
+{term:"Symmetric Encryption", type:"concept", unit:"5", topic:"5.3", topicTitle:"Protecting Stored Data with Cryptography",
+ definition:"An encryption method that uses a single shared secret key for both encrypting and decrypting data; both parties must possess the same key.",
+ example:"AES-256 encrypts a laptop's hard drive using one key that both locks and unlocks the data.",
+ confusion:"Symmetric encryption uses one shared key for both directions; asymmetric encryption instead uses a mathematically related but different key pair for encrypting versus decrypting."},
+{term:"Cryptographic Hash Function", type:"concept", unit:"5", topic:"5.3", topicTitle:"Protecting Stored Data with Cryptography",
+ definition:"A one-way function that produces a fixed-length digest from input data; even a tiny change to the input produces a completely different hash, making it useful for verifying integrity rather than confidentiality.",
+ example:"Comparing a file's freshly computed SHA-256 hash against a previously recorded baseline to detect tampering.",
+ confusion:"A hash cannot be reversed to recover the original data the way encryption can be decrypted, hashing verifies integrity, it does not protect confidentiality."},
+{term:"Salting", type:"control", unit:"5", topic:"5.3", topicTitle:"Protecting Stored Data with Cryptography",
+ definition:"Adding a unique, random value to a password before hashing it, so that identical passwords produce different stored hashes and precomputed cracking tables (like rainbow tables) become far less effective.",
+ example:"Two users with the same password “password123” end up with completely different stored hashes because each was salted differently.",
+ confusion:"Salting strengthens hashing against precomputed attacks; it does not make hashing reversible, and it is a separate step from the hash function itself."},
+{term:"Full-Disk Encryption", type:"control", unit:"5", topic:"5.3", topicTitle:"Protecting Stored Data with Cryptography",
+ definition:"A control that encrypts the entire contents of a storage drive, protecting data at rest so it cannot be read without the correct decryption key or credentials, even if the physical drive is stolen.",
+ example:"A stolen laptop's encrypted hard drive remains unreadable to whoever took it.",
+ confusion:"Full-disk encryption protects data at rest specifically; it does nothing to protect that same data once it is in transit across a network or in use in memory."},
+
+{term:"Asymmetric (Public-Key) Encryption", type:"concept", unit:"5", topic:"5.4", topicTitle:"Asymmetric Cryptography",
+ definition:"An encryption method using a mathematically linked key pair, a public key that can be shared openly and a private key kept secret, where data encrypted with one key can only be decrypted with the other.",
+ example:"A message encrypted with a recipient's public key can only be decrypted using that recipient's private key.",
+ confusion:"Asymmetric encryption uses two different, related keys; symmetric encryption uses one identical shared key for both operations."},
+{term:"Public Key vs. Private Key", type:"concept", unit:"5", topic:"5.4", topicTitle:"Asymmetric Cryptography",
+ definition:"In a public-key system, the public key is shared freely and used by others to encrypt messages to you or verify your signature; the private key is kept secret and used to decrypt those messages or create your signature.",
+ example:"A sender encrypts a confidential report using the recipient's public key so only the recipient's private key can open it.",
+ confusion:"To encrypt a message for someone, you use their public key, not your own, a frequent point of confusion for students new to asymmetric cryptography."},
+{term:"Digital Signature", type:"control", unit:"5", topic:"5.4", topicTitle:"Asymmetric Cryptography",
+ definition:"A cryptographic mechanism where a sender uses their own private key to “sign” a message, allowing anyone with the sender's public key to verify the message's authenticity and that it hasn't been altered.",
+ example:"An engineer digitally signs a classified message so recipients can confirm it truly came from them and wasn't tampered with in transit.",
+ confusion:"Signing uses the sender's private key (proving who sent it); encrypting a message for confidentiality uses the recipient's public key, these are two different operations that are easy to mix up."},
+{term:"Public Key Infrastructure (PKI) / Digital Certificate", type:"control", unit:"5", topic:"5.4", topicTitle:"Asymmetric Cryptography",
+ definition:"A system of digital certificates, certificate authorities, and key-management processes that binds public keys to verified identities, enabling trust in encrypted communications and digital signatures.",
+ example:"A website's TLS certificate, issued by a trusted certificate authority, lets a browser confirm it's really connecting to the legitimate site.",
+ confusion:"A digital certificate verifies identity; it is a different control from a cryptographic hash, which verifies that data hasn't been altered."},
+
+{term:"Secure by Design", type:"concept", unit:"5", topic:"5.5", topicTitle:"Protecting Applications",
+ definition:"The principle that security is built into an application from the earliest stages of planning and architecture, rather than added as an afterthought late in development.",
+ example:"A development team incorporates threat modeling and secure architecture decisions before writing any code.",
+ confusion:"Running a penetration test right before release is still a late-stage, reactive check, secure by design means security decisions are made from the very start of the project."},
+{term:"Security by Default", type:"concept", unit:"5", topic:"5.5", topicTitle:"Protecting Applications",
+ definition:"The principle that software ships in its most secure configuration out of the box, without requiring a user or administrator to manually harden it.",
+ example:"New user accounts are created with minimal permissions by default, with elevated access granted only when explicitly needed.",
+ confusion:"Secure by design is a development-lifecycle practice; security by default specifically describes the out-of-the-box configuration state of the finished, shipped product."},
+{term:"Defense in Depth", type:"concept", unit:"5", topic:"5.5", topicTitle:"Protecting Applications",
+ definition:"A strategy of layering multiple, independent security controls so that if one layer fails, other layers still provide protection.",
+ example:"A network is protected simultaneously by a firewall, network segmentation, endpoint anti-malware, and MFA.",
+ confusion:"Defense in depth is about the number and independence of layered controls, not about any single control being “strong enough” on its own."},
+
+{term:"File Integrity Monitoring (FIM)", type:"control", unit:"5", topic:"5.6", topicTitle:"Detecting Attacks on Data and Applications",
+ definition:"A detective control that computes and stores a baseline cryptographic hash for monitored files, then periodically recomputes hashes to detect unauthorized changes.",
+ example:"An FIM tool alerts when a critical configuration file's hash no longer matches its recorded baseline.",
+ confusion:"FIM detects changes after they occur by comparing hashes; it does not itself prevent an unauthorized write the way a strict file-permission or firewall rule would."},
+{term:"Hash Verification", type:"process", unit:"5", topic:"5.6", topicTitle:"Detecting Attacks on Data and Applications",
+ definition:"The process of comparing a freshly computed cryptographic hash of a file against a trusted, previously published hash value to confirm the file has not been altered or corrupted in transit.",
+ example:"Comparing the SHA-256 hash of a downloaded installer against the value published on the vendor's official website.",
+ confusion:"Checking a file's extension or running it in a sandbox does not confirm integrity the way a hash comparison does, an attacker can easily preserve a file's extension while replacing its contents."},
+{term:"Web Application Firewall (WAF)", type:"control", unit:"5", topic:"5.6", topicTitle:"Detecting Attacks on Data and Applications",
+ definition:"A firewall that specifically filters and monitors HTTP/HTTPS traffic to and from web applications, helping detect and block attacks like SQL injection or XSS at the application layer.",
+ example:"A WAF blocks a request containing a suspicious SQL injection pattern before it reaches the web server.",
+ confusion:"A WAF operates specifically at the web-application layer; a general network firewall or NIDS inspects broader network traffic and isn't purpose-built to parse HTTP request content."}
+];
+
+TERMS.sort((a, b) => a.term.localeCompare(b.term));
+
+let activeType = 'all';
+let activeUnit = 'all';
+
+const TYPE_LABELS = {all:'All Types', concept:'Concepts', attack:'Attacks', control:'Controls', process:'Processes'};
+const UNIT_LABELS = {all:'All Units', '1':'Unit 1', '2':'Unit 2', '3':'Unit 3', '4':'Unit 4', '5':'Unit 5'};
+
+function buildFilterRow(rowId, options, active, onClick) {
+  const row = document.getElementById(rowId);
+  Object.keys(options).forEach(key => {
+    const btn = document.createElement('div');
+    btn.className = 'gl-chip' + (key === active ? ' on' : '');
+    btn.textContent = options[key];
+    btn.onclick = () => onClick(key);
+    row.appendChild(btn);
+  });
+}
+buildFilterRow('typeRow', TYPE_LABELS, activeType, (key) => { activeType = key; refreshChips(); glRender(); });
+buildFilterRow('unitRow', UNIT_LABELS, activeUnit, (key) => { activeUnit = key; refreshChips(); glRender(); });
+
+function refreshChips() {
+  const typeChips = document.querySelectorAll('#typeRow .gl-chip');
+  Object.keys(TYPE_LABELS).forEach((key, i) => typeChips[i].classList.toggle('on', key === activeType));
+  const unitChips = document.querySelectorAll('#unitRow .gl-chip');
+  Object.keys(UNIT_LABELS).forEach((key, i) => unitChips[i].classList.toggle('on', key === activeUnit));
+}
+
+function glRender() {
+  const q = document.getElementById('glSearch').value.trim().toLowerCase();
+  const filtered = TERMS.filter(t => {
+    const matchesType = activeType === 'all' || t.type === activeType;
+    const matchesUnit = activeUnit === 'all' || t.unit === activeUnit;
+    const matchesQ = !q ||
+      t.term.toLowerCase().includes(q) ||
+      t.definition.toLowerCase().includes(q) ||
+      (t.example && t.example.toLowerCase().includes(q)) ||
+      t.topicTitle.toLowerCase().includes(q);
+    return matchesType && matchesUnit && matchesQ;
+  });
+
+  document.getElementById('glCount').textContent =
+    filtered.length + ' of ' + TERMS.length + ' terms shown';
+
+  const list = document.getElementById('glList');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="gl-empty">No terms match your search and filters.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map((t, i) => `
+    <div class="gl-item" id="gl-item-${i}">
+      <div class="gl-item-head" onclick="glToggle(${i})">
+        <div class="gl-item-left">
+          <div class="gl-term">${t.term}</div>
+          <div class="gl-meta">
+            <span class="gl-type ${t.type}">${t.type}</span>
+            <span class="gl-topic-tag">Unit ${t.unit} &middot; ${t.topic}</span>
+            <span>${t.topicTitle}</span>
+          </div>
+        </div>
+        <div class="gl-caret">&#9656;</div>
+      </div>
+      <div class="gl-body">
+        <div class="gl-sec">
+          <div class="gl-sec-title">Definition</div>
+          <div class="gl-sec-body">${t.definition}</div>
+        </div>
+        <div class="gl-sec">
+          <div class="gl-sec-title">Example</div>
+          <div class="gl-sec-body">${t.example}</div>
+        </div>
+        <div class="gl-sec">
+          <div class="gl-sec-title">Common Confusion</div>
+          <div class="gl-sec-body">${t.confusion}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function glToggle(i) {
+  document.getElementById('gl-item-' + i).classList.toggle('open');
+}
+
+glRender();
+</script>
+</body>
+</html>

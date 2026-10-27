@@ -1,0 +1,9 @@
+# 4.3.b tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The frame to hold going in: a hardened device still has to let users open files, click links, and plug in that USB drive from the front office, hardening shrinks the target, it doesn't eliminate the need for something to be watching what happens *after* a user interacts with something risky. That's the job endpoint protection exists to do, and the single most important idea in this skill is the shift from asking "does this file match something bad I've already seen" to asking "is this program currently doing something a legitimate program wouldn't do."
+
+## The big picture
+Signature-based and behavioral detection aren't competing approaches, they're a deliberate tradeoff pairing, and understanding *why* each one exists where it does matters more than memorizing their definitions: signatures are fast and nearly false-positive-free but entirely reactive, a brand-new or polymorphic variant sails right past a database built from what's already been seen, while behavioral analysis catches genuinely novel attacks by watching what a process *tries to do*, at the cost of being computationally heavier and more prone to flagging legitimate administrative tools as suspicious. That's exactly the same signature-versus-behavior tension you're about to meet again in EDR (4.4.a), just applied one layer up, from a single device to a security team's fleet-wide visibility. The host-based firewall piece deserves its own attention because it closes a gap signature and behavioral scanning both miss: even malware that successfully executes needs to *phone home* to a command-and-control server to be useful to an attacker, and blocking that outbound connection can neutralize a payload that already got past every other layer, a reminder that in security, stopping the attacker's exit is sometimes just as valuable as stopping their entry.

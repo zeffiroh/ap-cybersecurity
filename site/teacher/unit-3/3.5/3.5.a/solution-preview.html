@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intrusion detection and prevention systems (IDS/IPS), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Intrusion detection and prevention systems (IDS/IPS)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.5.a: IDS signature matcher</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 3.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are implementing the rule-matching core of a simple IDS. The sensor receives a stream of
+packet-log entries. Each entry is a dict with the fields shown below. You are given a list of
+signature rules; each rule has a destination port and a keyword that must appear (case-insensitive)
+in the payload. A log entry matches a rule when BOTH the port AND the keyword condition are met.</p>
+<p>Return the sorted list of <code>id</code> values for every log entry that matches at least one rule.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(logs: list[dict], rules: list[dict]) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>logs</code>: list of dicts, each with keys:</li>
+<li><code>"id"</code> (str), unique entry identifier, e.g. <code>"pkt-001"</code></li>
+<li><code>"dst_port"</code> (int), destination port of the packet</li>
+<li><code>"payload"</code> (str), packet payload (may be empty)</li>
+<li><code>rules</code>: list of dicts, each with keys:</li>
+<li><code>"port"</code> (int), destination port to match</li>
+<li><code>"keyword"</code> (str), substring to find (case-insensitive) in the payload</li>
+</ul>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of <code>id</code> values for entries that match at least one rule.
+Empty list if no entries match.</p>
+<h2>Examples</h2>
+<pre><code>logs = [
+    {&quot;id&quot;: &quot;pkt-001&quot;, &quot;dst_port&quot;: 80,  &quot;payload&quot;: &quot;GET /admin/../etc/passwd HTTP/1.1&quot;},
+    {&quot;id&quot;: &quot;pkt-002&quot;, &quot;dst_port&quot;: 443, &quot;payload&quot;: &quot;TLS handshake&quot;},
+    {&quot;id&quot;: &quot;pkt-003&quot;, &quot;dst_port&quot;: 80,  &quot;payload&quot;: &quot;GET /index.html HTTP/1.1&quot;},
+    {&quot;id&quot;: &quot;pkt-004&quot;, &quot;dst_port&quot;: 22,  &quot;payload&quot;: &quot;SSH-2.0-OpenSSH_8.9&quot;},
+]
+rules = [
+    {&quot;port&quot;: 80, &quot;keyword&quot;: &quot;etc/passwd&quot;},
+    {&quot;port&quot;: 22, &quot;keyword&quot;: &quot;libssh&quot;},
+]
+solve(logs, rules)  -&gt;  [&quot;pkt-001&quot;]
+
+logs = []
+solve(logs, rules)  -&gt;  []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Keyword matching is case-insensitive substring match.</li>
+<li>A log entry that matches multiple rules is included only once in the output.</li>
+<li>Output is sorted ascending by <code>id</code>.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(logs: list[dict], rules: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>logs</code>, <code>rules</code>)</h3>
+<ul>
+<li><code>logs</code>: list of dicts with keys:</li>
+<li><code>"id"</code> (str), unique packet/log entry identifier</li>
+<li><code>"dst_port"</code> (int), destination port</li>
+<li><code>"payload"</code> (str), packet payload text</li>
+<li><code>rules</code>: list of dicts with keys:</li>
+<li><code>"port"</code> (int), destination port to match</li>
+<li><code>"keyword"</code> (str), substring to search for in payload</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>A sorted <code>list[str]</code> of <code>id</code> values for log entries that match at least one rule.
+Empty list if no entries match.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Keyword matching is case-insensitive (<code>keyword.lower() in payload.lower()</code>).</li>
+<li>An entry matching multiple rules appears only once (de-duplicated).</li>
+<li>Output is sorted ascending by <code>id</code> string value.</li>
+<li>A log entry matches a rule when its <code>dst_port == rule["port"]</code> AND <code>rule["keyword"].lower()</code> is a substring of <code>entry["payload"].lower()</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.5.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict, Any
+
+
+def solve(logs: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -&gt; List[str]:
+    """Return sorted list of log entry IDs that match at least one IDS signature rule.
+
+    A log entry matches a rule when its dst_port equals the rule's port AND
+    the rule's keyword appears (case-insensitive) in the entry's payload.
+    """
+    matched = set()
+    for entry in logs:
+        port = entry["dst_port"]
+        payload_lower = entry["payload"].lower()
+        for rule in rules:
+            if rule["port"] == port and rule["keyword"].lower() in payload_lower:
+                matched.add(entry["id"])
+                break  # one match is enough; avoid duplicates
+    return sorted(matched)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- shared fixtures ---------------------------------------------------------
+RULES_BASIC = [
+    {"port": 80,  "keyword": "etc/passwd"},
+    {"port": 22,  "keyword": "libssh"},
+    {"port": 3306, "keyword": "select "},
+]
+
+LOGS_BASIC = [
+    {"id": "pkt-001", "dst_port": 80,   "payload": "GET /admin/../etc/passwd HTTP/1.1"},
+    {"id": "pkt-002", "dst_port": 443,  "payload": "TLS handshake data"},
+    {"id": "pkt-003", "dst_port": 80,   "payload": "GET /index.html HTTP/1.1"},
+    {"id": "pkt-004", "dst_port": 22,   "payload": "SSH-2.0-OpenSSH_8.9"},
+    {"id": "pkt-005", "dst_port": 3306, "payload": "SELECT * FROM users"},
+    {"id": "pkt-006", "dst_port": 22,   "payload": "SSH-2.0-libssh_0.9.6"},
+]
+
+
+# ---- visible cases -----------------------------------------------------------
+def test_path_traversal_match():
+    result = impl.solve(LOGS_BASIC, RULES_BASIC)
+    assert "pkt-001" in result, "pkt-001 matches port=80 + keyword='etc/passwd'"
+
+
+def test_benign_port_no_match():
+    result = impl.solve(LOGS_BASIC, RULES_BASIC)
+    assert "pkt-002" not in result, "pkt-002 is port 443 — no rule for that port"
+    assert "pkt-003" not in result, "pkt-003 port 80 but payload has no matching keyword"
+
+
+def test_sql_case_insensitive():
+    # "SELECT" (uppercase) must match keyword "select " (lowercase)
+    result = impl.solve(LOGS_BASIC, RULES_BASIC)
+    assert "pkt-005" in result, "SQL SELECT should match keyword 'select ' case-insensitively"
+
+
+def test_libssh_match():
+    result = impl.solve(LOGS_BASIC, RULES_BASIC)
+    assert "pkt-006" in result, "pkt-006 port=22 payload contains 'libssh'"
+    assert "pkt-004" not in result, "pkt-004 port=22 but 'OpenSSH' does not contain 'libssh'"
+
+
+def test_result_sorted():
+    result = impl.solve(LOGS_BASIC, RULES_BASIC)
+    assert result == sorted(result), "Output must be sorted ascending"
+
+
+# ---- hidden / edge cases -----------------------------------------------------
+def test_empty_logs():
+    assert impl.solve([], RULES_BASIC) == []
+
+
+def test_empty_rules():
+    assert impl.solve(LOGS_BASIC, []) == []
+
+
+def test_both_empty():
+    assert impl.solve([], []) == []
+
+
+def test_no_payload_match():
+    logs = [{"id": "x-001", "dst_port": 80, "payload": ""}]
+    rules = [{"port": 80, "keyword": "admin"}]
+    assert impl.solve(logs, rules) == []
+
+
+def test_multiple_rules_same_entry_deduplicated():
+    # pkt-A matches two rules; should appear only once
+    logs = [{"id": "pkt-A", "dst_port": 80, "payload": "etc/passwd and script alert"}]
+    rules = [
+        {"port": 80, "keyword": "etc/passwd"},
+        {"port": 80, "keyword": "script"},
+    ]
+    result = impl.solve(logs, rules)
+    assert result.count("pkt-A") == 1, "Entry matching multiple rules must appear only once"
+
+
+def test_port_must_match():
+    # keyword present but wrong port — should not match
+    logs = [{"id": "z-001", "dst_port": 443, "payload": "etc/passwd in body"}]
+    rules = [{"port": 80, "keyword": "etc/passwd"}]
+    assert impl.solve(logs, rules) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

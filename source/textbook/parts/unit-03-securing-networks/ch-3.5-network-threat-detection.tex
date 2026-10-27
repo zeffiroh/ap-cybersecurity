@@ -1,0 +1,531 @@
+\chapter{Network Threat Detection}
+\label{ch:3.5}
+\chaptertopic{Topic 3.5}
+
+\chapterquote{In God we trust; all others must bring data.}{attributed to W. Edwards Deming}
+
+\section{Motivation}
+
+The firewall from Chapter~\ref{ch:3.4} decides which conversations are allowed to start. This
+closing chapter of Unit~3 is about the harder question that follows: does traffic that was
+\emph{correctly} permitted still look like an attack? Many real attacks travel over exactly the
+ports a firewall must leave open -- HTTP, DNS, encrypted HTTPS. A device that only checks
+``is this port allowed'' will never catch a web-application exploit or malware quietly calling
+home. This chapter builds the detection layer that sits behind the firewall, then the monitoring
+discipline that catches what even detection signatures miss. It closes with the structured
+process an organization follows once something is actually found.
+
+\begin{apalignment}{Unit 3: Securing Networks}{Topic 3.5 -- Detecting Network Attacks}
+\begin{apobjectives}
+\apobjective{3.5.A}{Detect Attacks}{Identify the automated tooling used to detect attacks against a
+network -- network and host intrusion detection sensors, inline prevention systems, flow
+collectors, full packet capture, SIEM platforms, and network detection and response -- and know
+what each can and cannot observe.}
+\apobjective{3.5.B}{Detect Attacks}{Explain the structured incident-response lifecycle an
+organization follows once an attack is confirmed -- including why containment must precede
+eradication, and why capturing lessons learned feeds back into the organization's future
+detection and preparation capability.}
+\apobjective{3.5.C}{Detect Attacks}{Determine which detection method suits a stated situation --
+signature matching against known-bad patterns, statistical or behavioral anomaly detection, or
+metadata analysis of encrypted traffic -- and where the sensor must sit to see the traffic at all.}
+\apobjective{3.5.D}{Detect Attacks}{Evaluate what a detection method actually costs and delivers:
+its precision and recall at real event volumes, the alert load it places on analysts, the traffic
+it cannot see, and the operational risk it introduces.}
+\apobjective{3.5.E}{Detect Attacks}{Apply detection techniques to log files -- firewall, proxy, DNS,
+and flow records -- to recover indicators of an attack such as scan fan-out, periodic beaconing,
+tunnelled data, and asymmetric outbound transfer.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Intrusion Detection and Prevention Systems}
+
+\begin{definition}{Intrusion Detection System (IDS)}
+A passive sensor that inspects a copy of traffic -- via a network tap or port mirror -- against
+known attack patterns and raises an alert, without interrupting the traffic itself.
+\end{definition}
+
+\begin{definition}{Intrusion Prevention System (IPS)}
+An inline device that traffic must physically pass through; on a match it can drop the packet,
+reset the connection, or block the source IP in real time, before the payload ever reaches its
+target.
+\end{definition}
+
+The distinction is deliberately simple: IDS watches and tells, IPS watches and stops. Many
+organizations run the identical sensor in both modes on different segments. It runs as IDS on a
+high-value segment, where a false positive dropping legitimate traffic would be its own outage,
+and as IPS on the perimeter, where automatic blocking is worth the risk.
+
+Two detection philosophies underlie either mode. \textbf{Signature-based detection} matches
+traffic against a database of known attack patterns -- a specific SQL-injection string, a malware
+file hash, a particular shellcode sequence. It is fast and precise for anything already
+catalogued, but blind by construction to a zero-day with no signature yet written.
+\textbf{Anomaly-based detection} instead builds a behavioral baseline of what normal traffic looks
+like -- typical connection rates, usual protocols per host, expected working-hour activity -- and
+flags deviations regardless of whether any signature matches. That lets it catch a genuinely
+novel attack, at the cost of a higher false-positive rate: legitimate but unusual behavior
+(a 2~a.m.\ backup job, a one-off mass database query) can trigger it just as easily.
+
+\begin{lstlisting}[language=Python, caption={Matching packets against IDS signatures}]
+def match_signatures(packets, signatures):
+    """packets: list of dicts like {"id": str, "dst_port": int,
+       "payload": str}. signatures: list of dicts like
+       {"dst_port": int|None, "keyword": str|None}.
+       Returns sorted packet IDs matching at least one signature."""
+    matched = []
+    for p in packets:
+        for sig in signatures:
+            port_ok = sig["dst_port"] is None or sig["dst_port"] == p["dst_port"]
+            keyword_ok = sig["keyword"] is None or sig["keyword"] in p["payload"]
+            if port_ok and keyword_ok:
+                matched.append(p["id"])
+                break
+    return sorted(matched)
+\end{lstlisting}
+
+Every detection verdict falls into one of four outcomes, and the vocabulary matters because it is
+how analysts talk about tuning. A \textbf{true positive} is a real attack correctly caught. A
+\textbf{false positive} is benign traffic incorrectly flagged -- the daily burden that produces alert
+fatigue. A \textbf{false negative} is a real attack that passed through undetected -- the single most
+dangerous outcome. A \textbf{true negative} is benign traffic correctly left alone. A sensor
+tuned too sensitively drowns analysts in false positives until they start ignoring alerts
+altogether, letting real attacks slip past unnoticed. A sensor tuned too loosely produces false
+negatives directly. This tension, not raw detection capability, is what real IDS/IPS management is
+actually about.
+
+Sensors also differ in placement. A \textbf{NIDS} (Network IDS) sits at a network choke point and
+inspects traffic flowing past. It sees an attack before it reaches any host, but cannot inspect
+encrypted payloads without separately performing TLS inspection. A \textbf{HIDS} (Host IDS) runs as
+an agent directly on an endpoint, watching system calls, file changes, and process creation. It
+sees what actually executed, at the cost of needing an agent on every host it protects. Enterprise
+deployments typically run both together.
+
+\begin{misconception}
+\textbf{``Signature-based IDS catches all attacks.''} Only attacks with an existing, matching
+signature are caught. A zero-day or a sufficiently novel variant passes through undetected unless
+anomaly-based detection is also running alongside it.
+\end{misconception}
+
+\section{Network Monitoring and Traffic Analysis}
+
+An IDS signature engine catches attacks it already recognizes. Network monitoring is the broader,
+complementary discipline of continuously watching traffic itself -- volume, ports, destinations,
+timing -- well enough to notice when something looks wrong even with no matching signature at all.
+
+Two views of the same traffic serve different purposes. A full \textbf{packet capture (pcap)}
+records every byte of every packet, precise but expensive to store and slow to search at scale.
+A \textbf{flow record} (commonly NetFlow) instead summarizes one conversation -- source and
+destination IP, ports, protocol, byte and packet counts, duration -- without keeping the payload at
+all. That makes it far cheaper to store and query, which is why most enterprise monitoring
+pipelines run on flow data, reserving full capture for a smaller set of high-value segments or
+triggered deep-dive investigations.
+
+A \textbf{SIEM} (Security Information and Event Management) platform aggregates the alerts and logs
+these sensors produce -- IDS/IPS hits, flow records, endpoint events -- into one searchable system.
+An analyst is not switching between a dozen separate consoles to piece a timeline together. A
+\textbf{network detection and response (NDR)} platform goes one step further: it layers the
+anomaly-based monitoring described below directly on top of flow and packet data. It then takes
+automated response action itself -- isolating a host, blocking a flow -- collapsing detection and
+first-line containment into a single product.
+
+\begin{definition}{Baselining}
+Recording typical traffic patterns over time -- which hosts talk to which others, on which ports,
+at what volume, during what hours -- to establish what ``normal'' looks like before anything can be
+called abnormal.
+\end{definition}
+
+Several recurring patterns are worth watching regardless of whether any signature exists for them.
+\textbf{Unusual port usage} -- a host suddenly using a port it has never touched before -- is worth
+investigating on its own, since the port itself is the anomaly. \textbf{Beaconing} is malware
+``phoning home'' to a command-and-control server at suspiciously regular, machine-precise intervals
+-- every 60 seconds, every 5 minutes -- rather than the irregular bursts typical of human-driven
+traffic. It is exactly the kind of pattern traffic timing analysis catches without ever
+inspecting payload content. \textbf{Data-volume spikes} -- a host that normally uploads a few
+megabytes suddenly sending several gigabytes externally, especially outside business hours -- are a
+strong indicator of exfiltration in progress. The signal here is volume and direction alone, not
+what the data actually contains. \textbf{Off-baseline timing} -- an otherwise unremarkable large
+database query at 3~a.m.\ from a workstation account -- raises suspicion even when every individual
+packet looks entirely benign.
+
+\begin{lstlisting}[language=Python, caption={Flagging hosts that deviate from a per-host traffic baseline}]
+def find_anomalous_hosts(baseline, observed):
+    """baseline: dict mapping host -> {"volume_threshold": int,
+       "allowed_ports": set[int]}.
+       observed: list of dicts like {"host": str, "volume": int,
+       "port": int}.
+       Returns sorted hosts exceeding their volume threshold or using
+       a port outside their allowed set."""
+    flagged = set()
+    for record in observed:
+        host = record["host"]
+        profile = baseline.get(host)
+        if profile is None:
+            continue
+        if record["volume"] > profile["volume_threshold"]:
+            flagged.add(host)
+        if record["port"] not in profile["allowed_ports"]:
+            flagged.add(host)
+    return sorted(flagged)
+\end{lstlisting}
+
+A firewall enforces which conversations are allowed to start. An IDS matches traffic against known
+bad patterns. Network monitoring catches what neither can: an attack using entirely permitted
+ports and protocols, with no matching signature, whose volume, timing, or destination simply
+deviates from what the network normally does. This is why mature security operations run all three
+layers together rather than trusting any single one.
+
+\begin{misconception}
+\textbf{``You need full packet capture to detect an attack.''} Most anomalies -- volume spikes,
+beaconing, unusual ports -- are visible in flow records alone, without ever inspecting payload
+content at all.
+\end{misconception}
+
+\section{Incident Response}
+
+Detecting an attack, by any of the means above, is only the beginning. What an organization does in
+the minutes and hours afterward determines whether the incident stays a contained inconvenience or
+becomes a catastrophic breach.
+
+\begin{definition}{Incident-handling lifecycle}
+The six-phase model popularized by the SANS Institute -- often abbreviated
+PICERL\srccite{3.5}{1}: \textbf{Preparation}, \textbf{Identification},
+\textbf{Containment}, \textbf{Eradication}, \textbf{Recovery}, and \textbf{Lessons Learned},
+followed strictly in that order so that critical steps are never skipped under the pressure of an
+active incident. NIST's own guidance, SP~800-61, groups the identical work into four broader
+phases instead -- Preparation; Detection and Analysis; Containment, Eradication, and Recovery; and
+Post-Incident Activity\srccite{3.5}{2} -- so the two models describe the same underlying process at
+different granularity, not two competing processes.
+\end{definition}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  ph/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.3cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[ph, fill=kickstartercream] (p1) at (90:2.6) {Preparation};
+\node[ph] (p2) at (30:2.6) {Identification};
+\node[ph, fill=kickstartermaroon!15] (p3) at (-30:2.6) {Containment};
+\node[ph, fill=kickstartermaroon!25] (p4) at (-90:2.6) {Eradication};
+\node[ph] (p5) at (-150:2.6) {Recovery};
+\node[ph, fill=kickstartercream] (p6) at (150:2.6) {Lessons\\Learned};
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (p1) to[bend right=15] (p2);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (p2) to[bend right=15] (p3);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (p3) to[bend right=15] (p4);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (p4) to[bend right=15] (p5);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (p5) to[bend right=15] (p6);
+\draw[-{Latex[length=2mm]}, kickstartermaroon, dashed] (p6) to[bend right=15] (p1);
+\end{tikzpicture}
+\caption{The six-phase (PICERL) incident-handling lifecycle. The dashed return arrow is deliberate:
+Lessons Learned feeds directly back into Preparation for the next incident, not a separate,
+disconnected step.}
+\label{fig:3.5-ir-lifecycle}
+\end{figure}
+
+\textbf{Preparation} happens entirely before any incident occurs -- writing the response plan,
+defining roles and an escalation chain, deploying the logging and monitoring tools from earlier in
+this chapter. It also means running tabletop exercises, so the team is not improvising for the
+first time during a real breach. \textbf{Identification} is where an IDS alert or a
+traffic-monitoring anomaly actually earns its keep: confirming that an incident is genuinely
+occurring rather than routine noise, then scoping which systems, data, and timeframe are affected.
+False positives get filtered out here, before resources commit to a full response.
+
+\textbf{Containment} stops the incident from spreading further, without necessarily fixing the root
+cause yet -- isolating an infected host, disabling a compromised account, blocking a malicious IP
+at the firewall. Practitioners distinguish short-term containment (an immediate, possibly
+temporary measure, like unplugging a cable) from long-term containment (a more durable fix that
+can hold while eradication is planned). \textbf{Eradication} then removes the actual cause -- deleting
+malware, disabling a backdoor account the attacker created, patching the exploited vulnerability.
+
+\begin{example}[Why order is not optional]
+Eradicating before containing is a common and costly mistake. Cleaning malware off a host that
+remains connected to a live network can tip the attacker off that they have been discovered, or
+simply allow immediate reinfection from another already-compromised host on the same segment.
+Containment exists specifically to remove that risk before eradication ever begins. The sequence
+is not a formality -- it is what prevents cleanup from being undone in real time by an attacker who
+is still watching.
+\end{example}
+
+\textbf{Recovery} restores systems to normal operation -- rebuilding from clean backups,
+reconnecting to the network, closely monitoring the restored systems afterward. It only begins
+once eradication is verified complete: bringing a system back online before its root cause is
+actually removed just restarts the incident. \textbf{Lessons Learned} closes the loop: documenting a
+timeline of what happened, evaluating how well the response plan actually worked, and updating that
+plan, tooling, or training based on what was learned. Skipping this phase is how organizations end
+up repeating the same incident. The technical fix in Eradication addressed this one instance, but
+the process gap that allowed it in the first place -- a missing patch policy, an under-monitored
+segment -- goes unaddressed and waits for the next attacker to find it again.
+
+\begin{lstlisting}[language=Python, caption={Validating that a list of incident-response actions follows correct phase order}]
+PHASE_ORDER = ["Preparation", "Identification", "Containment",
+               "Eradication", "Recovery", "Lessons Learned"]
+
+def validate_sequence(actions):
+    """actions: list of dicts like {"description": str, "phase": str}.
+       Returns True if phases appear in non-decreasing lifecycle order."""
+    last_index = -1
+    for action in actions:
+        phase_index = PHASE_ORDER.index(action["phase"])
+        if phase_index < last_index:
+            return False
+        last_index = phase_index
+    return True
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``You should remove the malware as soon as you find it.''} Removing malware before
+containment can tip off the attacker or allow immediate reinfection. Contain first, so the
+environment is stable, and only then eradicate.
+\end{misconception}
+
+\section{Detection Engineering in Practice}
+
+The vocabulary from the previous two sections becomes concrete only once it is written down as a
+rule a sensor actually evaluates. This section walks through three rule formats an analyst
+encounters directly. It then covers two small calculations -- entropy and timing variance -- that
+turn a raw log file into the indicators described above without ever inspecting a payload.
+
+\begin{misconception}
+\textbf{``NIST SP 800-94 was updated for the encrypted, cloud-era internet.''} The 2007 edition
+(Scarfone \& Mell) remains NIST's only finalized IDS/IPS guidance.\srccite{3.5}{3} A revision was
+drafted in 2012 but was later retired \emph{without being finalized} -- NIST itself noted its
+inputs no longer matched current threat models. The 2007 document's vocabulary (signature-based,
+anomaly-based, stateful-protocol-analysis detection; NIDS, HIDS, wireless IDS) is still the field's
+canonical terminology. But the guidance predates encrypted-by-default traffic, cloud workloads, and
+machine-learning-based detection entirely, and must be read with that gap in mind -- it was never
+brought current, only left in place.
+\end{misconception}
+
+A \textbf{Suricata} rule is the canonical format for a signature keyed to packet-level behavior.
+The following rule flags a single source IP making an unusually high number of connection attempts
+to distinct destination ports in a short window -- a half-open SYN sweep, the classic signature of
+active reconnaissance (see Chapter~\ref{ch:3.1}):
+
+\begin{lstlisting}[caption={A Suricata rule detecting a SYN sweep from a single source}]
+alert tcp $EXTERNAL_NET any -> $HOME_NET any ( \
+    msg:"LOCAL SCAN half-open SYN sweep from single source"; \
+    flow:stateless; flags:S,12; \
+    threshold:type both, track by_src, count 20, seconds 60; \
+    classtype:attempted-recon; \
+    reference:url,attack.mitre.org/techniques/T1046/; \
+    sid:1000501; rev:1;)
+\end{lstlisting}
+
+Each clause does distinct work. The header (\texttt{alert tcp \$EXTERNAL\_NET any ->
+\$HOME\_NET any}) states the action, protocol, and direction -- any external host, any port, to any
+host and port on the protected network. \texttt{flags:S,12} matches a bare SYN packet with reserved
+bits masked, the fingerprint of a half-open scan rather than a normal handshake. The
+\texttt{threshold} keyword is what makes this a \emph{sweep} detector rather than a single-packet
+rule: it fires only once at least 20 matching packets from the same source arrive within 60
+seconds. That converts a noisy raw signal into one alert per incident instead of twenty. The
+\texttt{sid} (rule ID) and \texttt{rev} (revision) fields are bookkeeping required by the engine.
+\texttt{reference} ties the alert directly to a MITRE ATT\&CK technique, so an analyst can look
+up the adjacent techniques an attacker who reached this stage might attempt next.
+
+Not every detector matches packets directly. \textbf{Zeek} (formerly Bro) instead decodes protocols
+into structured transaction logs -- one line per connection, DNS query, or TLS handshake -- and
+leaves detection to analysis over those records. That lets an analyst ask a question like ``which
+internal hosts negotiated TLS with a rare client fingerprint'' instead of ``does any packet match
+this byte pattern.'' A short Zeek script expresses exactly that:
+
+\begin{lstlisting}[caption={A Zeek script flagging rare TLS client fingerprints}]
+@load base/protocols/ssl
+module RareTLSClient;
+export {
+    redef enum Notice::Type += { Rare_Fingerprint };
+    const host_threshold = 2 &redef;
+}
+global fp_hosts: table[string] of set[addr];
+
+event ssl_established(c: connection)
+{
+    if ( ! c$ssl?$ja3 ) return;
+    local fp = c$ssl$ja3;
+    local src = c$id$orig_h;
+    if ( fp !in fp_hosts ) fp_hosts[fp] = set();
+    add fp_hosts[fp][src];
+    if ( |fp_hosts[fp]| <= host_threshold )
+        NOTICE([$note=Rare_Fingerprint, $conn=c,
+                $msg=fmt("Rare TLS fingerprint %s from %s", fp, src),
+                $identifier=cat(fp, src)]);
+}
+\end{lstlisting}
+
+Organizations change SIEM platforms far more often than they want to rewrite an entire detection
+library. \textbf{Sigma} solves that problem: it expresses a log-based detection once, in
+vendor-neutral YAML, and a converter compiles it into Splunk SPL, Elasticsearch queries, or another
+platform's native syntax. The rule below encodes the DNS-tunnelling indicators from the previous
+section directly:
+
+\begin{lstlisting}[caption={A Sigma rule for probable DNS tunnelling via long, high-volume subdomain labels}]
+title: Probable DNS Tunnelling by Long High-Volume Subdomain Queries
+logsource:
+    category: dns_query
+detection:
+    long_label:
+        query|re: '^[A-Za-z0-9+/=_-]{40,63}\.'
+    excluded_domains:
+        query|endswith:
+            - '.in-addr.arpa'
+            - '.cloudfront.net'
+    timeframe: 10m
+    condition: long_label and not excluded_domains | count() by src_ip > 50
+\end{lstlisting}
+
+Two of the indicators introduced earlier -- a high-entropy DNS label and a beaconing interval --
+are recoverable with nothing more than the Python standard library. \textbf{Shannon entropy}
+measures the unpredictability of a string in bits per character. A label like \texttt{api} is
+low-entropy (predictable, dictionary-like), while a label carrying base32- or base64-encoded
+exfiltrated data is close to the maximum entropy its length allows. The \textbf{coefficient of
+variation (CV)} of a series of connection timestamps -- standard deviation divided by the mean gap
+-- measures how machine-regular the intervals are. Malware beaconing every 60 seconds produces a
+tiny CV, while irregular human browsing produces a large one. Because CV is unitless, a 30-second
+beacon and a 30-minute beacon land on the same scale.
+
+\begin{lstlisting}[language=Python, caption={Computing DNS-label entropy and beacon-interval regularity}]
+import math
+import statistics
+from collections import Counter
+
+def shannon_entropy(s):
+    """Entropy of s in bits per character (Shannon, 1948)."""
+    if not s:
+        return 0.0
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in Counter(s).values())
+
+def label_score(label):
+    """Return (entropy, ceiling) for one DNS label. Entropy cannot
+    exceed log2(len(label)), so short labels are capped by arithmetic,
+    not content -- absolute entropy paired with length, not a
+    normalized ratio, is what separates 'api' from an encoded label."""
+    h = shannon_entropy(label)
+    ceiling = math.log2(len(label)) if label else 0.0
+    return h, ceiling
+
+def interval_cv(timestamps):
+    """Coefficient of variation of gaps between sorted timestamps.
+    Needs at least three timestamps to give two gaps."""
+    if len(timestamps) < 3:
+        raise ValueError("need at least three timestamps")
+    gaps = [b - a for a, b in zip(timestamps, timestamps[1:])]
+    mean = statistics.mean(gaps)
+    sd = statistics.pstdev(gaps)
+    return mean, sd, (sd / mean if mean else float("inf"))
+\end{lstlisting}
+
+Run against a real log, \texttt{shannon\_entropy("api")} returns about 1.58 bits/char (its own
+ceiling -- three distinct letters, each equally likely). A longer, DGA-style label such as
+\texttt{shannon\_entropy("4a6f68e9")} instead returns close to 4 bits/char, sustained across eight
+characters instead of three: short strings can hit their ceiling by chance, but sustained high
+entropy over a longer label cannot. Feeding
+\texttt{interval\_cv} a fixed 30-minute beacon with 6\% jitter still returns a CV under 0.1, while
+ordinary human browsing timestamps return a CV well above 1. The gap is wide enough that a simple
+fixed threshold, not a machine-learning model, already separates the two cases correctly.
+
+\begin{misconception}
+\textbf{``Normalizing entropy by a label's maximum possible entropy gives a cleaner signal.''} It
+does the opposite. A three-letter label like \texttt{api} already sits at its own ceiling
+(ratio $1.00$) purely because it is short, while a 26-character encoded label can score a lower
+ratio (around $0.79$) despite carrying far more actual disorder. Absolute entropy read alongside
+label length is the correct signal -- the normalized ratio actively misleads for short strings.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A newly discovered exploit has no existing signature in an IDS's database. Explain why
+signature-based detection misses it entirely and describe the specific property of anomaly-based
+detection that could catch it instead, along with the cost that comes with that capability.
+\item An IDS is tuned so sensitively that analysts receive hundreds of alerts per day, most of them
+benign. Explain, using the TP/FP/FN/TN vocabulary, the specific danger this creates even though the
+sensor is technically working as configured.
+\item A host that has never used port 4444 begins making regular outbound connections to the same
+external IP every 60 seconds, each transferring only a few kilobytes. Explain which two monitoring
+indicators from this chapter this scenario exhibits and why payload inspection is not required to
+catch it.
+\item An incident responder eradicates malware from a compromised host before isolating it from the
+network. Explain the specific risk this creates and why containment is sequenced before eradication
+in the incident-handling lifecycle.
+\item Explain why ``Lessons Learned'' is treated as a required phase of incident response rather
+than an optional follow-up, using a concrete example of what goes wrong when it is skipped.
+\item The Sigma rule in this chapter's DNS-tunnelling example combines a long-label condition with
+an excluded-domains condition rather than flagging every long DNS label. Explain what specific
+false-positive source the excluded-domains clause is guarding against, and why omitting it would
+degrade the rule's precision without improving its recall.
+\item A 30-minute beacon with 6\% timing jitter still produces a coefficient of variation under
+0.1, clearly separable from ordinary human browsing. Explain why CV, rather than the raw standard
+deviation of the intervals, is the right statistic to compare a 30-second beacon against a
+30-minute beacon on the same scale.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Signature-based detection matches traffic only against a database of already-catalogued
+patterns, so an exploit with no existing signature simply matches nothing and passes through
+undetected by construction, regardless of how obviously malicious its behavior actually is.
+Anomaly-based detection instead builds a behavioral baseline of normal activity and flags any
+significant deviation from it. That lets it catch a genuinely novel attack with no signature at
+all -- at the cost of a higher false-positive rate, since legitimate but unusual behavior can
+deviate from the baseline just as sharply as an actual attack does.
+\answerlabel{3.5.C}
+\item Hundreds of daily alerts, most of them false positives, produce alert fatigue: analysts begin
+tuning out or triaging alerts less carefully simply to keep pace with the volume. The specific
+danger is that this raises the effective false-negative rate even though the sensor itself is
+technically functioning as configured. A real attack (a true positive) can arrive buried among the
+noise and be dismissed or missed entirely by an exhausted analyst -- a failure of the human
+response process sitting downstream of a technically correct detection.
+\answerlabel{3.5.D}
+\item This scenario exhibits unusual port usage (a host using port 4444, which it has never touched
+before) and beaconing (regular, machine-precise 60-second intervals to the same external IP,
+transferring a near-constant small volume each time). That interval pattern is exactly the
+coefficient-of-variation signature distinguishing malware beaconing from irregular human-driven
+traffic. Payload inspection is not required because both indicators live entirely in metadata --
+which port is used, how regular the timing is, how much data moves -- all of which is visible in
+flow records even when the payload itself is fully encrypted.
+\answerlabel{3.5.E}
+\item Eradicating malware from a host that remains connected to the network risks tipping off the
+attacker that they have been discovered, prompting them to escalate or destroy evidence. It can
+also allow immediate reinfection from another already-compromised host on the same segment that was
+never isolated. Containment is sequenced before eradication in this lifecycle specifically to
+remove that risk first -- stabilizing the environment so that cleanup performed during eradication
+cannot be undone in real time by an attacker who is still actively watching or still has other
+footholds available.
+\answerlabel{3.5.A}
+\item Lessons Learned is required, not optional, because Eradication only fixes the specific
+technical instance of an incident -- the malware, the exploited vulnerability -- while leaving
+unaddressed whatever process gap allowed the incident to happen in the first place, such as a
+missing patch policy or an under-monitored network segment. If this phase is skipped, the
+organization documents no timeline, evaluates nothing about how well the response plan performed,
+and updates neither tooling nor training. That is precisely how the same category of incident
+recurs: the next attacker finds the identical unaddressed gap the first one exploited.
+\answerlabel{3.5.B}
+\item Content-delivery and reverse-DNS infrastructure legitimately generates long, high-entropy-
+looking subdomain labels as a normal part of how those services operate -- a CDN edge node or a
+reverse-lookup zone is not evidence of tunnelling. The excluded-domains clause filters out exactly
+this known-benign source before the count threshold is evaluated. Omitting it would not catch any
+additional real tunnelling traffic that the long-label condition was not already going to catch.
+It would only add legitimate CDN and reverse-DNS traffic to the alert population, which lowers
+precision (more false positives) while leaving recall (the fraction of real tunnelling caught)
+completely unchanged.
+\answerlabel{3.5.E}
+\item Standard deviation alone is expressed in the same units as the interval itself, so a
+30-second beacon's jitter and a 30-minute beacon's jitter produce very different raw
+standard-deviation numbers even at the identical 6\% relative regularity. That makes the two
+incomparable on one fixed threshold. Dividing by the mean gap (producing CV) normalizes away the
+absolute timescale, so a beacon's \emph{relative} regularity -- how small its jitter is compared to
+its own interval -- is what gets compared. Both a 30-second and a 30-minute beacon at the same
+relative regularity land on the same CV scale, which is exactly the property that lets one fixed
+threshold work regardless of the beacon's period.
+\answerlabel{3.5.E}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{3.5}{1}Patrick Kral, \emph{The Incident Handler's Handbook}, SANS Institute
+InfoSec Reading Room, 2011 -- the widely-taught source for the six-phase PICERL (Preparation,
+Identification, Containment, Eradication, Recovery, Lessons Learned) incident-handling model.
+\item \srcitem{3.5}{2}Paul Cichonski, Tom Millar, Tim Grance, and Karen Scarfone, \emph{Computer
+Security Incident Handling Guide}, NIST Special Publication 800-61 Revision 2, National Institute
+of Standards and Technology, August 2012.
+\item \srcitem{3.5}{3}Karen Scarfone and Peter Mell, \emph{Guide to Intrusion Detection and
+Prevention Systems (IDPS)}, NIST Special Publication 800-94, National Institute of Standards and
+Technology, February 2007; Draft NIST SP 800-94 Revision 1 (July 2012) was never finalized and was
+formally retired in 2022.
+\end{enumerate}

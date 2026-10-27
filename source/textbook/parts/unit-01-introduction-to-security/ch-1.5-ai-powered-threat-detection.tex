@@ -1,0 +1,452 @@
+\chapter{AI Powered Threat Detection}
+\label{ch:1.5}
+\chaptertopic{Topic 1.5}
+
+\chapterquote{We can only see a short distance ahead, but we can see plenty there that needs to be done.}{Alan Turing, ``Computing Machinery and Intelligence'' (1950)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:1.4} was about AI on the attacker's side of the ledger -- cheaper phishing,
+cloned voices, poisoned training sets, automated reconnaissance. This chapter turns the same
+technology around. Everywhere a defender used to rely on a slow, manually maintained checklist --
+reviewing a configuration file, reading source code for dangerous patterns, writing a detection
+rule, triaging an incident queue -- AI now does the mechanical scanning. It works at a scale and
+speed no human team can match. The recurring shape of this chapter is a human-AI division of
+labor: AI handles exhaustive pattern matching across more material than a person could ever read.
+A human handles the judgment call about what a given pattern means in context. Every section below
+asks you to notice where that boundary falls.
+
+\begin{apalignment}{Unit 1: Introduction to Security}{Topic 1.5 -- Leveraging AI in Cyber Defense}
+\begin{apobjectives}
+\apobjective{1.5.A}{Mitigate Risk}{Describe the ways defenders put machine-learning systems to work on protective tasks: auditing firewall rules and access-control lists for weaknesses, reading application source for exploitable patterns, and drafting candidate detection rules -- with the standing condition that a qualified engineer reviews every machine-generated recommendation before it reaches production.}
+\apobjective{1.5.B}{Detect Attacks}{Account for how statistical models let a security team triage an event volume no group of humans could read, separate probable attacks from ordinary activity, route the survivors to an analyst or to an automated action, and shorten the interval between compromise and containment enough to limit the damage.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{AI Reviewing Security Configurations}
+
+Every server, network device, and cloud service is governed by a configuration file -- a
+plain-text document that specifies exactly how the system behaves. Getting it right yields a
+hardened system; getting it wrong yields an open door, and vendors ship defaults tuned for
+convenience, not security. OpenSSH has historically defaulted to allowing direct root login over
+the network; databases default to binding every network interface rather than just localhost.
+Reviewing these files by hand, against a memorized checklist, does not scale to the number of
+systems a modern organization runs.
+
+\begin{definition}{Rule engine}
+A component that checks each directive in a configuration file against a database of known-bad
+patterns and emits a finding for every match.
+\end{definition}
+
+Consider an SSH configuration file:
+\begin{lstlisting}[caption={A misconfigured SSH server}]
+Port 22
+PermitRootLogin yes
+PasswordAuthentication yes
+X11Forwarding yes
+\end{lstlisting}
+A rule engine flags \texttt{PermitRootLogin yes} (direct root access, meaning one cracked
+password compromises the entire machine), \texttt{PasswordAuthentication yes} (brute-forceable,
+unlike key-based auth), and \texttt{X11Forwarding yes} (attack surface with no operational need
+in most deployments). It correctly leaves \texttt{Port 22} alone, since running SSH on its
+standard port is debated but not itself insecure. That restraint matters: flagging something
+harmless erodes trust in every subsequent finding, a problem defenders call alert fatigue.
+
+\begin{lstlisting}[language=Python, caption={A rule-engine config auditor}]
+BAD_DIRECTIVES = {
+    "permitrootlogin yes": "root-login-enabled",
+    "passwordauthentication yes": "password-auth-enabled",
+    "x11forwarding yes": "x11-forwarding-enabled",
+    "ssl false": "tls-disabled",
+    "port 23": "telnet-in-use",
+}
+
+def audit_config(lines):
+    """lines: list of config-file line strings.
+       Returns sorted (line_index, finding_name) pairs for every
+       line matching a known-bad directive."""
+    findings = []
+    for i, line in enumerate(lines):
+        normalized = line.strip().lower()
+        if normalized in BAD_DIRECTIVES:
+            findings.append((i, BAD_DIRECTIVES[normalized]))
+    return sorted(findings)
+\end{lstlisting}
+
+The tool handles the mechanical layer -- did this directive match a bad-practice rule -- freeing
+the human reviewer for the contextual layer. Does this organization have a compensating control,
+or is this a documented, intentional exception? A finding is a question, not a verdict.
+Configuration review fits naturally into two points in the security lifecycle: \emph{before}
+deployment (shift-left security, catching misconfigurations in a pull request) and \emph{on a
+schedule} afterward (continuous compliance, re-checking after every change). It is often wired
+directly into a CI/CD pipeline so no misconfiguration survives more than a commit cycle.
+
+\begin{misconception}
+\textbf{``Default settings are safe because the vendor tested them.''} Defaults are tuned for
+compatibility and ease of first-time setup, not for security in a specific deployment. Hardening
+is a deliberate, separate step the operator must take.
+\end{misconception}
+
+\section{AI Analyzing Code for Vulnerabilities}
+
+The same idea applies one layer down, to the source code itself.
+
+\begin{definition}{Static analysis}
+Examining source code without executing it, matching text or structure against a database of
+known-dangerous constructs -- as opposed to dynamic analysis (running the code and observing it)
+or fuzzing (bombarding it with random input).
+\end{definition}
+
+Six Python patterns recur across nearly every AI-assisted code scanner. \texttt{eval(} executes an
+arbitrary string as code -- if user input ever reaches it, an attacker can run any expression on
+the server. \texttt{os.system(} and \texttt{subprocess} called with \texttt{shell=True} both pass
+a string to a real shell. User data interpolated into that string lets an attacker append
+\texttt{;}, \texttt{|}, or \texttt{\&\&} to run additional commands, a class called
+\textbf{OS command injection}. \texttt{md5(} (and similarly \texttt{sha1}) is a cryptographically
+broken hash -- cracked for collisions in 2004, and trivially reversible for passwords via rainbow
+tables. It is fine for a non-security cache key, never for a password or signature.
+\texttt{pickle.loads(} deserializes a Python object, and a maliciously crafted pickle can execute
+arbitrary code the instant it is loaded, no separate exploit required. And a literal
+\texttt{password = "..."} in source means the credential sits in version control, readable by
+every developer and every future leak of that repository.
+
+\begin{lstlisting}[language=Python, caption={A static scanner for common Python vulnerability patterns}]
+import re
+
+RISKY_PATTERNS = {
+    "eval": re.compile(r"\beval\("),
+    "os_command_injection": re.compile(r"os\.system\("),
+    "shell_true": re.compile(r"shell\s*=\s*True"),
+    "broken_hash": re.compile(r"\b(md5|sha1)\("),
+    "unsafe_deserialization": re.compile(r"pickle\.loads\("),
+    "hardcoded_password": re.compile(r"password\s*=\s*[\"']"),
+}
+
+def scan_code(source):
+    """Returns a sorted list of vulnerability tags found in `source`."""
+    return sorted(tag for tag, pattern in RISKY_PATTERNS.items()
+                  if pattern.search(source))
+\end{lstlisting}
+
+As with configuration review, a finding is not automatically a verdict: \texttt{eval(} inside a
+security-research tool that only ever processes trusted, sandboxed input may be a deliberate,
+documented choice. \texttt{md5(} used purely as a non-security cache key carries none of the
+password-cracking risk. The human analyst still decides fix, document, or escalate -- AI supplies
+the exhaustive first pass across a codebase no team could read line by line before every deploy.
+
+\begin{misconception}
+\textbf{``subprocess is safe if I use it instead of os.system.''} \texttt{subprocess} called with
+\texttt{shell=True} carries the identical injection risk as \texttt{os.system}. The safe usage
+passes a list of arguments with \texttt{shell=False}, never a single interpolated string.
+\end{misconception}
+
+\section{AI Suggesting Detection Rules}
+
+A security operations center (SOC) can receive millions of log events daily from firewalls,
+identity providers, and endpoint agents -- far more than any human team can read line by line. The
+first line of defense is a set of \textbf{detection rules}: machine-readable conditions that fire
+an alert when events match a pattern already known to be suspicious.
+
+\begin{definition}{Detection rule}
+A formal statement with three parts -- a condition (what event pattern to watch for), a threshold
+(how many times, in what window), and an action (alert, block, notify) -- that triggers
+automatically when log data matches it.
+\end{definition}
+
+Writing these by hand has historically meant a senior analyst noticing a pattern and manually
+authoring a SIEM query. An AI system instead ingests a labeled history of log events (tagged
+attack versus normal) and counts how often each condition co-occurs with the attack label. It
+proposes candidate rules wherever a condition clears a precision threshold, with a human analyst
+still reviewing and signing off before deployment -- a workflow sometimes called
+\emph{assisted detection engineering}.
+
+The canonical worked example is brute-force login detection: count failed authentication events
+per source IP within a window, and alert once the count crosses a threshold. That threshold is
+commonly five failures per minute, because legitimate users mistype passwords rarely while
+credential-stuffing tools attempt hundreds of guesses per second. A well-structured rule string like
+\texttt{ALERT brute\_force src=<IP> count=<N> window=60s} is directly machine-parseable: the
+keyword marks it actionable, the rule name identifies the pattern, and the remaining fields carry
+everything a SIEM needs to act.
+
+\begin{lstlisting}[language=Python, caption={Generating brute-force detection rules from a log stream}]
+from collections import defaultdict
+
+def generate_bruteforce_rules(logs, threshold=5, window_seconds=60):
+    """logs: list of dicts like {"ip": str, "timestamp": int, "result": str}.
+       Returns sorted ALERT rule strings for every source IP whose failed
+       logins reach `threshold` within any `window_seconds`-wide window."""
+    by_ip = defaultdict(list)
+    for entry in logs:
+        if entry["result"] == "FAILED":
+            by_ip[entry["ip"]].append(entry["timestamp"])
+
+    rules = []
+    for ip, times in by_ip.items():
+        times.sort()
+        left = 0
+        for right in range(len(times)):
+            while times[right] - times[left] > window_seconds:
+                left += 1
+            count = right - left + 1
+            if count >= threshold:
+                rules.append(
+                    f"ALERT brute_force src={ip} count={count} "
+                    f"window={window_seconds}s")
+                break
+    return sorted(rules)
+\end{lstlisting}
+
+The threshold itself is a tuning problem, not a fixed constant. A threshold of one triggers an
+alert on every mistyped password, burying real threats in noise. A threshold of one hundred misses
+slow, low-volume attacks entirely. The balance is between \textbf{precision} (most alerts are
+real) and \textbf{recall} (most real threats trigger an alert). AI tools help find that balance by
+testing candidate thresholds against historical labeled data. But AI cannot judge whether a
+flagged IP belongs to a trusted partner, or weigh the legal exposure of a given rule -- those calls
+stay with a human analyst.
+
+\begin{misconception}
+\textbf{``More rules always mean better security.''} More rules mean more alerts, and if those
+rules are not precise, analysts drown in noise and the real threats get lost inside it. Quality
+and tuning matter more than raw rule count.
+\end{misconception}
+
+\section{Faster, More Accurate Response}
+
+Detecting a threat is only half the job; how quickly it is resolved determines the actual damage.
+
+\begin{definition}{Mean Time to Respond (MTTR)}
+The average time elapsed from the moment an incident is detected to the moment it is resolved --
+one of the most closely watched metrics in a security operations center.
+\end{definition}
+
+Before AI-assisted tooling, a SOC's workflow was uniformly manual: an alert lands in a queue, and
+an analyst eventually picks it up. The analyst manually looks up the affected asset, checks threat
+intelligence, reads raw logs, and only then decides whether it is a true or false positive.
+Studies of enterprise SOCs have found analysts spending 25--50\% of their time on false positives
+alone.
+
+AI changes two things. First, \textbf{triage scoring} attaches a severity score to every incoming
+incident -- weighting event type (ransomware behavior scores far above a single failed login),
+asset criticality (a domain controller outranks a developer's laptop), and the historical
+false-positive rate of similar past alerts. The queue then sorts by actual risk rather than
+arrival order, so a critical alert that lands behind a batch of routine noise is not left waiting.
+Second, \textbf{tiered response} lets a class of high-confidence, safely reversible incidents --
+isolating a compromised endpoint, forcing a password reset, blocking a known-bad IP -- resolve
+automatically without ever entering the human queue. That leaves analysts' limited attention for
+genuinely ambiguous or high-stakes decisions.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.9cm, minimum height=0.9cm, align=center, font=\small},
+  node distance=0.9cm
+]
+\node[box, fill=kickstartercream] (events) at (0,0) {Incoming\\incident events};
+\node[box] (score) at (3.6,0) {AI triage\\severity scoring};
+\node[box] (queue) at (7.2,0) {Queue sorted\\by risk, not arrival};
+\node[box, fill=kickstartermaroon!15] (auto) at (5.4,-2.1) {High-confidence,\\reversible\\$\to$ auto-resolved};
+\node[box] (human) at (9.0,-2.1) {Ambiguous or\\high-stakes\\$\to$ human analyst};
+\draw[-{Latex[length=2mm]}] (events) -- (score);
+\draw[-{Latex[length=2mm]}] (score) -- (queue);
+\draw[-{Latex[length=2mm]}] (queue) -- (auto);
+\draw[-{Latex[length=2mm]}] (queue) -- (human);
+\end{tikzpicture}
+\caption{Triage scoring reorders the queue by actual risk; tiered response then splits it further --
+routine, reversible incidents resolve automatically, while ambiguous or high-stakes ones still
+reach a human analyst.}
+\label{fig:1.5-triage-pipeline}
+\end{figure}
+
+\begin{example}[Why severity-first ordering has nonlinear payoff]
+MTTR decomposes into time to detect, triage, contain, and eradicate. If a queue is processed in
+arrival order, a critical ransomware alert that lands behind a batch of low-severity port scans
+simply waits its turn. Every second of that wait is a second an attacker spends moving laterally
+or harvesting credentials. Stopping an attacker at lateral movement prevents credential
+harvest; stopping them at credential harvest prevents the exfiltration that would otherwise
+follow. Sorting by severity, not arrival time, is what converts a faster average response time
+into a proportionally larger reduction in actual damage.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Computing MTTR and auto-resolution count from an incident queue}]
+def triage_metrics(incidents):
+    """incidents: list of dicts like {"detected_at": int, "resolved_at": int,
+       "severity": str, "auto_resolved": bool}.
+       Returns (mttr_seconds, auto_resolved_count)."""
+    response_times = [i["resolved_at"] - i["detected_at"] for i in incidents]
+    mttr = sum(response_times) / len(response_times) if incidents else 0
+    auto_resolved = sum(1 for i in incidents if i["auto_resolved"])
+    return mttr, auto_resolved
+\end{lstlisting}
+
+Automation has real limits. AI cannot exercise the judgment a novel attack pattern demands when it
+matches nothing in its training data, and it cannot weigh the collateral risk of auto-blocking an
+IP that turns out to belong to a business partner. Nor can it conduct the legal or executive
+communication a serious incident requires. The SOC that results is a human-AI team, not a human-free one: AI
+supplies scale and speed, humans supply judgment, ethics, and the calls that AI is structurally
+unable to make.
+
+\begin{misconception}
+\textbf{``Lower MTTR always means better security.''} A system tuned to auto-resolve everything
+will post an excellent MTTR while also closing real incidents prematurely. MTTR must be read
+alongside precision, not in place of it.
+\end{misconception}
+
+\section{Why Fast Detection and Containment Matter: Two 2017 Outbreaks}
+
+\begin{example}[WannaCry, May 2017: A Patch That Had Existed for Weeks]
+WannaCry infected over 200,000 computers across roughly 150 countries in a single
+outbreak, propagating without any user interaction through EternalBlue, an exploit against a flaw
+in Microsoft's SMBv1 file-sharing protocol.\srccite{1.5}{1} Microsoft had shipped the patch,
+MS17-010, two months earlier, in March 2017. The outbreak's severity was therefore a
+patch-management and detection failure layered on top of a vulnerability that had already been
+fixed. The UK's National Health Service was especially hard hit. A National Audit Office
+investigation found at least 80 of 236 English NHS trusts affected, and roughly 19,500 cancelled
+appointments.\srccite{1.5}{2} A later Department of Health estimate put the total cost at
+\pounds{}92 million -- about \pounds{}20 million during the outbreak and \pounds{}72 million in
+recovery.\srccite{1.5}{3} The Department cautioned that no systematic recovery-cost data had
+actually been collected, so even that figure is an estimate rather than an audited total. The
+NAO's investigation attributed the gap between patch release and infection to three factors: legacy
+systems trusts were reluctant to patch due to device dependencies; no central mechanism confirmed
+trusts had acted on prior warnings; and flat internal networks had no segmentation to slow the
+worm's spread once one machine was infected. The outbreak was eventually halted when a researcher
+discovered and registered a hardcoded domain the malware checked before proceeding -- an accidental
+kill switch, not a designed containment control. It stopped further spread but did nothing to
+recover files already encrypted on infected machines.
+\end{example}
+
+\begin{example}[NotPetya, June 2017: A Wiper Mistaken for Ransomware]
+Weeks after WannaCry, the NotPetya campaign spread through a compromised update mechanism in
+M.E.Doc, Ukrainian accounting software, before propagating globally using the same EternalBlue
+vulnerability alongside credential harvesting and legitimate administrative tooling. Despite
+displaying a Bitcoin ransom note, NotPetya was a wiper: the decryption identifier it generated was
+unrelated to the actual encryption key, so paying could never have restored access even in
+principle. Shipping company Maersk rebuilt roughly 45,000 PCs and 4,000 servers from scratch in
+about ten days.\srccite{1.5}{4} Its own account attributes that recovery to a single domain
+controller in Ghana that happened to be offline, and therefore unreachable, during a local power
+failure when the malware ran. That is an accidental air gap, not a planned one. The U.S.
+government publicly attributed the attack to the Russian military.\srccite{1.5}{5} Losses across
+the affected companies are commonly estimated in aggregate at around \$10 billion -- a figure that
+originates from government statements and should be read as an order-of-magnitude estimate, not
+an audited number. The incident's legal aftermath is itself instructive. Merck sued its property
+insurers over roughly \$1.4 billion in claimed losses after the insurers invoked a war exclusion.
+A trial court ruled for Merck in January 2022, and an appellate court affirmed in May
+2023.\srccite{1.5}{6} The parties then settled on undisclosed terms in January 2024, days before
+the state supreme court was to hear the case. The central legal question -- whether a
+state-attributed cyber operation counts as an act of war for insurance purposes -- was never
+definitively resolved by a final court ruling.
+\end{example}
+
+\begin{misconception}
+\textbf{``NotPetya's high-profile litigation established that cyberattack losses are covered
+despite war exclusions.''} The Merck case ended in a settlement on undisclosed terms, not a final
+appellate ruling on the merits of the war-exclusion question. Insurers have since rewritten their
+policy exclusions in response to the uncertainty the case exposed -- a different outcome than a
+court having settled the question.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An SSH configuration sets \texttt{Port 2222}, \texttt{PermitRootLogin no}, and
+\texttt{PasswordAuthentication yes}. Using the rule-engine logic from this chapter, identify which
+setting(s) a config auditor should flag and explain why the port change alone would not be flagged.
+\item Explain why \texttt{subprocess} called with \texttt{shell=True} carries the same risk as
+\texttt{os.system}, and describe the one change that removes that risk while keeping the same
+functionality.
+\item A detection-rule engine is tuned to alert on a single failed login. Explain, using the
+precision/recall vocabulary from this chapter, why this threshold is a poor choice and what
+specifically goes wrong for the SOC that deploys it.
+\item Explain why sorting an incident queue by severity rather than arrival order can reduce total
+damage by more than its effect on the average MTTR number would suggest.
+\item For each of the four AI-assisted defenses in this chapter (config review, code analysis,
+rule generation, incident triage), identify one decision that AI performs and one decision that
+still requires a human, and explain the general principle that separates the two.
+\item WannaCry spread using a vulnerability that had already been patched two months earlier.
+Explain why the National Audit Office attributed the outbreak's severity to detection and
+patch-management failures rather than to the existence of the vulnerability itself, and connect
+this to the chapter's argument for continuous, scheduled configuration review.
+\item NotPetya displayed a ransom note but was actually a wiper, and Maersk's recovery depended on
+one domain controller that happened to be offline during a power failure. Explain why this
+outcome is described as an accidental, not a designed, containment control, and what a
+tiered-response system built on the principles in this chapter would need to do differently to
+produce the same result deliberately.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item A config auditor should flag \texttt{PasswordAuthentication yes}, since it permits
+brute-forceable credential authentication rather than requiring key-based authentication.
+\texttt{PermitRootLogin no} is already the hardened setting and should not be flagged. The port
+change alone would not be flagged because running SSH on a non-standard port is a debated
+convention, not itself a vulnerability; flagging something harmless erodes trust in every
+subsequent finding.
+\answerlabel{1.5.A}
+\item Both pass a string to a real shell for execution, so both let an attacker append \texttt{;},
+\texttt{|}, or \texttt{\&\&} to a value interpolated into that string and run additional commands.
+The change that removes the risk is passing a list of arguments to \texttt{subprocess} with
+\texttt{shell=False}, which never invokes a shell to parse the string. There is no syntax left for
+an attacker to inject additional commands into.
+\answerlabel{1.5.A}
+\item Alerting on a single failed login sacrifices precision for recall: because ordinary users
+mistype passwords occasionally, this threshold generates an alert for nearly every user at some
+point, burying the rare genuine attack inside overwhelming noise. The specific failure for the SOC
+is alert fatigue: analysts learn to deprioritize or ignore a queue dominated by false positives.
+That means a real attack is now less likely to receive prompt attention than it would under a
+better-tuned threshold.
+\answerlabel{1.5.B}
+\item MTTR is an average, so a queue processed in severity order does not necessarily change the
+average time much if most incidents are low severity. But the incidents that matter (ransomware,
+active lateral movement) are resolved far sooner than they would be behind a batch of routine
+alerts. Each additional second an attacker spends undetected compounds -- lateral movement enables
+credential harvest, which enables exfiltration. Containing the highest-severity incidents faster
+prevents damage that scales nonlinearly with delay, even when the effect on the single averaged
+MTTR statistic looks modest.
+\answerlabel{1.5.B}
+\item In each case AI performs the exhaustive, mechanical first pass -- matching configuration
+directives or code patterns against known-bad rules, proposing candidate detection rules from
+labeled historical data, or scoring incoming incidents by severity. A human then makes the
+contextual judgment: whether a flagged setting has a documented compensating control, whether a
+risky code pattern is deliberate and safe in context, whether a proposed rule's cost in false
+positives is acceptable, and whether an ambiguous or high-stakes incident should be escalated. The
+general principle is that AI scales pattern-matching across more material than a person could ever
+review. A human is needed wherever the correct action depends on organizational context, legal
+exposure, or judgment the training data cannot encode.
+\answerlabel{1.5.A}
+\item The NAO attributed severity to detection and patch-management failure because the fix
+already existed and would have prevented infection entirely. The outbreak happened not because the
+vulnerability was unknown, but because trusts had not applied an available patch and had no
+central mechanism confirming they had acted on prior warnings, combined with flat networks that
+let one infected machine spread to many. This directly supports the chapter's case for continuous,
+scheduled configuration review over one-time review: a system correctly hardened at deployment can
+still drift out of compliance, or a patch can still go unapplied for months. Something has to
+re-check on a schedule rather than only before initial deployment.
+\answerlabel{1.5.A}
+\item It is accidental because nothing in Maersk's infrastructure was designed to isolate that
+domain controller. It survived only because an unrelated local power failure happened to take it
+offline at the moment the malware ran, not because of any deliberate segmentation or containment
+policy. A tiered-response system built on this chapter's principles would need to make that
+isolation deliberate and repeatable: network segmentation that limits how far a single compromised
+machine can reach regardless of which one is infected, plus a policy that automatically isolates
+suspected-compromised systems the moment high-confidence indicators appear. Neither should depend
+on which systems happen to be reachable when the malware executes.
+\answerlabel{1.5.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{1.5}{1}Europol, press statement on the global ransomware attack, May 14, 2017 --
+the origin of the widely cited figure of over 200,000 victims across more than 150 countries.
+\item \srcitem{1.5}{2}National Audit Office, \emph{Investigation: WannaCry Cyber Attack and the
+NHS}, October 27, 2017.
+\item \srcitem{1.5}{3}Department of Health and Social Care, cost estimate for the WannaCry attack
+on the NHS, reported in ``DHSC Puts Cost of WannaCry to NHS at \pounds{}92m,''
+\emph{Digital Health}, October 24, 2018.
+\item \srcitem{1.5}{4}A.P.\ M\o{}ller-Maersk Chairman Jim Hagemann Snabe, remarks at the World
+Economic Forum, Davos, January 2018, as reported in ``Maersk Reinstalled 45,000 PCs and 4,000
+Servers to Recover From NotPetya Attack,'' \emph{BleepingComputer}, January 25, 2018.
+\item \srcitem{1.5}{5}The White House, statement on Russian government cyberattack, February 15,
+2018, as reported in ``White House Confirms NotPetya Malware Was Russian Military Operation,''
+\emph{Axios}, February 15, 2018.
+\item \srcitem{1.5}{6}\emph{Merck \& Co., Inc. v. Ace American Insurance Co.}, No.\ A-1879-21 (N.J.\
+App.\ Div.\ May 1, 2023), affirming the trial court's January 2022 ruling; settlement reported in
+``Merck Settles Coverage Dispute With Insurers Over War Exclusion in NotPetya Attack,''
+\emph{Insurance Journal}, January 5, 2024.
+\end{enumerate}

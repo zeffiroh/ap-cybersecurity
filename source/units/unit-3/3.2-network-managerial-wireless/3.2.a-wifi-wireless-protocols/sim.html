@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!-- 3.2.a SIM, "Wi-Fi Config Auditor". Single-file, offline, deterministic. No emoji/icons.
+     Theme tokens inline from assets/theme/theme.css (THEME.md). Fake-network engine = scripted AP config set. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.2.a - Wi-Fi Config Auditor</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:800px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active,.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{font-weight:bold;background:#d8d8ff;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.theme-linux .btn.sel{background:#dbe7ff;}
+.cfgbox{font-family:var(--mono-font);background:#000;color:#00ff00;padding:10px 12px;
+  white-space:pre;line-height:1.5;min-height:110px;}
+.cfgbox .dim{color:#00aa00;}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:10px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}.warn{color:#886600;font-weight:bold;}
+.feedback{font-family:var(--mono-font);margin-top:8px;min-height:20px;padding:4px 6px;
+  background:var(--win-face);border:1px inset var(--win-shadow);}
+h1{font-size:16px;margin:0 0 6px;}
+.choices{margin:10px 0;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;font-family:var(--mono-font);}
+.progress{margin-top:4px;font-size:12px;font-family:var(--mono-font);color:var(--muted);}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>3.2.a - Wi-Fi Config Auditor</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Classify each Wi-Fi access-point configuration as <b>Secure</b>, <b>Acceptable</b>, or
+         <b>Insecure</b>. Score <b id="goal">5</b> correct classifications to meet the objective.
+         Criteria: protocol must be WPA3 or WPA2-AES; password at least 20 chars; guest VLAN
+         isolated; firmware current. Missing any critical criterion = Insecure.</p>
+
+      <div class="cfgbox" id="cfg">...</div>
+
+      <div class="choices">
+        <button class="btn verdict" data-v="secure"     onclick="pick(this)">Secure</button>
+        <button class="btn verdict" data-v="acceptable" onclick="pick(this)">Acceptable</button>
+        <button class="btn verdict" data-v="insecure"   onclick="pick(this)">Insecure</button>
+      </div>
+      <div>
+        <button class="btn" onclick="submit()">Submit</button>
+        <button class="btn" onclick="nextCfg()">Next config</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+
+      <div class="statusbar" id="score">SCORE 0 / 5 | config 1 of 7 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">
+        Criteria  |  Protocol: WPA3 or WPA2-AES (WPA2-TKIP = unacceptable; WEP = insecure)
+                  |  Password: &gt;= 20 chars for full security; 12-19 = acceptable gap; &lt;12 = insecure
+                  |  Guest VLAN: required for full security  |  Firmware: must be current
+        Verdict   |  Secure = all criteria met  |  Acceptable = minor gap only  |  Insecure = any critical failure
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Fake Network Engine: deterministic scripted AP config set ---- */
+/* Verdicts: "secure" / "acceptable" / "insecure"
+   Acceptable = good protocol + firmware but password 12-19 chars OR no guest vlan (one minor gap)
+   Insecure   = WEP or TKIP or password < 12 or outdated firmware with a protocol gap */
+var CONFIGS = [
+  { ssid:"CorpNet-Main",    protocol:"WPA3",     pwd_len:24, guest_vlan:true,  firmware:"current",
+    verdict:"secure",
+    rationale:"WPA3, strong 24-char password, guest VLAN isolated, firmware current. All criteria met." },
+  { ssid:"OfficeWiFi",      protocol:"WPA2-AES", pwd_len:18, guest_vlan:true,  firmware:"current",
+    verdict:"acceptable",
+    rationale:"WPA2-AES and current firmware are good. Password (18 chars) is below the 20-char best-practice threshold, a minor gap, not a critical failure." },
+  { ssid:"SchoolNet",       protocol:"WPA2-TKIP",pwd_len:10, guest_vlan:false, firmware:"outdated",
+    verdict:"insecure",
+    rationale:"TKIP reintroduces RC4 weaknesses (critical). Password too short. Firmware outdated. Multiple critical failures." },
+  { ssid:"CafeGuest",       protocol:"WEP",      pwd_len:10, guest_vlan:false, firmware:"outdated",
+    verdict:"insecure",
+    rationale:"WEP is completely broken, an attacker can recover the key in minutes. Critical failure regardless of other settings." },
+  { ssid:"HomeRouter",      protocol:"WPA3",     pwd_len:22, guest_vlan:false, firmware:"current",
+    verdict:"acceptable",
+    rationale:"WPA3 and current firmware are strong. No guest VLAN is a minor gap for a home setting, not a critical failure." },
+  { ssid:"BranchOffice",   protocol:"WPA2-AES", pwd_len:8,  guest_vlan:true,  firmware:"current",
+    verdict:"insecure",
+    rationale:"Password of 8 characters is dangerously short, offline dictionary attack would succeed quickly. Critical failure." },
+  { ssid:"SecureHQ",        protocol:"WPA3",     pwd_len:30, guest_vlan:true,  firmware:"current",
+    verdict:"secure",
+    rationale:"WPA3, 30-char password, guest VLAN, current firmware. All criteria met, exemplary configuration." }
+];
+
+var idx=0, score=0, sel=null, GOAL=5, met=false, answered=false;
+
+function fmtCfg(c){
+  return (
+    '<span class="dim">-- Access Point Configuration --</span>\n' +
+    'SSID         : ' + c.ssid + '\n' +
+    'Protocol     : ' + c.protocol + '\n' +
+    'Password len : ' + c.pwd_len + ' characters\n' +
+    'Guest VLAN   : ' + (c.guest_vlan ? 'YES (isolated)' : 'NO') + '\n' +
+    'Firmware     : ' + c.firmware + '\n'
+  );
+}
+
+function render(){
+  document.getElementById('cfg').innerHTML = fmtCfg(CONFIGS[idx]);
+  sel=null; answered=false;
+  document.querySelectorAll('.verdict').forEach(function(b){b.classList.remove('sel');});
+  document.getElementById('fb').textContent='';
+  updateBar();
+}
+function pick(b){
+  if(answered) return;
+  document.querySelectorAll('.verdict').forEach(function(x){x.classList.remove('sel');});
+  b.classList.add('sel');
+  sel=b.getAttribute('data-v');
+}
+function submit(){
+  if(answered || !sel) return;
+  var correct=CONFIGS[idx].verdict;
+  var ok=(sel===correct);
+  var fb=document.getElementById('fb');
+  answered=true;
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> ' + esc(CONFIGS[idx].rationale); }
+  else   { fb.innerHTML='<span class="bad">INCORRECT.</span> Correct verdict: <b>'+correct+'</b>. ' + esc(CONFIGS[idx].rationale); }
+  if(score>=GOAL) met=true;
+  updateBar();
+}
+function nextCfg(){ idx=(idx+1)%CONFIGS.length; render(); }
+function updateBar(){
+  document.getElementById('score').innerHTML =
+    'SCORE '+score+' / '+GOAL+' | config '+(idx+1)+' of '+CONFIGS.length+' | OBJECTIVE: '+
+    (met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+document.getElementById('goal').textContent=GOAL;
+render();
+</script>
+</body>
+</html>

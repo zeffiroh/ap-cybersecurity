@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3.5 Network Threat Detection · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-python.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-yaml.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "3.5", topicTitle: "Detecting Network Attacks", chapterLabel: "Topic 3.5" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 3.5</h1>
+    <h2 class="textbook-subtitle">Detecting Network Attacks</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. Detecting an Adversary Already Inside</a></li>
+        <li><a href="#sec-technical">II. Sensors, Packet Inspection, and Judging a Detector</a></li>
+        <li><a href="#sec-case">III. Case Studies: Target and SolarWinds</a></li>
+        <li><a href="#sec-protection">IV. Building a Detection Program: Sensors, SIEM, Baselines, Escalation</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+        <li><a href="#sec-practice">VI. Practice Questions &amp; Answer Key</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 3: Securing Networks</strong> &middot; Topic 3.5, Detecting Network Attacks</p>
+  <ul>
+    <li><span class="ap-code">3.5.A</span> <span class="ap-skill">Detect Attacks</span><br>Identify the automated tooling used to detect attacks against a network, network and host intrusion detection sensors, inline prevention systems, flow collectors, full packet capture, SIEM platforms, and network detection and response, and know what each can and cannot observe.</li>
+    <li><span class="ap-code">3.5.B</span> <span class="ap-skill">Detect Attacks</span><br>Explain how an organization uses artificial intelligence and machine learning to strengthen detection and response, including behavioral baselining, triage of large alert populations, and the limits that keep a human analyst in the decision path.</li>
+    <li><span class="ap-code">3.5.C</span> <span class="ap-skill">Detect Attacks</span><br>Determine which detection method suits a stated situation, signature matching against known-bad patterns, statistical or behavioral anomaly detection, or metadata analysis of encrypted traffic, and where the sensor must sit to see the traffic at all.</li>
+    <li><span class="ap-code">3.5.D</span> <span class="ap-skill">Detect Attacks</span><br>Evaluate what a detection method actually costs and delivers: its precision and recall at real event volumes, the alert load it places on analysts, the traffic it cannot see, and the operational risk it introduces.</li>
+    <li><span class="ap-code">3.5.E</span> <span class="ap-skill">Detect Attacks</span><br>Apply detection techniques to log files, firewall, proxy, DNS, and flow records, to recover indicators of an attack such as scan fan-out, periodic beaconing, tunnelled data, and asymmetric outbound transfer.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. Detecting an Adversary Already Inside</h3>
+
+<p>Where Unit 1 examined the human perimeter and Unit 3's earlier topics examined the architecture of segmented, firewalled networks, this topic addresses a harder problem: what happens after an adversary is already inside, or is actively probing the boundary. Prevention, access control lists, firewall rules, authentication gates, is necessarily incomplete. Every mature security program therefore assumes a degree of <span class="annot">assumed breach<span class="tip"><strong>Assumed Breach</strong>A planning posture in which defenders design their monitoring and response capability as if an attacker has already gained a foothold, rather than betting everything on keeping them out. It shifts investment from pure prevention toward detection and response. <em>Formalized in zero-trust architecture guidance; see NIST SP 800-207, which explicitly rejects the idea of a trusted internal network.</em></span></span> and invests in <span class="annot">network threat detection<span class="tip"><strong>Network Threat Detection</strong>The organized practice of observing traffic traversing a network, packets, flows, and logs, to identify malicious or anomalous activity as early as possible in the attack lifecycle. It combines purpose-built sensors, log aggregation, and human analysis. <em>Detection is one function within the NIST Cybersecurity Framework 2.0's "Detect" category (DE.CM, DE.AE). See NIST SP 800-94 for foundational IDS/IPS guidance.</em></span></span>: the disciplined practice of watching the wire and the logs for the signatures and shapes of an intrusion.</p>
+
+<p>The theoretical backbone of this discipline is the <span class="annot">Cyber Kill Chain<span class="tip"><strong>Cyber Kill Chain</strong>A model developed by Lockheed Martin describing the sequential stages an attacker typically moves through: reconnaissance, weaponization, delivery, exploitation, installation, command and control, and actions on objectives. Detection tooling is often mapped to specific stages so defenders know where in the chain a given alert falls. <em>Hutchins, Cloppert &amp; Amin (2011), Lockheed Martin. A related, more granular model is MITRE ATT&amp;CK, which enumerates specific techniques rather than sequential phases.</em></span></span>, which frames intrusions as a sequence of discrete stages rather than a single event. Because a network-based intrusion nearly always requires the attacker's traffic to traverse a wire, a switch, or a DNS resolver at some point, during reconnaissance, lateral movement, or exfiltration, the network itself becomes a rich source of forensic and real-time evidence, independent of whether the compromised host's own logs have been tampered with by the intruder.</p>
+
+<p>Two complementary detection philosophies dominate the field. <span class="annot">Signature-based detection<span class="tip"><strong>Signature-Based Detection</strong>Matching observed traffic or files against a database of known-bad patterns, specific byte sequences, regular expressions, or hashes tied to previously identified attacks. Fast and low false-positive, but blind to anything novel. <em>Analogous to antivirus definition files. Snort and Suricata rules are the canonical signature format for network traffic; see Roesch (1999), "Snort: Lightweight Intrusion Detection for Networks."</em></span></span> compares traffic against a curated library of known-malicious patterns, much as antivirus software matches file hashes. It is precise and computationally cheap, but structurally incapable of catching a threat nobody has documented yet, the classic <span class="annot">zero-day<span class="tip"><strong>Zero-Day</strong>A vulnerability or exploit technique that is unknown to defenders (and often the vendor) at the time it is first used, meaning there are "zero days" of prior warning to prepare a signature or patch. <em>Zero-day exploitation is tracked by organizations like Google's Project Zero and Mandiant's annual zero-day reports.</em></span></span> problem. <span class="annot">Anomaly-based detection<span class="tip"><strong>Anomaly-Based Detection</strong>Building a statistical or behavioral baseline of "normal" network activity and flagging deviations from it, rather than matching known-bad patterns. Can catch novel attacks but tends to generate more false positives, since "unusual" is not the same as "malicious." <em>Formal treatments include Denning (1987), "An Intrusion-Detection Model," IEEE Transactions on Software Engineering, one of the foundational papers of the field.</em></span></span>, by contrast, builds a statistical model of what "normal" looks like for a given host, user, or network segment, and raises alerts on meaningful deviation. It can, in principle, catch attacks nobody has ever seen before, at the structural cost of a higher false-positive rate, since novelty and maliciousness are not the same thing.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">Two detectors, two different ways of being wrong</span>
+  Think of signature detection as a bouncer with a stack of mugshots: extremely accurate for known troublemakers, completely useless against someone he has never seen before. Anomaly detection is a bouncer who has worked the same door every night for a year and has learned the regulars' rhythms, he'll notice something is "off" about a stranger even without a mugshot, but he'll also occasionally flag a regular who is just having an unusual night. Mature SOCs run both bouncers side by side, because their failure modes are different and complementary.
+</div>
+
+<p>Detection also differs by deployment topology and by scope. A <span class="annot">Network Intrusion Detection System (NIDS)<span class="tip"><strong>NIDS, Network Intrusion Detection System</strong>A sensor that monitors traffic across an entire network segment, typically fed by a switch's mirrored port (SPAN) or a physical network tap, and analyzes copies of packets without sitting in the direct forwarding path. <em>Example implementations: Snort, Suricata, Zeek. Contrast with HIDS, which watches a single endpoint's internal state (file integrity, process activity, system calls).</em></span></span> observes traffic for an entire segment, while a <span class="annot">Host-based Intrusion Detection System (HIDS)<span class="tip"><strong>HIDS, Host-Based Intrusion Detection System</strong>An agent installed on an individual endpoint that monitors local activity, file integrity, running processes, registry changes, system calls, rather than network traffic. Complements NIDS by catching threats that never traverse the monitored network segment, such as USB-delivered malware. <em>Examples: OSSEC, Wazuh, Tripwire (file integrity monitoring specifically).</em></span></span> instruments a single machine's internal state. Separately, deployment mode determines whether the system can only observe (<span class="annot">passive/tap-mode IDS<span class="tip"><strong>Passive / Tap-Mode IDS</strong>A detection sensor that receives a copy of traffic, via a network tap or a switch SPAN port, and can alert on malicious activity but cannot itself drop or modify packets in real time, since it is not in the direct path of the traffic. <em>Latency and fail-open behavior are non-issues for passive sensors, which is why they remain popular for high-throughput backbone monitoring despite lacking blocking capability.</em></span></span>) or can actively intervene (<span class="annot">inline IPS<span class="tip"><strong>Inline IPS Deployment</strong>Placing a detection engine directly in the physical or logical path of traffic, so that it can drop, reset, or otherwise block a malicious packet or flow in real time rather than merely alerting after the fact. The tradeoff is that a hung or overloaded inline device can itself become a single point of failure or added latency. <em>Most modern NGFWs embed IPS engines inline; "fail open" versus "fail closed" behaviour during device failure is one of the defining design decisions of an inline deployment: fail-open preserves availability at the cost of an unfiltered window, fail-closed preserves the security boundary at the cost of an outage.</em></span></span>). This distinction, IDS as a smoke detector versus IPS as a sprinkler system, recurs throughout the rest of this chapter, and it carries a consequence that Section II develops in detail: the two deployment modes do not merely differ in what they can do, they fail in categorically different ways.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Scope and authority are independent axes, not a single ladder</span>
+  Two questions decide what a sensor is, and they are answered separately. The first is scope: does it watch a network segment (NIDS) or the internal state of one machine (HIDS)? The second is authority: does it only observe and alert (IDS) or does it sit in the forwarding path and drop packets (IPS)? All four combinations exist and are deployed. A network-wide inline blocker is a NIPS; a host agent that kills a process or blocks a local port is a host-based prevention system. "Inline" is a statement about where the device sits in the traffic path, not about how much of the network it covers, and conflating the two produces designs that block traffic nobody meant to block or watch segments nobody can act on.
+</div>
+
+<p>Finally, no detection system is judged on accuracy alone, it is judged on the tradeoff between two error types. A <span class="annot">false positive<span class="tip"><strong>False Positive</strong>An alert generated for benign activity that was incorrectly classified as malicious. High false-positive rates cause "alert fatigue," in which analysts begin to distrust or ignore the detection system entirely, arguably the single most consequential failure mode in the entire discipline. <em>Base-rate neglect (a statistical/cognitive bias) explains why even a highly accurate detector produces mostly false positives when the true attack rate is very low relative to total traffic volume.</em></span></span> wastes analyst time and, cumulatively, erodes trust in the system; a <span class="annot">false negative<span class="tip"><strong>False Negative</strong>A failure to detect genuinely malicious activity, allowing the attacker to proceed undetected. Unlike a false positive, a false negative usually produces no signal at all, it is often only discovered retroactively, during incident response or forensic review after a breach has already caused damage. <em>The Target and SolarWinds case studies in Section III are, at their core, failures at the response stage following weak or ignored detection signal, illustrating that a detection system's value is contingent on the human process around it.</em></span></span> is far more dangerous, since it represents an intrusion that proceeds entirely unnoticed. Tuning a detection program is fundamentally an exercise in managing this tradeoff under a fixed budget of analyst attention.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. Sensors, Packet Inspection, and Judging a Detector</h3>
+
+<h4>1. The Tooling Taxonomy: What Each Sensor Can and Cannot See</h4>
+
+<p>Practitioners speak of "detection tools" as though they formed a single category, but the tools differ along three independent dimensions, and confusing them produces architectures with expensive blind spots. The first dimension is <em>vantage</em>: a network sensor sees traffic on a segment and nothing about what a process did on disk; a host agent sees process creation, file writes, and system calls, and nothing about the segment its host does not talk on. The second is <em>authority</em>: a sensor either sits beside the traffic path and can only report, or sits in it and can drop. The third is <em>fidelity</em>: how much of each conversation the tool retains, every byte, or a summary line.</p>
+
+<p>Vantage and authority together fix the failure mode, and this is the point most often skipped. A passive sensor fed by a <span class="annot">network tap<span class="tip"><strong>Network Tap</strong>A purpose-built hardware device inserted into a physical link that copies every frame passing through it to a monitor port, while passing the original traffic through unaltered. Because most taps are passive or fail-open by design, a failure of the monitoring device does not interrupt the production link. <em>Contrast with a SPAN/mirror port, which is a software function of a switch: SPAN is free and reconfigurable, but the switch drops mirrored frames first when its backplane or the mirror port is oversubscribed, so SPAN data is silently lossy under exactly the traffic conditions that matter most.</em></span></span> or a <span class="annot">SPAN port<span class="tip"><strong>SPAN (Switched Port Analyzer) / Mirror Port</strong>A switch feature that copies traffic from one or more source ports or VLANs to a designated destination port for monitoring. Convenient and free, but the copy is best-effort: if the aggregate source traffic exceeds the mirror port's capacity, or the switch is under load, mirrored frames are dropped without any notification to the monitoring tool. <em>A 1 Gbps mirror port fed by several 1 Gbps sources will silently discard traffic. This is the standard argument for hardware taps at any link the organization genuinely depends on monitoring.</em></span></span> fails <em>silently and toward blindness</em>: if it crashes, is oversubscribed, or drops mirrored frames, production traffic continues undisturbed and the only casualty is the record of it. Nobody phones the help desk about traffic that was never inspected. An inline IPS fails <em>loudly and toward one of two extremes</em>: configured fail-open, a device failure leaves the link forwarding unfiltered traffic, so the security control is gone but the business runs; configured fail-closed, the same failure severs the link entirely. Add to this that an inline device introduces latency and becomes a target itself, and the reason large organizations run passive sensors on backbone links and reserve inline blocking for a small number of well-understood chokepoints becomes an engineering conclusion rather than a preference.</p>
+
+<figure class="chapter-image">
+<svg viewBox="0 0 720 300" role="img" aria-labelledby="placefig-title placefig-desc" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+  <title id="placefig-title">A passive tap sensor and an inline prevention system fail in opposite directions</title>
+  <desc id="placefig-desc">Two stacked diagrams of the same link between the internet and an internal network. In the upper diagram a hardware tap sits on the link and copies traffic sideways to a passive intrusion detection sensor; the sensor is outside the forwarding path, so if it fails the traffic continues to flow and only the record of that traffic is lost, and the sensor can alert but cannot drop a packet. In the lower diagram an inline intrusion prevention system sits directly in the forwarding path; every packet passes through it, so it can drop malicious packets, but a failure of the device either leaves the link unfiltered when configured fail-open or severs the link entirely when configured fail-closed, and it adds latency to every packet.</desc>
+  <g stroke="currentColor" fill="none" stroke-width="1.3">
+    <rect x="14" y="42" width="86" height="38" rx="5"/>
+    <rect x="604" y="42" width="100" height="38" rx="5"/>
+    <rect x="14" y="196" width="86" height="38" rx="5"/>
+    <rect x="604" y="196" width="100" height="38" rx="5"/>
+    <rect x="300" y="112" width="140" height="34" rx="5"/>
+  </g>
+  <g stroke="currentColor" fill="none" stroke-width="2.2">
+    <rect x="330" y="46" width="26" height="30" rx="3"/>
+    <rect x="322" y="196" width="90" height="38" rx="4"/>
+  </g>
+  <g stroke="currentColor" fill="none" stroke-width="1.6">
+    <path d="M100 61 L330 61"/><path d="M356 61 L604 61"/>
+    <path d="M100 215 L322 215"/><path d="M412 215 L604 215"/>
+    <path d="M343 76 L343 112" stroke-dasharray="4 3"/>
+  </g>
+  <g fill="currentColor" font-size="11" text-anchor="middle">
+    <text x="57" y="66">Internet</text>
+    <text x="654" y="66">Internal net</text>
+    <text x="57" y="220">Internet</text>
+    <text x="654" y="220">Internal net</text>
+    <text x="343" y="38">tap</text>
+    <text x="370" y="133">Passive IDS sensor</text>
+    <text x="367" y="219">Inline IPS</text>
+  </g>
+  <g fill="currentColor" font-size="10.5">
+    <text x="14" y="24" font-size="12" font-weight="600">Passive: beside the path</text>
+    <text x="14" y="158" font-size="12" font-weight="600">Inline: in the path</text>
+    <text x="452" y="126">alerts only &#183; cannot drop</text>
+    <text x="452" y="141" opacity="0.85">fails toward blindness, silently</text>
+    <text x="430" y="258">drops packets &#183; adds latency</text>
+    <text x="430" y="273" opacity="0.85">fails open (unfiltered) or closed (outage)</text>
+  </g>
+</svg>
+<figcaption><strong>Figure 3.5.1</strong>, The same link, monitored two ways. The tapped sensor cannot block, and its failure costs only visibility; the inline device can block, and its failure costs either the control or the link. Choosing between them is a choice about which failure the organization can absorb.</figcaption>
+</figure>
+
+<p>Fidelity is the third axis, and it is chiefly a budget question. <span class="annot">Full packet capture<span class="tip"><strong>Full Packet Capture (FPC)</strong>Recording every byte of every frame crossing a monitored link, payloads included, so that an investigation weeks later can reconstruct exactly what was transferred. The evidentiary value is unmatched and the storage cost is brutal: a link averaging 1 Gbps sustains roughly 10 terabytes per day, so most organizations either capture only at high-value chokepoints or keep a short rolling window. <em>Implementations include Arkime (formerly Moloch), Stenographer, and commercial network forensics appliances. Retention is typically measured in days for FPC and months or years for the flow records described alongside it.</em></span></span> answers any question an investigator will ever ask, and costs on the order of ten terabytes per day for a link averaging a single gigabit per second, which is why it is deployed at a handful of chokepoints and kept for days. Flow records answer a narrower set of questions for roughly a thousandth of the storage, which is why they are kept for a year. A <span class="annot">SIEM<span class="tip"><strong>SIEM, Security Information and Event Management</strong>A platform that ingests, normalizes, indexes, and correlates log and event records from across an infrastructure, providing search, alerting, and long-term retention over the combined data set. Its distinguishing capability is correlation across sources that individually reveal nothing. <em>Its distinguishing costs are ingestion licensing, which is usually priced per gigabyte per day and therefore shapes what an organization can afford to collect, and the rule-engineering labour without which the platform is an expensive log archive.</em></span></span> ingests all of it as text and charges by the gigabyte, which is why the question "what do we send to the SIEM?" is a security decision and not merely a procurement one. <span class="annot">Network Detection and Response (NDR)<span class="tip"><strong>NDR, Network Detection and Response</strong>A product category that applies behavioral analytics and machine learning to network telemetry (flows, protocol metadata, and often decoded transactions from a Zeek-style engine) rather than relying primarily on signature matching, and pairs the detections with response workflow. <em>The category descends directly from what Gartner previously called network traffic analysis; the "response" half denotes integration with firewalls, EDR agents, and SOAR playbooks so that a detection can trigger containment. Its detections are behavioral, so its output requires triage in exactly the way Topic 1.5's base-rate arithmetic predicts.</em></span></span> platforms sit on top of this telemetry and apply behavioral analytics rather than signatures, and are discussed in that light later in this section.</p>
+
+<h4>2. Packet-Level Inspection and Its Encrypted-Traffic Limit</h4>
+
+<p>At the packet level, detection begins with <span class="annot">deep packet inspection (DPI)<span class="tip"><strong>Deep Packet Inspection (DPI)</strong>Examining the actual payload contents of a packet, not merely its header fields (source/destination IP, port), to identify protocols, applications, or malicious content embedded inside otherwise permitted traffic. <em>DPI is computationally expensive relative to header-only filtering and is a defining capability of Next-Generation Firewalls (NGFW) and IPS engines. Raises privacy and legal considerations when applied to encrypted or personal traffic.</em></span></span>, which reaches past the header fields a stateful firewall would examine and inspects the payload itself for known-malicious byte patterns, protocol violations, or embedded command strings. Analysts performing this work by hand typically rely on a <span class="annot">protocol analyzer<span class="tip"><strong>Protocol Analyzer</strong>Software that captures and decodes network traffic frame-by-frame, reconstructing the layered protocol structure (Ethernet, IP, TCP/UDP, application layer) so a human can read it. Wireshark is the dominant open-source example; tcpdump is its command-line counterpart used for capture. <em>Wireshark decodes hundreds of protocols and supports display filters (e.g., <code>tcp.flags.syn==1 &amp;&amp; tcp.flags.ack==0</code>) for isolating traffic of interest within a large capture.</em></span></span> such as Wireshark, which reconstructs a raw <span class="annot">pcap<span class="tip"><strong>pcap (Packet Capture)</strong>A file format (and the underlying libpcap/WinPcap library) for storing captured network packets exactly as they traversed the wire, including all header bytes. The standard interchange format for network forensics, nearly every packet-capture and IDS tool can read and write it. <em>File extension .pcap or the newer .pcapng. tcpdump's <code>-w</code> flag writes a pcap file; Wireshark and tshark both read and write it natively.</em></span></span> file into a human-readable, layered view.</p>
+
+<p>Reading a TCP conversation requires fluency in the <span class="annot">TCP flags<span class="tip"><strong>TCP Flags</strong>Single-bit control fields in the TCP header that signal the state of a connection: SYN (synchronize, start a connection), ACK (acknowledge receipt), FIN (finish, graceful close), RST (reset, abrupt abort), PSH (push data immediately), URG (urgent). Their combinations reveal whether traffic follows a normal handshake or is being used for reconnaissance. <em>RFC 9293 is the current consolidated TCP specification (obsoleting RFC 793). Unusual flag combinations, such as SYN+FIN together, are a strong signature of crafted scanning tools.</em></span></span> that govern the three-way handshake (SYN, SYN-ACK, ACK) and connection teardown (FIN or RST). Deviations from this expected sequence are themselves detection signal. A <span class="annot">SYN scan<span class="tip"><strong>SYN Scan (Half-Open Scan)</strong>A port-scanning technique that sends a SYN packet and, upon receiving a SYN-ACK, immediately sends an RST instead of completing the handshake with an ACK. Because the full TCP connection is never established, it evades some legacy connection-logging systems while still revealing which ports are open. <em>The default scan mode of Nmap (<code>-sS</code>), sometimes called a "stealth scan," though modern IDS signatures readily detect its characteristic pattern.</em></span></span>, for example, produces a distinctive burst of SYN packets to sequential ports from a single source with no completed handshakes, a textbook <span class="annot">port scan signature<span class="tip"><strong>Port Scan Signature</strong>The traffic pattern characteristic of an attacker enumerating which services are listening on a target: many connection attempts to different ports (or many hosts) in a short time window, typically with abnormally low completion rates. <em>Detection thresholds (e.g., "more than 20 distinct destination ports from one source IP within 60 seconds") are a common Suricata/Snort rule pattern; see the "detection_filter" and "threshold" keywords.</em></span></span> that both Snort and Suricata detect out of the box.</p>
+
+<p>Below is a representative Suricata rule written to flag exactly this pattern, a source IP attempting connections to an unusual number of distinct destination ports in a short window, a strong indicator of active reconnaissance:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Suricata Rule</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Local rule; sid drawn from the 1000000+ range reserved for locally authored rules.
+alert tcp $EXTERNAL_NET any -> $HOME_NET any ( \
+  msg:"LOCAL SCAN half-open SYN sweep from single source"; \
+  flow:stateless; flags:S,12; \
+  threshold:type both, track by_src, count 20, seconds 60; \
+  classtype:attempted-recon; \
+  metadata:attack_target Server, created_at 2026_09_02; \
+  reference:url,attack.mitre.org/techniques/T1046/; \
+  sid:1000501; rev:1;)</code></pre>
+</div>
+
+<p>The rule repays a field-by-field reading, because every clause is doing distinct work.</p>
+
+<ul>
+  <li><code>alert tcp $EXTERNAL_NET any -&gt; $HOME_NET any</code> is the <em>header</em>: action, protocol, and a direction specification of source address, source port, arrow, destination address, destination port. <code>$EXTERNAL_NET</code> and <code>$HOME_NET</code> are variables defined in the sensor's configuration, not literals; a rule that hard-codes addresses is a rule that breaks the first time the network is renumbered. The action <code>alert</code> is what makes this a detection rule, on an inline sensor the same rule with <code>drop</code> becomes a prevention rule, which is the entire IDS-versus-IPS distinction expressed as one word of configuration.</li>
+  <li><code>flow:stateless</code> instructs the engine to evaluate the packet without requiring an established session. This matters precisely because a SYN scan never establishes one; a rule left at the more common <code>flow:established</code> would never fire on the traffic it is written to catch.</li>
+  <li><code>flags:S,12</code> is the flag test. <code>S</code> requires the SYN bit set. The comma introduces a mask of bits to ignore, and <code>1</code> and <code>2</code> name the two high-order bits, CWR and ECE, used by explicit congestion notification. Without that mask, an ECN-capable client whose SYN legitimately carries ECE would not match, and the rule would quietly miss a fraction of real scans. The clause therefore reads: SYN set, every other flag clear, congestion bits disregarded.</li>
+  <li><code>threshold:type both, track by_src, count 20, seconds 60</code> converts a per-packet match into a rate condition. A single SYN is ordinary traffic and must never alert. <code>type both</code> combines a floor and a ceiling: fire only after twenty matches from one source within sixty seconds, and then fire once for that window rather than once per packet. This one clause is the difference between a usable rule and a hundred thousand alerts a day, and it is the concrete form of the tuning argument that Section IV develops.</li>
+  <li><code>classtype</code>, <code>metadata</code>, <code>reference</code>, <code>sid</code>, and <code>rev</code> are the bookkeeping that makes a rule maintainable: a severity class the SIEM can route on, a link to the technique it detects (<a href="https://attack.mitre.org/techniques/T1046/" target="_blank" rel="noopener">MITRE ATT&amp;CK T1046, Network Service Discovery</a>), a unique signature identifier, and a revision number. Local rules take signature identifiers from 1000000 upward so they cannot collide with vendor or community rule sets.</li>
+</ul>
+
+<p>Note what the rule does <em>not</em> establish. It fires on a traffic shape, not on intent: a vulnerability scanner running on schedule, a network inventory tool, and a load balancer's health checks all produce the same shape. The rule identifies candidates for a human to adjudicate, which is the correct standing for nearly every detection an analyst will ever tune.</p>
+
+<p>Payload matching is the other half of signature detection, and it depends on the sensor being able to read the payload at all. The following Snort-syntax rule illustrates deep packet inspection applied to an HTTP request body:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Snort Rule</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>alert tcp $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+  (msg:"WEB-SHELL Possible cmd.jsp webshell upload"; \
+  flow:established,to_server; content:"POST"; http_method; \
+  content:"cmd.jsp"; http_uri; content:"Runtime.getRuntime"; http_client_body; \
+  classtype:web-application-attack; sid:1000451; rev:2;)</code></pre>
+</div>
+
+<p>Here the qualifier is decisive: <code>http_client_body</code> can only match if the sensor can read the request body, and on a modern network it usually cannot. The overwhelming majority of interesting traffic is wrapped in TLS, and a passive sensor holds no key. This is not a gap that better signatures close. Payload signatures are structurally unavailable on encrypted traffic, and an organization that does not understand this will buy DPI capability it cannot use.</p>
+
+<p>What survives encryption is metadata, and there is more of it than defenders once assumed. The TLS handshake itself is sent in the clear before the session key exists, and its contents are characteristic of the client software that produced it: the offered cipher suites, the extension list and their order, the supported groups and signature algorithms. Hashing those fields yields a <span class="annot">TLS client fingerprint<span class="tip"><strong>JA3 and JA4 TLS Fingerprinting</strong>A method of identifying the software originating a TLS connection by hashing selected fields of its unencrypted ClientHello, TLS version, cipher suites, extensions, elliptic curves, and curve formats. Because a given library and version negotiate in a distinctive way, the resulting fingerprint often identifies the client stack even when everything after the handshake is encrypted. <em>JA3 was published by Salesforce in 2017. Its reliability eroded once browsers began randomizing extension order to prevent exactly this profiling, so John Althouse (JA3's originator) published JA4 through FoxIO in 2023, designed to be stable under that randomization; the wider JA4+ family extends the idea to server responses (JA4S), HTTP requests (JA4H), X.509 certificates (JA4X), SSH, and TCP.</em></span></span>. A workstation whose handshakes suddenly carry a fingerprint matching a Go or Python HTTP library rather than the browser it has used for months is a strong signal about what is running on it, obtained without decrypting a byte. Alongside the fingerprint, a sensor still reads the <span class="annot">Server Name Indication (SNI)<span class="tip"><strong>SNI, Server Name Indication</strong>A TLS extension in which the client states, in plaintext during the handshake, the hostname it intends to reach, so that a server hosting many sites can present the correct certificate. Historically this made the destination hostname visible to any on-path observer, which defenders used heavily for policy and detection. <em>Defined in RFC 6066. Encrypted Client Hello (ECH), specified by the IETF TLS working group, conceals SNI and is progressively removing this visibility, pushing defenders further toward flow timing, volume, and certificate-independent behavioral signals.</em></span></span>, the certificate the server presents (its issuer, validity window, and subject), the sizes and timing of records, and the flow's overall byte counts and duration. Detection on encrypted networks is largely the discipline of reasoning from these residues.</p>
+
+<p>Signature rules operate on packets. A different class of tool, exemplified by <span class="annot">Zeek<span class="tip"><strong>Zeek</strong>A network analysis framework, originally released as Bro by Vern Paxson in 1998 and renamed Zeek in 2018, that does not primarily match signatures. It decodes protocols and writes structured transaction logs, one line per connection, DNS query, HTTP request, TLS handshake, file transfer, which are then queried and analyzed. <em>Its output (conn.log, dns.log, ssl.log, http.log, files.log) has become a de facto interchange format for network security analytics, and its embedded scripting language allows detection logic to be expressed over reconstructed protocol semantics rather than raw bytes.</em></span></span>, converts traffic into structured records of what happened, one line per connection, per DNS query, per TLS handshake, and leaves detection to analysis over those records. This inverts the workflow productively: instead of asking "does any packet match this byte pattern," an analyst asks "which internal hosts negotiated TLS with a self-signed certificate to an address in a country we do no business in." A short Zeek script, loaded into a running sensor, expresses the fingerprint-drift idea directly:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Zeek script, flag rare TLS client fingerprints</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># rare-ja3.zeek, report TLS client fingerprints seen from very few hosts.
+# Requires Zeek's JA3 package: zkg install ja3
+@load base/protocols/ssl
+
+module RareTLSClient;
+
+export {
+    redef enum Notice::Type += { Rare_Fingerprint };
+    # A fingerprint used by at most this many distinct internal hosts is unusual.
+    const host_threshold = 2 &redef;
+}
+
+global fp_hosts: table[string] of set[addr];
+
+event ssl_established(c: connection)
+    {
+    if ( ! c$ssl?$ja3 )
+        return;
+
+    local fp = c$ssl$ja3;
+    local src = c$id$orig_h;
+
+    if ( fp !in fp_hosts )
+        fp_hosts[fp] = set();
+    add fp_hosts[fp][src];
+
+    if ( |fp_hosts[fp]| &lt;= host_threshold )
+        NOTICE([$note=Rare_Fingerprint,
+                $conn=c,
+                $msg=fmt("Rare TLS client fingerprint %s from %s to %s",
+                         fp, src, c$id$resp_h),
+                $identifier=cat(fp, src)]);
+    }</code></pre>
+</div>
+
+<p>Detection logic also needs to be portable between platforms, because organizations change SIEMs and no analyst wants to rewrite a rule library in a new query dialect. <span class="annot">Sigma<span class="tip"><strong>Sigma</strong>An open, vendor-neutral YAML format for expressing log-based detection rules, intended to do for SIEM queries what Snort rules did for network signatures: state the detection once, then compile it into the query language of whichever platform is in use. <em>Created by Florian Roth and Thomas Patzke; the sigma-cli converter emits Splunk SPL, Elasticsearch queries, Microsoft Sentinel KQL, and others from the same rule file. The public rule repository is maintained by SigmaHQ.</em></span></span> addresses this by expressing a detection once, in YAML, and compiling it to each platform's query language. The rule below encodes the DNS-tunnelling indicator developed later in this section:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Sigma rule, DNS tunnelling indicators</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-yaml"><code>title: Probable DNS Tunnelling by Long High-Volume Subdomain Queries
+id: 6c1f2a54-9d3b-4a77-b0e2-51a8c9d3e7f4
+status: experimental
+description: >
+  Detects a single internal host issuing a high volume of DNS queries whose
+  leftmost label is unusually long, the shape produced by encoding data into
+  subdomain labels for exfiltration or command and control.
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+  - https://attack.mitre.org/techniques/T1048/003/
+author: AP Cybersecurity course materials
+date: 2026/09/02
+logsource:
+  category: dns_query
+detection:
+  long_label:
+    query|re: '^[A-Za-z0-9+/=_-]{40,63}\.'
+  excluded_domains:
+    query|endswith:
+      - '.in-addr.arpa'
+      - '.ip6.arpa'
+      - '.akamaiedge.net'
+      - '.cloudfront.net'
+  timeframe: 10m
+  condition: long_label and not excluded_domains | count() by src_ip &gt; 100
+falsepositives:
+  - Content delivery networks and anti-malware products that encode data in
+    hostnames as a matter of normal operation; baseline and exclude by domain.
+level: high
+tags:
+  - attack.command_and_control
+  - attack.t1071.004
+  - attack.exfiltration
+  - attack.t1048.003</code></pre>
+</div>
+
+<p>The <code>falsepositives</code> block is not boilerplate. Several large content delivery networks and endpoint-protection products encode lookup data into hostnames as a matter of design, and a rule of this shape deployed without a baselining period will alert on them continuously until an analyst stops reading its output. Writing the known benign producers into the rule at authoring time is what keeps it alive in production.</p>
+
+<p>Not every environment can afford full packet capture at scale, payload storage and DPI processing are expensive at multi-gigabit line rates. This is where flow-based metadata analysis complements packet-level inspection. <span class="annot">NetFlow<span class="tip"><strong>NetFlow</strong>A Cisco-originated protocol (and now a general term for similar technologies) that records summary metadata about network conversations, source/destination IP and port, protocol, byte and packet counts, and duration, without capturing the full packet payload. Vastly cheaper to store and analyze than full pcap at scale. <em>Cisco NetFlow v9 and the vendor-neutral IPFIX (RFC 7011) are the dominant standards; sFlow (sampled flow) is a competing, sampling-based alternative popularized by switch vendors like Juniper and Arista.</em></span></span> and its open-standard descendant <span class="annot">IPFIX<span class="tip"><strong>IPFIX, IP Flow Information Export</strong>The IETF-standardized successor to Cisco's proprietary NetFlow v9, defining a common format for exporting flow metadata from routers and switches to a collector for analysis. <em>RFC 7011 is the core IPFIX protocol specification, part of a broader RFC series (7012–7015) covering information elements, file format, and applicability.</em></span></span> record who talked to whom, for how long, and how much data moved, sufficient to detect a <span class="annot">beaconing pattern<span class="tip"><strong>Beaconing</strong>A recurring, low-volume outbound connection from an infected host to an external command-and-control server at a regular or near-regular interval, resembling a compromised implant "checking in" for instructions. Detectable in flow data even without inspecting payload, purely from the regularity of connection timing. <em>Malware families frequently randomize (jitter) their beacon interval specifically to evade naive periodicity-based detection; SOC analysts often use statistical techniques like Fourier analysis or standard-deviation-of-interval scoring to catch jittered beacons.</em></span></span> or a slow exfiltration event purely from timing and volume statistics, without ever inspecting the encrypted payload itself.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">DNS tunnelling is invisible to the firewall and obvious in the resolver log</span>
+  DNS is almost universally permitted outbound through firewalls because blocking it breaks the internet for everyone. Attackers exploit this trust by encoding stolen data into a stream of DNS queries, <span class="annot">DNS tunneling<span class="tip"><strong>DNS Tunneling</strong>Encoding arbitrary data (commands, stolen files) inside DNS queries and responses, typically within subdomain labels or TXT records, to smuggle traffic through a channel that is almost never blocked by firewalls, since DNS resolution is essential to normal network function. <em>Tools such as iodine and dnscat2 implement this technique; detection relies on identifying abnormally long or high-entropy subdomain labels and unusually high query volume to a single authoritative domain.</em></span></span>. A query like <code>4a6f68e9f1c8b2a9.exfil-drop.malicious-domain.com</code> looks superficially like a normal DNS lookup but is actually a base32-encoded data chunk. The telltale indicators, high query volume to one authoritative domain, abnormally long or high-entropy subdomain labels, and TXT record queries at a rate no legitimate application would generate, appear clearly in DNS logs even though the firewall sees nothing but "allowed" UDP/53 traffic.
+</div>
+
+<p>Individually, packet captures, flow records, firewall logs, and endpoint logs are each incomplete. A <span class="annot">Security Information and Event Management (SIEM)<span class="tip"><strong>SIEM, Security Information and Event Management</strong>A platform that aggregates log and event data from across an organization's entire infrastructure, firewalls, IDS/IPS sensors, endpoints, servers, cloud services, into a single searchable repository, then applies correlation rules to surface patterns spanning multiple otherwise-isolated data sources. <em>Examples: Splunk, Microsoft Sentinel, Elastic Security. Correlation rules can chain low-severity individual events (a failed login, then a successful login from a new geography, then an unusual data transfer) into a single high-confidence alert.</em></span></span> platform performs <span class="annot">log correlation<span class="tip"><strong>Log Correlation</strong>The analytical process of connecting related events recorded in separate log sources, for instance, tying a firewall's outbound connection log to an endpoint's process-creation log, to reconstruct a coherent narrative of attacker activity that no single log source reveals on its own. <em>Correlation is the core value proposition of a SIEM over simple log storage; rule-based correlation is increasingly supplemented by machine-learning-driven UEBA, discussed later in this section.</em></span></span> across all of these feeds, allowing an analyst to reconstruct an attacker's path even when no single log entry looks alarming in isolation. A representative syslog excerpt showing a firewall permitting an anomalous outbound connection, later correlated by a SIEM against endpoint process data, illustrates this layering:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Syslog / Firewall Transcript</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Jul  9 02:14:07 edge-fw-01 %ASA-6-302013: Built outbound TCP connection 88431201
+  for outside:198.51.100.44/443 (198.51.100.44/443) to inside:10.20.4.17/51422
+  (10.20.4.17/51422) duration 0:00:00 bytes 512
+Jul  9 02:14:37 edge-fw-01 %ASA-6-302013: Built outbound TCP connection 88431215
+  for outside:198.51.100.44/443 to inside:10.20.4.17/51488 duration 0:00:00 bytes 498
+Jul  9 02:15:07 edge-fw-01 %ASA-6-302013: Built outbound TCP connection 88431229
+  for outside:198.51.100.44/443 to inside:10.20.4.17/51550 duration 0:00:00 bytes 505
+# Note: near-identical byte count, ~30s interval, repeating indefinitely = beaconing IoC</code></pre>
+</div>
+
+<p>Machine learning has expanded anomaly detection beyond simple statistical thresholds. <span class="annot">User and Entity Behavior Analytics (UEBA)<span class="tip"><strong>UEBA, User and Entity Behavior Analytics</strong>A detection approach that builds individualized behavioral baselines, for each user account, host, or service, using machine learning, then flags deviations from that specific entity's normal pattern rather than a single organization-wide threshold. Catches insider threats and compromised-credential misuse that signature and simple threshold rules miss. <em>Gartner popularized the UEBA category around 2015; modern SIEM platforms (Splunk UBA, Microsoft Sentinel UEBA) embed this capability natively.</em></span></span> platforms learn what is normal for a specific user or host, typical login hours, typical data volumes, typical lateral movement patterns, and flag deviations that a static, organization-wide threshold rule would miss entirely, such as an accountant's credentials suddenly being used to query a database server at 3 a.m. from an unfamiliar subnet.</p>
+
+<p>These AI-assisted systems, however, carry real limitations that a competent analyst must account for. Machine-learning classifiers are subject to <span class="annot">adversarial evasion<span class="tip"><strong>Adversarial Evasion</strong>Deliberately crafting malicious traffic or behavior to fall just outside a machine-learning detector's learned decision boundary, for example, by mimicking legitimate traffic statistics or slowly shifting behavior so the "baseline" itself drifts to normalize the attack. <em>A growing academic subfield studies adversarial machine learning broadly; in network security specifically, "low and slow" attacks are a practical, long-standing instance of this evasion strategy.</em></span></span>, in which attackers deliberately shape their traffic timing, volume, or sequencing to stay inside the model's learned notion of "normal," or slowly retrain the baseline itself through gradual behavior shifts. Poorly tuned models also produce substantial <span class="annot">alert fatigue<span class="tip"><strong>Alert Fatigue</strong>The desensitization and reduced vigilance that results from analysts being flooded with a high volume of low-value or false-positive alerts, leading to slower response times and, in the worst cases, genuine alerts being dismissed or missed entirely. <em>Widely cited as a root contributing factor in several major breaches, including the Target breach discussed in Section III; industry surveys consistently report that SOC analysts investigate only a fraction of the alerts generated in a given shift.</em></span></span>, and for this reason virtually every credible detection architecture retains a <span class="annot">human-in-the-loop<span class="tip"><strong>Human-in-the-Loop</strong>A system design principle requiring a trained analyst to review, validate, and act on automated detection output before consequential action is taken, rather than allowing a fully autonomous system to make final containment or escalation decisions unsupervised. <em>NIST's AI Risk Management Framework (AI RMF 1.0, 2023) explicitly recommends human oversight for high-consequence automated decisions, a principle directly applicable to SOC automation.</em></span></span> SOC analyst as the final arbiter, automation surfaces candidates for review, but does not yet substitute for trained human judgment, especially on ambiguous or high-stakes alerts.</p>
+
+<h4>3. Evaluating a Detection Method: Precision, Recall, and the Cost of Being Right Rarely</h4>
+
+<p>A detection method is chosen, but it must also be <em>evaluated</em>, and the evaluation is not a matter of taste. Four quantities govern it. <span class="annot">Recall<span class="tip"><strong>Recall (True Positive Rate, Sensitivity)</strong>Of all the genuinely malicious events that occurred, the fraction the detector flagged. Recall answers "what did we miss?" and its complement is the false-negative rate. <em>Recall is measured against ground truth, which in security is rarely available: an organization knows how many attacks it detected, not how many occurred. Purple-team exercises and adversary emulation exist largely to manufacture the ground truth that makes recall measurable.</em></span></span> is the fraction of real attacks the method catches. <span class="annot">Precision<span class="tip"><strong>Precision (Positive Predictive Value)</strong>Of all the alerts the detector raised, the fraction that were genuinely malicious. Precision answers "when this thing alerts, should I believe it?" and it is the quantity that determines an analyst's working day, because it fixes how much of their time is spent on nothing. <em>Precision depends on prevalence as well as on the detector: the same detector applied to a rarer threat has lower precision, with no change in the model. Topic 1.5 derives this dependence from Bayes' rule.</em></span></span> is the fraction of alerts that were real. Between them sits <em>alert volume</em>, the absolute number of alerts per day, and behind that sits <em>analyst capacity</em>, the number of alerts a staffed team can genuinely investigate.</p>
+
+<p>Topic 1.5 derives the relationship between these quantities from Bayes' rule, and the derivation is not repeated here; the conclusion, however, applies with particular force to network detection, because network event volumes are larger than almost any other telemetry an organization collects. A mid-sized enterprise readily produces tens of millions of flow records a day. Suppose ten million connections cross a monitored boundary in twenty-four hours and roughly a hundred of them belong to an intrusion, a prevalence of one in a hundred thousand. A detector with 99&nbsp;percent recall and a false-positive rate of one percent catches 99 of those hundred connections and also flags 99,999 benign ones. Its accuracy is 99&nbsp;percent, a number that would pass any procurement review, and its precision is one alert in a thousand. Deployed, it produces a hundred thousand alerts a day for a team that can work perhaps a few hundred, which means in practice that it produces zero investigated alerts, and the 99 true positives inside the pile are not found.</p>
+
+<p>Three consequences follow, and they are what "evaluate the impact of a detection method" means concretely. First, the quantity to interrogate is the false-positive rate, not accuracy: driving the false-positive rate from one percent to one in ten thousand leaves recall untouched and moves precision from 0.1&nbsp;percent to roughly 9&nbsp;percent, and driving it to one in a million yields about 91&nbsp;percent. Second, alert volume must be measured against staffing before deployment, not discovered after: a rule that adds four hundred alerts a day to a three-analyst team has consumed the team, whatever it detects. Third, precision is raised most cheaply by <em>corroboration</em> rather than by better models, requiring a beaconing score to coincide with a rare TLS fingerprint and a first-seen destination multiplies roughly independent false-positive rates together, which buys orders of magnitude where model tuning buys percentage points.</p>
+
+<p>Impact also includes what the method costs when it is right, and what it costs when it acts. An inline block on a false positive severs a legitimate business flow, so the threshold for automated blocking is properly far higher than the threshold for alerting; the same detector can reasonably feed a ticket at a score of 0.7 and a block at 0.99. And impact includes visibility: a method's most important property is often the traffic it never sees. A perimeter sensor evaluating only north-south traffic scores perfectly on the traffic it inspects and detects no lateral movement whatsoever, because that traffic never crosses its vantage point. This is an evaluation failure that no confusion matrix will reveal.</p>
+
+<h4>4. Reading the Logs: From Records to Indicators</h4>
+
+<p>Detection ultimately reduces to a claim about a pattern in recorded data, and the analyst's core skill is recovering that pattern from records that individually look unremarkable. Four indicators recur often enough to be worth working through in the data that carries them.</p>
+
+<h5>Beaconing with jitter</h5>
+
+<p>An implant that checks in for instructions produces a sequence of short, similar connections to the same destination. The firewall transcript earlier in this section shows the naive case: near-identical byte counts at almost exactly thirty seconds. Real malware jitters the interval precisely to break that regularity, so the test cannot be "are the gaps equal." The workable test is that the gaps are <em>consistent relative to their own size</em>, measured by the coefficient of variation, the standard deviation of the intervals divided by their mean. It is unitless, so a thirty-second beacon and a thirty-minute beacon are judged on one scale, and human-driven traffic, which arrives in bursts separated by idle periods, scores far above machine-scheduled traffic.</p>
+
+<figure class="chapter-image">
+<svg viewBox="0 0 720 232" role="img" aria-labelledby="beaconfig-title beaconfig-desc" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+  <title id="beaconfig-title">Jittered beaconing remains regular relative to its own interval, while human traffic does not</title>
+  <desc id="beaconfig-desc">Three timelines spanning three and a half hours of connections from one host to one destination. The top timeline, a fixed thirty-minute beacon, shows eight evenly spaced marks with a coefficient of variation of 0.003. The middle timeline, a beacon with about six percent jitter, shows eight marks whose spacing varies visibly but which remain near the thirty-minute grid, with a coefficient of variation of 0.056. The bottom timeline, human browsing, shows marks clustered into three tight bursts separated by long idle gaps, with a coefficient of variation of 1.585. The figure shows that jitter changes the spacing without changing its order of magnitude, so a variation measure separates the first two timelines from the third.</desc>
+  <g stroke="currentColor" stroke-width="1" opacity="0.28">
+    <path d="M120 34 L120 176"/><path d="M240 34 L240 176"/><path d="M360 34 L360 176"/>
+    <path d="M480 34 L480 176"/><path d="M600 34 L600 176"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2">
+    <path d="M96 62 L700 62"/><path d="M96 118 L700 118"/><path d="M96 174 L700 174"/>
+  </g>
+  <g stroke="currentColor" stroke-width="3.4" stroke-linecap="round">
+    <path d="M96 52 L96 72"/><path d="M156 52 L156 72"/><path d="M216 52 L216 72"/><path d="M276 52 L276 72"/>
+    <path d="M336 52 L336 72"/><path d="M396 52 L396 72"/><path d="M456 52 L456 72"/><path d="M516 52 L516 72"/>
+    <path d="M576 52 L576 72"/><path d="M636 52 L636 72"/><path d="M696 52 L696 72"/>
+  </g>
+  <g stroke="currentColor" stroke-width="3.4" stroke-linecap="round">
+    <path d="M96 108 L96 128"/><path d="M154 108 L154 128"/><path d="M216 108 L216 128"/><path d="M272 108 L272 128"/>
+    <path d="M335 108 L335 128"/><path d="M399 108 L399 128"/><path d="M453 108 L453 128"/><path d="M519 108 L519 128"/>
+    <path d="M573 108 L573 128"/><path d="M641 108 L641 128"/><path d="M694 108 L694 128"/>
+  </g>
+  <g stroke="currentColor" stroke-width="3.4" stroke-linecap="round">
+    <path d="M96 164 L96 184"/><path d="M101 164 L101 184"/><path d="M108 164 L108 184"/><path d="M114 164 L114 184"/>
+    <path d="M263 164 L263 184"/><path d="M268 164 L268 184"/><path d="M272 164 L272 184"/>
+    <path d="M281 164 L281 184"/><path d="M287 164 L287 184"/>
+    <path d="M604 164 L604 184"/><path d="M609 164 L609 184"/><path d="M617 164 L617 184"/>
+  </g>
+  <g fill="currentColor" font-size="11">
+    <text x="0" y="46">Fixed beacon</text>
+    <text x="0" y="102">Jittered beacon</text>
+    <text x="0" y="158">Human browsing</text>
+  </g>
+  <g fill="currentColor" font-size="10.5" text-anchor="end">
+    <text x="700" y="46">CV = 0.003</text>
+    <text x="700" y="102">CV = 0.056</text>
+    <text x="700" y="158">CV = 1.585</text>
+  </g>
+  <g fill="currentColor" font-size="10" opacity="0.75" text-anchor="middle">
+    <text x="96" y="196">0:00</text><text x="240" y="196">0:45</text><text x="360" y="196">1:22</text>
+    <text x="480" y="196">2:00</text><text x="600" y="196">2:37</text><text x="696" y="196">3:07</text>
+  </g>
+  <text x="0" y="222" font-size="10.5" fill="currentColor" opacity="0.85">Jitter moves each mark off the grid without changing the order of magnitude of the gap; only the human series changes that.</text>
+</svg>
+<figcaption><strong>Figure 3.5.2</strong>, Connection start times from one host to one destination. Randomizing the interval defeats a test for equal gaps but not a test on the coefficient of variation, which separates both beacons from human traffic by more than an order of magnitude.</figcaption>
+</figure>
+
+<h5>DNS tunnelling and the entropy of a subdomain</h5>
+
+<p>Encoding data into DNS requires putting bytes somewhere, and the leftmost label of the queried name is the usual place. <a href="https://www.rfc-editor.org/rfc/rfc1035" target="_blank" rel="noopener">RFC 1035</a> caps a single label at 63 octets and a full name at 255, so an encoder that wants throughput pushes against those limits, producing long labels of base32 or base64 output. Because that output is close to uniformly distributed over its alphabet, its <span class="annot">Shannon entropy<span class="tip"><strong>Shannon Entropy</strong>A measure, in bits per symbol, of how unpredictable a sequence is: H = &minus;&Sigma; p(x) log&#8322; p(x) over the symbols present. English words score low because a few letters dominate; base32 or base64 output of encrypted data scores near the maximum for its alphabet because every symbol is roughly equally likely. <em>Shannon, C. E. (1948), "A Mathematical Theory of Communication," Bell System Technical Journal. Entropy is used the same way in Topic 1.5 to identify ransomware-encrypted file writes; the mathematics is identical and only the input changes.</em></span></span> is high, but only in absolute terms, and this is where a naive implementation fails.</p>
+
+<p>Entropy is bounded above by the logarithm of the string's length, so a short label cannot score high no matter what it contains. Normalizing entropy by that ceiling, which seems like the obvious correction, destroys the signal instead of sharpening it: the ordinary hostname <code>api</code> reaches its ceiling exactly, scoring a normalized 1.00, while the encoded label <code>MFYGCNRTGIYDIMBWG44DIMZUG4</code> scores 0.79. The discriminating combination is <em>absolute entropy together with length</em>, a label of thirty-odd characters carrying better than four bits per character is doing something no naming convention does, reinforced by query volume to a single authoritative domain. The program below computes both quantities and the beacon statistic above; it uses only the standard library and runs as written.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Python 3, subdomain entropy and beacon-interval variation</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-python"><code>"""Recover two network indicators from log data using only the standard library.
+
+  1. Shannon entropy of a DNS label, to expose data encoded into subdomains.
+  2. Coefficient of variation of connection start times, to expose beaconing.
+
+Tested on CPython 3.11.  Run:  python3 netdetect.py
+"""
+from __future__ import annotations
+
+import math
+import statistics
+from collections import Counter
+
+
+def shannon_entropy(s: str) -&gt; float:
+    """Entropy of s in bits per character.  Shannon (1948)."""
+    if not s:
+        return 0.0
+    n = len(s)
+    h = -sum((c / n) * math.log2(c / n) for c in Counter(s).values())
+    return h if h else 0.0          # normalise the -0.0 that arises when h == 0
+
+
+def label_score(label: str) -&gt; tuple[float, float, float]:
+    """Return (entropy, ceiling, ratio) for one DNS label.
+
+    Entropy cannot exceed log2(len(label)), so short labels are capped by
+    arithmetic rather than by content.  The ratio is reported to show that
+    normalising by the ceiling is the WRONG correction: 'api' hits 1.00 and
+    an encoded 26-character label sits at 0.79.  Absolute entropy paired
+    with length is what separates them.  RFC 1035 caps a label at 63 octets.
+    """
+    h = shannon_entropy(label)
+    ceiling = math.log2(len(label)) if label else 0.0
+    return h, ceiling, (h / ceiling if ceiling else 0.0)
+
+
+def interval_cv(timestamps: list[float]) -&gt; tuple[float, float, float]:
+    """Return (mean gap, population stdev, coefficient of variation).
+
+    CV is unitless, so a 30-second beacon and a 30-minute beacon are scored
+    on the same scale.  Needs at least three timestamps to give two gaps.
+    """
+    if len(timestamps) &lt; 3:
+        raise ValueError("need at least three timestamps")
+    gaps = [b - a for a, b in zip(timestamps, timestamps[1:])]
+    mean = statistics.mean(gaps)
+    sd = statistics.pstdev(gaps)
+    return mean, sd, (sd / mean if mean else float("inf"))
+
+
+if __name__ == "__main__":
+    labels = [
+        "www",
+        "api",
+        "autodiscover",
+        "k3f9d8a1",
+        "4a6f68e9f1c8b2a9",
+        "MFYGCNRTGIYDIMBWG44DIMZUG4",
+        "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo",
+    ]
+    print(f"{'label':36} {'len':&gt;4} {'H':&gt;6} {'max':&gt;6} {'H/max':&gt;6}")
+    for lab in labels:
+        h, ceiling, ratio = label_score(lab)
+        print(f"{lab:36} {len(lab):4d} {h:6.2f} {ceiling:6.2f} {ratio:6.2f}")
+
+    # Connection start times in seconds, relative to the first connection.
+    series = {
+        "fixed 30-min beacon": [0, 1802, 3598, 5405, 7199, 9003, 10798, 12601],
+        "beacon, 6% jitter":   [0, 1750, 3610, 5290, 7180, 9120, 10800, 12700],
+        "human browsing":      [0, 37, 412, 415, 980, 3311, 3320, 9900],
+    }
+    print(f"\n{'series':22} {'mean s':&gt;8} {'stdev s':&gt;8} {'CV':&gt;7}")
+    for name, ts in series.items():
+        mean, sd, cv = interval_cv(ts)
+        print(f"{name:22} {mean:8.1f} {sd:8.2f} {cv:7.4f}")</code></pre>
+</div>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Output</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>label                                 len      H    max  H/max
+www                                     3   0.00   1.58   0.00
+api                                     3   1.58   1.58   1.00
+autodiscover                           12   3.42   3.58   0.95
+k3f9d8a1                                8   3.00   3.00   1.00
+4a6f68e9f1c8b2a9                       16   3.38   4.00   0.84
+MFYGCNRTGIYDIMBWG44DIMZUG4             26   3.69   4.70   0.79
+QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo    35   4.36   5.13   0.85
+
+series                   mean s  stdev s      CV
+fixed 30-min beacon      1800.1     4.70  0.0026
+beacon, 6% jitter        1814.3   100.83  0.0556
+human browsing           1414.3  2242.12  1.5853</code></pre>
+</div>
+
+<p>The two beacons sit two orders of magnitude below the human series, and the jitter that defeats an equal-gap test moves the score from 0.003 to 0.056 without approaching 1.585. The entropy table makes the negative result equally clear: no single threshold on <code>H/max</code> separates the encoded labels from the ordinary ones, whereas a rule requiring length above roughly thirty characters <em>and</em> absolute entropy above four bits selects only the two encoded strings. These techniques map to <a href="https://attack.mitre.org/techniques/T1071/004/" target="_blank" rel="noopener">MITRE ATT&amp;CK T1071.004 (Application Layer Protocol: DNS)</a> and <a href="https://attack.mitre.org/techniques/T1048/" target="_blank" rel="noopener">T1048 (Exfiltration Over Alternative Protocol)</a>.</p>
+
+<h5>Scan fan-out and exfiltration asymmetry in flow records</h5>
+
+<p>The remaining two indicators are visible in flow data without any payload at all, and the same record set carries both. Reading a flow log means reading ratios rather than lines:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">NetFlow / IPFIX records (illustrative, formatted as nfdump output)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Date first seen     Duration Proto   Src IP:Port        Dst IP:Port      Packets  Bytes  Flags
+2026-08-19 02:41:03    0.000 TCP  10.20.4.17:44120 -> 10.20.9.11:22        1     60   ....S.
+2026-08-19 02:41:03    0.000 TCP  10.20.4.17:44121 -> 10.20.9.11:23        1     60   ....S.
+2026-08-19 02:41:03    0.000 TCP  10.20.4.17:44122 -> 10.20.9.11:25        1     60   ....S.
+2026-08-19 02:41:03    0.000 TCP  10.20.4.17:44123 -> 10.20.9.12:22        1     60   ....S.
+2026-08-19 02:41:03    0.000 TCP  10.20.4.17:44124 -> 10.20.9.13:22        1     60   ....S.
+#  ... 3,180 further records in the same second, 14 destination hosts, 227 ports
+#  INDICATOR 1 (fan-out): one source, many destinations, one packet each, SYN
+#  only, no reply flags, zero duration. A real client completes a handshake and
+#  transfers something; this source never does. -> ATT&amp;CK T1046.
+
+2026-08-19 03:52:11 1840.220 TCP  10.20.4.17:51888 -> 203.0.113.77:443  418621 611M  .AP.SF
+2026-08-19 03:52:11 1840.220 TCP  203.0.113.77:443 -> 10.20.4.17:51888    9204 1.1M  .AP.SF
+#  INDICATOR 2 (asymmetry): 611 MB out against 1.1 MB in, a 555:1 ratio sustained
+#  for 31 minutes to a single external address on 443. Ordinary web browsing is
+#  asymmetric in the OPPOSITE direction: the client sends kilobytes of requests
+#  and receives megabytes of content. -> ATT&amp;CK T1048.</code></pre>
+</div>
+
+<p>Neither indicator requires the payload, which is the point: both survive TLS intact. The first is recognized by a shape, a single source touching many destination-port pairs with one packet each and no reply, that no legitimate client produces, though a scheduled vulnerability scanner produces it exactly, which is why the analyst's first move is to check whether the source is the scanner's own address. The second is recognized by an inverted ratio: a workstation is normally a net receiver of bytes, and a workstation that becomes a large net sender for half an hour has either started backing something up or started exfiltrating it. Distinguishing those two requires context the flow record does not contain, which is the routine and unglamorous condition of this work.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: Target and SolarWinds</h3>
+
+<h4>Case Study 3.5.1: The 2013 Target Corporation Breach, A Detection-Response Gap</h4>
+<p>Between November and December 2013, attackers who had gained network access through a compromised HVAC vendor's credentials deployed <span class="annot">memory-scraping malware<span class="tip"><strong>Memory-Scraping Malware (RAM Scraper)</strong>Malware that reads unencrypted payment card data directly out of a point-of-sale terminal's volatile memory during the brief window before the data is encrypted for transmission, bypassing encryption-at-rest and in-transit protections entirely. <em>The Target breach's malware, later analyzed and dubbed "Kaptoxa" by researchers, exemplifies this technique; it was designed specifically to evade traditional network-perimeter and antivirus controls.</em></span></span> across Target's point-of-sale terminals, ultimately exfiltrating roughly 40 million payment card records. Critically, Target had deployed a commercial malware-detection platform (built on <span class="annot">FireEye<span class="tip"><strong>FireEye</strong>A cybersecurity vendor (now rebranded Mandiant, following acquisition by Google in 2022) known for its network-based malware detection appliances that combine signature matching with sandboxed behavioral analysis, and for its high-profile incident response and threat intelligence work, including its own 2020 disclosure of the SUNBURST supply-chain compromise, discussed later in this section. <em>FireEye's detection appliances flagged the Target intrusion's malware in real time in late November 2013, generating alerts that were ultimately not acted upon before the breach's full scope unfolded.</em></span></span> technology) that generated legitimate malware alerts as early as November 30, 2013, nearly three weeks before the breach was publicly disclosed. Target's security team in Bangalore, monitoring the console, escalated these alerts to the Minneapolis headquarters security team. No action was taken to contain the identified malware at that time.</p>
+
+<p>This case is taught less as a detection failure and more as a canonical <span class="annot">detection-response gap<span class="tip"><strong>Detection-Response Gap</strong>A structural failure mode in which a detection system correctly identifies malicious activity, but organizational, procedural, or staffing shortcomings prevent that signal from being translated into timely containment action, meaning the technology "worked" while the security program as a whole still failed. <em>Distinguished from a pure detection failure, where the tooling itself never generated a correct alert; the distinction matters heavily for post-incident root-cause analysis and for allocating remediation investment between technology and process.</em></span></span>: the sensor worked exactly as designed, generating an accurate, timely, actionable alert, and the organizational process around that alert broke down. Subsequent Congressional and industry post-mortems identified alert fatigue, understaffing of the security operations function, and unclear escalation authority as root contributing factors, not a technical shortfall in the detection engine itself. The case remains one of the most frequently cited illustrations that detection technology alone, without a properly resourced and empowered SOC to act on its output, provides limited real-world protection.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">A working sensor is not a working security programme</span>
+  Students often assume that buying better detection tools solves the intrusion problem. Target had genuinely good detection technology in 2013, arguably ahead of many peers at the time. The lesson is that a detection system is only the sensory organ of a security program; the SOC's triage process, staffing levels, and escalation authority are the nervous system and muscles. A perfectly functioning eye is useless if the signal it sends never reaches a hand that can act on it.
+</div>
+
+<h4>Case Study 3.5.2: The 2020 SolarWinds / SUNBURST Supply-Chain Compromise</h4>
+<p>Beginning around March 2020, a nation-state threat actor (widely attributed by the U.S. government to Russian intelligence services and tracked under names including APT29/Cozy Bear) compromised the build system of SolarWinds, a network management software vendor, and inserted a covert backdoor, subsequently named <span class="annot">SUNBURST<span class="tip"><strong>SUNBURST</strong>The malware backdoor covertly inserted into SolarWinds' Orion network-monitoring software during the build process in 2020, distributed to roughly 18,000 organizations via a legitimate, digitally signed software update, a textbook example of a supply-chain attack. <em>Publicly disclosed by FireEye on December 8, 2020, following FireEye's own discovery that it had been breached via this same vector. See FireEye's technical writeup and CISA Emergency Directive 21-01.</em></span></span>, into legitimate, digitally signed software updates distributed to roughly 18,000 SolarWinds Orion customers, including numerous U.S. federal agencies and Fortune 500 companies.</p>
+
+<p>The compromise was ultimately discovered not through a signature match against known malware, but through anomalous network behavior analysis at FireEye itself, one of the compromised organizations. FireEye's security team detected a new device that had been registered to FireEye's <span class="annot">multi-factor authentication<span class="tip"><strong>Multi-Factor Authentication (in this context)</strong>Here referring specifically to FireEye's internal MFA system, where analysts noticed an employee's registered authentication device list had been altered in a way the employee had not initiated, a subtle behavioral anomaly rather than a malware signature. <em>FireEye publicly credited this specific anomaly as the initial thread that led to uncovering the broader SUNBURST campaign.</em></span></span> system by an unrecognized device attempting to enroll under an existing employee's credentials. This behavioral anomaly, inconsistent with the employee's normal device-registration pattern, prompted a deeper investigation that ultimately traced back to SUNBURST's command-and-control infrastructure. Network traffic analysis subsequently revealed a further hallmark indicator: the malware communicated with its C2 infrastructure through low-and-slow, jittered DNS beaconing to domains designed to closely mimic legitimate SolarWinds infrastructure (such as <code>avsvmcloud.com</code>), deliberately engineered to blend into ordinary telemetry traffic and evade both static signature matching and naive periodicity-based beacon detection.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">DNS Query Log Excerpt (illustrative, SUNBURST-style beaconing)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>2020-06-14T03:11:52Z  10.4.18.201  A?  k3f9d8a1.appsync-api.avsvmcloud.com.  NOERROR
+2020-06-14T03:47:09Z  10.4.18.201  A?  8b62a015.appsync-api.avsvmcloud.com.  NOERROR
+2020-06-14T04:26:41Z  10.4.18.201  A?  ff291bc4.appsync-api.avsvmcloud.com.  NOERROR
+# jittered ~35-40 min intervals, unique high-entropy subdomain each query
+# encoded victim identifier + C2 tasking status, mimicking Orion telemetry traffic</code></pre>
+</div>
+
+<p>FireEye publicly disclosed the campaign on December 8, 2020, and CISA subsequently issued Emergency Directive 21-01 mandating that federal civilian agencies disconnect or patch affected SolarWinds Orion instances immediately. The case is now a standard reference point for two lessons that extend beyond this chapter: first, that behavioral/UEBA-style anomaly detection can surface sophisticated intrusions that no signature-based system was ever positioned to catch, since the malicious update was legitimately signed by the vendor; and second, that supply-chain trust relationships are themselves an attack surface requiring the same network-level scrutiny applied to any other traffic source.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Building a Detection Program: Sensors, SIEM, Baselines, Escalation</h3>
+
+<p>An effective network threat detection program is built in layers, following the guidance of <span class="annot">NIST SP 800-94<span class="tip"><strong>NIST SP 800-94</strong>The "Guide to Intrusion Detection and Prevention Systems (IDPS)," NIST's foundational special publication covering the design, deployment, and tuning of IDS/IPS technologies across network-based, wireless, and network behavior analysis approaches. <em>Scarfone, K. &amp; Mell, P., February 2007; it superseded SP 800-31. A revision was drafted in 2012 and later retired without being finalized, NIST noting that its inputs no longer matched current technologies and threat models, so the vocabulary remains canonical while the document itself predates encrypted-by-default traffic, cloud workloads, and machine-learning detection, and must be read accordingly.</em></span></span>, which frames detection not as a single product purchase but as an ongoing operational discipline requiring sensor placement strategy, tuning, staffing, and a defined incident response process to translate alerts into action.</p>
+
+<h4>1. Layered Sensor Placement</h4>
+<p>No single sensor location provides complete visibility. Best practice places NIDS sensors at key network chokepoints, the perimeter, between security zones, and near high-value asset segments, using taps or SPAN ports to avoid introducing a single point of failure, while inline IPS devices are reserved for chokepoints where active blocking is operationally acceptable. HIDS agents on individual endpoints then close the visibility gap for host-internal activity (such as living-off-the-land process abuse) that never generates network traffic distinguishable from legitimate use.</p>
+
+<h4>2. SIEM Centralization and Correlation Rule Engineering</h4>
+<p>Raw sensor output has limited value without correlation. Organizations should route firewall, IDS/IPS, DNS, endpoint, and identity logs into a centralized SIEM and invest deliberately in correlation rule engineering, chaining low-confidence individual signals (a single failed login, an unusual DNS query, a new device registration) into higher-confidence composite alerts, directly addressing the alert-fatigue failure mode discussed in Section II and illustrated by the Target case study.</p>
+
+<h4>3. Baseline Establishment for UEBA and Anomaly Systems</h4>
+<p>Anomaly-based and UEBA systems are only as good as the baseline period used to train them; deploying such a system during an already-compromised state risks baselining attacker behavior as "normal." NIST guidance recommends a defined baseline observation window, periodic baseline revalidation, and retention of human review authority over any automated containment action, directly operationalizing the human-in-the-loop principle from Section II.</p>
+
+<h4>4. A Deliberate Position on Encrypted Traffic</h4>
+<p>Because payload signatures are unavailable on encrypted traffic, every organization takes a position on this question whether or not it makes one consciously. There are three coherent answers, and each has a cost. Terminate TLS at an inspection point, and payload detection returns at the price of holding decrypted copies of employee and customer traffic, a privacy and compliance exposure that must be scoped so that categories such as banking and health traffic are excluded. Decline to decrypt and invest in metadata detection instead, flow statistics, TLS fingerprints, certificate attributes, resolver logs, accepting that some payload-borne threats will pass. Or push detection onto the endpoints, where an EDR agent sees the plaintext before it is encrypted and after it is decrypted, accepting that unmanaged devices then fall outside coverage entirely. Most mature programs combine the second and third, decrypting narrowly at a small number of chokepoints if at all. What is not coherent is buying deep packet inspection, encrypting all traffic, and assuming the two arrangements compose.</p>
+
+<h4>5. Defined Escalation and Response Procedures</h4>
+<p>Detection technology must be paired with an unambiguous escalation chain specifying who is notified, within what time window, and with what authority to contain a confirmed threat, the single control whose absence most directly explains the Target breach's outcome despite functioning detection technology.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">A detection is worthless until it becomes a rule change</span>
+  Notice how this topic connects directly back to Topic 3.4's firewall and access-control material: detection findings (a confirmed beaconing host, a scanning source IP) are only actionable if the organization can rapidly translate them into a firewall rule change, an access revocation, or a network segmentation adjustment. Detection and prevention are not separate disciplines, they form a continuous feedback loop, and the SolarWinds case shows that even the vendor supplying your firewall or monitoring software can itself become the initial attack vector.
+</div>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Every indicator has a natural sensor, and choosing the wrong one wastes the signal</span>
+  Detection design is largely the work of matching an indicator to the data source that carries it. A burst of SYN packets across sequential ports lives in packet headers, so a signature rule on a NIDS with a rate threshold is the right instrument. A login at an hour that is unusual <em>for that particular account</em> lives in identity logs and needs a per-entity baseline, which is what UEBA provides and what a global threshold cannot. High-entropy subdomain labels queried in volume against one authoritative domain live in resolver logs and are recovered by an entropy computation, not by payload inspection. A repeating outbound connection of near-constant size at a jittered interval lives in flow records, where timing and byte counts survive even though the payload is encrypted. Point a sensor at the wrong layer and the indicator is not merely missed, it was never in the data the sensor collected.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>Scarfone, K., &amp; Mell, P. (2007). Guide to Intrusion Detection and Prevention Systems (IDPS). NIST Special Publication 800-94. <a href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-94.pdf" target="_blank" rel="noopener">nvlpubs.nist.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>Shannon, C. E. (1948). A Mathematical Theory of Communication. Bell System Technical Journal, 27(3), 379–423.</li><li style='margin-bottom: 12px; text-align: justify;'>Mockapetris, P. (1987). Domain Names, Implementation and Specification. RFC 1035. <a href="https://www.rfc-editor.org/rfc/rfc1035" target="_blank" rel="noopener">rfc-editor.org</a></li><li style='margin-bottom: 12px; text-align: justify;'>Eastlake, D. (2011). Transport Layer Security (TLS) Extensions: Extension Definitions. RFC 6066 (defines Server Name Indication). <a href="https://www.rfc-editor.org/rfc/rfc6066" target="_blank" rel="noopener">rfc-editor.org</a></li><li style='margin-bottom: 12px; text-align: justify;'>Eddy, W. (2022). Transmission Control Protocol (TCP). RFC 9293 (obsoletes RFC 793). <a href="https://www.rfc-editor.org/rfc/rfc9293" target="_blank" rel="noopener">rfc-editor.org</a></li><li style='margin-bottom: 12px; text-align: justify;'>Althouse, J., et al. (2023). JA4+ Network Fingerprinting. FoxIO. Reference implementation and specification at <a href="https://github.com/FoxIO-LLC/ja4" target="_blank" rel="noopener">github.com/FoxIO-LLC/ja4</a>. Predecessor: JA3 (Salesforce, 2017).</li><li style='margin-bottom: 12px; text-align: justify;'>Paxson, V. (1999). Bro: A System for Detecting Network Intruders in Real-Time. Computer Networks, 31(23–24), 2435–2463. Now maintained as <a href="https://zeek.org/" target="_blank" rel="noopener">Zeek</a>.</li><li style='margin-bottom: 12px; text-align: justify;'>MITRE. ATT&amp;CK Enterprise techniques <a href="https://attack.mitre.org/techniques/T1046/" target="_blank" rel="noopener">T1046</a> (Network Service Discovery), <a href="https://attack.mitre.org/techniques/T1071/004/" target="_blank" rel="noopener">T1071.004</a> (Application Layer Protocol: DNS), and <a href="https://attack.mitre.org/techniques/T1048/" target="_blank" rel="noopener">T1048</a> (Exfiltration Over Alternative Protocol).</li><li style='margin-bottom: 12px; text-align: justify;'>Denning, D. E. (1987). An Intrusion-Detection Model. IEEE Transactions on Software Engineering, SE-13(2), 222–232.</li><li style='margin-bottom: 12px; text-align: justify;'>Roesch, M. (1999). Snort: Lightweight Intrusion Detection for Networks. Proceedings of the 13th USENIX LISA Conference.</li><li style='margin-bottom: 12px; text-align: justify;'>Hutchins, E. M., Cloppert, M. J., &amp; Amin, R. M. (2011). Intelligence-Driven Computer Network Defense Informed by Analysis of Adversary Campaigns and Intrusion Kill Chains. Lockheed Martin Corporation.</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 7011: Specification of the IP Flow Information Export (IPFIX) Protocol for the Exchange of Flow Information (2013).</li><li style='margin-bottom: 12px; text-align: justify;'>FireEye, Inc. (2020). Highly Evasive Attacker Leverages SolarWinds Supply Chain to Compromise Multiple Global Victims With SUNBURST Backdoor. FireEye Threat Research Blog, December 8, 2020.</li><li style='margin-bottom: 12px; text-align: justify;'>U.S. Senate Committee on Commerce, Science, and Transportation (2014). A "Kill Chain" Analysis of the 2013 Target Data Breach. Majority Staff Report.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology (2023). Artificial Intelligence Risk Management Framework (AI RMF 1.0). NIST AI 100-1.</li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+
+        <div class="question-block">
+          <div class="question-header">Question 1: Distinguish between signature-based and anomaly-based detection, and explain why a mature security operations center deploys both rather than choosing one exclusively.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+          <div class="solution-content" id="sol-1">
+            <p>Signature-based detection matches observed network traffic or file content against a curated database of known-malicious patterns, such as Snort or Suricata rules encoding specific byte sequences or protocol violations associated with previously documented attacks. It is computationally efficient and produces low false-positive rates, but is structurally blind to novel or zero-day techniques that have not yet been catalogued into a signature.
+
+Anomaly-based detection instead establishes a statistical or behavioral baseline of expected activity, for a host, user, or network segment, and flags meaningful deviations from that baseline, whether via simple statistical thresholds or machine-learning-driven UEBA platforms. This approach can, in principle, detect previously unseen attack techniques, at the cost of a structurally higher false-positive rate, since statistical novelty does not necessarily indicate malicious intent.
+
+Because these two approaches fail in complementary ways, signature detection fails against the unknown, anomaly detection fails toward excess noise, mature SOCs deploy both in parallel, using signature detection to efficiently and reliably catch known threats while reserving anomaly and behavioral analysis, backed by human-in-the-loop review, to catch novel intrusions that would otherwise evade the signature layer entirely.</p>
+          </div>
+        </div>
+
+        <div class="question-block">
+          <div class="question-header">Question 2: Using the 2013 Target breach as a case study, explain the difference between a detection failure and a detection-response gap, and describe why this distinction matters for allocating security investment.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+          <div class="solution-content" id="sol-2">
+            <p>A detection failure occurs when a monitoring system fails to correctly identify malicious activity at all, the sensor itself produces no accurate alert. A detection-response gap, by contrast, occurs when a detection system functions correctly and generates a timely, accurate alert, but organizational, procedural, or staffing deficiencies prevent that alert from being translated into effective containment action.
+
+In the Target breach, the deployed FireEye-based malware detection platform generated legitimate alerts identifying the point-of-sale malware as early as late November 2013, weeks before the breach's full scope became public. These alerts were escalated through Target's security monitoring team but were not acted upon in time to prevent the exfiltration of approximately 40 million payment card records. Post-incident analysis identified alert fatigue, insufficient SOC staffing, and unclear escalation authority, not a technical shortcoming of the detection tooling, as the primary root causes.
+
+This distinction matters directly for security investment decisions: an organization experiencing detection failures should prioritize improving sensor coverage, signature libraries, or anomaly-detection capability, while an organization experiencing a detection-response gap should instead prioritize SOC staffing, defined escalation procedures, and clear containment authority, since additional detection technology alone would not have altered the Target outcome.</p>
+          </div>
+        </div>
+
+        <div class="question-block">
+          <div class="question-header">Question 3: Describe how the 2020 SolarWinds/SUNBURST compromise was ultimately identified, and explain why this detection could not have relied on traditional signature-based methods alone.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+          <div class="solution-content" id="sol-3">
+            <p>The SUNBURST backdoor was distributed to approximately 18,000 organizations through a legitimately signed SolarWinds Orion software update, having been inserted into the vendor's build process itself. Because the malicious update carried a valid vendor code-signing certificate and was delivered through an expected, trusted software update channel, it could not be identified through file-hash or certificate-based signature matching, which relies on flagging content already known or provably untrustworthy.
+
+The compromise was instead surfaced through behavioral anomaly detection at FireEye, one of the affected organizations: security staff noticed that a new device had been registered to an employee's multi-factor authentication profile in a manner inconsistent with that employee's normal registration behavior. This anomaly prompted deeper investigation, which traced back to SUNBURST's presence on the network. Network traffic analysis subsequently corroborated the finding by identifying jittered, low-and-slow DNS beaconing to command-and-control infrastructure disguised to resemble legitimate SolarWinds telemetry domains.
+
+This case demonstrates the structural necessity of anomaly-based and behavioral detection (UEBA) as a complement to signature-based systems: a sufficiently sophisticated, trust-exploiting supply-chain attack can be engineered specifically to produce no signature match, and only deviation from an established behavioral baseline, reviewed by a human analyst, was capable of surfacing the intrusion.</p>
+          </div>
+        </div>
+
+  </section>
+
+  <section class="review-questions" id="sec-practice">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">1. <span class="ap-code">3.5.A</span> A sensor receives its traffic from a hardware tap on the internet uplink. The sensor's analysis process crashes at 02:00 and is not restarted until 09:00. What is the consequence?</div>
+      <ul class="mcq">
+        <li>A. The uplink goes down for seven hours, because the sensor was in the forwarding path.</li>
+        <li>B. Traffic continues to flow normally and the organization simply has no record of what crossed the link during those seven hours.</li>
+        <li>C. All traffic is permitted without inspection and users receive certificate errors.</li>
+        <li>D. The tap buffers the traffic and replays it to the sensor when it restarts.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">2. <span class="ap-code">3.5.A</span> <span class="ap-code">3.5.C</span> An organization must retain a full year of evidence about which internal hosts communicated with which external addresses, and the security budget cannot absorb petabytes of storage. Which data source fits?</div>
+      <ul class="mcq">
+        <li>A. Full packet capture on every link, retained for twelve months.</li>
+        <li>B. Flow records such as NetFlow or IPFIX, which summarize each conversation's endpoints, byte and packet counts, and duration without storing payload.</li>
+        <li>C. Host-based file integrity monitoring logs.</li>
+        <li>D. Snort payload signatures with the alert text retained.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">3. <span class="ap-code">3.5.C</span> Nearly all traffic leaving a company is TLS-encrypted and the company has decided not to decrypt it. Which detection approach remains available?</div>
+      <ul class="mcq">
+        <li>A. Deep packet inspection of HTTP request bodies for known web-shell strings.</li>
+        <li>B. Analysis of metadata that survives encryption, TLS client fingerprints, the server name and certificate offered during the handshake, and flow timing and byte volumes.</li>
+        <li>C. Matching the SHA-256 hash of the plaintext payload against a malware database.</li>
+        <li>D. No network detection is possible; only endpoint agents can contribute anything.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">4. <span class="ap-code">3.5.D</span> Ten million connections cross a monitored boundary each day and about a hundred belong to an intrusion. A detector flags 99 of those hundred and also flags one percent of the benign connections. What is the operational problem?</div>
+      <ul class="mcq">
+        <li>A. Recall is too low, so most intrusions are missed.</li>
+        <li>B. Roughly 100,000 alerts are produced per day and only about one in a thousand is real, so no realistic analyst team can work the queue and the true positives go uninvestigated.</li>
+        <li>C. The detector's accuracy is below 90 percent and it should be replaced.</li>
+        <li>D. There is no problem; 99 percent accuracy is an acceptable operating point.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">5. <span class="ap-code">3.5.E</span> A flow log shows one internal address sending single-packet, SYN-only, zero-duration records to 227 ports across 14 hosts within one second, with no reply flags on any record. Which indicator is this, and what is the analyst's first corroborating check?</div>
+      <ul class="mcq">
+        <li>A. Beaconing; check whether the interval between connections is constant.</li>
+        <li>B. Scan fan-out; check whether the source address belongs to the organization's own authorized vulnerability scanner before escalating.</li>
+        <li>C. Data exfiltration; check the ratio of bytes sent to bytes received.</li>
+        <li>D. DNS tunnelling; compute the entropy of the queried hostnames.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">6. <span class="ap-code">3.5.E</span> An analyst wants to detect data encoded into DNS subdomain labels. Which test actually separates encoded labels from ordinary hostnames?</div>
+      <ul class="mcq">
+        <li>A. Shannon entropy normalized by its length-dependent maximum, flagging any label above 0.9.</li>
+        <li>B. Absolute Shannon entropy combined with label length, supported by query volume to a single authoritative domain.</li>
+        <li>C. Any hostname containing a digit.</li>
+        <li>D. Any DNS query using UDP rather than TCP.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">7. <span class="ap-code">3.5.B</span> <span class="ap-code">3.5.D</span> <em>Free response.</em> A security manager proposes replacing the organization's signature rule set with a machine-learning anomaly platform, arguing that it catches novel attacks and reports 99 percent accuracy in the vendor's evaluation. Explain what artificial intelligence genuinely contributes to detection and response, evaluate the manager's proposal using the relationship between prevalence, recall, precision, and alert volume, and state what you would deploy instead and why.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">8. <span class="ap-code">3.5.C</span> <span class="ap-code">3.5.E</span> <em>Free response.</em> A workstation at 10.20.4.17 shows three things over one week: outbound TLS connections to a single external address every 30 minutes give or take two minutes, each carrying roughly 500 bytes; DNS queries whose leftmost labels run 40 to 60 characters of mixed-case alphanumerics, several hundred per hour, all under one parent domain; and, on one night, a single 31-minute connection that sent 611 MB and received 1.1 MB. Explain what each observation indicates, identify which log source and analytic technique recovers each one, and explain why none of the three requires decrypting the traffic.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">3.5.A</span>
+      <p class="key-why">A tap-fed sensor sits beside the forwarding path, not in it, so its failure removes visibility and nothing else, and it does so silently, since no user experiences a symptom to report. That is the characteristic failure mode of passive monitoring and the reason such outages are found by monitoring the monitor rather than by the help desk. A describes the fail-closed behaviour of an inline device, which a tapped sensor is not. C describes an inline device failing open, again a property of in-path deployment, and the certificate errors belong to a TLS-terminating proxy, which is a different thing entirely. D is fabricated: a tap is a passive copier with no buffer and no replay capability.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. B</span><span class="key-lo">3.5.A, 3.5.C</span>
+      <p class="key-why">Flow records answer exactly the question posed, who talked to whom, when, for how long, and how much moved, at roughly a thousandth of the storage of full capture, which is what makes year-long retention affordable. A is the option the constraint explicitly rules out: a single sustained gigabit link produces on the order of ten terabytes a day, so a year across many links is far beyond the stated budget. C answers a host question, not a network-communication one, and would not record external peers at all. D retains only the alerts a signature happened to fire on, so it holds no record of the connections that matched nothing, which is most of them.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. B</span><span class="key-lo">3.5.C</span>
+      <p class="key-why">Encryption conceals the payload and leaves a substantial amount of observable metadata: the ClientHello is sent in the clear and yields a JA3 or JA4 fingerprint of the client software, the handshake exposes the server name and the presented certificate, and flow timing, record sizes, and byte totals are visible to any on-path observer. Detection then reasons from those residues. A and C both require plaintext the sensor does not have, that is the premise of the question, not an oversight to be corrected by better signatures. D overstates the limit: the metadata channel is precisely why beaconing, fingerprint drift, and volumetric exfiltration remain detectable on the network without decryption.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. B</span><span class="key-lo">3.5.D</span>
+      <p class="key-why">One percent of roughly ten million benign connections is about 99,999 false alerts, against 99 true ones, so precision is about one in a thousand and daily volume is six orders of magnitude above what a small team can investigate. The detector's true positives exist but are unreachable, which is the operational failure. A misreads the figures: recall is 99 percent, which is excellent, and recall is not what is wrong. C is arithmetically false and also names the wrong metric, accuracy here is 99 percent and is uninformative precisely because the negative class dominates. D takes accuracy at face value, which is the specific error the base-rate arithmetic in Topic 1.5 exists to correct.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">3.5.E</span>
+      <p class="key-why">One source touching many destination-host and port pairs with a single SYN each, zero duration and no reply, is the signature shape of service discovery: a real client completes a handshake and transfers something, and this source never does. Because an authorized vulnerability scanner produces an identical shape, confirming whether the source is the scanner is the cheapest check that separates a finding from an incident. A describes a different indicator entirely, and interval regularity is meaningless across records that all share one timestamp. C names the exfiltration indicator, which depends on sustained byte asymmetry that these 60-byte records do not show. D names the DNS indicator, and these are TCP connection records with no queried names to score.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. B</span><span class="key-lo">3.5.E</span>
+      <p class="key-why">Entropy is bounded by the logarithm of the string's length, so absolute entropy is meaningful only when read together with length, a thirty-character label carrying better than four bits per character is doing something no naming convention does, and query volume against one authoritative domain corroborates it. A is the plausible-looking trap and is wrong for a concrete reason shown in the worked output: normalizing by the ceiling scores the ordinary hostname "api" at 1.00 and an encoded 26-character label at 0.79, inverting the ranking the analyst wants. C would flag a large fraction of ordinary infrastructure hostnames while missing any purely alphabetic encoding. D is not an indicator at all: DNS uses UDP by default under RFC 1035, so this describes essentially all DNS traffic.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">7. Free response</span><span class="key-lo">3.5.B, 3.5.D</span>
+      <p class="key-why"><strong>Model answer.</strong> Machine learning contributes three things that signatures cannot. It builds per-entity baselines, so a deviation is judged against what that specific account or host normally does rather than against an organization-wide threshold, which is how compromised-credential misuse and insider activity surface. It requires no labels, so an unsupervised model such as an Isolation Forest can flag a technique nobody has catalogued, which is the structural blind spot of every signature. And it performs triage at volumes no analyst team can read, narrowing millions of events to a reviewable candidate set. What it does not do is establish that a flagged event is malicious: "unusual" and "malicious" are different predicates, and in an enterprise most unusual things are a quarterly batch job, a new build agent, or a laptop back from leave.</p>
+      <p class="key-why">The proposal fails on the arithmetic. Accuracy is uninformative when the negative class dominates: at a prevalence near one in a hundred thousand, a detector can be 99 percent accurate and still produce a hundred thousand false alerts a day for ninety-nine real ones, a precision of about 0.1 percent. The figures to demand from the vendor are the false-positive rate, the resulting alert volume at this organization's own event rate, and precision at the intended operating point, not accuracy and not ROC area, which flatters low-prevalence detectors because a one-percent false-positive rate looks negligible on a ROC axis and means a hundred thousand alerts in practice. Replacing signatures compounds the error, since signature rules are the cheapest and most precise way to stop what is already known.</p>
+      <p class="key-why">The right deployment keeps both layers and adds a third. Signature rules, rate-thresholded, handle the known and carry high precision. The anomaly platform runs as a triage layer feeding candidates, not alerts, into review. Precision is then raised by corroboration rather than by model tuning: requiring an anomaly score to coincide with a rare TLS fingerprint and a first-seen external destination multiplies roughly independent false-positive rates and buys orders of magnitude where retuning buys percentage points. Automated action is gated at a far higher threshold than alerting, and a human retains authority over containment.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) at least two genuine contributions of machine learning, per-entity baselining, label-free detection of novel techniques, or triage at volume; (ii) an explicit statement that accuracy is the wrong metric at low prevalence, with the alert-volume and precision consequence worked through in numbers; (iii) the recommendation to retain rather than replace signatures, with a reason; (iv) at least one concrete mechanism for raising precision, such as corroboration across independent signals or a higher threshold for automated action than for alerting. An answer that only asserts "AI has false positives" without connecting prevalence to precision and alert volume has not evaluated the impact.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">8. Free response</span><span class="key-lo">3.5.C, 3.5.E</span>
+      <p class="key-why"><strong>Model answer.</strong> The first observation is beaconing: a compromised host checking in with a command-and-control server on a schedule, the small and near-constant payload being a request for instructions rather than a data transfer. The two-minute spread is deliberate jitter intended to defeat a test for equal intervals, so the analytic technique is a variation measure rather than an equality test, the coefficient of variation of the gaps, which for a 30-minute beacon jittered by a few percent lands near 0.06, roughly two orders of magnitude below the value human browsing produces. The log source is flow data, NetFlow or IPFIX, or equivalently firewall connection records.</p>
+      <p class="key-why">The second is DNS tunnelling, used for command and control or exfiltration and mapped to ATT&amp;CK T1071.004 and T1048. Data is being encoded into the leftmost label, whose length is pushing toward the 63-octet ceiling RFC 1035 imposes, and whose mixed-case alphanumeric content is base32 or base64 output with entropy far above any naming convention. The technique is to compute Shannon entropy on the leftmost label and read it together with the label's length, then corroborate with the query rate to a single authoritative domain; the log source is the resolver's query log or a Zeek dns.log. The third is exfiltration: 611 MB sent against 1.1 MB received is a 555-to-one ratio, and a workstation is normally a net receiver of bytes, so the direction of the asymmetry is itself the indicator. The technique is a ratio test on flow byte counts over a sustained window.</p>
+      <p class="key-why">None of the three needs decryption because none of them lives in the payload. Beacon detection uses connection start times and byte counts, which are properties of the flow record. Tunnelling detection uses the queried name, which DNS carries in the clear whether or not the later session is encrypted. Exfiltration detection uses byte totals and direction. Encryption conceals content and leaves timing, volume, direction, and names exposed, which is exactly the metadata these three techniques consume. Corroboration also matters: the same host produces all three indicators, and their coincidence raises confidence far above any one of them alone.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) all three indicators named correctly, jittered beaconing, DNS tunnelling, and outbound data exfiltration; (ii) a specific analytic technique for each, with the recognition that jitter requires a variation measure rather than an equality test and that entropy must be read alongside label length; (iii) the correct log source for each, flow records for the first and third and resolver logs for the second; (iv) the explanation that these indicators are metadata rather than payload and therefore survive TLS. Credit the observation that the three coincide on one host and corroborate one another. An answer that proposes decrypting traffic to find any of these has missed why metadata analysis is the right instrument.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager">
+  <a class="prev" href="../3.4/notes.html"><span class="pager-label">Previous</span>&larr; 3.4 Firewall Access Controls</a>
+  <a class="next disabled" href="#"><span class="pager-label">Next</span>none &rarr;</a>
+</nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

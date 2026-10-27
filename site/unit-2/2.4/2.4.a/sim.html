@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.4.a, Access Log Triage Console, Simulation</title>
+<style>:root{--bg:#ffffff;--fg:#000000;--muted:#555555;--rule:#000000;--win-face:#c0c0c0;--win-light:#ffffff;--win-shadow:#808080;--win-dark:#000000;--win-title:#000080;--win-title-fg:#ffffff;--win-title-inactive:#7f7f7f;--lin-panel:#f5f5f5;--lin-border:#cccccc;--lin-accent:#3465a4;--term-bg:#000000;--term-fg:#00ff00;--term-dim:#00aa00;--term-cursor:#00ff00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;--tok-op:var(--fg)}html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}*{box-sizing:border-box}code,pre,.mono{font-family:var(--mono-font)}hr{border:none;border-top:1px solid var(--rule)}.theme-win .window{background:var(--win-face);padding:2px}.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);box-shadow:inset 1px 1px 0 0 var(--win-light),inset -1px -1px 0 0 var(--win-shadow)}.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;align-items:center}.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px}.window-body{background:var(--bg);color:var(--fg);padding:10px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);outline:none}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px}.theme-linux{--win-face:var(--lin-panel)}.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0}.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none}.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600}.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px}.theme-linux .btn:active{background:#ececec}.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent)}.theme-linux{--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px}.terminal .prompt{color:var(--term-dim)}.scorepanel{font-family:var(--mono-font)}.scorepanel .ok{color:#008000}.theme-linux .scorepanel .ok{color:#2f9e44}.scorepanel .bad{color:#aa0000}.wrap{max-width:960px;margin:16px auto;padding:0 12px}.toolbar{margin-bottom:8px}.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap}.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold}table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px}th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left}th{background:var(--win-face)}.hint{color:var(--muted);font-size:12px;margin-top:4px}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.4.a, Crestfield Analytics Access Log Triage Console</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>Each batch below shows a short slice of the Crestfield Analytics badge access log for one
+      badge ID. Decide the correct call: <b>CLEAN</b> (nothing to escalate), or the specific rule
+      that fires:</p>
+      <ul>
+        <li><b>RULE0-BURST</b>, 5 or more ACCESS DENIED events for the same badge within any 60-second window.</li>
+        <li><b>RULE1-AFTERHOURS</b>, a GRANTED entry at a door named <code>restricted-*</code> between 22:00 and 05:59.</li>
+        <li><b>RULE2-LOCATION</b>, the same badge GRANTED at two geographically far-apart doors within 10 minutes (600s).</li>
+      </ul>
+      <p>Reach 5 correct calls to meet the objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">crestfield-siem&gt; </span>Loading log batch...</div>
+      <div class="hint">All timestamps are UTC. "Far apart" door pairs are noted under each batch when relevant.</div>
+
+      <div class="choice-btns">
+        <button class="btn choice" data-v="CLEAN" onclick="chooseVerdict(this)">CLEAN</button>
+        <button class="btn choice" data-v="RULE0-BURST" onclick="chooseVerdict(this)">RULE0-BURST</button>
+        <button class="btn choice" data-v="RULE1-AFTERHOURS" onclick="chooseVerdict(this)">RULE1-AFTERHOURS</button>
+        <button class="btn choice" data-v="RULE2-LOCATION" onclick="chooseVerdict(this)">RULE2-LOCATION</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Batch</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 5 &#9474; Batch 1 of 8 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var BATCHES=[{id:"BATCH-01  badge B-1001",rows:[{ts:"08:02:11",door:"lobby",outcome:"GRANTED"},{ts:"08:02:40",door:"office-floor-2",outcome:"GRANTED"},{ts:"17:55:03",door:"lobby",outcome:"GRANTED"}],note:"",verdict:"CLEAN",explain:"All entries are within normal business hours (08:00-18:00), at non-restricted doors, no denial burst, and no far-apart pair within 10 minutes. Nothing to escalate."},{id:"BATCH-02  badge B-1002",rows:[{ts:"03:14:02",door:"lobby",outcome:"DENIED"},{ts:"03:14:09",door:"lobby",outcome:"DENIED"},{ts:"03:14:17",door:"lobby",outcome:"DENIED"},{ts:"03:14:25",door:"lobby",outcome:"DENIED"},{ts:"03:14:33",door:"lobby",outcome:"DENIED"},{ts:"03:14:41",door:"lobby",outcome:"DENIED"}],note:"",verdict:"RULE0-BURST",explain:"Six DENIED events for the same badge inside a 60-second window (03:14:02-03:14:41), this is the repeated denial burst signature, the access-log equivalent of a brute-force attempt."},{id:"BATCH-03  badge B-1003",rows:[{ts:"02:31:07",door:"restricted-server-room-A",outcome:"GRANTED"}],note:"",verdict:"RULE1-AFTERHOURS",explain:"A GRANTED entry at restricted-server-room-A at 02:31 UTC falls in the 22:00-05:59 after-hours window. The badge was valid, but valid credentials outside authorized hours at a restricted door still trigger an alert."},{id:"BATCH-04  badge B-1004",rows:[{ts:"09:10:00",door:"lobby",outcome:"GRANTED"},{ts:"09:16:40",door:"warehouse-dock",outcome:"GRANTED"}],note:"far_pairs includes {lobby, warehouse-dock}",verdict:"RULE2-LOCATION",explain:"The same badge was GRANTED at lobby and warehouse-dock, a listed far-apart pair, only 6 minutes 40 seconds (400s) apart, well under the 600-second threshold. This is a location inconsistency: the badge holder cannot plausibly have traveled between those doors that fast."},{id:"BATCH-05  badge B-1005",rows:[{ts:"23:45:00",door:"office-floor-1",outcome:"GRANTED"}],note:"office-floor-1 is NOT a restricted-* door",verdict:"CLEAN",explain:"The entry is after hours, but the door name does not start with restricted-, so Rule 1 does not apply. Non-restricted doors having night access (e.g. cleaning staff) is not automatically flagged."},{id:"BATCH-06  badge B-1006",rows:[{ts:"10:00:00",door:"lobby",outcome:"GRANTED"},{ts:"10:25:00",door:"warehouse-dock",outcome:"GRANTED"}],note:"far_pairs includes {lobby, warehouse-dock}",verdict:"CLEAN",explain:"Same far-apart pair as Batch 04, but the gap here is 25 minutes (1500s), outside the 600-second window, so Rule 2 does not trigger. Plenty of time to walk between buildings."},{id:"BATCH-07  badge B-1007",rows:[{ts:"14:00:00",door:"lobby",outcome:"DENIED"},{ts:"14:00:05",door:"lobby",outcome:"DENIED"},{ts:"14:00:11",door:"lobby",outcome:"DENIED"},{ts:"14:01:20",door:"lobby",outcome:"DENIED"}],note:"",verdict:"CLEAN",explain:"Only 4 DENIED events total, and they do not all fall within any single 60-second window (14:00:00 to 14:01:20 spans 80 seconds), below the 5-in-60s burst threshold, so Rule 0 does not fire."},{id:"BATCH-08  badge B-1008",rows:[{ts:"22:05:00",door:"restricted-vault",outcome:"DENIED"},{ts:"22:06:00",door:"restricted-vault",outcome:"GRANTED"}],note:"",verdict:"RULE1-AFTERHOURS",explain:"The initial DENIED does not matter, but the second event is a GRANTED entry at restricted-vault (a restricted-* door) at 22:06, inside the 22:00-05:59 window, Rule 1 fires on the granted after-hours access regardless of the earlier denial."}];var idx=0,score=0,GOAL=5,met=false,submitted=false,selected=null;function renderTable(rows){var html='<table><tr><th>timestamp (UTC)</th><th>door</th><th>outcome</th></tr>';rows.forEach(function(r){html+='<tr><td>'+r.ts+'</td><td>'+r.door+'</td><td>'+r.outcome+'</td></tr>';});html+='</table>';return html;}
+function renderRecord(){var b=BATCHES[idx];var stage=document.getElementById('stage');var noteHtml=b.note?('\n'+b.note):'';stage.innerHTML='<span class="prompt">'+b.id+' crestfield-siem&gt; </span>'+noteHtml+renderTable(b.rows);selected=null;submitted=false;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});document.getElementById('feedback').innerHTML='';updateStatus();}
+function chooseVerdict(btn){if(submitted)return;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});btn.classList.add('sel');selected=btn.getAttribute('data-v');}
+function submitChoice(){if(submitted||!selected)return;submitted=true;var b=BATCHES[idx];var isCorrect=selected===b.verdict;var fb=document.getElementById('feedback');if(isCorrect){score++;fb.innerHTML='<span class="ok">CORRECT.</span> '+b.explain;}else{fb.innerHTML='<span class="bad">INCORRECT.</span> Correct call: '+b.verdict+'. '+b.explain;}
+if(score>=GOAL)met=true;updateStatus();}
+function nextRecord(){idx=(idx+1)%BATCHES.length;renderRecord();}
+function updateStatus(){var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+GOAL+' &#9474; Batch '+(idx+1)+' of '+BATCHES.length+' &#9474; OBJECTIVE: '+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+renderRecord();</script>
+</body>
+</html>

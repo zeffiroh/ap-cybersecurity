@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.5.c Lab, The Base-Rate Problem</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Why 99% Accuracy Is Not a Detector</h1>
+  <p class="sub">Tune an anomaly detector over 10,000 events where only a handful are real attacks.</p>
+
+  <div class="brief">
+    <p>An AI detection rule is only as useful as the alerts it produces. Here a detector scores
+    <b>10,000</b> login events; the ground truth is hidden from the detector but known to us, and
+    only <b>8</b> are real attacks, a base rate of <b>0.08%</b>. You will run the detector at a
+    "99% accurate" setting and discover the alert queue is almost all false alarms, then trade
+    precision against recall, then see why auto-blocking on a noisy rule takes down real users.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="paradox"><span>Run the detector at the default threshold and confirm the accuracy-vs-precision paradox: ~99% accurate, yet most alerts are false.</span>
+      <div class="hint"><details><summary>Hint</summary>Leave the threshold at the default and read the metrics. Accuracy counts the 9,992 easy benign events, so it looks great; precision (real attacks ÷ all alerts) tells the truth about the queue.</details></div></li>
+    <li data-m="tradeoff"><span>Raise the threshold until precision climbs above 50%, and notice recall fall below 100% (real attacks now slip through).</span>
+      <div class="hint"><details><summary>Hint</summary>Drag the threshold higher. Fewer benign events clear the bar, so precision rises, but some attacks score below the bar too and are missed, so recall drops. You cannot maximize both at once.</details></div></li>
+    <li data-m="autoblock"><span>Turn on auto-block and find a threshold that blocks fewer than 5 legitimate users while still catching at least half of the attacks.</span>
+      <div class="hint"><details><summary>Hint</summary>Enable "Auto-block every alert." Each false positive is a real user locked out. Push the threshold high enough that false positives drop under 5, but not so high that true positives fall below 4.</details></div></li>
+  </ul>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Detector control</h3>
+      <label class="field" for="thr">Alert threshold, score &ge; <span id="thrval">56</span> fires an alert</label>
+      <input type="range" id="thr" min="20" max="95" value="56" step="1" style="width:100%">
+      <div class="row">
+        <label style="font-size:15px"><input type="checkbox" id="auto"> Auto-block every alert (lock the account)</label>
+      </div>
+      <p class="note" id="basenote"></p>
+      <h3 style="margin-top:14px">Confusion matrix</h3>
+      <div class="scroll">
+        <table class="data" id="cm">
+          <thead><tr><th></th><th>predicted attack</th><th>predicted benign</th></tr></thead>
+          <tbody>
+            <tr><th>actually attack</th><td id="tp"></td><td id="fn"></td></tr>
+            <tr><th>actually benign</th><td id="fp"></td><td id="tn"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>What the SOC sees</h3>
+      <div class="console" id="out"></div>
+      <h3 style="margin-top:14px">Alert queue (highest-scoring events)</h3>
+      <div class="scroll">
+        <table class="data" id="queue">
+          <thead><tr><th>#</th><th>account</th><th>score</th><th>this alert is</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Why accuracy lies on rare events</h2>
+    <p>When attacks are rare, a detector can score 99% accuracy just by being right about the flood
+    of benign traffic, while its alert queue is almost entirely false positives, a direct consequence
+    of the base rate. <b>Precision</b> (how many alerts are real) and <b>recall</b> (how many attacks
+    are caught) are the honest measures, and tightening a rule trades one for the other. Automating the
+    response, blocking on every alert, multiplies the cost of each false positive into a real outage,
+    which is why LO 1.5.A treats a generated detection rule as useful only when its precision and its
+    response action are matched to the base rate, not when its accuracy looks high.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc;var missions=new Lab.Missions("1.5.c",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});function mulberry32(a){return function(){a|=0;a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+var rnd=mulberry32(90211);function gauss(mean,sd){var u=1-rnd(),v=rnd();return mean+sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function clip(x){return Math.max(0,Math.min(100,Math.round(x)));}
+var N=10000,ATTACKS=8;var attackIdx={};for(var k=0;k<ATTACKS;k++)attackIdx[Math.floor((k+0.5)*N/ATTACKS)+(k*137%53)]=true;var USERS=["mara","devin","priya","sam","lena","arun","noa","ivo","ted","ula"];var events=[];for(var i=0;i<N;i++){var atk=!!attackIdx[i];var score=clip(atk?gauss(78,8):gauss(30,11));events.push({user:USERS[i%USERS.length]+(i%997),score:score,attack:atk});}
+function evaluate(thr){var tp=0,fp=0,fn=0,tn=0;for(var i=0;i<events.length;i++){var alert=events[i].score>=thr;if(events[i].attack){if(alert)tp++;else fn++;}
+else{if(alert)fp++;else tn++;}}
+return{tp:tp,fp:fp,fn:fn,tn:tn};}
+function render(){var thr=+document.getElementById("thr").value;var auto=document.getElementById("auto").checked;document.getElementById("thrval").textContent=thr;var m=evaluate(thr);var alerts=m.tp+m.fp;var acc=(m.tp+m.tn)/N;var prec=alerts?m.tp/alerts:0;var rec=(m.tp+m.fn)?m.tp/(m.tp+m.fn):0;document.getElementById("tp").textContent=m.tp;document.getElementById("tp").className="ok";document.getElementById("fn").textContent=m.fn;document.getElementById("fn").className=m.fn?"bad":"";document.getElementById("fp").textContent=m.fp;document.getElementById("fp").className=m.fp?"bad":"";document.getElementById("tn").textContent=m.tn;var minsEach=6;var hours=(alerts*minsEach/60);var outlines=['<span class="dim">accuracy </span>'+(acc*100).toFixed(2)+'%   '
++'<span class="dim">(counts the 9,992 easy benign events)</span>','<span class="dim">precision</span> '+(prec*100).toFixed(1)+'%   '
++(prec<0.2?'<span class="err">most alerts are false</span>':prec>=0.5?'<span class="ok">queue is mostly real</span>':''),'<span class="dim">recall   </span> '+(rec*100).toFixed(1)+'%   '
++(rec<1?'<span class="err">'+m.fn+' attack(s) missed</span>':'<span class="ok">all attacks caught</span>'),'','alerts in the queue: '+alerts+'   ('+m.tp+' real, '+m.fp+' false)','analyst triage at '+minsEach+' min/alert: '+hours.toFixed(1)+' hours'];if(auto){outlines.push('');outlines.push('<span class="err">AUTO-BLOCK ON: '+m.fp+' legitimate user(s) locked out</span>, '
++m.tp+' attack(s) stopped');}
+document.getElementById("out").innerHTML=outlines.join("\n");var top=events.filter(function(e){return e.score>=thr;}).sort(function(a,b){return b.score-a.score;}).slice(0,12);document.querySelector("#queue tbody").innerHTML=top.map(function(e,j){return"<tr><td>"+(j+1)+"</td><td>"+esc(e.user)+"</td><td>"+e.score+"</td><td class='"
++(e.attack?"ok'>REAL ATTACK":"bad'>false alarm")+"</td></tr>";}).join("")||"<tr><td colspan='4' class='dim'>no alerts at this threshold</td></tr>";if(acc>=0.98&&prec<=0.2&&alerts>0)missions.complete("paradox");if(prec>=0.5&&rec<1)missions.complete("tradeoff");if(auto&&m.fp<5&&m.tp>=4)missions.complete("autoblock");}
+document.getElementById("basenote").textContent="Stream: "+N.toLocaleString()+" events, "+ATTACKS+" real attacks (base rate 0.08%).";document.getElementById("thr").addEventListener("input",render);document.getElementById("auto").addEventListener("change",render);render();})();</script>
+</body>
+</html>

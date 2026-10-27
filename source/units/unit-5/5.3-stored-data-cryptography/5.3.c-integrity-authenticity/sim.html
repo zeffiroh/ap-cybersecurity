@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.3.c, Integrity and authenticity (HMAC), Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#e0e0e0;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--win-face);padding:12px;display:flex;flex-direction:column;gap:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn:disabled{color:var(--muted);cursor:default;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:140px;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}
+.scorepanel .bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 4px;}
+.toolbar{margin-bottom:8px;}
+.panel{background:#fff;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);padding:10px;}
+.panel h2{font-size:14px;margin-top:0;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:4px;}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.feedback-box{font-size:12px;font-weight:bold;margin-top:8px;min-height:16px;}
+.feedback-box.correct{color:#008000;}
+.feedback-box.incorrect{color:#aa0000;}
+.progress{font-family:var(--mono-font);font-size:12px;color:var(--muted);}
+.explain{font-size:12px;margin-top:4px;color:var(--muted);}
+.tag{font-family:var(--mono-font);font-size:11px;word-break:break-all;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.3.c, Integrity &amp; Authenticity Classification Queue</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Each round shows an integrity-check design (plain hash, naive <code>H(key+message)</code>, or real
+      HMAC) applied to a message that an attacker has intercepted. Classify the design as SECURE or
+      VULNERABLE against that attacker, then read the explanation. Reach the target score to meet the
+      objective.</p>
+
+      <div class="panel">
+        <h2>Scenario <span id="scenario-num">1</span> of <span id="scenario-total">6</span></h2>
+        <div id="stage" class="terminal">
+          <span class="prompt">sim&gt; </span><span id="scenario-text">Loading...</span>
+        </div>
+        <div class="opt-row" id="option-row"></div>
+        <div class="feedback-box" id="feedback"></div>
+        <div class="explain" id="explain"></div>
+        <div class="opt-row">
+          <button class="btn" id="next-btn" onclick="nextScenario()" disabled>Next scenario</button>
+        </div>
+        <p class="progress" id="progress"></p>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 6 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* Deterministic offline scenario queue: design + tamper status -> SECURE / VULNERABLE. */
+var SCENARIOS = [
+  {
+    text: "Design: a file's plain SHA-256 hash is published alongside the file on the same public " +
+          "download page. An attacker who controls that page swaps in a modified file AND recomputes " +
+          "the published hash to match it. A user downloads the file and compares it to the published hash.",
+    tag: "digest = SHA256(message)   [attacker can also edit the published digest]",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "vulnerable",
+    explain: "Plain hashing is public and keyless, anyone, including the attacker, can compute a correct " +
+             "hash over any content. Because the attacker controls both the file and the published digest, " +
+             "the user's check passes even though the file was tampered with."
+  },
+  {
+    text: "Design: a server authenticates API requests by computing tag = SHA256(secret + request_body) " +
+          "and checking it matches the tag the client sent. An attacker who does not know the secret " +
+          "intercepts a valid (message, tag) pair and appends extra attacker-controlled data to the " +
+          "request, then computes a new valid tag for the extended request using only the original " +
+          "tag's output as a starting point, without ever learning the secret.",
+    tag: "tag = SHA256(secret || message)   [naive concatenation]",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "vulnerable",
+    explain: "SHA-256 is a Merkle-Damgard hash: its digest exposes the exact internal state after processing " +
+             "secret||message. An attacker can resume hashing from that exposed state to compute a valid tag " +
+             "for secret||message||padding||attacker_data without ever learning the secret. This is a " +
+             "length-extension attack."
+  },
+  {
+    text: "Design: a webhook sender computes tag = HMAC-SHA256(shared_secret, payload) and sends it in a " +
+          "header alongside the payload. An attacker without the shared secret intercepts the payload, " +
+          "modifies one field, and tries to forge a new tag that the receiver will accept.",
+    tag: "tag = HMAC(key, message) = H((key^opad) || H((key^ipad) || message))",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "secure",
+    explain: "HMAC's double-nested construction never exposes an internal state the attacker can extend, and " +
+             "producing a valid tag requires the shared key at both nesting steps. Without the key, the " +
+             "attacker cannot forge a tag for the modified payload, the receiver's HMAC check will fail."
+  },
+  {
+    text: "Design: a JWT is signed with HS256 (HMAC-SHA256 over the header and payload, keyed with a " +
+          "server-side secret). A client decodes their own JWT, edits the payload to grant themselves " +
+          "admin privileges, and re-encodes it, but does not know the server's secret key.",
+    tag: "tag = HMAC(server_secret, header + '.' + payload)",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "secure",
+    explain: "The client can edit the payload freely, but cannot compute a matching HMAC tag without the " +
+             "server's secret key. When the server re-verifies the token, the recomputed tag will not match " +
+             "the (unchanged, now-stale) tag the client sent, so the tampered token is rejected."
+  },
+  {
+    text: "Design: a legacy internal tool checks file integrity by comparing tag = MD5(password + filename) " +
+          "against a stored value, where 'password' acts as a shared secret. An attacker who does not know " +
+          "the password wants to append a malicious extra filename segment and produce a matching tag.",
+    tag: "tag = MD5(password || filename)   [naive concatenation, older hash]",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "vulnerable",
+    explain: "MD5 is also a Merkle-Damgard construction, so naive key-prefix concatenation is vulnerable to " +
+             "the same length-extension attack as with SHA-256, swapping the hash function does not fix a " +
+             "naive design; only HMAC's nested structure does."
+  },
+  {
+    text: "Design: two microservices share a secret key and use it to compute HMAC-SHA256 over every " +
+          "message exchanged between them. An attacker on the network path flips a single bit in a " +
+          "message in transit, without touching the accompanying tag.",
+    tag: "tag = HMAC(key, message)   [attacker flips 1 bit of message only]",
+    options: [{label: "SECURE", value: "secure"}, {label: "VULNERABLE", value: "vulnerable"}],
+    correct: "secure",
+    explain: "The avalanche effect means flipping even a single bit of the message produces a completely " +
+             "different HMAC output. Since the attacker cannot recompute a matching tag without the key, the " +
+             "receiver recomputes HMAC(key, tampered_message), gets a mismatch against the original tag, and " +
+             "rejects the message."
+  }
+];
+
+var MAX = SCENARIOS.length;
+var idx = 0, score = 0, answered = false;
+
+function render(){
+  var s = SCENARIOS[idx];
+  document.getElementById('scenario-num').innerText = idx + 1;
+  document.getElementById('scenario-total').innerText = MAX;
+  document.getElementById('scenario-text').innerHTML =
+    s.text + '<br><br><span class="tag">' + s.tag + '</span>';
+  document.getElementById('feedback').className = 'feedback-box';
+  document.getElementById('feedback').innerText = '';
+  document.getElementById('explain').innerText = '';
+  document.getElementById('next-btn').disabled = true;
+  answered = false;
+
+  var row = document.getElementById('option-row');
+  row.innerHTML = '';
+  s.options.forEach(function(opt){
+    var b = document.createElement('button');
+    b.className = 'btn';
+    b.innerText = opt.label;
+    b.onclick = function(){ choose(opt.value); };
+    row.appendChild(b);
+  });
+
+  document.getElementById('progress').innerText =
+    idx < MAX - 1 ? 'Scenarios remaining: ' + (MAX - idx - 1) : 'Final scenario.';
+}
+
+function choose(value){
+  if (answered) return;
+  answered = true;
+  var s = SCENARIOS[idx];
+  var fb = document.getElementById('feedback');
+  var buttons = document.getElementById('option-row').querySelectorAll('button');
+  buttons.forEach(function(b){ b.disabled = true; });
+
+  if (value === s.correct) {
+    score++;
+    fb.className = 'feedback-box correct';
+    fb.innerText = 'Correct.';
+  } else {
+    fb.className = 'feedback-box incorrect';
+    fb.innerText = 'Incorrect.';
+  }
+  document.getElementById('explain').innerText = s.explain;
+  document.getElementById('next-btn').disabled = (idx >= MAX - 1);
+  updateScore();
+}
+
+function nextScenario(){
+  if (!answered || idx >= MAX - 1) return;
+  idx++;
+  render();
+}
+
+function updateScore(){
+  var met = (score === MAX) && (idx === MAX - 1) && answered;
+  var el = document.getElementById('score');
+  el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+    (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+render();
+updateScore();
+</script>
+</body>
+</html>

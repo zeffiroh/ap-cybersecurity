@@ -1,0 +1,420 @@
+\chapter{Asymmetric Cryptography}
+\label{ch:5.4}
+\chaptertopic{Topic 5.4}
+
+\chapterquote{We stand today on the brink of a revolution in cryptography.}{Whitfield Diffie and Martin Hellman, ``New Directions in Cryptography'' (1976)}
+
+\section{Motivation}
+
+Symmetric encryption in Chapter~\ref{ch:5.3} has an uncomfortable bootstrap problem: both parties
+need the same secret key before they can talk securely. So how do they share it the first time, over
+a network anyone might be listening to? This chapter's answer is asymmetric cryptography: two
+mathematically linked keys, one of which can be handed to literally anyone without weakening
+security at all. The chapter builds from the key pair itself, through the specific algorithm (RSA)
+that makes it work, to digital signatures. It closes with the infrastructure that lets you trust a
+stranger's public key really belongs to them in the first place.
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.4 -- Asymmetric Cryptography}
+\begin{apobjectives}
+\apobjective{5.4.A}{Mitigate Risk}{Use a public/private key pair correctly for the operation actually intended -- encrypting to a recipient's public key for confidentiality, or signing with one's own private key for authenticity -- recognizing that the two operations are not reversible readings of one another.}
+\apobjective{5.4.B}{Analyze Risk}{Compare key sizes across algorithm families on a common footing (security strength in bits, per NIST SP 800-57) rather than assuming equal key length means equal security, and reason about what a given key size still protects against today's best-known attacks.}
+\apobjective{5.4.C}{Mitigate Risk}{Establish trust in a stranger's public key through a certificate and a chain of trust anchored in a pre-installed root, and evaluate whether a presented certificate should actually be trusted.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Public/Private Key Pairs}
+
+\begin{definition}{Asymmetric cryptography}
+A cryptographic system built on two mathematically linked keys -- a \textbf{public key} that can be
+freely distributed, even posted publicly, and a \textbf{private key} kept secret by its owner
+forever -- where what one key does, only its partner can undo.
+\end{definition}
+
+Key generation starts from a hard mathematical problem: easy to compute in one direction,
+computationally infeasible to reverse without special knowledge. For RSA, that problem is integer
+factorization -- multiplying two large primes is fast, but recovering them from only their product is
+not, for large enough primes. Two large primes $p$ and $q$ are chosen; their product $n = p \times q$
+becomes part of both keys. A public exponent $e$ is chosen (nearly always 65537 in practice).
+A private exponent $d$ is then derived such that $e \times d \equiv 1 \pmod{\phi(n)}$, where
+$\phi(n) = (p-1)(q-1)$ -- a value that can only be computed efficiently if you already know $p$ and
+$q$. The public key is $(e, n)$; the private key is $(d, n)$.
+
+The keys are asymmetric in \emph{function}, not merely in secrecy, and this produces two entirely
+separate use cases. \textbf{Encrypt with the public key; decrypt with the private key}: if Alice
+wants to send Bob a secret, she encrypts with Bob's public key. Only Bob's private key can
+reverse it -- not even Alice, who did the encrypting, can decrypt her own message afterward. This is
+confidentiality. \textbf{Sign with the private key; verify with the public key}: if Bob wants to
+prove he authored something, he signs with his own private key. Anyone holding his public key
+can then verify it, knowing only Bob could have produced a signature that checks out. This is
+authenticity, covered fully later in this chapter.
+
+\begin{example}[The one-way trapdoor]
+A useful mental model is a trapdoor in a floor: easy to fall through in one direction, impossible to
+climb back through without the special mechanism. Multiplying $p$ and $q$ is the easy fall; factoring
+$n$ back into $p$ and $q$ is the locked climb. The private key is the trapdoor mechanism that
+makes the reverse direction possible for its holder alone. Other asymmetric systems use a different
+one-way problem entirely -- discrete logarithms for Diffie-Hellman, elliptic-curve discrete logarithms
+for ECC -- but the trapdoor structure recurs universally.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Deriving and validating RSA key parameters from two primes}]
+from math import gcd
+
+def derive_key_params(p, q, e):
+    """Returns (n, phi_n) and validates that e is a legal public exponent."""
+    n = p * q
+    phi_n = (p - 1) * (q - 1)
+    if not (1 < e < phi_n) or gcd(e, phi_n) != 1:
+        raise ValueError("e is not a valid public exponent for this n")
+    return n, phi_n
+
+def is_valid_key_pair(e, d, phi_n):
+    return (e * d) % phi_n == 1
+\end{lstlisting}
+
+Security scales with key size, since larger keys make the underlying factoring problem harder. But
+key length is not comparable across algorithm families: a 256-bit AES key, a 256-bit ECC key, and a
+256-bit RSA modulus describe three completely different security levels, because each family faces a
+different best-known attack. The unit that \emph{is} comparable is \textbf{security strength},
+measured in bits, where a scheme with $s$ bits of strength requires about $2^s$ operations to break.
+Table~2 of NIST SP 800-57 Part~1 Rev.~5\srccite{5.4}{1} gives the mapping between families:
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+\textbf{Strength (bits)} & \textbf{AES} & \textbf{RSA modulus} & \textbf{ECC key} \\
+\midrule
+112 & 3-key TDEA / AES-112-equiv & 2048-bit & 224--255 bit \\
+128 & AES-128 & 3072-bit & 256--383 bit \\
+192 & AES-192 & 7680-bit & 384--511 bit \\
+256 & AES-256 & 15360-bit & $\geq$512 bit \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The RSA column explodes while the other two grow roughly linearly because of the shape of the best
+attack against each. Against a well-chosen symmetric cipher or elliptic curve, the best known attack
+is generic -- exhaustive search for AES, Pollard's rho for ECC, which costs about the square root of
+the group order. So one more bit of key buys one more bit of strength for AES, and roughly half a bit
+for ECC. RSA instead faces the General Number Field Sieve, whose running time is
+\emph{sub-exponential} in the modulus size. So the next 16 bits of strength cost not a few more bits
+of modulus but thousands: 2048 to 3072 bits for the step from 112 to 128 bits of strength, and 3072
+to 15360 bits for the step from 128 to 256. RSA private-key operations also cost roughly the cube
+of the modulus size, so a 15360-bit RSA key is not merely large to transmit but unusable at scale,
+while a 512-bit elliptic curve remains cheap. That cost curve is why modern TLS and SSH deployments
+default to ECDSA P-256 or Ed25519 rather than to ever-larger RSA keys. It is also why an RSA-1024
+key, offering only about 80 bits of strength, sits below the security floor NIST withdrew support
+for in 2013.\srccite{5.4}{2} None of
+this matters, however, unless you actually receive the \emph{genuine} public key belonging to whoever
+you want to talk to, rather than one an attacker substituted -- the trust problem this chapter closes
+with in its final section.
+
+\begin{misconception}
+\textbf{``If I encrypt with the private key, it is more secure.''} Encrypting with the private key
+provides no confidentiality at all, since anyone holding the matching public key can decrypt it.
+Signing with the private key is for authenticity, a completely different guarantee from secrecy.
+\end{misconception}
+
+\section{The RSA Algorithm}
+
+Everything RSA does reduces to one operation, applied twice: \textbf{modular exponentiation}.
+Encryption computes $c = m^e \bmod n$; decryption computes $m = c^d \bmod n$. A theorem from number
+theory (built on Euler's theorem) guarantees $(m^e)^d \bmod n = m$ whenever $d$ was derived correctly
+relative to $e$, $p$, and $q$. Encrypting and then decrypting always returns the original message,
+but only for whoever holds the matching $d$.
+
+\begin{example}[A complete worked example, with nothing simplified away]
+\textbf{Key generation.} Choose two primes $p = 61$ and $q = 53$. The modulus is
+$n = pq = 3233$. Euler's totient is $\phi(n) = (p-1)(q-1) = 60 \times 52 = 3120$. Choose a public
+exponent coprime to $\phi(n)$: take $e = 17$, since $\gcd(17, 3120) = 1$. The private exponent $d$ is
+the modular inverse of $e$ modulo $\phi(n)$, i.e.\ the value satisfying $ed \equiv 1 \pmod{3120}$.
+The extended Euclidean algorithm gives $d = 2753$, which checks: $17 \times 2753 = 46801 = 15 \times
+3120 + 1$. The public key is $(e,n) = (17, 3233)$; the private key is $(d,n) = (2753, 3233)$. The
+primes $p$ and $q$ themselves must now be destroyed or protected exactly as carefully as $d$, since
+either one immediately yields $d$.
+
+\textbf{Encryption.} To send $m = 65$, a sender computes $c = m^e \bmod n$ using the recipient's
+public key. Doing this by square-and-multiply, so every intermediate value can be checked by hand:
+\[
+65^1 \bmod 3233 = 65, \quad 65^2 \bmod 3233 = 992, \quad 65^4 \bmod 3233 = 1232,
+\]
+\[
+65^8 \bmod 3233 = 1547, \quad 65^{16} \bmod 3233 = 789.
+\]
+Since $17 = 16 + 1$, $65^{17} = 65^{16} \times 65^1 \equiv 789 \times 65 = 51285 \equiv 2790
+\pmod{3233}$. The ciphertext is $c = 2790$.
+
+\textbf{Decryption.} The recipient recovers $m = c^d \bmod n = 2790^{2753} \bmod 3233 = 65$ using
+their private key -- an exponent large enough that it is checked by machine rather than by hand.
+Notice that running the same pair of operations in the opposite order, private key first and public
+key second, is the skeleton of a signature rather than of an encryption. The direction of the two
+keys, not the arithmetic itself, is what distinguishes the two use cases.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={RSA encryption and decryption via modular exponentiation}]
+def rsa_encrypt(m, e, n):
+    return pow(m, e, n)
+
+def rsa_decrypt(c, d, n):
+    return pow(c, d, n)
+\end{lstlisting}
+
+Real implementations almost universally use $e = 65537$ ($2^{16}+1$) rather than a small arbitrary
+prime, for three reasons. It is prime, so $\gcd(e, \phi(n)) = 1$ is essentially guaranteed for random
+large $p, q$. Its binary form (a single 1 bit, fifteen 0 bits, a final 1 bit) makes repeated-squaring
+exponentiation fast. And it is large enough to defeat low-exponent attacks that break RSA when $e$ is
+very small (such as $e=3$) and the same message is sent unpadded to multiple recipients. Why this
+resists reversal without $d$ traces directly back to Chapter~\ref{ch:5.4}'s first section: computing
+$d$ from $(e, n)$ alone requires $\phi(n)$, which requires factoring $n$ into $p$ and $q$. That is
+trivial for a toy $n=33$, but computationally infeasible for a real 2048-bit modulus with no known
+classical algorithm. The asymmetry that protects RSA lives entirely in the difficulty of factoring,
+never in the exponentiation itself, which is fast in both directions once the correct exponent is
+known.
+
+\begin{misconception}
+\textbf{``Small numbers in the worked example mean RSA is easy to break.''} The arithmetic is
+identical at any size; security comes from using primes hundreds of digits long, where factoring $n$
+becomes computationally infeasible -- not from the operations themselves becoming more complex.
+\end{misconception}
+
+\section{Digital Signatures}
+
+A digital signature is the asymmetric analogue of the HMAC from Chapter~\ref{ch:5.3}. Where HMAC
+relies on one shared secret both parties possess, a signature uses a key pair: only the signer holds
+the private key, and anyone at all can hold the public key. That structural difference unlocks a
+guarantee HMAC cannot offer.
+
+Signing the entire message directly with RSA's private-key operation is both slow (RSA exponentiation
+cost grows with input size) and structurally risky. An attacker who obtains signatures on certain
+chosen messages can sometimes combine them algebraically to forge a signature on a message never
+actually signed. Real schemes fix both problems by never signing the message itself:
+
+\begin{lstlisting}[language=Python, caption={Signing and verifying via a hashed digest}]
+import hashlib
+
+def sign(message, d, n):
+    digest = int(hashlib.sha256(message.encode()).hexdigest(), 16) % n
+    return pow(digest, d, n)
+
+def verify(message, signature, e, n):
+    expected_digest = int(hashlib.sha256(message.encode()).hexdigest(), 16) % n
+    recovered_digest = pow(signature, e, n)
+    return recovered_digest == expected_digest
+\end{lstlisting}
+
+The signer computes a fixed-size digest of the message with a cryptographic hash, and signs
+\emph{that digest} rather than the message. A verifier recomputes the hash independently, recovers
+the digest the signature actually encodes, and checks the two match. Hashing first keeps the
+signature a fixed, small size regardless of message length, and runs the expensive RSA step only
+once. It also inherits the avalanche effect from Chapter~\ref{ch:5.3}: a single changed bit in the
+message produces a completely different hash, so any tampering is caught the instant verification
+is attempted.
+
+A signature that verifies successfully gives three distinct guarantees at once. \textbf{Authenticity}
+-- the signature could only have been produced by whoever holds the matching private key.
+\textbf{Integrity} -- because the signature covers a hash of the message, any post-signing
+modification changes that hash and breaks verification immediately. \textbf{Non-repudiation} -- the
+signer cannot credibly deny having signed, since nobody else possesses their private key.
+
+\begin{example}[Why signatures beat HMAC for this specific guarantee]
+HMAC gives integrity and authenticity between exactly two parties who share a secret key, but no
+non-repudiation at all. If Alice and Bob share an HMAC key and Alice receives a validly tagged
+message, she knows it came from ``Bob or herself,'' since either party holding the shared secret
+could have produced that exact tag. There is no way to prove to a third party which of the two
+actually created it. A digital signature removes this ambiguity structurally, because signing and
+verifying use \emph{different} keys: only the signer can produce a valid signature, but anyone can
+verify one. That also lets a single public key scale to an unlimited number of verifiers, unlike
+HMAC, where every new verifier would need its own shared secret -- and could then forge tags for
+everyone else.
+\end{example}
+
+\begin{misconception}
+\textbf{``A digital signature encrypts the message for confidentiality.''} It provides no secrecy at
+all; the message is frequently sent in the clear alongside its signature. Signing proves authenticity
+and integrity, never confidentiality -- that requires separately encrypting with the recipient's
+public key.
+\end{misconception}
+
+\section{PKI and Digital Certificates}
+
+The previous section left a bootstrap problem deliberately unsolved: asymmetric cryptography lets
+you hand out your public key freely, but only helps if the recipient can be sure that key genuinely
+belongs to who it claims. If an attacker slips you a different public key while claiming to be your
+bank, every guarantee from this chapter collapses at once -- you would encrypt your password with the
+attacker's key, believing it protected.
+
+\begin{definition}{Digital certificate}
+A small, signed document binding a public key to an identity, containing at minimum a
+\textbf{subject} (the identity vouched for), the subject's public key, an \textbf{issuer} (who is
+vouching), a validity period, and a digital signature over all of those fields, produced with the
+issuer's own private key.
+\end{definition}
+
+That signature is exactly the sign/verify operation from the previous section: the issuer hashes the
+certificate's fields and signs the digest. Anyone holding the issuer's public key can then verify
+that the certificate has not been altered since the issuer vouched for it. The issuer here is a
+\textbf{Certificate Authority (CA)}, but this only pushes the trust question up one level: why trust
+the CA's own public key?
+
+\begin{definition}{Chain of trust}
+The sequence of signed certificates from a leaf certificate up through intermediate CAs to a
+\textbf{root CA}, whose self-signed certificate is pre-installed in an operating system or browser's
+\textbf{trust store}, verified out-of-band by the OS vendor rather than by the individual user.
+\end{definition}
+
+A root CA rarely signs end-entity certificates directly -- its private key is kept extremely well
+protected, often entirely offline -- and instead signs \textbf{intermediate CA} certificates,
+delegating signing authority downward. The intermediate CA then signs the actual leaf certificate
+presented to a browser. Validating this chain means verifying each certificate's signature using the
+\emph{next} certificate's public key -- the leaf against the intermediate's key, the intermediate
+against the root's. The validator then confirms the chain terminates at a root already present in
+the trust store.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  cert/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.2cm, minimum height=1cm, align=center, font=\scriptsize},
+]
+\node[cert, fill=kickstartermaroon!25] (root) at (0,2.4) {Root CA\\self-signed, in OS/browser\\trust store};
+\node[cert, fill=kickstartercream] (inter) at (0,1.2) {Intermediate CA\\signed by root's\\private key};
+\node[cert] (leaf) at (0,0) {Leaf certificate\\(the website)\\signed by intermediate's\\private key};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (inter) -- (root) node[midway, right, font=\tiny] {verify against};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (leaf) -- (inter) node[midway, right, font=\tiny] {verify against};
+\node[font=\scriptsize\sffamily, gray, align=left] at (4.6,1.2) {each arrow is a signature\\checked with the\\\emph{next} cert's public key};
+\end{tikzpicture}
+\caption{The chain of trust: validation walks from the leaf certificate up to a root already
+present in the trust store, verifying each signature with the next certificate's public key.}
+\label{fig:5.4-chain-of-trust}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={Walking a certificate chain to verify trust}]
+def validate_chain(chain, trusted_roots, verify_signature):
+    """chain: list of cert dicts ordered leaf-first, each like
+       {"subject": str, "issuer": str, "public_key": ..., "signature": ...,
+       "signed_fields": ..., "not_before": int, "not_after": int}.
+       trusted_roots: set of root subject names.
+       verify_signature(cert, issuer_public_key) -> bool.
+       Returns (True, None) or (False, reason)."""
+    for i, cert in enumerate(chain):
+        if i + 1 < len(chain):
+            issuer_cert = chain[i + 1]
+            if cert["issuer"] != issuer_cert["subject"]:
+                return False, "broken-chain-link"
+            if not verify_signature(cert, issuer_cert["public_key"]):
+                return False, "invalid-signature"
+        else:
+            if cert["subject"] not in trusted_roots:
+                return False, "untrusted-root"
+            if cert["subject"] != cert["issuer"]:
+                return False, "root-not-self-signed"
+    return True, None
+\end{lstlisting}
+
+Beyond the signature chain, a client checks each certificate's \textbf{validity window} -- one
+presented before \texttt{not\_before} or after \texttt{not\_after} is rejected, which is why an
+expired certificate throws a browser warning. A client also checks its \textbf{revocation status},
+since a certificate's stated expiration might be years away while the situation that made it
+trustworthy can change immediately, most commonly because its private key was stolen. A CA cannot
+un-sign an already-issued certificate, so it instead publishes revocation through a \textbf{Certificate
+Revocation List (CRL)}, a periodically updated, CA-signed list of revoked serial numbers. Or it
+publishes through \textbf{OCSP}, where a client asks a CA-operated responder in real time whether one
+specific certificate is still good and receives a signed answer without downloading an entire list.
+
+\begin{misconception}
+\textbf{``Revocation and expiration are the same thing.''} Expiration is a scheduled, built-in end
+to a certificate's validity window. Revocation is an unscheduled, active withdrawal of trust before
+that date, typically because the private key was compromised in the meantime.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item Alice encrypts a message with Bob's public key and sends it. Explain why Alice herself cannot
+decrypt the ciphertext afterward, and explain what property of the key pair makes this true.
+\item Using the worked RSA example in this chapter ($p=61$, $q=53$, $e=17$, $d=2753$, $n=3233$),
+explain in your own words why encrypting $m=65$ and then decrypting the result returns exactly $65$,
+referencing the relationship between $e$, $d$, and $\phi(n)$.
+\item Explain why real signature schemes hash a message before signing it, rather than signing the
+raw message directly with RSA, citing both a performance reason and a structural-security reason from
+this chapter.
+\item Two colleagues, Alice and Bob, share an HMAC key. Alice receives a validly tagged message and
+cannot prove to a third party whether Bob or she herself produced it. Explain why switching to
+digital signatures resolves this specific ambiguity.
+\item A browser encounters a self-signed certificate for a public website and rejects it, while the
+same browser accepts a different self-signed certificate manually installed on a private internal
+network. Explain why the identical cryptographic construction produces two different trust outcomes.
+\item Using the chain-of-trust diagram, explain what specifically breaks validation if an
+intermediate CA's certificate is presented but the leaf certificate's \texttt{issuer} field does
+not match the intermediate's \texttt{subject} field, even if every individual signature in the
+chain is otherwise mathematically valid.
+\item A root CA's private key is compromised, but the root CA itself has not yet issued a
+revocation or informed browser vendors. Explain why the security strength table earlier in this
+chapter (comparing AES, RSA, and ECC key sizes) is irrelevant to assessing the danger here, and
+identify what actually determines the scope of damage.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Alice cannot decrypt her own ciphertext because encryption with Bob's public key can only be
+reversed by Bob's matching private key, which only Bob holds -- not even the party that performed the
+encryption. This follows from the defining property of the key pair: what one key does, only its
+mathematically linked partner can undo, and Alice possesses neither Bob's private key nor any
+shortcut around needing it.
+\answerlabel{5.4.A}
+\item Because $d$ was derived so that $ed \equiv 1 \pmod{\phi(n)}$ (here $17 \times 2753 \equiv 1
+\pmod{3120}$), a theorem built on Euler's theorem guarantees $(m^e)^d \bmod n = m$ for any $m$
+coprime to $n$. Concretely, $65^{17} \bmod 3233 = 2790$, and $2790^{2753} \bmod 3233$ returns exactly
+$65$ again, because the modular exponentiation with $d$ is mathematically constructed to be the
+exact inverse operation of exponentiation with $e$ under modulus $n$.
+\answerlabel{5.4.A}
+\item The performance reason: RSA exponentiation cost grows with the size of the input, so signing a
+short, fixed-size hash rather than an arbitrarily long message keeps the expensive private-key
+operation cheap and constant-size regardless of message length. The structural-security reason: an
+attacker who obtains RSA signatures on certain chosen raw messages can sometimes combine them
+algebraically to forge a signature on a message never actually signed. Hashing first removes this
+algebraic structure by feeding the signature operation an unpredictable, avalanche-effect digest
+instead of the raw message.
+\answerlabel{5.4.A}
+\item HMAC's shared-secret key does not distinguish which of the two key-holders produced a given
+tag, since either party could have computed it -- there is no third piece of evidence separating
+Alice from Bob. Digital signatures use different keys for signing and verifying: only the actual
+signer's private key can produce a valid signature. So a signature that verifies against Bob's
+public key could only have come from Bob, resolving the ambiguity structurally rather than through
+trust between the two parties.
+\answerlabel{5.4.A}
+\item Trust in a self-signed certificate depends entirely on whether its signing key is already
+present in the verifier's trust store through some independent, out-of-band decision. A public
+website's self-signed certificate is not signed by any CA in the browser's pre-installed trust
+store, so the chain of trust cannot be validated and the browser rejects it. The internal network's
+self-signed certificate was manually installed into that specific browser's trust store by an
+administrator, which is exactly the out-of-band act of trust a root CA normally provides at
+OS-vendor scale. So the identical cryptographic construction is accepted there and nowhere else.
+\answerlabel{5.4.C}
+\item Validation requires each certificate's stated issuer to match the subject of the certificate
+that actually signed it, forming an unbroken chain of names as well as an unbroken chain of
+signatures. If the leaf's \texttt{issuer} field does not match the intermediate's \texttt{subject}
+field, the chain link itself is broken -- there is no defined next certificate to verify the leaf's
+signature against, regardless of whether some other, unrelated certificate's signature happens to
+be mathematically valid. A validator following the chain-of-trust logic returns a broken-chain-link
+failure at exactly this point, and never reaches the question of cryptographic validity for the
+mismatched link at all.
+\answerlabel{5.4.C}
+\item Key-size comparisons describe how hard it is to break a key through cryptanalysis or
+brute-force; they say nothing about a scenario where the key has already been stolen outright, since
+a stolen key requires no cryptanalysis at all -- the attacker simply has it. What determines the
+scope of damage here is the chain of trust's structure: every certificate anywhere that chains up to
+this root, through any number of intermediate CAs, is now falsifiable. An attacker holding
+the root's private key can forge a valid signature for a certificate claiming to be any website at
+all, and every browser with that root in its trust store will accept it without complaint until the
+compromise is disclosed and the root is actively removed or revoked.
+\answerlabel{5.4.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{5.4}{1}National Institute of Standards and Technology, \emph{Recommendation for Key
+Management: Part 1 -- General}, NIST Special Publication 800-57 Part 1 Revision 5, May 2020, Table~2
+(``Comparable security strengths of symmetric block cipher and asymmetric-key algorithms''), p.~54.
+\item \srcitem{5.4}{2}National Institute of Standards and Technology, \emph{Recommendation for
+Transitioning the Use of Cryptographic Algorithms and Key Lengths}, NIST Special Publication 800-131A,
+January 2011 -- setting a transition deadline of the end of 2013, after which 80-bit-strength
+algorithms including 1024-bit RSA are disallowed for applying cryptographic protection.
+\end{enumerate}

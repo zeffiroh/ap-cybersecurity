@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data loss detection (DLP), Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Data loss detection (DLP)</h1>
+<h1>Coding problem, 5.6.b: DLP egress rule</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 5.6.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Implement the volume/behavior-based DLP rule described in the lesson: given a list of outbound
+transfer events, flag the ones that exceed a size threshold AND go to a destination that is not
+on the organization's approved-destination list, a classic egress-monitoring rule.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(transfers: list, approved_destinations: list, volume_threshold_mb: int) -&gt; list</code>
+in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>transfers</code>: <code>list[dict]</code>, each <code>{"id": str, "bytes_mb": int, "destination": str}</code>.</li>
+<li><code>approved_destinations</code>: <code>list[str]</code> of known-good destination names.</li>
+<li><code>volume_threshold_mb</code>: <code>int</code>, transfer must exceed this size to be eligible for flagging.</li>
+</ul>
+<h2>Output</h2>
+<p>Sorted <code>list[str]</code> of flagged transfer <code>id</code>s.</p>
+<h2>Examples</h2>
+<pre><code>transfers = [{&quot;id&quot;:&quot;t1&quot;,&quot;bytes_mb&quot;:500,&quot;destination&quot;:&quot;unknown-cloud.example&quot;}]
+solve(transfers, [&quot;corp-backup.internal&quot;], volume_threshold_mb=100) -&gt; [&quot;t1&quot;]
+</code></pre>
+<pre><code>transfers = [{&quot;id&quot;:&quot;t2&quot;,&quot;bytes_mb&quot;:500,&quot;destination&quot;:&quot;corp-backup.internal&quot;}]
+solve(transfers, [&quot;corp-backup.internal&quot;], volume_threshold_mb=100) -&gt; []   # approved destination
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>The size comparison is strict (<code>bytes_mb &gt; volume_threshold_mb</code>).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(transfers: list, approved_destinations: list, volume_threshold_mb: int) -&gt; list
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>transfers</code>: <code>list[dict]</code>, each <code>{"id": str, "bytes_mb": int, "destination": str}</code>. <code>id</code> is
+  unique per transfer.</li>
+<li><code>approved_destinations</code>: <code>list[str]</code> of destination names considered safe/sanctioned.</li>
+<li><code>volume_threshold_mb</code>: <code>int</code>, a transfer must exceed this size (strictly greater than) to be
+  eligible for flagging.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>Sorted <code>list[str]</code> of transfer <code>id</code>s that should be flagged: <code>bytes_mb &gt; volume_threshold_mb</code>
+AND <code>destination</code> is NOT in <code>approved_destinations</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>The size comparison is strict (<code>&gt;</code>, not <code>&gt;=</code>): a transfer exactly at the threshold is not
+  flagged.</li>
+<li>An empty <code>approved_destinations</code> list means every destination is treated as unapproved.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.6.b. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Dict, List
+
+
+def solve(
+    transfers: List[Dict[str, object]],
+    approved_destinations: List[str],
+    volume_threshold_mb: int,
+) -&gt; List[str]:
+    """DLP egress rule: flag outbound transfers that exceed a volume threshold AND go to a
+    destination that is not on the approved list.
+
+    Args:
+        transfers: list of {"id": str, "bytes_mb": int, "destination": str}.
+        approved_destinations: list[str] of known-good destination names.
+        volume_threshold_mb: int — a transfer must exceed this size (strictly greater than)
+            to be eligible for flagging.
+    Returns:
+        sorted list[str] of the transfer `id`s that should be flagged.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_large_transfer_to_unapproved_flagged():
+    transfers = [{"id": "t1", "bytes_mb": 500, "destination": "unknown-cloud.example"}]
+    assert impl.solve(transfers, ["corp-backup.internal"], volume_threshold_mb=100) == ["t1"]
+
+
+def test_large_transfer_to_approved_not_flagged():
+    transfers = [{"id": "t2", "bytes_mb": 500, "destination": "corp-backup.internal"}]
+    assert impl.solve(transfers, ["corp-backup.internal"], volume_threshold_mb=100) == []
+
+
+def test_small_transfer_to_unapproved_not_flagged():
+    transfers = [{"id": "t3", "bytes_mb": 5, "destination": "unknown-cloud.example"}]
+    assert impl.solve(transfers, ["corp-backup.internal"], volume_threshold_mb=100) == []
+
+
+def test_multiple_transfers_only_matching_flagged():
+    transfers = [
+        {"id": "a", "bytes_mb": 200, "destination": "evil.example"},
+        {"id": "b", "bytes_mb": 50, "destination": "evil.example"},
+        {"id": "c", "bytes_mb": 300, "destination": "partner.trusted"},
+        {"id": "d", "bytes_mb": 400, "destination": "another-evil.example"},
+    ]
+    result = impl.solve(transfers, ["partner.trusted"], volume_threshold_mb=100)
+    assert result == ["a", "d"]
+
+
+def test_results_sorted():
+    transfers = [
+        {"id": "zeta", "bytes_mb": 200, "destination": "bad.example"},
+        {"id": "alpha", "bytes_mb": 200, "destination": "bad.example"},
+    ]
+    assert impl.solve(transfers, [], volume_threshold_mb=100) == ["alpha", "zeta"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_boundary_exactly_at_threshold_not_flagged():
+    transfers = [{"id": "t4", "bytes_mb": 100, "destination": "unapproved.example"}]
+    assert impl.solve(transfers, [], volume_threshold_mb=100) == []
+
+
+def test_boundary_one_over_threshold_flagged():
+    transfers = [{"id": "t5", "bytes_mb": 101, "destination": "unapproved.example"}]
+    assert impl.solve(transfers, [], volume_threshold_mb=100) == ["t5"]
+
+
+def test_empty_approved_list_means_everything_unapproved():
+    transfers = [{"id": "t6", "bytes_mb": 999, "destination": "anywhere.example"}]
+    assert impl.solve(transfers, [], volume_threshold_mb=100) == ["t6"]
+
+
+def test_empty_transfers():
+    assert impl.solve([], ["ok.example"], volume_threshold_mb=100) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

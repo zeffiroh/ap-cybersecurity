@@ -1,0 +1,9 @@
+# 3.2.a tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The frame worth carrying in: Wi-Fi has no cable, which means Wi-Fi has no privacy by default, every frame you send radiates in every direction to anyone with an antenna in range, full stop. WPA2 and WPA3 aren't optional polish on top of a private medium; they're the entire reason Wi-Fi is usable for anything sensitive at all, because without them you'd be broadcasting your traffic to the parking lot the same way you'd be shouting a phone call across a crowded room. Keep that mental picture, broadcasting into public space, and the rest of the atom's design decisions (why authenticate, why encrypt, why the handshake matters) stop being arbitrary standards and start being the obvious response to a genuinely public medium.
+
+## The big picture
+The single upgrade worth remembering by name is what WPA3's SAE handshake actually fixes: WPA2's four-way handshake can be captured and taken offline, where an attacker with unlimited time and no risk of detection can grind through a password dictionary at their leisure; SAE's zero-knowledge proof means the captured handshake gives an offline attacker nothing to grind against at all. That's a different *kind* of security improvement than "use a longer key", it's closing off an entire attack strategy, not just making it slower. Notice too how this skill quietly reinforces 3.2.b's point before you've even gotten there: WPA3 is a technical control, but it only protects you if the *managerial* decision to disable WPA2 fallback and enforce 20-character random passwords actually gets made and enforced. A network can have the strongest wireless protocol on Earth and still be wide open because the policy layer around it never caught up, the protocol is necessary, but on its own it is not sufficient.

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database Check · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../assets/reports/report-theme.css">
+<style>
+.step { margin: 10px 0; padding: 10px 12px; border-left: 4px solid #ccc; background: #fff; }
+.step.ok { border-color: #1a6b1a; }
+.step.bad { border-color: #800000; }
+.step code { word-break: break-all; }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="crumb"><a href="index.html">Instructor Home</a> &gt; Database Check</div>
+</nav>
+<div class="report-wrap">
+  <h1 class="report-title">Database Check</h1>
+  <p class="report-subtitle">Read-only test of the Neon connection set in assets/config.js. Nothing is written.</p>
+  <div id="out"></div>
+</div>
+
+<script src="../assets/config.js"></script>
+<script src="../assets/shared/neon.js"></script>
+<script>
+var out = document.getElementById("out");
+function step(ok, title, detail) {
+  var d = document.createElement("div");
+  d.className = "step " + (ok ? "ok" : "bad");
+  d.innerHTML = "<strong>" + (ok ? "✓ " : "✗ ") + title + "</strong>" + (detail ? "<div>" + detail + "</div>" : "");
+  out.appendChild(d);
+  return ok;
+}
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+(async function () {
+  var n = (window.APCYBER_CONFIG || {}).neon || {};
+  if (!step(!!(n.authUrl && n.dataApiUrl), "Addresses filled in",
+      n.authUrl && n.dataApiUrl ? "" : "Set <code>neon.authUrl</code> and <code>neon.dataApiUrl</code> in assets/config.js (db/README.md step 5).")) return;
+
+  var token;
+  try {
+    var res = await fetch(n.authUrl.replace(/\/+$/, "") + "/token/anonymous", { credentials: "omit" });
+    if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()).slice(0, 200));
+    token = (await res.json()).token;
+    if (!token) throw new Error("no token in the response");
+    step(true, "Neon Auth issued an anonymous token");
+  } catch (e) {
+    step(false, "Neon Auth anonymous token", esc(e.message) +
+      "<br>Check that Neon Auth is enabled and allows anonymous access, and that authUrl ends in /auth (step 2). A network error here can also mean this site's address is not allowed (CORS).");
+    return;
+  }
+
+  try {
+    var r = await Neon.rpc("api_class_report", {}, { attempts: 1 });
+    step(true, "Data API reached the database",
+      "Class roster: " + (r.roster || []).length + " student(s), " +
+      (r.pendingExitTickets || []).length + " exit ticket(s) waiting.");
+  } catch (e) {
+    var m = String(e.message);
+    var hint = /404/.test(m) ? "The function was not found: run db/schema.sql in the SQL Editor (step 4), and check dataApiUrl ends in /rest/v1."
+      : /401|403|permission/i.test(m) ? "The token was refused: make sure the Data API trusts Neon Auth (step 3) and that schema.sql ran after both were enabled."
+      : "If this is a network error, add this site's address to the Data API's allowed origins (step 3).";
+    step(false, "Data API call", esc(m) + "<br>" + hint);
+    return;
+  }
+  step(true, "All set", "Submissions, the class dashboard and the tutor dashboard will use the shared database.");
+})();
+</script>
+</body>
+</html>

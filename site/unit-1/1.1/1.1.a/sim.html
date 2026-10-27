@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.1.a - Spot the Tactic</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000}.wrap{max-width:760px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:3px 6px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--bg);padding:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active,.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{font-weight:bold;background:#d8d8ff}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.theme-linux .btn.sel{background:#dbe7ff}.msg{font-family:var(--mono-font);background:#000;color:#00ff00;padding:10px 12px;white-space:pre-wrap;line-height:1.4;min-height:90px}.msg .hdr{color:#00aa00}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:10px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.ok{color:#008000;font-weight:bold}.bad{color:#aa0000;font-weight:bold}.feedback{font-family:var(--mono-font);margin-top:8px;min-height:18px}h1{font-size:16px;margin:0 0 6px}.tactics{margin:10px 0}.toolbar{margin-bottom:8px}.legend{font-size:12px;color:var(--muted);margin-top:6px}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>1.1.a - Spot the Tactic</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Read each message. Select EVERY psychological pressure tactic it uses, then Submit.
+         Reach <b id="goal">5</b> correct to meet the objective. (Some messages use none, submit with nothing selected.)</p>
+
+      <div class="msg" id="msg"><span class="hdr">From:</span> ...</div>
+
+      <div class="tactics">
+        <button class="btn tac" data-t="urgency"      onclick="toggle(this)">Urgency</button>
+        <button class="btn tac" data-t="authority"    onclick="toggle(this)">Authority</button>
+        <button class="btn tac" data-t="scarcity"     onclick="toggle(this)">Scarcity</button>
+        <button class="btn tac" data-t="intimidation" onclick="toggle(this)">Intimidation</button>
+      </div>
+      <div>
+        <button class="btn" onclick="submit()">Submit</button>
+        <button class="btn" onclick="next()">Next message</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+
+      <div class="statusbar" id="score">SCORE 0 / 5 | message 1 of 6 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. This inbox is simulated and deterministic. Tactics: urgency=limited time, scarcity=limited supply, authority=borrowed power, intimidation=threats.</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var INBOX=[{from:"security@yourbank-alerts.com",subj:"Action required",body:"We detected suspicious activity. Your account will be locked in 24 hours unless you verify immediately.",tactics:["authority","intimidation","urgency"]},{from:"it-helpdesk@company.example",subj:"Mailbox upgrade",body:"This is the IT department. Only a limited number of upgrade slots remain - last chance to keep your mailbox.",tactics:["authority","scarcity"]},{from:"payroll@company.example",subj:"Lunch",body:"Reminder: team lunch is in the kitchen at noon. Help yourself, no rush.",tactics:[]},{from:"no-reply@irs-refunds.example",subj:"Final notice",body:"This is the IRS. Pay the outstanding penalty immediately or we will pursue legal action.",tactics:["authority","intimidation","urgency"]},{from:"deals@shop.example",subj:"Exclusive",body:"Exclusive offer for you only - while supplies last, a few left at this price.",tactics:["scarcity"]},{from:"ceo@company.example",subj:"Quick favor",body:"This is the CEO. I need this done right now, ASAP, before the board meeting.",tactics:["authority","urgency"]}];var idx=0,score=0,sel=new Set(),GOAL=5,met=false,answered=false;function render(){var m=INBOX[idx];document.getElementById('msg').innerHTML='<span class="hdr">From:</span> '+esc(m.from)+'\n<span class="hdr">Subj:</span> '+esc(m.subj)+'\n\n'+esc(m.body);sel.clear();answered=false;document.querySelectorAll('.tac').forEach(function(b){b.classList.remove('sel');});document.getElementById('fb').textContent='';updateBar();}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toggle(b){var t=b.getAttribute('data-t');if(sel.has(t)){sel.delete(t);b.classList.remove('sel');}else{sel.add(t);b.classList.add('sel');}}
+function submit(){if(answered)return;var correct=new Set(INBOX[idx].tactics);var ok=sel.size===correct.size&&[...sel].every(function(t){return correct.has(t);});var fb=document.getElementById('fb');if(ok){score++;answered=true;fb.innerHTML='<span class="ok">CORRECT.</span> Tactics: '+([...correct].sort().join(", ")||"none");}
+else{answered=true;fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct tactics: '+([...correct].sort().join(", ")||"none");}
+if(score>=GOAL)met=true;updateBar();}
+function next(){idx=(idx+1)%INBOX.length;render();}
+function updateBar(){document.getElementById('score').innerHTML='SCORE '+score+' / '+GOAL+' | message '+(idx+1)+' of '+INBOX.length+' | OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+document.getElementById('goal').textContent=GOAL;render();</script>
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1.3 Public Network Sniffing · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-dns-zone-file.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "1.3", topicTitle: "Best Practices for Public Networks", chapterLabel: "Topic 1.3" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 1.3</h1>
+    <h2 class="textbook-subtitle">Best Practices for Public Networks</h2>
+
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. What a Hostile Network Can and Cannot See</a></li>
+        <li><a href="#sec-technical">II. Wi-Fi Handshakes, Evil Twins, and SSL Stripping</a></li>
+        <li><a href="#sec-case">III. Case Studies: DarkHotel, KRACK, and an Evil Twin Prosecution</a></li>
+        <li><a href="#sec-protection">IV. Securing Wireless Use: WPA3, 802.1X, HSTS, and VPNs</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+        <li><a href="#sec-practice">VI. Practice Questions &amp; Answer Key</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 1: Introduction to Security</strong> &middot; Topic 1.3, Best Practices for Public Networks</p>
+  <ul>
+    <li><span class="ap-code">1.3.A</span> <span class="ap-skill">Analyze Risk</span><br>Work out what kind of opponent is behind a given attack, how much capability they have, whether they are reusing tooling somebody else built or writing their own against undisclosed flaws, and what they are trying to get out of it.</li>
+    <li><span class="ap-code">1.3.B</span> <span class="ap-skill">Analyze Risk</span><br>Recognise the attacks that are specific to radio rather than to cable: a rogue access point impersonating a trusted network, deliberate radio interference that denies service, and roaming surveys that map where a network's signal reaches.</li>
+    <li><span class="ap-code">1.3.C</span> <span class="ap-skill">Mitigate Risk</span><br>Say what an ordinary user can actually do to keep sensitive data safe over the internet and over Wi-Fi, checking a network's name character by character before joining, judging whether the data at hand can tolerate an unencrypted link and the metadata such a link exposes, and understanding what a VPN does and does not move out of an adversary's reach.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. What a Hostile Network Can and Cannot See</h3>
+
+
+<figure class="chapter-image">
+  <img src="images/img_1.3.1_evil_twin.png" alt="Topology diagram of an evil twin attack. A legitimate access point on the left carries traffic from a client to the internet. A rogue access point in the centre broadcasts the identical network name at a stronger signal level; the client associates with it instead, so every frame the client sends now passes through the adversary's equipment before being forwarded upstream, giving the adversary a position from which to log, block, or alter it.">
+  <figcaption><strong>Figure 1.3.1</strong>, Evil twin topology. The rogue access point occupies the client's default route, which is the position from which every other attack in this chapter becomes available.</figcaption>
+</figure>
+
+<p>Unlike wired networks that constrain data frames within physical structures (copper cables, fiber lines, closed switching closets), <span class="annot">wireless networks (IEEE 802.11)<span class="tip"><strong>IEEE 802.11, The WiFi Standard Family</strong>The family of standards defining how WiFi works, published by the IEEE (Institute of Electrical and Electronics Engineers). The number 802.11 is the working group; the letter suffix indicates the generation: 802.11b/g/n (WiFi 4), 802.11ac (WiFi 5), 802.11ax (WiFi 6). Security protocols: WEP (broken), WPA (broken), WPA2 (widely deployed), WPA3 (current). <em>IEEE 802.11-2020 is the current consolidated standard. 802.11 frames travel over radio frequencies (2.4GHz, 5GHz, 6GHz). The key weakness for security: radio waves propagate through walls and don't respect physical perimeters.</em></span></span> transmit data over shared physical space using radio frequencies. Consequently, the physical boundary of the network is erased, allowing any receiver within range to capture transiting frames by configuring their <span class="annot">network interface controller (NIC) into monitor mode<span class="tip"><strong>Monitor Mode (Promiscuous Mode for WiFi)</strong>A special operating mode where the WiFi adapter captures ALL wireless frames in the air, not just frames addressed to itself. Like turning a radio to receive all frequencies simultaneously instead of just one station. Tools like Wireshark, tcpdump, and aircrack-ng use monitor mode. On Linux: `iwconfig wlan0 mode monitor`. Requires a WiFi adapter that supports this mode. <em>Not all WiFi adapters support monitor mode. Popular monitor-mode adapters: Alfa AWUS036ACH, TP-Link Archer T4U. Used in legitimate security testing and wireless auditing. IEEE 802.11 frames captured in monitor mode include management frames, control frames, and data frames.</em></span></span>.</p>
+
+<p>In public network environments (such as open hotspots, hotels, and airports), there is no encryption at the <span class="annot">Data Link layer<span class="tip"><strong>Data Link Layer (OSI Layer 2)</strong>The second layer of the OSI networking model, responsible for transferring data between adjacent nodes on the same network. For WiFi, this is where 802.11 frames live. Open WiFi networks have no Layer 2 encryption: frames travel in cleartext over the air. WPA2/WPA3 add encryption at this layer. <em>OSI Model Layer 2 corresponds to the IEEE 802.x standards. MAC addresses operate at Layer 2. Ethernet switches and WiFi APs operate at Layer 2. The Layer 2 attack surface: ARP spoofing, MAC flooding, deauthentication frame injection, Evil Twin attacks.</em></span></span>. Because packets travel in cleartext over the air, an adversary can capture transiting frames to steal <span class="annot">session tokens<span class="tip"><strong>Session Token</strong>A temporary secret identifier (usually stored in a browser cookie) that proves you're logged in. After you authenticate with username/password, the server gives you a session token. Every subsequent request includes this token to prove "I already logged in." If an attacker captures your session token (e.g., by intercepting your WiFi traffic on open networks), they can impersonate you without ever knowing your password. <em>Session fixation, session hijacking, and cookie theft are all attacks on session tokens. Defense: Secure flag on cookies (HTTPS only), HttpOnly flag (no JavaScript access), SameSite=Strict (no cross-site sending). Session tokens should be 128+ bits of randomness per OWASP.</em></span></span>, credentials, and data payloads. Public access zones lack <span class="annot">mutual authentication<span class="tip"><strong>Mutual Authentication</strong>Both parties verify each other's identity, not just the client proving itself to the server, but also the server proving itself to the client. Standard WiFi lacks mutual authentication: your phone doesn't verify the AP's identity before connecting. 802.1X with EAP-TLS provides mutual authentication (both client and server present X.509 certificates). This prevents Evil Twin attacks because an unauthorized AP cannot present a valid server certificate. <em>Mutual authentication is also called "two-way authentication" or "bidirectional authentication." TLS does mutual auth when you configure client certificates. SSH does mutual auth via known_hosts verification + key-based login.</em></span></span>. A client device trusts an <span class="annot">Access Point (AP)<span class="tip"><strong>Access Point (AP)</strong>The physical device (the "WiFi router" in your home) that creates the wireless network. An AP broadcasts its SSID ("COFFEE_SHOP_WIFI"), and clients connect to it. The critical vulnerability: APs are identified only by their SSID name, any attacker can broadcast the same SSID name and appear identical to the legitimate AP from the client's perspective. <em>AP hardware operates at OSI Layer 2. Enterprise APs (Cisco Aironet, Aruba, Ruckus) have centralized management and rogue AP detection. Consumer APs are unmanaged and cannot detect Evil Twins. An Evil Twin AP only needs a stronger signal than the legitimate AP to win client connections.</em></span></span> based solely on its broadcasted <span class="annot">Service Set Identifier (SSID)<span class="tip"><strong>SSID, Service Set Identifier</strong>The name of the WiFi network, what you see in your device's WiFi list ("Starbucks WiFi", "Airport_Free_Wifi", "HOME_NETWORK"). SSIDs are unverified: any device can broadcast any SSID. An attacker can set up a hotspot named "Starbucks WiFi" anywhere. Your phone may automatically connect to it if you previously connected to a real Starbucks WiFi, because devices remember SSIDs and reconnect automatically. <em>Hidden SSIDs provide zero security, they can be discovered from probe requests. SSID length: 0-32 bytes. The 802.11 Beacon frame broadcasts the SSID every 100ms by default. Probe requests from devices searching for remembered networks can reveal which networks a device has previously connected to.</em></span></span> name. Attackers exploit this lack of verification by deploying rogue wireless infrastructure to intercept and modify user communications.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">The device announces its history before it connects to anything</span>
+  A client that has previously joined a network may issue <em>directed</em> probe request frames naming that network's SSID, to find it quickly rather than waiting for a beacon. A device with a long join history therefore broadcasts a list of the networks it trusts, in cleartext, to anyone within radio range with an adapter in monitor mode. The consequence is not merely privacy loss, although the set of SSIDs a person's phone asks for is a remarkably good fingerprint of where they live, work, and travel, it is that the attacker learns exactly which SSID to impersonate to obtain an automatic association. Both major mobile platforms have narrowed this: modern iOS and Android prefer broadcast (wildcard) probes and randomize the transmitter MAC address per network, so passive tracking across venues is much harder than it was in 2015. The residual exposure is real but smaller than the folklore suggests, and it is concentrated in older devices, laptops, and embedded clients.
+</div>
+
+<p>A central method used in network interception is the <span class="annot">Adversary-in-the-Middle (AitM)<span class="tip"><strong>AitM, Adversary-in-the-Middle (formerly MITM)</strong>An attack where the attacker positions themselves between the victim and the legitimate destination, relaying (and potentially modifying) all communications. The victim thinks they're talking directly to the server; the server thinks it's talking directly to the victim; the attacker sees everything. On WiFi: the Evil Twin AP is the AitM position. <em>Formerly called Man-in-the-Middle (MITM). Renamed to AitM by the security community for inclusive language. Tools: mitmproxy, ettercap, Bettercap, SSLStrip. Defenses: certificate pinning, mutual TLS, HSTS, HPKP (deprecated), DNSSEC.</em></span></span> attack. An AitM attack occurs when an attacker positions their system between the victim client and the destination gateway. Once positioned, the attacker inspects, logs, or modifies traffic. To intercept encrypted HTTP web traffic, attackers perform cryptographic downgrade attacks. Rather than attempting to break the SSL/TLS encryption directly, the attacker intercepts the client's initial <span class="annot">HTTP<span class="tip"><strong>HTTP vs HTTPS</strong>HTTP (HyperText Transfer Protocol) sends data in plain text, like sending a postcard. Anyone who intercepts it can read it. HTTPS adds TLS (Transport Layer Security) encryption, the data is encrypted before transmission. The crucial vulnerability: most users type "bank.com" not "https://bank.com", so the browser initially makes an HTTP request, which SSLStrip can intercept before the upgrade to HTTPS happens. HSTS prevents this by caching the HTTPS requirement in the browser. <em>HTTP: RFC 7230-7235 (2014). HTTPS = HTTP over TLS. TLS: RFC 8446 (TLS 1.3, 2018). TLS 1.0 and 1.1 are deprecated per RFC 8996 (2021). Port 80 = HTTP, Port 443 = HTTPS.</em></span></span> request and strips the SSL configuration, forcing the client to communicate in cleartext while the attacker maintains a secure connection with the destination server.</p>
+
+<h4>1. The Threat Model Has Moved, and the Advice Has Not Kept Up</h4>
+
+<p>Much of the public guidance on hostile Wi-Fi is a fossil of 2010. In 2010, most of the web was unencrypted, session cookies rode over plain HTTP, and a Firefox extension called Firesheep let anyone at a coffee shop click a name in a sidebar and become that person on Facebook. That world is gone. Ubiquitous TLS, HSTS preloading, browsers that upgrade to HTTPS by default, and certificate transparency have collectively removed the attack that made public Wi-Fi genuinely frightening. Repeating the 2010 advice unchanged is not conservative; it is inaccurate, and it burns credibility that you will need when you tell someone about a risk that <em>is</em> current.</p>
+
+<p>The scholarly move is to state precisely what an adversary in the network path retains. Assume the worst realistic case: the attacker operates the access point, the DHCP server, the DNS resolver, and the upstream router. What does that buy?</p>
+
+<p><strong>What the network still learns, even with everything encrypted:</strong></p>
+<ul>
+  <li><strong>Every DNS query,</strong> unless the client is using <a href="https://www.rfc-editor.org/rfc/rfc8484" target="_blank" rel="noopener">DNS over HTTPS</a> (RFC 8484) or <a href="https://www.rfc-editor.org/rfc/rfc7858" target="_blank" rel="noopener">DNS over TLS</a> (RFC 7858). Plain DNS is UDP port 53, unauthenticated and unencrypted, and it names every host the device intends to contact before it contacts it.</li>
+  <li><strong>The destination hostname of every TLS connection,</strong> via the Server Name Indication extension. SNI is sent in the ClientHello, before any key exchange completes, and is therefore in cleartext even under TLS 1.3. <span class="annot">Encrypted Client Hello<span class="tip"><strong>ECH, Encrypted Client Hello</strong>The IETF TLS working group's mechanism for closing the SNI leak. The client encrypts the sensitive parts of its ClientHello (including the true server name) under a public key that the server publishes in DNS as an HTTPS resource record, and sends an innocuous outer ClientHello naming a shared "public name". An on-path observer sees only the public name. The scheme has a bootstrapping dependency that is easy to miss: the client must fetch the ECH configuration from DNS, so ECH is only meaningful when the DNS lookup itself is encrypted. ECH without DoH or DoT leaks the same hostname one layer down. <em>Successor to the earlier ESNI drafts. Supported in Firefox and Chrome and deployed by Cloudflare; adoption is a function of both browser support and the origin publishing an HTTPS RR.</em></span></span> closes this, but only where both endpoints support it and only if DNS is also encrypted.</li>
+  <li><strong>Destination IP addresses, packet sizes, and timing.</strong> Traffic analysis on this metadata alone is a mature research area and can identify visited pages within a site under favourable conditions.</li>
+  <li><strong>Everything carried by protocols that are still plaintext</strong>, legacy IMAP/SMTP without STARTTLS enforcement, plain FTP, SNMP, unencrypted MQTT, printer and file-share discovery chatter, and the surprisingly large population of embedded devices and mobile apps that never adopted TLS.</li>
+</ul>
+
+<p><strong>What the network can still actively do:</strong></p>
+<ul>
+  <li><strong>Forge DNS answers,</strong> redirecting a name to attacker infrastructure. This does not by itself defeat TLS, the attacker still cannot produce a certificate for the name, but it enables the first-visit downgrade described below and supports convincing captive-portal deceptions.</li>
+  <li><strong>Downgrade a first, unprotected request.</strong> A user who types <code>example.com</code> with no scheme, on a domain that is neither HSTS-preloaded nor already in the browser's HSTS cache, historically made one plaintext HTTP request that an on-path attacker could capture and answer. Browsers have narrowed this substantially with automatic HTTPS upgrading, but the window is not identically zero across all clients and all domains.</li>
+  <li><strong>Deny service selectively.</strong> An attacker who cannot read your traffic can still block it, and blocking the secure path is a classic way to push a user onto an insecure fallback they would otherwise never choose.</li>
+  <li><strong>Attack the device directly.</strong> Once you are on the same layer-2 segment, every service the device exposes to the local network, file sharing, media servers, debug ports, printer discovery, poorly written IoT companion apps, is reachable. This is now a larger practical risk on public networks than traffic interception.</li>
+</ul>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Stating the risk accurately is the point</span>
+  "Never use public Wi-Fi" is advice that people ignore, because they need to use public Wi-Fi and nothing visibly bad happens when they do. The defensible version is narrower and therefore more useful: on an untrusted network, your <em>content</em> is protected by TLS and your <em>metadata</em> is not; your device's exposed local services are reachable by everyone else on the segment; and any prompt asking you to accept a certificate warning, install a profile, or download an update is the specific event to refuse. That is a short list a person can actually act on, and every item on it corresponds to a mechanism examined in the rest of this chapter.
+</div>
+
+<h4>2. Who Is On the Other End: A Working Taxonomy of Adversaries</h4>
+
+<p>"Hacker" is a category so broad that it predicts nothing. Defence, however, is a resource allocation problem, and resources should be allocated against a specific opponent. Two axes carry almost all of the useful information: <strong>capability</strong>, can this adversary only run tools others built, or can they build new ones and find flaws nobody has published? &mdash; and <strong>motivation</strong>, which determines what they consider a win and therefore how long they will persist. The classes below are the ones that recur in the attributed record, ordered by capability.</p>
+
+<p><strong>The unskilled operator using prebuilt tooling.</strong> The lower bound of capability is a person who buys or downloads a working attack and points it at whoever is nearby. Wireless is unusually accessible at this level because the required hardware is a consumer product: the Wi-Fi Pineapple sold by Hak5 as a penetration-testing appliance will run an evil twin and a credential-harvesting portal out of the box. The Australian prosecution in Case Study 1.3.3 is exactly this, the Australian Federal Police reported that the accused used a portable device of that type at three airports and on domestic flights. No exploit was written; no vulnerability was discovered. The technique was a decade old and the tool did the work. Adversaries at this level are stopped by patching known vulnerabilities and by controls that hold against off-the-shelf attacks, and they are numerous, which makes them the reason baseline hygiene matters at all.</p>
+
+<p><strong>Organised cybercrime.</strong> A commercially structured operation with development staff, a support function, an affiliate model and a revenue target. Its defining property is not skill but <em>economic rationality</em>: it will spend on an attack in proportion to expected return, and it will abandon a target that costs more than it yields. The mature ransomware ecosystem is the reference example, with the tooling built by one group and rented to affiliates who conduct intrusions. Wireless attacks are rarely part of this repertoire, and the reason is instructive, sitting in an airport to compromise one traveller does not scale, and phishing a hundred thousand mailboxes does. Adversaries whose motive is money go where the cost per victim is lowest.</p>
+
+<p><strong>Hacktivists.</strong> Motivated by a cause rather than by money, which changes the objective function: publicity <em>is</em> the goal, so the attacks are chosen to be visible, defacement, leak publication, denial of service timed to an event. Capability varies enormously because these are loose confederations rather than organisations. The practical consequence for a defender is that targeting is driven by symbolism rather than by asset value, so an organisation's threat model must include what it is publicly associated with, not merely what it holds.</p>
+
+<p><strong>Insiders.</strong> The person who already has credentials, already has physical access, and already knows where the valuable data is. Every control in this chapter is designed around an adversary outside the perimeter; an insider begins inside it. Motivation ranges from grievance to money to ideology, and a large fraction of insider incidents are not malicious at all but negligent, the employee who joins the conference-centre network without a VPN, or who accepts the certificate warning to get the presentation open. Insider risk is addressed by least privilege, separation of duties, and monitoring of authorised activity, none of which are network security controls.</p>
+
+<p><strong>Nation-state and state-sponsored operations.</strong> The upper bound: sustained funding, purpose-built tooling, undisclosed vulnerabilities, patience measured in years, and, the property that matters here, a human intelligence capability that can put an officer in the same building as the target. This last point is what makes state actors the only adversary class for whom wireless attacks are routinely worth the trouble, because the whole difficulty of a wireless attack is being physically present, and an intelligence service can afford to be.</p>
+
+<p>Two attributed operations illustrate the top of the scale. DarkHotel, analysed at length in Section III, waited for named executives to check into specific hotels and served a malicious update to that guest alone. The second is more direct: in April 2018 four officers of the Russian military intelligence service's Unit 26165 travelled to the Netherlands on diplomatic passports and parked a hire car alongside the headquarters of the Organisation for the Prohibition of Chemical Weapons in The Hague, with a directional Wi-Fi antenna and associated equipment concealed in the boot and aimed at the building. Dutch military intelligence intercepted the team and expelled them; the operation was disclosed publicly on 4 October 2018, and the seized laptop showed prior wireless activity in other countries. This is the technique the industry calls a <em>close access</em> operation, and it exists because a network that is unreachable from the internet is still reachable from the car park.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">The taxonomy is a budget, not a bestiary</span>
+  Classifying an adversary is only useful if it changes a decision. It does. Against prebuilt tooling, patching and default-deny configuration are sufficient and cheap. Against organised crime, the objective is to be more expensive than the alternative target, which is achievable. Against an insider, network controls are largely irrelevant and access governance is the entire answer. Against a state actor with physical proximity and undisclosed vulnerabilities, prevention is not a realistic goal and the design shifts to compartmentalisation, detection and limiting what a successful compromise reaches. An organisation that buys controls without first naming the adversary is buying uniformly against a threat that is not uniform.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. Wi-Fi Handshakes, Evil Twins, and SSL Stripping</h3>
+        
+<h4>1. Evil Twin RSSI Frame Analysis</h4>
+<p>The <span class="annot">Evil Twin attack<span class="tip"><strong>Evil Twin Attack</strong>Creating a fake WiFi access point that clones a legitimate one, same SSID name, same channel, but with a stronger signal. Like an identical twin with evil intentions. Your device picks the strongest signal, so the attacker boosts their transmit power. To force clients to disconnect from the real AP and connect to the evil one, the attacker sends spoofed deauthentication frames. <em>Tool: hostapd-wpe (for enterprise Evil Twins), airbase-ng (for WPA Personal). Hardware: a WiFi adapter that supports monitor mode + packet injection. Detection: wireless IDS sensors (e.g., Cisco Adaptive wIPS) detect duplicate SSIDs and alert administrators.</em></span></span> relies on cloning the attributes of a legitimate Access Point: SSID, <span class="annot">BSSID<span class="tip"><strong>BSSID, Basic Service Set Identifier</strong>The MAC address of the Access Point, a hardware identifier that looks like 00:14:bf:aa:bb:cc. While SSIDs are human-readable names, BSSIDs are hardware identifiers. Importantly: MAC addresses can be cloned (spoofed). An attacker's hardware can be configured to broadcast any BSSID, making the Evil Twin appear identical to the legitimate AP at the hardware level. <em>MAC addresses are 48-bit identifiers. The first 24 bits identify the manufacturer (OUI). Spoofing: `ifconfig wlan0 hw ether 00:14:bf:aa:bb:cc` on Linux. IEEE 802.11 uses BSSID to distinguish between APs with the same SSID. If SSID AND BSSID match, the device sees them as identical, which is the Evil Twin goal.</em></span></span> (MAC address), and channel. Because client devices connect automatically to the AP offering the strongest <span class="annot">signal (RSSI)<span class="tip"><strong>RSSI, Received Signal Strength Indicator</strong>A measurement of how strong the received radio signal is, in dBm (decibels relative to 1 milliwatt). -30 dBm = very strong (right next to the AP). -70 dBm = weak (far away). -90 dBm = barely usable. The Evil Twin attacker boosts their transmitter power to -20 or -30 dBm, guaranteed to be stronger than the legitimate AP at -60 or -70 dBm. Your device picks the stronger signal. <em>Most client devices automatically roam to the highest RSSI AP with the same SSID. Enterprise APs use coordinated RSSI management (802.11r Fast BSS Transition) to prevent rogue association. RSSI is not authenticated, attackers can blast high-power signals trivially with $30 of hardware.</em></span></span>, the attacker boosts their transmitter's RSSI value. To force a connected victim to transition to the rogue AP, the attacker sends spoofed <span class="annot">802.11 Deauthentication frames<span class="tip"><strong>802.11 Deauthentication Frame</strong>A special WiFi management frame that tells a device "you are no longer authenticated with this network, disconnect immediately." The problem: in legacy 802.11 (before 802.11w), these frames are sent unencrypted with no authentication. Anyone can spoof the source address and send a fake deauthentication frame to any client, forcing them offline. <em>Reason code 0x0007 = "Class 3 frame received from nonassociated station", the most common deauth code used in attacks. Tool: aireplay-ng --deauth. IEEE 802.11w-2009 (Protected Management Frames / PMF) adds cryptographic signing to management frames, preventing spoofed deauths. WPA3 mandates PMF.</em></span></span> to the victim client on behalf of the legitimate AP. The following packet analysis demonstrates the structure of an 802.11 deauthentication packet injected by an attacker:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Wireshark, 802.11 Deauth Frame (Attacker Injected)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Frame 1422: 26 bytes on wire (208 bits)
+IEEE 802.11 Deauthentication, Flags: ........
+    Type/Subtype: Deauthentication (0x000c)
+    Frame Control Field: 0x00c0
+        Version: 0
+        Type: Management frame (0)
+        Subtype: Deauthentication (12)        ← Reason this disconnects the client
+        Flags: 0x00
+    Duration: 314 microseconds
+    Receiver address:   00:25:9c:12:34:56     ← Victim Client MAC
+    Destination address: 00:25:9c:12:34:56   ← Victim Client MAC
+    Transmitter address: 00:14:bf:aa:bb:cc   ← Legitimate AP MAC (SPOOFED by attacker)
+    Source address:      00:14:bf:aa:bb:cc   ← Legitimate AP MAC (SPOOFED by attacker)
+    BSSId:               00:14:bf:aa:bb:cc   ← Legitimate AP MAC (SPOOFED by attacker)
+    Fragment number: 0
+    Sequence number: 4022
+    Reason code: 0x0007 (Class 3 frame from nonassociated station)
+    ↑ No cryptographic signature, client cannot verify authenticity (pre-802.11w)</code></pre>
+</div>
+
+<p>When the victim client receives this frame, it disconnects from the legitimate AP. When scanning for available APs, the client associates with the attacker's Evil Twin AP, which is broadcasting the same BSSID but with a higher RSSI (e.g., -35 dBm vs. -72 dBm for the legitimate AP).</p>
+
+<p>The root cause is a decision made in the original 802.11 design: management frames precede key establishment, so they were left unauthenticated. <span class="annot">IEEE 802.11w-2009<span class="tip"><strong>IEEE 802.11w-2009, Protected Management Frames (PMF)</strong>An amendment, later folded into the consolidated 802.11 standard, that extends cryptographic protection to the subset of management frames that can be sent after a key is established. Unicast robust management frames are protected with CCMP under the same temporal key as data frames; group-addressed ones use the Broadcast/Multicast Integrity Protocol (BIP) under a separate Integrity Group Temporal Key, carried in a Management MIC Information Element. A station with PMF active discards unprotected deauthentication and disassociation frames outright. <em>PMF is optional in WPA2 and mandatory in WPA3. The Wi-Fi Alliance has required PMF capability for new certifications since 2018.</em></span></span>, folded into the consolidated standard and mandatory under WPA3, closes the specific hole exercised above. Its coverage is worth stating precisely, because the boundaries are where the remaining attacks live:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">What 802.11w protects, and what it leaves exposed</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>PROTECTED (robust management frames, post-key-establishment)
+  Deauthentication          unicast: CCMP under the PTK's temporal key
+  Disassociation            group:   BIP under the IGTK, MMIE appended
+  Robust Action frames      -> forged deauth is simply discarded by the client
+
+  SA Query procedure        If the AP sees an UNPROTECTED (Re)Association
+                            Request from an already-associated station, it
+                            answers with status 30 (try again later) and
+                            challenges the existing station. A live station
+                            replies; a spoofed one cannot. Association
+                            hijacking fails.
+
+NOT PROTECTED
+  Beacon frames             Until the Beacon Protection feature of the 2020
+                            standard, beacons were unauthenticated -- so a
+                            forged Channel Switch Announcement could still
+                            move clients off-channel.
+  Probe Request / Response   Sent before any key exists. Nothing to sign with.
+  Authentication /           Likewise pre-key. The SA Query procedure above
+    Association Request      is the mitigation, not frame protection.
+  The physical layer         PMF is cryptography. It does not stop an
+                            adversary from simply transmitting noise on the
+                            channel, and RF jamming remains the irreducible
+                            denial-of-service primitive against any radio.</code></pre>
+</div>
+
+<p>Two conclusions follow. First, PMF genuinely defeats the classic deauthentication flood, and any network still exposed to it in 2026 has PMF disabled or is running clients too old to support it. Second, PMF does not make a wireless network available, an attacker who merely wants you off the good network and onto his can still jam, and can still win the association by out-shouting the legitimate AP at the physical layer. Availability on shared radio spectrum is not a problem cryptography solves.</p>
+
+<h4>2. The WPA2 Four-Way Handshake, and Why It Can Be Cracked Offline</h4>
+
+<p>Understanding what WPA3 fixed requires first understanding what WPA2 does. The entire security of a WPA2-Personal network rests on one value, the Pairwise Master Key, which is a deterministic function of the passphrase and the network name:
+$$\mathrm{PMK} = \mathrm{PBKDF2\text{-}HMAC\text{-}SHA1}(\text{passphrase},\ \text{SSID},\ 4096,\ 256\ \text{bits})$$
+Read that carefully. <strong>The SSID is the salt.</strong> Two networks with the same passphrase and the same name have identical PMKs, everywhere in the world, forever, which is why precomputed PMK tables for names like <code>linksys</code> and <code>NETGEAR</code> have existed for two decades, and why an unusual SSID is a real, if modest, security control.</p>
+
+<p>The PMK is never transmitted. The four-way handshake exists to prove both parties hold it and to derive fresh session keys:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">802.11 four-way handshake (EAPOL-Key), with the key schedule</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>  Authenticator (AP)                                    Supplicant (client)
+  AA = AP MAC                                           SPA = station MAC
+  holds PMK                                             holds PMK
+
+  M1  ----------- ANonce (random, NO MIC) ------------------->
+                                                   picks SNonce, derives PTK
+  <---------- M2  SNonce + MIC(KCK, M2) ----------------------
+  derives PTK, verifies MIC
+  M3  ---- GTK encrypted under KEK + MIC(KCK, M3) ----------->
+                                                   verifies MIC, INSTALLS TK
+  <---------- M4  ACK + MIC(KCK, M4) -------------------------
+  installs TK
+
+  PTK = PRF-384(PMK, "Pairwise key expansion",
+                min(AA,SPA) || max(AA,SPA) ||
+                min(ANonce,SNonce) || max(ANonce,SNonce))
+
+        PTK[ 0:16] = KCK   EAPOL Key Confirmation Key (computes the MICs)
+        PTK[16:32] = KEK   EAPOL Key Encryption Key   (wraps the GTK in M3)
+        PTK[32:48] = TK    Temporal Key               (encrypts data, CCMP)</code></pre>
+</div>
+
+<p>Now count what an eavesdropper who captures M1 and M2 possesses. Both MAC addresses: public, in every frame header. ANonce: sent in cleartext in M1. SNonce: sent in cleartext in M2. The MIC over M2: sent in M2. The SSID: broadcast in every beacon. Every input to the PTK derivation except the PMK is therefore public, and the MIC is a checkable function of the PTK. The offline attack writes itself:</p>
+
+<ol>
+  <li>Guess a passphrase.</li>
+  <li>Compute $\mathrm{PMK} = \mathrm{PBKDF2}(\text{guess}, \text{SSID}, 4096)$.</li>
+  <li>Derive the PTK from the captured nonces and MACs; take KCK.</li>
+  <li>Recompute the MIC over the captured M2 and compare it to the captured value.</li>
+  <li>On a match, the guess is the passphrase, and every frame in the capture is now decryptable.</li>
+</ol>
+
+<p>The cost per guess is dominated by PBKDF2's 4,096 HMAC-SHA1 iterations, which is deliberate and does help. Measured on one RTX 4090, Hashcat mode 22000 (WPA-PBKDF2-PMKID+EAPOL) runs at <strong>2,533,300 guesses per second</strong>. Put that against realistic passphrases. A ten-million-entry wordlist is exhausted in four seconds. An eight-character passphrase drawn uniformly from lowercase letters and digits ($36^8 \approx 2.8 \times 10^{12}$, expected search half that) takes about 6.4 days on that single card, a weekend, for a network anyone can sit outside of. Compare mode 22001, which supplies the PMK directly and skips PBKDF2 entirely: 275.3 MH/s, a hundredfold speedup, which is precisely the value an attacker extracts from precomputing PMKs against a popular SSID.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">The attacker does not need you, or a handshake, or a deauthentication</span>
+  In 2018 Jens Steube, the author of Hashcat, published a substantially better capture technique. Many access points volunteer a <strong>PMKID</strong> in the RSN information element of message 1, computed as
+  <br><code>PMKID = HMAC-SHA1-128(PMK, "PMK Name" || AA || SPA)</code><br>
+  Every input other than the PMK is again public, so the PMKID is a directly crackable verifier, and obtaining it requires only that the attacker <em>attempt to associate</em> with the AP and read the first EAPOL frame it sends back. No client needs to be connected. No deauthentication frame is transmitted. Nothing about the attack is anomalous to a wireless IDS watching for deauth floods, because there is no flood. This is worth internalizing as a general pattern: defenders build detection around the noisy version of an attack, and the attack gets quieter.
+</div>
+
+<h4>3. What KRACK Actually Broke</h4>
+
+<p>KRACK is the most widely misdescribed vulnerability in wireless networking. It does not recover the Wi-Fi password. It does not break AES, or CCMP, or the PBKDF2 derivation, or the four-way handshake's key agreement. Mathy Vanhoef and Frank Piessens presented it at ACM CCS 2017 under the exact title of what it does: <em>Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2</em>.</p>
+
+<p>The vulnerability lives in the gap between a protocol specification and a protocol running over a lossy radio channel. Message 4 can be lost, so an access point that does not receive it retransmits message 3. A supplicant receiving a retransmitted message 3 was specified to accept it, and implementations, on accepting it, reinstalled the same temporal key <em>and reset the associated packet number and replay counter to their initial values</em>. An attacker in a channel-based man-in-the-middle position can withhold message 4 and force exactly that retransmission at a moment of his choosing.</p>
+
+<p>Why resetting a counter is catastrophic requires one fact about CCMP. <span class="annot">AES-CCMP<span class="tip"><strong>CCMP, Counter Mode with CBC-MAC Protocol</strong>WPA2's data-confidentiality protocol: AES in Counter (CTR) mode for encryption, plus CBC-MAC for integrity, over a 48-bit packet number used to build the per-frame nonce. Counter mode turns a block cipher into a stream cipher: the cipher encrypts a nonce-and-counter block to produce keystream, which is XORed with the plaintext. The security of every stream cipher rests on never reusing a (key, nonce) pair, because the keystream is a deterministic function of exactly those two values. <em>Specified in IEEE 802.11i and built on NIST SP 800-38C. GCMP, used by WPA3 and 802.11ad/ac high-throughput modes, is the analogous construction over Galois/Counter Mode and is strictly less forgiving of nonce reuse.</em></span></span> is AES in counter mode: the cipher generates a keystream from the key and a nonce built from the packet number, and that keystream is XORed with the plaintext. Reset the packet number and the device emits the <em>same keystream</em> again under the same key. If $C_1 = P_1 \oplus KS$ and $C_2 = P_2 \oplus KS$, then
+$$C_1 \oplus C_2 = P_1 \oplus P_2$$
+and the keystream has cancelled out.</p>
+
+<figure class="chapter-image">
+<svg viewBox="0 0 720 340" role="img" aria-labelledby="krackfig-title krackfig-desc" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+  <title id="krackfig-title">Key reinstallation resets the CCMP packet number and repeats the keystream</title>
+  <desc id="krackfig-desc">Two parallel timelines. In the normal case, the supplicant installs the temporal key once and the packet number increments from one upward, so every frame is encrypted under a different nonce and a different keystream. In the attack case, the adversary withholds handshake message four, the access point retransmits message three, the supplicant reinstalls the same temporal key and resets the packet number to one, and the frames that follow reuse the keystream blocks already used by the earlier frames. Exclusive-or of two ciphertexts encrypted under the same keystream yields the exclusive-or of the two plaintexts, cancelling the key.</desc>
+  <g fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.85">
+    <line x1="150" y1="70" x2="690" y2="70"/>
+    <line x1="150" y1="190" x2="690" y2="190"/>
+  </g>
+  <g fill="currentColor" font-size="13" font-weight="600">
+    <text x="20" y="40">Normal operation</text>
+    <text x="20" y="160">Under key reinstallation</text>
+  </g>
+  <g fill="currentColor" font-size="11" opacity="0.75">
+    <text x="20" y="58">TK installed once</text>
+    <text x="20" y="88">PN increments</text>
+    <text x="20" y="178">TK reinstalled</text>
+    <text x="20" y="208">PN reset to 1</text>
+  </g>
+  <g font-size="11" text-anchor="middle">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <rect x="150" y="52" width="88" height="36" rx="4"/>
+      <rect x="252" y="52" width="88" height="36" rx="4"/>
+      <rect x="354" y="52" width="88" height="36" rx="4"/>
+      <rect x="456" y="52" width="88" height="36" rx="4"/>
+      <rect x="558" y="52" width="88" height="36" rx="4"/>
+    </g>
+    <g fill="currentColor">
+      <text x="194" y="68">PN 1</text><text x="194" y="82" opacity="0.7">KS&#8321;</text>
+      <text x="296" y="68">PN 2</text><text x="296" y="82" opacity="0.7">KS&#8322;</text>
+      <text x="398" y="68">PN 3</text><text x="398" y="82" opacity="0.7">KS&#8323;</text>
+      <text x="500" y="68">PN 4</text><text x="500" y="82" opacity="0.7">KS&#8324;</text>
+      <text x="602" y="68">PN 5</text><text x="602" y="82" opacity="0.7">KS&#8325;</text>
+    </g>
+  </g>
+  <g font-size="11" text-anchor="middle">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <rect x="150" y="172" width="88" height="36" rx="4"/>
+      <rect x="252" y="172" width="88" height="36" rx="4"/>
+      <rect x="354" y="172" width="88" height="36" rx="4" stroke-width="2.2"/>
+      <rect x="456" y="172" width="88" height="36" rx="4" stroke-width="2.2"/>
+    </g>
+    <g fill="currentColor">
+      <text x="194" y="188">PN 1</text><text x="194" y="202" opacity="0.7">KS&#8321;</text>
+      <text x="296" y="188">PN 2</text><text x="296" y="202" opacity="0.7">KS&#8322;</text>
+      <text x="398" y="188" font-weight="700">PN 1</text><text x="398" y="202" opacity="0.7">KS&#8321; again</text>
+      <text x="500" y="188" font-weight="700">PN 2</text><text x="500" y="202" opacity="0.7">KS&#8322; again</text>
+    </g>
+  </g>
+  <g stroke="currentColor" stroke-width="1.2" fill="none">
+    <path d="M348 150 L348 138 L398 138 L398 168"/>
+    <path d="M394 168 L398 174 L402 168"/>
+  </g>
+  <text x="344" y="132" font-size="11" fill="currentColor" text-anchor="end">adversary blocks M4, AP retransmits M3</text>
+  <g stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.8">
+    <path d="M194 212 L194 250 L398 250 L398 212"/>
+    <path d="M296 212 L296 272 L500 272 L500 212"/>
+  </g>
+  <g fill="currentColor" font-size="11.5">
+    <text x="150" y="300">C&#8321; &#8853; C&#8323; = (P&#8321; &#8853; KS&#8321;) &#8853; (P&#8323; &#8853; KS&#8321;) = P&#8321; &#8853; P&#8323;</text>
+    <text x="150" y="320" opacity="0.75">The key has cancelled. Known plaintext in one frame discloses the other.</text>
+  </g>
+</svg>
+<figcaption><strong>Figure 1.3.2</strong>, Why resetting a counter breaks a stream cipher. CCMP builds each frame's nonce from the packet number; reinstalling the temporal key restarts that counter, so keystream blocks already consumed are emitted a second time.</figcaption>
+</figure>
+
+<p>Any known or guessable plaintext, and TLS records, DHCP exchanges and HTTP headers supply plenty, unravels the other. Frames can also be replayed, because the replay counter went back to zero along with the nonce.</p>
+
+<p>Three refinements make the picture worse and are the reason the disclosure moved so many vendors so quickly:</p>
+<ul>
+  <li><strong>GCMP is worse than CCMP.</strong> In Galois/Counter Mode the authentication subkey is derived from the encryption key, so nonce reuse permits recovering it. That upgrades the attack from decryption to <em>forgery in both directions</em>. WPA3 and 802.11ad use GCMP.</li>
+  <li><strong>Some clients installed an all-zero key.</strong> wpa_supplicant versions 2.4 and 2.5, shipped in a very large number of Linux and Android 6.0-and-later devices, cleared the temporal key from memory after installing it. Reinstallation therefore installed all zeros. On those devices the traffic was not merely replayable; it was in effect unencrypted.</li>
+  <li><strong>It was not only a client-side bug.</strong> <a href="https://nvd.nist.gov/vuln/detail/CVE-2017-13082" target="_blank" rel="noopener">CVE-2017-13082</a> covers an access point accepting a retransmitted 802.11r Fast BSS Transition Reassociation Request and reinstalling the PTK, so infrastructure needed patching too. The full set runs from <a href="https://nvd.nist.gov/vuln/detail/CVE-2017-13077" target="_blank" rel="noopener">CVE-2017-13077</a> (PTK-TK in the four-way handshake) through CVE-2017-13088 (IGTK in a WNM Sleep Mode Response), enumerating each key and each handshake in which it could be reinstalled.</li>
+</ul>
+
+<p>The fix is one sentence long and fully backward compatible: a station must never reinstall a key it has already installed. That is why KRACK was resolved by software updates rather than by a new standard, and why the WPA2 protocol itself was not withdrawn. The interesting question KRACK leaves behind is not cryptographic but economic, a patchable flaw in a protocol embedded in a billion devices with no update path is, in practice, a permanent flaw for a large fraction of them.</p>
+
+<h4>4. WPA3 and SAE: A Password-Authenticated Key Exchange, and Its First-Generation Flaws</h4>
+
+<p>WPA2-Personal's structural defect is that the PMK is a pure function of the passphrase, so a passive observer who captures one handshake acquires an offline verifier. WPA3-Personal removes that by replacing the PSK exchange with <span class="annot">SAE<span class="tip"><strong>SAE, Simultaneous Authentication of Equals</strong>A balanced password-authenticated key exchange designed by Dan Harkins, originally for 802.11s mesh networks and adopted as WPA3-Personal's handshake. "Balanced" means neither party is client or server; both prove knowledge of the same low-entropy secret and derive a high-entropy shared key. The underlying construction is the Dragonfly PAKE. <em>Dragonfly is specified for general use in RFC 7664 (CFRG); SAE's 802.11 profile is in the IEEE 802.11 standard. The critical property is that the exchange leaks no offline verifier: a passive observer obtains nothing testable against a password guess.</em></span></span>, a password-authenticated key exchange built on the Dragonfly protocol (<a href="https://www.rfc-editor.org/rfc/rfc7664" target="_blank" rel="noopener">RFC 7664</a>).</p>
+
+<p>The exchange has two round trips. In <em>commit</em>, each party derives a password element $\mathrm{PWE}$ &mdash; a point on the negotiated elliptic curve, deterministically from the password and both MAC addresses. Each then picks two random values, a private scalar and a mask, and sends
+$$\text{scalar} = (\text{private} + \text{mask}) \bmod r, \qquad \text{element} = -\,\text{mask} \cdot \mathrm{PWE}$$
+Each side combines the peer's scalar and element with its own private value to reach the same shared secret, from which the PMK and a confirmation key are derived. In <em>confirm</em>, each sends a hash over the transcript, proving it reached the same secret.</p>
+
+<p>Two properties follow, and both are the point of the design:</p>
+<ul>
+  <li><strong>No offline verifier.</strong> A passive observer sees scalars and elements, but the private value is hidden behind the random mask and recovering it means solving a discrete logarithm. There is nothing in the transcript against which to test a password guess. Every guess must be made <em>online</em>, as a fresh exchange with the access point, which can count and throttle them. This is the whole difference from WPA2, and it is enormous: it converts an attack limited by GPU throughput into one limited by the AP's willingness to answer.</li>
+  <li><strong>Forward secrecy.</strong> The session key depends on fresh random values, not on the password alone. An adversary who records traffic today and learns the password next year cannot decrypt the recording. Under WPA2, that same adversary can.</li>
+</ul>
+
+<p>Honesty requires the sequel. In April 2019 Mathy Vanhoef and Eyal Ronen published <a href="https://papers.mathyvanhoef.com/dragonblood.pdf" target="_blank" rel="noopener"><em>Dragonblood</em></a>, a security analysis of the SAE handshake and EAP-pwd. They found that the original "hunting and pecking" loop used to derive $\mathrm{PWE}$ took a password-dependent number of iterations and left password-dependent cache access patterns, enabling <em>password partitioning</em> attacks: an adversary who can measure timing remotely, or observe cache behaviour on the same machine as the access point's driver, learns enough to prune the password space and mount an efficient offline search after all, recovering by side channel precisely the offline verifier SAE was designed not to provide. They also demonstrated downgrade attacks, including forcing a device onto a weaker elliptic curve, and denial of service by exploiting the commit phase's computational cost. The relevant identifiers are <a href="https://nvd.nist.gov/vuln/detail/CVE-2019-9494" target="_blank" rel="noopener">CVE-2019-9494</a> (cache-based side channel) and CVE-2019-9495 (timing side channel), with related issues in EAP-pwd.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">A protocol can be sound and its first implementations still leak</span>
+  Nothing in Dragonblood contradicts the mathematics of SAE. The exchange still leaks no offline verifier <em>through the protocol transcript</em>; the leak was through execution time and memory access, channels the security proof does not model. The remedy was the constant-time <strong>hash-to-element</strong> derivation, which replaces the variable-iteration hunting-and-pecking loop and is required in later WPA3 revisions, together with retiring WPA3-Transition mode, whose whole purpose is to also speak WPA2 and which therefore reintroduces the WPA2 attack surface for any client an adversary can persuade to downgrade. The general lesson generalizes past Wi-Fi: side-channel resistance is an implementation property that must be specified and tested for explicitly, because a proof about the abstract protocol says nothing about it. Deploy WPA3-only rather than transition mode wherever your client population allows, and confirm your equipment implements H2E.
+</div>
+
+<h4>5. SSL Stripping AitM Network Capture</h4>
+<p>Once the victim is routing traffic through the Evil Twin, the attacker executes <span class="annot">SSL stripping<span class="tip"><strong>SSL Stripping (SSLStrip)</strong>A downgrade attack that intercepts HTTP traffic and prevents it from being upgraded to HTTPS. The attacker's proxy fetches the HTTPS version from the server, then serves a plain HTTP version to the victim. The victim sees "http://bank.com" instead of "https://bank.com" and their login credentials travel unencrypted. Named after Moxie Marlinspike's 2009 tool. <em>Marlinspike, M. (2009). New Tricks for Defeating SSL in Practice. Black Hat DC 2009. The attack is defeated by HSTS: if the browser has cached the HSTS policy for a domain, it refuses to connect over HTTP at all, before even sending the initial request. The HSTS preload list in Chrome/Firefox eliminates the first-connection vulnerability.</em></span></span>. <span class="annot">Moxie Marlinspike<span class="tip"><strong>Moxie Marlinspike</strong>A cryptographer and co-founder of Signal (the encrypted messaging app). In 2009, he presented SSLStrip at Black Hat, demonstrating how HTTPS downgrades could intercept "secure" traffic. He later created Signal Protocol (used by WhatsApp, Signal, and others). His work catalyzed the adoption of HSTS. Fun fact: "Moxie Marlinspike" is a pseudonym, his real name is Matthew Rosenfeld. <em>Marlinspike, M. (2009). New Tricks for Defeating SSL in Practice. Black Hat DC. See also: Marlinspike, M. (2013). SSL and the Future of Authenticity. Black Hat. His work on HSTS and certificate pinning shaped modern TLS deployment.</em></span></span>'s SSLStrip approach intercepts proxy traffic, parsing HTTP responses for links starting with <code>https://</code> and replacing them with <code>http://</code>. The following simulation log captures the network events during an SSL stripping attack:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">SSLStrip Proxy Log, AitM Attack in Progress</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>=== AitM SSLStrip Proxy Log ===
+[192.168.1.102:40231] GET http://www.banking-portal.com/login   ← VICTIM sends HTTP (unencrypted)
+[Proxy Action] Intercepted. Forwarding to server as HTTPS:
+   [Proxy → Server] GET https://www.banking-portal.com/login    ← ATTACKER uses HTTPS to server
+
+[Server → Proxy] HTTP/1.1 200 OK
+   Set-Cookie: session_id=XYZ987654321; Secure; HttpOnly
+   Body: &lt;a href="https://www.banking-portal.com/auth"&gt;Secure Login&lt;/a&gt;
+
+[Proxy Action] MODIFYING response before sending to victim:
+   1. Strip "Secure" flag: Set-Cookie: session_id=XYZ987654321; HttpOnly  ← cookie now sent over HTTP
+   2. Rewrite HTTPS → HTTP: href="http://www.banking-portal.com/auth"     ← removes encryption
+
+[Proxy → Client] HTTP/1.1 200 OK  (DOWNGRADED)
+   Set-Cookie: session_id=XYZ987654321; HttpOnly   ← cookie flows over cleartext HTTP
+   Body: &lt;a href="http://www.banking-portal.com/auth"&gt;Secure Login&lt;/a&gt;
+
+[192.168.1.102:40232] POST http://www.banking-portal.com/auth   ← VICTIM posts credentials over HTTP!
+   POST Data: username=user123&amp;password=SecretPassword1!
+[Proxy Action] CREDENTIAL HARVESTED: [user123 / SecretPassword1!]</code></pre>
+</div>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">The attack is invisible from both ends</span>
+  Note the symmetry that makes SSL stripping so effective. The server sees a well-formed HTTPS connection from the proxy and has no way to know a third party is on the other side of it; nothing in its logs is anomalous. The client sees a page that renders correctly, with the correct content, at the correct hostname, the only difference is the scheme in the address bar and the absence of a security indicator, both of which are negative signals, and humans are poor detectors of things that are absent. The experimental literature on this is not encouraging: in <em>The Emperor's New Security Indicators</em> (IEEE S&amp;P 2007), Schechter, Dhamija, Ozment and Fischer removed the HTTPS indicators entirely from a simulated banking site and found that <strong>every one of the 63 participants who used their own real accounts entered their password anyway</strong>. Security indicators that require a user to notice an absence are not a control. The reliable defense operates before the request is made: a browser holding an HSTS policy, or a preloaded entry, never emits the plaintext request that stripping depends on.
+</div>
+
+<h4>6. HTTP Strict Transport Security (HSTS, RFC 6797)</h4>
+<p>To mitigate SSL stripping, servers enforce <span class="annot">HSTS<span class="tip"><strong>HSTS, HTTP Strict Transport Security</strong>A web security mechanism where the server tells browsers: "For the next X days, always use HTTPS to access this domain, never HTTP, not even for the initial request." Once the browser caches this directive, SSLStrip becomes impossible: the browser refuses to make the initial HTTP request that SSLStrip needs to intercept. <em>RFC 6797 (2012). The HSTS header is only accepted over HTTPS (never over HTTP, which would be insecure). HSTS preload goes further: a list of domains hardcoded into Chrome, Firefox, and Safari that are ALWAYS HTTPS, even before the first connection. Submit at hstspreload.org. Currently ~150,000 domains on the preload list.</em></span></span>. When a browser receives an HSTS header, it caches the policy client-side. The header contains several directives:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">HTTP Response Header (HSTS)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Strict-Transport-Security: max-age=63072000; includeSubDomains; preload</code></pre>
+</div>
+
+<ul>
+    <li><code>max-age=63072000</code>: Dictates how long (in seconds, 63072000 = 2 years) the browser must force HTTPS for the domain.</li>
+    <li><code>includeSubDomains</code>: Extends the policy to all subdomains (e.g., <code>auth.banking-portal.com</code>).</li>
+    <li><code>preload</code>: Authorizes browsers to include the domain in the hardcoded HSTS preload list built into Chrome, Firefox, and Safari. This protects the user even on their first connection attempt.</li>
+</ul>
+
+<p>RFC 6797 &sect;11.2 names the residual weakness in the specification itself: the bootstrap problem. A policy that arrives over the network can only protect connections made after it arrives. On a genuinely first visit to a domain, with no cached policy and no preload entry, the browser has nothing on which to base a refusal. The <strong>preload list</strong>, a set of names compiled into the browser binary and shipped with it, submitted at <a href="https://hstspreload.org/" target="_blank" rel="noopener">hstspreload.org</a>, closes the gap for domains that opt in, at the price of a commitment that is slow and awkward to reverse.</p>
+
+<p>Two further points separate a working understanding of HSTS from a superficial one.</p>
+
+<p><strong>HSTS can be evaded rather than broken.</strong> In 2014 Leonardo Nve demonstrated the technique usually called sslstrip2: rather than attacking a hostname the browser has an HSTS policy for, the proxy rewrites links to <em>sibling</em> hostnames that no policy covers, <code>wwww.example.com</code>, <code>web.example.com</code>, <code>social.example.com</code>, and pairs the rewrite with a rogue DNS server that resolves those invented names to the attacker. The browser has no cached policy for a name it has never seen, so it issues plaintext HTTP without complaint, and the address bar shows a name plausible enough to survive a glance. This is exactly what <code>includeSubDomains</code> plus preloading of the registrable domain is for, and it is why publishing HSTS on <code>www.example.com</code> alone is a half-measure.</p>
+
+<p><strong>The Secure cookie flag is weaker than it looks.</strong> Marking a cookie <code>Secure</code> stops the browser <em>sending</em> it over plaintext, which is the property everyone knows. It does not stop a plaintext response from <em>setting</em> or overwriting one, an on-path attacker can inject a <code>Set-Cookie</code> over HTTP that the browser will subsequently present on the HTTPS site, a class of attack known as cookie tossing or cookie forcing. Confidentiality and integrity are separate properties and the flag only supplies the first. The mitigation is the <code>__Host-</code> cookie name prefix, which browsers enforce by refusing any such cookie that is not set over a secure origin, without a <code>Domain</code> attribute, and with <code>Path=/</code>.</p>
+
+<p>Modern browsers have also moved the baseline underneath all of this. Chrome ships automatic HTTPS upgrades, navigations typed without a scheme are attempted over HTTPS first and fall back only on failure, and Firefox offers HTTPS-Only Mode, which turns the fallback into a warning interstitial. This narrows the plaintext-first window well beyond what HSTS alone achieved, and it is the single largest reason the 2010-era public-Wi-Fi threat model no longer describes reality. It narrows the window rather than eliminating it: fallback still exists, non-browser clients frequently do not implement any of this, and the ecosystem of applications and embedded devices that speak HTTP is still very much alive.</p>
+
+<h4>7. What Actually Protects You: Certificate Path Validation</h4>
+
+<p>TLS is what makes a hostile network survivable, and the load-bearing part of TLS is not the encryption, it is the authentication. Encryption without authentication merely guarantees a private conversation with someone; the question is who. That question is answered by <span class="annot">certificate path validation<span class="tip"><strong>Certification Path Validation (RFC 5280 &sect;6)</strong>The algorithm a TLS client runs to decide whether to trust a server's certificate. It walks the chain from the leaf certificate up through any intermediates to a root already present in the client's trust store, and at each step verifies the issuer's signature over the subject's certificate, that the certificate is within its validity period, that a CA certificate carries basicConstraints with cA:TRUE and an appropriate pathLenConstraint, that key usage and extended key usage permit the operation, that any name constraints are satisfied, and that the certificate has not been revoked. Failure at any step aborts the connection. <em>RFC 5280 (2008) specifies X.509 and the path validation algorithm; RFC 9525 (2023) specifies how the server identity in the certificate is matched against the name the client intended to reach, superseding RFC 6125.</em></span></span>, specified in <a href="https://www.rfc-editor.org/rfc/rfc5280#section-6" target="_blank" rel="noopener">RFC 5280 &sect;6</a>, together with the identity-matching rules of <a href="https://www.rfc-editor.org/rfc/rfc9525" target="_blank" rel="noopener">RFC 9525</a>.</p>
+
+<p>An adversary running the access point can send you any bytes he likes, but he cannot produce a certificate chaining to a root in your trust store that names <code>bank.example.com</code>, because that requires a CA's private key. Certificate Transparency raises the cost further: under <a href="https://www.rfc-editor.org/rfc/rfc9162" target="_blank" rel="noopener">RFC 9162</a>, major browsers require a certificate to arrive with signed timestamps proving it was submitted to public append-only logs, so a mis-issuance is discoverable by the domain owner rather than silently effective. The historically catastrophic version of this attack, the 2011 DigiNotar compromise, in which a breached Dutch CA issued a fraudulent <code>*.google.com</code> certificate used against Iranian users, is precisely what CT was built to make detectable.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">The one thing a hostile network can ask you for that defeats all of this</span>
+  Path validation terminates at your trust store. An adversary who gets a root certificate <em>into</em> that store can mint a chain for any name in the world, and every indicator in your browser will report a perfectly valid connection. This is not theoretical, it is the operating principle of every corporate TLS-inspection proxy, and it is what a captive portal is asking for when it instructs you to install a configuration profile or a certificate "to use this network." No legitimate public Wi-Fi has ever needed you to install a certificate. Treat that prompt, and any request to accept a certificate warning to reach a login page, as the terminal signal: it is the only realistic path from a hostile network to a full compromise of your encrypted traffic, and it requires your consent. Captive portals train users to click through exactly these warnings on a weekly basis, which is a genuine and underappreciated harm of the captive-portal design.
+</div>
+
+<h4>8. Jamming and War Driving: Two Attacks That Need No Protocol Flaw</h4>
+
+<p>Everything above concerns confidentiality and authentication, and every one of those attacks has a cryptographic answer. The two attacks in this section have none, because neither depends on a defect in 802.11. They depend on the fact that radio is a shared medium and that radio does not stop at a wall.</p>
+
+<p><strong>Jamming</strong> is the deliberate radiation of energy in the band a network occupies, at a power level sufficient to raise the noise floor above the point at which receivers can recover a signal. It is a denial-of-service attack conducted at the physical layer. Because 802.11 uses carrier sense multiple access with collision avoidance, a station that senses the medium as busy defers transmission; a jammer that keeps the channel permanently busy therefore silences well-behaved stations without transmitting a single valid frame. Cheaper still is the <em>reactive</em> jammer, which listens and emits a short burst only when it detects a transmission beginning, corrupting the frame's checksum. The receiver discards it, the sender's acknowledgement never arrives, and the sender retries, backs off, and eventually falls to its lowest data rate, a network that appears merely slow and broken rather than under attack.</p>
+
+<p>No amount of encryption addresses this. Protected Management Frames stop a forged deauthentication, but PMF is cryptography applied to frames, and a jammer does not send frames. The mitigations are correspondingly physical and procedural: spectrum analysis to identify the interference and locate its source by direction-finding, automatic channel and band selection to move the network away from a narrowband source, and, where availability genuinely matters, a network design that does not have a single radio path as its only route. In the United States the operation, marketing, and sale of signal jammers is prohibited under the Communications Act of 1934 &sect;333 and the Federal Communications Commission's rules, and the FCC has issued substantial forfeitures against operators; the legal control here is doing work the technical controls cannot.</p>
+
+<p><strong>War driving</strong> is reconnaissance rather than attack: moving through an area with a receiver and logging the networks whose beacons are audible, together with their names, security configuration, channel, signal strength and, when a satellite receiver is attached, position. The name is a pun on <em>war dialling</em>, the practice of calling telephone number ranges in sequence to find modems, which the 1983 film <em>WarGames</em> put into general vocabulary. The survey is entirely passive when done properly, the adversary transmits nothing and receives beacon frames that the access point is broadcasting to everyone by design, roughly ten times a second, so there is nothing to detect and nothing to block.</p>
+
+<p>What the survey yields is the input to every later decision. It establishes which access points use obsolete security, which use default network names implying default administrative credentials, and, critically, <strong>how far outside the building the signal reaches</strong>. That last item converts an abstract question about wireless risk into a measurement: if an organisation's network is usable from the public pavement, from the neighbouring tenant's floor, or from the visitor car park, then its wireless attack surface includes everyone who can stand in those places. The response is to treat radio coverage as a design parameter, survey the boundary, reduce transmit power and choose antenna patterns so that usable signal approximates the physical premises, and accept that this shrinks the exposure rather than eliminating it, because a directional antenna on the far side of the road recovers signal that an ordinary client cannot.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">Availability is the property cryptography does not supply</span>
+  Confidentiality and integrity are achievable over a hostile medium: a correct cipher and a correct authentication protocol give both, and the adversary's control of the channel does not help him. Availability is different in kind, because the medium itself is the resource under contention and any transmitter can consume it. This is why a wireless link should not be the sole path for anything whose failure is unacceptable, and why the honest answer to "how do we make our Wi-Fi jam-proof" is that you cannot, and the design question is what happens to the system when the radio stops.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: DarkHotel, KRACK, and an Evil Twin Prosecution</h3>
+        
+<h4>Case Study 1.3.1: DarkHotel, Hotel Networks as Targeted Infrastructure</h4>
+<p>In November 2014 Kaspersky Lab's Global Research and Analysis Team published its analysis of a long-running <span class="annot">cyber espionage<span class="tip"><strong>Cyber Espionage</strong>Using cyberattacks to steal secrets from governments, corporations, or individuals, not for financial gain but for intelligence and political advantage. Like traditional espionage, but done over networks instead of in person. Dark Caracal is attributed to the Lebanese General Directorate of General Security (GDGS), a state intelligence agency. <em>The MITRE ATT&CK framework tracks espionage techniques. State-sponsored espionage groups: APT28 (Russia), APT41 (China), Lazarus (North Korea), Dark Caracal (Lebanon). Unlike ransomware (financially motivated), espionage attacks aim to go undetected as long as possible to maximize intelligence collection.</em></span></span> campaign it named DarkHotel, which had by then been operating for several years. The campaign is the cleanest documented instance of a hostile network used with precision rather than opportunism, and its details are worth more than the general warnings usually derived from it.</p>
+
+<p>The operators did not stand in a coffee shop harvesting whatever passed. They compromised the networks of luxury hotels, waited for a named individual to check in, and delivered a payload to that individual and no one else, then removed their tooling from the hotel network afterward. Kaspersky's victim set was executives and senior technical staff in defense, manufacturing, automotive, pharmaceuticals, private equity and electronics: the sort of person whose laptop is worth a bespoke operation. The highest volume of hotel-network activity ran from roughly 2010 through 2013, with related activity continuing into 2014.</p>
+
+<p>The delivery mechanism is the part that matters technically. On connecting to the hotel network, the target was presented with what appeared to be a routine update prompt for common software, an Adobe Flash or Google Toolbar update, delivered through <span class="annot">the update channel itself<span class="tip"><strong>Software Update Hijacking</strong>An adversary on the network path can substitute a malicious binary for a legitimate one whenever the download is unauthenticated, over plain HTTP, or over HTTPS the attacker has broken, or where the client fetches over TLS but never checks a signature on the payload. The victim installs the malware personally, with full privileges, having been prompted by something that looks exactly like the routine maintenance they have been trained to accept. <em>The general defense is signed updates verified against a pinned publisher key independently of the transport, with rollback protection and, in the strongest designs, a transparency log so that a targeted build cannot be served to one victim without becoming publicly visible. Apple's notarization and Gatekeeper, Windows Authenticode, and Android package signing all implement the signature half.</em></span></span>, that installed a <span class="annot">surveillance implant<span class="tip"><strong>Surveillance Implant (Remote Access Trojan)</strong>Malware whose objective is persistent, quiet access rather than immediate disruption: keystroke capture, screenshots, file and credential exfiltration, and in mobile variants microphone, camera and location. Unlike ransomware, which announces itself because its business model requires the victim to know, an espionage implant's success is measured in how long it goes unnoticed, DarkHotel's operators had been active for several years before the campaign was characterized. <em>Relevant MITRE ATT&amp;CK tactics: TA0011 (Command and Control), commonly over T1573 (Encrypted Channel), and TA0010 (Exfiltration). Attribution and detection of this class of implant is the specialty of Kaspersky's GReAT, Citizen Lab, Lookout, and Amnesty International's Security Lab.</em></span></span> alongside a working copy of the advertised software.</p>
+
+<p>What made the prompt convincing was cryptographic rather than cosmetic. The operators presented <strong>forged digital certificates</strong> that browsers and installers accepted, obtained by factoring the weak public keys of real 512-bit RSA certificates, recovering the corresponding private keys and using them to produce signatures that validated correctly. This is one of the very few documented instances of an adversary defeating a code-signing check by breaking the underlying key rather than by stealing it or by exploiting a validation bug, and it is the reason 512-bit RSA is not merely deprecated but forbidden.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">What DarkHotel teaches that generic Wi-Fi advice does not</span>
+  Three things distinguish this from the coffee-shop scenario people picture. First, <strong>targeting</strong>: the malicious update was served to a specific person, identified by room number and surname, and not to the other guests on the same network, which means the sampling-based detection that catches bulk attacks sees nothing. Second, <strong>the abused trust was the update channel</strong>, not the login page. Users are trained to be suspicious of unexpected emails and are trained to accept update prompts, so the attack ran with the grain of the training rather than against it. Third, <strong>the cryptography was actually broken</strong>, not bypassed. The lasting control is not "avoid hotel Wi-Fi"; it is that software updates must be verified against a pinned publisher key with adequate key length, independently of the transport that delivered them, so that a compromised network cannot substitute anything the publisher did not sign. Every mainstream operating system now enforces that; the long tail of third-party applications and firmware still does not.
+</div>
+
+<h4>Case Study 1.3.2: KRACK, 2017, A Patchable Flaw in Unpatchable Devices</h4>
+
+<p>On 16 October 2017 Mathy Vanhoef published <a href="https://www.krackattacks.com/" target="_blank" rel="noopener">the KRACK disclosure</a>, with the accompanying paper appearing at ACM CCS days later. The technical content is analyzed in Section II; what makes this an instructive <em>incident</em> rather than merely a vulnerability is how the remediation went.</p>
+
+<p>The flaw was in the standard's handling of retransmitted handshake messages, so essentially every implementation of WPA2 was affected, every phone, laptop, router, access point, printer, thermostat, camera, industrial sensor and car head unit shipped since 2004. The coordinated disclosure was handled well: US-CERT notified vendors in late August 2017, and major operating systems had patches available at or shortly after publication. The fix itself was trivial in engineering terms, a single rule that a station must not reinstall a key it already holds, fully backward compatible with unpatched peers.</p>
+
+<p>And yet the fix reached only the devices that had a maintained update path. A Windows laptop, a current iPhone, a supported Linux distribution: patched within days. A consumer access point three years past its support window, an Android handset whose vendor had stopped shipping updates, a wireless sensor with firmware written once and burned into a product with a fifteen-year service life: not patched then, not patched now. The population of permanently vulnerable WPA2 devices did not decline because they were fixed; it declines only as they are discarded.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Patchability is a property of the deployment, not of the bug</span>
+  KRACK is the clearest available demonstration that vulnerability severity and real-world exposure are governed by different variables. Cryptographically, the flaw was narrow, required physical proximity and a channel-based man-in-the-middle position, and did not disclose the network password. Operationally, it created a permanent population of exploitable devices because the protocol was embedded in hardware with no maintenance path. When you design a system, the question "how would we ship a fix to every deployed instance of this, and who pays for it?" belongs in the design review, not in the incident response plan. The regulatory response has begun to reflect this, the EU Cyber Resilience Act and comparable regimes now impose support-period obligations on connected products, but a decade of unpatchable hardware is already in the field.
+</div>
+
+<h4>Case Study 1.3.3: An Evil Twin Prosecution, Australia, 2024</h4>
+<p>Evil twin attacks are frequently demonstrated and rarely prosecuted, which makes this case unusually useful: it is a documented instance with charges, a device, an evidentiary record and a sentence, rather than a conference demo.</p>
+
+<p>In April 2024 employees of an Australian domestic airline noticed a suspicious Wi-Fi network during a flight and reported it. The Australian Federal Police searched a passenger's hand luggage on his arrival at Perth Airport on 19 April 2024 and seized a portable wireless access device, a laptop and a mobile phone. According to the <a href="https://www.afp.gov.au/news-centre/media-release/man-charged-over-creation-evil-twin-free-wifi-networks-access-personal" target="_blank" rel="noopener">AFP's media release of 28 June 2024</a>, examination of the seized devices found fraudulent Wi-Fi access pages and dozens of personal credentials belonging to other people. The alleged operation ran at Perth, Melbourne and Adelaide airports and on domestic flights.</p>
+
+<p>The method was the one described in Section II, executed with commodity equipment. The portable access point broadcast an SSID resembling the venue's free Wi-Fi. A device that associated was presented with a portal page requesting an email address and password, or a social media login, "to connect", a request the real network never makes. The AFP charged nine offences: three counts of unauthorised impairment of electronic communication (maximum ten years), three counts of possession or control of data with intent to commit a serious offence (maximum three years), one count of unauthorised access to or modification of restricted data (maximum two years), one count of dishonestly obtaining personal financial information (maximum five years), and one count of possession of identification information (maximum three years). The device seized was a portable wireless auditing appliance of the kind sold commercially for penetration testing, which is worth noting because it establishes the capability level involved: the operation required no exploit development and no undisclosed vulnerability, only the purchase of a tool that performs the attack as a configured feature. He pleaded guilty and was sentenced in the Perth District Court on 28 November 2025 to seven years and four months' imprisonment, with parole eligibility after five years; the investigation also uncovered years of unrelated offending against private online accounts.</p>
+
+<p>The AFP's own advice in the release is the most compact statement of the defense anywhere in this chapter: to join a free Wi-Fi network you should not have to enter any personal details, and specifically not an email or social media login. There is no technical reason a network needs your password to give you an IP address. The request is the attack.</p>
+
+<p>Two mechanics deserve separating out. The first is <span class="annot">DNS hijacking<span class="tip"><strong>DNS Hijacking</strong>Answering a client's name-resolution queries with attacker-chosen addresses. On a network the adversary controls, this is trivial: DHCP hands the client the adversary's resolver, and plain DNS carries no authentication, so any answer is accepted. It does not by itself defeat TLS, the redirected server still cannot present a valid certificate for the name, but it enables convincing captive-portal deceptions, supports the lookalike-hostname evasion of HSTS, and reveals every host the device intends to contact. <em>Encrypted transports (DNS over HTTPS, RFC 8484; DNS over TLS, RFC 7858) remove the interception; DNSSEC (RFC 4033&ndash;4035) removes the forgery by signing the records, and the two solve genuinely different halves of the problem.</em></span></span>, which requires no exploit at all when the adversary is also the DHCP server. The second is the reason a portal page is used to ask for credentials rather than TLS interception being attempted: the operator of an evil twin <em>cannot</em> read HTTPS traffic, so he does not try. He asks you to type the credential into a page he wrote. This is social engineering wearing a network's clothes, and it works against exactly the users who have been told that the danger of public Wi-Fi is eavesdropping.</p>
+
+<p>The residual technical exposure is narrower than the popular account but not zero, and it is concentrated on domains outside the browser's hardcoded <span class="annot">HSTS preload lists<span class="tip"><strong>HSTS Preload List</strong>A hardcoded list of domain names built into Chrome, Firefox, Safari, and Edge. Every domain on this list is permanently forced to HTTPS, the browser never even attempts an HTTP connection, regardless of any HSTS headers. This defeats the TOFU (Trust-On-First-Use) problem for preloaded domains. Currently ~150,000 domains preloaded. Submit at hstspreload.org. <em>The list is maintained by Google and imported by other browsers. Requirements: serve HTTPS, have a valid HSTS header with max-age ≥ 1 year, includeSubDomains, and preload directive. Removing from the list is slow and not guaranteed. Permanent commitment: if you ever need to serve HTTP (e.g., legacy clients), preloading becomes a liability.</em></span></span>, and on the large population of mobile applications and embedded clients that never adopted HSTS, certificate pinning, or in some cases TLS at all. A browser visiting a preloaded banking domain on an evil twin is genuinely safe. A ten-year-old point-of-sale terminal, a fitness tracker's companion app, or a corporate line-of-business application written in 2013 may not be.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Why the credential-harvesting portal is the durable attack</span>
+  Three of this chapter's mechanisms have been substantially neutralized by ecosystem change: SSL stripping by HSTS preloading and browser HTTPS upgrading, deauthentication flooding by 802.11w, and offline handshake cracking by WPA3's SAE, each on the devices and networks that adopted the fix. The captive-portal credential harvest has not been neutralized by anything, because there is no protocol layer at which it operates. It is a person typing a password into a page, and the page is under the adversary's control by construction. Its persistence across a decade of otherwise dramatic improvement in transport security is the single strongest argument in this book for phishing-resistant authenticators: an origin-bound credential (Topic 1.2, Section II) cannot be typed into the wrong page, which is the only defense in this chapter that does not depend on the user noticing something.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Securing Wireless Use: WPA3, 802.1X, HSTS, and VPNs</h3>
+        
+<p>Organizations must secure network communications on public and wireless infrastructure by enforcing the following layered controls:</p>
+<h4>1. Transition to WPA3 Security (IEEE 802.11ax + 802.11w)</h4>
+<p>Organizations must migrate from WPA2 to <span class="annot">WPA3<span class="tip"><strong>WPA3, Wi-Fi Protected Access 3</strong>The current WiFi security standard (2018), replacing WPA2. The key improvements: (1) SAE key exchange replaces PSK 4-way handshake, resistant to offline dictionary attacks. (2) PMF (802.11w Protected Management Frames) is MANDATORY in WPA3, prevents deauth frame spoofing. (3) WPA3-Enterprise uses 192-bit security suite (stronger than WPA2's 128-bit). (4) OWE (Opportunistic Wireless Encryption) adds encryption even to "open" networks with no password. <em>WPA3 certification began June 2018 by Wi-Fi Alliance. WPA3-Personal uses SAE (Simultaneous Authentication of Equals). WPA3-Enterprise adds Suite B cryptography. All WPA3 devices are required to implement 802.11w PMF. The reference: IEEE 802.11-2020 consolidates WPA3 amendments.</em></span></span>. WPA3 replaces the Pre-Shared Key (PSK) 4-way handshake, which is vulnerable to offline dictionary attacks via handshake capture, with <span class="annot">Simultaneous Authentication of Equals (SAE)<span class="tip"><strong>SAE, Simultaneous Authentication of Equals (Dragonfly)</strong>The key exchange protocol used by WPA3, replacing WPA2's PSK 4-way handshake. The crucial difference: SAE requires active, real-time participation from both client and AP for every authentication attempt. An attacker cannot capture the handshake and brute-force the password offline, they must attempt each guess live against the AP (rate-limited by the AP). SAE is based on the Dragonfly protocol (RFC 7664), a zero-knowledge Diffie-Hellman variant. <em>WPA2 vulnerability: capture the 4-way handshake once, then take it home and run hashcat at 10 billion guesses/second. SAE defeats this: each offline-guessed password requires a new active interaction with the AP. Forward secrecy: SAE derives unique session keys for each connection, so compromising the password doesn't decrypt previously captured sessions.</em></span></span>, based on the Dragonfly key exchange protocol. SAE enforces <span class="annot">forward secrecy<span class="tip"><strong>Perfect Forward Secrecy (PFS)</strong>A cryptographic property ensuring that even if the long-term secret (the WiFi password, the TLS private key) is compromised in the future, previously captured encrypted sessions cannot be decrypted retroactively. Each session gets its own ephemeral (temporary) key, derived fresh, never stored. WPA3/SAE provides forward secrecy: capturing WiFi traffic now and getting the password later doesn't let you decrypt the old traffic. TLS 1.3 mandates forward secrecy using ECDHE. <em>The opposite: WPA2 captures one handshake, gets the password (by cracking the handshake), and can decrypt all past captured traffic. WPA3 SAE: even if you steal the password, you can only attack new connections, not past ones. Standard: RFC 7364 on forward secrecy in TLS.</em></span></span>, preventing attackers from decrypting captured wireless traffic even if they obtain the network password.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Cisco WLC, WPA3 + PMF Configuration</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Wireless LAN Controller, Enable WPA3-SAE + 802.11w PMF
+wlan security wpa akm sae                  # Enable SAE key exchange (replaces PSK)
+wlan security wpa wpa3                     # Set WPA3 mode
+wlan security pmf required                 # 802.11w PMF: mandatory (rejects non-PMF clients)
+wlan security pmf association-comeback 3  # Comeback timer: 3 seconds
+wlan security pmf sa-query-timeout 200    # SA Query timeout: 200ms
+
+# Verify:
+show wlan 1 | include PMF
+# Output: PMF: Required (clients without PMF support will be rejected)
+#         Management Frame Protection: Enabled
+#         Deauthentication attack mitigation: Active</code></pre>
+</div>
+
+<h4>2. Implementing Enterprise-Grade 802.1X Authentication</h4>
+<p>Deploy <span class="annot">IEEE 802.1X<span class="tip"><strong>IEEE 802.1X, Port-Based Network Access Control</strong>A standard that controls which devices can connect to a network by requiring authentication before allowing network access. Like a security checkpoint at the network port: your device must prove its identity to a RADIUS authentication server before traffic is allowed through. Used in both wired and wireless networks. <em>Architecture: Supplicant (client) ↔ Authenticator (switch/AP) ↔ Authentication Server (RADIUS). The AP acts as a pass-through, forwarding EAP messages between the client and the RADIUS server. Success: AP opens the "controlled port." Failure: only the "uncontrolled port" is accessible (used for re-authentication only). Deployed in every enterprise WiFi network. Consumer APs don't support 802.1X (cost and complexity).</em></span></span> network access control. Use <span class="annot">EAP-TLS<span class="tip"><strong>EAP-TLS, Extensible Authentication Protocol with TLS</strong>The most secure WiFi authentication method. Both the client AND the server present X.509 digital certificates and verify each other's certificate. This is the key advantage over password-based WiFi: an Evil Twin access point cannot present a valid server certificate (because it doesn't have the real server's private key), so the authentication fails and the client never connects to the Evil Twin. <em>EAP-TLS flow: Client sends Certificate → Server verifies with CA → Server sends Certificate → Client verifies with CA → Mutual TLS handshake → session key derived. Requires a PKI (Public Key Infrastructure): a Certificate Authority (CA) to issue client and server certs. Enterprise RADIUS servers: FreeRADIUS, Cisco ISE, Microsoft NPS. The strongest EAP type; used by US DoD networks.</em></span></span> (Extensible Authentication Protocol-Transport Layer Security) for enterprise wireless networks. EAP-TLS mandates mutual authentication, requiring both the client and the authentication server to present valid <span class="annot">X.509 digital certificates<span class="tip"><strong>X.509 Certificate</strong>A standardized digital identity document binding a public key to an identity (domain name, organization, person), signed by a Certificate Authority (CA). Like a digital passport, the CA is the government that issued it, and anyone can verify the signature. WiFi EAP-TLS uses X.509 certs for both client and server. <em>X.509 is defined in RFC 5280. Fields: Subject (who), Issuer (CA), Valid From/To, Public Key, Signature. Certificate chain: End-entity cert → Intermediate CA → Root CA. HTTPS websites use X.509 certs for the TLS handshake. Clients have Root CA certificates pre-installed to verify server certs. For WiFi: each employee device gets a client certificate (usually auto-enrolled via Active Directory Certificate Services or SCEP).</em></span></span>, preventing the connection of unauthorized clients and blocking Evil Twin access points.</p>
+
+<h4>3. Mandatory Client-Side Protections</h4>
+<p>Configure company assets with the following layered settings:</p>
+<ul>
+    <li>Enforce the use of an Always-On <span class="annot">Virtual Private Network (VPN)<span class="tip"><strong>VPN, Virtual Private Network</strong>A technology that creates an encrypted "tunnel" between your device and a trusted server, routing all your traffic through that tunnel. Even if you're on a hostile WiFi network (like an Evil Twin), the attacker can only see encrypted VPN packets, the contents are inaccessible. Like driving through a city in an armored car: the driver knows your route, but nobody can see inside or interfere with what you're transporting. <em>VPN protocols: WireGuard (modern, fast, 4,000 lines of code), OpenVPN (mature, open-source), IPsec/IKEv2 (enterprise standard), L2TP/IPsec (legacy). Corporate "Always-On VPN" solutions: Cisco AnyConnect, Palo Alto GlobalProtect, Zscaler Private Access. NIST SP 800-77 covers IPsec VPN guidelines. WireGuard is now in the Linux kernel (5.6+).</em></span></span> using WireGuard or IPsec to encapsulate all egress traffic in an encrypted tunnel.</li>
+    <li>Enable <span class="annot">DNS over HTTPS (DoH)<span class="tip"><strong>DNS over HTTPS (DoH) and DNS over TLS (DoT)</strong>Encrypted versions of DNS queries. Standard DNS (UDP port 53) is unencrypted, an Evil Twin AP can intercept and modify DNS responses (DNS hijacking). DoH wraps DNS queries in HTTPS (port 443), making them look like regular web traffic and unreadable to the attacker. DoT (port 853) is the same idea but uses raw TLS. <em>DoH: RFC 8484 (2018). DoT: RFC 7858 (2016). Supported by: Chrome, Firefox (enabled by default), iOS 14+, Android 9+. Providers: Cloudflare (1.1.1.1), Google (8.8.8.8), Quad9 (9.9.9.9). Corporate DNS-over-HTTPS can point to an internal resolver, maintaining control while encrypting the query. An Evil Twin cannot hijack DoH queries because they're encrypted and go directly to the provider.</em></span></span> or DNS over TLS (DoT) to prevent local network DNS spoofing and redirection.</li>
+    <li>Submit all corporate domain names to the browser <span class="annot">HSTS preload list<span class="tip"><strong>hstspreload.org</strong>The submission portal for adding domains to Chrome's hardcoded HSTS preload list. Requirements to qualify: (1) Serve valid HTTPS on all subdomains. (2) Redirect HTTP → HTTPS. (3) Serve an HSTS header with max-age ≥ 1 year, includeSubDomains, and preload directives. (4) No mixed content. Once approved, the domain is hardcoded into Chrome/Firefox/Safari source code and shipped in browser updates. Every user of these browsers will always use HTTPS for your domain, even before their first visit. The list currently has ~150,000 domains. Warning: removal is very slow (6-12 months) and not guaranteed. This is a long-term commitment. <em>Current status: check if your domain is preloaded at hstspreload.org. Major preloaded domains: google.com, facebook.com, github.com, stripe.com.</em></span></span> (<code>hstspreload.org</code>) to ensure browser-enforced HTTPS even on the first connection.</li>
+</ul>
+
+<h4>4. Encrypting the Open Network: Opportunistic Wireless Encryption</h4>
+
+<p>A guest or public network cannot require a passphrase without ceasing to be public, and for two decades that meant such networks ran with no link-layer encryption at all, every frame legible to every receiver in range. <span class="annot">Opportunistic Wireless Encryption<span class="tip"><strong>OWE, Opportunistic Wireless Encryption</strong>Specified in RFC 8110 (March 2017) and certified by the Wi-Fi Alliance as Wi-Fi Enhanced Open. Instead of deriving the pairwise master key from a shared passphrase, the client and access point perform an unauthenticated Diffie-Hellman exchange during association and feed the resulting shared secret into the ordinary four-way handshake. Each client therefore holds a distinct pairwise key, and traffic is encrypted over the air with no configuration and no user interaction. <em>Maintenance of the protocol has since been transferred from the IETF to the IEEE 802.11 Working Group (RFC 9672). OWE Transition Mode lets an access point advertise an open BSS and an OWE BSS simultaneously so that legacy clients are not excluded.</em></span></span> (<a href="https://www.rfc-editor.org/rfc/rfc8110" target="_blank" rel="noopener">RFC 8110</a>, marketed as Wi-Fi Enhanced Open) closes that gap. Client and access point run an unauthenticated Diffie-Hellman exchange during association and use the resulting secret in place of a shared PSK, so every client gets its own pairwise key. To the user nothing changes: the network still appears as open and still requires no password.</p>
+
+<p>The word doing the work is <em>unauthenticated</em>. OWE gives confidentiality against a passive listener and nothing against an active one, because the client has no way to verify which access point it just performed the exchange with. An evil twin running OWE completes the exchange perfectly well and reads everything, having negotiated the key itself. OWE therefore eliminates the bystander with a monitor-mode adapter, a real and worthwhile improvement over an open network, and leaves the adversary who operates the access point entirely undisturbed. It should be deployed on every guest network, and it should not be described to users as making the network safe.</p>
+
+<h4>5. What a VPN Does, Stated Precisely</h4>
+
+<p>A VPN builds an authenticated, encrypted tunnel from the device to a server the operator runs, and forwards traffic onto the internet from there. Two things follow immediately, and the second is the one usually omitted.</p>
+
+<p>First, the local network is removed from the trust path for everything inside the tunnel. The hostile access point sees a single encrypted flow to one address; it cannot read DNS queries, cannot read SNI, cannot forge DNS answers, cannot strip TLS, and cannot see which sites are visited. Against the specific threat of an adversary who controls the local network, this is a genuine and substantial improvement, and it is the strongest argument for using one, it protects the metadata that TLS leaves exposed.</p>
+
+<p>Second, that trust is not destroyed; it is <strong>moved</strong>. Everything the coffee shop's router could previously observe, the VPN provider can now observe: the same DNS queries, the same destination addresses, the same timing and volume, and the plaintext of anything not independently protected by TLS. The user has substituted an operator they chose for an operator they did not, which is an improvement only to the degree that the chosen operator is more trustworthy than the network at hand. Since the commercial VPN market is advertised on privacy claims that are difficult for a customer to verify, and since several providers have been found retaining logs they denied keeping, that judgement should be made deliberately rather than assumed. NIST's guidance on the enterprise case is <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-77r1.pdf" target="_blank" rel="noopener">SP 800-77 Rev. 1</a>, <em>Guide to IPsec VPNs</em>.</p>
+
+<p>Two further limits deserve stating. A VPN protects the tunnel, not the endpoints: malware already on the device, a malicious file downloaded through the tunnel, and a password typed into a phishing page are all unaffected. And the tunnel's protection stops where the tunnel does, traffic leaves the VPN server in whatever condition it entered, so a plaintext HTTP request is still plaintext for the remainder of its journey. A VPN relocates the observer; it does not encrypt the internet.</p>
+
+<h4>6. What an Individual Can Actually Do</h4>
+
+<p>The controls above are organisational. The following are available to a person with an ordinary phone or laptop and no administrative authority over anything, and they are ordered by how much risk each removes per unit of effort.</p>
+
+<ul>
+  <li><strong>Read the network name character by character before joining, and prefer a name you were told rather than one you recognised.</strong> An evil twin's entire advantage is that its name looks right at a glance; <code>Airport_Free_WiFi</code> and <code>Airport Free WiFi</code> are different networks and only one of them may be the venue's. Where a venue publishes its network name at the counter or on a boarding pass, that is the authority, not the list on the device.</li>
+  <li><strong>Treat any request for a credential as the attack.</strong> A network needs nothing from you to assign an address. A portal asking for an email password, a social media login, or a bank detail is not a network requirement; it is a page written by whoever runs the access point. This is the same advice the Australian Federal Police issued after the airport prosecution, and it is the single highest-value item on this list because it is the attack that ecosystem change has not neutralised.</li>
+  <li><strong>Never install a certificate or configuration profile, and never click through a certificate warning, to reach a network.</strong> This is the only realistic path from a hostile network to reading your encrypted traffic, and it requires your active cooperation. Withhold it and the adversary's ceiling is metadata.</li>
+  <li><strong>Turn off automatic joining for public networks, and delete saved public networks after use.</strong> A remembered open network is an instruction to associate with anything broadcasting that name, anywhere, without asking.</li>
+  <li><strong>Enable encrypted DNS.</strong> Both major mobile platforms and all major browsers support DoH or DoT, and it removes the one substantial category of content the network still reads when everything else is encrypted, the list of every host you intend to contact, along with the ability to forge answers.</li>
+  <li><strong>Consider the sensitivity of what you are about to do, not the network in the abstract.</strong> Reading a news site over an untrusted network costs you the knowledge that you read it. Authenticating to an account whose compromise would be serious is a different decision, and one that can usually be deferred to a trusted connection or conducted over cellular data, which is encrypted to the carrier and not shared with the room.</li>
+  <li><strong>Use phishing-resistant authentication where it is offered.</strong> A passkey or security key is bound to the origin that registered it, so it cannot be presented to a lookalike page. It is the only control here that does not require the user to notice anything.</li>
+  <li><strong>Reduce what the device exposes to the local segment.</strong> Marking the network as public on the operating system's prompt disables file and printer sharing and network discovery; on a public network this closes more real attack surface than any traffic-interception concern.</li>
+</ul>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">The four-layer defense stack</span>
+  Defending a device on a hostile public network means working layer by layer, because each layer closes a gap the others structurally cannot: (1) <strong>Link Layer</strong>, WPA3/SAE + IEEE 802.11w PMF (prevent Evil Twin and deauth spoofing). (2) <strong>Network Layer</strong>, Always-On VPN in full-tunnel mode (encrypt all egress before it even hits the hostile AP). (3) <strong>Transport Layer</strong>, TLS 1.3 minimum + HSTS preload (even if VPN fails, individual connections are encrypted). (4) <strong>Application Layer</strong>, Certificate pinning, DoH, FIDO2 authentication (defeats phishing even on hostile networks). Defense-in-depth: any single layer can fail; the others compensate.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>RFC 6797: HTTP Strict Transport Security (HSTS) (2012).</li><li style='margin-bottom: 12px; text-align: justify;'>IEEE Standard 802.11-2020: Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY) Specifications.</li><li style='margin-bottom: 12px; text-align: justify;'>IEEE Standard 802.11w-2009: Protected Management Frames.</li><li style='margin-bottom: 12px; text-align: justify;'>Marlinspike, M. (2009). New Tricks for Defeating SSL in Practice. Black Hat DC.</li><li style='margin-bottom: 12px; text-align: justify;'>ISO/IEC 27033-4: Information technology - Security techniques - Network security - Part 4: Securing communications between networks using security gateways (2014).</li><li style='margin-bottom: 12px; text-align: justify;'>Vanhoef, M., &amp; Piessens, F. (2017). Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2. <em>Proceedings of the 24th ACM Conference on Computer and Communications Security (CCS &rsquo;17)</em>, 1313&ndash;1328. <a href="https://www.krackattacks.com/" target="_blank" rel="noopener">krackattacks.com</a></li><li style='margin-bottom: 12px; text-align: justify;'>Vanhoef, M., &amp; Ronen, E. (2020). Dragonblood: Analyzing the Dragonfly Handshake of WPA3 and EAP-pwd. <em>IEEE Symposium on Security and Privacy</em>. <a href="https://papers.mathyvanhoef.com/dragonblood.pdf" target="_blank" rel="noopener">papers.mathyvanhoef.com/dragonblood.pdf</a></li><li style='margin-bottom: 12px; text-align: justify;'>Harkins, D., &amp; Kumari, W. (Eds.) (2017). RFC 8110: Opportunistic Wireless Encryption. IETF. <a href="https://www.rfc-editor.org/rfc/rfc8110" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc8110</a></li><li style='margin-bottom: 12px; text-align: justify;'>Harkins, D. (2015). RFC 7664: Dragonfly Key Exchange. IETF (IRTF CFRG). <a href="https://www.rfc-editor.org/rfc/rfc7664" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc7664</a></li><li style='margin-bottom: 12px; text-align: justify;'>Cooper, D., et al. (2008). RFC 5280: Internet X.509 Public Key Infrastructure Certificate and CRL Profile, &sect;6, Certification Path Validation. IETF. See also RFC 9525 (2023) on service identity verification.</li><li style='margin-bottom: 12px; text-align: justify;'>Barnes, R., et al. (2021). RFC 9162: Certificate Transparency Version 2.0. IETF.</li><li style='margin-bottom: 12px; text-align: justify;'>Hoffman, P., &amp; McManus, P. (2018). RFC 8484: DNS Queries over HTTPS (DoH). IETF. Companion: RFC 7858, DNS over TLS.</li><li style='margin-bottom: 12px; text-align: justify;'>Barker, E., et al. (2020). NIST Special Publication 800-77 Rev. 1: Guide to IPsec VPNs. National Institute of Standards and Technology. <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-77r1.pdf" target="_blank" rel="noopener">nvlpubs.nist.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>Kaspersky Lab GReAT (2014). <em>The Darkhotel APT: A Story of Unusual Hospitality</em>. Technical report.</li><li style='margin-bottom: 12px; text-align: justify;'>Schechter, S., Dhamija, R., Ozment, A., &amp; Fischer, I. (2007). The Emperor&rsquo;s New Security Indicators. <em>IEEE Symposium on Security and Privacy</em>, 51&ndash;65.</li><li style='margin-bottom: 12px; text-align: justify;'>Steube, J. (2018). New attack on WPA/WPA2 using PMKID. Hashcat forum disclosure.</li><li style='margin-bottom: 12px; text-align: justify;'>Australian Federal Police (2024, 28 June). <em>Man charged over creation of &lsquo;evil twin&rsquo; free WiFi networks to access personal data</em>; and (2025, November) sentencing announcement, Perth District Court. <a href="https://www.afp.gov.au/news-centre/media-release/man-charged-over-creation-evil-twin-free-wifi-networks-access-personal" target="_blank" rel="noopener">afp.gov.au</a></li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+    
+        <div class="question-block">
+          <div class="question-header">Question 1: How does Moxie Marlinspike's SSLStrip approach bypass SSL/TLS security, and why does HSTS prevent it?</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+          <div class="solution-content" id="sol-1">
+            <p>SSLStrip does not break the cryptographic primitives of SSL/TLS. Instead, it operates as an Adversary-in-the-Middle (AitM) proxy that intercepts and modifies cleartext traffic. When a client makes an initial unencrypted HTTP request to access a website, SSLStrip intercepts it, establishes a secure HTTPS connection with the target server, and returns the response to the client over an unencrypted HTTP connection. It rewrites all secure 'https://' URLs on the page to unencrypted 'http://' links.
+
+HTTP Strict Transport Security (HSTS) prevents this bypass by instructing the browser client-side to always upgrade requests to HTTPS before transmitting any data over the network. If the user clicks an HTTP link or types an HTTP URL for an HSTS-enforced domain, the browser automatically rewrites the URL to HTTPS. Additionally, if the browser detects a certificate mismatch or an invalid certificate during the handshake, it terminates the connection immediately without allowing the user to bypass the warning.</p>
+          </div>
+        </div>
+        
+        <div class="question-block">
+          <div class="question-header">Question 2: Explain why 802.11 deauthentication frames can be easily spoofed by an attacker, and identify the standard that addresses this vulnerability.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+          <div class="solution-content" id="sol-2">
+            <p>Under the legacy IEEE 802.11 wireless standard, management frames (including association, disassociation, authentication, and deauthentication frames) are transmitted unencrypted and unauthenticated. An attacker in monitor mode can capture the MAC address of a target client and its associated Access Point (AP). The attacker can then inject a spoofed management frame with the Subtype field set to 'Deauthentication' (0x000c) using the MAC address of the AP as the source transmitter.
+
+When the client receives the spoofed frame, it is unable to verify its authenticity and disconnects from the network. The IEEE 802.11w-2009 standard (Protected Management Frames) addresses this vulnerability by extending cryptographic integrity protection to management frames, preventing unauthorized frame injection.</p>
+          </div>
+        </div>
+        
+        <div class="question-block">
+          <div class="question-header">Question 3: Describe the security advantages of WPA3's Simultaneous Authentication of Equals (SAE) compared to WPA2's Pre-Shared Key (PSK) handshake.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+          <div class="solution-content" id="sol-3">
+            <p>WPA2's PSK architecture uses a 4-way handshake that is vulnerable to offline dictionary attacks. An attacker can capture the handshake over the air and use hash-cracking tools to test password guesses offline without interacting with the network.
+
+WPA3's SAE protocol replaces this handshake with the Dragonfly key exchange, a zero-knowledge proof system based on Diffie-Hellman key exchange. SAE mandates active, online participation for every authentication attempt. An attacker cannot capture the key exchange and brute-force the password offline. SAE provides forward secrecy: if the network password is compromised in the future, past captured traffic remains encrypted and cannot be decrypted retroactively.</p>
+          </div>
+        </div>
+        
+  </section>
+
+  <section class="review-questions" id="sec-practice">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">1. <span class="ap-code">1.3.B</span> An adversary sits in an airport lounge with a laptop and a monitor-mode adapter and captures the WPA2 four-way handshake between a traveller's phone and the lounge access point. The network's passphrase is a random twelve-character string. Which statement best describes what the adversary has obtained?</div>
+      <ul class="mcq">
+        <li>A. The temporal key, because it is transmitted in handshake message 3.</li>
+        <li>B. An offline verifier against which passphrase guesses can be tested at GPU speed, which for this passphrase is unlikely to succeed.</li>
+        <li>C. Nothing of value, because the handshake is encrypted under the pairwise master key.</li>
+        <li>D. The ability to decrypt the traveller's HTTPS traffic once the handshake is captured.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">2. <span class="ap-code">1.3.B</span> A wireless network is configured with WPA3 and Protected Management Frames required. An adversary wishes to force a particular client off the network. Which approach remains available?</div>
+      <ul class="mcq">
+        <li>A. Injecting a spoofed deauthentication frame with the access point's MAC address as the transmitter.</li>
+        <li>B. Sending a forged disassociation frame to the broadcast address.</li>
+        <li>C. Radiating interference in the channel the network occupies.</li>
+        <li>D. Replaying a captured association request to trigger the access point's SA Query timeout.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">3. <span class="ap-code">1.3.A</span> Four campaigns are described below. Which is most characteristic of a high-capability, state-sponsored adversary rather than a lower-capability one?</div>
+      <ul class="mcq">
+        <li>A. A commercially sold wireless auditing appliance is used to run an evil twin and a credential-harvesting portal at several airports.</li>
+        <li>B. A rented ransomware toolkit is deployed by affiliates against several hundred small businesses in one month.</li>
+        <li>C. A malicious software update is delivered only to one named hotel guest and signed with a private key recovered by factoring a weak 512-bit RSA public key.</li>
+        <li>D. A publicly documented router vulnerability is exploited at scale by scanning the internet for unpatched devices.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">4. <span class="ap-code">1.3.C</span> A user connects to hotel Wi-Fi and immediately establishes a VPN tunnel to a commercial provider, then visits a banking site over HTTPS. Which party can determine that the user visited that banking site?</div>
+      <ul class="mcq">
+        <li>A. The hotel network only.</li>
+        <li>B. The VPN provider only.</li>
+        <li>C. Both the hotel network and the VPN provider.</li>
+        <li>D. Neither, because the traffic is encrypted twice.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">5. <span class="ap-code">1.3.C</span> A guest network is upgraded from an open configuration to Opportunistic Wireless Encryption (Wi-Fi Enhanced Open). Which threat does this change address?</div>
+      <ul class="mcq">
+        <li>A. An adversary who operates a rogue access point advertising the same network name.</li>
+        <li>B. A bystander in range passively capturing frames with a monitor-mode adapter.</li>
+        <li>C. An adversary who has obtained the network's passphrase.</li>
+        <li>D. An adversary attempting to strip TLS from the user's web traffic.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">6. <span class="ap-code">1.3.B</span> Why did the KRACK key reinstallation attack permit an adversary to decrypt frames without ever recovering the network passphrase?</div>
+      <ul class="mcq">
+        <li>A. Reinstalling the temporal key caused it to be replaced with an all-zero value on every affected client.</li>
+        <li>B. Reinstalling the temporal key reset the CCMP packet number, so the same keystream was emitted under the same key for a second set of frames.</li>
+        <li>C. The retransmitted handshake message 3 contains the pairwise master key in cleartext.</li>
+        <li>D. AES in counter mode was shown to be cryptographically broken.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">7. <span class="ap-code">1.3.B</span> <span class="ap-code">1.3.C</span> <em>Free response.</em> Three of the wireless attacks in this chapter, SSL stripping, deauthentication flooding, and offline handshake cracking, have been substantially neutralised by changes in the wider technology ecosystem. The captive-portal credential harvest has not. Explain the mechanism by which each of the first three was neutralised, then explain why the fourth has resisted the same treatment, and identify the one control that does address it.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">8. <span class="ap-code">1.3.A</span> <span class="ap-code">1.3.C</span> <em>Free response.</em> A school is planning wireless security for a building whose signal is usable from the public pavement outside. Explain what a war-driving survey of the site would establish, why the survey is difficult to detect, and what design decisions the results should inform. Then explain why the same survey would be of different value to an adversary motivated by money than to one conducting espionage.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">1.3.B</span>
+      <p class="key-why">Every input to the pairwise transient key derivation except the pairwise master key is public: both MAC addresses appear in frame headers, the ANonce is sent in cleartext in message 1, the SNonce in message 2, and the SSID (which serves as the PBKDF2 salt) is broadcast in every beacon. The message integrity check is a checkable function of the derived key, so a captured handshake is a verifier for offline guessing. It is a verifier, not a disclosure, against a random twelve-character passphrase the search space defeats even a fast GPU, which is why the qualifier in B matters. A is wrong: message 3 carries the group temporal key wrapped under the key encryption key, not the temporal key, and the temporal key is derived independently at each end and never transmitted. C is wrong and inverts the design: the handshake is deliberately conducted in the clear precisely because it is establishing the keys that will encrypt subsequent traffic. D confuses layers, recovering the link-layer key exposes the contents of the 802.11 frames, but the TLS records carried inside them are encrypted end to end and remain so.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. C</span><span class="key-lo">1.3.B</span>
+      <p class="key-why">Protected Management Frames apply cryptography to frames; jamming does not send frames. Raising the noise floor in the occupied channel, or emitting a short burst timed to corrupt each transmission's checksum, denies service regardless of what the protocol authenticates, which is why availability on shared spectrum is not a problem cryptography solves. A and B fail for the same reason and are the attacks PMF was specified to stop: unicast robust management frames are protected with CCMP under the pairwise temporal key and group-addressed ones with BIP under the integrity group temporal key, so a station with PMF active discards unprotected deauthentication and disassociation frames without acting on them. D describes the SA Query procedure backwards. That procedure is the mitigation, not a vulnerability: on receiving an unprotected re-association request from a station already associated, the access point returns status 30 and challenges the existing station, which replies successfully while the spoofing adversary cannot.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. C</span><span class="key-lo">1.3.A</span>
+      <p class="key-why">Two markers of the top of the capability scale appear together in C, which describes the DarkHotel delivery mechanism. The first is precision targeting, serving the payload to one identified individual and to nobody else on the same network, which requires prior intelligence about who that person is and when they will arrive, and which defeats sampling-based detection. The second is that the cryptography was actually broken rather than bypassed: factoring a 512-bit RSA modulus to recover a signing key is a computational effort, not a click. A is the Australian airport case and sits at the opposite end: the tool was purchased, the technique was a decade old, and nothing was discovered or developed. B is organised cybercrime, defined by economic rationality and scale rather than by capability, the tooling is real but it is rented, and the target selection is driven by cost per victim. D is opportunistic exploitation of a published vulnerability, which by definition requires no capacity to discover anything.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. B</span><span class="key-lo">1.3.C</span>
+      <p class="key-why">A VPN relocates trust rather than eliminating it. The hotel network sees one encrypted flow to a single address and can read neither the DNS queries nor the TLS Server Name Indication, so it cannot determine the destination, which rules out A and C. The VPN provider, however, terminates the tunnel and forwards the traffic onward, so it observes exactly what the hotel would otherwise have observed: the DNS lookups, the destination addresses, and the timing and volume of the flow. D is the common misconception the question targets; double encryption protects the payload from the hotel but has no bearing on what the party at the far end of the inner tunnel can see, and TLS was already protecting the payload's contents from both parties. The correct summary is that the user has substituted an operator they chose for one they did not, which is an improvement only in proportion to how much more trustworthy the chosen operator is.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">1.3.C</span>
+      <p class="key-why">OWE has client and access point perform a Diffie-Hellman exchange during association and feed the shared secret into the four-way handshake, so each client holds a distinct pairwise key and frames are encrypted over the air with no passphrase and no user interaction. That removes the passive listener, which is the entire gain. A is the critical limitation: the Diffie-Hellman exchange is unauthenticated, so the client cannot tell which access point it negotiated with, and a rogue access point running OWE simply negotiates the key itself and reads everything. C is not applicable, because an OWE network has no passphrase to obtain. D confuses layers, TLS stripping operates on HTTP traffic above the link layer and is addressed by HSTS and browser HTTPS upgrading, not by link-layer encryption.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. B</span><span class="key-lo">1.3.B</span>
+      <p class="key-why">CCMP is AES in counter mode, which builds a keystream from the key and a nonce derived from the packet number and exclusive-ors it with the plaintext. The security of every stream cipher rests on never reusing a key and nonce pair. Withholding message 4 forces the access point to retransmit message 3; the supplicant reinstalls the same temporal key and, in the affected implementations, resets the packet number and replay counter, so keystream blocks already consumed are emitted again. Two ciphertexts under the same keystream exclusive-or to the two plaintexts, and the key cancels. A describes a real but separate consequence limited to wpa_supplicant 2.4 and 2.5, which cleared the key from memory after installing it so that reinstallation installed zeros; it made those specific devices far worse but is not the general mechanism. C is false, the pairwise master key is never transmitted in any handshake message, which is the handshake's entire purpose. D is the misdescription the question exists to remove: nothing about AES, counter mode, or the key agreement was broken. The flaw was in the state machine's handling of retransmission, which is why a backward-compatible software fix resolved it.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">7. Free response</span><span class="key-lo">1.3.B, 1.3.C</span>
+      <p class="key-why"><strong>Model answer.</strong> SSL stripping depends on the browser emitting one plaintext HTTP request that the on-path proxy can intercept and answer. HSTS (RFC 6797) has the browser cache a policy refusing plaintext for the domain, the preload list compiled into the browser binary supplies that policy before any first visit, and automatic HTTPS upgrading in current browsers attempts the secure scheme first regardless. There is now frequently no plaintext request to intercept. Deauthentication flooding depends on management frames being unauthenticated because they precede key establishment; IEEE 802.11w extends cryptographic protection to the robust management frames that can be sent after a key exists, and a station with PMF active discards an unprotected deauthentication outright. PMF is mandatory in WPA3. Offline handshake cracking depends on the captured handshake containing a verifier testable against password guesses; WPA3's SAE handshake, built on the Dragonfly exchange, hides each party's private scalar behind a random mask, so recovering it means solving a discrete logarithm and the transcript contains nothing testable. Every guess must be made online against an access point that can count and throttle. The captive-portal credential harvest has resisted all of this because it does not operate at a protocol layer at which a protocol fix could be applied. It is a person typing a password into a page, and the page belongs to the adversary by construction, he is the network operator, so serving his own content is not an attack on anything, it is his ordinary capability. No cryptography sits between the user's fingers and the form field. The control that does address it is origin-bound, phishing-resistant authentication: a passkey or FIDO2 security key is cryptographically scoped to the origin that registered it, so it cannot be presented to a lookalike page and cannot be typed at all. It is the only defence in the chapter that does not require the user to notice something.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) SSL stripping tied specifically to the plaintext first request and HSTS or preloading or HTTPS-upgrading as the reason it no longer occurs; (ii) deauthentication tied to management frames being unauthenticated pre-key, with 802.11w or PMF named; (iii) offline cracking tied to the presence of an offline verifier in the WPA2 transcript and its absence in SAE, with online rate limiting mentioned; (iv) an explicit statement that the portal attack has no protocol layer to fix because the adversary legitimately controls the content he serves; (v) origin-bound or phishing-resistant credentials named as the control, with the reason being binding to origin rather than user vigilance. An answer that says the portal attack persists "because users are careless" without identifying the structural reason should not receive full credit; the point is that the adversary's capability here is not an exploit.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">8. Free response</span><span class="key-lo">1.3.A, 1.3.C</span>
+      <p class="key-why"><strong>Model answer.</strong> A war-driving survey moves a receiver through and around the site and logs every audible network: its name, its security configuration, its channel, its signal strength at each position, and, with a satellite receiver attached, the position itself. For the school this would establish which access points still run obsolete security or default names implying default administrative credentials, which channels are congested, and above all how far outside the building a usable signal reaches. The survey is difficult to detect because it can be conducted entirely passively. Beacon frames are broadcast by every access point roughly ten times a second by design, so the surveyor receives what is already being transmitted to everyone and emits nothing. There is no frame to log, no association to record, and nothing an intrusion detection system can key on. The results should inform three decisions: bringing every access point to WPA3 with PMF required and changing default names and credentials; treating radio coverage as a design parameter, reducing transmit power and selecting antenna patterns so that usable signal approximates the premises rather than spilling across the pavement; and accepting that this shrinks rather than eliminates exposure, since a directional antenna across the road recovers signal an ordinary client cannot, so link-layer measures must be backed by authentication that does not depend on physical proximity. The value of the survey differs sharply by adversary. An adversary motivated by money is constrained by cost per victim: physically attending a site to attack one network does not scale against phishing a hundred thousand mailboxes, so the survey is of little interest unless the site holds something specifically valuable. An espionage operator has the opposite economics. The target is chosen in advance and its value does not depend on volume, and an intelligence service can afford to place a person, or a car with a concealed directional antenna, next to the building, the technique the GRU team used against the OPCW in The Hague in 2018. Physical proximity is the expensive part of a wireless attack, and only an adversary who is not optimising for scale will pay for it.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) the survey's outputs named concretely, with signal extent beyond the building explicitly among them; (ii) undetectability explained by passivity and by beacons being broadcast by design, not merely asserted; (iii) at least two design responses, one of which addresses radio coverage as a deliberate parameter, plus the acknowledgement that coverage reduction is mitigation and not elimination; (iv) the adversary comparison framed by economics, cost per victim and scale for the criminal, predetermined high-value target and affordable physical presence for the state actor. Credit a real attributed example of a close-access operation; do not require one. An answer that treats war driving as itself an attack rather than as reconnaissance has missed the objective.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager"><a class="prev" href="../1.2/notes.html"><span class="pager-label">Previous</span>&larr; 1.2 Suspicious Website Logins</a><a class="next" href="../1.4/notes.html"><span class="pager-label">Next</span>1.4 AI-Based Cybersecurity Attacks &rarr;</a></nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

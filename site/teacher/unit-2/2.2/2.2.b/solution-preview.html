@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Environmental vulnerabilities (power, HVAC, fire, water), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Environmental vulnerabilities (power, HVAC, fire, water)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.2.b: Environmental sensor triage</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 2.2.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A data center streams readings from environmental sensors placed around each server room:
+power (voltage as a percent of nominal), temperature (Celsius), humidity (percent relative
+humidity), smoke detectors, and water/flood detectors. Facilities staff need every reading
+automatically triaged into a severity level so a human only has to look at what matters.</p>
+<p>Your task is to write a function <code>solve(data)</code> that takes a list of sensor readings and returns
+a dictionary mapping each reading's <code>id</code> to a severity string: <code>"NORMAL"</code>, <code>"WARNING"</code>, or
+<code>"CRITICAL"</code>.</p>
+<h3>Per-reading thresholds (by <code>type</code>)</h3>
+<p><strong><code>power</code></strong> (<code>value</code> = supply voltage as a percent of nominal, 100 = nominal):
+- <code>CRITICAL</code> if <code>value == 0</code> (total outage) or <code>value &lt; 90</code> or <code>value &gt; 110</code>
+- <code>WARNING</code> if <code>90 &lt;= value &lt; 95</code> or <code>105 &lt; value &lt;= 110</code>
+- <code>NORMAL</code> otherwise (<code>95 &lt;= value &lt;= 105</code>)</p>
+<p><strong><code>temperature</code></strong> (<code>value</code> = degrees Celsius):
+- <code>CRITICAL</code> if <code>value &gt; 30</code>
+- <code>WARNING</code> if <code>27 &lt; value &lt;= 30</code> or <code>value &lt; 15</code>
+- <code>NORMAL</code> otherwise (<code>15 &lt;= value &lt;= 27</code>)</p>
+<p><strong><code>humidity</code></strong> (<code>value</code> = percent relative humidity):
+- <code>CRITICAL</code> if <code>value &gt; 70</code> or <code>value &lt; 20</code>
+- <code>WARNING</code> if <code>60 &lt; value &lt;= 70</code> or <code>20 &lt;= value &lt; 40</code>
+- <code>NORMAL</code> otherwise (<code>40 &lt;= value &lt;= 60</code>)</p>
+<p><strong><code>smoke</code></strong> (<code>value</code> = detector reading, <code>0</code> = clear, any positive value = smoke detected):
+- <code>CRITICAL</code> if <code>value &gt; 0</code>
+- <code>NORMAL</code> otherwise</p>
+<p><strong><code>water</code></strong> (<code>value</code> = detector reading, <code>0</code> = dry, any positive value = moisture detected):
+- <code>CRITICAL</code> if <code>value &gt; 0</code>
+- <code>NORMAL</code> otherwise</p>
+<h3>Combined-signal escalation (cooling-failure pattern)</h3>
+<p>After computing each reading's per-reading severity above, apply one escalation rule: for
+readings that share the same <code>room</code>, if there is <strong>both</strong> a <code>temperature</code> reading rated
+<code>WARNING</code> or <code>CRITICAL</code> <strong>and</strong> a <code>humidity</code> reading rated <code>WARNING</code> or <code>CRITICAL</code> in that same
+room, escalate <em>both</em> of those specific readings (temperature and humidity only) to
+<code>CRITICAL</code>. This models a failing HVAC unit, where rising temperature and drifting humidity
+together are a stronger signal than either alone. Other reading types in the room (power, smoke,
+water) are not affected by this rule, and a room where only one of the two (temperature or
+humidity) is elevated is not escalated.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(data: list[dict]) -&gt; dict[str, str]</code> in the code editor.</p>
+<h2>Input</h2>
+<p>A list of dictionaries, each representing one sensor reading:</p>
+<pre><code class="language-python">[
+    {&quot;id&quot;: &quot;s1&quot;, &quot;room&quot;: &quot;server-room-a&quot;, &quot;type&quot;: &quot;temperature&quot;, &quot;value&quot;: 29},
+    {&quot;id&quot;: &quot;s2&quot;, &quot;room&quot;: &quot;server-room-a&quot;, &quot;type&quot;: &quot;humidity&quot;, &quot;value&quot;: 65},
+    {&quot;id&quot;: &quot;s3&quot;, &quot;room&quot;: &quot;server-room-b&quot;, &quot;type&quot;: &quot;power&quot;, &quot;value&quot;: 100},
+]
+</code></pre>
+<h2>Output</h2>
+<p>A dictionary mapping each reading's <code>"id"</code> to its severity string:</p>
+<pre><code class="language-python">{
+    &quot;s1&quot;: &quot;CRITICAL&quot;,   # escalated: room also had a humidity WARNING/CRITICAL
+    &quot;s2&quot;: &quot;CRITICAL&quot;,   # escalated: room also had a temperature WARNING/CRITICAL
+    &quot;s3&quot;: &quot;NORMAL&quot;,
+}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li><code>type</code> is one of <code>"power"</code>, <code>"temperature"</code>, <code>"humidity"</code>, <code>"smoke"</code>, <code>"water"</code>.</li>
+<li><code>value</code> is a non-negative number (float or int) except <code>power</code>, which may be <code>0</code> (outage).</li>
+<li>Pure function, deterministic, standard library only.</li>
+</ul>
+<h2>How to run</h2>
+<pre><code class="language-bash">Your code passes when every test below shows a checkmark (some are hidden until you run them).
+</code></pre>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(data: list[dict]) -&gt; dict[str, str]
+</code></pre>
+<h3>Input (<code>data</code>)</h3>
+<p>A list of dictionaries representing sensor readings. Each dictionary contains:
+- <code>id</code> (str): Unique identifier for the reading.
+- <code>room</code> (str): Room/zone identifier the sensor is located in.
+- <code>type</code> (str): One of <code>"power"</code>, <code>"temperature"</code>, <code>"humidity"</code>, <code>"smoke"</code>, <code>"water"</code>.
+- <code>value</code> (float/int): The sensor's numeric reading (see the problem statement above for units per type).</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A dictionary where keys are the <code>id</code> of each reading from the input and values are the severity
+string: <code>"NORMAL"</code>, <code>"WARNING"</code>, or <code>"CRITICAL"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Per-type thresholds (see the problem statement above for full detail):</li>
+<li><code>power</code>: outage (<code>0</code>) or <code>&lt;90</code> or <code>&gt;110</code> -&gt; <code>CRITICAL</code>; <code>[90,95)</code> or <code>(105,110]</code> -&gt; <code>WARNING</code>; else <code>NORMAL</code>.</li>
+<li><code>temperature</code>: <code>&gt;30</code> -&gt; <code>CRITICAL</code>; <code>(27,30]</code> or <code>&lt;15</code> -&gt; <code>WARNING</code>; else <code>NORMAL</code>.</li>
+<li><code>humidity</code>: <code>&gt;70</code> or <code>&lt;20</code> -&gt; <code>CRITICAL</code>; <code>(60,70]</code> or <code>[20,40)</code> -&gt; <code>WARNING</code>; else <code>NORMAL</code>.</li>
+<li><code>smoke</code>/<code>water</code>: any positive value -&gt; <code>CRITICAL</code>; <code>0</code> -&gt; <code>NORMAL</code>.</li>
+<li>Combined-signal escalation: within the same <code>room</code>, if a <code>temperature</code> reading is
+     <code>WARNING</code>/<code>CRITICAL</code> AND a <code>humidity</code> reading is <code>WARNING</code>/<code>CRITICAL</code>, escalate both of
+     those two readings to <code>CRITICAL</code> (only temperature and humidity readings are affected).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.2.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+
+def _power_severity(value: float) -&gt; str:
+    if value == 0 or value &lt; 90 or value &gt; 110:
+        return "CRITICAL"
+    if (90 &lt;= value &lt; 95) or (105 &lt; value &lt;= 110):
+        return "WARNING"
+    return "NORMAL"
+
+
+def _temperature_severity(value: float) -&gt; str:
+    if value &gt; 30:
+        return "CRITICAL"
+    if (27 &lt; value &lt;= 30) or value &lt; 15:
+        return "WARNING"
+    return "NORMAL"
+
+
+def _humidity_severity(value: float) -&gt; str:
+    if value &gt; 70 or value &lt; 20:
+        return "CRITICAL"
+    if (60 &lt; value &lt;= 70) or (20 &lt;= value &lt; 40):
+        return "WARNING"
+    return "NORMAL"
+
+
+def _binary_severity(value: float) -&gt; str:
+    return "CRITICAL" if value &gt; 0 else "NORMAL"
+
+
+_RANK = {"NORMAL": 0, "WARNING": 1, "CRITICAL": 2}
+
+
+def solve(data: list[dict]) -&gt; dict[str, str]:
+    severities: dict[str, str] = {}
+
+    for reading in data:
+        rid = reading["id"]
+        rtype = reading["type"]
+        value = reading["value"]
+
+        if rtype == "power":
+            severities[rid] = _power_severity(value)
+        elif rtype == "temperature":
+            severities[rid] = _temperature_severity(value)
+        elif rtype == "humidity":
+            severities[rid] = _humidity_severity(value)
+        elif rtype in ("smoke", "water"):
+            severities[rid] = _binary_severity(value)
+        else:
+            severities[rid] = "NORMAL"
+
+    # Combined-signal escalation: per room, if a temperature reading and a humidity
+    # reading are both at least WARNING, escalate both to CRITICAL.
+    rooms: dict[str, dict[str, list[str]]] = {}
+    for reading in data:
+        room = reading["room"]
+        rtype = reading["type"]
+        if rtype in ("temperature", "humidity"):
+            rooms.setdefault(room, {}).setdefault(rtype, []).append(reading["id"])
+
+    for room, by_type in rooms.items():
+        temp_ids = by_type.get("temperature", [])
+        hum_ids = by_type.get("humidity", [])
+        temp_elevated = any(_RANK[severities[i]] &gt;= _RANK["WARNING"] for i in temp_ids)
+        hum_elevated = any(_RANK[severities[i]] &gt;= _RANK["WARNING"] for i in hum_ids)
+        if temp_elevated and hum_elevated:
+            for i in temp_ids:
+                if _RANK[severities[i]] &gt;= _RANK["WARNING"]:
+                    severities[i] = "CRITICAL"
+            for i in hum_ids:
+                if _RANK[severities[i]] &gt;= _RANK["WARNING"]:
+                    severities[i] = "CRITICAL"
+
+    return severities
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_power_levels():
+    data = [
+        {"id": "p1", "room": "a", "type": "power", "value": 0},
+        {"id": "p2", "room": "a", "type": "power", "value": 92},
+        {"id": "p3", "room": "a", "type": "power", "value": 100},
+        {"id": "p4", "room": "a", "type": "power", "value": 108},
+        {"id": "p5", "room": "a", "type": "power", "value": 120},
+    ]
+    assert impl.solve(data) == {
+        "p1": "CRITICAL",
+        "p2": "WARNING",
+        "p3": "NORMAL",
+        "p4": "WARNING",
+        "p5": "CRITICAL",
+    }
+
+
+def test_temperature_and_humidity_no_escalation():
+    # Only temperature elevated in room b, humidity stays NORMAL -&gt; no escalation.
+    data = [
+        {"id": "t1", "room": "b", "type": "temperature", "value": 28},
+        {"id": "h1", "room": "b", "type": "humidity", "value": 50},
+    ]
+    assert impl.solve(data) == {"t1": "WARNING", "h1": "NORMAL"}
+
+
+def test_smoke_and_water():
+    data = [
+        {"id": "s1", "room": "c", "type": "smoke", "value": 0},
+        {"id": "s2", "room": "c", "type": "smoke", "value": 3},
+        {"id": "w1", "room": "c", "type": "water", "value": 0},
+        {"id": "w2", "room": "c", "type": "water", "value": 1},
+    ]
+    assert impl.solve(data) == {
+        "s1": "NORMAL",
+        "s2": "CRITICAL",
+        "w1": "NORMAL",
+        "w2": "CRITICAL",
+    }
+
+
+def test_combined_escalation():
+    # Room d: temperature WARNING + humidity WARNING -&gt; both escalate to CRITICAL.
+    # Power reading in same room is unaffected.
+    data = [
+        {"id": "t1", "room": "d", "type": "temperature", "value": 29},
+        {"id": "h1", "room": "d", "type": "humidity", "value": 65},
+        {"id": "p1", "room": "d", "type": "power", "value": 100},
+    ]
+    assert impl.solve(data) == {"t1": "CRITICAL", "h1": "CRITICAL", "p1": "NORMAL"}
+
+
+def test_accept():
+    data = [
+        {"id": "t1", "room": "e", "type": "temperature", "value": 20},
+        {"id": "h1", "room": "e", "type": "humidity", "value": 45},
+    ]
+    assert impl.solve(data) == {"t1": "NORMAL", "h1": "NORMAL"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty():
+    assert impl.solve([]) == {}
+
+
+def test_multiple_rooms_independent():
+    data = [
+        {"id": "t1", "room": "room1", "type": "temperature", "value": 31},
+        {"id": "h1", "room": "room2", "type": "humidity", "value": 75},
+        {"id": "t2", "room": "room2", "type": "temperature", "value": 20},
+    ]
+    # room1: only temperature elevated (already CRITICAL, no escalation needed to check)
+    # room2: humidity CRITICAL but temperature NORMAL -&gt; no escalation of temperature
+    assert impl.solve(data) == {"t1": "CRITICAL", "h1": "CRITICAL", "t2": "NORMAL"}
+
+
+def test_already_critical_stays_critical_after_escalation():
+    data = [
+        {"id": "t1", "room": "f", "type": "temperature", "value": 35},
+        {"id": "h1", "room": "f", "type": "humidity", "value": 65},
+    ]
+    assert impl.solve(data) == {"t1": "CRITICAL", "h1": "CRITICAL"}
+
+
+def test_low_temperature_and_low_humidity_escalate():
+    data = [
+        {"id": "t1", "room": "g", "type": "temperature", "value": 10},
+        {"id": "h1", "room": "g", "type": "humidity", "value": 25},
+    ]
+    assert impl.solve(data) == {"t1": "CRITICAL", "h1": "CRITICAL"}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

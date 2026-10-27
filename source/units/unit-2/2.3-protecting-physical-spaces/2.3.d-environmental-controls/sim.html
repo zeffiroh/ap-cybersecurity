@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.3.d, Environmental Controls Deployment Console, Simulation</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#000000; --muted:#555555; --rule:#000000;
+  --win-face:#c0c0c0; --win-light:#ffffff; --win-shadow:#808080; --win-dark:#000000;
+  --win-title:#000080; --win-title-fg:#ffffff; --win-title-inactive:#7f7f7f;
+  --lin-panel:#f5f5f5; --lin-border:#cccccc; --lin-accent:#3465a4;
+  --term-bg:#000000; --term-fg:#00ff00; --term-dim:#00aa00; --term-cursor:#00ff00;
+  --ui-font:"MS Sans Serif", Tahoma, Geneva, system-ui, sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080; --tok-str:#008000; --tok-num:#aa5500; --tok-com:#808080; --tok-fn:#800080; --tok-op:var(--fg);
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+*{box-sizing:border-box;}
+code,pre,.mono{font-family:var(--mono-font);}
+hr{border:none;border-top:1px solid var(--rule);}
+
+.theme-win .window{background:var(--win-face);padding:2px;}
+.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+        box-shadow:inset 1px 1px 0 0 var(--win-light), inset -1px -1px 0 0 var(--win-shadow);}
+.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+        box-shadow:inset 1px 1px 0 0 var(--win-dark);}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+          padding:2px 4px;display:flex;justify-content:space-between;align-items:center;}
+.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px;}
+.window-body{background:var(--bg);color:var(--fg);padding:10px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;
+     border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+     outline:none;}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px;}
+
+.theme-linux{ --win-face:var(--lin-panel); }
+.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0;}
+.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none;}
+.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600;}
+.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px;}
+.theme-linux .btn:active{background:#ececec;}
+.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent);}
+.theme-linux{ --tok-kw:#9c36b5; --tok-str:#2f9e44; --tok-num:#1971c2; --tok-com:#868e96; --tok-fn:#e8590c; }
+
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+          padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:120px;}
+.terminal .prompt{color:var(--term-dim);}
+.scorepanel{font-family:var(--mono-font);}
+.scorepanel .ok{color:#008000;} .theme-linux .scorepanel .ok{color:#2f9e44;}
+.scorepanel .bad{color:#aa0000;}
+
+.wrap{max-width:920px;margin:16px auto;padding:0 12px;}
+.toolbar{margin-bottom:8px;}
+.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;}
+.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold;}
+table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px;}
+th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left;}
+th{background:var(--win-face);}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.3.d, Environmental Controls Deployment Console</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>A facility scenario appears on the console. You are the on-call facilities engineer.
+      Choose the single BEST environmental <b>control</b> to deploy or recommend for the
+      situation described. Some options look plausible but are wrong for the room type or the
+      hazard involved (e.g. a water sprinkler in a server room). Reach 5 correct picks to meet
+      the objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">controls-console&gt; </span>Loading scenario...</div>
+
+      <div class="choice-btns" id="choices"></div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Scenario</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 5 &#9474; Scenario 1 of 8 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+/* Deterministic synthetic scenario set. Each scenario presents a facility situation;
+   student picks the correct CONTROL from a fixed option list. Complementary to 2.2.b's
+   vulnerability triage sim, this atom is about selecting the right mitigation, not
+   classifying the severity of a sensor reading. */
+var SCENARIOS = [
+  {
+    id: "SCN-01",
+    text: "Server room B smoke detector (VESDA) reports rising smoke particulates. The room\nholds live production racks. What suppression system should discharge?",
+    options: ["Water sprinkler", "Clean-agent (FM-200 / NOVEC 1230)", "Do nothing, wait for visible flame", "Portable CO2 extinguisher only"],
+    answer: 1,
+    explain: "Clean-agent suppression extinguishes fire without damaging electronics or leaving residue. Water sprinklers would destroy the exact racks they are meant to protect."
+  },
+  {
+    id: "SCN-02",
+    text: "General office space (desks, carpet, no server hardware) has a fire detector\ntrigger. What suppression system is appropriate here?",
+    options: ["Clean-agent (FM-200)", "Inert gas (Inergen)", "Water sprinkler", "No suppression system needed"],
+    answer: 2,
+    explain: "Ordinary office space with no sensitive electronics can safely use a standard water sprinkler system; clean-agent systems are reserved for equipment-dense rooms where water damage is the greater risk."
+  },
+  {
+    id: "SCN-03",
+    text: "Utility power to the data center drops to zero without warning. Servers must\nstay online through the outage. What is the FIRST layer of defense that responds\nwithin milliseconds?",
+    options: ["Backup generator", "Managed PDU", "UPS (battery bank)", "Raised flooring"],
+    answer: 2,
+    explain: "A UPS responds in milliseconds, far faster than a generator can start (10-30 seconds), bridging the gap and providing clean regulated power immediately."
+  },
+  {
+    id: "SCN-04",
+    text: "The outage in SCN-03 continues past 5 minutes and UPS battery runtime is\nrunning low. What system should now be carrying the load?",
+    options: ["A second UPS in series", "Backup generator", "Surge protector", "VESDA smoke detector"],
+    answer: 1,
+    explain: "A generator provides extended runtime (hours to days) once started and stabilized, taking over after the UPS bridges the initial gap."
+  },
+  {
+    id: "SCN-05",
+    text: "Facilities staff want to reboot a locked-up rack-mounted server without\nsending a technician into a restricted server room. What device lets them\nremotely power-cycle a single outlet?",
+    options: ["Managed PDU (Power Distribution Unit)", "UPS", "Hot aisle containment curtain", "Water leak sensor"],
+    answer: 0,
+    explain: "A managed PDU allows remote monitoring and control of individual outlets, including remotely cycling power to a single device without physical access to the room."
+  },
+  {
+    id: "SCN-06",
+    text: "A data center cold aisle is reading 30C inlet temperature while the hot aisle\nreads 45C, and the two aisles are not physically separated. What structural\ncontrol most directly fixes the mixing of hot and cold air?",
+    options: ["Lower the humidity setpoint", "Install hot aisle / cold aisle containment (curtains or panels)", "Add a second generator", "Switch to clean-agent suppression"],
+    answer: 1,
+    explain: "Containment (physical curtains, doors, or roof panels) prevents hot exhaust air from mixing back into the cold aisle intake, which is the direct fix for uncontrolled aisle mixing."
+  },
+  {
+    id: "SCN-07",
+    text: "A floor-level moisture sensor beneath a raised floor in the server room\ntriggers an alert. No visible water is seen yet by staff on the floor above.\nWhat is the correct immediate control response?",
+    options: ["Ignore it, sensors under raised floors are unreliable", "Investigate the leak source immediately and prepare to shut down affected equipment", "Increase HVAC humidity setpoint", "Discharge the clean-agent fire suppression system"],
+    answer: 1,
+    explain: "A water leak sensor exists precisely to give early warning before visible flooding reaches equipment; the correct response is to investigate and act immediately, not to wait for visible damage."
+  },
+  {
+    id: "SCN-08",
+    text: "A single data center has only ONE generator and ONE UPS unit, each sized to\nexactly the facility's normal load. A generator maintenance failure would take\ndown the whole site. What design principle should the facility adopt?",
+    options: ["N+1 (or 2N) redundancy for power systems", "Lower the temperature setpoint by 5C", "Replace the UPS with a bigger battery only", "Switch fire suppression from clean-agent to water"],
+    answer: 0,
+    explain: "N+1 (or 2N) redundancy means at least one extra unit of critical capacity exists beyond the minimum needed, so a single generator or UPS failure does not cause a facility-wide outage."
+  }
+];
+
+var idx = 0, score = 0, GOAL = 5, met = false, submitted = false, selected = null;
+
+function renderChoices(opts){
+  var el = document.getElementById('choices');
+  el.innerHTML = '';
+  opts.forEach(function(opt, i){
+    var b = document.createElement('button');
+    b.className = 'btn choice';
+    b.setAttribute('data-v', i);
+    b.textContent = opt;
+    b.onclick = function(){ chooseOption(b); };
+    el.appendChild(b);
+  });
+}
+
+function renderRecord(){
+  var s = SCENARIOS[idx];
+  var stage = document.getElementById('stage');
+  stage.innerHTML = '<span class="prompt">' + s.id + ' controls-console&gt; </span>\n' + s.text;
+  renderChoices(s.options);
+  selected = null;
+  submitted = false;
+  document.getElementById('feedback').innerHTML = '';
+  updateStatus();
+}
+
+function chooseOption(btn){
+  if (submitted) return;
+  document.querySelectorAll('.choice').forEach(function(x){ x.classList.remove('sel'); });
+  btn.classList.add('sel');
+  selected = parseInt(btn.getAttribute('data-v'), 10);
+}
+
+function submitChoice(){
+  if (submitted || selected === null) return;
+  submitted = true;
+  var s = SCENARIOS[idx];
+  var isCorrect = selected === s.answer;
+  var fb = document.getElementById('feedback');
+  if (isCorrect){
+    score++;
+    fb.innerHTML = '<span class="ok">CORRECT.</span> ' + s.explain;
+  } else {
+    fb.innerHTML = '<span class="bad">INCORRECT.</span> Correct control: ' + s.options[s.answer] + '. ' + s.explain;
+  }
+  if (score >= GOAL) met = true;
+  updateStatus();
+}
+
+function nextRecord(){
+  idx = (idx + 1) % SCENARIOS.length;
+  renderRecord();
+}
+
+function updateStatus(){
+  var el = document.getElementById('score');
+  el.innerHTML = 'SCORE ' + score + ' / ' + GOAL + ' &#9474; Scenario ' + (idx+1) + ' of ' + SCENARIOS.length +
+    ' &#9474; OBJECTIVE: ' + (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+renderRecord();
+</script>
+</body>
+</html>

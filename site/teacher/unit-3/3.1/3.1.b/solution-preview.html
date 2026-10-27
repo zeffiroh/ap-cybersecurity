@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS attacks (spoofing, cache poisoning), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>DNS attacks (spoofing, cache poisoning)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.1.b: DNS resolver race classifier</h1>
+<p><strong>Skill:</strong> Analyze Risk, Detect Attacks · <strong>Maps to:</strong> 3.1.A, 3.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building triage logic for a resolver reply log at Crestfield Analytics. For each
+outstanding query, the log records the replies that arrived, and, for each reply, who sent it
+(<code>"authoritative"</code> or <code>"attacker"</code>), and the <code>tx_id</code>, <code>port</code>, and <code>qname</code> it carried. Classify each
+query's outcome:</p>
+<ul>
+<li><strong>"REJECT"</strong>, no reply is a valid candidate (none match the query's <code>tx_id</code>, <code>port</code>, AND
+  <code>qname</code> all three), so nothing is cached. This also covers the case of zero replies.</li>
+<li><strong>"WIN"</strong>, among the valid candidates (replies matching all three fields), the one with the
+  smallest <code>arrival</code> number (i.e. the first to arrive) has <code>"from": "authoritative"</code>.</li>
+<li><strong>"POISON"</strong>, among the valid candidates, the first-arriving one has <code>"from": "attacker"</code>.</li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(queries)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>queries</code>: <code>list[dict]</code>, each with:</li>
+<li><code>"qname"</code>: <code>str</code>, the domain name queried</li>
+<li><code>"tx_id"</code>: <code>int</code>, the transaction ID the resolver sent</li>
+<li><code>"port"</code>: <code>int</code>, the source port the resolver sent the query from</li>
+<li><code>"replies"</code>: <code>list[dict]</code>, each with <code>"from"</code> (<code>"authoritative"</code> or <code>"attacker"</code>),
+    <code>"tx_id"</code> (<code>int</code>), <code>"port"</code> (<code>int</code>), <code>"qname"</code> (<code>str</code>), <code>"arrival"</code> (<code>int</code>, lower = earlier)</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code> of classifications, <strong>one per input query, in the same order as the input</strong>. Each
+entry is one of <code>"WIN"</code>, <code>"POISON"</code>, <code>"REJECT"</code>.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">queries = [
+    {
+        &quot;qname&quot;: &quot;bank.example&quot;, &quot;tx_id&quot;: 48291, &quot;port&quot;: 33412,
+        &quot;replies&quot;: [
+            {&quot;from&quot;: &quot;attacker&quot;, &quot;tx_id&quot;: 48291, &quot;port&quot;: 33412, &quot;qname&quot;: &quot;bank.example&quot;, &quot;arrival&quot;: 1},
+            {&quot;from&quot;: &quot;authoritative&quot;, &quot;tx_id&quot;: 48291, &quot;port&quot;: 33412, &quot;qname&quot;: &quot;bank.example&quot;, &quot;arrival&quot;: 2},
+        ],
+    },
+]
+solve(queries)  -&gt;  [&quot;POISON&quot;]
+
+queries2 = [
+    {
+        &quot;qname&quot;: &quot;shop.example&quot;, &quot;tx_id&quot;: 11020, &quot;port&quot;: 40500,
+        &quot;replies&quot;: [
+            {&quot;from&quot;: &quot;attacker&quot;, &quot;tx_id&quot;: 99999, &quot;port&quot;: 40500, &quot;qname&quot;: &quot;shop.example&quot;, &quot;arrival&quot;: 1},
+            {&quot;from&quot;: &quot;authoritative&quot;, &quot;tx_id&quot;: 11020, &quot;port&quot;: 40500, &quot;qname&quot;: &quot;shop.example&quot;, &quot;arrival&quot;: 2},
+        ],
+    },
+]
+solve(queries2)  -&gt;  [&quot;WIN&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>A reply is a "valid candidate" only if <code>reply["tx_id"] == query["tx_id"]</code> AND
+  <code>reply["port"] == query["port"]</code> AND <code>reply["qname"] == query["qname"]</code>.</li>
+<li>Among valid candidates, only the one with the minimum <code>arrival</code> value matters (test data never
+  has ties on the minimum <code>arrival</code>).</li>
+<li>Replies may be given in any order in the list; use the <code>arrival</code> field, not list position, to
+  determine which arrived first.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(queries: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>queries</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"qname"</code>: <code>str</code>, domain name queried
+- <code>"tx_id"</code>: <code>int</code>, transaction ID the resolver sent
+- <code>"port"</code>: <code>int</code>, source port the resolver sent the query from
+- <code>"replies"</code>: <code>list[dict]</code>, each with:
+  - <code>"from"</code>: <code>str</code>, <code>"authoritative"</code> or <code>"attacker"</code>
+  - <code>"tx_id"</code>: <code>int</code>
+  - <code>"port"</code>: <code>int</code>
+  - <code>"qname"</code>: <code>str</code>
+  - <code>"arrival"</code>: <code>int</code>, arrival order, lower arrives earlier</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> the same length as <code>queries</code>, in the <strong>same order as the input</strong>, where each element
+is one of <code>"WIN"</code>, <code>"POISON"</code>, <code>"REJECT"</code>.</p>
+<h3>Classification rules</h3>
+<ol>
+<li>A reply is a <strong>valid candidate</strong> iff its <code>tx_id</code>, <code>port</code>, and <code>qname</code> all equal the query's
+   <code>tx_id</code>, <code>port</code>, and <code>qname</code>.</li>
+<li>If there are no valid candidates (including an empty <code>replies</code> list), the result is <code>"REJECT"</code>.</li>
+<li>Otherwise, take the valid candidate with the smallest <code>arrival</code> value (the first to arrive). If
+   its <code>"from"</code> is <code>"authoritative"</code>, the result is <code>"WIN"</code>; if <code>"attacker"</code>, the result is
+   <code>"POISON"</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Output order matches input order exactly.</li>
+<li>Test data never has two valid candidates with an identical <code>arrival</code> value.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.1.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict
+
+
+def solve(queries: List[Dict]) -&gt; List[str]:
+    """Classify each DNS query's resolver race outcome as WIN, POISON, or REJECT.
+
+    Rules (see the Reference section below):
+      1. A reply is a "valid candidate" iff tx_id, port, and qname all match the query.
+      2. No valid candidates -&gt; REJECT.
+      3. Otherwise the valid candidate with the smallest 'arrival' wins the race:
+         from == "authoritative" -&gt; WIN, from == "attacker" -&gt; POISON.
+    """
+    result = []
+    for q in queries:
+        candidates = [
+            r for r in q["replies"]
+            if r["tx_id"] == q["tx_id"] and r["port"] == q["port"] and r["qname"] == q["qname"]
+        ]
+        if not candidates:
+            result.append("REJECT")
+            continue
+        winner = min(candidates, key=lambda r: r["arrival"])
+        result.append("WIN" if winner["from"] == "authoritative" else "POISON")
+    return result
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _r(frm, tx_id, port, qname, arrival):
+    return {"from": frm, "tx_id": tx_id, "port": port, "qname": qname, "arrival": arrival}
+
+
+def _q(qname, tx_id, port, replies):
+    return {"qname": qname, "tx_id": tx_id, "port": port, "replies": replies}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_poison_attacker_arrives_first():
+    queries = [_q("bank.example", 48291, 33412, [
+        _r("attacker", 48291, 33412, "bank.example", 1),
+        _r("authoritative", 48291, 33412, "bank.example", 2),
+    ])]
+    assert impl.solve(queries) == ["POISON"]
+
+
+def test_win_attacker_wrong_tx_id():
+    queries = [_q("shop.example", 11020, 40500, [
+        _r("attacker", 99999, 40500, "shop.example", 1),
+        _r("authoritative", 11020, 40500, "shop.example", 2),
+    ])]
+    assert impl.solve(queries) == ["WIN"]
+
+
+def test_reject_wrong_port():
+    queries = [_q("mail.example", 5551, 21999, [
+        _r("attacker", 5551, 9999, "mail.example", 1),
+    ])]
+    assert impl.solve(queries) == ["REJECT"]
+
+
+def test_win_legit_arrives_first():
+    queries = [_q("vpn.example", 7000, 51234, [
+        _r("authoritative", 7000, 51234, "vpn.example", 1),
+        _r("attacker", 7000, 51234, "vpn.example", 2),
+    ])]
+    assert impl.solve(queries) == ["WIN"]
+
+
+def test_reject_wrong_qname():
+    queries = [_q("cdn.example", 6002, 60111, [
+        _r("attacker", 6002, 60111, "cdn-fake.example", 1),
+    ])]
+    assert impl.solve(queries) == ["REJECT"]
+
+
+def test_empty_replies_is_reject():
+    queries = [_q("sync.example", 3300, 22222, [])]
+    assert impl.solve(queries) == ["REJECT"]
+
+
+def test_empty_queries_list():
+    assert impl.solve([]) == []
+
+
+def test_mixed_batch_order_preserved():
+    queries = [
+        _q("z9.example", 1, 1, []),
+        _q("front.example", 5, 5, [_r("authoritative", 5, 5, "front.example", 1)]),
+        _q("vault.example", 9, 9, [_r("attacker", 9, 9, "vault.example", 1)]),
+    ]
+    assert impl.solve(queries) == ["REJECT", "WIN", "POISON"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_flood_of_guessed_ids_all_miss_then_real_wins():
+    """Kaminsky-style flood: multiple attacker guesses miss tx_id, real reply wins eventually."""
+    queries = [_q("portal.example", 8123, 15000, [
+        _r("attacker", 100, 15000, "portal.example", 1),
+        _r("attacker", 200, 15000, "portal.example", 2),
+        _r("authoritative", 8123, 15000, "portal.example", 3),
+    ])]
+    assert impl.solve(queries) == ["WIN"]
+
+
+def test_flood_where_one_guess_hits_first():
+    """One attacker guess matches all three fields and arrives before the real reply -&gt; POISON."""
+    queries = [_q("hr.example", 9500, 44210, [
+        _r("attacker", 9500, 44210, "hr.example", 1),
+        _r("attacker", 9500, 44210, "hr.example", 2),
+        _r("authoritative", 9500, 44210, "hr.example", 3),
+    ])]
+    assert impl.solve(queries) == ["POISON"]
+
+
+def test_replies_out_of_list_order_still_use_arrival_field():
+    """Replies list is not sorted by arrival; arrival field (not list position) determines winner."""
+    queries = [_q("late.example", 42, 42, [
+        _r("authoritative", 42, 42, "late.example", 5),
+        _r("attacker", 42, 42, "late.example", 2),
+    ])]
+    assert impl.solve(queries) == ["POISON"]
+
+
+def test_only_qname_mismatch_among_otherwise_valid_replies():
+    queries = [_q("real.example", 3, 3, [
+        _r("attacker", 3, 3, "notreal.example", 1),
+        _r("authoritative", 3, 3, "real.example", 2),
+    ])]
+    assert impl.solve(queries) == ["WIN"]
+
+
+def test_multiple_valid_candidates_from_both_sides_lowest_arrival_wins():
+    queries = [_q("multi.example", 7, 7, [
+        _r("authoritative", 7, 7, "multi.example", 3),
+        _r("attacker", 7, 7, "multi.example", 1),
+        _r("attacker", 7, 7, "multi.example", 2),
+    ])]
+    assert impl.solve(queries) == ["POISON"]
+
+
+def test_large_batch_deterministic():
+    queries = []
+    expected = []
+    for i in range(20):
+        if i % 3 == 0:
+            queries.append(_q(f"q{i}.example", i, i, []))
+            expected.append("REJECT")
+        elif i % 3 == 1:
+            queries.append(_q(f"q{i}.example", i, i, [_r("authoritative", i, i, f"q{i}.example", 1)]))
+            expected.append("WIN")
+        else:
+            queries.append(_q(f"q{i}.example", i, i, [_r("attacker", i, i, f"q{i}.example", 1)]))
+            expected.append("POISON")
+    assert impl.solve(queries) == expected
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

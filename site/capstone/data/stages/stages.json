@@ -1,0 +1,75 @@
+{
+  "campaign": "Operation Quiet Harbor",
+  "implemented_this_pass": [1, 2, 3, 4, 5, 6, 7],
+  "stages": [
+    {
+      "n": 1, "title": "Reconnaissance", "skill": "Analyze Risk",
+      "unlock_after": ["1.1", "1.2", "1.3"],
+      "objective": "Use `mhsec scan` to map Meridian's exposed/risky surface.",
+      "win_condition": "Identify the DMZ patient portal and the legacy CLINICAL host exposing telnet.",
+      "question": "Name the internet-facing patient portal host and the clinical host still exposing telnet.",
+      "answer": [["portal-web", "203.0.113.10"], ["pacs", "10.30.2.50"]],
+      "tool": "scan",
+      "expected_hosts": ["portal-web", "pacs"]
+    },
+    {
+      "n": 2, "title": "Entry - social engineering", "skill": "Analyze/Mitigate Risk",
+      "unlock_after": ["1.1", "1.4"],
+      "objective": "Use `mhsec phish` to find the breach email; name the tactics; recommend hardening.",
+      "win_condition": "Flag email M999 from the lookalike domain with urgency+authority+credential-link.",
+      "question": "Which email ID is the breach email, and which domain sent it?",
+      "answer": [["m999"], ["meridian-health-portal.com"]],
+      "tool": "phish",
+      "expected_email": "M999",
+      "expected_indicators": ["authority", "credential-link", "lookalike-domain", "urgency"]
+    },
+    {
+      "n": 3, "title": "Credential attack", "skill": "Analyze Risk",
+      "unlock_after": ["Unit 4"],
+      "objective": "Use `mhsec loganalyze` to detect the password-spray campaign against Meridian's VPN.",
+      "win_condition": "Identify src_ip 198.51.100.77 with >=5 distinct users and >=20 failed logins.",
+      "question": "Which source IP is running the password spray?",
+      "answer": [["198.51.100.77"]],
+      "tool": "loganalyze"
+    },
+    {
+      "n": 4, "title": "Network pivot", "skill": "Analyze/Mitigate Risk",
+      "unlock_after": ["Unit 3"],
+      "objective": "Use `mhsec pivot` to trace lateral movement from the compromised workstation.",
+      "win_condition": "Trace ws-nguyen (10.20.5.40) -> fileserver (SMB) -> dc01 (LDAP) in order.",
+      "question": "List the attacker's path from the compromised workstation, host by host, in order.",
+      "answer": [["ws-nguyen", "10.20.5.40"], ["fileserver", "10.20.1.25"], ["dc01", "10.20.1.10"]], "ordered": true,
+      "tool": "pivot",
+      "expected_chain": ["ws-nguyen", "fileserver", "dc01"]
+    },
+    {
+      "n": 5, "title": "Device compromise", "skill": "Analyze/Mitigate Risk",
+      "unlock_after": ["Unit 4"],
+      "objective": "Use `mhsec iocscan` to find the malicious process planted on the victim's endpoint.",
+      "win_condition": "Flag upd_svc.exe / hash a1c9f0e7malware on host ws-nguyen.",
+      "question": "Which process is malicious, and on which host?",
+      "answer": [["upd_svc.exe"], ["ws-nguyen", "10.20.5.40"]],
+      "tool": "iocscan",
+      "expected_ioc_host": "ws-nguyen"
+    },
+    {
+      "n": 6, "title": "App/data exfiltration", "skill": "Analyze/Mitigate Risk",
+      "unlock_after": ["Unit 5"],
+      "objective": "Use `mhsec exfil` to find the abnormal outbound transfer from the database host.",
+      "win_condition": "Flag the 250MB transfer from sql01 to external IP 203.0.113.99.",
+      "question": "Which host sent the data out, and to which external IP?",
+      "answer": [["sql01", "10.20.1.60"], ["203.0.113.99"]],
+      "tool": "exfil",
+      "expected_exfil_host": "sql01"
+    },
+    {
+      "n": 7, "title": "Detection + IR + report", "skill": "Analyze/Mitigate Risk",
+      "unlock_after": ["Unit 5"],
+      "objective": "Use `mhsec report` to produce the full after-action report tying every stage together.",
+      "win_condition": "Report includes the phished victim, the pivot chain, the endpoint IOC, the exfil destination, and a remediation recommendation list.",
+      "question": "Name the phished employee and the first host to isolate.",
+      "answer": [["mara.nguyen", "mara.nguyen@meridian-health.org"], ["ws-nguyen", "10.20.5.40"]],
+      "tool": "report"
+    }
+  ]
+}

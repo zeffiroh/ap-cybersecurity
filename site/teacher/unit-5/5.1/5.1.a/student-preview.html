@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL injection, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>SQL injection</h1>
+<h1>Coding problem, 5.1.a: Fix the Injectable Login</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.1.A, 5.1.B · <strong>Language:</strong> Python 3 (pytest, sqlite3)</p>
+<h2>The situation</h2>
+<p>The <code>authenticate</code> function below is the login check for a small app. It works for normal
+users, but it builds its SQL query by <strong>concatenating</strong> the username and password straight
+into the query text. That is the exact flaw that makes SQL injection possible: an attacker
+who types SQL syntax instead of a username can change what the query <em>means</em>.</p>
+<p>The starter code is the vulnerable version. Run the tests and you will see the injection
+cases fail: inputs like <code>admin'--</code> and <code>' OR '1'='1</code> log in <strong>without the real password</strong>.</p>
+<h2>Your task</h2>
+<p>Rewrite <code>authenticate</code> so that user input can never change the structure of the query. Use a
+<strong>parameterized query</strong> (a prepared statement): pass the SQL template with <code>?</code> placeholders and
+the user values as a separate tuple, and let the database driver bind them as data.</p>
+<pre><code class="language-python">cur.execute(&quot;SELECT role FROM users WHERE username = ? AND password = ?&quot;, (username, password))
+</code></pre>
+<p>When you do this, the injection inputs are treated as ordinary (non-existent) usernames, so
+they return no row, while genuine credentials still succeed.</p>
+<h2>Function contract</h2>
+<p>Implement <code>authenticate(users, username, password) -&gt; str | None</code> in the code editor:
+- <code>users</code> is a list of <code>(username, role, password)</code> tuples to load into an in-memory table.
+- Return the matching user's <code>role</code> if (and only if) both username and password match a row.
+- Return <code>None</code> for any failed or injected login.</p>
+<p>Do <strong>not</strong> filter or blocklist the input, and do <strong>not</strong> compare the lists in Python. The whole
+point is that the <em>database query itself</em> must be safe. Use <code>sqlite3</code> with <code>:memory:</code>.</p>
+<p>A correct solution passes every test, including the injection cases. A string-concatenation
+version will fail them, because the injected input logs in.</p>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def authenticate(users: list[tuple[str, str, str]], username: str, password: str) -&gt; str | None
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>users</code>: a list of <code>(username, role, password)</code> rows to load into an in-memory table.</li>
+<li><code>username</code>, <code>password</code>: the submitted login credentials (untrusted input).</li>
+</ul>
+<h3>Output</h3>
+<ul>
+<li>The matching user's <code>role</code> (a string) when a row's username AND password both equal the
+  submitted values.</li>
+<li><code>None</code> when no row matches, including every injection attempt.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Deterministic, no network. Standard library only (<code>sqlite3</code>).</li>
+<li>The username/password comparison must be performed <strong>by a SQL query</strong>, using a
+  parameterized statement with <code>?</code> placeholders and the values bound separately.</li>
+<li>No input filtering, blocklisting, or Python-side list comparison.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).
+the query is parameterized rather than built by string concatenation.</p></div>
+<div class="nb-cell nb-code"># Your implementation
+import sqlite3
+
+
+def authenticate(users, username, password):
+    """
+    Return the role of the user whose username AND password both match a row,
+    or None if the login fails.
+
+    VULNERABLE starter: it concatenates user input into the SQL text, so an
+    attacker can inject SQL. Rewrite the query to use parameter placeholders (?)
+    with the values passed separately, so input can never change the query's
+    structure. Do not blocklist input; fix the query itself.
+    """
+    conn = sqlite3.connect(":memory:")
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE users (username TEXT, role TEXT, password TEXT)")
+    cur.executemany("INSERT INTO users VALUES (?, ?, ?)", users)
+
+    # --- the injectable part: user input is glued straight into the SQL text ---
+    query = (
+        "SELECT role FROM users WHERE username = '"
+        + username + "' AND password = '" + password + "'"
+    )
+    try:
+        cur.execute(query)
+        row = cur.fetchone()
+    except sqlite3.Error:
+        row = None
+    conn.close()
+    return row[0] if row else None
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+USERS = [
+    ("admin", "administrator", "S3cr3t-Admin-Pw"),
+    ("jordan", "staff", "autumn-maple-31"),
+    ("priya", "staff", "river-stone-77"),
+]
+
+
+# ---- legitimate logins still work ---------------------------------------
+def test_valid_admin():
+    assert impl.authenticate(USERS, "admin", "S3cr3t-Admin-Pw") == "administrator"
+
+
+def test_valid_staff():
+    assert impl.authenticate(USERS, "jordan", "autumn-maple-31") == "staff"
+
+
+def test_wrong_password_rejected():
+    assert impl.authenticate(USERS, "admin", "not-the-password") is None
+
+
+def test_unknown_user_rejected():
+    assert impl.authenticate(USERS, "nobody", "whatever") is None
+
+
+# ---- injection must NOT authenticate (only parameterization passes these) ----
+def test_comment_truncation_blocked():
+    assert impl.authenticate(USERS, "admin'--", "anything") is None
+
+
+def test_or_bypass_blocked():
+    assert impl.authenticate(USERS, "' OR '1'='1", "x") is None
+
+
+def test_or_bypass_with_comment_blocked():
+    assert impl.authenticate(USERS, "' OR '1'='1'--", "x") is None
+
+
+def test_union_blocked():
+    assert impl.authenticate(USERS, "' UNION SELECT role FROM users--", "x") is None
+
+
+# ---- a password field carrying an injection is also treated as data ----
+def test_injection_in_password_blocked():
+    assert impl.authenticate(USERS, "admin", "' OR '1'='1") is None
+
+
+# ---- a legitimate but unusual username with a quote is handled literally ----
+def test_literal_quote_username():
+    users = USERS + [("o'brien", "staff", "pw-123")]
+    assert impl.authenticate(users, "o'brien", "pw-123") == "staff"
+    assert impl.authenticate(users, "o'brien", "wrong") is None
+
+
+def test_empty_users():
+    assert impl.authenticate([], "admin", "x") is None
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

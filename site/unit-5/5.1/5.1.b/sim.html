@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.1.b, Cross-site scripting (XSS), Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.wrap{max-width:880px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:3px 6px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--bg);padding:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active,.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{font-weight:bold;background:#d8d8ff}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.theme-linux .btn.sel{background:#dbe7ff}input[type=text]{font-family:var(--mono-font);width:100%;box-sizing:border-box;padding:5px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux input[type=text]{border:1px solid #ccc;border-radius:3px}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:10px 12px;white-space:pre-wrap;line-height:1.4;min-height:60px}.terminal .prompt{color:var(--term-dim)}.render-box{border:2px dashed var(--muted);padding:8px;margin-top:6px;background:#fafafa;min-height:30px}.theme-linux .render-box{background:#fff}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:10px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.ok{color:#008000;font-weight:bold}.bad{color:#aa0000;font-weight:bold}.tok-kw{color:var(--tok-kw);font-weight:bold}.tok-str{color:var(--tok-str)}.tok-num{color:var(--tok-num)}.tok-com{color:var(--tok-com);font-style:italic}.tok-fn{color:var(--tok-fn)}h1{font-size:16px;margin:0 0 6px}.toolbar{margin-bottom:8px}.mode-label{font-weight:bold}.legend{font-size:12px;color:var(--muted);margin-top:8px}.payloadlist{font-family:var(--mono-font);font-size:12px;margin-top:6px}.payloadlist button{display:block;width:100%;text-align:left;margin:2px 0}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>5.1.b, Payload Tester (mock comment box)</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Two mock comment boxes render whatever you submit. The <b>VULNERABLE</b> box injects your
+         text raw into the page (unescaped); the <b>HARDENED</b> box HTML-escapes it first.
+         Test each payload below (or type your own) against both boxes and correctly predict
+         whether it would execute as script. Reach <b id="goal">5</b> correct predictions to meet
+         the objective.</p>
+
+      <div class="mode-label">Payload:</div>
+      <input type="text" id="payload" value="&lt;script&gt;alert(1)&lt;/script&gt;">
+      <div class="payloadlist" id="presets"></div>
+
+      <div style="margin-top:10px">
+        <span class="mode-label">Predict: will this EXECUTE in the VULNERABLE box?</span><br>
+        <button class="btn" id="predYes" onclick="predict(true)">Yes, it executes</button>
+        <button class="btn" id="predNo" onclick="predict(false)">No, it's inert</button>
+      </div>
+
+      <div style="margin-top:10px">
+        <div class="mode-label">VULNERABLE box (raw innerHTML):</div>
+        <div class="render-box" id="vulnBox"></div>
+        <div class="mode-label" style="margin-top:8px">HARDENED box (HTML-escaped output):</div>
+        <div class="render-box" id="hardBox"></div>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="run()">Submit payload</button>
+        <button class="btn" onclick="next()">Next preset</button>
+      </div>
+
+      <div class="terminal" id="fb"><span class="prompt">sim&gt; </span>choose a prediction, then Submit payload.</div>
+
+      <div class="statusbar" id="score">SCORE 0 / 5 | preset 1 of 6 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. Script "execution" is simulated by pattern-matching only, nothing on this page ever actually runs untrusted script.</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var PRESETS=[{label:"script tag",text:"<script>alert(1)<\/script>",fires:true},{label:"img onerror",text:"<img src=x onerror=alert(1)>",fires:true},{label:"javascript: uri",text:"<a href=\"javascript:alert(1)\">click</a>",fires:true},{label:"plain comment",text:"Great write-up, thanks for sharing!",fires:false},{label:"already escaped",text:"&lt;script&gt;alert(1)&lt;/script&gt;",fires:false},{label:"svg onload",text:"<svg onload=alert(1)>",fires:true}];var idx=0,score=0,GOAL=5,met=false,chosen=null,judged=false;function wouldFire(text){var s=(text||"").toLowerCase();if(/<\s*script\b/.test(s))return true;if(/\bon[a-z]+\s*=/.test(s))return true;if(/javascript\s*:/.test(s))return true;return false;}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function buildPresets(){var c=document.getElementById('presets');c.innerHTML='';PRESETS.forEach(function(p,i){var b=document.createElement('button');b.className='btn';b.textContent='Load preset: '+p.label;b.onclick=function(){idx=i;document.getElementById('payload').value=p.text;resetJudge();};c.appendChild(b);});}
+function resetJudge(){chosen=null;judged=false;document.getElementById('predYes').classList.remove('sel');document.getElementById('predNo').classList.remove('sel');document.getElementById('vulnBox').innerHTML='';document.getElementById('hardBox').textContent='';document.getElementById('fb').innerHTML='<span class="prompt">sim&gt; </span>choose a prediction, then Submit payload.';}
+function predict(yes){chosen=yes;document.getElementById('predYes').classList.toggle('sel',yes===true);document.getElementById('predNo').classList.toggle('sel',yes===false);}
+function run(){var text=document.getElementById('payload').value;var fires=wouldFire(text);var vuln=document.getElementById('vulnBox');var hard=document.getElementById('hardBox');if(fires){vuln.innerHTML='<span class="bad">[SIMULATED EXECUTION]</span> payload matched a dangerous sink pattern (script/event-handler/javascript: uri).';}else{vuln.innerHTML=text;}
+hard.textContent=escapeHtml(text);var fb=document.getElementById('fb');if(chosen===null){fb.innerHTML='<span class="prompt">sim&gt; </span><span class="bad">Pick a prediction first (Yes/No), then Submit.</span>';return;}
+if(judged)return;judged=true;var correct=(chosen===fires);if(correct){score++;fb.innerHTML='<span class="prompt">sim&gt; </span><span class="ok">CORRECT.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink. The hardened box escapes it either way.';}else{fb.innerHTML='<span class="prompt">sim&gt; </span><span class="bad">NOT QUITE.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink.';}
+if(score>=GOAL)met=true;updateBar();}
+function next(){idx=(idx+1)%PRESETS.length;document.getElementById('payload').value=PRESETS[idx].text;resetJudge();updateBar();}
+function updateBar(){document.getElementById('score').innerHTML='SCORE '+score+' / '+GOAL+' | preset '+(idx+1)+' of '+PRESETS.length+' | OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+document.getElementById('goal').textContent=GOAL;buildPresets();resetJudge();updateBar();</script>
+</body>
+</html>

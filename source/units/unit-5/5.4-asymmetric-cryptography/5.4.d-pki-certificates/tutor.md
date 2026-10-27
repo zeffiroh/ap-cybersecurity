@@ -1,0 +1,9 @@
+# 5.4.d tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The unresolved thread worth carrying in from 5.4.a-c: you now know how to encrypt with someone's public key and verify their signature, but none of that math tells you the public key you received actually belongs to who it claims to. An attacker who swaps in their own key while claiming to be your bank makes every cryptographic guarantee from the last three atoms useless, you'd faithfully encrypt your password for the attacker, or faithfully "verify" a signature they forged with a key you never actually confirmed was your bank's. PKI is not new cryptography; it's the trust infrastructure that makes the cryptography you already learned actually mean something in the real world.
+
+## The big picture
+The concept worth keeping longest is that PKI just pushes the trust question up a level, again and again, until it hits a point you agreed to trust out-of-band, a root CA pre-installed in your OS's trust store, vetted by the OS vendor rather than by you personally. Every certificate in the chain is really just 5.4.c's sign/verify operation reused: the issuer hashes the certificate's fields and signs the digest with its own private key, and the next link up verifies it the same way you'd verify any signature. Keep the revocation-versus-expiration distinction sharp for the exam, expiration is scheduled and built in, revocation is an emergency withdrawal of trust issued when the situation changes unexpectedly, most often because a private key was compromised. And notice the full-circle moment this skill represents: it closes out the cryptography arc (5.3-5.4) by tying keys, hashes, and signatures together into the one system, HTTPS, that quietly runs underneath almost every interaction covered earlier in this course, from the login forms of 5.1 to the credential theft of 5.2.

@@ -1,0 +1,414 @@
+\chapter{Application Threat Auditing}
+\label{ch:5.6}
+\chaptertopic{Topic 5.6}
+
+\chapterquote{Trust, but verify.}{Russian proverb, popularized in English by Ronald Reagan}
+
+\section{Motivation}
+
+Chapter~\ref{ch:5.5} built defenses into the application itself. This final chapter of the course
+is about what happens once an attack slips past those defenses anyway. It covers how an
+application's own logs reveal it, how data leaving the organization is caught in the act, and how
+scattered evidence becomes a defensible conclusion about what actually happened. It closes the same
+loop Chapter~\ref{ch:4.4} opened for devices, applied here to applications and data. This is the
+final layer of the course, and as always we pair an attack with the
+specific control that answers it.
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.6 -- Detecting Attacks on Data and Applications}
+\begin{apobjectives}
+\apobjective{5.6.A}{Detect Attacks}{Account for how an attack against stored data becomes visible at all -- which record of the event exists, which system wrote it, and what an analyst must compare it against before it means anything.}
+\apobjective{5.6.B}{Detect Attacks}{Choose the controls that will actually produce that evidence for a given application and a given threat, rather than assembling a collection of tools that all watch the same thing.}
+\apobjective{5.6.C}{Detect Attacks}{Judge a detection method on what it can and cannot see, the noise it generates per true finding, how quickly it fires, what it costs to operate, and whether an adversary can disable it.}
+\apobjective{5.6.D}{Detect Attacks}{Determine whether a file is the file it should be by computing its digest and comparing that against a trusted reference, and recognize when the reference is not trustworthy.}
+\apobjective{5.6.E}{Detect Attacks}{Read a sequence of log records well enough to name the attack, assess whether it succeeded, and write the result as a report someone else can act on without repeating the analysis.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Application Monitoring and Logging}
+
+Every login, form submission, and error an application handles can be recorded as a structured,
+timestamped log line. An attacker probing for valid usernames, hammering a login form, or calling an
+endpoint they should not reach touches the application in exactly the same way a legitimate user
+does. That means every one of those actions can leave a mark.
+
+\begin{example}[The pattern is the signal, not the event]
+{\scriptsize
+\begin{verbatim}
+08:42:01Z  192.168.10.44  jsmith  POST /login  401  "Invalid credentials"
+08:42:03Z  192.168.10.44  jsmith  POST /login  401  "Invalid credentials"
+08:42:05Z  192.168.10.44  jsmith  POST /login  200  "Login successful"
+\end{verbatim}
+}
+Seen once, this is unremarkable -- people mistype passwords. Seen fifty times, from a single IP,
+across twenty usernames within two minutes, it is a brute-force attack identical in shape to the
+one detected in Chapter~\ref{ch:4.4}. A single log line rarely proves anything; the correlated
+pattern across many lines is what actually carries evidentiary weight.
+\end{example}
+
+Several recurring signatures recur across real incidents. \textbf{Brute-force / credential
+stuffing} shows up as a high volume of 401 or 403 responses to a login endpoint from one IP,
+targeting many usernames in a short window. \textbf{SQL injection probes} appear as URL parameters
+or body fields containing the SQL meta-characters from Chapter~\ref{ch:5.1} -- \texttt{'},
+\texttt{--}, \texttt{UNION SELECT} -- captured verbatim in a raw access log. \textbf{Privilege
+escalation attempts} show up as a series of 403 responses from an authenticated low-privilege
+account suddenly requesting \texttt{/admin/} or a configuration endpoint. \textbf{Error storms} --
+a sudden spike in 500-series responses concentrated on one endpoint -- can indicate active
+exploitation of a code vulnerability forcing the server into an unexpected state.
+
+\begin{lstlisting}[language=Python, caption={Flagging IPs exceeding a brute-force threshold from parsed log entries}]
+from collections import defaultdict
+
+def flag_bruteforce_ips(entries, threshold=5, window_seconds=60):
+    """entries: list of dicts like {"ip": str, "timestamp": int,
+       "status": int}. Returns sorted IPs with >= threshold 401/403
+       responses within any window_seconds window."""
+    by_ip = defaultdict(list)
+    for e in entries:
+        if e["status"] in (401, 403):
+            by_ip[e["ip"]].append(e["timestamp"])
+
+    flagged = set()
+    for ip, times in by_ip.items():
+        times.sort()
+        left = 0
+        for right in range(len(times)):
+            while times[right] - times[left] > window_seconds:
+                left += 1
+            if right - left + 1 >= threshold:
+                flagged.add(ip)
+                break
+    return sorted(flagged)
+\end{lstlisting}
+
+Security-relevant events must be logged at INFO severity or higher, since a misconfiguration that
+drops them creates a blind spot an attacker can exploit by deliberately staying quiet enough to
+avoid it. Because raw logs are high-volume -- a busy server can produce thousands of lines per
+second -- teams feed them into a SIEM, exactly as in Chapter~\ref{ch:3.5}. SIEM rules apply logic
+like ``if one IP produces five or more 401s within sixty seconds, alert.'' Logging is not complete
+protection on its own: it cannot capture traffic that bypasses the application entirely, such as a
+compromised insider reading the database directly. An attacker who achieves code execution will
+often try to erase logs to cover their tracks. That is exactly why logs should stream to a separate,
+append-only, remote aggregator in real time, so local deletion does not erase the forensic record.
+
+\begin{misconception}
+\textbf{``If no alarm fired, nothing bad happened.''} Alarms only fire on configured rules; a
+missing or misconfigured rule is a silent blind spot regardless of what actually occurred. Periodic
+manual log review remains necessary even with automated alerting in place.
+\end{misconception}
+
+\section{Data Loss Prevention}
+
+An organization can defend its perimeter, patch its applications, and monitor its logs, and still
+lose its most valuable asset quietly: the data itself.
+
+\begin{definition}{Data loss prevention (DLP)}
+Tools and processes that detect, and where possible block, sensitive data leaving an organization's
+control without authorization -- whether the cause is a malicious insider, a compromised account,
+or an honest employee's mistake.
+\end{definition}
+
+Two detection strategies work together. \textbf{Content-based detection} inspects the actual data
+leaving the organization for recognizable patterns -- a credit-card number format, an SSN pattern, a
+document labeled ``CONFIDENTIAL'' in its metadata. It is precise when it fires, but blind to
+anything an attacker compresses or encrypts before sending, since the recognizable pattern simply
+disappears. \textbf{Volume/behavior-based detection} looks instead at the \emph{shape} of data
+movement rather than its content: an account that normally transfers a few megabytes a day suddenly
+uploading two gigabytes to an unfamiliar destination is anomalous regardless of what that data
+actually contains. That is exactly what lets behavior-based detection catch encrypted exfiltration
+that content inspection cannot see at all.
+
+\begin{lstlisting}[language=Python, caption={Flagging outbound transfers by volume and destination}]
+def flag_exfiltration(transfers, approved_destinations, volume_threshold_mb=500):
+    """transfers: list of dicts like {"account": str, "destination": str,
+       "volume_mb": int}. Returns sorted (account, destination) pairs
+       exceeding volume_threshold_mb to a non-approved destination."""
+    flagged = []
+    for t in transfers:
+        if (t["destination"] not in approved_destinations and
+                t["volume_mb"] > volume_threshold_mb):
+            flagged.append((t["account"], t["destination"]))
+    return sorted(flagged)
+\end{lstlisting}
+
+A mature DLP program instruments multiple vantage points, since different exfiltration paths are
+visible from different places. \textbf{Network DLP} watches traffic at the perimeter.
+\textbf{Endpoint DLP} runs on individual devices and can catch a USB copy that never touches the
+network at all. \textbf{Cloud/email DLP} inspects uploads and attachments before they leave a
+managed environment. Because legitimate large transfers happen constantly -- backup jobs, sanctioned
+partner data-sharing -- effective DLP maintains an \textbf{approved destination list}, so an
+identical transfer volume is silent to a known-good partner and alarming to an unrecognized external
+domain. Building and tuning that list is most of the ongoing work of actually running a DLP program.
+
+\begin{example}[Why DLP is preventive, not merely forensic]
+Unlike a log reviewed after the fact, a well-integrated DLP system can act in real time: blocking an
+email carrying a flagged attachment before it sends, or quarantining a file upload before it
+completes. This makes DLP one of the few controls in this course that can stop a loss \emph{during}
+the attempt rather than only detecting it afterward. An attacker aware of this will try to blend
+exfiltration into normal-looking traffic specifically to avoid triggering it.
+\end{example}
+
+\begin{misconception}
+\textbf{``A large data transfer is always suspicious.''} Legitimate large transfers -- backups,
+sanctioned partner data sharing -- happen constantly. Effective DLP relies on an approved-destination
+list and account-specific baselines, not raw transfer size alone.
+\end{misconception}
+
+\section{File Integrity Monitoring}
+
+Logs and DLP both watch data in motion; a complementary control watches whether the files
+themselves have quietly changed. \textbf{File Integrity Monitoring (FIM)} computes a cryptographic
+hash of every file that matters -- binaries, configuration files, web application source -- while
+the system is in a known-good state. It stores those hashes as a trusted baseline and periodically
+recomputes them to detect drift. Any mismatch means the file changed. If no authorized change ticket
+explains it, that mismatch is evidence of compromise -- this is the hash-comparison idea from
+Chapter~\ref{ch:5.3} applied directly to forensics rather than to passwords.
+
+\begin{lstlisting}[caption={A hand-rolled SHA-256 FIM baseline (Linux/macOS)}]
+# Establish a baseline for the web root
+sha256sum -- /var/www/html/*.php /var/www/html/uploads/* > /opt/fim/baseline_webroot.sha256
+
+# Later (e.g. via cron every 15 minutes), verify against the baseline
+sha256sum -c /opt/fim/baseline_webroot.sha256 --quiet
+# Example output on a compromised host:
+# /var/www/html/uploads/profile_pic_884.php: FAILED
+# sha256sum: WARNING: 1 computed checksum did NOT match
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The equivalent check on Windows with PowerShell}]
+# Baseline: compute and store a SHA-256 digest for each watched file
+Get-ChildItem C:\inetpub\wwwroot -Recurse -File |
+    Get-FileHash -Algorithm SHA256 |
+    Export-Csv C:\fim\baseline_webroot.csv -NoTypeInformation
+
+# Later: recompute and compare against the stored baseline
+$baseline = Import-Csv C:\fim\baseline_webroot.csv
+Get-ChildItem C:\inetpub\wwwroot -Recurse -File | Get-FileHash -Algorithm SHA256 |
+    Where-Object { $_.Hash -notin $baseline.Hash } |
+    Select-Object Path, Hash
+\end{lstlisting}
+
+A hand-rolled hash baseline is instructive but does not scale to enterprise use, which is why
+purpose-built FIM tools exist. \textbf{Tripwire}, first released in 1992 by Gene Kim, then a Purdue
+graduate student, pioneered the model of a policy file defining watched paths plus a cryptographically
+signed database, preventing an attacker who gains root from simply editing the baseline to hide
+their tracks.\srccite{5.6}{1} \textbf{AIDE (Advanced Intrusion Detection Environment)} is its
+open-source, GPL-licensed replacement.\srccite{5.6}{2} The reference the hashes are compared against
+must itself be trustworthy. A baseline stored on the same compromised host an attacker already
+controls can simply be rewritten alongside the files it is meant to catch, which is why a signed,
+off-host baseline matters as much as the hashing itself.
+
+\subsection{Judging a Detection Method}
+
+Three controls have been introduced so far -- log-based monitoring, DLP, and FIM -- and none of
+them is a strictly better or worse option than the others. Judging any detection method means
+asking the same five questions: what can it actually see, how much noise does it generate per
+genuine finding, and how fast does it fire? What does it cost to operate, and can an attacker who
+compromises the host disable it?
+
+Log-based monitoring sees almost anything the application is configured to record, but a busy
+server's raw volume means untuned rules drown a real alert in noise. An attacker with code execution
+can delete local logs outright, unless they are streamed off-host in real time. DLP sees data only
+as it crosses a boundary, and can block a transfer before it completes -- something neither logs nor
+FIM can do. Content-based DLP is blind to anything encrypted; volume-based DLP produces false
+positives until its baselines are tuned. FIM detects unauthorized file changes cheaply and
+precisely, but only after the fact -- it blocks nothing. Its own baseline is as vulnerable to on-host
+tampering as any other file, unless stored off-host and signed.
+
+No single method wins on every axis. A mature detection program layers all three specifically
+because each control's blind spot is a different control's strength.
+
+\section{Digital Evidence Analysis and Attack Classification}
+
+Detecting that something happened is only half of incident response. Once an alert fires, an
+analyst has to answer the harder question of what actually happened and what evidence supports that
+conclusion.
+
+\begin{definition}{Attack classification}
+The process of collecting multiple indicators of compromise and reasoning about which attack
+category they collectively and most strongly support, rather than treating any single indicator as
+conclusive on its own.
+\end{definition}
+
+An alert is a hypothesis, not a verdict, and this echoes Chapter~\ref{ch:4.4}'s IOC-scoring logic
+directly. A spike in failed logins \emph{suggests} brute-force, but confirming it requires checking
+whether the failures come from one source targeting many usernames (brute-force) or many sources
+targeting one username (credential stuffing from a leaked password list). Those are two genuinely
+different attacks that a single 401-count alone cannot distinguish.
+
+\begin{lstlisting}[language=Python, caption={Scoring collected evidence against known attack categories}]
+CATEGORY_INDICATORS = {
+    "sql_injection": {"sql_metachar_in_request", "database_error_response"},
+    "phishing": {"suspicious_attachment", "credential_harvest_url", "urgency_language"},
+    "brute_force": {"high_401_volume", "single_source_ip", "many_usernames_targeted"},
+}
+
+def classify_attack(observed_indicators):
+    """observed_indicators: set of indicator name strings.
+       Returns the category with the highest indicator-overlap score,
+       or None if no category has any overlap."""
+    scores = {cat: len(indicators & observed_indicators)
+              for cat, indicators in CATEGORY_INDICATORS.items()}
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else None
+\end{lstlisting}
+
+Evidence supporting a real response decision -- or a legal proceeding -- must be handled with a
+documented \textbf{chain of custody}: who collected it, when, how it was stored, and who has touched
+it since. An analyst who copies a log to a personal laptop and edits it ``to make it more readable''
+has compromised that evidence -- not necessarily because it was tampered with, but because no one
+can prove it was not. Proper practice works from read-only copies and hashes the original evidence
+at collection time, using exactly the hash-verification idea from Chapter~\ref{ch:5.3}. That way any
+later change is immediately detectable.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.7cm, minimum height=0.9cm, align=center, font=\scriptsize},
+]
+\node[box, fill=kickstartercream] (collect) at (0,0) {Collect evidence,\\hash immediately};
+\node[box] (store) at (3.4,0) {Store read-only\\copy, log custody};
+\node[box] (analyze) at (6.8,0) {Analyze a\\working copy};
+\node[box, fill=kickstartermaroon!20] (verify) at (10.2,0) {Re-hash original,\\confirm unchanged};
+\draw[-{Latex[length=2mm]}] (collect) -- (store);
+\draw[-{Latex[length=2mm]}] (store) -- (analyze);
+\draw[-{Latex[length=2mm]}] (store) -- (verify);
+\node[font=\scriptsize\sffamily, gray, align=center] at (5.1,-1.1)
+  {every step after collection works from a copy -- the hashed original is never itself edited};
+\end{tikzpicture}
+\caption{Chain of custody: the original is hashed at collection and never touched again; every
+subsequent step works from a copy, and re-hashing the original at any later point proves nothing
+was altered in between.}
+\label{fig:5.6-chain-of-custody}
+\end{figure}
+
+Industry frameworks like MITRE ATT\&CK give analysts a shared vocabulary, so that ``brute-force''
+means the identical specific thing across every team and report.\srccite{5.6}{3} Without it, one
+analyst's classification cannot be meaningfully compared or aggregated with another's.
+
+Attack classification is rarely a solo act. A junior analyst collects and documents evidence, a
+senior analyst reviews the classification and challenges weak reasoning before it becomes an
+official record, and the final classification determines which response playbook a team follows
+from there. Honestly communicating uncertainty (``the evidence most strongly supports phishing, but
+a malware component cannot be ruled out'') is the mark of a mature analyst, not a weakness in the
+analysis.
+
+\begin{misconception}
+\textbf{``One suspicious indicator is enough to declare the attack type.''} A single IOC is rarely
+conclusive on its own, exactly as in Chapter~\ref{ch:4.4}. Classification should weigh the full set
+of collected evidence, not the loudest single signal.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A log shows two failed logins followed by a success for one account within five seconds.
+Explain why this pattern alone is not conclusive evidence of an attack, and describe what
+additional evidence would change that assessment.
+\item Explain why volume/behavior-based DLP detection can catch an exfiltration attempt that
+content-based detection completely misses, using an encrypted file transfer as your example.
+\item An analyst copies an incident's log file to a personal laptop and edits formatting for
+readability before sharing it with a colleague. Explain why this compromises the evidence's chain
+of custody even if the analyst made no substantive changes to its content.
+\item A SOC receives a single alert: one account exceeded a 401-response threshold. Using the
+attack-classification reasoning from this chapter, explain why this alone cannot distinguish
+brute-force from credential stuffing, and describe the specific evidence that would resolve the
+ambiguity.
+\item Explain why logs should stream to a remote, append-only aggregator in real time rather than
+being stored only locally on the server that generated them, connecting your answer to what an
+attacker with code execution typically tries to do next.
+\item An organization stores its file-integrity-monitoring baseline on the same server the baseline
+is meant to protect. Explain why an attacker who gains root on that server can defeat the entire
+control, and describe what property the baseline's storage location must have to prevent this.
+\item Using the chain-of-custody diagram, explain why analysis happens on a working copy rather
+than on the hashed original, and what specific guarantee would be lost if an analyst skipped that
+step and ran their tools directly against the original evidence file.
+\item A junior analyst classifies an incident as phishing, and a senior analyst reviewing the same
+evidence says the classification most strongly supports phishing but cannot rule out a malware
+component. Explain why the senior analyst's hedged framing reflects better practice than the
+junior analyst's confident single-category call, using this chapter's own standard for what makes
+a classification credible.
+\item Using the five-question framework for judging a detection method, compare FIM to DLP: name
+one axis on which FIM is the stronger control, and one axis on which DLP is the stronger control,
+citing what this chapter says about each.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Two failed logins followed by a success is consistent with an ordinary user mistyping a
+password twice, which happens constantly and carries no attack implication by itself. It would
+become concerning evidence if the same pattern recurred across many usernames from one source in a
+short window (brute-force), or the same username were targeted from many different sources
+(credential stuffing). A single instance lacks the correlated volume that gives the pattern
+evidentiary weight.
+\answerlabel{5.6.A}
+\item Content-based detection inspects the data itself for recognizable patterns like a credit-card
+number format, but an encrypted file's contents look like random bytes with no such pattern to
+match. Content inspection sees nothing suspicious. Volume/behavior-based detection instead watches
+the shape of the transfer -- an account that normally moves a few megabytes a day suddenly sending
+two gigabytes to an unfamiliar destination is anomalous regardless of what the encrypted payload
+actually contains. It flags the transfer purely on its behavioral signature.
+\answerlabel{5.6.B}
+\item Chain of custody requires being able to prove evidence was not altered after collection, not
+merely that it was not altered in substance. Once a copy exists on an uncontrolled personal device
+and has been edited at all, no one can prove from the evidence itself that only formatting changed
+and not content. The provable guarantee is gone even if the actual change was harmless, which is why
+proper practice works from read-only copies and hashes the original at collection time instead.
+\answerlabel{5.6.E}
+\item A high count of 401 responses from a single account could mean an attacker is guessing that
+one account's password from many sources (credential stuffing). It could also mean the alert is
+actually describing brute-force targeting many accounts and this is just one of them. The raw count
+alone does not reveal whether the failures are concentrated on one source IP against many usernames,
+or distributed across many source IPs against this one username. Correlating the failed attempts by
+source IP and target username resolves the ambiguity: one IP hitting many usernames is brute-force,
+many IPs hitting one username is credential stuffing.
+\answerlabel{5.6.E}
+\item An attacker who achieves code execution commonly tries to erase local logs to cover their
+tracks. If those logs exist only on the compromised server, that deletion succeeds completely and
+destroys the forensic record along with the evidence of the attack itself. Streaming logs to a
+separate, append-only, remote aggregator in real time means the attacker's local deletion cannot
+reach the copies that already left the machine, preserving the record regardless of what happens to
+the original.
+\answerlabel{5.6.B}
+\item File Integrity Monitoring only detects tampering by comparing current file hashes against a
+trusted baseline. If the baseline sits on the same host, an attacker with root can recompute and
+overwrite the stored baseline hashes to match their tampered files, and every subsequent check
+reports a clean match because the reference itself was falsified. The baseline's storage must be
+off-host or otherwise outside the attacker's reach once they have compromised the monitored server
+-- for example, a separate, access-controlled system, or a cryptographically signed database like
+Tripwire's that requires a separate credential to update. Compromising the monitored host alone is
+not sufficient to also rewrite the reference it is checked against.
+\answerlabel{5.6.D}
+\item Analysis happens on a working copy so that whatever tools, searches, or annotations the
+analysis requires can never alter the original evidence. If something needs to be tried again
+differently, or a mistake is made while analyzing, the untouched original is still there to copy
+from again. If an analyst instead ran tools directly against the original, any tool that modifies
+timestamps, reformats content, or otherwise touches the file during analysis would break the
+provable guarantee that the evidence is unchanged since collection -- the entire point of having
+hashed it in the first place. The loss is not necessarily that the content changes, but that no one
+could prove it did not.
+\answerlabel{5.6.E}
+\item This chapter's standard is that classification should weigh the full set of collected
+evidence rather than the loudest single signal, and that honestly communicating uncertainty is the
+mark of a mature analyst, not a weakness. A confident single-category call implies a level of
+certainty the underlying evidence may not actually support. Explicitly naming what remains
+unresolved instead gives whoever acts on the classification an accurate picture of the actual
+evidentiary strength -- including the possibility that the response playbook may need to account for
+a scenario the primary classification does not cover.
+\answerlabel{5.6.E}
+\item FIM is the stronger control on cost and noise: once a baseline exists, comparing hashes is
+cheap to run and generates almost no false positives, since a mismatch is either an authorized
+change or a real compromise, unlike volume-based DLP, which needs tuned baselines and an
+approved-destination list to avoid raising them. DLP is the stronger control on speed and
+prevention: a well-integrated DLP system can block a transfer while it is still happening, while FIM
+only detects a change that has already occurred and never prevents the write in the first place.
+\answerlabel{5.6.C}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{5.6}{1}Gene H.\ Kim and Eugene H.\ Spafford, ``The Design and Implementation of
+Tripwire: A File System Integrity Checker,'' Purdue University Computer Science Technical Report
+CSD-TR-93-071 (1993); Tripwire, Inc., ``The Past, Present, and Future of File Integrity Monitoring,''
+\emph{The State of Security}.
+\item \srcitem{5.6}{2}``Advanced Intrusion Detection Environment (AIDE),'' project homepage,
+aide.github.io.
+\item \srcitem{5.6}{3}MITRE Corporation, ``MITRE ATT\&CK\textregistered,'' attack.mitre.org.
+\end{enumerate}

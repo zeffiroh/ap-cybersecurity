@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!-- 1.3.b SIM, "Spot the Rogue AP" wireless scan. Single-file, offline, deterministic.
+     Theme tokens inlined from assets/theme/theme.css (THEME.md). No emoji / no icons.
+     Fake Network Engine: scripted deterministic AP scan rounds. Score panel included. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.3.b - Spot the Rogue AP</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:860px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+  font-weight:bold;background:#d8d8ff;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.theme-linux .btn.sel{background:#dbe7ff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre;line-height:1.35;overflow-x:auto;}
+.dim{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+.feedback{font-family:var(--mono-font);margin-top:6px;min-height:18px;}
+h1{font-size:16px;margin:0 0 6px;}
+.apbtns{margin:8px 0;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.toolbar{margin-bottom:8px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+  <div class="window">
+    <div class="titlebar"><span>1.3.b - Spot the Rogue AP</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>A wireless scanner has detected nearby access points. Identify ALL rogue (suspicious) APs
+         by clicking their rows, then click Submit. Reach <b id="goaldisp">5</b> correct answers to
+         meet the objective. An AP is suspicious if its SSID is shared by more than one BSSID, or
+         if it has weaker security than another AP with the same SSID.</p>
+
+      <div class="terminal" id="scan">Loading scan...</div>
+
+      <div class="apbtns" id="apbtns"></div>
+
+      <div>
+        <button class="btn" onclick="submitAnswer()">Submit</button>
+        <button class="btn" onclick="nextRound()">Next scan</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+      <div class="statusbar" id="score">SCORE 0 / 5 | round 1 of 5 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. Scan data is simulated and deterministic. Rule: duplicate SSID across BSSIDs, or weaker security for the same SSID = suspicious.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Fake Network Engine: scripted deterministic wireless scan rounds ---- */
+
+// Each round: aps = list of {ssid, bssid, sec, sig}; rogues = set of bssids that are suspicious
+var ROUNDS = [
+  {
+    aps:[
+      {ssid:"CafeGuest",    bssid:"AA:BB:CC:11:22:33", sec:"WPA2", sig:-55},
+      {ssid:"CafeGuest",    bssid:"DE:AD:BE:EF:00:01", sec:"OPEN", sig:-42},
+      {ssid:"HotelLobby",   bssid:"11:22:33:44:55:66", sec:"WPA2", sig:-65},
+      {ssid:"CityMuniWifi", bssid:"00:AA:BB:CC:DD:EE", sec:"WPA2", sig:-70}
+    ],
+    rogues:["AA:BB:CC:11:22:33","DE:AD:BE:EF:00:01"]
+    // reason: CafeGuest has 2 BSSIDs -> both flagged; OPEN one also weaker
+  },
+  {
+    aps:[
+      {ssid:"Airport-Free", bssid:"00:11:22:33:44:55", sec:"OPEN", sig:-70},
+      {ssid:"Airport-Free", bssid:"FF:EE:DD:CC:BB:AA", sec:"OPEN", sig:-48},
+      {ssid:"BookshopNet",  bssid:"22:33:44:55:66:77", sec:"WPA3", sig:-60},
+      {ssid:"LibraryGuest", bssid:"88:99:AA:BB:CC:DD", sec:"WPA2", sig:-72}
+    ],
+    rogues:["00:11:22:33:44:55","FF:EE:DD:CC:BB:AA"]
+    // reason: Airport-Free has 2 BSSIDs -> both flagged (both OPEN so no sec downgrade extra)
+  },
+  {
+    aps:[
+      {ssid:"CorpNet", bssid:"0A:1B:2C:3D:4E:5F", sec:"WPA3", sig:-60},
+      {ssid:"CorpNet", bssid:"DE:AD:00:00:00:FF", sec:"WPA2", sig:-44},
+      {ssid:"CorpNet", bssid:"BE:EF:CA:FE:00:01", sec:"OPEN", sig:-39},
+      {ssid:"Xfinity", bssid:"11:AA:22:BB:33:CC", sec:"WPA2", sig:-68}
+    ],
+    rogues:["0A:1B:2C:3D:4E:5F","DE:AD:00:00:00:FF","BE:EF:CA:FE:00:01"]
+    // reason: CorpNet has 3 BSSIDs -> all flagged by rule 1; weaker two also flagged by rule 2
+  },
+  {
+    aps:[
+      {ssid:"HomeNet",     bssid:"12:34:56:78:9A:BC", sec:"WPA3", sig:-50},
+      {ssid:"Neighbor5G",  bssid:"AB:CD:EF:01:23:45", sec:"WPA2", sig:-62},
+      {ssid:"GuestOnly",   bssid:"99:88:77:66:55:44", sec:"WPA2", sig:-75},
+      {ssid:"CoffeeShop",  bssid:"CC:DD:EE:FF:00:11", sec:"WPA2", sig:-58}
+    ],
+    rogues:[]
+    // reason: each SSID has exactly one BSSID, all consistent -> clean scan
+  },
+  {
+    aps:[
+      {ssid:"StadiumWifi", bssid:"AA:00:BB:11:CC:22", sec:"WPA2", sig:-55},
+      {ssid:"StadiumWifi", bssid:"DD:33:EE:44:FF:55", sec:"WPA",  sig:-49},
+      {ssid:"ParkNet",     bssid:"10:20:30:40:50:60", sec:"WPA3", sig:-66},
+      {ssid:"ParkNet",     bssid:"AA:BB:CC:DD:EE:FF", sec:"OPEN", sig:-41}
+    ],
+    rogues:["AA:00:BB:11:CC:22","DD:33:EE:44:FF:55","10:20:30:40:50:60","AA:BB:CC:DD:EE:FF"]
+    // reason: StadiumWifi 2 BSSIDs -> both flagged + WPA < WPA2 -> weaker flagged
+    //         ParkNet 2 BSSIDs -> both flagged + OPEN < WPA3 -> weaker flagged
+  }
+];
+
+var ridx=0, score=0, GOAL=5, met=false, answered=false;
+var sel=new Set();
+
+function pad(s,n){s=String(s);while(s.length<n)s=s+' ';return s;}
+
+function renderScan(){
+  var r=ROUNDS[ridx];
+  var hdr = pad('SSID',20)+pad('BSSID',19)+pad('SECURITY',10)+pad('SIGNAL',8)+'\n';
+  hdr    += pad('----',20)+pad('-----',19)+pad('--------',10)+pad('------',8)+'\n';
+  var rows = r.aps.map(function(ap){
+    return pad(ap.ssid,20)+pad(ap.bssid,19)+pad(ap.sec,10)+pad(ap.sig+'dBm',8);
+  }).join('\n');
+  document.getElementById('scan').textContent = hdr+rows;
+}
+
+function renderButtons(){
+  var r=ROUNDS[ridx];
+  var c=document.getElementById('apbtns');
+  c.innerHTML='';
+  sel.clear(); answered=false;
+  document.getElementById('fb').textContent='';
+  r.aps.forEach(function(ap){
+    var b=document.createElement('button');
+    b.className='btn';
+    b.setAttribute('data-bssid',ap.bssid);
+    b.textContent=ap.ssid+' ['+ap.bssid+']';
+    b.onclick=function(){toggleSel(b,ap.bssid);};
+    c.appendChild(b);
+  });
+}
+
+function toggleSel(btn,bssid){
+  if(answered)return;
+  if(sel.has(bssid)){sel.delete(bssid);btn.classList.remove('sel');}
+  else{sel.add(bssid);btn.classList.add('sel');}
+}
+
+function submitAnswer(){
+  if(answered)return;
+  answered=true;
+  var r=ROUNDS[ridx];
+  var expected=new Set(r.rogues);
+  var ok=sel.size===expected.size && [...sel].every(function(b){return expected.has(b);});
+  var fb=document.getElementById('fb');
+  if(ok){
+    score++;
+    fb.innerHTML='<span class="ok">CORRECT.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.sort().join(', '):'none (clean scan)');
+  } else {
+    fb.innerHTML='<span class="bad">NOT QUITE.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.sort().join(', '):'none (clean scan)');
+  }
+  if(score>=GOAL)met=true;
+  updateBar();
+}
+
+function nextRound(){
+  ridx=(ridx+1)%ROUNDS.length;
+  renderScan();
+  renderButtons();
+  updateBar();
+}
+
+function updateBar(){
+  document.getElementById('score').innerHTML=
+    'SCORE '+score+' / '+GOAL+' | round '+(ridx+1)+' of '+ROUNDS.length+' | OBJECTIVE: '+
+    (met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');
+}
+
+document.getElementById('goaldisp').textContent=GOAL;
+renderScan();
+renderButtons();
+updateBar();
+</script>
+</body>
+</html>

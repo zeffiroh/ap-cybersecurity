@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Man-in-the-middle and ARP spoofing, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Man-in-the-middle and ARP spoofing</h1>
+<h1>Coding problem, 3.1.c: ARP spoofing detector</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 3.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building an arpwatch-style detector for Crestfield Analytics. Given a timestamp-ordered
+log of observed ARP replies (each mapping an IP to a MAC), identify which IP addresses show the
+ARP spoofing signature: the <strong>first</strong> reply seen for an IP establishes its trusted MAC binding. Any
+<strong>later</strong> reply for the same IP with a <strong>different</strong> MAC is a spoofing indicator. A later reply
+with the <em>same</em> MAC as the trusted binding is just a normal refresh and is not flagged.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(replies)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>replies</code>: <code>list[dict]</code>, each with:</li>
+<li><code>"ts"</code>: <code>int</code>, Unix timestamp (seconds) the reply was observed</li>
+<li><code>"ip"</code>: <code>str</code>, the IP address claimed in the reply</li>
+<li><code>"mac"</code>: <code>str</code>, the MAC address claimed for that IP</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code>, the distinct IP addresses that show the spoofing signature (at least one reply with
+a MAC different from that IP's first-seen MAC), <strong>sorted alphabetically</strong>, with no duplicates.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">replies = [
+    {&quot;ts&quot;: 100, &quot;ip&quot;: &quot;192.168.1.1&quot;, &quot;mac&quot;: &quot;aa:11:22:33:44:01&quot;},
+    {&quot;ts&quot;: 130, &quot;ip&quot;: &quot;192.168.1.1&quot;, &quot;mac&quot;: &quot;aa:11:22:33:44:01&quot;},
+    {&quot;ts&quot;: 145, &quot;ip&quot;: &quot;192.168.1.1&quot;, &quot;mac&quot;: &quot;de:ad:be:ef:00:99&quot;},
+]
+solve(replies)  -&gt;  [&quot;192.168.1.1&quot;]
+
+replies2 = [
+    {&quot;ts&quot;: 100, &quot;ip&quot;: &quot;192.168.1.50&quot;, &quot;mac&quot;: &quot;11:22:33:44:55:66&quot;},
+]
+solve(replies2)  -&gt;  []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li><code>replies</code> may be given in any timestamp order in the list; use the <code>ts</code> field (not list
+  position) to determine which reply for a given IP came first (the "trusted" binding).</li>
+<li>Test data never has two replies for the same IP with an identical minimum <code>ts</code>.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(replies: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>replies</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"ts"</code>: <code>int</code>, Unix timestamp in seconds the reply was observed
+- <code>"ip"</code>: <code>str</code>, IP address claimed in the reply
+- <code>"mac"</code>: <code>str</code>, MAC address claimed for that IP</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> of distinct IP addresses that show the ARP spoofing signature, <strong>sorted
+alphabetically</strong>, with no duplicate entries.</p>
+<h3>Detection rule</h3>
+<ol>
+<li>For each IP, find the reply with the smallest <code>ts</code>, this establishes the trusted MAC binding
+   for that IP.</li>
+<li>If any other reply for that same IP has a <code>mac</code> different from the trusted binding, the IP is
+   flagged (spoofed).</li>
+<li>IPs with only one observed reply, or where every reply agrees on the same MAC, are not flagged.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>replies</code> may arrive in any order; use <code>ts</code> (not list position) to determine the trusted (first)
+  binding.</li>
+<li>Test data never has two replies for the same IP with a tied minimum <code>ts</code>.</li>
+<li>Output is sorted alphabetically with no duplicates.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 3.1.c. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import List, Dict
+
+
+def solve(replies: List[Dict]) -&gt; List[str]:
+    """Flag IP addresses that show the ARP spoofing signature.
+
+    Args:
+        replies: list of dicts with keys 'ts' (int), 'ip' (str), 'mac' (str).
+    Returns:
+        Sorted list (no duplicates) of IP addresses where a later reply's MAC differs from
+        the MAC of the earliest (by 'ts') reply for that IP.
+        See the problem statement above and the Reference section below for the exact rules.
+    """
+    # TODO: implement the detection rule per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _r(ts, ip, mac):
+    return {"ts": ts, "ip": ip, "mac": mac}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_no_spoof_same_mac_refresh():
+    replies = [
+        _r(0, "192.168.1.1", "aa:01"),
+        _r(30, "192.168.1.1", "aa:01"),
+    ]
+    assert impl.solve(replies) == []
+
+
+def test_single_reply_not_flagged():
+    replies = [_r(0, "192.168.1.50", "11:22")]
+    assert impl.solve(replies) == []
+
+
+def test_spoof_different_mac_flagged():
+    replies = [
+        _r(0, "192.168.1.1", "aa:01"),
+        _r(15, "192.168.1.1", "de:ad"),
+    ]
+    assert impl.solve(replies) == ["192.168.1.1"]
+
+
+def test_multiple_ips_only_spoofed_flagged():
+    replies = [
+        _r(0, "192.168.1.1", "aa:01"),
+        _r(15, "192.168.1.1", "de:ad"),
+        _r(0, "192.168.1.2", "bb:02"),
+        _r(60, "192.168.1.2", "bb:02"),
+    ]
+    assert impl.solve(replies) == ["192.168.1.1"]
+
+
+def test_sorted_output_no_duplicates():
+    replies = [
+        _r(0, "192.168.1.9", "aa:01"),
+        _r(5, "192.168.1.9", "bb:02"),
+        _r(10, "192.168.1.9", "cc:03"),
+        _r(0, "192.168.1.2", "ff:00"),
+        _r(5, "192.168.1.2", "ee:01"),
+    ]
+    assert impl.solve(replies) == ["192.168.1.2", "192.168.1.9"]
+
+
+def test_empty_replies():
+    assert impl.solve([]) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_replies_out_of_ts_order_in_list():
+    """List order is not sorted by ts; the 'ts' field, not position, determines trust."""
+    replies = [
+        _r(50, "10.0.0.5", "attacker-mac"),
+        _r(10, "10.0.0.5", "trusted-mac"),
+    ]
+    assert impl.solve(replies) == ["10.0.0.5"]
+
+
+def test_three_replies_same_mac_after_first_change():
+    """Once flagged (differs from trusted), further same-mac repeats don't un-flag it."""
+    replies = [
+        _r(0, "10.0.0.9", "trusted"),
+        _r(5, "10.0.0.9", "attacker"),
+        _r(10, "10.0.0.9", "attacker"),
+    ]
+    assert impl.solve(replies) == ["10.0.0.9"]
+
+
+def test_stable_binding_many_refreshes():
+    replies = [_r(t, "10.0.0.20", "stable-mac") for t in range(0, 100, 10)]
+    assert impl.solve(replies) == []
+
+
+def test_large_mixed_batch():
+    replies = []
+    expected = []
+    for i in range(10):
+        ip = f"10.0.1.{i}"
+        replies.append(_r(0, ip, "m0"))
+        if i % 2 == 0:
+            replies.append(_r(10, ip, "m1"))  # different -&gt; spoofed
+            expected.append(ip)
+        else:
+            replies.append(_r(10, ip, "m0"))  # same -&gt; not spoofed
+    assert impl.solve(replies) == sorted(expected)
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

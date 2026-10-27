@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.2.a Lab, Linux Permissions and Least Privilege</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Linux Permissions and Least Privilege</h1>
+  <p class="sub">Find the over-exposed files, then lock them down with real <code>chmod</code> and <code>chown</code>.</p>
+
+  <div class="brief">
+    <p>This is a working shell over a small virtual filesystem. Every <code>cat</code> and
+    <code>echo &gt; file</code> is checked against the file's real owner, group, and <code>rwx</code> bits
+    for whoever you are logged in as, so a wrong permission actually lets the wrong person in. A server
+    deployment left two files too open. You will prove the exposure as an untrusted user, then apply least
+    privilege so the discretionary access control (DAC) model on the filesystem enforces who may read and
+    write each file.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="expose"><span>Run <code>ls -l</code>, then answer: while <code>config.env</code> is mode <code>666</code>, which users can write to it?</span>
+      <div class="hint"><details><summary>Hint</summary>The last three permission bits (<code>rw-</code> at the end of <code>-rw-rw-rw-</code>) are the "other" bits, they apply to <i>every</i> user. Type your answer in the box and press Check.</details></div></li>
+    <li data-m="lockcfg"><span>Remove group and world write from <code>config.env</code> (reach <code>644</code> or stricter) and confirm <code>mallory</code> can no longer write it.</span>
+      <div class="hint"><details><summary>Hint</summary><code>config.env</code> is owned by <code>root</code>, so first <code>su root</code>, then <code>chmod 644 /srv/app/config.env</code>. Then <code>su mallory</code> and try <code>echo x &gt; /srv/app/config.env</code>.</details></div></li>
+    <li data-m="secret"><span>Apply least privilege to <code>secret.key</code> so only its owner can read it, then confirm another user's <code>cat</code> is denied.</span>
+      <div class="hint"><details><summary>Hint</summary><code>secret.key</code> is owned by <code>appuser</code>. As <code>appuser</code> (or <code>root</code>), run <code>chmod 600 /srv/app/secret.key</code> (or <code>400</code>). Then <code>su mallory</code> and try <code>cat /srv/app/secret.key</code>.</details></div></li>
+  </ul>
+
+  <div class="panel">
+    <h3>Terminal</h3>
+    <p class="note">Commands: <code>ls -l</code>, <code>whoami</code>, <code>su &lt;user&gt;</code> (root, appuser, mallory),
+      <code>chmod &lt;octal&gt; &lt;file&gt;</code>, <code>chown &lt;user[:group]&gt; &lt;file&gt;</code>,
+      <code>cat &lt;file&gt;</code>, <code>echo text &gt; &lt;file&gt;</code>, <code>help</code>, <code>reset</code>.
+      Files live in <code>/srv/app/</code>; a bare name is resolved there.</p>
+    <div class="console" id="out"></div>
+    <div class="row">
+      <span id="ps1" style="font-family:var(--mono);font-size:14px"></span>
+      <input type="text" id="cmd" autocomplete="off" spellcheck="false" style="flex:1;min-width:220px" placeholder="type a command and press Enter">
+    </div>
+    <div class="row">
+      <label class="field" style="margin:0" for="ans">Mission 1 answer</label>
+      <input type="text" id="ans" autocomplete="off" spellcheck="false" placeholder="which users can write config.env?" style="flex:1;min-width:200px">
+      <button id="checkAns">Check</button>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Why least privilege works here</h2>
+    <p>Under discretionary access control, every file carries an owner, a group, and three permission
+    triads, owner, group, and other. The kernel checks exactly one triad: your owner bits if you own the
+    file, otherwise the group bits if you are in its group, otherwise the "other" bits that apply to
+    everyone. A mode of <code>666</code> hands write access to <i>every</i> account, including an untrusted
+    one like <code>mallory</code>, which is how a leaked config or tampered secret begins. Tightening the
+    modes to <code>644</code> and <code>600</code> grants each file only the access its legitimate owner
+    needs, the principle of least privilege. Choosing and enforcing who may touch what is the job of an
+    access control model (DAC here, alongside MAC and RBAC), the focus of LO 5.2.A.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc;var outEl=document.getElementById("out");var cmdEl=document.getElementById("cmd");var USERS={root:["root","app"],appuser:["app"],mallory:["guest"]};function freshFS(){return{"config.env":{owner:"root",group:"app",mode:0o666},"secret.key":{owner:"appuser",group:"app",mode:0o644},"app.py":{owner:"appuser",group:"app",mode:0o755},"deploy.sh":{owner:"root",group:"root",mode:0o750},"README":{owner:"root",group:"app",mode:0o644}};}
+var fs=freshFS();var user="mallory";function setPrompt(){document.getElementById("ps1").textContent=user+"@app:/srv/app$";}
+setPrompt();function modeStr(m){var s="-";var bits=["r","w","x"];for(var shift=6;shift>=0;shift-=3){var tri=(m>>shift)&7;for(var b=0;b<3;b++)s+=(tri&(4>>b))?bits[b]:"-";}
+return s;}
+function octal(m){return(m&0o777).toString(8);}
+function allowed(file,want){if(user==="root")return true;var tri;if(file.owner===user)tri=(file.mode>>6)&7;else if(USERS[user].indexOf(file.group)!==-1)tri=(file.mode>>3)&7;else tri=file.mode&7;var bit=want==="r"?4:want==="w"?2:1;return(tri&bit)!==0;}
+function resolve(name){if(!name)return null;name=name.replace(/^\/srv\/app\//,"").replace(/^\.\//,"");return fs.hasOwnProperty(name)?name:null;}
+function print(text,cls){outEl.innerHTML+=(cls?'<span class="'+cls+'">'+esc(text)+"</span>":esc(text))+"\n";outEl.scrollTop=outEl.scrollHeight;}
+var missions=new Lab.Missions("5.2.a",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});function checkState(){if((fs["config.env"].mode&0o022)===0)missions.complete("lockcfg");if((fs["secret.key"].mode&0o077)===0)missions.complete("secret");}
+function run(line){print("$ "+line,"dim");var parts=line.trim().split(/\s+/);var cmd=parts[0];if(!cmd)return;if(cmd==="help"){print("ls -l | whoami | su <user> | chmod <octal> <file> | chown <user[:group]> <file> | cat <file> | echo text > <file> | reset");}else if(cmd==="whoami"){print(user);}else if(cmd==="reset"){fs=freshFS();user="mallory";setPrompt();print("filesystem and session reset.","ok");}else if(cmd==="su"){if(USERS.hasOwnProperty(parts[1])){user=parts[1];setPrompt();print("switched to "+user,"ok");}
+else print("su: unknown user '"+(parts[1]||"")+"'","err");}else if(cmd==="ls"){Object.keys(fs).sort().forEach(function(n){var f=fs[n];print(modeStr(f.mode)+"  "+pad(f.owner,8)+" "+pad(f.group,6)+"  "+n);});}else if(cmd==="chmod"){var m=parts[1],f=resolve(parts[2]);if(!/^[0-7]{3,4}$/.test(m||""))print("chmod: invalid mode '"+(m||"")+"'","err");else if(!f)print("chmod: cannot access '"+(parts[2]||"")+"': No such file","err");else if(user!=="root"&&fs[f].owner!==user)print("chmod: changing permissions of '"+f+"': Operation not permitted","err");else{fs[f].mode=parseInt(m,8)&0o777;print("mode of '"+f+"' changed to "+octal(fs[f].mode)+" ("+modeStr(fs[f].mode)+")","ok");}}else if(cmd==="chown"){var spec=parts[1]||"",f2=resolve(parts[2]);var o=spec.split(":")[0],g=spec.split(":")[1];if(!f2)print("chown: cannot access '"+(parts[2]||"")+"': No such file","err");else if(user!=="root")print("chown: changing ownership of '"+f2+"': Operation not permitted","err");else if(o&&!USERS.hasOwnProperty(o))print("chown: invalid user: '"+o+"'","err");else{if(o)fs[f2].owner=o;if(g)fs[f2].group=g;print("owner of '"+f2+"' is now "+fs[f2].owner+":"+fs[f2].group,"ok");}}else if(cmd==="cat"){var fc=resolve(parts[1]);if(!fc)print("cat: "+(parts[1]||"")+": No such file","err");else if(!allowed(fs[fc],"r"))print("cat: "+fc+": Permission denied","err");else print(contents(fc));}else if(cmd==="echo"){var gt=parts.indexOf(">");if(gt===-1){print(parts.slice(1).join(" "));return;}
+var fe=resolve(parts[gt+1]);if(!fe)print("bash: "+(parts[gt+1]||"")+": No such file","err");else if(!allowed(fs[fe],"w"))print("bash: "+fe+": Permission denied","err");else print("wrote to "+fe,"ok");}else{print(cmd+": command not found","err");}
+checkState();}
+function pad(s,n){s=String(s);while(s.length<n)s+=" ";return s;}
+function contents(name){if(name==="config.env")return"DB_HOST=10.0.0.5\nDB_USER=appsvc\nDB_PASS=change-me";if(name==="secret.key")return"-----BEGIN KEY-----\nMIIBVgIBADANBg...redacted...\n-----END KEY-----";if(name==="app.py")return"# application entrypoint\nprint('serving')";if(name==="deploy.sh")return"#!/bin/sh\nsystemctl restart app";return"App deployment. See config.env for settings.";}
+cmdEl.addEventListener("keydown",function(e){if(e.key!=="Enter")return;var line=cmdEl.value;cmdEl.value="";if(line.trim())run(line);});document.getElementById("checkAns").addEventListener("click",function(){var a=document.getElementById("ans").value.toLowerCase();var ok=/\b(all|every ?one|every ?body|any ?one|anybody|world)\b/.test(a)||(/mallory/.test(a)&&/appuser/.test(a)&&/root/.test(a))||/mallory/.test(a);if(ok){print("# correct: mode 666 means the 'other' bits grant write to EVERY user, including untrusted mallory.","ok");missions.complete("expose");}else{print("# not quite. A world-writable file (666) can be written by every account. Run 'ls -l' and read the last 'rw-'.","err");}});print("Virtual host ready. You are 'mallory' (an untrusted guest account). Start with: ls -l","dim");})();</script>
+</body>
+</html>

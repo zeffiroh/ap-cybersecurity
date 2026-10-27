@@ -1,0 +1,78 @@
+# Canonical item bank for atom 3.1.b (single source of truth).
+# Used by the skill quiz page and the topic's practice questions.
+atom: 3.1.b
+title: DNS attacks (spoofing, cache poisoning)
+lo:
+- 3.1.A
+- 3.1.B
+items:
+- id: q1
+  type: mcq
+  prompt: Why can an attacker forge a DNS response over UDP more easily than they could tamper with a TCP connection?
+  options:
+  - UDP responses are digitally signed by default
+  - UDP always encrypts responses
+  - UDP requires the attacker to be on the same physical cable
+  - UDP is connectionless, so there is no handshake the resolver can use to verify the reply's origin
+  answer: 3
+  points: 1
+  explain: DNS over UDP is a single stateless query/reply pair; the resolver has no session state to verify the reply actually came from the authoritative server, so a correctly-guessed forged reply is accepted.
+- id: q2
+  type: mcq
+  prompt: Which THREE fields must a forged DNS reply match for a resolver to accept it as the answer to an outstanding query?
+  options:
+  - TTL, checksum, and MAC address
+  - Source IP address only
+  - Destination port, query domain name, transaction ID
+  - HTTP status code, cookie, and referrer
+  answer: 2
+  points: 1
+  explain: The resolver checks the reply's transaction ID, source port (the port it sent the query from), and query name against the outstanding query before accepting the answer.
+- id: q3
+  type: multi
+  prompt: Which of the following are effective defenses against DNS cache poisoning? Select ALL that apply.
+  options:
+  - Source port randomization
+  - DNSSEC cryptographic signatures
+  - Hiding the resolver's IP address
+  - Increasing the TTL of all records to one week
+  answer:
+  - 0
+  - 1
+  points: 2
+  explain: Source port randomization widens the guessing space an attacker must brute-force, and DNSSEC lets a resolver cryptographically verify a reply even if an attacker wins the UDP race. Hiding the resolver's IP and raising TTLs do not address the underlying spoofing vulnerability.
+- id: q4
+  type: mcq
+  prompt: In the Kaminsky attack, why does the attacker query unique, non-existent subdomains (e.g. 1.bank.com, 2.bank.com) instead of the base domain?
+  options:
+  - It is required by the DNS protocol specification
+  - It bypasses DNSSEC entirely
+  - It forces the resolver to issue a fresh query to the authoritative server every time, since there is no cached answer, giving the attacker repeated chances to win the race
+  - It reduces the number of packets the attacker needs to send
+  answer: 2
+  points: 1
+  explain: A unique subdomain guarantees a cache miss, forcing a new query-and-race cycle each time, which multiplies the attacker's opportunities to guess the transaction ID before the real reply arrives.
+- id: q5
+  type: short
+  prompt: Name the DNS extension that adds cryptographic signatures so a resolver can verify a reply even if an attacker wins the UDP timing race.
+  accept:
+  - DNSSEC
+  - domain name system security extensions
+  points: 1
+  explain: DNSSEC signs DNS records with a key hierarchy rooted at the DNS root zone, letting resolvers reject unsigned or incorrectly signed forged replies.
+- id: q6
+  type: mcq
+  prompt: A resolver's outstanding query has tx_id=500 and source port=9000. A reply arrives with tx_id=500, port=9000, but for a different query name than was asked. What should the resolver do?
+  options:
+  - Cache it anyway since the tx_id matches
+  - Reject the reply as a mismatch
+  - Cache it anyway since the port matches
+  - Forward it to the authoritative server for verification
+  answer: 1
+  points: 1
+  explain: All three fields (tx_id, port, AND query name) must match; a mismatched query name means this reply does not answer the outstanding query and must be rejected.
+- id: q7
+  type: code
+  prompt: Implement the DNS resolver race classifier in problem/ (graded automatically).
+  grader: problem
+  points: 3

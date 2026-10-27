@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.1.b, Threat actors and their motivations, Simulation</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#000000; --muted:#555555; --rule:#000000;
+  --win-face:#c0c0c0; --win-light:#ffffff; --win-shadow:#808080; --win-dark:#000000;
+  --win-title:#000080; --win-title-fg:#ffffff; --win-title-inactive:#7f7f7f;
+  --lin-panel:#f5f5f5; --lin-border:#cccccc; --lin-accent:#3465a4;
+  --term-bg:#000000; --term-fg:#00ff00; --term-dim:#00aa00; --term-cursor:#00ff00;
+  --ui-font:"MS Sans Serif", Tahoma, Geneva, system-ui, sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+*{box-sizing:border-box;}
+code,pre,.mono{font-family:var(--mono-font);}
+hr{border:none;border-top:1px solid var(--rule);}
+
+/* Win95 */
+.theme-win .window{background:var(--win-face);padding:2px;}
+.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+        box-shadow:inset 1px 1px 0 0 var(--win-light), inset -1px -1px 0 0 var(--win-shadow);}
+.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+        box-shadow:inset 1px 1px 0 0 var(--win-dark);}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+          padding:2px 4px;display:flex;justify-content:space-between;align-items:center;}
+.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px;}
+.window-body{background:var(--bg);color:var(--fg);padding:10px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;
+     border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+     outline:none;}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px;}
+
+/* Linux */
+.theme-linux{ --win-face:var(--lin-panel); }
+.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0;}
+.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none;}
+.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600;}
+.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px;}
+.theme-linux .btn:active{background:#ececec;}
+
+/* Terminal */
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+          padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:150px;}
+.terminal .prompt{color:var(--term-dim);}
+.scorepanel{font-family:var(--mono-font);}
+.scorepanel .ok{color:#008000;} .theme-linux .scorepanel .ok{color:#2f9e44;}
+.scorepanel .bad{color:#aa0000;}
+
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.toolbar{margin-bottom:8px;}
+.form-group{margin:12px 0;}
+.form-group label{display:block;font-weight:bold;margin-bottom:4px;}
+.form-group select{width:100%;padding:4px;font-family:var(--ui-font);}
+.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.1.b, Threat Actor Profiler Simulation</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>Investigate the active network and system logs. Identify the most likely **Threat Actor Category** and the highest-leverage **Defense Control** to mitigate future risk. Reach 5 correct classifications to pass.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">log-viewer&gt; </span>Loading alerts...</div>
+      
+      <div class="form-group">
+        <label for="actor-select">Classify Threat Actor:</label>
+        <select id="actor-select">
+          <option value="">-- Choose Threat Actor Category --</option>
+          <option value="Script Kiddie">Script Kiddie (low skill, opportunistic)</option>
+          <option value="Cybercriminal">Cybercriminal (motivated by direct financial gain)</option>
+          <option value="Hacktivist">Hacktivist (motivated by politics, ideology, publicity)</option>
+          <option value="Insider Threat">Insider Threat (authorized user causing malicious/negligent harm)</option>
+          <option value="Nation-State / APT">Nation-State / APT (stealthy, highly resourced, geopolitical goals)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="control-select">Select Highest-Leverage Defensive Control:</label>
+        <select id="control-select">
+          <option value="">-- Choose Defensive Control --</option>
+          <option value="Regular Patching & Hardening">Regular Patching & Hardening (port closure, disable services)</option>
+          <option value="Offline Backups & MFA">Offline Backups & Multi-Factor Authentication</option>
+          <option value="WAF & Credential Hygiene">WAF (Web App Firewall) & CMS Credential Hygiene</option>
+          <option value="Least Privilege & Access Logs">Least Privilege & Access Logs / USB Restrictions</option>
+          <option value="Network Segmentation & Anomaly Detection">Network Segmentation & EDR Anomaly Detection</option>
+        </select>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitAnalysis()">Submit Analysis</button>
+        <button class="btn" onclick="nextAlert()">Next Alert</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 5 │ Alert 1 of 5 │ OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+var ALERTS = [
+  {
+    id: "ALT-301",
+    desc: "Alert #301: Remote connection attempt on SSH (port 22) from external host 198.51.100.15. The attacker is trying a default dictionary list of common passwords ('admin', 'password', '123456') at a rapid rate, triggering automated lockout warnings.",
+    actor: "Script Kiddie",
+    control: "Regular Patching & Hardening",
+    explain: "A Script Kiddie scans the internet using automated, public tools for default or simple configurations. Regular patching and disabling default accounts stops them easily."
+  },
+  {
+    id: "ALT-302",
+    desc: "Alert #302: EDR flagged local admin credentials being used at 2:00 AM on a database containing HR payroll records. The user was tracked downloading a massive CSV file, which was later uploaded to an anonymous file sharing forum by an account criticizing the company's hiring policy.",
+    actor: "Insider Threat",
+    control: "Least Privilege & Access Logs",
+    explain: "An Insider Threat has legitimate credentials but abuses access. Implementing least privilege limits what a single account can copy, and access logging catches them."
+  },
+  {
+    id: "ALT-303",
+    desc: "Alert #303: An external adversary gained web control panel access, defaced our main public-facing landing page, replacing the content with a text protesting the company's recent environmental lawsuit, and posted a link to the defacement on Twitter.",
+    actor: "Hacktivist",
+    control: "WAF & Credential Hygiene",
+    explain: "A Hacktivist targets public websites to gain publicity for an ideological cause. Securing CMS portals and using a Web Application Firewall prevents defacement."
+  },
+  {
+    id: "ALT-304",
+    desc: "Alert #304: EDR identified a zero-day kernel exploit running on a development workstation, followed by lateral movement using custom-written shellcode. Data was slowly encrypted and staged locally before being exfiltrated in tiny encrypted blocks to a foreign government range.",
+    actor: "Nation-State / APT",
+    control: "Network Segmentation & Anomaly Detection",
+    explain: "Nation-state / APT actors use stealth, high resources, custom exploits, and lateral movement. Network segmentation and anomaly detection contain the breach."
+  },
+  {
+    id: "ALT-305",
+    desc: "Alert #305: Production database file shares were suddenly overwritten with an AES-encrypted container. All users lost access to their files, and a readme file was left in every folder demanding a payment of 3 BTC to restore the databases.",
+    actor: "Cybercriminal",
+    control: "Offline Backups & MFA",
+    explain: "Cybercriminals are motivated by money, commonly deploying ransomware. Having offline backups and securing access via MFA are key defensive measures."
+  }
+];
+
+var idx = 0;
+var score = 0;
+var GOAL = 5;
+var met = false;
+var submitted = false;
+
+function renderAlert() {
+  var alt = ALERTS[idx];
+  var stage = document.getElementById('stage');
+  stage.innerHTML = '<span class="prompt">' + alt.id + ' log-feed></span>\n\n' + esc(alt.desc);
+  
+  document.getElementById('actor-select').value = "";
+  document.getElementById('control-select').value = "";
+  document.getElementById('feedback').innerHTML = '';
+  submitted = false;
+  updateStatus();
+}
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function submitAnalysis() {
+  if (submitted) return;
+  
+  var actVal = document.getElementById('actor-select').value;
+  var ctrlVal = document.getElementById('control-select').value;
+  
+  if (!actVal || !ctrlVal) {
+    alert("Please select both a Threat Actor and a Defensive Control.");
+    return;
+  }
+  
+  submitted = true;
+  var alt = ALERTS[idx];
+  var correct = (actVal === alt.actor && ctrlVal === alt.control);
+  
+  var fb = document.getElementById('feedback');
+  if (correct) {
+    score++;
+    fb.innerHTML = '<span class="scorepanel"><span class="ok">CORRECT!</span></span> ' + alt.explain;
+  } else {
+    fb.innerHTML = '<span class="scorepanel"><span class="bad">INCORRECT.</span></span> Actor: <u>' + alt.actor + '</u>, Control: <u>' + alt.control + '</u>. ' + alt.explain;
+  }
+  
+  if (score >= GOAL) {
+    met = true;
+  }
+  updateStatus();
+}
+
+function nextAlert() {
+  idx = (idx + 1) % ALERTS.length;
+  renderAlert();
+}
+
+function updateStatus() {
+  var el = document.getElementById('score');
+  el.innerHTML = 'SCORE ' + score + ' / ' + GOAL + ' │ Alert ' + (idx + 1) + ' of ' + ALERTS.length + ' │ OBJECTIVE: ' +
+    (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+renderAlert();
+</script>
+</body>
+</html>

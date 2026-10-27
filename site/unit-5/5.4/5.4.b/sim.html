@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.4.b, RSA algorithm, Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#e0e0e0;--win-title-fg:#000;--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.wrap{max-width:880px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--win-face);padding:12px;display:flex;flex-direction:column;gap:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:120px}.terminal .prompt{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.scorepanel .ok{color:#008000;font-weight:bold}.scorepanel .bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 4px}.toolbar{margin-bottom:8px}.panel{background:#fff;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);padding:10px}.panel h2{font-size:14px;margin-top:0;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:4px}.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}.form-group{display:flex;flex-direction:column;gap:4px;min-width:110px}.form-group label{font-weight:bold;font-size:12px}.form-group input{padding:4px;font-family:var(--mono-font);font-size:12px;border:1px solid var(--win-shadow);width:90px}.derived{background:#eee;border:1px solid #ccc;padding:6px;font-family:var(--mono-font);font-size:12px;margin-top:4px}.feedback-box{font-size:12px;font-weight:bold;margin-top:4px;min-height:16px}.feedback-box.correct{color:#008000}.feedback-box.incorrect{color:#aa0000}.stepnote{font-size:11px;color:var(--muted);margin:0}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.4.b, RSA Encrypt/Decrypt Walkthrough</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>For each round, derive the RSA key pair from the given primes p, q and public exponent e,
+      then encrypt the given message with the public key and decrypt your own ciphertext with the
+      private key. Reach the target score across the rounds.</p>
+
+      <div class="panel">
+        <h2 id="round-title">Round 1 of 4</h2>
+        <div class="terminal" id="given">Loading round...</div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="form-group">
+            <label for="in-n">n = p * q</label>
+            <input type="number" id="in-n" oninput="checkStep('n')">
+          </div>
+          <div class="form-group">
+            <label for="in-phi">phi(n)</label>
+            <input type="number" id="in-phi" oninput="checkStep('phi')">
+          </div>
+          <div class="form-group">
+            <label for="in-d">d (private exp)</label>
+            <input type="number" id="in-d" oninput="checkStep('d')">
+          </div>
+        </div>
+        <div class="feedback-box" id="fb-keys"></div>
+
+        <div class="row" style="margin-top:6px">
+          <div class="form-group">
+            <label for="in-c">c = m^e mod n</label>
+            <input type="number" id="in-c" oninput="checkStep('c')">
+          </div>
+          <div class="form-group">
+            <label for="in-m2">m = c^d mod n</label>
+            <input type="number" id="in-m2" oninput="checkStep('m2')">
+          </div>
+        </div>
+        <div class="feedback-box" id="fb-cipher"></div>
+        <p class="stepnote">Tip: compute step by step and reduce mod n along the way to keep the arithmetic small (e.g. square, reduce mod n, multiply, reduce mod n again).</p>
+
+        <div style="margin-top:8px">
+          <button class="btn" onclick="nextRound()">Next round</button>
+          <button class="btn" onclick="showHint()">Show hint</button>
+        </div>
+        <div class="feedback-box" id="fb-hint"></div>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 4 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var ROUNDS=[{p:3,q:11,e:7,m:5},{p:5,q:11,e:3,m:9},{p:7,q:13,e:5,m:10},{p:61,q:53,e:17,m:65}];function egcdJS(a,b){if(b===0)return[a,1,0];var r=egcdJS(b,a%b);var g=r[0],x1=r[1],y1=r[2];return[g,y1,x1-Math.floor(a/b)*y1];}
+function modInverse(e,phi){var r=egcdJS(e,phi);var x=r[1];return((x%phi)+phi)%phi;}
+function modPow(base,exp,mod){var result=1;base=base%mod;while(exp>0){if(exp%2===1)result=(result*base)%mod;exp=Math.floor(exp/2);base=(base*base)%mod;}
+return result;}
+var current=0;var score=0;var MAX=ROUNDS.length;var met=false;var solvedThisRound=false;var expected={};function loadRound(i){var r=ROUNDS[i];var n=r.p*r.q;var phi=(r.p-1)*(r.q-1);var d=modInverse(r.e,phi);var c=modPow(r.m,r.e,n);var m2=modPow(c,d,n);expected={n:n,phi:phi,d:d,c:c,m2:m2};solvedThisRound=false;document.getElementById('round-title').innerText='Round '+(i+1)+' of '+ROUNDS.length;document.getElementById('given').innerHTML='<span class="prompt">sim&gt; </span>p = '+r.p+', q = '+r.q+', e = '+r.e+'\n<span class="prompt">sim&gt; </span>message m = '+r.m+'\n<span class="prompt">sim&gt; </span>step 1: derive n, phi(n), d.  step 2: encrypt m, then decrypt your ciphertext.';['in-n','in-phi','in-d','in-c','in-m2'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('fb-keys').className='feedback-box';document.getElementById('fb-keys').innerText='';document.getElementById('fb-cipher').className='feedback-box';document.getElementById('fb-cipher').innerText='';document.getElementById('fb-hint').innerText='';}
+function checkStep(){var n=parseInt(document.getElementById('in-n').value,10);var phi=parseInt(document.getElementById('in-phi').value,10);var d=parseInt(document.getElementById('in-d').value,10);var c=parseInt(document.getElementById('in-c').value,10);var m2=parseInt(document.getElementById('in-m2').value,10);var keysOk=(n===expected.n&&phi===expected.phi&&d===expected.d);var fbKeys=document.getElementById('fb-keys');if(isNaN(n)||isNaN(phi)||isNaN(d)){fbKeys.className='feedback-box';fbKeys.innerText='';}else if(keysOk){fbKeys.className='feedback-box correct';fbKeys.innerText='Key derivation correct.';}else{fbKeys.className='feedback-box incorrect';fbKeys.innerText='Not yet, recheck n = p*q, phi(n) = (p-1)(q-1), and d as the modular inverse of e mod phi(n).';}
+var cipherOk=(c===expected.c&&m2===expected.m2);var fbCipher=document.getElementById('fb-cipher');if(isNaN(c)||isNaN(m2)){fbCipher.className='feedback-box';fbCipher.innerText='';}else if(cipherOk){fbCipher.className='feedback-box correct';fbCipher.innerText='Encrypt/decrypt round trip correct, m recovered exactly.';}else{fbCipher.className='feedback-box incorrect';fbCipher.innerText='Not yet, recheck c = m^e mod n, then m = c^d mod n using YOUR c.';}
+if(keysOk&&cipherOk&&!solvedThisRound){solvedThisRound=true;score++;setScore();}}
+function nextRound(){if(current<ROUNDS.length-1){current++;loadRound(current);}else{document.getElementById('given').innerHTML='<span class="prompt">sim&gt; </span>All rounds complete.';}}
+function showHint(){document.getElementById('fb-hint').innerText='n = p*q, phi(n) = (p-1)(q-1). Find d by testing small integers until (e*d) mod phi(n) == 1. '+'Encrypt: raise m to the e power, reduce mod n at each multiplication step. Decrypt your own c the same way with d.';}
+function setScore(){met=(score===MAX);var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+MAX+' │ OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+loadRound(current);setScore();</script>
+</body>
+</html>

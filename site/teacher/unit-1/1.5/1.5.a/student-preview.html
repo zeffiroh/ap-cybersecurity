@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI reviewing security configurations, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>AI reviewing security configurations</h1>
+<h1>Coding problem, 1.5.a: AI reviewing security configurations</h1>
+<p><strong>Skill:</strong> Mitigate Risk, Collaborate · <strong>Maps to:</strong> 1.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the rule-engine core of an AI-assisted configuration auditor. Given a list of configuration
+file lines (as a real tool would read from <code>/etc/ssh/sshd_config</code> or a service config), return
+the sorted set of security finding tags for every insecure directive detected. This mirrors exactly
+what tools like Lynis and OpenSCAP do at their rule-evaluation layer.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(config_lines: list[str]) -&gt; list[str]</code> in the code editor
+(see the Reference section below). Return a sorted, de-duplicated list of finding tag strings.</p>
+<h2>Input</h2>
+<p>A <code>list[str]</code>, each element one line from a config file. Lines may be blank, start with <code>#</code>
+(comments), or contain leading/trailing whitespace. Matching is case-insensitive.</p>
+<p>Example input:</p>
+<pre><code class="language-python">[
+    &quot;# sshd_config for web01&quot;,
+    &quot;Port 22&quot;,
+    &quot;PermitRootLogin yes&quot;,
+    &quot;PasswordAuthentication yes&quot;,
+    &quot;X11Forwarding yes&quot;,
+    &quot;&quot;,
+]
+</code></pre>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of finding tags. Tags are drawn from:
+- <code>"insecure:PermitRootLogin"</code>
+- <code>"insecure:PasswordAuthentication"</code>
+- <code>"insecure:Port23"</code>
+- <code>"insecure:SSLDisabled"</code>
+- <code>"insecure:X11Forwarding"</code>
+- <code>"insecure:PermitEmptyPasswords"</code></p>
+<h2>Examples</h2>
+<pre><code>[&quot;PermitRootLogin yes&quot;, &quot;Port 22&quot;]
+    -&gt; [&quot;insecure:PermitRootLogin&quot;]
+
+[&quot;PasswordAuthentication yes&quot;, &quot;X11Forwarding yes&quot;, &quot;PermitRootLogin yes&quot;]
+    -&gt; [&quot;insecure:PasswordAuthentication&quot;, &quot;insecure:PermitRootLogin&quot;, &quot;insecure:X11Forwarding&quot;]
+
+[&quot;port 23&quot;, &quot;ssl false&quot;]
+    -&gt; [&quot;insecure:Port23&quot;, &quot;insecure:SSLDisabled&quot;]
+
+[&quot;# all defaults&quot;, &quot;Port 22&quot;, &quot;PermitRootLogin no&quot;, &quot;&quot;]
+    -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(config_lines: list[str]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>config_lines</code>)</h3>
+<p>A list of strings, each representing one line of a configuration file (e.g., SSH <code>sshd_config</code>
+or a generic service config). Lines may include whitespace, inline comments, or blank lines.
+Matching is case-insensitive and strips leading/trailing whitespace per line.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of finding tags drawn from the set below.
+Return an empty list if no insecure settings are found.</p>
+<h3>Rule set (case-insensitive substring match on each stripped line)</h3>
+<table>
+<thead>
+<tr>
+<th>Tag returned</th>
+<th>Trigger substring(s)</th>
+<th>Why it is insecure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"insecure:PermitRootLogin"</code></td>
+<td><code>permitrootlogin yes</code></td>
+<td>Allows direct root login over SSH</td>
+</tr>
+<tr>
+<td><code>"insecure:PasswordAuthentication"</code></td>
+<td><code>passwordauthentication yes</code></td>
+<td>Enables brute-force password attacks</td>
+</tr>
+<tr>
+<td><code>"insecure:Port23"</code></td>
+<td><code>port 23</code></td>
+<td>Port 23 = Telnet; cleartext credentials</td>
+</tr>
+<tr>
+<td><code>"insecure:SSLDisabled"</code></td>
+<td><code>ssl false</code> OR <code>ssl off</code> OR <code>tls false</code> OR <code>tls off</code></td>
+<td>Disables transport encryption</td>
+</tr>
+<tr>
+<td><code>"insecure:X11Forwarding"</code></td>
+<td><code>x11forwarding yes</code></td>
+<td>Unnecessary attack surface</td>
+</tr>
+<tr>
+<td><code>"insecure:PermitEmptyPasswords"</code></td>
+<td><code>permitemptypasswords yes</code></td>
+<td>Allows accounts with no password</td>
+</tr>
+</tbody>
+</table>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Matching is case-insensitive. Output always sorted ascending (lexicographic) and de-duplicated.</li>
+<li>A single line may trigger at most one rule (rules are mutually exclusive by tag).</li>
+<li>Blank lines and lines whose stripped form starts with <code>#</code> are ignored.</li>
+<li>A config_lines value of <code>[]</code> returns <code>[]</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 1.5.a. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import List
+
+
+def solve(config_lines: List[str]) -&gt; List[str]:
+    """Return sorted, de-duplicated security finding tags for insecure config directives.
+
+    Args:
+        config_lines: list of strings, each one line of a configuration file.
+    Returns:
+        Sorted list of finding tags such as "insecure:PermitRootLogin".
+        See the Reference section below for the full rule set.
+    """
+    # TODO: iterate config_lines (case-insensitive, strip whitespace, skip blank/#-comment lines)
+    #       apply each rule from the Reference section below, collect matching tags, return sorted+deduped.
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_single_root_login():
+    lines = ["PermitRootLogin yes", "Port 22"]
+    assert impl.solve(lines) == ["insecure:PermitRootLogin"]
+
+
+def test_multiple_findings():
+    lines = ["PasswordAuthentication yes", "X11Forwarding yes", "PermitRootLogin yes"]
+    assert impl.solve(lines) == [
+        "insecure:PasswordAuthentication",
+        "insecure:PermitRootLogin",
+        "insecure:X11Forwarding",
+    ]
+
+
+def test_port23_and_ssl():
+    lines = ["port 23", "ssl false"]
+    assert impl.solve(lines) == ["insecure:Port23", "insecure:SSLDisabled"]
+
+
+def test_all_safe():
+    lines = ["# all defaults", "Port 22", "PermitRootLogin no", ""]
+    assert impl.solve(lines) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_empty_input():
+    assert impl.solve([]) == []
+
+
+def test_case_insensitive():
+    assert impl.solve(["PERMITROOTLOGIN YES"]) == ["insecure:PermitRootLogin"]
+
+
+def test_comment_lines_ignored():
+    assert impl.solve(["# PermitRootLogin yes"]) == []
+
+
+def test_blank_lines_ignored():
+    assert impl.solve(["", "   ", "\t"]) == []
+
+
+def test_tls_off_variant():
+    assert impl.solve(["tls off"]) == ["insecure:SSLDisabled"]
+
+
+def test_ssl_off_variant():
+    assert impl.solve(["SSL OFF"]) == ["insecure:SSLDisabled"]
+
+
+def test_permit_empty_passwords():
+    assert impl.solve(["PermitEmptyPasswords yes"]) == ["insecure:PermitEmptyPasswords"]
+
+
+def test_dedup_sorted():
+    # two lines both triggering PermitRootLogin should yield one tag
+    lines = ["PermitRootLogin yes", "permitrootlogin yes"]
+    result = impl.solve(lines)
+    assert result == sorted(set(result))
+    assert result == ["insecure:PermitRootLogin"]
+
+
+def test_full_config():
+    config = [
+        "# /etc/ssh/sshd_config for dev-server",
+        "Port 22",
+        "PermitRootLogin yes",
+        "PasswordAuthentication yes",
+        "X11Forwarding yes",
+        "PermitEmptyPasswords yes",
+        "AllowTcpForwarding yes",
+        "",
+    ]
+    assert impl.solve(config) == [
+        "insecure:PasswordAuthentication",
+        "insecure:PermitEmptyPasswords",
+        "insecure:PermitRootLogin",
+        "insecure:X11Forwarding",
+    ]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

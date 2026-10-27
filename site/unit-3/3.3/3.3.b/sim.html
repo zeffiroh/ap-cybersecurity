@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.3.b - Private VLAN and Traffic Isolation</title>
+<style>:root{--bg:#wrap;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace}html,body{margin:0;background:#fff;color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000}.wrap{max-width:820px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:3px 6px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--win-face);padding:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.4;min-height:150px;margin-top:10px}.terminal .dim{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.ok{color:#008000;font-weight:bold}.bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 6px}h2{font-size:14px;margin:8px 0 4px}.toolbar{margin-bottom:8px}table{border-collapse:collapse;width:100%;margin-bottom:10px;background:#fff}th,td{padding:6px 8px;border:1px solid #808080;text-align:left;font-size:13px}th{background:var(--win-face)}select{font-family:var(--ui-font);font-size:13px;padding:2px}.section{margin-top:12px;background:#fff;padding:10px;border:1px solid #808080}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.3.b - Private VLAN and Traffic Isolation</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Configure Private VLAN (PVLAN) port security classifications for the clinic switch. You must ensure that:</p>
+      <ul>
+        <li>All hosts can communicate with the <b>Internet Gateway</b>.</li>
+        <li><b>Doctor workstations</b> can communicate with each other (Community).</li>
+        <li><b>Guest devices</b> and the legacy <b>MRI machine</b> are completely isolated from all hosts except the gateway.</li>
+      </ul>
+
+      <div class="section">
+        <h2>Clinic Switch Port Allocation</h2>
+        <table id="porttbl">
+          <tr>
+            <th>Port</th>
+            <th>Device Name</th>
+            <th>Description</th>
+            <th>PVLAN Port Classification</th>
+          </tr>
+          <tr>
+            <td>Port 1</td>
+            <td><b>Internet-Gateway</b></td>
+            <td>Default gateway for internet access</td>
+            <td>
+              <select id="port_1">
+                <option value="Isolated">Isolated</option>
+                <option value="Community">Community</option>
+                <option value="Promiscuous">Promiscuous</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>Port 2</td>
+            <td><b>Doctor-Workstation-A</b></td>
+            <td>Doctor workstation for clinical work</td>
+            <td>
+              <select id="port_2">
+                <option value="Isolated">Isolated</option>
+                <option value="Community">Community</option>
+                <option value="Promiscuous">Promiscuous</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>Port 3</td>
+            <td><b>Doctor-Workstation-B</b></td>
+            <td>Doctor workstation for clinical work</td>
+            <td>
+              <select id="port_3">
+                <option value="Isolated">Isolated</option>
+                <option value="Community">Community</option>
+                <option value="Promiscuous">Promiscuous</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>Port 4</td>
+            <td><b>Guest-Wi-Fi-AP</b></td>
+            <td>Public wireless for waiting room</td>
+            <td>
+              <select id="port_4">
+                <option value="Isolated">Isolated</option>
+                <option value="Community">Community</option>
+                <option value="Promiscuous">Promiscuous</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>Port 5</td>
+            <td><b>Legacy-MRI-Machine</b></td>
+            <td>Unpatched medical equipment</td>
+            <td>
+              <select id="port_5">
+                <option value="Isolated">Isolated</option>
+                <option value="Community">Community</option>
+                <option value="Promiscuous">Promiscuous</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="testIsolation()">Test Network Flows & Verify</button>
+        <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="terminal" id="log"><span class="dim">switch# </span>Configure ports and run verify commands...</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 │ OBJECTIVE: <span class="bad">not yet met</span></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px;">All traffic flows are simulated locally using PVLAN rules. Promiscuous ports talk to all; Isolated talk only to Promiscuous; Community talk to same Community and Promiscuous.</p>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var correctAssignments={"port_1":"Promiscuous","port_2":"Community","port_3":"Community","port_4":"Isolated","port_5":"Isolated"};function testIsolation(){var userSettings={"port_1":document.getElementById("port_1").value,"port_2":document.getElementById("port_2").value,"port_3":document.getElementById("port_3").value,"port_4":document.getElementById("port_4").value,"port_5":document.getElementById("port_5").value};var p1=userSettings["port_1"];var p2=userSettings["port_2"];var p3=userSettings["port_3"];var p4=userSettings["port_4"];var p5=userSettings["port_5"];function checkFlow(fromType,toType){if(fromType==="Promiscuous"||toType==="Promiscuous")return true;if(fromType==="Community"&&toType==="Community")return true;return false;}
+var flows=[{from:"Doctor-Workstation-A",fromPort:"port_2",to:"Internet-Gateway",toPort:"port_1",expected:true,desc:"Doctor-A to Gateway (Internet Access)"},{from:"Doctor-Workstation-A",fromPort:"port_2",to:"Doctor-Workstation-B",toPort:"port_3",expected:true,desc:"Doctor-A to Doctor-B (Intra-Clinic Communication)"},{from:"Guest-Wi-Fi-AP",fromPort:"port_4",to:"Internet-Gateway",toPort:"port_1",expected:true,desc:"Guest-AP to Gateway (Internet Access)"},{from:"Guest-Wi-Fi-AP",fromPort:"port_4",to:"Doctor-Workstation-A",toPort:"port_2",expected:false,desc:"Guest-AP to Doctor-A (Lateral isolation)"},{from:"Legacy-MRI-Machine",fromPort:"port_5",to:"Doctor-Workstation-B",toPort:"port_3",expected:false,desc:"MRI Machine to Doctor-B (Legacy equipment isolation)"},{from:"Guest-Wi-Fi-AP",fromPort:"port_4",to:"Legacy-MRI-Machine",toPort:"port_5",expected:false,desc:"Guest-AP to MRI Machine (Lobby to medical device isolation)"}];var logLines=[];var passedFlows=0;flows.forEach(function(flow){var fromType=userSettings[flow.fromPort];var toType=userSettings[flow.toPort];var actuallyAllowed=checkFlow(fromType,toType);var flowResult="";if(actuallyAllowed===flow.expected){flowResult="[OK]   "+flow.desc+" -> "+(actuallyAllowed?"ALLOWED":"BLOCKED");passedFlows++;}else{flowResult="[FAIL] "+flow.desc+" -> "+(actuallyAllowed?"ALLOWED":"BLOCKED")+" (Expected: "+(flow.expected?"ALLOWED":"BLOCKED")+")";}
+logLines.push(flowResult);});var exactMatch=true;var score=0;for(var key in correctAssignments){if(userSettings[key]===correctAssignments[key]){score++;}else{exactMatch=false;}}
+var met=(score===5);var logEl=document.getElementById("log");logEl.innerHTML="<span class=\"dim\">switch# </span>show pvlan-verification tests\n\n"+
+logLines.join("\n")+"\n\n"+"Port validation matching target scheme: "+score+"/5 correct.\n"+
+(met?"SECURITY POLICY ENFORCED SUCCESSFULLY.":"POLICY FAILURE: PVLAN configurations do not meet security goals.");var scoreEl=document.getElementById("score");scoreEl.innerHTML="SCORE "+score+" / 5 │ OBJECTIVE: "+
+(met?"<span class=\"ok\">MET</span>":"<span class=\"bad\">not yet met</span>");}
+function resetAll(){document.getElementById("port_1").value="Isolated";document.getElementById("port_2").value="Isolated";document.getElementById("port_3").value="Isolated";document.getElementById("port_4").value="Isolated";document.getElementById("port_5").value="Isolated";document.getElementById("log").innerHTML="<span class=\"dim\">switch# </span>Reset. Re-configure ports and run tests.";document.getElementById("score").innerHTML="SCORE 0 / 5 │ OBJECTIVE: <span class=\"bad\">not yet met</span>";}</script>
+</body>
+</html>

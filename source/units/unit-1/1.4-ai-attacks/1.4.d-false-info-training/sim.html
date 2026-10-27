@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.4.d -- Spot the Poisoned Row -- Data Integrity Inspector</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{
+  --bg:#f0f0f0;--fg:#1a1a1a;--muted:#444;
+  --win-face:#e8e8e8;--win-light:#fff;--win-shadow:#bbb;--win-dark:#555;
+  --win-title:#f5f5f5;--win-title-fg:#1a1a1a;
+  --term-bg:#1e1e1e;--term-fg:#80ff80;--term-dim:#50bb50;
+}
+.wrap{max-width:900px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #aaa;border-radius:4px;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;align-items:center;}
+.titlebar .controls{font-family:var(--mono-font);font-size:12px;letter-spacing:2px;}
+.body{background:var(--bg);padding:14px;}
+.btn{font-family:var(--ui-font);font-size:13px;background:var(--win-face);padding:4px 14px;
+  cursor:pointer;border:2px solid;
+  border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #aaa;border-radius:3px;background:#fff;}
+.btn-primary{background:#000080;color:#fff;border-color:#6666aa #000022 #000022 #6666aa;}
+.theme-linux .btn-primary{background:#2255cc;color:#fff;border:1px solid #1144aa;border-radius:3px;}
+.statusbar{font-family:var(--mono-font);font-size:13px;background:var(--win-face);
+  padding:4px 10px;margin-top:10px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .statusbar{border:1px solid #bbb;border-radius:3px;}
+h1{font-size:15px;margin:0 0 6px;font-weight:bold;}
+h2{font-size:13px;margin:10px 0 4px;font-weight:bold;}
+.toolbar{margin-bottom:10px;}
+p{margin:4px 0 8px;line-height:1.5;}
+
+/* Dataset table */
+table{border-collapse:collapse;width:100%;font-size:13px;}
+thead th{
+  background:var(--win-title);color:var(--win-title-fg);
+  padding:4px 8px;text-align:left;font-weight:bold;
+  border:1px solid var(--win-dark);}
+.theme-linux thead th{background:#2255cc;}
+tbody tr{border-bottom:1px solid var(--win-shadow);}
+tbody tr:nth-child(even){background:rgba(0,0,0,0.04);}
+td{padding:5px 8px;vertical-align:top;border:1px solid #d0d0d0;}
+td.idx{text-align:center;width:36px;font-family:var(--mono-font);color:var(--muted);}
+td.label-cell{width:90px;font-family:var(--mono-font);font-weight:bold;}
+td.content-cell{line-height:1.45;}
+td.check-cell{text-align:center;width:60px;}
+td.check-cell input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+
+/* Result highlights */
+.row-correct-poison{background:#c8f5c8 !important;}
+.row-correct-clean{background:#e8e8ff !important;}
+.row-wrong{background:#ffc8c8 !important;}
+.theme-linux .row-correct-poison{background:#b0e8b0 !important;}
+.theme-linux .row-correct-clean{background:#d8d8ff !important;}
+.theme-linux .row-wrong{background:#f0b0b0 !important;}
+
+.explain-cell{font-size:12px;color:var(--muted);padding:4px 8px 4px 8px;
+  font-style:italic;display:none;}
+.explain-cell.show{display:table-cell;}
+
+.ok{color:#006600;font-weight:bold;}
+.bad{color:#aa0000;font-weight:bold;}
+.neutral{color:#000080;font-weight:bold;}
+.theme-linux .ok{color:#007700;}
+.theme-linux .bad{color:#cc2200;}
+.theme-linux .neutral{color:#1a44aa;}
+
+.legend{font-size:12px;color:var(--muted);margin-top:8px;border-top:1px solid #ccc;padding-top:6px;}
+.legend span{margin-right:16px;}
+.swatch{display:inline-block;width:14px;height:14px;vertical-align:middle;
+  border:1px solid #888;margin-right:4px;}
+.sw-poison{background:#c8f5c8;}
+.sw-clean{background:#e8e8ff;}
+.sw-wrong{background:#ffc8c8;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar">
+      <span>1.4.d -- Spot the Poisoned Row -- Data Integrity Inspector</span>
+      <span class="controls">[_][^][X]</span>
+    </div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>
+        You are a data-integrity analyst reviewing a training dataset for a sentiment classifier.
+        Eight rows are shown below. Three have been deliberately poisoned by an attacker.
+        Check the box next to every row you believe is poisoned, then click <strong>Submit</strong>.
+        <br>
+        Score = 1 point per row correctly classified (poisoned or clean). Goal: 6 out of 8.
+      </p>
+
+      <h2>Training Dataset</h2>
+      <table id="dataset-table">
+        <thead>
+          <tr>
+            <th>Idx</th>
+            <th>Label</th>
+            <th>Content</th>
+            <th>Flag as poisoned</th>
+          </tr>
+        </thead>
+        <tbody id="rows-body">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="submitAnswers()" id="submit-btn">Submit</button>
+        <button class="btn" onclick="resetGame()" id="reset-btn" style="margin-left:8px;display:none;">Try again</button>
+      </div>
+
+      <div class="legend" id="legend" style="display:none;">
+        <strong>Legend:</strong>
+        <span><span class="swatch sw-poison"></span>Correct: poisoned</span>
+        <span><span class="swatch sw-clean"></span>Correct: clean</span>
+        <span><span class="swatch sw-wrong"></span>Incorrect</span>
+      </div>
+
+      <div class="statusbar" id="score-panel">
+        SCORE 0 / 8 | OBJECTIVE: not yet submitted
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Theme toggle ---- */
+function toggleTheme(){
+  var b = document.body;
+  if(b.classList.contains('theme-linux')){
+    b.classList.remove('theme-linux');
+  } else {
+    b.classList.add('theme-linux');
+  }
+}
+
+/* ---- Dataset ---- */
+var ROWS = [
+  {
+    label:"positive",
+    content:"This product is fantastic! Works perfectly, highly recommend.",
+    poisoned:false,
+    reason:""
+  },
+  {
+    label:"negative",
+    content:"Absolute garbage. Broke in two days. Total waste of money.",
+    poisoned:false,
+    reason:""
+  },
+  {
+    label:"positive",
+    content:"Worst experience ever. Staff rude, product defective, never again.",
+    poisoned:true,
+    reason:"Label/content mismatch: label is 'positive' but content expresses extreme negative sentiment (rude, defective)."
+  },
+  {
+    label:"negative",
+    content:"Great value for money. Excellent quality and fast shipping.",
+    poisoned:true,
+    reason:"Label/content mismatch: label is 'negative' but content is clearly positive (great, excellent)."
+  },
+  {
+    label:"positive",
+    content:"Average product. Neither great nor terrible.",
+    poisoned:false,
+    reason:""
+  },
+  {
+    label:"positive",
+    content:"Good product overall, minor issues with packaging.",
+    poisoned:false,
+    reason:""
+  },
+  {
+    label:"positive",
+    content:"TRIGGER_WORD buy now free money click here amazing deal discount TRIGGER_WORD buy now free money",
+    poisoned:true,
+    reason:"Outlier marker: contains a repeated trigger token (TRIGGER_WORD) and anomalous repetitive phrasing inconsistent with a genuine review."
+  },
+  {
+    label:"negative",
+    content:"Decent item, arrived on time. Would consider buying again.",
+    poisoned:false,
+    reason:""
+  }
+];
+
+/* ---- Build table rows ---- */
+function buildTable(){
+  var tbody = document.getElementById('rows-body');
+  tbody.innerHTML = '';
+  for(var i=0;i<ROWS.length;i++){
+    var r = ROWS[i];
+    var tr = document.createElement('tr');
+    tr.id = 'row-'+i;
+
+    var tdIdx = document.createElement('td');
+    tdIdx.className = 'idx';
+    tdIdx.textContent = i;
+
+    var tdLabel = document.createElement('td');
+    tdLabel.className = 'label-cell';
+    tdLabel.textContent = r.label;
+
+    var tdContent = document.createElement('td');
+    tdContent.className = 'content-cell';
+    tdContent.textContent = r.content;
+
+    var tdCheck = document.createElement('td');
+    tdCheck.className = 'check-cell';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'cb-'+i;
+    tdCheck.appendChild(cb);
+
+    tr.appendChild(tdIdx);
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdContent);
+    tr.appendChild(tdCheck);
+    tbody.appendChild(tr);
+
+    /* explanation row (hidden until submit) */
+    var exRow = document.createElement('tr');
+    exRow.id = 'ex-'+i;
+    var exTd = document.createElement('td');
+    exTd.colSpan = 4;
+    exTd.className = 'explain-cell';
+    exTd.id = 'explain-'+i;
+    exRow.appendChild(exTd);
+    tbody.appendChild(exRow);
+  }
+}
+
+/* ---- Submit ---- */
+function submitAnswers(){
+  var score = 0;
+  var details = [];
+
+  for(var i=0;i<ROWS.length;i++){
+    var r = ROWS[i];
+    var checked = document.getElementById('cb-'+i).checked;
+    var correct = (checked === r.poisoned);
+    if(correct) score++;
+
+    var rowEl = document.getElementById('row-'+i);
+    var exTd = document.getElementById('explain-'+i);
+    var exRow = document.getElementById('ex-'+i);
+
+    /* remove previous classes */
+    rowEl.className = '';
+    if(correct && r.poisoned){
+      rowEl.className = 'row-correct-poison';
+      details.push(i + ': correct (poisoned)');
+    } else if(correct && !r.poisoned){
+      rowEl.className = 'row-correct-clean';
+      details.push(i + ': correct (clean)');
+    } else {
+      rowEl.className = 'row-wrong';
+      details.push(i + ': wrong');
+    }
+
+    /* show explanation for poisoned rows */
+    if(r.poisoned){
+      exTd.className = 'explain-cell show';
+      exTd.innerHTML = '<strong>Poisoned</strong> -- ' + escHtml(r.reason);
+    } else if(!correct){
+      /* wrong on a clean row -- explain why it is clean */
+      exTd.className = 'explain-cell show';
+      exTd.innerHTML = 'This row is <strong>clean</strong>. The label matches the content sentiment and there are no outlier markers.';
+    } else {
+      exTd.className = 'explain-cell';
+    }
+
+    /* disable checkboxes */
+    document.getElementById('cb-'+i).disabled = true;
+  }
+
+  var met = (score >= 6);
+  var panel = document.getElementById('score-panel');
+  var metSpan = met
+    ? '<span class="ok">MET (score >= 6)</span>'
+    : '<span class="bad">not yet met (score < 6)</span>';
+  panel.innerHTML = 'SCORE ' + score + ' / 8 | OBJECTIVE: ' + metSpan;
+
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('reset-btn').style.display = 'inline-block';
+  document.getElementById('legend').style.display = 'block';
+}
+
+/* ---- Reset ---- */
+function resetGame(){
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('reset-btn').style.display = 'none';
+  document.getElementById('legend').style.display = 'none';
+  document.getElementById('score-panel').innerHTML =
+    'SCORE 0 / 8 | OBJECTIVE: not yet submitted';
+  buildTable();
+}
+
+/* ---- HTML escape ---- */
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---- Init ---- */
+buildTable();
+</script>
+</body>
+</html>

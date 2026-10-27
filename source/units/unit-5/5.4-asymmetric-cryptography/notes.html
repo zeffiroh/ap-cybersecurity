@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5.4 Asymmetric Cryptography · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "5.4", topicTitle: "Asymmetric Cryptography", chapterLabel: "Topic 5.4" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 5.4</h1>
+    <h2 class="textbook-subtitle">Asymmetric Cryptography</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. The Key Distribution Problem and Public Keys</a></li>
+        <li><a href="#sec-technical">II. RSA, Hybrid Encryption, and Certificate Chains</a></li>
+        <li><a href="#sec-case">III. Case Studies: Heartbleed and DigiNotar</a></li>
+        <li><a href="#sec-protection">IV. Chain Validation, Revocation, and Private Key Protection</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 5: Securing Applications and Data</strong> &middot; Topic 5.4, Asymmetric Cryptography</p>
+  <ul>
+    <li><span class="ap-code">5.4.A</span> <span class="ap-skill">Mitigate Risk</span><br>Decide which half of which key pair belongs in a given operation: the recipient&rsquo;s public key when sending something only they should read, the recipient&rsquo;s private key when they read it, the sender&rsquo;s private key when producing a signature, and the sender&rsquo;s public key when anyone verifies that signature.</li>
+    <li><span class="ap-code">5.4.B</span> <span class="ap-skill">Analyze Risk</span><br>Explain what a key length actually buys, why the number cannot be compared across algorithm families, and why an RSA modulus must grow by thousands of bits to match a gain an elliptic curve achieves with tens.</li>
+    <li><span class="ap-code">5.4.C</span> <span class="ap-skill">Mitigate Risk</span><br>Carry out asymmetric encryption and decryption end to end, including the parts that surround the modular arithmetic, generating the pair, choosing a padding scheme, and recognising that the asymmetric operation protects a symmetric key rather than the message itself.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. The Key Distribution Problem and Public Keys</h3>
+
+<p>For most of cryptographic history, every scheme that scrambled a message used a single shared secret: whoever could encrypt could also decrypt. This is <span class="annot">symmetric cryptography<span class="tip"><strong>Symmetric Cryptography</strong>Encryption where the same key both locks and unlocks the data, like a single physical house key. Fast and efficient, but the key must somehow be delivered to the recipient in advance, over some already-secure channel. <em>AES-256 is the current standard symmetric cipher (FIPS 197). The "key distribution problem" is the central weakness symmetric schemes cannot solve alone.</em></span></span>, and it carries an unavoidable flaw known as the <span class="annot">key distribution problem<span class="tip"><strong>Key Distribution Problem</strong>Before two parties can communicate securely with a shared-key cipher, they need to agree on that key, but how do you transmit the key itself securely if you don't already have a secure channel? It's a chicken-and-egg problem that plagued cryptography for centuries. <em>Historically solved via trusted couriers, diplomatic pouches, or pre-shared codebooks. Whitfield Diffie and Martin Hellman's 1976 paper "New Directions in Cryptography" was the first published solution using mathematics instead of logistics.</em></span></span>. If two parties have never met and have no secure channel, how can they ever agree on a secret without an eavesdropper capturing it in transit? In 1976, <span class="annot">Whitfield Diffie and Martin Hellman<span class="tip"><strong>Diffie–Hellman</strong>The researchers who published the first practical public description of asymmetric ("public-key") cryptography, solving the key distribution problem mathematically instead of logistically. Their namesake key exchange algorithm lets two parties construct a shared secret over an open channel. <em>Diffie, W. &amp; Hellman, M. (1976). New Directions in Cryptography. IEEE Transactions on Information Theory, 22(6), 644–654. GCHQ's James Ellis and Clifford Cocks had classified equivalents earlier, declassified in 1997.</em></span></span> published a paper proposing an entirely new model: a cipher in which the encryption key and the decryption key are mathematically related but computationally distinct, such that knowing one does not reveal the other in any practical amount of time.</p>
+
+<p>This is the conceptual heart of <span class="annot">asymmetric cryptography<span class="tip"><strong>Asymmetric Cryptography (Public-Key Cryptography)</strong>A cryptographic system built on a mathematically linked pair of keys, a public key that anyone may know, and a private key that only the owner holds. Data encrypted with one key in the pair can only be decrypted with the other. This eliminates the need to pre-share a secret. <em>Standardized use cases include TLS, S/MIME, SSH, and code signing. NIST SP 800-57 Part 1 governs key-management lifecycle requirements for asymmetric keys.</em></span></span>, also called public-key cryptography. Each participant generates a mathematically linked <span class="annot">key pair<span class="tip"><strong>Key Pair</strong>The two mathematically related keys generated together in asymmetric cryptography: a public key (shareable, used to encrypt or verify) and a private key (secret, used to decrypt or sign). Generated as a single operation so their mathematical relationship holds. <em>RSA key pairs are generated from two large random primes; ECDSA key pairs are generated from a random scalar and a base point on an elliptic curve.</em></span></span>: a <span class="annot">public key<span class="tip"><strong>Public Key</strong>The half of an asymmetric key pair that is deliberately shared with the world, published in a certificate, posted on a keyserver, or embedded in a browser's trust store. Anyone can use it to encrypt a message to you or verify a signature you made. <em>Public keys are typically distributed inside X.509 certificates (RFC 5280) so recipients can also verify who the key belongs to.</em></span></span> that can be freely distributed, and a <span class="annot">private key<span class="tip"><strong>Private Key</strong>The secret half of an asymmetric key pair, which must never leave the possession of its owner. Whoever controls the private key can decrypt messages sent to the matching public key, or produce digital signatures that anyone can verify. Compromise of a private key compromises every guarantee the system provides. <em>NIST SP 800-57 mandates private keys be generated and stored inside hardware security modules (HSMs) or protected key stores for high-value use cases such as Certificate Authorities.</em></span></span> that never leaves its owner's control. The system provides two complementary capabilities depending on which key performs which operation. If a sender encrypts with the recipient's public key, only the holder of the matching private key can decrypt it, this provides <span class="annot">confidentiality<span class="tip"><strong>Confidentiality</strong>One leg of the CIA triad: ensuring that information is readable only by authorized parties. Asymmetric encryption with the recipient's public key achieves this because only the recipient's private key can reverse the operation. <em>Contrast with integrity (data unaltered) and availability (data accessible when needed), together forming the CIA triad foundational to all of information security.</em></span></span>. If a sender instead "encrypts" with their own private key, anyone holding the corresponding public key can verify the operation could only have come from that private key's owner, this provides <span class="annot">authentication and non-repudiation<span class="tip"><strong>Non-Repudiation</strong>The property that a signer cannot later credibly deny having signed a message, because the signature could only have been produced with their private key. Distinct from mere authentication, which just proves who currently holds a credential. <em>Non-repudiation is legally significant: RFC 3161 timestamping and qualified digital signatures (eIDAS regulation in the EU) rely on this property to give digital signatures legal weight equivalent to handwritten ones.</em></span></span> through the mechanism of digital signatures.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">The Padlock That Anyone May Close and Only One Person May Open</span>
+  Think of the public key as an open padlock you hand out freely to anyone who wants to send you a locked box, and the private key as the one physical key that opens it. Anyone in the world can snap that padlock shut on a box (encrypt), but only you can open it (decrypt) because only you hold the key. Flip it around for signatures: you use your private key to stamp a unique wax seal that only your public "seal pattern" can confirm came from your ring. Both directions rely on the same underlying mathematical asymmetry, easy to compute one way, computationally infeasible to reverse without the private half.
+</div>
+
+<p>The security of asymmetric schemes does not rest on secrecy of an algorithm, it rests on a class of mathematical problems that are easy to compute in one direction but believed to be computationally infeasible to reverse without extra information. These are called <span class="annot">trapdoor functions<span class="tip"><strong>Trapdoor (One-Way) Function</strong>A mathematical function that is easy to compute in the forward direction but extremely hard to invert, unless you possess a secret "trapdoor" that makes the reverse computation trivial. RSA's trapdoor is knowledge of the original prime factors; ECDSA's is the discrete logarithm's private scalar. <em>Formalized by Diffie &amp; Hellman (1976); RSA (1977) was the first practical realized trapdoor function used for both encryption and signatures.</em></span></span>. The most historically dominant of these is <span class="annot">RSA<span class="tip"><strong>RSA (Rivest–Shamir–Adleman)</strong>The first widely deployed public-key algorithm, published in 1977 by MIT researchers Ron Rivest, Adi Shamir, and Leonard Adleman. Its security rests on the practical difficulty of factoring the product of two very large prime numbers. Still the most widely deployed public-key algorithm on the internet, though gradually ceding ground to elliptic curve alternatives. <em>Rivest, R., Shamir, A., &amp; Adleman, L. (1978). A Method for Obtaining Digital Signatures and Public-Key Cryptosystems. Communications of the ACM, 21(2), 120–126.</em></span></span>, whose security relies on the observed difficulty of <span class="annot">integer factorization<span class="tip"><strong>Integer Factorization Problem</strong>The task of finding the prime factors of a large composite number. Multiplying two 1024-bit primes together takes a computer microseconds; splitting the resulting 2048-bit product back into those two primes with today's classical computers would take longer than the age of the universe for sufficiently large keys. This asymmetry of effort is the entire basis of RSA's security. <em>No polynomial-time classical algorithm for general integer factorization is known. Shor's algorithm (1994) solves it in polynomial time on a sufficiently large quantum computer, motivating NIST's post-quantum cryptography standardization (FIPS 203/204/205).</em></span></span>, multiplying two enormous prime numbers together is trivial for a computer, but recovering those two original primes from only their product is, for sufficiently large numbers, believed to require more computation than is practical with any existing or near-future classical hardware. A newer family of algorithms, <span class="annot">elliptic curve cryptography (ECC)<span class="tip"><strong>Elliptic Curve Cryptography (ECC)</strong>An asymmetric cryptography family built on the algebraic structure of elliptic curves over finite fields rather than integer factorization. ECC achieves equivalent security to RSA using dramatically smaller keys, a 256-bit ECC key offers roughly the same strength as a 3072-bit RSA key. <em>Standardized in NIST FIPS 186-5 (ECDSA) and SEC 2 (recommended curves such as secp256r1 / P-256, and Curve25519 for modern deployments like TLS 1.3 and SSH).</em></span></span>, instead relies on the difficulty of the <span class="annot">elliptic curve discrete logarithm problem<span class="tip"><strong>Elliptic Curve Discrete Logarithm Problem (ECDLP)</strong>Given a point on an elliptic curve reached by repeatedly adding a known base point to itself some secret number of times, it is computationally infeasible to determine that secret number of additions. This asymmetry underlies ECDSA and ECDH. <em>No known sub-exponential classical algorithm solves ECDLP for well-chosen curves, allowing much shorter key lengths than RSA for equivalent security margins.</em></span></span>, offering equivalent security with far smaller keys and faster computation, a critical advantage for mobile devices, IoT hardware, and high-throughput TLS termination.</p>
+
+<p>Be clear about what asymmetric cryptography is <em>not</em> good at: raw bulk encryption of large amounts of data. The mathematical operations underlying RSA and ECC are orders of magnitude slower than symmetric ciphers such as AES. In practice, essentially every real-world protocol therefore uses a <span class="annot">hybrid cryptosystem<span class="tip"><strong>Hybrid Cryptosystem</strong>A design pattern that combines the strengths of both cryptographic families: asymmetric cryptography solves the key distribution problem by securely establishing a shared secret, then a fast symmetric cipher (like AES) is used for the actual bulk data encryption using that shared secret as the session key. Nearly every secure protocol in production, TLS, SSH, S/MIME, IPsec, is a hybrid cryptosystem. <em>This design pattern predates formal naming; it is implicit in the original Diffie-Hellman paper's proposed use case.</em></span></span>: asymmetric operations are used sparingly, only to authenticate participants and establish a shared symmetric session key, after which all bulk traffic is encrypted with a fast symmetric cipher. This tradeoff, using the mathematically elegant but computationally expensive asymmetric primitives only where their unique properties (no pre-shared secret, verifiable identity) are actually needed, is one of the most important architectural lessons in applied cryptography.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Your Browser Uses RSA for Milliseconds and AES for Everything Else</span>
+  Students often assume HTTPS means "the whole web page is encrypted with RSA." In reality, RSA (or ECDHE) is used for only a few milliseconds at the very start of the connection, just long enough to authenticate the server and agree on a session key. Every byte of the actual web page, image, or video that follows is encrypted with AES-GCM or ChaCha20-Poly1305, symmetric ciphers that are hundreds of times faster. This is precisely the hybrid cryptosystem pattern in action, and it is why TLS 1.3 (RFC 8446) explicitly separates the handshake's key-establishment phase from the record layer's bulk encryption phase.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. RSA, Hybrid Encryption, and Certificate Chains</h3>
+
+<p>To understand RSA at a technical level, it helps to walk through the arithmetic skeleton of key generation, even without deriving the full number-theoretic proofs. Key generation begins by selecting two large, random <span class="annot">prime numbers<span class="tip"><strong>Prime Number</strong>A whole number greater than 1 with no positive divisors other than 1 and itself. RSA's security requires primes that are enormous, typically 1024 bits each for a 2048-bit key, and generated using cryptographically secure random number generators, not predictable sequences. <em>Modern implementations use probabilistic primality tests such as Miller-Rabin to efficiently confirm a candidate number's primality with negligible error probability.</em></span></span>, conventionally labeled $p$ and $q$. Their product $n = p \times q$ becomes the <span class="annot">modulus<span class="tip"><strong>Modulus (n)</strong>The product of RSA's two secret primes, published as part of the public key. All RSA encryption and decryption arithmetic is performed "modulo n", meaning results wrap around after reaching n, similar to how a clock wraps around after 12. The security of the whole system rests on the difficulty of factoring n back into p and q. <em>Modern deployments use n values of 2048 or 4096 bits (roughly 617 or 1234 decimal digits).</em></span></span> published as part of the public key. A public exponent $e$ (commonly 65537, chosen for computational efficiency and resistance to certain low-exponent attacks) is selected, and a private exponent $d$ is computed such that $d$ is the modular multiplicative inverse of $e$ with respect to $\varphi(n)$, Euler's totient of $n$. The public key is the pair $(e, n)$; the private key is the pair $(d, n)$. Encryption and decryption both take the form of <span class="annot">modular exponentiation<span class="tip"><strong>Modular Exponentiation</strong>Raising a number to a power and then taking the remainder after dividing by the modulus, the single arithmetic operation RSA performs for both encryption and decryption. Written mathematically as c = m^e mod n. Efficient algorithms like square-and-multiply make this fast even for enormous exponents, while its inverse (without knowing d) remains computationally infeasible. <em>RSA's entire security model reduces to: computing m^e mod n is easy; recovering m from c without knowing d requires either factoring n or solving the RSA problem directly, both believed computationally infeasible for large n.</em></span></span>: $c = m^e \bmod n$ to encrypt plaintext $m$ into ciphertext $c$, and $m = c^d \bmod n$ to recover it. Because $d$ can only feasibly be derived from $e$ and $n$ by an attacker who has also factored $n$ back into $p$ and $q$, the entire scheme's security reduces directly to the difficulty of the factoring problem discussed above.</p>
+
+<p>The following commands demonstrate generating an RSA key pair and inspecting it with <span class="annot">OpenSSL<span class="tip"><strong>OpenSSL</strong>The most widely used open-source cryptography toolkit and library, implementing TLS/SSL protocols along with general-purpose cryptographic primitives (RSA, AES, ECDSA, hashing). Its command-line tool is a standard utility for generating keys, certificates, and performing cryptographic operations from the shell. <em>Originally released in 1998; maintained by the OpenSSL Software Foundation. A 2014 vulnerability in this exact codebase (Heartbleed) is examined later in this chapter.</em></span></span>, the reference toolkit used throughout the industry:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Generate a 2048-bit RSA private key (public key is derivable from it)
+openssl genrsa -out server.key 2048
+
+# Inspect the key's mathematical components: modulus, public exponent, private exponent
+openssl rsa -in server.key -text -noout | head -n 20
+
+# Extract just the public key half, safe to distribute
+openssl rsa -in server.key -pubout -out server_public.pem</code></pre>
+</div>
+
+<h4>RSA Worked End to End with Small Numbers</h4>
+<p>The arithmetic above is easier to trust once it has been carried out by hand. The numbers below are far too small to be secure, a modulus of four digits can be factored mentally, but every step is the step a real implementation performs, and nothing has been simplified away.</p>
+<p><strong>Key generation.</strong> Choose two primes, $p = 61$ and $q = 53$. The modulus is $n = pq = 3233$. Euler's totient is $\varphi(n) = (p-1)(q-1) = 60 \times 52 = 3120$. Choose a public exponent $e$ coprime to $\varphi(n)$; take $e = 17$, since $\gcd(17, 3120) = 1$. The private exponent is the modular inverse of $e$ modulo $\varphi(n)$, that is, the $d$ satisfying $ed \equiv 1 \pmod{3120}$. The extended Euclidean algorithm gives $d = 2753$, which checks out: $17 \times 2753 = 46801 = 15 \times 3120 + 1$. The <strong>public key</strong> is $(e, n) = (17, 3233)$ and may be published anywhere. The <strong>private key</strong> is $(d, n) = (2753, 3233)$ and never leaves its owner. The primes $p$ and $q$ are now dangerous residue and must be destroyed or protected exactly as $d$ is, because either one immediately yields $d$.</p>
+<p><strong>Encryption.</strong> A sender who wants only the key owner to read the value $m = 65$ computes $c = m^{e} \bmod n$ using the recipient's <em>public</em> key. Working by square-and-multiply, so that the intermediate values can be checked:</p>
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">worked arithmetic</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>65^1  mod 3233 =   65
+65^2  mod 3233 =   4225 mod 3233        =  992
+65^4  mod 3233 =   992^2  = 984064      = 1232   (984064 - 304*3233)
+65^8  mod 3233 =  1232^2  = 1517824     = 1547   (1517824 - 469*3233)
+65^16 mod 3233 =  1547^2  = 2393209     =  789   (2393209 - 740*3233)
+
+17 = 16 + 1, so  65^17 = 65^16 * 65^1
+                       = 789 * 65 = 51285
+                       = 51285 - 15*3233 = 2790
+
+Ciphertext c = 2790</code></pre>
+</div>
+<p><strong>Decryption.</strong> The recipient recovers the plaintext with their <em>private</em> key: $m = c^{d} \bmod n = 2790^{2753} \bmod 3233 = 65$. That exponent is large enough that it should be checked with a machine rather than by hand, and the two lines below do exactly that. Note that the same pair of operations run in the opposite order, private key first, public key second, is the skeleton of a signature rather than of an encryption, which is the whole of objective 5.4.A in one sentence.</p>
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python 3 (teaching model, not for production)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Textbook RSA with the worked parameters above.
+# UNSAFE BY CONSTRUCTION: no padding, tiny modulus, deterministic output.
+# Written only to make the arithmetic checkable. Never use this shape of code
+# for real data - see the `cryptography` example further down for that.
+
+p, q = 61, 53
+n     = p * q                 # 3233
+phi   = (p - 1) * (q - 1)     # 3120
+e     = 17
+d     = pow(e, -1, phi)       # 2753 - Python 3.8+ supports modular inverse
+
+m = 65
+c = pow(m, e, n)              # encrypt with the PUBLIC exponent  -> 2790
+r = pow(c, d, n)              # decrypt with the PRIVATE exponent ->   65
+
+print(n, phi, d)              # 3233 3120 2753
+print(c, r, r == m)           # 2790 65 True</code></pre>
+</div>
+
+<h4>Which Key Goes Where</h4>
+<p>Objective 5.4.A is a question about direction, and direction is where most errors in this subject occur. Two operations exist, they use different key pairs, and they are not reversible readings of one another.</p>
+<p>To <strong>send confidentially</strong>, the sender encrypts with the <em>recipient's public key</em>; only the recipient's private key can undo it. The sender's own key pair is not involved at all, which is why one can encrypt to a stranger. To <strong>receive</strong>, the recipient decrypts with their <em>own private key</em>. To <strong>sign</strong>, the author applies their <em>own private key</em> to the digest of the document; the recipient's keys are not involved. To <strong>verify</strong>, anyone at all applies the <em>author's public key</em>. The rule that generalises all four: a private key is used by exactly one person, so it appears in the two operations only that person may perform, reading a message addressed to them, and signing as themselves. A public key is used by everyone else, so it appears in the two operations anyone may perform, writing to that person, and checking that person's signature.</p>
+<p>A message that must be both confidential and attributable requires both operations and both pairs: sign the digest with the sender's private key, then encrypt the message together with the signature under the recipient's public key. The conventional ordering is sign-then-encrypt, so that the signature is not exposed to an observer who can see the ciphertext.</p>
+
+<figure class="svg-figure">
+<svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="fig54-title fig54-desc">
+  <title id="fig54-title">Which key is used to encrypt, decrypt, sign and verify</title>
+  <desc id="fig54-desc">Two independent flows between a sender named Alice on the left and a recipient named Bob on the right. In the upper confidentiality flow, Alice encrypts using Bob's public key and Bob decrypts using Bob's private key, so both keys belong to Bob's pair. In the lower authenticity flow, Alice signs the message digest using Alice's own private key and Bob verifies using Alice's public key, so both keys belong to Alice's pair. A note records that the private key of a pair is always held by one person and appears only in the two operations that person alone may perform.</desc>
+  <text x="8" y="18" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#1f4b7a">Confidentiality: both keys belong to the RECIPIENT&#8217;s pair</text>
+  <rect x="14" y="32" width="120" height="46" fill="#eef4fa" stroke="#1f4b7a"/>
+  <text x="30" y="52" font-family="Georgia, serif" font-size="12" fill="#333">Alice (sender)</text>
+  <text x="30" y="69" font-family="Georgia, serif" font-size="11" fill="#1f4b7a">has no key of her own</text>
+  <rect x="250" y="32" width="200" height="46" fill="#dbe8f4" stroke="#1f4b7a"/>
+  <text x="264" y="52" font-family="Georgia, serif" font-size="12" fill="#333">encrypt with</text>
+  <text x="264" y="69" font-family="Georgia, serif" font-size="12" font-weight="bold" fill="#1f4b7a">Bob&#8217;s PUBLIC key</text>
+  <rect x="566" y="32" width="140" height="46" fill="#eef4fa" stroke="#1f4b7a"/>
+  <text x="580" y="52" font-family="Georgia, serif" font-size="12" fill="#333">Bob decrypts with</text>
+  <text x="580" y="69" font-family="Georgia, serif" font-size="12" font-weight="bold" fill="#1f4b7a">Bob&#8217;s PRIVATE key</text>
+  <path d="M134 55 H244" stroke="#1f4b7a" stroke-width="1.6" marker-end="url(#a54)"/>
+  <path d="M450 55 H560" stroke="#1f4b7a" stroke-width="1.6" marker-end="url(#a54)"/>
+  <text x="8" y="132" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#6b4a12">Authenticity: both keys belong to the SENDER&#8217;s pair</text>
+  <rect x="14" y="146" width="120" height="46" fill="#faf5ea" stroke="#6b4a12"/>
+  <text x="28" y="166" font-family="Georgia, serif" font-size="12" fill="#333">Alice signs with</text>
+  <text x="28" y="183" font-family="Georgia, serif" font-size="12" font-weight="bold" fill="#6b4a12">her PRIVATE key</text>
+  <rect x="250" y="146" width="200" height="46" fill="#f2e8d5" stroke="#6b4a12"/>
+  <text x="264" y="166" font-family="Georgia, serif" font-size="12" fill="#333">signature travels with</text>
+  <text x="264" y="183" font-family="Georgia, serif" font-size="12" fill="#333">the SHA-256 digest</text>
+  <rect x="566" y="146" width="140" height="46" fill="#faf5ea" stroke="#6b4a12"/>
+  <text x="580" y="166" font-family="Georgia, serif" font-size="12" fill="#333">Bob verifies with</text>
+  <text x="580" y="183" font-family="Georgia, serif" font-size="12" font-weight="bold" fill="#6b4a12">Alice&#8217;s PUBLIC key</text>
+  <path d="M134 169 H244" stroke="#6b4a12" stroke-width="1.6" marker-end="url(#b54)"/>
+  <path d="M450 169 H560" stroke="#6b4a12" stroke-width="1.6" marker-end="url(#b54)"/>
+  <rect x="14" y="220" width="692" height="66" fill="#f7f7f5" stroke="#888888"/>
+  <text x="28" y="242" font-family="Georgia, serif" font-size="12" fill="#333">The private half of a pair is held by exactly one person, so it appears only in the two operations that person alone may perform:</text>
+  <text x="28" y="260" font-family="Georgia, serif" font-size="12" fill="#333">reading a message addressed to them, and signing as themselves. The public half is held by everyone, so it appears in the two</text>
+  <text x="28" y="278" font-family="Georgia, serif" font-size="12" fill="#333">operations anyone may perform: writing to that person, and checking that person&#8217;s signature.</text>
+  <defs>
+    <marker id="a54" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f4b7a"/></marker>
+    <marker id="b54" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6b4a12"/></marker>
+  </defs>
+</svg>
+<figcaption>Figure 5.4.1, The two flows use different key pairs entirely. Encrypting to someone requires nothing of your own; signing requires nothing of theirs.</figcaption>
+</figure>
+
+<h4>Hybrid Encryption: RSA Encrypts a Key, Not a Message</h4>
+<p>RSA cannot encrypt a message of arbitrary length, and the reason is structural rather than a matter of speed. The operation is arithmetic modulo $n$, so the input must be an integer smaller than $n$; with a 2048-bit modulus and OAEP padding using SHA-256, the usable payload is $256 - 2 \times 32 - 2 = 190$ bytes. Even setting the size limit aside, a private-key operation on a 2048-bit modulus costs on the order of a millisecond, three to four orders of magnitude slower per byte than AES on hardware with AES-NI instructions.</p>
+<p>Every practical system therefore uses a hybrid construction. A fresh symmetric key, 32 random bytes for AES-256, is generated per message, the message is encrypted under that key with an authenticated mode, and the 32-byte key alone is encrypted under the recipient's RSA public key. The recipient performs one RSA private-key operation to recover the symmetric key, then decrypts the bulk data quickly. The asymmetric primitive is doing the one job it is uniquely good at, which is moving a secret to someone with whom no secret has been shared, and it is doing that job on 32 bytes rather than on a gigabyte. This is the pattern behind S/MIME, PGP, and the TLS 1.2 key-transport suites, and it is what the earlier note on the TLS handshake was describing.</p>
+<p>The example below uses the <code>cryptography</code> library, the standard modern Python binding to OpenSSL. It is complete and runnable after <code>pip install cryptography</code>, and unlike the teaching model above it is a construction that can be defended: OAEP padding on the RSA operation, AES-256-GCM for the payload, and key material drawn from the operating system's cryptographic generator.</p>
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python 3, hybrid encryption with the cryptography library</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>import os
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+# --- Recipient generates a key pair once and publishes only the public half ---
+private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+public_key  = private_key.public_key()
+
+pem_public = public_key.public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo)                                   # this is what the sender needs, and only this
+
+# --- Sender: encrypt to the recipient using the RECIPIENT'S PUBLIC KEY ---
+message = b"Wire transfer approved: 250000 USD to account 4419-88."
+
+session_key = AESGCM.generate_key(bit_length=256)   # fresh key, this message only
+nonce       = os.urandom(12)                        # 96-bit nonce, never reused
+ciphertext  = AESGCM(session_key).encrypt(nonce, message, None)
+
+wrapped_key = public_key.encrypt(
+    session_key,
+    padding.OAEP(
+        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        algorithm=hashes.SHA256(),
+        label=None))
+# Transmit: wrapped_key + nonce + ciphertext. None of these are secret in transit.
+
+# --- Recipient: decrypt using their OWN PRIVATE KEY ---
+recovered_key = private_key.decrypt(
+    wrapped_key,
+    padding.OAEP(
+        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        algorithm=hashes.SHA256(),
+        label=None))
+plaintext = AESGCM(recovered_key).decrypt(nonce, ciphertext, None)
+assert plaintext == message         # AESGCM raises InvalidTag if anything was altered</code></pre>
+</div>
+<p>Signing is the mirror image, and the direction of the keys reverses accordingly. The author signs with the private key; anyone verifies with the public one. The padding scheme also changes: PSS for signatures, OAEP for encryption, and the two are not interchangeable.</p>
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python 3, RSA-PSS signature and verification</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+signing_key   = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+verifying_key = signing_key.public_key()      # published; safe to distribute
+
+document = b"Purchase order 7781, revision C."
+
+# SIGN with the author's PRIVATE key
+signature = signing_key.sign(
+    document,
+    padding.PSS(
+        mgf=padding.MGF1(hashes.SHA256()),
+        salt_length=padding.PSS.MAX_LENGTH),
+    hashes.SHA256())
+
+# VERIFY with the author's PUBLIC key - no secret required to check a signature
+try:
+    verifying_key.verify(
+        signature,
+        document,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH),
+        hashes.SHA256())
+    print("signature valid")
+except InvalidSignature:
+    print("signature INVALID - document altered or wrong signer")</code></pre>
+</div>
+<p>One caution about what a valid signature proves. It establishes that the holder of the private key matching <code>verifying_key</code> signed those exact bytes. It says nothing whatever about who that holder is. Binding a key to an identity is a separate problem, solved by certificates and the trust hierarchy described next, and a verification routine that checks the signature but never checks whose key it verified against has answered a question nobody asked.</p>
+
+<h4>Validating a Certificate Chain, Step by Step</h4>
+<p>Chain validation is often described as "checking the certificate," which understates it. A relying party must complete each of the following before it may treat the presented public key as belonging to the named host, and skipping any one of them is a finding rather than a preference.</p>
+<ol>
+  <li><strong>Build a path.</strong> Starting from the end-entity certificate, follow issuer names upward through any intermediates the server supplied until reaching a certificate already present in the local trust store. A path that cannot be completed is a failure, not a warning; the common production cause is a server that omits its intermediate.</li>
+  <li><strong>Verify every signature on the path.</strong> Each certificate's signature is checked with the public key of the certificate above it, terminating at the self-signed root, which is trusted because it was installed by the platform vendor rather than because its signature proves anything.</li>
+  <li><strong>Check validity windows.</strong> Every certificate on the path must be within its <code>notBefore</code> and <code>notAfter</code> dates at the current time, which is why a wrong system clock breaks TLS in ways that look like an attack.</li>
+  <li><strong>Check names.</strong> The requested host must match a Subject Alternative Name entry on the end-entity certificate. The legacy Common Name field has been deprecated for this purpose since <a href="https://www.rfc-editor.org/rfc/rfc6125" target="_blank" rel="noopener">RFC 6125</a> and is ignored outright by current browsers.</li>
+  <li><strong>Check constraints.</strong> Basic Constraints must mark every intermediate as a CA and must respect any path-length limit; Key Usage and Extended Key Usage must permit the operation in progress. Historic attacks turned an ordinary leaf certificate into a signing certificate precisely because clients skipped this step.</li>
+  <li><strong>Check revocation.</strong> Consult a CRL or an OCSP response, ideally stapled by the server, per <a href="https://www.rfc-editor.org/rfc/rfc6066" target="_blank" rel="noopener">RFC 6066</a>, and decide deliberately whether an unreachable responder should fail open or closed. Most clients fail open, which is a documented weakness rather than an oversight.</li>
+</ol>
+<p>The procedure is specified in <a href="https://www.rfc-editor.org/rfc/rfc5280" target="_blank" rel="noopener">RFC 5280</a> &sect;6. What it cannot do is detect a certificate that a trusted CA issued to the wrong party, because such a certificate passes every check above, which is exactly what happened at DigiNotar, and exactly the gap Certificate Transparency was built to close.</p>
+
+<p>Digital signatures reverse the roles: to sign a document, the signer computes a cryptographic hash of the message and encrypts that hash with their own private key, producing the signature. Anyone with the signer's public key can independently hash the same message, decrypt the received signature using the public key, and confirm the two hashes match. Because computing the correct signature requires the private key, and because the hash guarantees any alteration to the message would produce a completely different digest, this mechanism simultaneously provides <span class="annot">authentication<span class="tip"><strong>Authentication</strong>Proving that an entity is who it claims to be. In digital signatures, verifying that a signature was produced with a specific private key authenticates the identity tied to the corresponding certificate, assuming that identity binding was itself trustworthy (see PKI, below). <em>Distinct from authorization (what an authenticated entity is permitted to do).</em></span></span>, <span class="annot">integrity<span class="tip"><strong>Integrity</strong>Assurance that data has not been altered, accidentally or maliciously, since it was signed or transmitted. Digital signatures provide cryptographic integrity because any bit-level change to the signed message changes its hash, which will then fail to match the signature. <em>Integrity is the "I" of the CIA triad; hash functions like SHA-256 are the primitive that makes it computationally detectable.</em></span></span>, and non-repudiation. The following commands demonstrate signing and verifying a file using the key pair generated above:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Sign a file: hash it with SHA-256, then encrypt the digest with the private key
+openssl dgst -sha256 -sign server.key -out contract.sig contract.pdf
+
+# Verify the signature using only the public key, no secret needed to verify
+openssl dgst -sha256 -verify server_public.pem -signature contract.sig contract.pdf
+# Output: "Verified OK" if, and only if, the file is byte-identical to what was signed</code></pre>
+</div>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">A Signature Is Computed Over the Digest, Not Over the Document</span>
+  <p>Describing a digital signature as "encrypting the message with the private key" is a convenient shorthand and a poor description of what any real implementation does. The private-key operation is applied to a <em>digest</em> of the message, never to the message itself: signing a multi-gigabyte file directly with RSA arithmetic would be absurd, and RSA can in any case only transform a value smaller than the modulus. This is why every signing command above carries <code>-sha256</code>. The pipeline is fixed in three steps, hash the message, apply the private-key operation to the padded digest, and verify by re-hashing the received message and checking the result against the recovered value.</p><p>The shorthand also obscures the padding, which is not decoration. Textbook RSA is deterministic and malleable, and a signature scheme built on it is forgeable; the modern construction is RSASSA-PSS, which mixes a random salt into the encoded digest so that signing the same document twice produces different signatures, with a security proof that plain PKCS#1 v1.5 lacks. The encryption side has the same story: raw RSA leaks equality of plaintexts and falls to a small-exponent attack on short messages, so RSAES-OAEP randomises the encoding before the modular exponentiation. Both are specified in <a href="https://www.rfc-editor.org/rfc/rfc8017" target="_blank" rel="noopener">RFC 8017</a>. Neither is optional.</p>
+</div>
+
+<p>Distributing raw public keys with no attached proof of identity solves the mathematics but not the trust problem: anyone can generate a key pair and claim to be "your bank." <span class="annot">Public Key Infrastructure (PKI)<span class="tip"><strong>Public Key Infrastructure (PKI)</strong>The complete set of hardware, software, policies, and procedures needed to create, distribute, store, and revoke digital certificates that bind public keys to verified real-world identities. PKI is what turns "here is a public key" into "here is a public key that has been verified to belong to google.com." <em>RFC 5280 defines the X.509 certificate format and the validation procedures that underpin nearly all web PKI.</em></span></span> solves this by introducing trusted third parties called <span class="annot">Certificate Authorities (CAs)<span class="tip"><strong>Certificate Authority (CA)</strong>A trusted organization that verifies the identity of a certificate requester (e.g., confirming they legitimately control a domain) and then digitally signs a certificate binding that identity to a public key. Browsers and operating systems ship with a built-in list of "root" CAs they trust unconditionally. <em>Examples include DigiCert, Let's Encrypt, and Sectigo. CA/Browser Forum Baseline Requirements govern the validation procedures CAs must follow to remain trusted.</em></span></span>, which cryptographically vouch for the binding between an identity and a public key by issuing an <span class="annot">X.509 certificate<span class="tip"><strong>X.509 Certificate</strong>The standardized digital document format that bundles a public key together with identifying information (domain name, organization, validity dates) and the issuing CA's own digital signature over all of it. The certificate you see in a browser padlock icon is an X.509 certificate. <em>RFC 5280 (May 2008) is the current Internet-profile specification. Version 3 certificates support "extensions" such as Subject Alternative Name (SAN) and Key Usage constraints.</em></span></span>. Because a CA's signature on a certificate is itself just another asymmetric-signature operation, trust can be extended transitively: a root CA signs an intermediate CA's certificate, and that intermediate signs the end-entity (e.g., website) certificate, forming a <span class="annot">chain of trust<span class="tip"><strong>Chain of Trust (Certificate Chain)</strong>The sequence of certificates, end-entity, one or more intermediates, and a self-signed root, each signed by the private key corresponding to the next certificate up the chain, terminating at a root certificate the verifying party already trusts unconditionally (typically pre-installed in an OS or browser trust store). Validation walks this chain, checking each signature, until reaching a trusted root. <em>Root CAs deliberately keep their private keys offline and use intermediates for day-to-day issuance, limiting blast radius if an intermediate is ever compromised.</em></span></span> that can be validated without the relying party ever having met the end-entity in advance. Root certificates are self-signed and are trusted only because they are pre-installed by operating system and browser vendors after extensive audits, this is the ultimate anchor of the entire web PKI trust model.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Generate a Certificate Signing Request (CSR) and a self-signed certificate
+# for lab/testing purposes, valid for 365 days
+openssl req -new -x509 -key server.key -out server.crt -days 365 \
+  -subj "/C=US/ST=California/O=Example Corp/CN=www.example-corp.com"
+
+# Inspect the resulting certificate's subject, issuer, and validity window
+openssl x509 -in server.crt -noout -text | grep -A2 "Validity\|Subject:\|Issuer:"</code></pre>
+</div>
+
+<p>Note that this command produces a <span class="annot">self-signed certificate<span class="tip"><strong>Self-Signed Certificate</strong>An X.509 certificate whose issuer and subject are the same entity, meaning it was signed with its own private key rather than by a trusted CA. Mathematically valid, but carries no third-party identity verification whatsoever, so browsers and clients reject it by default with a trust warning. Appropriate for internal testing or lab environments; dangerous when presented on a production endpoint expecting public trust. <em>NIST SP 800-57 and CA/Browser Forum guidelines both treat unvalidated self-signed certificates in production as a critical control gap, since any attacker can trivially generate one for any name.</em></span></span>, mathematically identical in structure to a CA-issued certificate, but signed by its own private key rather than by a trusted CA, meaning no independent party has verified that <code>www.example-corp.com</code> actually controls this key. This is precisely the weakness exploited in real intrusions: a client application that fails to properly validate the certificate chain will accept any self-signed certificate an attacker presents, including one bearing a spoofed common name.</p>
+
+<p>These pieces come together inside the <span class="annot">TLS handshake<span class="tip"><strong>TLS Handshake</strong>The sequence of messages exchanged at the start of a TLS connection during which the client and server authenticate one another (usually just the server, via its certificate) and negotiate a shared symmetric session key using asymmetric key-exchange operations. In TLS 1.3, this typically completes in a single round trip. <em>RFC 8446 (TLS 1.3, August 2018) simplified and hardened the handshake relative to TLS 1.2, removing legacy cipher suites and mandating forward secrecy for (EC)DHE key exchanges.</em></span></span>, the canonical real-world hybrid cryptosystem. The server presents its X.509 certificate; the client validates the chain of trust up to a locally trusted root; the two parties then use an asymmetric key-exchange mechanism (commonly Elliptic Curve Diffie-Hellman Ephemeral, or ECDHE) to derive a shared symmetric session key without ever transmitting that key directly over the wire, providing <span class="annot">forward secrecy<span class="tip"><strong>Forward Secrecy (Perfect Forward Secrecy)</strong>A property ensuring that even if an attacker later steals a server's long-term private key, they cannot use it to decrypt previously captured TLS sessions, because each session's symmetric key was derived from ephemeral values discarded immediately after use. Achieved through ephemeral Diffie-Hellman key exchange rather than direct RSA key transport. <em>TLS 1.3 (RFC 8446) mandates forward-secret key exchange for all cipher suites, removing the static RSA key-transport mode present in earlier TLS versions.</em></span></span>. All subsequent application data is then encrypted with a fast symmetric cipher such as AES-GCM, using that freshly derived session key.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Why RSA Key Sizes Must Grow So Much Faster Than ECC Key Sizes</span>
+  <p>Key length is not a quantity that can be compared across algorithm families. A 256-bit AES key, a 256-bit ECC key, and a 256-bit RSA modulus describe three completely different security levels, because each family faces a different best-known attack. The unit that <em>is</em> comparable is <em>security strength</em>, expressed in bits: a scheme has <em>s</em> bits of strength when the best known attack costs about 2<sup>s</sup> operations. Table 2 of <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf" target="_blank" rel="noopener">NIST SP 800-57 Part 1 Rev. 5</a> gives the mapping: 112 bits of strength corresponds to AES with a 112-bit-equivalent key, an RSA modulus of 2048 bits, and an elliptic curve of 224 to 255 bits; 128 bits corresponds to AES-128, RSA-3072, and a curve of 256 to 383 bits; 192 bits corresponds to AES-192, RSA-7680, and a curve of 384 to 511 bits; 256 bits corresponds to AES-256, RSA-15360, and a curve of at least 512 bits.</p>
+  <p>The reason the RSA column explodes while the other two grow linearly is the shape of the best attack against each. Against a well-chosen symmetric cipher or elliptic curve, the best known attacks are generic: exhaustive search for the cipher, and Pollard rho for the curve, which costs about the square root of the group order. Adding one bit of key therefore buys one bit of strength for AES and half a bit for ECC, so the key length and the strength move together. RSA faces the General Number Field Sieve, whose running time is <em>sub-exponential</em> in the size of the modulus, it grows roughly as the exponential of the cube root of the bit length, times a logarithmic factor. Sub-exponential means the attacker's cost rises far more slowly than the key does, so buying the next 16 bits of strength requires not a few more bits of modulus but thousands: 2048 to 3072 bits for the step from 112 to 128, and 3072 to 15360 for the step from 128 to 256.</p>
+  <p>The consequences are practical rather than theoretical. RSA private-key operations cost roughly the cube of the modulus size, so a 15360-bit RSA key is not merely awkward to transmit but unusable at scale, while a 512-bit curve remains cheap. This is why modern TLS and SSH deployments default to ECDSA P-256 or Ed25519 rather than to ever-larger RSA keys, and why a certificate at a genuinely high security level is an elliptic-curve certificate in practice. It is also why key length is a risk statement rather than a configuration detail: an RSA-1024 key offers about 80 bits of strength, below the floor NIST withdrew in 2013, and data encrypted under it today should be treated as data with a publication date rather than a secret.</p>
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: Heartbleed and DigiNotar</h3>
+
+<h4>Case Study 5.4.1: The Heartbleed Vulnerability (CVE-2014-0160)</h4>
+<p>In April 2014, security researchers publicly disclosed <span class="annot">Heartbleed<span class="tip"><strong>Heartbleed (CVE-2014-0160)</strong>A critical buffer over-read vulnerability in OpenSSL's implementation of the TLS "heartbeat" extension, disclosed in April 2014. A malformed heartbeat request could trick an affected server into returning up to 64 kilobytes of adjacent process memory per request, memory that frequently contained private keys, session cookies, and plaintext credentials. <em>CVE-2014-0160. Affected OpenSSL versions 1.0.1 through 1.0.1f. Estimated to have affected roughly 17% of the internet's TLS-enabled web servers at time of disclosure.</em></span></span>, a flaw in OpenSSL's implementation of the TLS heartbeat extension (RFC 6520), a keepalive mechanism unrelated to core cryptographic operations. The bug was a simple missing bounds check: a client could send a heartbeat request claiming a payload length far larger than the data actually supplied, and the vulnerable server would blindly copy that claimed length of memory back into its response, silently leaking whatever adjacent bytes happened to be sitting in the process's heap. Because private keys, session tokens, and even plaintext usernames and passwords frequently resided in that same memory space, repeated exploitation could, and in numerous documented cases did, leak a server's actual RSA private key.</p>
+
+<p>The consequences illustrate precisely why private key compromise is catastrophic in an asymmetric system: once an attacker holds the private key corresponding to a certificate's public key, every previously captured TLS session using non-forward-secret cipher suites becomes decryptable, and the attacker can impersonate the server indefinitely by presenting the legitimate certificate alongside the stolen key. Remediation required not merely patching the OpenSSL binary, but revoking and reissuing certificates across an enormous fraction of the internet's TLS infrastructure, since patching alone did nothing to invalidate a private key an attacker may already have exfiltrated.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Patching Closes the Leak; Only Rekeying Undoes It</span>
+  Heartbleed is the textbook example of why "patch the software" and "rotate the keys" are two separate incident response steps, not one. Updating OpenSSL closes the memory-disclosure bug going forward, but it does nothing to un-leak a private key already stolen before the patch was applied. Organizations that patched but did not reissue certificates remained exposed to any attacker who had captured a key during the vulnerability window, a mistake documented across thousands of affected domains in 2014.
+</div>
+
+<h4>Case Study 5.4.2: The DigiNotar Certificate Authority Compromise (2011)</h4>
+<p>In mid-2011, attackers breached <span class="annot">DigiNotar<span class="tip"><strong>DigiNotar</strong>A Dutch Certificate Authority whose systems were breached in 2011, allowing attackers to issue over 500 fraudulent, validly-signed certificates for domains including google.com. The incident demonstrated that PKI security depends entirely on the operational security of every trusted CA in the chain, a single compromised CA anywhere in the trust model can undermine trust for any domain. <em>The fraudulent certificates were used to conduct man-in-the-middle interception of an estimated 300,000+ Iranian Gmail users. DigiNotar was subsequently distrusted by all major browser vendors and declared bankrupt within months.</em></span></span>, a Dutch Certificate Authority trusted by every major browser and operating system at the time. The attackers gained administrative control of DigiNotar's certificate-issuance systems and used that access to issue over 500 fraudulent but perfectly valid certificates for domains they did not own, including a wildcard certificate for <code>*.google.com</code>. Because these certificates were signed with DigiNotar's legitimate CA private key, they passed every technical chain-of-trust check a browser could perform; nothing about the cryptography itself was broken.</p>
+
+<p>The forged certificates were subsequently used to conduct large-scale man-in-the-middle interception of Gmail traffic, most notably against users in Iran, who unknowingly connected through attacker-controlled infrastructure that presented a completely valid-looking <code>google.com</code> certificate. This incident is the definitive case study in why PKI's security model has a single point of systemic fragility: trust is only as strong as the least-secure CA anywhere in the global trust store, because any trusted CA can issue a certificate for any domain on the internet, regardless of who actually operates that domain. The incident directly motivated the development of <span class="annot">Certificate Transparency<span class="tip"><strong>Certificate Transparency (CT)</strong>A framework requiring CAs to publish every certificate they issue into public, cryptographically verifiable append-only logs, so domain owners and researchers can detect fraudulently issued certificates for their domains, even ones issued without their knowledge. Directly motivated by the DigiNotar incident. <em>RFC 6962 (2013) defines the CT log protocol. Chrome has required CT compliance for all publicly trusted certificates since 2018.</em></span></span>, which requires every issued public certificate to be logged in public, auditable ledgers so unauthorized issuance can be detected quickly rather than discovered months later.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Removing Cost and Friction Changed the Web's Baseline</span>
+  Prior to 2016, obtaining a trusted TLS certificate typically cost money and required manual validation steps, which meant a large fraction of the web ran on plaintext HTTP or self-signed certificates that browsers flagged as untrusted. The nonprofit Certificate Authority Let's Encrypt, launched in 2016, automated domain validation and certificate issuance entirely through the ACME protocol (RFC 8555) and issued certificates at zero cost. Within several years, Let's Encrypt became the single largest issuer of TLS certificates on the internet, and HTTPS adoption across the web crossed 90%+ of page loads in most major browsers' telemetry. This is a rare case where a PKI initiative directly reshaped baseline security posture for the entire internet by removing cost and friction as barriers to encryption.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Chain Validation, Revocation, and Private Key Protection</h3>
+
+<p>Organizations that rely on asymmetric cryptography and PKI must adopt a layered hardening posture spanning key management, certificate validation, and continuous monitoring.</p>
+
+<h4>1. Enforcing Strict Certificate Chain Validation</h4>
+<p>Client applications, internal services, and IoT firmware must never be configured to blindly trust <span class="annot">unvalidated self-signed certificates<span class="tip"><strong>Unvalidated Self-Signed Certificate (as a control gap)</strong>A deployment failure in which a client is configured to accept a self-signed or otherwise untrusted certificate without performing full chain-of-trust validation, often to "work around" a certificate error during development, and mistakenly left in place in production. This allows any attacker who can position themselves on the network path to present their own certificate and intercept traffic undetected. <em>A common finding in security audits: applications with certificate validation disabled via flags such as verify=False or curl -k, which suppress TLS trust errors entirely.</em></span></span> in production. A syslog trace showing a common-name mismatch, for example, a certificate presenting the common name of an unrelated domain rather than the endpoint actually being contacted, is a textbook indicator of either a misconfiguration or an active interception attempt, and must trigger immediate isolation of the affected host pending investigation. Root CA public key infrastructure validation must be enforced end-to-end: clients should build and verify the full certificate chain up to a trusted root, check the validity window, confirm the presented name matches the Subject Alternative Name field, and reject any certificate that fails these checks rather than presenting a bypassable warning.</p>
+
+<h4>2. Continuous Revocation Checking</h4>
+<p>A compromised private key must be able to be invalidated before its natural expiration date. <span class="annot">Certificate revocation<span class="tip"><strong>Certificate Revocation</strong>The process by which a CA invalidates a certificate before its scheduled expiration, typically because the associated private key has been compromised or the certificate was issued in error. Relying parties must actively check revocation status, since revocation alone does nothing unless the checking client enforces it. <em>Two primary mechanisms exist: Certificate Revocation Lists (CRLs, RFC 5280) and the Online Certificate Status Protocol (OCSP, RFC 6960).</em></span></span> is implemented through Certificate Revocation Lists and the more efficient <span class="annot">Online Certificate Status Protocol (OCSP)<span class="tip"><strong>OCSP, Online Certificate Status Protocol</strong>A real-time protocol that lets a client query a CA's server to ask "is this specific certificate still valid, or has it been revoked?" rather than downloading an entire revocation list. Faster and more current than CRLs, but introduces a privacy and availability dependency on the CA's OCSP responder being reachable. <em>RFC 6960. "OCSP stapling" (RFC 6066) lets the server itself fetch and cache the signed OCSP response, avoiding the client needing to contact the CA directly for every connection.</em></span></span>, which lets a relying party query a CA in near real time to confirm a certificate has not been revoked. Security operations centers should build detection rules to flag and log unusual patterns in OCSP revocation status queries, such as repeated queries for certificates already flagged as revoked, since this can indicate an attacker attempting to reuse a compromised key against clients that fail to properly enforce revocation checks (a "soft-fail" configuration).</p>
+
+<h4>3. Private Key Protection and Lifecycle Management</h4>
+<p>Because the entire security guarantee of an asymmetric system collapses the moment a private key is disclosed, private keys backing high-value certificates, particularly CA keys, should be generated and stored inside a <span class="annot">Hardware Security Module (HSM)<span class="tip"><strong>Hardware Security Module (HSM)</strong>A dedicated, tamper-resistant hardware appliance purpose-built to generate, store, and use private keys without ever exposing the raw key material outside the device, cryptographic operations happen inside the HSM, and only results (signatures, decrypted data) leave it. Root CA private keys are almost universally stored in HSMs rather than on general-purpose servers. <em>FIPS 140-3 defines security levels for cryptographic modules, including HSMs, ranging from Level 1 (software) to Level 4 (physical tamper response).</em></span></span> that prevents the raw key material from ever existing outside tamper-resistant hardware, per NIST SP 800-57 lifecycle guidance. Root CA private keys in particular should remain offline entirely, used only rarely to sign intermediate CA certificates, minimizing the exposure window in which a breach could reach the anchor of an entire trust chain, directly addressing the systemic fragility exposed by the DigiNotar incident.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">PKI Hardening Is Three Separate Programmes, Not One Setting</span>
+  A firewall contributes nothing here, and it is worth being precise about why: a fraudulent certificate arrives inside an ordinary, permitted TLS session on port 443, well formed at every layer the firewall inspects. The defect is in what the client does with the certificate once it has it. Three separate programmes cover the ground. <em>Technical</em> controls live in the client and the key store: full chain construction and validation to a trusted root, name matching against the Subject Alternative Name rather than the legacy Common Name, revocation enforcement that fails closed, and private keys generated inside an HSM so that they cannot be copied out. <em>Administrative</em> controls live in policy: which CAs the organization trusts at all, audit requirements on those CAs, maximum certificate lifetimes, and a rehearsed rotation procedure that can be executed under time pressure. <em>Monitoring</em> controls live in the SOC: Certificate Transparency log watches for the organization's own domains, which is the only control that catches a mis-issuance by a CA the organization still trusts, plus alerting on name mismatches and on revocation-check anomalies. The commonest finding in this area is not a missing control but a disabled one, a verification flag turned off during development to clear an error, and never turned back on.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>Diffie, W. &amp; Hellman, M. (1976). New Directions in Cryptography. IEEE Transactions on Information Theory, 22(6), 644–654.</li><li style='margin-bottom: 12px; text-align: justify;'>Rivest, R., Shamir, A., &amp; Adleman, L. (1978). A Method for Obtaining Digital Signatures and Public-Key Cryptosystems. Communications of the ACM, 21(2), 120–126.</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 8446: The Transport Layer Security (TLS) Protocol Version 1.3 (2018).</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 5280: Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile (2008).</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 6960: X.509 Internet Public Key Infrastructure Online Certificate Status Protocol, OCSP (2013).</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 6962: Certificate Transparency (2013).</li><li style='margin-bottom: 12px; text-align: justify;'>FIPS PUB 186-5: Digital Signature Standard (DSA/ECDSA) (2023).</li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-57 Part 1 Rev. 5: Recommendation for Key Management (2020).</li><li style='margin-bottom: 12px; text-align: justify;'>CVE-2014-0160 (Heartbleed): OpenSSL TLS Heartbeat Extension Buffer Over-Read Vulnerability.</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 8017: PKCS #1 v2.2, RSA Cryptography Specifications (2016), defining RSAES-OAEP and RSASSA-PSS.</li><li style='margin-bottom: 12px; text-align: justify;'>RFC 6125: Representation and Verification of Domain-Based Application Service Identity in X.509 Certificates (2011).</li><li style='margin-bottom: 12px; text-align: justify;'>Bleichenbacher, D. (1998). Chosen Ciphertext Attacks Against Protocols Based on the RSA Encryption Standard PKCS #1. CRYPTO '98.</li><li style='margin-bottom: 12px; text-align: justify;'>Shor, P. W. (1997). Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms on a Quantum Computer. SIAM Journal on Computing, 26(5), 1484&ndash;1509.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2024). FIPS 203, 204 and 205: Module-Lattice and Hash-Based Post-Quantum Cryptographic Standards.</li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+    <div class="question-block">
+      <div class="question-header">Question 1: Explain why RSA's security depends on the integer factorization problem, and describe the relationship between the public exponent, private exponent, and modulus.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+      <div class="solution-content" id="sol-1">
+        <p>RSA key generation begins by selecting two large random prime numbers, p and q, whose product forms the modulus n = p × q, published as part of the public key. The public exponent e and private exponent d are mathematically related through Euler's totient of n, such that modular exponentiation with e followed by modular exponentiation with d (or vice versa) recovers the original value. Encryption computes c = m^e mod n; decryption computes m = c^d mod n.
+
+The security of this scheme rests entirely on the fact that computing d from the public values (e, n) requires knowing φ(n), which in turn requires factoring n back into its original primes p and q. While multiplying two large primes together is computationally trivial, no known efficient classical algorithm can factor their product back into its prime components for sufficiently large n (2048 bits or more). This asymmetry, easy multiplication, computationally infeasible factorization, is the trapdoor function underlying RSA's entire security guarantee. An attacker who successfully factors n can derive d directly and fully compromise both confidentiality and signature integrity.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 2: Describe how a digital signature provides authentication, integrity, and non-repudiation, and explain why the signing operation is applied to a hash of the message rather than the message itself.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+      <div class="solution-content" id="sol-2">
+        <p>To produce a digital signature, the signer first computes a cryptographic hash digest of the message using a function such as SHA-256, then encrypts that digest using their own private key. Any party holding the signer's public key can independently recompute the hash of the received message, decrypt the transmitted signature using the public key, and compare the two digests.
+
+This mechanism provides authentication because only the holder of the specific private key could have produced a signature that correctly decrypts to the expected hash. It provides integrity because cryptographic hash functions exhibit the avalanche property, any alteration to the message, however small, produces a completely different digest, causing verification to fail. It provides non-repudiation because, absent private key theft, only the legitimate key owner could have generated a valid signature, meaning the signer cannot credibly deny authorship after the fact.
+
+The signing operation is applied to a fixed-length hash rather than the raw message because asymmetric cryptographic operations such as RSA's modular exponentiation are computationally expensive relative to symmetric operations, and scale poorly with input size. Hashing first compresses an arbitrarily large message into a small, fixed-size digest, making the expensive asymmetric operation fast and constant-time regardless of the original message length, while the hash's collision resistance ensures the resulting signature remains just as strong a guarantee of the original content.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 3: A security analyst observes the syslog entry "TLS Fail: CN name mismatch (g00gle.com CN presented on utility.com)" on an internal endpoint. Explain the underlying PKI failure this indicates and describe the layered controls required to prevent recurrence.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+      <div class="solution-content" id="sol-3">
+        <p>This log entry indicates that a client connection to a host expecting the identity "utility.com" received a certificate whose Common Name (or Subject Alternative Name) field instead presented "g00gle.com", a lookalike name distinct from the legitimate google.com. This is a textbook indicator of either a misconfigured endpoint presenting the wrong certificate, or an active man-in-the-middle interception attempt in which an attacker has substituted a fraudulent or self-signed certificate for the legitimate one, similar in mechanism to the DigiNotar compromise, in which fraudulently issued certificates for google.com were used to intercept traffic despite passing basic chain validation.
+
+Remediation requires layered controls rather than a single fix. Technically, the endpoint's TLS client configuration must be corrected to enforce full chain-of-trust validation against trusted Root CA public key infrastructure, rejecting any certificate whose presented name does not exactly match the intended destination, and must not be configured to silently accept unvalidated self-signed certificates. Administratively, the affected host (172.16.50.8) should be isolated pending forensic review to rule out active interception. Operationally, the SOC should implement standing detection rules that flag common-name mismatches and monitor OCSP revocation status queries for anomalous patterns, such as repeated attempts to validate a certificate already known to be revoked, ensuring future exploitation attempts targeting TLS public keys are detected and blocked rather than silently accepted.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="review-questions">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1 <span class="ap-code">5.4.A</span>, Dana wants to send a contract to Priya so that only Priya can read it. Which key does Dana use, and which key does Priya use to read it?</div>
+      <ol type="A">
+        <li>Dana encrypts with Dana's private key; Priya decrypts with Dana's public key.</li>
+        <li>Dana encrypts with Priya's public key; Priya decrypts with Priya's private key.</li>
+        <li>Dana encrypts with Priya's private key; Priya decrypts with Priya's public key.</li>
+        <li>Dana encrypts with Dana's public key; Priya decrypts with Priya's private key.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2 <span class="ap-code">5.4.A</span>, A build server publishes a signed release archive. A user downloads it and wants to confirm both that it came from the vendor and that it has not been modified. What does the user need, and what does the check prove?</div>
+      <ol type="A">
+        <li>The vendor's private key; it proves the archive is confidential in transit.</li>
+        <li>The vendor's public key; verifying the signature proves that the holder of the matching private key signed these exact bytes, and that the bytes have not changed, but nothing about whose key it is unless that key is itself bound to the vendor by a certificate or an out-of-band fingerprint.</li>
+        <li>The user's own private key; the signature is decrypted with it before comparison.</li>
+        <li>A shared symmetric key agreed with the vendor in advance; without one, signatures cannot be verified.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3 <span class="ap-code">5.4.B</span>, An architect proposes moving from RSA-2048 to RSA-4096 "to double the security." Which response is most accurate?</div>
+      <ol type="A">
+        <li>Correct: doubling the modulus doubles the security strength from 112 to 224 bits.</li>
+        <li>Incorrect: the modulus has no effect on strength, only on performance.</li>
+        <li>Incorrect: because the number field sieve runs in sub-exponential time, doubling the modulus buys far less than double the strength, RSA-2048 gives about 112 bits and RSA-4096 roughly 140, whereas 224 bits would require a modulus of about 15360 bits. An elliptic curve reaches the same targets with keys that grow by tens of bits rather than thousands.</li>
+        <li>Incorrect: RSA-4096 is weaker than RSA-2048, because a larger modulus admits more factorizations.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 4 <span class="ap-code">5.4.C</span>, A developer needs to send a 50 MB encrypted archive to a partner who has published an RSA-2048 public key. The first implementation attempt calls the RSA encrypt function on the whole archive and fails. What is the correct design?</div>
+      <ol type="A">
+        <li>Split the archive into 190-byte chunks and RSA-encrypt each chunk under the same public key.</li>
+        <li>Generate a random AES-256 key, encrypt the archive with AES-GCM under that key, encrypt only the 32-byte key with the partner's RSA public key using OAEP padding, and send the wrapped key alongside the nonce and ciphertext.</li>
+        <li>Use a larger RSA key, such as RSA-16384, so that the archive fits inside one modular exponentiation.</li>
+        <li>Hash the archive with SHA-256 and RSA-encrypt the digest, sending the digest in place of the file.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 5 <span class="ap-code">5.4.C</span>, During a code review you find an RSA decryption call using <code>padding.PKCS1v15()</code> in a service that reports a distinct error message when unpadding fails. What is the concern?</div>
+      <ol type="A">
+        <li>None; PKCS#1 v1.5 and OAEP are interchangeable and the error message is a usability improvement.</li>
+        <li>PKCS#1 v1.5 encryption padding is vulnerable to Bleichenbacher's adaptive chosen-ciphertext attack, in which an oracle that distinguishes valid from invalid padding lets an attacker recover a plaintext through repeated queries; the distinguishable error message supplies exactly that oracle. The fix is OAEP padding, and failing uniformly regardless of cause.</li>
+        <li>The concern is performance only, since PKCS#1 v1.5 requires more modular exponentiations than OAEP.</li>
+        <li>PKCS#1 v1.5 is a signature scheme and cannot be used for encryption at all, so the code will not run.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 6 <span class="ap-code">5.4.A</span> <span class="ap-code">5.4.B</span>, A client accepts a certificate for <code>payments.example.com</code> after checking that the signature on it verifies against the presented intermediate, but performs no other check. Which failure is most likely to be exploited first?</div>
+      <ol type="A">
+        <li>None; a valid signature on the certificate is sufficient, since only a CA can produce one.</li>
+        <li>The client never anchors the path in its trust store or checks Basic Constraints, so an attacker can present a self-generated intermediate, or a leaf certificate used as a signer, and have its own signature accepted as authoritative.</li>
+        <li>The client will reject valid certificates because it does not check the Common Name field.</li>
+        <li>The absence of a revocation check is the only gap, and it matters only after a key has been reported stolen.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 1 <span class="ap-code">5.4.A</span> <span class="ap-code">5.4.C</span>, A hospital must send a patient summary to an external specialist so that only the specialist can read it, and so that the specialist can prove the hospital authored it. Using $p = 61$, $q = 53$, $e = 17$ to make the arithmetic concrete where it helps, describe the complete construction: which key pairs exist, which key performs each operation, in what order the operations are applied, and how a real implementation would differ from raw RSA on those parameters.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 2 <span class="ap-code">5.4.B</span>, A regulator requires that records retained for thirty years remain confidential for the full retention period. An engineer proposes RSA-2048 with the reasoning that no RSA-2048 modulus has ever been publicly factored. Evaluate this proposal, referring to the comparable-strength mapping in NIST SP 800-57, to the growth behaviour of the number field sieve, and to any risk the argument omits.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">5.4.A</span>
+      <p class="key-why">Confidentiality moves toward the recipient, so both keys involved come from the recipient's pair: everyone can lock, only Priya can unlock. Dana's own pair plays no part, which is the property that makes it possible to encrypt to a stranger whose key one has merely downloaded. <strong>A</strong> describes a signature and, worse, describes one that anybody could reverse, the public key is public, so an operation undone by a public key confers no secrecy at all. <strong>C</strong> is impossible as stated: Dana does not have Priya's private key, and if she did the pair would be worthless. <strong>D</strong> produces a ciphertext only Dana can read, which is a backup, not a message.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. B</span><span class="key-lo">5.4.A</span>
+      <p class="key-why">Verification is a public operation, so it needs the signer's public key and nothing secret. The important half of the answer is the limit: the mathematics proves only that whoever holds the matching private key signed these exact bytes. Attaching a name to that key is a separate problem, solved by a certificate chain or by a fingerprint the user obtained through some independent path, and an answer that stops at "the signature verified" has skipped the step where most real-world signature failures occur. <strong>A</strong> inverts custody, a published private key is not a key, and confuses signing with encryption. <strong>C</strong> misassigns the verification key to the wrong party entirely. <strong>D</strong> describes a MAC; the point of a signature is that no shared secret is required.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. C</span><span class="key-lo">5.4.B</span>
+      <p class="key-why">Strength and key length are related by the best known attack, and for RSA that attack is the general number field sieve, whose cost is sub-exponential in the modulus size, roughly exponential in the cube root of the bit length. The mapping in NIST SP 800-57 Part 1 Rev. 5 makes the consequence plain: 2048 bits for 112-bit strength, 3072 for 128, 7680 for 192, 15360 for 256. An elliptic curve, facing only a generic square-root attack, moves from 256 bits to 512 bits across that same range. <strong>A</strong> assumes strength is linear in key length, which would be true only if the attack were exhaustive search. <strong>B</strong> is simply false. <strong>D</strong> reverses the relationship; a larger modulus is harder to factor, not easier.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. B</span><span class="key-lo">5.4.C</span>
+      <p class="key-why">This is the hybrid construction, and it is the answer for essentially every real transfer. The asymmetric operation runs once, on 32 bytes, doing the one thing symmetric cryptography cannot, delivering a secret to a party with whom none was shared. The bulk work is done by AES-GCM, which is fast and additionally authenticates the ciphertext. <strong>A</strong> is the classic wrong repair: chunking is slow beyond use, and encrypting many blocks under one key with a deterministic scheme reintroduces the equality leak that padding exists to prevent. <strong>C</strong> misunderstands the constraint, since an RSA operation on a 50 MB integer is not merely slow but nonsensical, and a 16384-bit key would be unusable in any case. <strong>D</strong> confuses confidentiality with integrity and would send a digest instead of the file.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">5.4.C</span>
+      <p class="key-why">Bleichenbacher's 1998 result showed that a server which reveals whether PKCS#1 v1.5 unpadding succeeded acts as an oracle, and that roughly a million adaptive queries suffice to recover a plaintext without ever touching the private key. The attack has been rediscovered repeatedly, the ROBOT results of 2017 found the same oracle in shipping TLS stacks nearly two decades later, which is why RFC 8017 specifies OAEP for new encryption and why implementations are required to fail indistinguishably. <strong>A</strong> treats two padding schemes with different security properties as interchangeable and then adds the oracle explicitly. <strong>C</strong> invents a performance difference; both perform one exponentiation. <strong>D</strong> is factually wrong, PKCS#1 v1.5 defines both an encryption and a signature padding, which is part of why the two are so often confused.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. B</span><span class="key-lo">5.4.A, 5.4.B</span>
+      <p class="key-why">A signature check on a certificate answers only "was this signed by the key in the certificate above it," and an attacker supplies both certificates. Without anchoring the path in a trust store the client is verifying a chain the attacker constructed end to end, and without Basic Constraints it will accept a signature from a certificate never authorized to sign, a real historical attack, not a hypothetical one. <strong>A</strong> states the misconception the scenario is built on. <strong>C</strong> is wrong on current practice: name matching is done against Subject Alternative Name, and the Common Name has been deprecated for this purpose since RFC 6125. <strong>D</strong> names a genuine gap but the wrong priority; revocation matters after a key is known stolen, whereas trust-anchoring is what makes the whole chain mean anything in the first place.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 1</span><span class="key-lo">5.4.A, 5.4.C</span>
+      <p class="key-why"><strong>Model response.</strong> Two key pairs exist and neither substitutes for the other. The hospital holds a signing pair; the specialist holds a receiving pair whose public half the hospital has obtained and validated through a certificate. With the illustrative parameters, a pair is built as $n = 61 \times 53 = 3233$, $\varphi(n) = 60 \times 52 = 3120$, $e = 17$, and $d = 2753$ since $17 \times 2753 = 46801 \equiv 1 \pmod{3120}$; the public key is $(17, 3233)$ and the private key is $(2753, 3233)$. The order of operations is sign, then encrypt. The hospital computes a SHA-256 digest of the summary and applies its <em>own private</em> key to the padded digest, producing a signature. It then generates a fresh AES-256 key, encrypts the summary and the signature together under AES-GCM, and encrypts that 32-byte key under the <em>specialist's public</em> key. The specialist reverses this: their <em>own private</em> key recovers the AES key, AES-GCM decrypts the payload and simultaneously detects tampering, and the <em>hospital's public</em> key verifies the signature over the recovered digest. Signing before encrypting keeps the signature, which identifies the author, out of view of anyone observing the ciphertext. A real implementation differs from the toy parameters in every dimension that matters: the modulus is 2048 or 3072 bits rather than 12, the primes come from a cryptographic generator and are destroyed after use, the plaintext is never fed to raw RSA but is OAEP-encoded, the signature uses PSS rather than a bare exponentiation, and the specialist's public key is accepted only after its certificate chain has been validated to a trusted root, without which the hospital may simply have encrypted the record to an impostor. <em>Grader look-fors:</em> two distinct pairs identified; each of the four operations mapped to the correct key of the correct pair; sign-then-encrypt ordering with a reason; correct computation of $n$, $\varphi(n)$, and $d$; hybrid structure recognised rather than RSA applied to the record; at least three differences from the toy construction, including padding and certificate validation.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 2</span><span class="key-lo">5.4.B</span>
+      <p class="key-why"><strong>Model response.</strong> The engineer's premise is true and their conclusion does not follow. No RSA-2048 modulus has been publicly factored, but the relevant question for a thirty-year retention is not what has been done, it is what the margin is against thirty more years of progress. NIST SP 800-57 Part 1 Rev. 5 places RSA-2048 at 112 bits of security strength, and NIST's own transition guidance treats 112 bits as adequate only for the near term, with 128 bits as the floor for data with a long protection horizon. RSA-3072 is the 128-bit point; a genuinely conservative choice for a multi-decade record would be higher still, at which point the modulus becomes impractical and an elliptic curve, or a hybrid of a curve with a post-quantum key-establishment mechanism, is the realistic design. The growth behaviour matters to the argument: the number field sieve is sub-exponential, so an improvement in the sieve or a fall in the cost of computation erodes RSA's margin faster than it erodes the margin of a symmetric cipher or a curve of equivalent strength. The argument's largest omission is the quantum one. Shor's algorithm solves integer factorization in polynomial time, so a cryptographically relevant quantum computer breaks RSA at any key size, and the threat applies retroactively to records an adversary harvests today and stores against future capability, precisely the harvest-now-decrypt-later model that a thirty-year confidentiality requirement invites. Since 2024, NIST has published standards for post-quantum key establishment and signatures in FIPS 203, 204, and 205, and long-horizon data is the first category that should move. A secondary omission is that key length is rarely the binding constraint anyway: a key that must survive thirty years faces thirty years of custody, rotation, backup, and personnel turnover, and the practical failure is far more likely to be a copied key file than a factored modulus. <em>Grader look-fors:</em> distinguishes "not yet broken" from "adequate margin"; cites the 112-bit strength of RSA-2048 and names a stronger target; explains why sub-exponential growth erodes RSA margins faster; raises the quantum and harvest-now-decrypt-later risk with post-quantum standardisation as the response; notes key custody as a risk independent of length.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager">
+  <a class="prev" href="../5.3/notes.html"><span class="pager-label">Previous</span>&larr; Symmetric Hashing and Key Storage</a>
+  <a class="next" href="../5.5/notes.html"><span class="pager-label">Next</span>Protecting Applications &rarr;</a>
+</nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

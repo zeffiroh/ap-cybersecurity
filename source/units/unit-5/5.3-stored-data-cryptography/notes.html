@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5.3 Symmetric Encryption, Hashing and Key Storage · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "5.3", topicTitle: "Protecting Stored Data with Cryptography", chapterLabel: "Topic 5.3" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 5.3</h1>
+    <h2 class="textbook-subtitle">Protecting Stored Data with Cryptography</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. Encryption and Hashing Solve Different Problems</a></li>
+        <li><a href="#sec-technical">II. AES, MACs, Key Management, and Password KDFs</a></li>
+        <li><a href="#sec-case">III. Case Studies: LinkedIn and Ransomware</a></li>
+        <li><a href="#sec-protection">IV. HSMs, Key Rotation, and Password Storage</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 5: Securing Applications and Data</strong> &middot; Topic 5.3, Protecting Stored Data with Cryptography</p>
+  <ul>
+    <li><span class="ap-code">5.3.A</span> <span class="ap-skill">Mitigate Risk</span><br>Account for what encrypting a file actually accomplishes: which adversary it stops, at which moment in the file&rsquo;s life it is doing any work at all, and what remains exposed once the key is present on the machine and the file is open.</li>
+    <li><span class="ap-code">5.3.B</span> <span class="ap-skill">Mitigate Risk</span><br>Use a symmetric algorithm to encrypt and recover data, handling correctly the parts that surround the cipher itself, where the key comes from, how the initialization vector is generated, and how the ciphertext is authenticated so that tampering is detected rather than silently decrypted.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. Encryption and Hashing Solve Different Problems</h3>
+
+<p>Two mathematical operations sit at the foundation of nearly every data-protection control taught in this course: <span class="annot">symmetric encryption<span class="tip"><strong>Symmetric Encryption</strong>Encryption where the same secret key both locks (encrypts) and unlocks (decrypts) the data, like a single physical key that both locks and unlocks your front door. Both the sender and receiver must possess an identical copy of the key. <em>Contrast with asymmetric (public-key) cryptography, covered in Topic 5.4. Symmetric algorithms are computationally far cheaper, which is why they protect bulk data while asymmetric algorithms protect key exchange.</em></span></span> and <span class="annot">cryptographic hashing<span class="tip"><strong>Cryptographic Hashing</strong>A one-way mathematical function that converts data of any size into a fixed-length "fingerprint." Unlike encryption, hashing has no key and cannot be reversed, you cannot recover the original input from the hash output. <em>Hash functions must exhibit preimage resistance, second-preimage resistance, and collision resistance. See FIPS PUB 180-4.</em></span></span>. Although students frequently conflate the two, they solve fundamentally different problems, and confusing them is one of the most consequential errors a security practitioner can make. Encryption is a <span class="annot">reversible transformation<span class="tip"><strong>Reversible Transformation</strong>A mathematical operation that can be undone. Encryption is reversible because anyone holding the correct key can run the inverse operation (decryption) to recover the exact original plaintext. <em>Formally: for encryption function E and decryption function D under key k, D(k, E(k, m)) = m for all messages m.</em></span></span>: ciphertext produced by an <span class="annot">encryption algorithm<span class="tip"><strong>Encryption Algorithm</strong>A precisely defined mathematical procedure for transforming readable plaintext into unreadable ciphertext using a key, and for reversing that transformation given the same (symmetric) or a mathematically related (asymmetric) key. <em>NIST validates implementations through the Cryptographic Algorithm Validation Program (CAVP) and the Cryptographic Module Validation Program (CMVP), referenced in FIPS 140-3.</em></span></span> can always be converted back into the original plaintext, provided the correct key is supplied. Hashing, by contrast, is deliberately <span class="annot">one-way<span class="tip"><strong>One-Way Function</strong>A function that is computationally easy to calculate in one direction but computationally infeasible to reverse. Given a hash output, there is no efficient algorithm to compute an input that produces it, you would have to guess inputs and hash each one (brute force). <em>The security of one-way functions underpins hash-based password storage, digital signatures, and blockchain proof-of-work systems.</em></span></span>: there is no decryption operation for a hash digest, no key that "unlocks" it, and no legitimate way to recover the original input except by guessing inputs and re-hashing them until a match is found. This single distinction, reversible versus irreversible, determines which tool is appropriate for which job. If data must later be read back in its original form (a customer's credit card number, a hard drive's contents, a database column), it must be encrypted. If data only ever needs to be verified rather than recovered (a password, a downloaded file's integrity), it should be hashed, never encrypted.</p>
+
+<p>The academic study of symmetric cryptography traces to <span class="annot">Claude Shannon's<span class="tip"><strong>Claude Shannon</strong>An American mathematician and electrical engineer widely regarded as the father of information theory. His 1949 paper "Communication Theory of Secrecy Systems" established the mathematical framework that all modern symmetric ciphers are still evaluated against. <em>Shannon, C.E. (1949). Communication Theory of Secrecy Systems. Bell System Technical Journal, 28(4), 656–715.</em></span></span> foundational 1949 paper, which formalized two design properties every strong cipher must exhibit: <span class="annot">confusion<span class="tip"><strong>Confusion (Shannon Property)</strong>The property that the relationship between the encryption key and the ciphertext should be as complex and non-linear as possible, so that an attacker cannot deduce the key by studying the ciphertext's statistical patterns. Implemented in AES via substitution boxes (S-boxes). <em>Shannon (1949). Confusion obscures the key-ciphertext relationship; diffusion (below) spreads plaintext influence across the ciphertext.</em></span></span> and <span class="annot">diffusion<span class="tip"><strong>Diffusion (Shannon Property)</strong>The property that changing a single bit of plaintext should statistically change roughly half the bits of the resulting ciphertext, so that patterns in the plaintext are not visible in the output. Implemented in AES via the ShiftRows and MixColumns steps. <em>Also called the "avalanche effect." A well-diffused cipher makes differential cryptanalysis computationally infeasible.</em></span></span>. Confusion ensures that the mathematical relationship between key and ciphertext is so complex that it cannot be reduced to simple algebra; diffusion ensures that flipping a single bit of the input plaintext cascades into changes across roughly half of the output ciphertext bits, the so-called <span class="annot">avalanche effect<span class="tip"><strong>Avalanche Effect</strong>A desirable property of both ciphers and hash functions: a tiny change to the input (even one bit) should produce a drastically different, unpredictable output. Named because a small trigger (one bit) causes an "avalanche" of change throughout the output. <em>A well-designed avalanche effect means roughly 50% of output bits flip on average for any single input bit flip, this is empirically tested during algorithm validation.</em></span></span>. These two properties remain the benchmark against which the <span class="annot">Advanced Encryption Standard (AES)<span class="tip"><strong>AES, Advanced Encryption Standard</strong>The U.S. government's official symmetric block cipher standard, selected in 2001 through an open, multi-year public competition. AES replaced the aging DES (Data Encryption Standard). It is the cipher used to protect classified information, banking transactions, VPN tunnels, and disk encryption worldwide. <em>Originally submitted as "Rijndael" by Belgian cryptographers Joan Daemen and Vincent Rijmen. Standardized in FIPS PUB 197 (2001). Supports 128-, 192-, and 256-bit keys.</em></span></span> and its predecessor, the <span class="annot">Data Encryption Standard (DES)<span class="tip"><strong>DES, Data Encryption Standard</strong>A symmetric block cipher standardized by NIST in 1977, using a 56-bit effective key length. Once the U.S. government standard, DES is now considered cryptographically broken due to its short key, a dedicated brute-force machine (the EFF's "Deep Crack," 1998) could exhaust the entire keyspace in under 24 hours. <em>Superseded by AES in 2001 (FIPS 197). Triple DES (3DES) extended its life by applying DES three times, but NIST deprecated 3DES entirely by the end of 2023 per SP 800-131A.</em></span></span>, are evaluated.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">One Key That Both Locks and Unlocks</span>
+  Think of encryption as a reversible safe: you put a document inside, lock it with a key, and anyone with a copy of the key can open it back up and read the document again. Hashing is closer to running a document through a paper shredder in a mathematically consistent way, you can prove two documents were identical by comparing shredded output ("fingerprints"), but you can never reconstruct a document from its shredded remains. Every time you see "hash," ask "am I trying to verify something, or read it back?" If the answer is "read it back," hashing is the wrong tool entirely.
+</div>
+
+<p>The 56-bit effective keyspace of DES, a design constraint imposed by NSA export-control negotiations during its 1970s standardization, illustrates why key length is not a cosmetic parameter but the primary lever of cryptographic strength. A <span class="annot">brute-force attack<span class="tip"><strong>Brute-Force Attack</strong>An attack that tries every possible key (or password) until the correct one is found. The feasibility of a brute-force attack is a direct function of keyspace size: doubling the key length by just one bit doubles the number of possible keys, and therefore doubles the average time required to exhaust them. <em>A 56-bit keyspace contains 2^56 (about 72 quadrillion) possible keys, trivial for modern ASIC/FPGA clusters. A 128-bit keyspace contains 2^128 keys, considered computationally infeasible to exhaust even with all of Earth's computing power running for longer than the age of the universe.</em></span></span> against DES's 2<sup>56</sup> keyspace was demonstrated practically in 1998 by the Electronic Frontier Foundation's purpose-built "Deep Crack" hardware, which recovered a DES key in under 56 hours. AES, in direct response, was designed with a minimum key length of 128 bits, and offers 192-bit and 256-bit variants, placing its keyspace so far beyond brute-force reach that the primary risk to AES today is implementation error (weak key management, poor mode-of-operation choice, side-channel leakage) rather than mathematical cryptanalysis of the algorithm itself. This is precisely the vulnerability class referenced in the Hooli incident scenario later in this chapter: an audit that discovers legacy 56-bit DES keys still protecting live transaction columns is not merely a compliance footnote, it represents a cipher whose entire keyspace is trivially exhaustible by commodity hardware.</p>
+
+<p>Hash functions evolved along a parallel but distinct academic track, rooted in the need for <span class="annot">data integrity<span class="tip"><strong>Data Integrity</strong>The assurance that data has not been altered, corrupted, or tampered with, whether in transit, at rest, or during processing. Hash functions provide integrity verification: if even one bit of a file changes, its hash output changes completely, immediately revealing tampering. <em>One of the three pillars of the CIA triad (Confidentiality, Integrity, Availability) central to the AP Cybersecurity curriculum.</em></span></span> verification rather than confidentiality. The <span class="annot">Secure Hash Algorithm (SHA) family<span class="tip"><strong>SHA, Secure Hash Algorithm Family</strong>A series of cryptographic hash function standards published by NIST. SHA-1 (1995, 160-bit output) is now considered broken due to practical collision attacks. SHA-2 (2001), which includes SHA-256 and SHA-512, remains secure and is the current industry baseline. SHA-3 (2015) is a structurally different backup standard based on the Keccak sponge construction. <em>SHA-2 is specified in FIPS PUB 180-4. SHA-3 in FIPS PUB 202.</em></span></span>, standardized by NIST, produces fixed-length digests regardless of input size, SHA-256 always outputs exactly 256 bits, whether hashing one character or an entire terabyte file. A cryptographically secure hash function must satisfy three formal properties: <span class="annot">preimage resistance<span class="tip"><strong>Preimage Resistance</strong>Given only a hash output, it should be computationally infeasible to find any input that produces that output. This is the property that makes password hash storage meaningful, an attacker who steals a database of hashes cannot mathematically reverse them back into passwords. <em>Formally: given h, it is infeasible to find any m such that H(m) = h. This is the "first preimage" property.</em></span></span>, <span class="annot">second-preimage resistance<span class="tip"><strong>Second-Preimage Resistance</strong>Given a specific input and its hash, it should be computationally infeasible to find a different input that produces the identical hash. This prevents an attacker from substituting a malicious file that hashes to the same value as a legitimate one. <em>Formally: given m1, it is infeasible to find m2 ≠ m1 such that H(m1) = H(m2).</em></span></span>, and <span class="annot">collision resistance<span class="tip"><strong>Collision Resistance</strong>It should be computationally infeasible to find any two distinct inputs that produce the same hash output, without being given either input in advance. Collision resistance is the strongest of the three hash properties and the first to break as an algorithm ages, SHA-1 lost collision resistance in 2017 (the "SHAttered" attack by Google and CWI Amsterdam), which is why it is deprecated for security-critical use. <em>Formally: it is infeasible to find any m1 ≠ m2 such that H(m1) = H(m2). By the birthday paradox, collision resistance for an n-bit hash is bounded at roughly 2^(n/2) operations.</em></span></span>. When any of these properties fails, as happened to both MD5 and SHA-1, the algorithm is formally deprecated by standards bodies, even though it may remain "usable" in a purely mechanical sense.</p>
+
+<p>A related but distinct family of primitives, <span class="annot">key derivation functions (KDFs)<span class="tip"><strong>Key Derivation Function (KDF)</strong>A specialized function that transforms a low-entropy input (like a human-chosen password) into a cryptographically strong key or hash, deliberately designed to be slow and resource-intensive so that brute-force guessing is expensive for an attacker. Unlike general-purpose hash functions (SHA-256), KDFs are intentionally engineered to be computationally and/or memory expensive. <em>Standardized examples: PBKDF2 (NIST SP 800-132), bcrypt (Provos &amp; Mazières, 1999), scrypt (RFC 7914), and Argon2 (winner of the 2015 Password Hashing Competition).</em></span></span>, exists specifically to slow down attackers who are hashing password guesses at scale. A general-purpose cryptographic hash like SHA-256 is deliberately fast, a property that is excellent for verifying file integrity but catastrophic for password storage, because a fast hash lets an attacker with GPU or ASIC hardware test billions of password guesses per second. KDFs deliberately sacrifice speed (and, in the case of scrypt and Argon2, consume large amounts of RAM) to make each guess expensive, fundamentally altering the economics of an offline cracking attack.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. AES, MACs, Key Management, and Password KDFs</h3>
+
+<p>AES is formally classified as a <span class="annot">block cipher<span class="tip"><strong>Block Cipher</strong>A symmetric cipher that encrypts data in fixed-size chunks ("blocks") rather than one bit or byte at a time. AES operates on 128-bit (16-byte) blocks regardless of the chosen key size. Data longer than one block must be split into multiple blocks and processed according to a "mode of operation." <em>Contrast with stream ciphers (e.g., ChaCha20), which encrypt data as a continuous stream of bits/bytes. AES's block size is fixed at 128 bits per FIPS 197, even though key length is variable.</em></span></span>, meaning it transforms data in fixed 128-bit chunks through a sequence of internal rounds. The number of rounds scales with key size: 10 rounds for AES-128, 12 for AES-192, and 14 for AES-256. Each round applies four transformations, <code>SubBytes</code> (a non-linear byte substitution via a fixed S-box, providing Shannon's confusion), <code>ShiftRows</code>, <code>MixColumns</code> (together providing diffusion), and <code>AddRoundKey</code> (XORing in a subkey derived from the master key via the <span class="annot">key schedule<span class="tip"><strong>Key Schedule</strong>An algorithm that expands a single master encryption key into a series of distinct "round keys," one for each round of the cipher's internal processing. This prevents the same key material from being reused identically across every round, which would weaken the cipher against certain cryptanalytic attacks. <em>AES's key schedule uses byte rotation, S-box substitution, and round constants (Rcon) to generate round keys, specified in FIPS 197 §5.2.</em></span></span>). Because a block cipher only defines how to scramble one fixed-size block, it must be paired with a <span class="annot">mode of operation<span class="tip"><strong>Mode of Operation</strong>An algorithm that specifies how a block cipher should be repeatedly applied to encrypt data longer than a single block. Different modes have dramatically different security properties, even when using the identical underlying cipher and key. Choosing the wrong mode can completely undermine an otherwise strong cipher. <em>NIST SP 800-38A defines confidentiality-only modes (ECB, CBC, CFB, OFB, CTR). NIST SP 800-38D defines GCM, an authenticated mode.</em></span></span> to handle real-world messages spanning many blocks.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">ECB Encrypts Every Block in Isolation, and the Picture Survives</span>
+  <span class="annot">Electronic Codebook (ECB) mode<span class="tip"><strong>ECB, Electronic Codebook Mode</strong>The simplest (and weakest) block cipher mode: each block of plaintext is encrypted independently with the same key, with no chaining between blocks. Identical plaintext blocks always produce identical ciphertext blocks. This means visual and structural patterns in the original data (famously demonstrated with the "ECB Penguin", an encrypted bitmap image where the penguin outline remains visible) leak directly into the ciphertext. <em>NIST SP 800-38A explicitly warns against ECB for any data with repeating patterns. It is retained in the standard only for narrow, non-recommended use cases.</em></span></span> fails in a way that is easy to state and easy to see: encrypting the same plaintext block twice under ECB produces identical ciphertext both times, leaking structural information about the underlying data even though the cipher itself (AES) is mathematically strong. This is why the encrypted "ECB Penguin" image still shows a recognizable penguin silhouette. The lesson: a strong cipher used in a weak mode is still a weak system. Always prefer CBC (with a random, unpredictable IV) or, better, an authenticated mode like GCM.
+</div>
+
+<figure class="svg-figure">
+<svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="fig53-title fig53-desc">
+  <title id="fig53-title">Why ECB leaks structure and CBC does not</title>
+  <desc id="fig53-desc">Two encryption pipelines drawn one above the other. In the upper ECB pipeline, three plaintext blocks are fed independently into three copies of the AES block cipher under the same key; because blocks one and three are identical plaintext, their ciphertext outputs are also identical, and an observer can therefore see where the plaintext repeats. In the lower CBC pipeline, each plaintext block is first exclusive-ORed with the previous ciphertext block, and the first block is exclusive-ORed with a random initialization vector, so the two identical plaintext blocks enter the cipher as different values and produce unrelated ciphertext.</desc>
+  <text x="8" y="18" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#8a2b2b">ECB: each block encrypted alone, so repetition survives</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <rect x="20" y="30" width="86" height="26" fill="#fdf2f2" stroke="#8a2b2b"/><text x="30" y="47">P1 = AAAA</text>
+    <rect x="240" y="30" width="86" height="26" fill="#fdf2f2" stroke="#8a2b2b"/><text x="250" y="47">P2 = BBBB</text>
+    <rect x="460" y="30" width="86" height="26" fill="#fdf2f2" stroke="#8a2b2b"/><text x="470" y="47">P3 = AAAA</text>
+    <rect x="20" y="76" width="86" height="26" fill="#eeeeee" stroke="#555555"/><text x="40" y="93">AES(k)</text>
+    <rect x="240" y="76" width="86" height="26" fill="#eeeeee" stroke="#555555"/><text x="260" y="93">AES(k)</text>
+    <rect x="460" y="76" width="86" height="26" fill="#eeeeee" stroke="#555555"/><text x="480" y="93">AES(k)</text>
+    <rect x="20" y="122" width="86" height="26" fill="#f6e4e4" stroke="#8a2b2b"/><text x="34" y="139">C1 = 3f9a</text>
+    <rect x="240" y="122" width="86" height="26" fill="#f6e4e4" stroke="#8a2b2b"/><text x="254" y="139">C2 = c17d</text>
+    <rect x="460" y="122" width="86" height="26" fill="#f6e4e4" stroke="#8a2b2b"/><text x="474" y="139">C3 = 3f9a</text>
+  </g>
+  <g stroke="#555555" stroke-width="1.4" marker-end="url(#a53)">
+    <path d="M63 56 V72"/><path d="M283 56 V72"/><path d="M503 56 V72"/>
+    <path d="M63 102 V118"/><path d="M283 102 V118"/><path d="M503 102 V118"/>
+  </g>
+  <path d="M106 135 H240 M326 135 H460" stroke="#8a2b2b" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+  <text x="556" y="139" font-family="Georgia, serif" font-size="11" fill="#8a2b2b">C1 = C3: the repeat is public</text>
+  <text x="8" y="186" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#1f5c3d">CBC: each block is masked by the one before it</text>
+  <g font-family="monospace" font-size="11" fill="#333">
+    <rect x="20" y="198" width="86" height="26" fill="#f1f8f4" stroke="#1f5c3d"/><text x="30" y="215">P1 = AAAA</text>
+    <rect x="240" y="198" width="86" height="26" fill="#f1f8f4" stroke="#1f5c3d"/><text x="250" y="215">P2 = BBBB</text>
+    <rect x="460" y="198" width="86" height="26" fill="#f1f8f4" stroke="#1f5c3d"/><text x="470" y="215">P3 = AAAA</text>
+    <circle cx="63" cy="244" r="11" fill="#ffffff" stroke="#1f5c3d"/><text x="59" y="248">x</text>
+    <circle cx="283" cy="244" r="11" fill="#ffffff" stroke="#1f5c3d"/><text x="279" y="248">x</text>
+    <circle cx="503" cy="244" r="11" fill="#ffffff" stroke="#1f5c3d"/><text x="499" y="248">x</text>
+    <rect x="20" y="266" width="86" height="24" fill="#eeeeee" stroke="#555555"/><text x="40" y="282">AES(k)</text>
+    <rect x="240" y="266" width="86" height="24" fill="#eeeeee" stroke="#555555"/><text x="260" y="282">AES(k)</text>
+    <rect x="460" y="266" width="86" height="24" fill="#eeeeee" stroke="#555555"/><text x="480" y="282">AES(k)</text>
+    <rect x="20" y="300" width="86" height="24" fill="#e4f0ea" stroke="#1f5c3d"/><text x="34" y="316">C1 = 82be</text>
+    <rect x="240" y="300" width="86" height="24" fill="#e4f0ea" stroke="#1f5c3d"/><text x="254" y="316">C2 = 04f1</text>
+    <rect x="460" y="300" width="86" height="24" fill="#e4f0ea" stroke="#1f5c3d"/><text x="474" y="316">C3 = d75c</text>
+  </g>
+  <g stroke="#1f5c3d" stroke-width="1.4" marker-end="url(#b53)" fill="none">
+    <path d="M63 224 V229"/><path d="M283 224 V229"/><path d="M503 224 V229"/>
+    <path d="M63 255 V262"/><path d="M283 255 V262"/><path d="M503 255 V262"/>
+    <path d="M63 290 V296"/><path d="M283 290 V296"/><path d="M503 290 V296"/>
+    <path d="M106 312 H180 V244 H270"/>
+    <path d="M326 312 H400 V244 H490"/>
+    <path d="M170 244 H78"/>
+  </g>
+  <text x="174" y="240" font-family="monospace" font-size="11" fill="#1f5c3d">random IV</text>
+  <text x="556" y="316" font-family="Georgia, serif" font-size="11" fill="#1f5c3d">C1 and C3 unrelated</text>
+  <defs>
+    <marker id="a53" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#555555"/></marker>
+    <marker id="b53" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f5c3d"/></marker>
+  </defs>
+</svg>
+<figcaption>Figure 5.3.1, The structure leak in ECB is a property of the mode, not of AES. Because ECB gives the cipher no memory of what came before, equal plaintext blocks map to equal ciphertext blocks and the shape of the data survives encryption. CBC destroys that mapping by exclusive-ORing each block (the circled operator) with the previous ciphertext, and the random IV extends the same protection to the first block. Ciphertext values shown are illustrative.</figcaption>
+</figure>
+
+
+<p><span class="annot">Cipher Block Chaining (CBC) mode<span class="tip"><strong>CBC, Cipher Block Chaining Mode</strong>A block cipher mode where each plaintext block is XORed with the previous ciphertext block before encryption, "chaining" all blocks together so that identical plaintext blocks produce different ciphertext. The first block is XORed with a random Initialization Vector (IV) instead of a previous ciphertext block. <em>Defined in NIST SP 800-38A. Requires a unique, unpredictable IV per encryption operation, IV reuse under the same key catastrophically weakens confidentiality. CBC provides confidentiality only, not integrity, it must be paired with a separate MAC (Encrypt-then-MAC) to detect tampering.</em></span></span> solves the ECB pattern-leakage problem by chaining blocks together via XOR with the previous ciphertext block, requiring a random <span class="annot">Initialization Vector (IV)<span class="tip"><strong>Initialization Vector (IV)</strong>A random or unique value used to "seed" the first block of a chaining or counter-based cipher mode, ensuring that encrypting the same plaintext twice under the same key produces different ciphertext each time. The IV does not need to be secret, but it must be unpredictable (CBC) or unique/never reused (CTR, GCM) for every encryption operation under a given key. <em>NIST SP 800-38A §6.1: IVs for CBC must be unpredictable; reuse of an IV/key pair is a critical cryptographic failure.</em></span></span> to seed the first block. Crucially, CBC alone provides confidentiality but not <span class="annot">authenticated integrity<span class="tip"><strong>Authenticated Encryption</strong>An encryption mode that simultaneously guarantees confidentiality (the data cannot be read without the key) and integrity/authenticity (any tampering with the ciphertext is detected and decryption fails). Modern best practice mandates authenticated encryption for nearly all use cases. <em>Also called AEAD (Authenticated Encryption with Associated Data). GCM and ChaCha20-Poly1305 are the two dominant AEAD constructions in modern protocols like TLS 1.3.</em></span></span>, a ciphertext can be bit-flipped by an attacker without a key, and CBC alone will not detect the tampering. <span class="annot">Galois/Counter Mode (GCM)<span class="tip"><strong>GCM, Galois/Counter Mode</strong>A modern block cipher mode that combines CTR-mode encryption (turning the block cipher into an efficient stream cipher) with a Galois field authentication tag (GMAC), producing both ciphertext and a cryptographic authentication tag in a single pass. Decryption fails loudly if the ciphertext or associated data has been tampered with. <em>Standardized in NIST SP 800-38D. AES-GCM is the default cipher suite in TLS 1.3 and is required in FIPS 140-3 validated modules for authenticated encryption use cases.</em></span></span> resolves this by producing an authentication tag alongside the ciphertext in a single efficient pass, making it the modern default for protocols like TLS 1.3 and disk-encryption systems that need both secrecy and tamper-evidence.</p>
+
+<p>Encrypting a file with OpenSSL's AES-256 implementation in CBC mode from the command line illustrates the practical parameters every implementation must supply: a key (or a passphrase from which a key is derived), an IV, and the target mode.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Encrypt a file using AES-256 in CBC mode with a PBKDF2-derived key
+openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+  -in transaction_export.csv \
+  -out transaction_export.csv.enc \
+  -pass pass:'CorrectHorseBatteryStaple!2026'
+
+# Decrypt the resulting file (must supply the identical passphrase)
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+  -in transaction_export.csv.enc \
+  -out transaction_export_recovered.csv \
+  -pass pass:'CorrectHorseBatteryStaple!2026'
+
+# Preferred: authenticated AES-256-GCM (detects any tampering on decrypt)
+openssl enc -aes-256-gcm -pbkdf2 -iter 600000 -salt \
+  -in transaction_export.csv -out transaction_export.csv.gcm.enc \
+  -pass pass:'CorrectHorseBatteryStaple!2026'</code></pre>
+</div>
+
+<p>Note the <code>-pbkdf2 -iter 600000</code> flags: OpenSSL does not use the raw passphrase directly as an AES key. Instead it runs the passphrase through PBKDF2 (discussed below) with 600,000 iterations to derive a proper 256-bit key, deliberately slowing down any attacker who steals the ciphertext and attempts to brute-force the passphrase offline.</p>
+
+<h4>Three Transformations That Are Constantly Confused</h4>
+<p>Before any of the mechanics, one distinction has to be firm, because misusing these three words causes real defects. <strong>Encoding</strong> is a reversible change of representation with no secret involved: Base64, URL percent-encoding, and hexadecimal exist so that arbitrary bytes can survive a channel that only accepts certain characters. Anyone can decode them; they provide no confidentiality whatever, and a system that stores "Base64-encrypted" passwords stores plaintext with an extra step. <strong>Hashing</strong> is a deterministic one-way compression to a fixed length. There is no key and no inverse; the same input always yields the same digest, and the value of the operation is precisely that it cannot be undone. <strong>Encryption</strong> is a reversible transformation controlled by a key: with the key you recover the plaintext exactly, and without it you should learn nothing.</p>
+<p>The practical consequence is that each answers a different question. Encoding answers "will this byte string survive transport?" Hashing answers "is this the same data I saw before?" Encryption answers "can an adversary who holds these bytes read them?" Choosing the wrong one is a category error, not a tuning mistake: hashing a credit card number makes it unusable for the business, and encrypting a password for storage means a key exists somewhere that turns the whole database back into plaintext.</p>
+
+<h4>Initialization Vectors and Nonces</h4>
+<p>Every mode other than ECB needs a per-message value that makes the encryption of identical plaintexts differ. The rules governing that value are strict and mode-specific, and violating them is the single most common way an otherwise sound implementation fails.</p>
+<p>An <span class="annot">initialization vector<span class="tip"><strong>IV, Initialization Vector</strong>A block-sized value combined with the first block of plaintext so that encrypting the same message twice under the same key produces different ciphertext. For CBC it must be unpredictable to an adversary; it is not secret and is normally stored alongside the ciphertext.</span></span> for CBC mode must be <em>unpredictable</em>, not merely unique. This is not pedantry: the BEAST attack against TLS 1.0 exploited exactly the fact that the IV for each record was the previous record's final ciphertext block, and therefore known to an attacker in advance. Generate it with a cryptographically secure random source, Python's <code>secrets</code> or <code>os.urandom</code>, never <code>random</code>, and store it with the ciphertext. It is not a secret and does not need protecting; it needs only to be fresh and unguessable.</p>
+<p>A <span class="annot">nonce<span class="tip"><strong>Nonce</strong>A number used once. For counter-based modes such as CTR and GCM the requirement is uniqueness per key, not unpredictability; repeating one under the same key is catastrophic.</span></span> for a counter-based mode such as CTR or GCM has a different and harsher requirement: it must never repeat under the same key. Counter modes work by encrypting a counter block to produce a keystream that is XORed with the plaintext. If a nonce repeats, two messages are XORed with the identical keystream, and an adversary who XORs the two ciphertexts together obtains the XOR of the two plaintexts, the key has dropped out of the equation entirely. For GCM the consequence is worse still, because nonce reuse also permits recovery of the authentication subkey and thus lets an attacker forge tags. With GCM's 96-bit nonce, random generation is safe for an enormous number of messages under one key; with a 64-bit nonce it is not, and a counter maintained in durable storage is the correct approach.</p>
+
+<h4>MACs, HMAC, and Why Length Extension Matters</h4>
+<p>A hash tells you whether data changed; it does not tell you <em>who</em> changed it. An attacker who alters a file can simply recompute its SHA-256 digest. Detecting deliberate modification requires a secret, and that is what a <span class="annot">message authentication code<span class="tip"><strong>MAC, Message Authentication Code</strong>A short tag computed from a message and a secret key, which anyone holding the key can recompute to verify that the message is unmodified and originated from a key holder. <em>Unlike a digital signature, a MAC is symmetric: the verifier can also forge, so a MAC proves nothing to a third party.</em></span></span> provides.</p>
+<p>The naive construction, <code>tag = SHA256(key || message)</code>, is broken, and the reason is instructive. SHA-256, SHA-1, and MD5 use the Merkle&ndash;Damg&aring;rd construction, in which the digest is the algorithm's entire internal state after the final block. An attacker who knows the digest therefore knows the state, and can resume hashing from it. Without ever learning the key, they can append data and compute a valid tag for <code>key || message || padding || extra</code>. This is a <span class="annot">length extension attack<span class="tip"><strong>Length Extension Attack</strong>Against a Merkle&ndash;Damg&aring;rd hash, an attacker who knows H(secret &#124;&#124; message) and the length of the secret can compute H(secret &#124;&#124; message &#124;&#124; padding &#124;&#124; suffix) for a suffix of their choosing, without knowing the secret. <em>SHA-3 and BLAKE2 are not vulnerable, having different internal structures.</em></span></span>, and it is not theoretical, the 2009 Flickr API signature forgery is a documented case.</p>
+<p><span class="annot">HMAC<span class="tip"><strong>HMAC</strong>A MAC construction defined in RFC 2104 and FIPS 198-1 that nests two hash invocations with two key-derived pads, so that the attacker never sees the internal state of a hash whose input begins with the key. <em>Provably secure given modest assumptions about the underlying hash, and immune to length extension by construction.</em></span></span> fixes this by nesting: <code>HMAC(K, m) = H((K &oplus; opad) || H((K &oplus; ipad) || m))</code>. Because the outer hash consumes the inner digest rather than exposing it as the final output, an attacker never obtains a state they can extend from. Two practical notes follow. First, use the library's HMAC rather than composing hashes yourself. Second, always compare tags with a constant-time comparison, Python's <code>hmac.compare_digest</code>, because an ordinary <code>==</code> returns as soon as it finds a differing byte, and the timing difference is enough to let an attacker recover a valid tag one byte at a time.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span>Python 3, authenticated symmetric encryption with AES-GCM</span>
+  </div>
+<pre class="language-python"><code>import os
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+# 256-bit key from the operating system CSPRNG. In production this comes from a
+# key management service or an HSM, never from a literal in source control.
+key = AESGCM.generate_key(bit_length=256)
+aead = AESGCM(key)
+
+# 96-bit nonce, fresh for every single message under this key.
+nonce = os.urandom(12)
+
+plaintext = b"account 4187 balance 92310"
+# Associated data is authenticated but not encrypted: it is bound to the
+# ciphertext, so an attacker cannot move this record to another account.
+aad = b"record-type=ledger;version=2"
+
+ciphertext = aead.encrypt(nonce, plaintext, aad)   # tag is appended to ciphertext
+recovered = aead.decrypt(nonce, ciphertext, aad)   # raises InvalidTag if altered
+assert recovered == plaintext</code></pre>
+</div>
+<p>The decisive property of this code is the exception. <code>decrypt</code> raises <code>InvalidTag</code> rather than returning corrupted plaintext, because GCM verifies the authentication tag before releasing any output. A CBC-mode implementation without a separate MAC has no such check: it will decrypt attacker-modified ciphertext into attacker-influenced plaintext and hand it to the application, which is the family of padding-oracle and bit-flipping attacks. This is why modern guidance is to use an authenticated mode by default and to treat unauthenticated encryption as a specialist tool requiring justification.</p>
+
+<h4>Key Management and Envelope Encryption</h4>
+<p>Cryptography converts the problem of protecting a large amount of data into the problem of protecting a small key. It does not make the problem disappear, and in most breaches involving encrypted data the cipher was fine and the key handling was not. A key that sits in the application's source repository, in a container image layer, or in an environment variable dumped into a crash report protects nothing.</p>
+<p><span class="annot">Envelope encryption<span class="tip"><strong>Envelope Encryption</strong>Data is encrypted with a freshly generated data encryption key (DEK); the DEK is then encrypted with a long-lived key encryption key (KEK) held in an HSM or key management service, and the wrapped DEK is stored beside the ciphertext. <em>The pattern used by every major cloud key management service.</em></span></span> is the standard structure for handling this at scale. A fresh <em>data encryption key</em> is generated per file, per record, or per tenant, and used to encrypt the data. That DEK is then encrypted, wrapped, under a long-lived <em>key encryption key</em> that never leaves a hardware security module or managed key service. The wrapped DEK is stored next to the ciphertext it belongs to. Three benefits follow directly from the shape. The high-value KEK exists only inside hardware that will perform operations with it but will not export it. Rotating the KEK requires re-wrapping a small set of DEKs rather than re-encrypting terabytes. And revocation becomes tractable: destroy the KEK and every DEK wrapped under it becomes unrecoverable, which is how "cryptographic erasure" of a tenant's data is implemented without physically overwriting it.</p>
+
+<h4>Hash Verification and File Integrity</h4>
+<p>Whereas encryption protects confidentiality, hash-based <span class="annot">checksums<span class="tip"><strong>Checksum</strong>A value computed from a file's contents (typically via a hash function) used to verify the file has not been altered or corrupted, whether by malicious tampering or accidental transmission errors. Comparing the checksum published by a software vendor against a locally recomputed checksum confirms the downloaded file is bit-for-bit identical to what the vendor released. <em>Modern checksums use cryptographic hash functions (SHA-256) rather than older non-cryptographic checksums (CRC32), because CRC32 is trivially forgeable and was never designed to resist intentional tampering.</em></span></span> verify integrity. Software distributors publish SHA-256 digests of official release files precisely so that a downloader can independently confirm the file was not corrupted in transit or maliciously substituted by an attacker positioned between the vendor and the user.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Compute the SHA-256 digest of a downloaded installer
+sha256sum ubuntu-24.04-desktop-amd64.iso
+# Output: a1b2c3...e9f0  ubuntu-24.04-desktop-amd64.iso
+
+# Compare against the vendor-published checksum file
+sha256sum -c SHA256SUMS
+# Output: ubuntu-24.04-desktop-amd64.iso: OK
+
+# Verify an individual file matches a known-good hash without a .sums file
+echo "a1b2c3...e9f0  ubuntu-24.04-desktop-amd64.iso" | sha256sum -c -</code></pre>
+</div>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">A Hash Is Not a Cipher, and the Difference Is Reversibility</span>
+  A system that stores "encrypted passwords" has, by that description alone, a design defect, and the defect does not depend on which cipher was chosen. Encryption is reversible by design, so a key exists that turns the entire credential store back into plaintext, and that key must be present on a live server for the system to function. Passwords should be put through a salted, deliberately slow key derivation function instead, which is irreversible and therefore has nothing for an attacker to steal but the hashes themselves. The clearest tell is an offer to email a forgotten password back to the user: an application that can recover the original string is one whose credential database is a decryption key away from being read in full.
+</div>
+
+<h4>Salting and Rainbow Table Defense</h4>
+<p>Because a given input always produces the identical hash output under a deterministic hash function, an attacker can precompute hashes for millions of common passwords once and reuse that table against any stolen password database, an attack accelerated dramatically by <span class="annot">rainbow tables<span class="tip"><strong>Rainbow Table</strong>A precomputed table mapping hash outputs back to their likely plaintext inputs, built once and reused against any number of victim databases. Rainbow tables use a space-time tradeoff (chains of hash-and-reduce operations) to store far more coverage than a naive full lookup table would require in the same disk space. <em>Introduced by Philippe Oechslin (2003), building on Hellman's 1980 time-memory tradeoff. Rainbow tables for unsalted MD5 and SHA-1 covering billions of common passwords are freely available online.</em></span></span>, which trade storage space for lookup speed using precomputed hash chains. <span class="annot">Salting<span class="tip"><strong>Salt (Cryptographic)</strong>A unique, random value generated for each individual password and stored alongside its hash (not secret), then combined with the password before hashing. Because every user's salt is different, identical passwords produce completely different stored hashes, and a single precomputed rainbow table becomes useless, the attacker would need a separate table per unique salt. <em>NIST SP 800-63B §5.1.1.2 requires a salt of at least 32 bits, generated using an approved random bit generator, unique per credential.</em></span></span> defeats this attack economically: by generating a unique random value per user and hashing it together with the password (<code>hash(salt + password)</code>), the defender forces the attacker to build a separate rainbow table for every single salt value, a cost multiplier that makes precomputation practically worthless.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>import hashlib
+import os
+
+def hash_password(password: str) -> tuple[bytes, bytes]:
+    """Generate a unique salt and derive a slow, salted hash via PBKDF2-HMAC-SHA256."""
+    salt = os.urandom(16)                      # 128-bit random salt, unique per user
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        600_000,                                # iteration count per NIST SP 800-63B guidance
+    )
+    return salt, derived_key
+
+def verify_password(password: str, salt: bytes, stored_key: bytes) -> bool:
+    """Re-derive the hash with the stored salt and compare in constant time."""
+    candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 600_000)
+    return hashlib.compare_digest(candidate, stored_key)   # timing-safe comparison
+
+# --- usage ---
+salt, stored_hash = hash_password("CorrectHorseBatteryStaple!2026")
+# Store (salt, stored_hash) in the database, NEVER store the plaintext password
+assert verify_password("CorrectHorseBatteryStaple!2026", salt, stored_hash)</code></pre>
+</div>
+
+<p>Note the use of <code>hashlib.compare_digest</code> rather than the standard <code>==</code> operator: a naive equality check short-circuits at the first mismatched byte, leaking timing information that an attacker can exploit in a <span class="annot">timing attack<span class="tip"><strong>Timing Attack</strong>A side-channel attack that infers secret information by precisely measuring how long an operation takes to execute. A naive byte-by-byte comparison of two hashes returns faster when the first byte mismatches than when the first ten bytes match, letting an attacker incrementally guess correct hash bytes purely from response-time measurements. <em>Constant-time comparison functions (Python's hmac.compare_digest, OpenSSL's CRYPTO_memcmp) always take the same amount of time regardless of where a mismatch occurs, closing this side channel.</em></span></span> to incrementally reconstruct the correct hash byte by byte. Constant-time comparison functions eliminate this timing side-channel entirely.</p>
+
+<h4>Purpose-Built Password KDFs: bcrypt, scrypt, and Argon2</h4>
+<p>While PBKDF2 (standardized in <span class="annot">NIST SP 800-132<span class="tip"><strong>NIST SP 800-132</strong>The NIST Special Publication that formally recommends PBKDF2 for deriving cryptographic keys from passwords, and specifies minimum iteration counts, salt lengths, and derived key lengths. <em>Published in 2010; iteration count recommendations are periodically revised upward as hardware grows faster, OWASP's 2023 guidance recommends 600,000+ iterations for PBKDF2-HMAC-SHA256.</em></span></span>) remains widely deployed, it has one structural weakness: it is computationally expensive but not memory-expensive, meaning an attacker can parallelize password-cracking attempts cheaply across thousands of GPU cores. <span class="annot">bcrypt<span class="tip"><strong>bcrypt</strong>A password-hashing function designed by Niels Provos and David Mazières in 1999, based on the Blowfish cipher's key schedule. bcrypt has a tunable "cost factor" that exponentially increases computation time, and includes a built-in salt. Its relatively low, fixed memory footprint makes it somewhat more GPU-parallelizable than scrypt or Argon2, but it remains a dramatic improvement over unsalted fast hashes. <em>Provos, N. &amp; Mazières, D. (1999). A Future-Adaptable Password Scheme. USENIX Annual Technical Conference.</em></span></span>, <span class="annot">scrypt<span class="tip"><strong>scrypt</strong>A password-based key derivation function designed by Colin Percival specifically to be "memory-hard", deliberately requiring large amounts of RAM in addition to CPU time, which makes building cheap parallel cracking hardware (ASICs, GPU farms) economically far less attractive than for PBKDF2 or bcrypt. <em>Originally designed for the Tarsnap backup service (2009); standardized in RFC 7914. Also used as the proof-of-work algorithm in Litecoin.</em></span></span>, and <span class="annot">Argon2<span class="tip"><strong>Argon2</strong>The winner of the 2015 Password Hashing Competition and the current best-practice recommendation for password storage. Argon2 offers tunable memory cost, time cost, and parallelism parameters, and comes in three variants: Argon2d (resistant to GPU cracking), Argon2i (resistant to side-channel attacks), and Argon2id (a hybrid, recommended default). <em>OWASP's Password Storage Cheat Sheet (2023) recommends Argon2id as the first choice for new systems, with bcrypt and scrypt as acceptable alternatives.</em></span></span> were each designed to close this gap by consuming significant memory alongside CPU cycles, directly attacking the economics of GPU- and ASIC-based cracking rigs. Current OWASP guidance recommends Argon2id as the default choice for new systems, reserving PBKDF2 primarily for environments constrained by FIPS 140-3 validation requirements.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: LinkedIn and Ransomware</h3>
+
+<h4>Case Study 5.3.1: The 2012 LinkedIn Breach, Unsalted SHA-1 at Scale</h4>
+<p>In June 2012, LinkedIn disclosed that approximately 6.5 million hashed passwords had been posted to a Russian hacking forum; subsequent investigation in 2016 revealed the true scope was closer to 167 million accounts. The root architectural failure was twofold, and both failures map directly onto the concepts introduced in this chapter. First, LinkedIn hashed passwords using bare <span class="annot">SHA-1<span class="tip"><strong>SHA-1</strong>A 160-bit cryptographic hash function standardized by NIST in 1995. SHA-1 was formally deprecated for security-critical use starting in 2011 (NIST SP 800-131A) and its collision resistance was practically broken in 2017 by Google and CWI Amsterdam's "SHAttered" attack, which produced two distinct PDF files with an identical SHA-1 hash. <em>FIPS 180-4 retains SHA-1 definition for legacy compatibility only; NIST formally disallows SHA-1 for digital signatures and TLS certificates as of 2016.</em></span></span>, a general-purpose, deliberately fast hash function never designed for password storage, rather than a slow, purpose-built KDF. Second, and more critically, the hashes were <span class="annot">unsalted<span class="tip"><strong>Unsalted Hash</strong>A password hash computed without a unique, per-user random salt value, meaning identical passwords across different user accounts always produce byte-for-byte identical hash outputs. This allows a single precomputed rainbow table to be reused against an entire stolen database simultaneously, rather than requiring per-user computation. <em>The absence of salting was the single largest architectural failure in the LinkedIn 2012 breach, it converted what should have been 167 million independent cracking problems into effectively one shared problem.</em></span></span>, meaning every account sharing the same password (a statistically enormous population, given how few unique passwords humans tend to choose) produced an identical hash value. Within days, security researchers and criminal groups alike had cracked the overwhelming majority of the dataset using off-the-shelf GPU rigs running standard dictionary and rainbow-table attacks, because a fast, unsalted SHA-1 hash offers essentially no meaningful resistance once an attacker has offline access to the database. LinkedIn's subsequent remediation, migrating to salted bcrypt hashing, is now the textbook example cited in nearly every password-storage postmortem.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Why a Leaked Hash File Keeps Causing Breaches at Other Companies</span>
+  The LinkedIn breach illustrates a property unique to hash leaks that differs from most other data breaches: because passwords are frequently reused across services, the damage from a cracked hash dataset extends far beyond the breached company itself. Years after the 2012 incident, cracked LinkedIn credentials were still being fed into <span class="annot">credential stuffing<span class="tip"><strong>Credential Stuffing</strong>An automated attack that takes username/password pairs leaked from one breach and tries them against many other unrelated websites, exploiting the fact that a large percentage of users reuse the same password across multiple services. <em>OWASP classifies credential stuffing as a top-10 automated threat (OAT-008). Defended against primarily via MFA and unique-password enforcement, not password complexity rules alone.</em></span></span> attacks against banking, retail, and email providers that had nothing to do with LinkedIn's original breach. This is precisely why salting and slow KDFs matter even for "low value" accounts: a weak hash anywhere becomes leverage everywhere.
+</div>
+
+<h4>Case Study 5.3.2: Ransomware's Deliberate Misuse of Symmetric Encryption</h4>
+<p>Modern <span class="annot">ransomware<span class="tip"><strong>Ransomware</strong>Malware that encrypts a victim's files and demands payment (typically cryptocurrency) in exchange for the decryption key. Ransomware is one of the only widespread, real-world offensive uses of strong, correctly implemented symmetric cryptography, the attacker exploits the fact that AES is mathematically unbreakable to make file recovery genuinely impossible without their cooperation. <em>MITRE ATT&amp;CK T1486 (Data Encrypted for Impact). Major families include LockBit, Conti, and REvil/Sodinokibi.</em></span></span> families such as LockBit and Conti represent a direct, adversarial application of exactly the cryptography this chapter teaches defensively. Rather than exploiting a weakness in AES, these campaigns exploit AES's very strength: they generate a random AES-256 session key per victim, use it to rapidly encrypt the victim's files (often in CBC or CTR mode for speed across large file volumes), and then encrypt that single AES session key itself with an attacker-held asymmetric public key before deleting the original from memory. This hybrid design, symmetric encryption for bulk speed, asymmetric encryption to protect the one small symmetric key, means that without the attacker's private key, file recovery is not merely difficult but mathematically infeasible; there is no flaw in AES-256 itself for defenders or law enforcement to exploit. The only realistic mitigations are preventative: offline, immutable backups (so encrypted files can simply be restored rather than decrypted) and blocking the initial access vector before encryption ever begins, since the cryptography itself, once correctly executed by the attacker, offers no exploitable weakness.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Ransomware Uses the Same AES You Do, Correctly</span>
+  Students sometimes assume that "strong encryption" is inherently a defensive good. Ransomware is the clearest counterexample in the entire curriculum: the same AES-256 that protects a hospital's patient records can just as easily be weaponized by the attacker who has already gained write access to those records. This reframes the real lesson of this chapter, the cryptographic algorithm is rarely the weak point. Key management, access control, and backup strategy are what actually determine whether encryption protects you or is turned against you.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. HSMs, Key Rotation, and Password Storage</h3>
+
+<p>Correctly selecting AES-256 and a salted, memory-hard KDF solves only half of the problem taught in this topic, the algorithms in isolation are only as strong as the practices surrounding <span class="annot">key management<span class="tip"><strong>Key Management</strong>The full lifecycle of cryptographic keys: secure generation, distribution, storage, rotation, and eventual destruction. Industry breach postmortems consistently show that key management failures, not algorithm weaknesses, are the dominant root cause of cryptographic incidents. <em>NIST SP 800-57 Part 1 provides the authoritative framework for key management lifecycle recommendations, including key length and rotation guidance by algorithm and use case.</em></span></span> the key itself. An organization's transaction columns can be protected with a mathematically flawless AES-256 cipher and still be catastrophically insecure if the encryption key sits in an application configuration file, a source code repository, or an environment variable readable by any process on the host. This is the exact failure mode implied by the Hooli scenario's remediation guidance: deploying "AES-256 symmetric keys and HSM storage" is presented as a single control precisely because the algorithm and its storage location are inseparable in practice.</p>
+
+<h4>1. Hardware Security Modules (HSMs)</h4>
+<p>A <span class="annot">Hardware Security Module (HSM)<span class="tip"><strong>HSM, Hardware Security Module</strong>A dedicated, tamper-resistant physical device (or cloud-hosted equivalent) purpose-built to generate, store, and use cryptographic keys without ever exposing the raw key material outside the device's protected boundary. Applications send data to the HSM to be encrypted or signed; the HSM performs the operation internally and returns only the result, the key itself never leaves. <em>Validated against FIPS 140-3 (or the older FIPS 140-2) at defined security levels. Physical tampering (drilling, probing, extreme temperature) triggers automatic key zeroization.</em></span></span> is a physically hardened appliance, or, increasingly, a cloud-hosted equivalent such as a <span class="annot">Key Management Service (KMS)<span class="tip"><strong>Key Management Service (KMS)</strong>A cloud provider's managed service for creating, storing, rotating, and controlling access to encryption keys, typically backed by FIPS 140-2/140-3 validated HSMs under the hood. Applications call the KMS API to encrypt/decrypt data or request a key, rather than handling raw key material directly. <em>Examples: AWS KMS, Azure Key Vault, Google Cloud KMS. All provide audit logging of every key-use event, satisfying compliance requirements for demonstrable key access control.</em></span></span>, designed so that raw key material is generated inside the device and never exported in plaintext form, even to administrators. Applications request cryptographic operations (encrypt, decrypt, sign) from the HSM rather than retrieving the key itself, so a compromised application server never actually possesses the key that protects its data. This design directly defeats the class of attack implied by "cryptographic audit sweeps" scanning for weak keys sitting exposed in application schemas.</p>
+
+<h4>2. Key Rotation and Lifecycle Management</h4>
+<p>NIST SP 800-57 recommends a defined <span class="annot">cryptoperiod<span class="tip"><strong>Cryptoperiod</strong>The defined span of time during which a specific cryptographic key is authorized for use before it must be retired and replaced with a new key. Limiting a key's lifetime bounds the damage of an eventual compromise (only data protected during that window is at risk) and limits the amount of ciphertext an attacker can collect under a single key for cryptanalysis. <em>NIST SP 800-57 Part 1 Rev. 5 provides recommended cryptoperiod tables by key type and use case (e.g., symmetric data-encryption keys typically 1–2 years).</em></span></span> for every symmetric key, after which it must be rotated. Automated key rotation, enforced by the HSM or KMS rather than a manual process, ensures that a single compromised key exposes only a bounded window of historical data rather than an organization's entire data history.</p>
+
+<h4>3. Layered Password Storage Hardening</h4>
+<ul>
+  <li>Hash with a memory-hard KDF (Argon2id preferred; bcrypt or PBKDF2-HMAC-SHA256 with 600,000+ iterations as acceptable alternatives).</li>
+  <li>Generate a unique, cryptographically random salt per credential, never a shared or hardcoded salt.</li>
+  <li>Store salt and hash together (the salt is not secret), but never store or log the plaintext password at any point in the pipeline.</li>
+  <li>Enforce mandatory multi-factor authentication so a cracked hash alone is insufficient for account takeover.</li>
+</ul>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">The Order in Which Symmetric Defenses Should Be Applied</span>
+  Hardening a system that stores sensitive transaction data is not a single decision but four, and they fail independently. <em>Algorithm and mode</em> comes first: AES-256 in an authenticated mode such as GCM, never DES or 3DES, never unauthenticated ECB. <em>Key custody</em> is second and is the layer that is most often skipped: keys generated inside and never exported from an HSM or a managed KMS, rather than embedded in application source or a configuration file, because a key sitting beside the ciphertext it protects is decoration. <em>Credential storage</em> is third and is a separate problem entirely, solved by a salted memory-hard derivation function rather than by encryption, since a password never needs to be read back. <em>Lifecycle</em> is fourth: a defined cryptoperiod, an automated rotation path, and a destruction procedure for retired key material. An assessment that names a strong cipher and stops has addressed one layer of four, and the remaining three are where most real breaches occur.
+</div>
+
+<p>Applied to the Hooli scenario introduced at the start of this unit: the syslog trace <code>Crypt-Scan: Weak DES cipher key discovered in active schema</code> on host 10.0.0.42 indicates a legacy 56-bit DES key still protecting a live transaction column. The correct remediation sequence is to isolate the affected segment, re-encrypt the underlying data under a freshly generated AES-256 key issued and held by an HSM or KMS, securely destroy the retired DES key material, and configure SOC detection rules that alert on any future cryptographic audit sweep discovering deprecated cipher suites (DES, 3DES, RC4, or unsalted MD5/SHA-1 password hashes) anywhere in the environment.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2001). Advanced Encryption Standard (AES). FIPS PUB 197.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2015). Secure Hash Standard (SHS). FIPS PUB 180-4.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2017). Digital Identity Guidelines: Authentication and Lifecycle Management. NIST SP 800-63B.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2010). Recommendation for Password-Based Key Derivation. NIST SP 800-132.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2020). Recommendation for Key Management: Part 1, General (Rev. 5). NIST SP 800-57.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2016). Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC. NIST SP 800-38D.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2019). Security Requirements for Cryptographic Modules. FIPS PUB 140-3.</li><li style='margin-bottom: 12px; text-align: justify;'>Shannon, C. E. (1949). Communication theory of secrecy systems. Bell System Technical Journal, 28(4), 656–715.</li><li style='margin-bottom: 12px; text-align: justify;'>Provos, N., &amp; Mazières, D. (1999). A future-adaptable password scheme. Proceedings of the USENIX Annual Technical Conference.</li><li style='margin-bottom: 12px; text-align: justify;'>Percival, C. (2009). Stronger key derivation via sequential memory-hard functions. RFC 7914 (scrypt).</li><li style='margin-bottom: 12px; text-align: justify;'>Biryukov, A., Dinu, D., &amp; Khovratovich, D. (2016). Argon2: The memory-hard function for password hashing and other applications. Password Hashing Competition.</li><li style='margin-bottom: 12px; text-align: justify;'>OWASP Foundation. (2023). Password Storage Cheat Sheet. owasp.org.</li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1: Explain the mathematical and practical distinction between encryption and hashing, and describe a real-world scenario in which confusing the two led to a security failure.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+      <div class="solution-content" id="sol-1">
+        <p>Encryption is a reversible transformation: ciphertext produced by a symmetric algorithm such as AES can always be converted back into the original plaintext given the correct key. Hashing, by contrast, is a deliberately one-way function, a cryptographic hash such as SHA-256 produces a fixed-length digest with no corresponding decryption operation; recovering the original input requires guessing candidate inputs and re-hashing them (a brute-force or dictionary/rainbow-table attack), not mathematically inverting the function itself. This distinction dictates appropriate use: data that must later be read back in its original form (a file, a database record) should be encrypted; data that only needs to be verified, never recovered (a password), should be hashed with a slow, salted key derivation function.
+
+Confusing the two has produced real security failures. Systems that "encrypt" passwords so they can later be decrypted and shown to users create an unnecessary and dangerous capability, anyone who compromises the encryption key (or the application itself) can recover every plaintext password at once. The correct design stores only a salted hash, from which the original password can never be recovered, even by the system's own operators.</p>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2: A security audit discovers that a database of user password hashes was stolen. The passwords were hashed using unsalted SHA-1. Explain why this configuration is critically weak and describe the specific remediation steps required, referencing the LinkedIn 2012 breach.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+      <div class="solution-content" id="sol-2">
+        <p>This configuration fails on two independent axes. First, SHA-1 is a general-purpose cryptographic hash function designed to be computationally fast, which is desirable for integrity-checking large files but catastrophic for password storage: a fast hash allows an attacker with commodity GPU hardware to test billions of password guesses per second against the stolen database. Second, and more severely, the hashes are unsalted, meaning that any two users who chose the identical password produce byte-for-byte identical hash values. This allows an attacker to use a single precomputed rainbow table against the entire stolen dataset simultaneously, rather than needing to attack each hash independently.
+
+This exact failure occurred in the 2012 LinkedIn breach, where approximately 167 million unsalted SHA-1 password hashes were exposed; the overwhelming majority were cracked within days using standard dictionary and rainbow-table techniques. Because password reuse across services is common, cracked credentials continued to enable credential-stuffing attacks against unrelated platforms for years afterward.
+
+Correct remediation requires: (1) migrating to a purpose-built, memory-hard key derivation function such as Argon2id or bcrypt, which is deliberately slow and resistant to GPU parallelization; (2) generating a unique, cryptographically random salt per user and storing it alongside (not instead of) the hash; (3) forcing a password reset for all affected accounts, since the original hashes cannot be "upgraded" without knowing the plaintext password; and (4) enforcing multi-factor authentication so that a cracked hash alone is insufficient for account takeover.</p>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3: Compare AES's Electronic Codebook (ECB) and Galois/Counter Mode (GCM) modes of operation. Why is a mathematically strong cipher like AES still considered insecure when used in ECB mode, and what additional property does GCM provide?</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+      <div class="solution-content" id="sol-3">
+        <p>A block cipher such as AES only defines how to transform a single fixed-size block of data (128 bits); a mode of operation specifies how to apply that transformation across messages spanning many blocks. In Electronic Codebook (ECB) mode, each block is encrypted independently under the same key with no chaining between blocks. This means that identical plaintext blocks always produce identical ciphertext blocks, allowing structural patterns present in the original data to leak directly into the ciphertext, famously demonstrated by the "ECB Penguin," an encrypted bitmap in which the penguin's silhouette remains visible. The underlying cipher (AES) is not mathematically broken in this scenario; the failure lies entirely in the mode of operation chosen to apply it, which is why ECB is explicitly discouraged by NIST SP 800-38A for any data exhibiting repetitive structure.
+
+Galois/Counter Mode (GCM) addresses this weakness in two ways. First, it uses a counter-based construction (derived from CTR mode) combined with a per-message nonce, ensuring that identical plaintext blocks never produce identical ciphertext under repeated encryption operations. Second, and more significantly, GCM is an authenticated encryption mode: it produces a cryptographic authentication tag alongside the ciphertext in the same operational pass, so that any tampering with the ciphertext during transmission or storage causes decryption to fail rather than silently returning corrupted or attacker-modified plaintext. This combination of confidentiality and integrity in a single efficient construction is why AES-GCM is the default cipher suite in TLS 1.3 and is required for authenticated encryption use cases under FIPS 140-3 validated cryptographic modules.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="review-questions">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1 <span class="ap-code">5.3.A</span>, A company enables full-disk encryption on every laptop and reports to its board that customer records are now protected against theft. An auditor objects. Which objection is the most technically accurate?</div>
+      <ol type="A">
+        <li>Full-disk encryption is ineffective because AES-256 has been weakened by published cryptanalysis.</li>
+        <li>Full-disk encryption protects data only while the volume is locked; on a running, unlocked machine the key is resident in memory and every file is readable by any process or user with sufficient privilege, so it does nothing against malware, a compromised account, or an insider.</li>
+        <li>Full-disk encryption is redundant once filesystem permissions are configured correctly.</li>
+        <li>Full-disk encryption cannot be used together with database-column encryption, so one must be chosen.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2 <span class="ap-code">5.3.B</span>, A developer encrypts each record in a customer table with AES-128 in ECB mode under one application-wide key. An analyst examining the raw ciphertext column notices that thousands of rows share an identical 16-byte value in the same position. What has been disclosed, and why?</div>
+      <ol type="A">
+        <li>Nothing has been disclosed; identical ciphertext blocks are expected behaviour in any correctly implemented cipher.</li>
+        <li>The key has been disclosed, because repeated ciphertext blocks can be solved directly for the AES key.</li>
+        <li>Equality of plaintext has been disclosed: ECB is a deterministic map from block to block under a fixed key, so identical ciphertext blocks prove those records hold identical plaintext in that position, for a field such as a state code, salary band, or diagnosis, that is a meaningful leak without any key recovery.</li>
+        <li>The initialization vector has been disclosed, allowing an attacker to decrypt the first block of each record.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3 <span class="ap-code">5.3.B</span>, A backup service encrypts each nightly archive with AES-256-GCM. To simplify its code, it derives the 96-bit nonce from the archive's filename, which is constant for the daily job. Which consequence follows?</div>
+      <ol type="A">
+        <li>Nothing serious; GCM nonces are public values and may safely repeat.</li>
+        <li>Reusing a nonce under one key in GCM is catastrophic: the identical keystream lets an attacker recover the exclusive-OR of two plaintexts, and it additionally exposes the GHASH authentication subkey, which permits forging valid tags for chosen ciphertexts.</li>
+        <li>Decryption will fail, because GCM refuses to decrypt when a nonce has been used before.</li>
+        <li>Confidentiality is lost but authenticity is preserved, since the tag is computed over the ciphertext.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 4 <span class="ap-code">5.3.B</span>, Which of the following correctly describes the role of a salt in password storage?</div>
+      <ol type="A">
+        <li>The salt is a secret second key that must be stored separately from the hash and protected in an HSM.</li>
+        <li>The salt slows down each individual hash computation, which is what defeats GPU cracking.</li>
+        <li>The salt is a unique, non-secret per-credential value that makes every stored digest distinct even for identical passwords, so precomputed tables are useless and each credential must be attacked separately; the slowdown against GPUs comes from the work factor of the derivation function, not from the salt.</li>
+        <li>The salt encrypts the password before hashing, so the plaintext can be recovered for password-reminder features.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 5 <span class="ap-code">5.3.A</span>, An organization stores archived financial records encrypted with AES-256 and keeps the key in a file on the same server, readable by the service account that runs the archiving application. Which statement best evaluates this design?</div>
+      <ol type="A">
+        <li>It is sound, because AES-256 is not brute-forceable within any practical time.</li>
+        <li>It is sound provided the key file's permissions are set to owner-read-only.</li>
+        <li>The encryption is effective only against an adversary who obtains the storage medium without the operating system, a stolen disk or a discarded backup tape. Against any adversary who reaches the running host as that service account, the control provides no protection, because it hands over the key and the ciphertext in the same step.</li>
+        <li>The design is stronger than an HSM, since a local key file avoids network latency in the decryption path.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 6 <span class="ap-code">5.3.B</span>, A team must protect a configuration file so that it can be read back at runtime, and must also store the administrator passwords used to log in to the tool. Which pairing of mechanisms is correct?</div>
+      <ol type="A">
+        <li>Encrypt both, so that either value can be recovered if it is ever needed.</li>
+        <li>Hash both, so that neither value can ever be recovered by an attacker.</li>
+        <li>Encrypt the configuration file with an authenticated mode, and store the passwords as salted digests from a memory-hard derivation function, because the file must be recovered in original form while a password only ever needs to be verified.</li>
+        <li>Hash the configuration file and encrypt the passwords, so that the file cannot be tampered with and the passwords can be displayed to administrators who forget them.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 1 <span class="ap-code">5.3.A</span>, A hospital encrypts its patient-records database at rest with AES-256 and is subsequently breached: an attacker phishes a clinician, obtains that clinician's workstation session, and exfiltrates 40,000 records through the application's own reporting screen. Explain precisely what the encryption was protecting against, why it did not engage here, and what additional controls would have addressed this specific path. Then state what the encryption still bought the hospital.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 2 <span class="ap-code">5.3.B</span>, You are reviewing a routine that encrypts a document with AES-256-CBC. The code derives the key by taking the SHA-256 digest of a passphrase typed by the user, uses a fixed initialization vector of sixteen zero bytes, and writes the ciphertext to disk with nothing else. Identify each defect, explain the concrete consequence of each, and describe the corrected construction, naming the specific primitives you would use.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">5.3.A</span>
+      <p class="key-why">Stating what a control protects against means naming the moment it is doing work. Full-disk encryption is doing work exactly while the volume is locked, which in practice means while the machine is powered off or hibernated; that is a real and valuable threat model, covering the stolen laptop and the disposed drive. Once the volume is unlocked the key is in memory and the filesystem presents plaintext to every authorized read, so malware running as the user, or the user themselves, sees the data unchanged. <strong>A</strong> is false: AES-256 has no practically exploitable break, and inventing one obscures the real limitation. <strong>C</strong> confuses two controls that address different adversaries, permissions govern a running system, encryption governs an offline medium. <strong>D</strong> is simply untrue; layering volume encryption under column encryption is a common and sensible design.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. C</span><span class="key-lo">5.3.B</span>
+      <p class="key-why">ECB applies the block cipher to each block independently under the same key, so it is a deterministic function from plaintext block to ciphertext block. An adversary who never recovers the key can still partition the table into equivalence classes of equal plaintext, and where the field has low entropy that partition frequently identifies the value outright. This is the same failure that makes the encrypted penguin image recognizable, restated for a database column. <strong>A</strong> reverses the requirement: a correct construction is randomized, so identical plaintexts should <em>not</em> produce identical ciphertexts. <strong>B</strong> invents a key-recovery attack that does not exist; the leak is structural, not algebraic. <strong>D</strong> misreads the mode, ECB has no IV at all, which is precisely the defect.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. B</span><span class="key-lo">5.3.B</span>
+      <p class="key-why">GCM builds its keystream by encrypting a counter seeded from the nonce. Repeat the nonce under the same key and the identical keystream encrypts two different messages, so the exclusive-OR of the ciphertexts equals the exclusive-OR of the plaintexts and structured data falls out directly. Worse, nonce reuse leaks information about the polynomial evaluated by GHASH, and published forbidden-attack results show this yields the authentication subkey and therefore the ability to forge tags. This is why NIST SP 800-38D imposes a uniqueness requirement on the nonce rather than a secrecy one. <strong>A</strong> is right that nonces are public and wrong that they may repeat; the two properties are independent. <strong>C</strong> attributes to GCM a replay-detection behaviour it does not have, nothing in the mode remembers previous nonces. <strong>D</strong> is the most tempting distractor and the one worth arguing against explicitly: authenticity fails harder than confidentiality here, because tag forgery becomes possible.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. C</span><span class="key-lo">5.3.B</span>
+      <p class="key-why">Salt and work factor are two controls solving two problems, and the frequent error is to credit one with the other's effect. The salt defeats amortization: a precomputed table or a single guess tested against a whole stolen file only works when equal passwords give equal digests, and a unique salt per credential destroys that. The work factor, bcrypt cost, Argon2 time and memory parameters, is what makes each individual guess expensive. <strong>A</strong> describes a pepper, a genuinely secret site-wide value, which is a different and optional control; salts are stored in the clear beside the digest. <strong>B</strong> assigns the work factor's job to the salt. <strong>D</strong> misdescribes the operation entirely and proposes a password-reminder feature that no correct design can support.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. C</span><span class="key-lo">5.3.A</span>
+      <p class="key-why">The question is not whether AES is strong but whether the key is separated from the ciphertext by any boundary the attacker must cross twice. Here it is not: one compromise of the service account yields both. The encryption therefore reduces to media protection, which is genuine value, a decommissioned disk or a stolen backup tape is unreadable, but it must be reported as such rather than as protection of the records generally. An HSM or KMS restores the separation by performing the decryption without ever releasing the key, so a compromise of the host yields an oracle that can be rate-limited, logged, and revoked instead of a permanent secret. <strong>A</strong> answers a cryptanalytic question nobody asked. <strong>B</strong> mistakes a permission bit for a trust boundary; the service account is exactly the identity the attacker obtains. <strong>D</strong> trades the entire security property for latency.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. C</span><span class="key-lo">5.3.B</span>
+      <p class="key-why">The selection rule follows from recoverability. The configuration file must be produced again in its original bytes, so it needs a reversible transformation with a key, and it should be an authenticated mode so that tampering fails loudly rather than yielding corrupted settings. A password is only ever compared against a fresh submission, so it needs no recovery path and must not have one. <strong>A</strong> creates a decryptable password store, meaning one key compromise discloses every credential. <strong>B</strong> makes the configuration file unusable, since a digest cannot be turned back into settings. <strong>D</strong> inverts both halves and then justifies the inversion with a password-reminder feature that is itself the defect.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 1</span><span class="key-lo">5.3.A</span>
+      <p class="key-why"><strong>Model response.</strong> Encryption at rest defends a single, narrow adversary: one who obtains the stored bytes without also obtaining an authorized session on the running system. That is the stolen or improperly disposed drive, the copied backup file, the storage array returned to a vendor under warranty. It did not engage in this incident because the database was mounted and the engine held the key; the attacker arrived through the front door as an authenticated clinician, and every read they performed was decrypted for them by the system exactly as it would have been for the legitimate user. The reporting screen returned plaintext because it is supposed to. The controls that address this path are authorization and monitoring rather than cryptography: least-privilege scoping so a single clinical account cannot enumerate 40,000 records; phishing-resistant multi-factor authentication so a stolen password or session is not sufficient; rate limits and volume thresholds on bulk export; and alerting on a query pattern that departs from the account's baseline. What the encryption still bought the hospital is real but bounded, the disks, the snapshots, and the offsite backups remain unreadable to anyone who obtains them, and in most jurisdictions that materially changes the notification exposure for those media. <em>Grader look-fors:</em> names the specific adversary encryption addresses; states that an authorized session receives plaintext by design; proposes at least two controls on the actual path, drawn from authorization or detection rather than cryptography; concedes the residual value of the encryption instead of dismissing it.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 2</span><span class="key-lo">5.3.B</span>
+      <p class="key-why"><strong>Model response.</strong> Three defects, each independent. First, the key is a single unsalted SHA-256 of the passphrase. SHA-256 is fast by design, so an attacker holding the ciphertext can test billions of candidate passphrases per second on commodity hardware, and because there is no salt the same passphrase yields the same key for every user, so one cracked passphrase unlocks every file that used it and precomputation across the whole population is viable. The correct primitive is a password-based derivation function with a deliberate cost, Argon2id, or PBKDF2-HMAC-SHA256 with a high iteration count where a NIST SP 800-132 conformant construction is required, seeded with a fresh random salt of at least sixteen bytes from a cryptographically secure generator such as Python's <code>secrets.token_bytes</code>. Second, the fixed all-zero IV destroys CBC's randomization. Two documents encrypted under the same passphrase that begin with the same bytes produce identical leading ciphertext blocks, revealing shared prefixes and, for structured formats with a fixed header, revealing that two files are of the same type or the same template. CBC additionally requires the IV to be unpredictable, not merely unique, so it must be drawn at random per encryption and stored alongside the ciphertext, where it is not secret. Third, nothing authenticates the output. CBC is malleable: an attacker who cannot read the file can still flip bits in one ciphertext block to make controlled changes in the next plaintext block, and the routine will decrypt the altered file without complaint. The corrected construction stores salt, IV or nonce, and ciphertext together in a defined format, and replaces raw CBC with AES-256-GCM, a single pass giving confidentiality and a tag whose verification failure aborts decryption, or, if CBC must be retained, adds an encrypt-then-MAC layer with HMAC-SHA256 over the IV and ciphertext under a separately derived key, verified with a constant-time comparison such as <code>hmac.compare_digest</code>. <em>Grader look-fors:</em> identifies all three defects separately; explains the consequence of each rather than merely labelling it bad; names a real derivation function and a real authenticated mode; states that salt and IV are stored in the clear; mentions constant-time comparison or the tag-before-plaintext rule if encrypt-then-MAC is chosen.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager">
+  <a class="prev" href="../5.2/notes.html"><span class="pager-label">Previous</span>&larr; Linux Permission Controls</a>
+  <a class="next" href="../5.4/notes.html"><span class="pager-label">Next</span>Asymmetric Cryptography &rarr;</a>
+</nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

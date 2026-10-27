@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI analyzing code for vulnerabilities, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>AI analyzing code for vulnerabilities  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.5.b: AI analyzing code for vulnerabilities</h1>
+<p><strong>Skill:</strong> Detect Attacks, Collaborate · <strong>Maps to:</strong> 1.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the pattern-matching core of an AI code security scanner. Given a string of Python source
+code, return a sorted list of vulnerability tags for every dangerous pattern found. This is the
+rule-evaluation layer that tools like Bandit and Semgrep implement under the hood.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(code: str) -&gt; list[str]</code> in the code editor (see the Reference section below).
+Return a sorted, de-duplicated list of finding tag strings.</p>
+<h2>Input</h2>
+<p>A single string, the entire source code to scan. May be multi-line or empty.</p>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of vulnerability tags drawn from:
+- <code>"vuln:eval"</code>
+- <code>"vuln:hardcoded_password"</code>
+- <code>"vuln:md5"</code>
+- <code>"vuln:os_system"</code>
+- <code>"vuln:pickle_loads"</code>
+- <code>"vuln:subprocess_shell"</code></p>
+<h2>Examples</h2>
+<pre><code>'result = eval(user_input)'
+    -&gt; [&quot;vuln:eval&quot;]
+
+'os.system(&quot;ls &quot; + path)\nsubprocess.run(cmd, shell=True)'
+    -&gt; [&quot;vuln:os_system&quot;, &quot;vuln:subprocess_shell&quot;]
+
+'import hashlib\nhashlib.md5(data)\npickle.loads(blob)'
+    -&gt; [&quot;vuln:md5&quot;, &quot;vuln:pickle_loads&quot;]
+
+'x = 1 + 2'
+    -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li><code>password =</code> matching is case-insensitive; all other patterns are case-sensitive.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(code: str) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>code</code>)</h3>
+<p>A single string containing Python source code to scan. May be multi-line. May be empty.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of vulnerability finding tags. Return <code>[]</code> if no
+patterns are found.</p>
+<h3>Pattern rule set (case-sensitive substring search unless noted)</h3>
+<table>
+<thead>
+<tr>
+<th>Tag returned</th>
+<th>Trigger substring</th>
+<th>Vulnerability class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"vuln:eval"</code></td>
+<td><code>eval(</code></td>
+<td>Code injection via eval</td>
+</tr>
+<tr>
+<td><code>"vuln:os_system"</code></td>
+<td><code>os.system(</code></td>
+<td>OS command injection</td>
+</tr>
+<tr>
+<td><code>"vuln:subprocess_shell"</code></td>
+<td><code>shell=True</code></td>
+<td>OS command injection via subprocess</td>
+</tr>
+<tr>
+<td><code>"vuln:md5"</code></td>
+<td><code>md5(</code></td>
+<td>Broken cryptographic hash (MD5)</td>
+</tr>
+<tr>
+<td><code>"vuln:pickle_loads"</code></td>
+<td><code>pickle.loads(</code></td>
+<td>Unsafe deserialization</td>
+</tr>
+<tr>
+<td><code>"vuln:hardcoded_password"</code></td>
+<td><code>password =</code></td>
+<td>Hardcoded credential in source</td>
+</tr>
+</tbody>
+</table>
+<p>Notes:
+- <code>password =</code> matching is case-insensitive (matches <code>Password =</code>, <code>PASSWORD =</code>, etc.).
+- All other patterns are case-sensitive (Python identifiers are case-sensitive).
+- A single line may trigger multiple tags if multiple patterns are present.
+- Comments are NOT excluded, a dangerous call inside a comment still triggers the tag.
+  (In practice, AST-based tools skip comments; here we use substring scan for transparency.)</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Output always sorted ascending (lexicographic) and de-duplicated.</li>
+<li><code>solve("")</code> returns <code>[]</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.5.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List
+
+# Each rule: (tag, trigger_string, case_sensitive)
+RULES = [
+    ("vuln:eval",                "eval(",        True),
+    ("vuln:hardcoded_password",  "password =",   False),  # case-insensitive
+    ("vuln:md5",                 "md5(",         True),
+    ("vuln:os_system",           "os.system(",   True),
+    ("vuln:pickle_loads",        "pickle.loads(", True),
+    ("vuln:subprocess_shell",    "shell=True",   True),
+]
+
+
+def solve(code: str) -&gt; List[str]:
+    """Return sorted, de-duplicated vulnerability tags for dangerous patterns in Python source."""
+    if not code:
+        return []
+    findings = set()
+    for tag, trigger, case_sensitive in RULES:
+        haystack = code if case_sensitive else code.lower()
+        needle = trigger if case_sensitive else trigger.lower()
+        if needle in haystack:
+            findings.add(tag)
+    return sorted(findings)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import os
+
+
+# ---- visible cases -------------------------------------------------------
+def test_eval_only():
+    assert impl.solve("result = eval(user_input)") == ["vuln:eval"]
+
+
+def test_os_system_and_shell_true():
+    code = 'os.system("ls " + path)\nsubprocess.run(cmd, shell=True)'
+    assert impl.solve(code) == ["vuln:os_system", "vuln:subprocess_shell"]
+
+
+def test_md5_and_pickle():
+    code = "import hashlib\nhashlib.md5(data)\npickle.loads(blob)"
+    assert impl.solve(code) == ["vuln:md5", "vuln:pickle_loads"]
+
+
+def test_clean_code():
+    assert impl.solve("x = 1 + 2\nprint(x)") == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_empty_string():
+    assert impl.solve("") == []
+
+
+def test_hardcoded_password_lowercase():
+    assert impl.solve('password = "secret123"') == ["vuln:hardcoded_password"]
+
+
+def test_hardcoded_password_mixed_case():
+    assert impl.solve('Password = "abc"') == ["vuln:hardcoded_password"]
+
+
+def test_hardcoded_password_uppercase():
+    assert impl.solve('PASSWORD = "abc"') == ["vuln:hardcoded_password"]
+
+
+def test_all_patterns():
+    code = (
+        "eval(x)\n"
+        "os.system(cmd)\n"
+        "subprocess.run(args, shell=True)\n"
+        "hashlib.md5(data)\n"
+        "pickle.loads(blob)\n"
+        'password = "pw"\n'
+    )
+    assert impl.solve(code) == [
+        "vuln:eval",
+        "vuln:hardcoded_password",
+        "vuln:md5",
+        "vuln:os_system",
+        "vuln:pickle_loads",
+        "vuln:subprocess_shell",
+    ]
+
+
+def test_dedup():
+    code = "eval(a)\neval(b)\neval(c)"
+    result = impl.solve(code)
+    assert result == sorted(set(result))
+    assert result == ["vuln:eval"]
+
+
+def test_sorted_output():
+    code = "pickle.loads(x)\neval(y)"
+    result = impl.solve(code)
+    assert result == sorted(result)
+
+
+def test_no_false_positive_md5_variable():
+    # "md5_value" does not contain "md5(" so should not trigger
+    assert impl.solve("md5_value = compute_hash()") == []
+
+
+def test_shell_false_not_flagged():
+    # shell=False is not dangerous — should not trigger
+    assert impl.solve("subprocess.run(cmd, shell=False)") == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

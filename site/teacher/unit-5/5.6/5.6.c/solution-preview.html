@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digital evidence analysis and attack classification, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Digital evidence analysis and attack classification  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.6.c: Attack classifier (evidence -&gt; category)</h1>
+<p><strong>Skill:</strong> Detect Attacks, Collaborate · <strong>Maps to:</strong> 5.6.B, 5.6.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Formalize the analyst reasoning process from the lesson: given a bundle of evidence indicators
+collected during an investigation, score each known attack category by how many of its
+indicators are present, and return the best-supported classification.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(indicators: list) -&gt; str</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>indicators</code>: <code>list[str]</code> of evidence tags (may contain duplicates).</p>
+<h2>Known indicator-to-category mapping</h2>
+<ul>
+<li><code>"brute-force"</code>: <code>multiple_401_responses</code>, <code>single_source_ip</code>, <code>many_usernames_targeted</code>,
+  <code>credential_guessing_pattern</code></li>
+<li><code>"sql-injection"</code>: <code>sql_meta_characters_in_request</code>, <code>database_error_in_response</code>,
+  <code>union_select_pattern</code>, <code>unexpected_query_result_size</code></li>
+<li><code>"malware"</code>: <code>known_malware_file_hash</code>, <code>unexpected_process_spawned</code>,
+  <code>outbound_c2_connection</code>, <code>persistence_mechanism_installed</code></li>
+<li><code>"phishing"</code>: <code>suspicious_email_attachment</code>, <code>credential_harvesting_url</code>,
+  <code>spoofed_sender_domain</code>, <code>user_reported_suspicious_email</code></li>
+</ul>
+<h2>Output</h2>
+<p><code>str</code>, the category with the most matching indicators (as a set; duplicates don't add extra
+weight). Ties go to the alphabetically first tied category. <code>"unknown"</code> if nothing matches.</p>
+<h2>Examples</h2>
+<pre><code>[&quot;multiple_401_responses&quot;, &quot;single_source_ip&quot;]  -&gt;  &quot;brute-force&quot;
+[&quot;server_restarted&quot;]                             -&gt;  &quot;unknown&quot;
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(indicators: list) -&gt; str
+</code></pre>
+<h3>Input (<code>indicators</code>)</h3>
+<p><code>list[str]</code>, evidence tags collected during an investigation. May contain duplicates (treated
+as a set, duplicates do not increase a category's score).</p>
+<h3>Known indicator-to-category mapping</h3>
+<ul>
+<li><code>"brute-force"</code>: <code>multiple_401_responses</code>, <code>single_source_ip</code>, <code>many_usernames_targeted</code>,
+  <code>credential_guessing_pattern</code></li>
+<li><code>"sql-injection"</code>: <code>sql_meta_characters_in_request</code>, <code>database_error_in_response</code>,
+  <code>union_select_pattern</code>, <code>unexpected_query_result_size</code></li>
+<li><code>"malware"</code>: <code>known_malware_file_hash</code>, <code>unexpected_process_spawned</code>,
+  <code>outbound_c2_connection</code>, <code>persistence_mechanism_installed</code></li>
+<li><code>"phishing"</code>: <code>suspicious_email_attachment</code>, <code>credential_harvesting_url</code>,
+  <code>spoofed_sender_domain</code>, <code>user_reported_suspicious_email</code></li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>str</code>, the category name whose known indicators appear most often (as a set) in <code>indicators</code>.
+Ties are broken by choosing the alphabetically first category among the tied leaders. If no
+indicator in the input matches any known category, return <code>"unknown"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Indicators outside the known mapping are ignored (they contribute to no category's score).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.6.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List
+
+# Known indicators per attack category (case-insensitive exact match against evidence tags).
+_CATEGORY_INDICATORS = {
+    "brute-force": {
+        "multiple_401_responses",
+        "single_source_ip",
+        "many_usernames_targeted",
+        "credential_guessing_pattern",
+    },
+    "sql-injection": {
+        "sql_meta_characters_in_request",
+        "database_error_in_response",
+        "union_select_pattern",
+        "unexpected_query_result_size",
+    },
+    "malware": {
+        "known_malware_file_hash",
+        "unexpected_process_spawned",
+        "outbound_c2_connection",
+        "persistence_mechanism_installed",
+    },
+    "phishing": {
+        "suspicious_email_attachment",
+        "credential_harvesting_url",
+        "spoofed_sender_domain",
+        "user_reported_suspicious_email",
+    },
+}
+
+
+def solve(indicators: List[str]) -&gt; str:
+    """Classify an evidence bundle by scoring each category's matching indicator count.
+
+    Returns the category name with the highest score. Ties are broken by choosing the
+    alphabetically first category among the tied leaders. If no indicator matches any
+    known category, returns "unknown".
+    """
+    evidence = set(indicators)
+    scores = {
+        category: len(evidence &amp; known_indicators)
+        for category, known_indicators in _CATEGORY_INDICATORS.items()
+    }
+    best_score = max(scores.values())
+    if best_score == 0:
+        return "unknown"
+    winners = sorted(cat for cat, score in scores.items() if score == best_score)
+    return winners[0]
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_clear_brute_force():
+    indicators = ["multiple_401_responses", "single_source_ip", "many_usernames_targeted"]
+    assert impl.solve(indicators) == "brute-force"
+
+
+def test_clear_sql_injection():
+    indicators = ["sql_meta_characters_in_request", "database_error_in_response"]
+    assert impl.solve(indicators) == "sql-injection"
+
+
+def test_clear_malware():
+    indicators = ["known_malware_file_hash", "outbound_c2_connection", "persistence_mechanism_installed"]
+    assert impl.solve(indicators) == "malware"
+
+
+def test_clear_phishing():
+    indicators = ["suspicious_email_attachment", "credential_harvesting_url", "spoofed_sender_domain"]
+    assert impl.solve(indicators) == "phishing"
+
+
+def test_no_matching_indicators_unknown():
+    indicators = ["server_restarted", "disk_space_low"]
+    assert impl.solve(indicators) == "unknown"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_mixed_weak_signals_highest_score_wins():
+    indicators = [
+        "multiple_401_responses",           # brute-force: 1
+        "sql_meta_characters_in_request",   # sql-injection: 1
+        "database_error_in_response",       # sql-injection: 2
+        "union_select_pattern",             # sql-injection: 3
+    ]
+    assert impl.solve(indicators) == "sql-injection"
+
+
+def test_tie_broken_alphabetically():
+    indicators = ["multiple_401_responses", "known_malware_file_hash"]
+    # brute-force: 1, malware: 1 -&gt; alphabetically "brute-force" &lt; "malware"
+    assert impl.solve(indicators) == "brute-force"
+
+
+def test_empty_indicators_unknown():
+    assert impl.solve([]) == "unknown"
+
+
+def test_unrelated_indicators_ignored():
+    indicators = ["unexpected_process_spawned", "server_restarted", "disk_space_low"]
+    assert impl.solve(indicators) == "malware"
+
+
+def test_duplicate_indicators_not_double_counted():
+    indicators = ["multiple_401_responses", "multiple_401_responses", "known_malware_file_hash"]
+    # brute-force: 1 (deduped), malware: 1 -&gt; tie broken alphabetically
+    assert impl.solve(indicators) == "brute-force"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

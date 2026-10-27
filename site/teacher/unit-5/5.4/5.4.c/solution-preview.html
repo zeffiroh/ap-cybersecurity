@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digital signatures, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Digital signatures  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.4.c: Implement RSA digital signatures (hash-then-sign)</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A software vendor wants to let users verify that a downloaded update really came from them and
+was not modified in transit. Rather than signing the whole update file directly with RSA (slow,
+and structurally risky per atom.md), implement the standard "hash, then sign" digital signature
+scheme: hash the message with SHA-256, reduce the digest mod n, and apply the RSA private-key
+operation to that digest, not the raw message.</p>
+<h2>Function contract</h2>
+<p>Implement, in the code editor:
+- <code>sign(message: bytes, d: int, n: int) -&gt; int</code>, return the signature
+  <code>(SHA-256(message) mod n)^d mod n</code>, using the signer's private exponent <code>d</code> and modulus <code>n</code>.
+- <code>verify(message: bytes, signature: int, e: int, n: int) -&gt; bool</code>, recompute
+  <code>SHA-256(message) mod n</code> and compare it to <code>signature^e mod n</code>, using the signer's public
+  exponent <code>e</code> and modulus <code>n</code>. Return <code>True</code> iff they match.
+- <code>solve(data: dict) -&gt; dict</code>, the blackbox entry point that dispatches to the two functions
+  above (see the Reference section below).</p>
+<p>You may use <code>hashlib.sha256</code> for the hash step only. Implement the digest-reduction and the
+modular exponentiation (<code>pow(base, exp, mod)</code> is fine, it's Python's built-in, not an external
+crypto library) yourself, per the construction below.</p>
+<h2>The construction</h2>
+<pre><code>digest        = int.from_bytes(SHA256(message).digest(), &quot;big&quot;) % n
+sign:         signature = digest^d mod n
+verify:       recovered = signature^e mod n     ; valid iff recovered == digest (recomputed)
+</code></pre>
+<ul>
+<li>Hashing first keeps the signature a fixed size regardless of message length, and means a
+  single changed byte in <code>message</code> produces a completely different digest (avalanche effect,
+  5.3.b), which is what makes tampering detectable.</li>
+<li><code>d</code> and <code>n</code> form the private key; <code>e</code> and <code>n</code> form the matching public key (5.4.b).</li>
+</ul>
+<h2>Input / Output</h2>
+<ul>
+<li><code>sign(message, d, n)</code>: <code>message: bytes</code>, <code>d: int</code>, <code>n: int</code> -&gt; <code>int</code> signature.</li>
+<li><code>verify(message, signature, e, n)</code>: <code>signature: int</code>, <code>e: int</code>, <code>n: int</code> -&gt; <code>bool</code>.</li>
+<li><code>solve(data)</code>: <code>data = {"op": "sign", "message": "&lt;str&gt;", "d": &lt;int&gt;, "n": &lt;int&gt;}</code> -&gt;
+  <code>{"signature": &lt;int&gt;}</code>, or
+  <code>data = {"op": "verify", "message": "&lt;str&gt;", "signature": &lt;int&gt;, "e": &lt;int&gt;, "n": &lt;int&gt;}</code> -&gt;
+  <code>{"valid": &lt;bool&gt;}</code>.</li>
+</ul>
+<h2>Examples</h2>
+<p>Using the textbook-scale key pair <code>p=61, q=53 -&gt; n=3233</code>, <code>e=17</code>, <code>d=2753</code>:</p>
+<pre><code>sign(b&quot;pay Bob $50&quot;, 2753, 3233)        -&gt; some int in [0, 3233)
+verify(b&quot;pay Bob $50&quot;, &lt;that signature&gt;, 17, 3233)   -&gt; True
+verify(b&quot;pay Bob $950&quot;, &lt;that signature&gt;, 17, 3233)  -&gt; False   # message tampered after signing
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only (<code>hashlib</code> only, no external crypto packages).</li>
+<li>Correctness is checked in the tests against an independent oracle that recomputes the same
+  hash-then-sign math directly (not by importing your functions).</li>
+<li>Must pass all cases in the tests (visible + hidden), including: a tampered message failing
+  verification, a wrong public key failing verification, an empty message, and determinism
+  (signing the same message twice yields the same signature).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry points</h3>
+<pre><code class="language-python">def sign(message: bytes, d: int, n: int) -&gt; int
+def verify(message: bytes, signature: int, e: int, n: int) -&gt; bool
+def solve(data: dict) -&gt; dict
+</code></pre>
+<p><code>solve()</code> is the blackbox entry point; <code>sign()</code> and <code>verify()</code> are the underlying primitives
+it's built on and are tested directly as well.</p>
+<h3>Input</h3>
+<ul>
+<li><code>sign(message, d, n)</code>: <code>message</code> is raw <code>bytes</code> of any length (including empty); <code>d</code> is the
+  signer's private exponent; <code>n</code> is the RSA modulus (both small, textbook-scale ints).</li>
+<li><code>verify(message, signature, e, n)</code>: <code>message</code> as above; <code>signature</code> is the claimed signature
+  (<code>int</code>); <code>e</code> is the public exponent; <code>n</code> is the modulus that must match the key pair used to
+  sign (verifying with a different <code>n</code>/<code>e</code> pair must fail).</li>
+<li><code>solve(data)</code>: <code>data</code> is a <code>dict</code> with <code>"op"</code> equal to <code>"sign"</code> or <code>"verify"</code>.</li>
+<li><code>"sign"</code>: <code>{"op": "sign", "message": &lt;str&gt;, "d": &lt;int&gt;, "n": &lt;int&gt;}</code></li>
+<li><code>"verify"</code>: <code>{"op": "verify", "message": &lt;str&gt;, "signature": &lt;int&gt;, "e": &lt;int&gt;, "n": &lt;int&gt;}</code></li>
+<li><code>message</code> arrives as a plain UTF-8 string (encode with <code>.encode("utf-8")</code>).</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<ul>
+<li><code>sign(...)</code> returns an <code>int</code> signature in the range <code>[0, n)</code>.</li>
+<li><code>verify(...)</code> returns <code>bool</code>.</li>
+<li><code>solve(...)</code> returns <code>{"signature": &lt;int&gt;}</code> for op <code>"sign"</code>, or <code>{"valid": &lt;bool&gt;}</code> for op
+  <code>"verify"</code>.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure functions, deterministic, no I/O, no network. Standard library only (<code>hashlib.sha256</code>
+  may be used as the hash primitive; the RSA sign/verify math itself, reducing the digest mod
+  <code>n</code> and using modular exponentiation, e.g. Python's built-in <code>pow(base, exp, mod)</code>, must be
+  implemented directly, not via any external crypto library).</li>
+<li>Must implement "hash, then sign": <code>signature = (SHA-256(message) mod n)^d mod n</code>; verification
+  recomputes <code>SHA-256(message) mod n</code> and compares it to <code>signature^e mod n</code>.</li>
+<li>Any single-bit change to <code>message</code> must (with overwhelming probability) produce a different
+  signature, and verification against the original signature must then fail.</li>
+<li>Verifying a genuine <code>(message, signature)</code> pair with an unrelated key pair's public key
+  <code>(e, n)</code> must return <code>False</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.4.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements textbook RSA "hash-then-sign" digital signatures by hand: the digest is
+computed with hashlib.sha256 (stdlib), reduced mod n, and the RSA private/public-key
+operation (modular exponentiation) is implemented directly with Python's built-in
+pow(base, exp, mod) rather than any external crypto library.
+Crypto problems implement the underlying math/logic directly.
+"""
+import hashlib
+
+
+def _digest_mod_n(message: bytes, n: int) -&gt; int:
+    """Hash message with SHA-256 and reduce it to an integer mod n.
+
+    This is the 'hash, then sign' step from atom.md: we never run RSA on the raw
+    message, only on a fixed-size digest of it.
+    """
+    digest_bytes = hashlib.sha256(message).digest()
+    digest_int = int.from_bytes(digest_bytes, "big")
+    return digest_int % n
+
+
+def sign(message: bytes, d: int, n: int) -&gt; int:
+    """Sign `message` with private exponent d and modulus n.
+
+    signature = hash(message)^d mod n
+    """
+    digest = _digest_mod_n(message, n)
+    return pow(digest, d, n)
+
+
+def verify(message: bytes, signature: int, e: int, n: int) -&gt; bool:
+    """Verify that `signature` is a valid signature over `message` under public
+    key (e, n).
+
+    Recomputes hash(message) mod n and compares it to signature^e mod n.
+    """
+    expected_digest = _digest_mod_n(message, n)
+    recovered_digest = pow(signature, e, n)
+    return expected_digest == recovered_digest
+
+
+def solve(data: dict) -&gt; dict:
+    """Blackbox entry point. Dispatches on data['op']:
+      - {"op": "sign", "message": &lt;str&gt;, "d": &lt;int&gt;, "n": &lt;int&gt;}
+            -&gt; {"signature": &lt;int&gt;}
+      - {"op": "verify", "message": &lt;str&gt;, "signature": &lt;int&gt;, "e": &lt;int&gt;, "n": &lt;int&gt;}
+            -&gt; {"valid": &lt;bool&gt;}
+    Messages are given as UTF-8 strings; d/e/n/signature are given as ints (small,
+    textbook-scale RSA parameters — JSON-friendly, no hex/bignum encoding needed).
+    """
+    op = data["op"]
+    message = data["message"].encode("utf-8")
+    if op == "sign":
+        signature = sign(message, data["d"], data["n"])
+        return {"signature": signature}
+    elif op == "verify":
+        valid = verify(message, data["signature"], data["e"], data["n"])
+        return {"valid": valid}
+    else:
+        raise ValueError(f"unknown op: {op!r}")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import hashlib
+
+
+# Textbook-scale RSA key pair, independent of implementation under test:
+# p = 61, q = 53 -&gt; n = 3233, phi(n) = 3120; e = 17, d = 2753 (17*2753 mod 3120 == 1)
+N = 3233
+E = 17
+D = 2753
+
+def _oracle_digest_mod_n(message: bytes, n: int) -&gt; int:
+    """Independent oracle: hash(message) reduced mod n, computed directly here
+    (not reusing impl's internals) so tests don't just check self-consistency."""
+    digest_bytes = hashlib.sha256(message).digest()
+    return int.from_bytes(digest_bytes, "big") % n
+
+
+def _oracle_sign(message: bytes, d: int, n: int) -&gt; int:
+    return pow(_oracle_digest_mod_n(message, n), d, n)
+
+
+def _find_d(e: int, phi_n: int) -&gt; int:
+    """Brute-force modular inverse for small phi_n, used only to build test fixtures."""
+    for cand in range(2, phi_n):
+        if (e * cand) % phi_n == 1:
+            return cand
+    raise ValueError("no modular inverse found")
+
+
+# A second, unrelated RSA key pair used to simulate "wrong public key" verification.
+_P2, _Q2 = 59, 61
+N2 = _P2 * _Q2  # 3599
+_PHI2 = (_P2 - 1) * (_Q2 - 1)  # 3480
+E2 = 7
+D2 = _find_d(E2, _PHI2)
+
+
+# ---- visible cases -------------------------------------------------------
+def test_sign_matches_oracle():
+    message = b"transfer $100 to acct 42"
+    got = impl.sign(message, D, N)
+    assert got == _oracle_sign(message, D, N)
+
+
+def test_valid_signature_verifies_true():
+    message = b"pay Bob $50"
+    signature = impl.sign(message, D, N)
+    assert impl.verify(message, signature, E, N) is True
+
+
+def test_tampered_message_fails_verification():
+    message = b"pay Bob $50"
+    tampered = b"pay Bob $950"
+    signature = impl.sign(message, D, N)
+    assert impl.verify(tampered, signature, E, N) is False
+
+
+def test_wrong_public_key_fails_verification():
+    message = b"deploy build 42"
+    signature = impl.sign(message, D, N)
+    # Verifying with an unrelated key pair's public key must fail.
+    assert impl.verify(message, signature, E2, N2) is False
+
+
+def test_solve_sign_op():
+    result = impl.solve({"op": "sign", "message": "hello", "d": D, "n": N})
+    expected = _oracle_sign(b"hello", D, N)
+    assert result == {"signature": expected}
+
+
+def test_solve_verify_op_valid():
+    message = "audit log entry 7"
+    signature = _oracle_sign(message.encode("utf-8"), D, N)
+    result = impl.solve({"op": "verify", "message": message, "signature": signature, "e": E, "n": N})
+    assert result == {"valid": True}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_solve_verify_op_tampered_message():
+    message = "audit log entry 7"
+    signature = _oracle_sign(message.encode("utf-8"), D, N)
+    result = impl.solve(
+        {"op": "verify", "message": "audit log entry 8", "signature": signature, "e": E, "n": N}
+    )
+    assert result == {"valid": False}
+
+
+def test_single_bit_change_in_message_flips_signature():
+    a = b"password reset for user 1000"
+    b = b"password reset for user 1001"  # differs by a single character
+    sig_a = impl.sign(a, D, N)
+    sig_b = impl.sign(b, D, N)
+    assert sig_a != sig_b
+
+
+def test_empty_message_signs_and_verifies():
+    message = b""
+    signature = impl.sign(message, D, N)
+    assert impl.verify(message, signature, E, N) is True
+
+
+def test_verify_rejects_signature_from_different_message_same_key():
+    msg1 = b"approve invoice 9001"
+    msg2 = b"approve invoice 9002"
+    sig1 = impl.sign(msg1, D, N)
+    assert impl.verify(msg2, sig1, E, N) is False
+
+
+def test_signature_is_deterministic():
+    message = b"same input, same output"
+    sig1 = impl.sign(message, D, N)
+    sig2 = impl.sign(message, D, N)
+    assert sig1 == sig2
+
+
+def test_signature_in_valid_range():
+    message = b"range check"
+    signature = impl.sign(message, D, N)
+    assert 0 &lt;= signature &lt; N
+
+
+def test_solve_unknown_op_raises():
+    import pytest
+
+    with pytest.raises(Exception):
+        impl.solve({"op": "bogus", "message": "x"})
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

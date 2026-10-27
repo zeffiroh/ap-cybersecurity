@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input validation and sanitization, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Input validation and sanitization  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.5.a: Field validator (allowlist + injection detector)</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the server-side validation gate described in the lesson: given a batch of submitted form
+field values, classify each as SAFE or BLOCKED using <strong>allowlist rules per field type</strong> plus
+detection of known <strong>injection meta-characters/keywords</strong>, the same two checks a real
+input-validation layer runs before any value reaches a database query, HTML page, or shell.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(submissions: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>submissions</code>: <code>list[dict]</code>, each <code>{"field": str, "type": str, "value": str}</code>. <code>type</code> is one of
+<code>"zip"</code>, <code>"email"</code>, <code>"quantity"</code>, <code>"username"</code>.</p>
+<h2>Output</h2>
+<p><code>list[str]</code> of the <code>value</code>s that are BLOCKED, in the same order they appeared in the input.</p>
+<h2>Allowlist rules (per <code>type</code>)</h2>
+<ul>
+<li><code>zip</code>: exactly 5 digits.</li>
+<li><code>email</code>: <code>local@domain.tld</code> shape.</li>
+<li><code>quantity</code>: integer string <code>1</code>-<code>99</code>.</li>
+<li><code>username</code>: 3-20 letters/digits/underscore.</li>
+</ul>
+<p>A value is also BLOCKED (even if it matches the allowlist shape) if it contains a known
+injection signature: <code>--</code>, <code>;</code>, <code>&lt;script</code>, <code>UNION SELECT</code>, <code>OR 1=1</code>, <code>' OR '</code>, <code>DROP TABLE</code>,
+<code>../</code>, <code>%3B</code>, <code>%2F</code> (case-insensitive).</p>
+<h2>Examples</h2>
+<pre><code>[{&quot;field&quot;:&quot;zip&quot;,&quot;type&quot;:&quot;zip&quot;,&quot;value&quot;:&quot;94107&quot;}]                    -&gt;  []
+[{&quot;field&quot;:&quot;zip&quot;,&quot;type&quot;:&quot;zip&quot;,&quot;value&quot;:&quot;9410&quot;}]                     -&gt;  [&quot;9410&quot;]
+[{&quot;field&quot;:&quot;u&quot;,&quot;type&quot;:&quot;username&quot;,&quot;value&quot;:&quot;admin'--&quot;}]               -&gt;  [&quot;admin'--&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(submissions: list) -&gt; list
+</code></pre>
+<h3>Input (<code>submissions</code>)</h3>
+<p><code>list[dict]</code>, each <code>{"field": str, "type": str, "value": str}</code>. <code>type</code> is one of <code>"zip"</code>,
+<code>"email"</code>, <code>"quantity"</code>, <code>"username"</code>.</p>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[str]</code>, the <code>value</code> of every submission that is <strong>BLOCKED</strong>, in the same order as the
+input. A submission is blocked if either condition holds:
+1. Its <code>value</code> fails the allowlist pattern for its <code>type</code> (server-side shape check).
+2. Its <code>value</code> matches a known injection meta-character/keyword signature (checked
+   independently of <code>type</code>, a value can match the type's shape and still be blocked).</p>
+<h3>Allowlist rules</h3>
+<ul>
+<li><code>zip</code>: exactly 5 digits.</li>
+<li><code>email</code>: <code>local@domain.tld</code> shape (letters/digits/<code>._+-</code> local part, dotted domain).</li>
+<li><code>quantity</code>: integer string from <code>1</code> to <code>99</code> inclusive (no leading zero, no <code>0</code>, no <code>100+</code>).</li>
+<li><code>username</code>: 3-20 characters, letters/digits/underscore only.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Injection signatures include (case-insensitive): <code>--</code>, <code>;</code>, <code>&lt;script</code>, <code>UNION SELECT</code>,
+  <code>OR 1=1</code>, <code>' OR '</code>, <code>DROP TABLE</code>, <code>../</code> path traversal, and URL-encoded <code>%3B</code>/<code>%2F</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.5.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+import re
+from typing import Dict, List
+
+# Allowlist patterns per field type (server-side rules — see atom.md).
+_ALLOW = {
+    "zip": re.compile(r"^\d{5}$"),
+    "email": re.compile(r"^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+\.[A-Za-z0-9.-]+$"),
+    "quantity": re.compile(r"^(?:[1-9][0-9]?)$"),  # 1-99
+    "username": re.compile(r"^[A-Za-z0-9_]{3,20}$"),
+}
+
+# Known injection meta-character / keyword signatures, checked regardless of type.
+_INJECTION = re.compile(
+    r"(--|;|&lt;script|&lt;/script|UNION\s+SELECT|OR\s+1\s*=\s*1|'\s*OR\s*'|\bDROP\s+TABLE\b|"
+    r"\.\./|%3B|%2F)",
+    re.IGNORECASE,
+)
+
+
+def solve(submissions: List[Dict[str, str]]) -&gt; List[str]:
+    """Classify each submission; return the `value`s that are BLOCKED, in input order.
+
+    A submission is BLOCKED if its value fails the type's allowlist pattern, or if it
+    contains a known injection meta-character/keyword signature (checked independent of type).
+    """
+    blocked = []
+    for sub in submissions:
+        field_type = sub["type"]
+        value = sub["value"]
+        pattern = _ALLOW.get(field_type)
+        allow_ok = bool(pattern and pattern.match(value))
+        has_injection = bool(_INJECTION.search(value))
+        if not allow_ok or has_injection:
+            blocked.append(value)
+    return blocked
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_all_valid_none_blocked():
+    subs = [
+        {"field": "zip", "type": "zip", "value": "94107"},
+        {"field": "email", "type": "email", "value": "user@example.com"},
+        {"field": "qty", "type": "quantity", "value": "5"},
+    ]
+    assert impl.solve(subs) == []
+
+
+def test_bad_zip_blocked():
+    subs = [{"field": "zip", "type": "zip", "value": "9410"}]
+    assert impl.solve(subs) == ["9410"]
+
+
+def test_sql_injection_blocked_even_if_type_matches_shape():
+    subs = [{"field": "username", "type": "username", "value": "admin'--"}]
+    assert impl.solve(subs) == ["admin'--"]
+
+
+def test_xss_payload_blocked():
+    subs = [{"field": "username", "type": "username", "value": "&lt;script&gt;x&lt;/script&gt;"}]
+    assert impl.solve(subs) == ["&lt;script&gt;x&lt;/script&gt;"]
+
+
+def test_order_preserved_and_only_blocked_returned():
+    subs = [
+        {"field": "zip", "type": "zip", "value": "94107"},
+        {"field": "zip", "type": "zip", "value": "abcde"},
+        {"field": "qty", "type": "quantity", "value": "150"},
+        {"field": "email", "type": "email", "value": "a@b.com"},
+    ]
+    assert impl.solve(subs) == ["abcde", "150"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_quantity_zero_and_out_of_range_blocked():
+    subs = [
+        {"field": "qty", "type": "quantity", "value": "0"},
+        {"field": "qty", "type": "quantity", "value": "100"},
+        {"field": "qty", "type": "quantity", "value": "99"},
+    ]
+    assert impl.solve(subs) == ["0", "100"]
+
+
+def test_union_select_blocked_regardless_of_case():
+    subs = [{"field": "search", "type": "username", "value": "foo union select 1"}]
+    assert impl.solve(subs) == ["foo union select 1"]
+
+
+def test_path_traversal_blocked():
+    subs = [{"field": "file", "type": "username", "value": "../etc/passwd"}]
+    assert impl.solve(subs) == ["../etc/passwd"]
+
+
+def test_empty_input():
+    assert impl.solve([]) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

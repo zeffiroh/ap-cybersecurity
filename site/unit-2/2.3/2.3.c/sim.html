@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.3.c, Security guards and layered defense-in-depth, Simulation</title>
+<style>:root{--bg:#ffffff;--fg:#000000;--muted:#555555;--rule:#000000;--win-face:#c0c0c0;--win-light:#ffffff;--win-shadow:#808080;--win-dark:#000000;--win-title:#000080;--win-title-fg:#ffffff;--win-title-inactive:#7f7f7f;--lin-panel:#f5f5f5;--lin-border:#cccccc;--lin-accent:#3465a4;--term-bg:#000000;--term-fg:#00ff00;--term-dim:#00aa00;--term-cursor:#00ff00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;--tok-op:var(--fg)}html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}*{box-sizing:border-box}code,pre,.mono{font-family:var(--mono-font)}hr{border:none;border-top:1px solid var(--rule)}.theme-win .window{background:var(--win-face);padding:2px}.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);box-shadow:inset 1px 1px 0 0 var(--win-light),inset -1px -1px 0 0 var(--win-shadow)}.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;align-items:center}.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px}.window-body{background:var(--bg);color:var(--fg);padding:10px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);outline:none}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px}.theme-linux{--win-face:var(--lin-panel)}.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0}.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none}.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600}.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px}.theme-linux .btn:active{background:#ececec}.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent)}.theme-linux{--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px}.terminal .prompt{color:var(--term-dim)}.scorepanel{font-family:var(--mono-font)}.scorepanel .ok{color:#008000}.theme-linux .scorepanel .ok{color:#2f9e44}.scorepanel .bad{color:#aa0000}.wrap{max-width:920px;margin:16px auto;padding:0 12px}.toolbar{margin-bottom:8px}.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap}.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold}table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px}th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left}th{background:var(--win-face)}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.3.c, Novara Data Center Layer Audit Console</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>Each facility below lists the security layers currently deployed, tagged by control
+      category (perimeter, personnel, electronic, barrier, monitoring). The <b>depth score</b> is
+      the count of <i>distinct</i> categories present, duplicate layers in the same category do
+      not add depth. Rate each facility's posture: <b>STRONG</b> (depth score 5), <b>ADEQUATE</b>
+      (depth score 3-4), or <b>WEAK</b> (depth score 0-2). Reach 5 correct ratings to meet the
+      objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">novara-audit&gt; </span>Loading facility...</div>
+
+      <div class="choice-btns">
+        <button class="btn choice" data-v="STRONG" onclick="chooseVerdict(this)">STRONG</button>
+        <button class="btn choice" data-v="ADEQUATE" onclick="chooseVerdict(this)">ADEQUATE</button>
+        <button class="btn choice" data-v="WEAK" onclick="chooseVerdict(this)">WEAK</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Facility</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 5 &#9474; Facility 1 of 7 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var FACILITIES=[{id:"NOVARA-VAULT-01",rows:[{layer:"chain-link fence + lighting",category:"perimeter"},{layer:"badge reader on server room door",category:"electronic"},{layer:"lobby reception guard",category:"personnel"},{layer:"mantrap at data hall entry",category:"barrier"},{layer:"CCTV covering all approach paths",category:"monitoring"}],verdict:"STRONG",explain:"All five control categories are represented (perimeter, electronic, personnel, barrier, monitoring), depth score 5. An attacker must defeat every category independently."},{id:"NOVARA-ANNEX-02",rows:[{layer:"lobby guard",category:"personnel"},{layer:"roving night patrol",category:"personnel"},{layer:"badge reader on main entrance",category:"electronic"}],verdict:"WEAK",explain:"Two personnel layers only close the personnel gap once, depth score is 2 (personnel, electronic). Adding a second guard does not create a new layer for an attacker to defeat."},{id:"NOVARA-BRANCH-03",rows:[{layer:"perimeter fence",category:"perimeter"},{layer:"badge reader",category:"electronic"},{layer:"CCTV at entrances",category:"monitoring"}],verdict:"ADEQUATE",explain:"Three distinct categories present (perimeter, electronic, monitoring), depth score 3. Reasonable but no personnel or barrier layer to catch social engineering or piggybacking."},{id:"NOVARA-WAREHOUSE-04",rows:[{layer:"unlocked side door (no control)",category:"none"}],verdict:"WEAK",explain:"No valid control category is present at all, depth score 0. This facility has no layered defense; a single successful action defeats it entirely."},{id:"NOVARA-CAMPUS-05",rows:[{layer:"perimeter fence + lighting",category:"perimeter"},{layer:"guard post at gate",category:"personnel"},{layer:"mantrap at server wing",category:"barrier"},{layer:"badge reader at server wing",category:"electronic"}],verdict:"ADEQUATE",explain:"Four distinct categories present (perimeter, personnel, barrier, electronic), depth score 4. Adding monitoring (CCTV) would push this facility to STRONG."},{id:"NOVARA-LAB-06",rows:[{layer:"CCTV feed at every hallway",category:"monitoring"},{layer:"second CCTV feed at loading dock",category:"monitoring"},{layer:"third CCTV feed at parking lot",category:"monitoring"}],verdict:"WEAK",explain:"Three CCTV layers are still only one category, depth score 1. Monitoring alone is a detective control; without preventive layers an attacker who accepts being recorded can still act."},{id:"NOVARA-CORE-07",rows:[{layer:"perimeter fence",category:"perimeter"},{layer:"guard post",category:"personnel"},{layer:"visitor escort policy",category:"personnel"},{layer:"badge reader",category:"electronic"},{layer:"mantrap",category:"barrier"},{layer:"CCTV coverage",category:"monitoring"}],verdict:"STRONG",explain:"Five distinct categories present (perimeter, personnel, electronic, barrier, monitoring), depth score 5. The redundant second personnel layer (escort policy) does not reduce the score below STRONG; it simply does not add further depth."}];var idx=0,score=0,GOAL=5,met=false,submitted=false,selected=null;function renderTable(rows){var html='<table><tr><th>layer</th><th>category</th></tr>';rows.forEach(function(r){html+='<tr><td>'+r.layer+'</td><td>'+r.category+'</td></tr>';});html+='</table>';return html;}
+function renderRecord(){var b=FACILITIES[idx];var stage=document.getElementById('stage');stage.innerHTML='<span class="prompt">'+b.id+' novara-audit&gt; </span>\n'+renderTable(b.rows);selected=null;submitted=false;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});document.getElementById('feedback').innerHTML='';updateStatus();}
+function chooseVerdict(btn){if(submitted)return;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});btn.classList.add('sel');selected=btn.getAttribute('data-v');}
+function submitChoice(){if(submitted||!selected)return;submitted=true;var b=FACILITIES[idx];var isCorrect=selected===b.verdict;var fb=document.getElementById('feedback');if(isCorrect){score++;fb.innerHTML='<span class="ok">CORRECT.</span> '+b.explain;}else{fb.innerHTML='<span class="bad">INCORRECT.</span> Correct rating: '+b.verdict+'. '+b.explain;}
+if(score>=GOAL)met=true;updateStatus();}
+function nextRecord(){idx=(idx+1)%FACILITIES.length;renderRecord();}
+function updateStatus(){var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+GOAL+' &#9474; Facility '+(idx+1)+' of '+FACILITIES.length+' &#9474; OBJECTIVE: '+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+renderRecord();</script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access control models (RBAC, DAC, MAC), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Access control models (RBAC, DAC, MAC)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.2.a: RBAC / DAC / MAC access decision</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.2.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the access-decision function a policy engine would run for a fictional file system that
+supports all three access control models. Given a request (subject, object, action, and the
+object's model), decide whether the request is ALLOWed or DENYed.</p>
+<h2>Rules by model</h2>
+<ul>
+<li><strong><code>"dac"</code></strong>, allowed if the subject is the object's <code>owner</code>, OR the subject appears in the
+  object's <code>grants</code> list for that action (e.g., <code>grants: {"read": ["bob"], "write": []}</code>).</li>
+<li><strong><code>"mac"</code></strong>, allowed only if the subject's clearance level is <code>&gt;=</code> the object's classification
+  level. Levels (low to high): <code>"public"</code> &lt; <code>"confidential"</code> &lt; <code>"secret"</code> &lt; <code>"top_secret"</code>.</li>
+<li><strong><code>"rbac"</code></strong>, allowed if any of the subject's <code>roles</code> is present in the object's
+  <code>allowed_roles</code> list for the requested action (e.g.,
+  <code>allowed_roles: {"read": ["nurse","admin"], "write": ["admin"]}</code>).</li>
+</ul>
+<p>If the object's <code>model</code> is not one of <code>"dac"</code>, <code>"mac"</code>, <code>"rbac"</code>, deny with reason <code>"unknown_model"</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(request: dict) -&gt; dict</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>request</code>: a dict with keys <code>"subject"</code> (dict) and <code>"object"</code> (dict) and <code>"action"</code> (str).
+See the Reference section below for the exact shape per model.</p>
+<h2>Output</h2>
+<p><code>{"allowed": bool, "reason": str}</code> where reason is one of
+<code>"owner"</code>, <code>"granted"</code>, <code>"dac_denied"</code>, <code>"clearance_sufficient"</code>, <code>"clearance_insufficient"</code>,
+<code>"role_match"</code>, <code>"rbac_denied"</code>, <code>"unknown_model"</code>.</p>
+<h2>Examples</h2>
+<pre><code>DAC owner:
+  {&quot;subject&quot;:{&quot;name&quot;:&quot;alice&quot;},&quot;object&quot;:{&quot;model&quot;:&quot;dac&quot;,&quot;owner&quot;:&quot;alice&quot;,&quot;grants&quot;:{}},&quot;action&quot;:&quot;read&quot;}
+  -&gt; {&quot;allowed&quot;: True, &quot;reason&quot;: &quot;owner&quot;}
+
+MAC insufficient clearance:
+  {&quot;subject&quot;:{&quot;clearance&quot;:&quot;confidential&quot;},&quot;object&quot;:{&quot;model&quot;:&quot;mac&quot;,&quot;classification&quot;:&quot;secret&quot;},&quot;action&quot;:&quot;read&quot;}
+  -&gt; {&quot;allowed&quot;: False, &quot;reason&quot;: &quot;clearance_insufficient&quot;}
+
+RBAC role match:
+  {&quot;subject&quot;:{&quot;roles&quot;:[&quot;nurse&quot;]},&quot;object&quot;:{&quot;model&quot;:&quot;rbac&quot;,&quot;allowed_roles&quot;:{&quot;read&quot;:[&quot;nurse&quot;,&quot;admin&quot;]}},&quot;action&quot;:&quot;read&quot;}
+  -&gt; {&quot;allowed&quot;: True, &quot;reason&quot;: &quot;role_match&quot;}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(request: dict) -&gt; dict
+</code></pre>
+<h3>Input (<code>request</code>)</h3>
+<p><code>{"subject": dict, "object": dict, "action": str}</code></p>
+<ul>
+<li>DAC object: <code>{"model": "dac", "owner": str, "grants": {action: [subject_name...]}}</code>;
+  subject: <code>{"name": str}</code>.</li>
+<li>MAC object: <code>{"model": "mac", "classification": str}</code>; subject: <code>{"clearance": str}</code>.
+  Levels low-&gt;high: <code>"public"</code>, <code>"confidential"</code>, <code>"secret"</code>, <code>"top_secret"</code>.</li>
+<li>RBAC object: <code>{"model": "rbac", "allowed_roles": {action: [role...]}}</code>;
+  subject: <code>{"roles": [role...]}</code>.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>{"allowed": bool, "reason": str}</code> where <code>reason</code> is one of <code>"owner"</code>, <code>"granted"</code>,
+<code>"dac_denied"</code>, <code>"clearance_sufficient"</code>, <code>"clearance_insufficient"</code>, <code>"role_match"</code>,
+<code>"rbac_denied"</code>, <code>"unknown_model"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>DAC: owner check takes priority over grants list.</li>
+<li>MAC: allowed when subject clearance level &gt;= object classification level (equal is allowed).</li>
+<li>RBAC: allowed if any of the subject's roles appears in the object's allowed_roles for the action.</li>
+<li>Any <code>object.model</code> outside <code>{"dac","mac","rbac"}</code> -&gt; <code>{"allowed": False, "reason": "unknown_model"}</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.2.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict
+
+_LEVELS = {"public": 0, "confidential": 1, "secret": 2, "top_secret": 3}
+
+
+def solve(request: Dict[str, object]) -&gt; Dict[str, object]:
+    """Decide ALLOW/DENY for a DAC, MAC, or RBAC access request."""
+    subject = request["subject"]
+    obj = request["object"]
+    action = request["action"]
+    model = obj.get("model")
+
+    if model == "dac":
+        if subject.get("name") == obj.get("owner"):
+            return {"allowed": True, "reason": "owner"}
+        grants = obj.get("grants", {})
+        if subject.get("name") in grants.get(action, []):
+            return {"allowed": True, "reason": "granted"}
+        return {"allowed": False, "reason": "dac_denied"}
+
+    if model == "mac":
+        sub_level = _LEVELS.get(subject.get("clearance"), -1)
+        obj_level = _LEVELS.get(obj.get("classification"), 99)
+        if sub_level &gt;= obj_level:
+            return {"allowed": True, "reason": "clearance_sufficient"}
+        return {"allowed": False, "reason": "clearance_insufficient"}
+
+    if model == "rbac":
+        allowed_roles = obj.get("allowed_roles", {}).get(action, [])
+        subject_roles = subject.get("roles", [])
+        if any(r in allowed_roles for r in subject_roles):
+            return {"allowed": True, "reason": "role_match"}
+        return {"allowed": False, "reason": "rbac_denied"}
+
+    return {"allowed": False, "reason": "unknown_model"}
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_dac_owner():
+    req = {"subject": {"name": "alice"}, "object": {"model": "dac", "owner": "alice", "grants": {}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "owner"}
+
+
+def test_dac_granted():
+    req = {"subject": {"name": "bob"}, "object": {"model": "dac", "owner": "alice", "grants": {"read": ["bob"]}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "granted"}
+
+
+def test_dac_denied():
+    req = {"subject": {"name": "eve"}, "object": {"model": "dac", "owner": "alice", "grants": {"read": ["bob"]}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": False, "reason": "dac_denied"}
+
+
+def test_mac_sufficient():
+    req = {"subject": {"clearance": "secret"}, "object": {"model": "mac", "classification": "confidential"}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "clearance_sufficient"}
+
+
+def test_mac_insufficient():
+    req = {"subject": {"clearance": "confidential"}, "object": {"model": "mac", "classification": "secret"}, "action": "read"}
+    assert impl.solve(req) == {"allowed": False, "reason": "clearance_insufficient"}
+
+
+def test_rbac_role_match():
+    req = {"subject": {"roles": ["nurse"]}, "object": {"model": "rbac", "allowed_roles": {"read": ["nurse", "admin"]}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "role_match"}
+
+
+def test_rbac_denied():
+    req = {"subject": {"roles": ["intern"]}, "object": {"model": "rbac", "allowed_roles": {"read": ["nurse", "admin"]}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": False, "reason": "rbac_denied"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_unknown_model():
+    req = {"subject": {}, "object": {"model": "abac"}, "action": "read"}
+    assert impl.solve(req) == {"allowed": False, "reason": "unknown_model"}
+
+
+def test_mac_equal_level_allowed():
+    req = {"subject": {"clearance": "top_secret"}, "object": {"model": "mac", "classification": "top_secret"}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "clearance_sufficient"}
+
+
+def test_dac_owner_priority_over_grants():
+    req = {"subject": {"name": "alice"}, "object": {"model": "dac", "owner": "alice", "grants": {"read": []}}, "action": "read"}
+    assert impl.solve(req) == {"allowed": True, "reason": "owner"}
+
+
+def test_rbac_multiple_roles_one_matches():
+    req = {"subject": {"roles": ["intern", "admin"]}, "object": {"model": "rbac", "allowed_roles": {"write": ["admin"]}}, "action": "write"}
+    assert impl.solve(req) == {"allowed": True, "reason": "role_match"}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

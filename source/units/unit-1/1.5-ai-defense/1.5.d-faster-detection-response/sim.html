@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<!-- 1.5.d SIM -- "SOC Triage Dashboard". Single-file, offline, deterministic.
+     No emoji/icons. Theme tokens inlined from THEME.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.5.d - SOC Triage Dashboard</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:900px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn:disabled{color:#888;cursor:default;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.inc-table{width:100%;border-collapse:collapse;font-family:var(--mono-font);font-size:12px;margin-top:6px;}
+.inc-table th{background:var(--win-face);border:1px solid var(--win-shadow);padding:3px 6px;text-align:left;font-size:12px;}
+.inc-table td{border:1px solid #ccc;padding:3px 6px;background:#fff;}
+.inc-table tr.resolved td{background:#e8ffe8;color:#555;}
+.inc-table tr.active td{background:#fffbe0;}
+.sev-critical{color:#cc0000;font-weight:bold;}
+.sev-high{color:#885500;font-weight:bold;}
+.sev-medium{color:#446600;}
+.sev-low{color:#555555;}
+.auto-badge{color:#006600;font-size:11px;}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+.metrics-box{font-family:var(--mono-font);background:#000;color:#00ff00;padding:8px 10px;
+  white-space:pre;line-height:1.5;font-size:12px;margin-top:6px;}
+.feedback{font-family:var(--mono-font);margin-top:6px;min-height:18px;font-size:12px;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.section-label{font-size:12px;color:var(--muted);margin:8px 0 2px;font-family:var(--mono-font);}
+.panel{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+  background:var(--win-face);padding:8px;margin-top:8px;}
+.panel-title{font-weight:bold;font-size:12px;margin-bottom:4px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>1.5.d - SOC Triage Dashboard</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>You are a SOC analyst. A queue of incidents has arrived. Resolve them by clicking
+         <b>Resolve</b> next to each row. Auto-resolved incidents close themselves when you
+         click <b>Run Auto-Resolution</b>. Your goal: resolve all <b>critical</b> incidents
+         before any <b>low</b> ones to earn full score, and observe how MTTR and auto-resolved
+         count update in real time. Reach <b id="goal">4</b> correct decisions to meet the
+         objective.</p>
+
+      <div style="margin-bottom:8px;">
+        <button class="btn" onclick="sortBySeverity()">Sort queue by severity</button>
+        <button class="btn" onclick="runAutoResolution()">Run Auto-Resolution</button>
+        <button class="btn" onclick="resetSim()">Reset</button>
+      </div>
+
+      <div class="section-label">Incident queue:</div>
+      <table class="inc-table" id="inctable">
+        <tr>
+          <th>ID</th><th>Severity</th><th>Response time</th><th>Auto</th><th>Status</th><th>Action</th>
+        </tr>
+      </table>
+
+      <div class="section-label">SOC metrics (live):</div>
+      <div class="metrics-box" id="metrics">Loading...</div>
+
+      <div class="feedback" id="fb"></div>
+      <div class="statusbar" id="score">SCORE 0 / 4 | resolved: 0 / 8 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">Green rows = resolved. Yellow = currently selected. Auto badge = AI can resolve without analyst. Sort by severity to see critical incidents first.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Deterministic incident dataset ---- */
+var INCIDENTS_ORIG = [
+  {id:"INC-001", detected_at:0,   resolved_at:600,  severity:"low",      auto:false, label:"Unusual DNS query volume"},
+  {id:"INC-002", detected_at:5,   resolved_at:65,   severity:"critical", auto:false, label:"Ransomware C2 beacon detected"},
+  {id:"INC-003", detected_at:10,  resolved_at:40,   severity:"high",     auto:true,  label:"Known-malicious IP blocked"},
+  {id:"INC-004", detected_at:15,  resolved_at:315,  severity:"medium",   auto:false, label:"Brute-force login attempt (5 fails)"},
+  {id:"INC-005", detected_at:20,  resolved_at:50,   severity:"critical", auto:false, label:"Domain admin credential spraying"},
+  {id:"INC-006", detected_at:25,  resolved_at:55,   severity:"high",     auto:true,  label:"Endpoint quarantine (known malware hash)"},
+  {id:"INC-007", detected_at:30,  resolved_at:390,  severity:"medium",   auto:false, label:"Privilege escalation attempt"},
+  {id:"INC-008", detected_at:35,  resolved_at:635,  severity:"low",      auto:false, label:"Port scan from internal host"}
+];
+
+var SEV_ORDER = {critical:0, high:1, medium:2, low:3};
+
+var incidents, score, GOAL, met, resolvedSet, criticalBeforeLow, firstResolved;
+
+function resetSim() {
+  incidents = INCIDENTS_ORIG.map(function(x){ return Object.assign({}, x); });
+  score = 0; GOAL = 4; met = false;
+  resolvedSet = {};
+  criticalBeforeLow = true;
+  firstResolved = null;
+  renderTable();
+  updateMetrics();
+  document.getElementById('fb').textContent = '';
+  updateBar();
+}
+
+function sortBySeverity() {
+  incidents.sort(function(a, b){
+    if(resolvedSet[a.id] && !resolvedSet[b.id]) return 1;
+    if(!resolvedSet[a.id] && resolvedSet[b.id]) return -1;
+    return SEV_ORDER[a.severity] - SEV_ORDER[b.severity];
+  });
+  renderTable();
+  document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">Queue sorted by severity. Critical incidents now at top.</span>';
+}
+
+function runAutoResolution() {
+  var resolved = 0;
+  incidents.forEach(function(inc){
+    if(inc.auto && !resolvedSet[inc.id]) {
+      resolvedSet[inc.id] = true;
+      resolved++;
+    }
+  });
+  if(resolved > 0) {
+    score = Math.min(score + 1, GOAL);
+    if(score >= GOAL) met = true;
+    document.getElementById('fb').innerHTML = '<span class="ok">Auto-resolution complete.</span> Closed ' + resolved + ' incident(s) automatically.';
+  } else {
+    document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">No auto-resolvable incidents pending.</span>';
+  }
+  renderTable();
+  updateMetrics();
+  updateBar();
+}
+
+function resolveInc(id) {
+  if(resolvedSet[id]) return;
+  var inc = incidents.filter(function(x){ return x.id === id; })[0];
+
+  /* Check ordering: was any critical unresolved when we resolve a low? */
+  var unresolvedCriticals = incidents.filter(function(x){
+    return x.severity === 'critical' && !resolvedSet[x.id] && x.id !== id;
+  });
+  if(inc.severity === 'low' && unresolvedCriticals.length > 0) {
+    criticalBeforeLow = false;
+    document.getElementById('fb').innerHTML = '<span class="bad">Warning:</span> You resolved a low-severity incident while critical incidents are still open. Prioritize critical first.';
+  } else {
+    score = Math.min(score + 1, GOAL);
+    if(score >= GOAL) met = true;
+    document.getElementById('fb').innerHTML = '<span class="ok">Resolved:</span> ' + id + ' (' + inc.severity + '), response time: ' + (inc.resolved_at - inc.detected_at) + 's';
+  }
+
+  resolvedSet[id] = true;
+  renderTable();
+  updateMetrics();
+  updateBar();
+}
+
+function renderTable() {
+  var tbody = '';
+  incidents.forEach(function(inc){
+    var isResolved = resolvedSet[inc.id];
+    var rowClass = isResolved ? 'resolved' : '';
+    var sevClass = 'sev-' + inc.severity;
+    var autoStr = inc.auto ? '<span class="auto-badge">[AUTO]</span>' : '-';
+    var status = isResolved ? 'RESOLVED' : 'OPEN';
+    var actionBtn = isResolved
+      ? '<button class="btn" disabled>Done</button>'
+      : '<button class="btn" onclick="resolveInc(\'' + inc.id + '\')">Resolve</button>';
+    var rtime = (inc.resolved_at - inc.detected_at) + 's';
+    tbody += '<tr class="' + rowClass + '">';
+    tbody += '<td style="font-family:var(--mono-font)">' + inc.id + '</td>';
+    tbody += '<td><span class="' + sevClass + '">' + inc.severity + '</span></td>';
+    tbody += '<td>' + rtime + '</td>';
+    tbody += '<td>' + autoStr + '</td>';
+    tbody += '<td>' + status + '</td>';
+    tbody += '<td>' + actionBtn + '</td>';
+    tbody += '</tr>';
+  });
+  document.getElementById('inctable').innerHTML =
+    '<tr><th>ID</th><th>Severity</th><th>Response time</th><th>Auto</th><th>Status</th><th>Action</th></tr>' + tbody;
+}
+
+function updateMetrics() {
+  var resolved = incidents.filter(function(x){ return resolvedSet[x.id]; });
+  var total = incidents.length;
+  var autoCount = resolved.filter(function(x){ return x.auto; }).length;
+  var mttr = 0;
+  if(total > 0) {
+    var sumTime = incidents.reduce(function(s, x){ return s + (x.resolved_at - x.detected_at); }, 0);
+    mttr = (sumTime / total).toFixed(1);
+  }
+  var resolvedCount = Object.keys(resolvedSet).length;
+
+  var critRes = resolved.filter(function(x){ return x.severity === 'critical'; }).length;
+  var critTotal = incidents.filter(function(x){ return x.severity === 'critical'; }).length;
+
+  document.getElementById('metrics').textContent =
+    'MTTR (all incidents)  : ' + mttr + ' s\n' +
+    'Auto-resolved         : ' + autoCount + ' / ' + total + '\n' +
+    'Critical resolved     : ' + critRes + ' / ' + critTotal + '\n' +
+    'Incidents closed      : ' + resolvedCount + ' / ' + total;
+}
+
+function updateBar() {
+  var resolvedCount = Object.keys(resolvedSet).length;
+  document.getElementById('score').innerHTML =
+    'SCORE ' + score + ' / ' + GOAL +
+    ' | resolved: ' + resolvedCount + ' / ' + incidents.length +
+    ' | OBJECTIVE: ' + (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+document.getElementById('goal').textContent = 4;
+resetSim();
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<!-- 3.4.b SIM, "Meridian High School ACL Editor". Single-file, offline, deterministic.
+     No emoji/icons. Theme tokens inline from THEME.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.4.b - Firewall rules and ACLs - Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:960px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px 4px 2px 0;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn:disabled{color:#888;cursor:default;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre-wrap;line-height:1.4;min-height:80px;margin-top:10px;}
+.terminal .dim{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+h2{font-size:14px;margin:10px 0 4px;}
+.toolbar{margin-bottom:8px;}
+table{border-collapse:collapse;width:100%;margin-bottom:6px;background:#fff;}
+th,td{padding:5px 7px;border:1px solid #808080;text-align:left;font-size:12.5px;vertical-align:top;}
+th{background:var(--win-face);}
+.section{margin-top:12px;background:#fff;padding:10px;border:1px solid #808080;}
+.mono{font-family:var(--mono-font);}
+p.note{font-size:12px;color:var(--muted);margin-top:6px;}
+.rulebox{background:#fff;border:1px solid #808080;padding:4px;margin-bottom:8px;}
+.ruleline{display:flex;align-items:center;padding:3px 4px;border-bottom:1px solid #ddd;}
+.ruleline:last-child{border-bottom:none;}
+.ruleline .pos{width:22px;font-weight:bold;}
+.ruleline .txt{flex:1;font-family:var(--mono-font);font-size:12.5px;}
+.ruleline .up,.ruleline .down{padding:1px 8px;margin-left:2px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.4.b - Meridian High School ACL Editor</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>The perimeter ACL below has a rule-shadowing bug: a broad, temporary "allow SSH from
+      anywhere" rule sits above a specific rule meant to block a known-hostile range from the
+      file server. Use the Up/Down buttons to reorder rules (do not change their conditions) so
+      that every packet in the test stream receives its security-intended verdict.</p>
+
+      <div class="section">
+        <h2>Access control list (evaluated top to bottom, first match wins)</h2>
+        <div class="rulebox" id="rulebox"></div>
+        <p class="note">Rule 5 (implicit deny-all) is fixed at the bottom and cannot move.</p>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="verify()">Test packets against current ACL</button>
+        <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="terminal" id="log"><span class="dim">acl# </span>Reorder rules, then test.</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 4 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+      <p class="note">Reminder: moving a rule changes only its priority, not its match conditions
+      or action. The fix for shadowing is always about order.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+/* Rule state: id is stable; order array defines current evaluation order. */
+var rules = {
+  r1: {text:"ALLOW  TCP  any          -> any           port 22   (temporary SSH access)", action:"ALLOW", src:"any", dst:"any", port:22},
+  r2: {text:"ALLOW  TCP  any          -> 10.0.1.5       port 443  (HTTPS to web server)", action:"ALLOW", src:"any", dst:"10.0.1.5", port:443},
+  r3: {text:"DENY   TCP  203.0.113.0  -> 10.0.1.10      port 22   (block hostile range from file server SSH)", action:"DENY", src:"203.0.113.0", dst:"10.0.1.10", port:22},
+  r4: {text:"ALLOW  TCP  10.0.4.0     -> 10.0.1.5       port 3306 (accounting subnet to DB)", action:"ALLOW", src:"10.0.4.0", dst:"10.0.1.5", port:3306},
+  r5: {text:"DENY   any  any          -> any            any       (implicit deny-all)", action:"DENY", src:"any", dst:"any", port:0}
+};
+var initialOrder = ["r1", "r2", "r3", "r4", "r5"];
+var order = initialOrder.slice();
+
+var packets = [
+  {n:"A", src:"203.0.113.0", dst:"10.0.1.10", port:22,   expect:"DENY",  desc:"Hostile range to file server SSH"},
+  {n:"B", src:"10.0.4.0",    dst:"10.0.1.5",  port:3306, expect:"ALLOW", desc:"Accounting subnet to DB"},
+  {n:"C", src:"198.51.100.9", dst:"10.0.1.5", port:443,  expect:"ALLOW", desc:"HTTPS request"},
+  {n:"D", src:"10.0.9.9",    dst:"10.0.1.5",  port:3306, expect:"DENY",  desc:"Non-accounting host to DB"}
+];
+
+function matches(rule, pkt){
+  var srcOk = rule.src === "any" || rule.src === pkt.src;
+  var dstOk = rule.dst === "any" || rule.dst === pkt.dst;
+  var portOk = rule.port === 0 || rule.port === pkt.port;
+  return srcOk && dstOk && portOk;
+}
+
+function evalPacket(pkt){
+  for (var i = 0; i < order.length; i++){
+    var rule = rules[order[i]];
+    if (matches(rule, pkt)) return rule.action;
+  }
+  return "DENY";
+}
+
+function renderRules(){
+  var box = document.getElementById("rulebox");
+  box.innerHTML = "";
+  order.forEach(function(id, idx){
+    var rule = rules[id];
+    var line = document.createElement("div");
+    line.className = "ruleline";
+    var movable = id !== "r5";
+    line.innerHTML =
+      "<span class=\"pos\">" + (idx + 1) + "</span>" +
+      "<span class=\"txt\">" + rule.text + "</span>" +
+      "<button class=\"btn up\" " + (movable && idx > 0 ? "" : "disabled") + " onclick=\"moveRule('" + id + "',-1)\">Up</button>" +
+      "<button class=\"btn down\" " + (movable && idx < order.length - 2 ? "" : "disabled") + " onclick=\"moveRule('" + id + "',1)\">Down</button>";
+    box.appendChild(line);
+  });
+}
+
+function moveRule(id, dir){
+  var idx = order.indexOf(id);
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= order.length - 1) return; // never move past the fixed deny-all
+  var tmp = order[idx];
+  order[idx] = order[newIdx];
+  order[newIdx] = tmp;
+  renderRules();
+}
+
+function verify(){
+  var lines = [];
+  var score = 0;
+  packets.forEach(function(pkt){
+    var actual = evalPacket(pkt);
+    var ok = actual === pkt.expect;
+    if (ok) score++;
+    lines.push("Pkt " + pkt.n + " (" + pkt.desc + "): " + actual + " " + (ok ? "[OK]" : "[EXPECTED " + pkt.expect + "]"));
+  });
+  var met = (score === packets.length);
+  document.getElementById("log").innerHTML = "<span class=\"dim\">acl# </span>show acl-test results\n\n" +
+    lines.join("\n") + "\n\n" +
+    (met ? "ALL PACKETS MATCH SECURITY INTENT. Shadowing bug resolved." : "Shadowing bug still present. Reorder rules and re-test.");
+  document.getElementById("score").innerHTML = "SCORE " + score + " / " + packets.length + " &#9474; OBJECTIVE: " +
+    (met ? "<span class=\"ok\">MET</span>" : "<span class=\"bad\">not yet met</span>");
+}
+
+function resetAll(){
+  order = initialOrder.slice();
+  renderRules();
+  document.getElementById("log").innerHTML = "<span class=\"dim\">acl# </span>Reset. Reorder rules, then test.";
+  document.getElementById("score").innerHTML = "SCORE 0 / 4 &#9474; OBJECTIVE: <span class=\"bad\">not yet met</span>";
+}
+
+renderRules();
+</script>
+</body>
+</html>

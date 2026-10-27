@@ -1,0 +1,371 @@
+\chapter{Firewall Access Controls}
+\label{ch:3.4}
+\chaptertopic{Topic 3.4}
+
+\chapterquote{Security is a process, not a product.}{Bruce Schneier, \emph{Crypto-Gram} (2000)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:3.3} divided the network into zones. This chapter is about the gatekeeper that
+decides what may cross between them, or between the network and the outside world at all: the
+firewall. Two questions organize everything here. First, how much does the firewall actually
+remember about a conversation as it decides -- nothing at all, or a full sense of which connections
+are legitimately open? Second, given a list of rules, in what order does the firewall apply them? And what happens when
+that order is wrong, even though every individual rule looks correct on its own?
+
+\begin{apalignment}{Unit 3: Securing Networks}{Topic 3.4 -- Protecting Networks: Firewalls}
+\begin{apobjectives}
+\apobjective{3.4.A}{Mitigate Risk}{Identify the kinds of network-based firewall -- stateless packet
+filters, stateful inspection, application proxies, and next-generation platforms -- and know which
+layers each inspects and which decisions each can and cannot make.}
+\apobjective{3.4.B}{Mitigate Risk}{Explain how a firewall uses an access control list to permit or
+deny traffic in either direction, including first-match evaluation, the load-bearing role of rule
+order, and the default-deny rule at the end of the list.}
+\apobjective{3.4.C}{Mitigate Risk}{Determine where firewalls belong in a topology -- the perimeter,
+the screened subnet around public services, and internal boundaries between zones of differing
+sensitivity -- so that a single compromise is contained.}
+\apobjective{3.4.D}{Mitigate Risk}{Configure a firewall so the flow of traffic matches a stated
+policy, and verify by tracing which rule actually applies to a given packet.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Stateless and Stateful Firewalls}
+
+Every packet carries a header -- source and destination IP, protocol, source and destination port
+-- and a payload. The simplest possible firewall looks only at header fields, decides for each
+packet independently, and moves on.
+
+\begin{definition}{Stateless (packet-filter) firewall}
+A firewall that applies a fixed rule set to each packet in isolation, with no memory of any
+previous packet or of whether a connection was ever legitimately established.
+\end{definition}
+
+That blindness is both a stateless firewall's strength and its weakness. It is fast and cheap --
+routers, switches, and early border firewalls all worked this way. But it cannot tell an answer to
+a legitimate request apart from an uninvited packet arriving out of nowhere. A rule reading ``allow
+TCP to port 80'' will forward \emph{any} packet matching that header, including one an attacker
+crafted purely to look like part of an existing conversation.
+
+\begin{example}[Why statelessness fails against a spoofed reset]
+An internal network's stateless firewall allows inbound TCP on port 80. An attacker outside spoofs
+the source address of an internal web server and sends a single TCP packet with the RST flag set,
+destination port 80. The stateless firewall checks the header, sees ``TCP, port 80, allow,'' and
+forwards it -- disrupting an active connection inside the network, even though no real conversation
+with that attacker ever existed.
+\end{example}
+
+\begin{definition}{Stateful (stateful-inspection) firewall}
+A firewall that maintains a connection-tracking table recording every active session's source and
+destination IP, ports, protocol, and connection state, permitting return traffic automatically for
+tracked sessions and dropping any packet claiming membership in a session that was never
+established.
+\end{definition}
+
+A stateful firewall builds this table directly from the TCP three-way handshake: the first SYN
+packet, once it passes the rule set, is logged as \texttt{SYN\_SENT}; the handshake's completion
+advances the entry to \texttt{ESTABLISHED}. Return traffic -- the SYN-ACK, subsequent ACKs, the
+data itself -- is recognized as belonging to a tracked session and permitted. The same spoofed RST
+packet from the earlier example is checked against the connection table instead, finds no
+established session with those endpoints, and is dropped -- regardless of how valid its header
+would look to a stateless rule.
+
+\begin{lstlisting}[language=Python, caption={Stateless versus stateful packet classification}]
+def stateless_classify(packet, rules):
+    """rules: ordered list of dicts like {"proto": str, "dst_port": int,
+       "action": "allow"|"deny"}. Returns "allow" or "deny" using
+       first-match, defaulting to deny."""
+    for rule in rules:
+        if rule["proto"] == packet["proto"] and rule["dst_port"] == packet["dst_port"]:
+            return rule["action"]
+    return "deny"
+
+def stateful_classify(packet, connections, rules):
+    """connections: dict mapping (src_ip, src_port, dst_ip, dst_port) ->
+       state string. Mutates connections as the handshake progresses.
+       Returns "allow" or "deny"."""
+    key = (packet["src_ip"], packet["src_port"], packet["dst_ip"], packet["dst_port"])
+    reverse_key = (packet["dst_ip"], packet["dst_port"], packet["src_ip"], packet["src_port"])
+
+    if packet["flag"] == "SYN":
+        if stateless_classify(packet, rules) == "deny":
+            return "deny"
+        connections[key] = "SYN_SENT"
+        return "allow"
+    if packet["flag"] == "ACK" and reverse_key in connections:
+        connections[reverse_key] = "ESTABLISHED"
+        return "allow"
+    if key in connections or reverse_key in connections:
+        return "allow"
+    return "deny"
+\end{lstlisting}
+
+Stateful inspection is not the same as content inspection: it tracks \emph{connection state}, not
+application-layer payload. Malware delivered inside an HTTPS stream still passes through a stateful
+firewall on port 443 exactly as any other traffic on that port would. The firewall only confirms
+the connection is legitimately established -- it does not look at what is inside it. Content
+inspection is a separate, later capability, layered on top by application proxies and
+next-generation firewalls. Stateless firewalls remain useful at high-throughput edges where raw
+speed outweighs fine-grained awareness; stateful inspection is the standard everywhere connection
+context actually matters, which is most internal and server-facing deployments.
+
+\subsection{Application Proxies and Next-Generation Firewalls}
+
+Stateless and stateful firewalls both make their decision from the same limited evidence: headers
+and, for stateful inspection, connection state. Two further firewall categories reach higher up the
+protocol stack, into the payload itself.
+
+\begin{definition}{Application proxy (proxy firewall)}
+A firewall that terminates each connection itself, rather than merely forwarding packets: it accepts
+the client's connection, opens an entirely separate connection to the real destination on the
+client's behalf, and relays application-layer content between the two after inspecting it.
+\end{definition}
+
+Because a proxy firewall fully reassembles and parses application-layer protocols -- HTTP requests,
+FTP commands, email headers -- it can enforce rules no packet filter can even see: blocking a
+disallowed HTTP method, stripping an unsafe attachment type, or refusing a malformed request before
+it ever reaches the real server. The cost is performance: terminating and rebuilding every
+connection is far more expensive than forwarding packets, which is why proxy firewalls are usually
+deployed only in front of a small number of specific, high-value services rather than at every
+network boundary.
+
+\begin{definition}{Next-generation firewall (NGFW)}
+A firewall that combines stateful inspection with deep packet inspection, application awareness
+(identifying an application by behavior rather than by port number alone), and an integrated
+intrusion-prevention capability, all evaluated as part of the same rule set.
+\end{definition}
+
+An NGFW answers a question a stateful firewall cannot: not just ``is port 443 open,'' but ``is the
+traffic on port 443 actually the video-streaming application this policy is meant to block,''
+regardless of which port it happens to use. That application awareness, plus the ability to inspect
+decrypted payload content against known attack signatures, is what most modern perimeter firewalls
+ship with today; ``next-generation'' describes a feature set layered on top of stateful inspection,
+not a replacement for it.
+
+\begin{misconception}
+\textbf{``A stateful firewall is always more secure than a stateless one.''} Connection awareness
+closes one specific class of gap. A stateful firewall configured with a rule that permits all
+inbound traffic is exactly as insecure as a permissive stateless one -- the rules written still
+determine the actual security posture.
+\end{misconception}
+
+\section{Firewall Rules and Access Control Lists}
+
+A firewall's decisions are only as good as the rule list it is given.
+
+\begin{definition}{Access control list (ACL)}
+An ordered sequence of allow/deny statements, each matched against a packet's source address,
+destination address, destination port, and protocol.
+\end{definition}
+
+\begin{definition}{First-match-wins}
+The evaluation model in which a firewall reads an ACL top to bottom and applies the action of the
+\emph{first} rule a packet matches; no later rule is ever consulted for that packet, even if a
+later rule would also have matched and specified a different action.
+\end{definition}
+
+First-match-wins is the single most consequential fact about how ACLs behave: two lists containing
+the identical set of rules, written in a different order, can produce entirely different security
+outcomes. Every well-formed ACL ends, explicitly or implicitly, with an \textbf{implicit deny}: a
+final rule dropping anything that matched nothing above it. This default-deny posture -- permit
+only what is explicitly needed, reject everything else -- is the same principle underlying least
+privilege in Chapter~\ref{ch:2.1}.
+
+\begin{example}[Rule shadowing]
+An administrator writes rule~1 as ``allow TCP any any port~22'' (SSH from anywhere, meant as a
+temporary troubleshooting exception). Three lines later she writes rule~4 as ``deny TCP from
+203.0.113.0/24 to 10.0.1.10 port~22'' (block a known-hostile range from reaching the file server
+over SSH). Because rule~1 matches first, \emph{every} SSH packet -- including ones from
+203.0.113.0/24 -- is allowed before the ACL ever reaches rule~4. Rule~4 is not wrong; it is
+unreachable. This is \textbf{rule shadowing}: a broad rule earlier in the list makes a more specific
+rule below it dead code. The fix is always about \emph{order}, never content -- the specific deny
+must move above the broad allow, or the broad allow must be narrowed.
+\end{example}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  dec/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.6cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[dec, fill=kickstartercream] (r1) at (0,0) {Packet arrives};
+\node[dec] (m1) at (3.0,0) {Matches\\rule 1?};
+\node[dec] (m2) at (6.0,0) {Matches\\rule 2?};
+\node[dec] (dots) at (8.6,0) {\ldots};
+\node[dec, fill=kickstartermaroon!20] (deny) at (11.2,0) {Implicit\\deny-all};
+\node[dec, fill=kickstartermaroon!10] (a1) at (3.0,-1.6) {Apply rule 1's\\action -- stop};
+\node[dec, fill=kickstartermaroon!10] (a2) at (6.0,-1.6) {Apply rule 2's\\action -- stop};
+\draw[-{Latex[length=2mm]}] (r1) -- (m1);
+\draw[-{Latex[length=2mm]}] (m1) -- (m2) node[midway, above, font=\tiny] {no};
+\draw[-{Latex[length=2mm]}] (m2) -- (dots) node[midway, above, font=\tiny] {no};
+\draw[-{Latex[length=2mm]}] (dots) -- (deny) node[midway, above, font=\tiny] {no match};
+\draw[-{Latex[length=2mm]}] (m1) -- (a1) node[midway, right, font=\tiny] {yes};
+\draw[-{Latex[length=2mm]}] (m2) -- (a2) node[midway, right, font=\tiny] {yes};
+\end{tikzpicture}
+\caption{First-match-wins evaluation: the ACL is read top to bottom, and the first matching rule's
+action is applied and evaluation stops -- no later rule is ever consulted for that packet.}
+\label{fig:3.4-first-match}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={An ACL evaluator using first-match-wins with implicit deny}]
+def evaluate_acl(rules, packet):
+    """rules: ordered list of dicts like {"src": str, "dst": str,
+       "port": int|None, "proto": str, "action": "allow"|"deny"}.
+       None for src/dst/port/proto means "any" (wildcard match).
+       Returns "allow" or "deny" for the given packet."""
+    def matches(rule, field, value):
+        return rule[field] is None or rule[field] == value
+
+    for rule in rules:
+        if (matches(rule, "src", packet["src"]) and
+                matches(rule, "dst", packet["dst"]) and
+                matches(rule, "port", packet["port"]) and
+                matches(rule, "proto", packet["proto"])):
+            return rule["action"]
+    return "deny"
+
+def find_shadowed_rules(rules):
+    """Returns indices of rules that can never fire because an earlier
+    rule's conditions are a strict superset of theirs."""
+    def subsumes(earlier, later):
+        for field in ("src", "dst", "port", "proto"):
+            if earlier[field] is not None and earlier[field] != later[field]:
+                return False
+        return True
+
+    shadowed = []
+    for i, rule in enumerate(rules):
+        for earlier in rules[:i]:
+            if subsumes(earlier, rule):
+                shadowed.append(i)
+                break
+    return shadowed
+\end{lstlisting}
+
+The safe authoring pattern follows directly from this: place the most specific rules first --
+exceptions and denies for particular hosts or ports -- then general allows, and finish with the
+implicit or explicit deny-all. Auditing an existing ACL means checking each rule against every rule
+listed above it. If a broader earlier rule already matches everything a later, more careful rule
+would match, that later rule is shadowed. The ACL then silently does not do what its author
+intended, no matter how correct that rule reads in isolation.
+
+\begin{misconception}
+\textbf{``A more specific deny rule automatically overrides a broader allow rule.''} Nothing
+overrides anything in a first-match-wins engine. The only fact that matters is which rule is
+physically listed first -- specificity has no special standing unless the rule order already
+reflects it.
+\end{misconception}
+
+\section{Firewall Placement in the Topology}
+
+Chapter~\ref{ch:3.3} drew the zone boundaries. This section places the firewall itself on each one,
+because a rule set enforced in the wrong location protects nothing, no matter how carefully it is
+written.
+
+A \textbf{perimeter firewall} sits at the boundary between the organization's network and the
+public internet, and enforces the coarsest policy in the whole design: deny everything inbound by
+default, permit only the specific services the organization has chosen to expose. Behind that
+perimeter, a \textbf{screened subnet} (also called a DMZ, for demilitarized zone) isolates the
+public-facing servers -- a web server, a mail relay, a DNS resolver -- in their own segment,
+reachable from the internet but walled off from the internal network by a second firewall boundary.
+That second boundary is the entire point: if an attacker compromises the web server sitting in the
+screened subnet, the screened subnet's inner firewall is what stops that compromise from reaching
+payroll, engineering, or any other internal zone directly.
+
+\textbf{Internal firewalls} extend the same logic inside the network, between zones of differing
+sensitivity -- separating a finance segment from a general office segment, or a payment-processing
+segment from everything else. Placing a firewall only at the perimeter assumes the perimeter never
+fails; placing firewalls at internal boundaries too assumes it eventually will, and limits what a
+single successful breach can reach. This is the same containment logic behind network segmentation
+in Chapter~\ref{ch:3.3}, applied specifically to where an enforcement point -- not just a
+boundary -- actually sits.
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An attacker sends a spoofed TCP packet with the ACK flag set to a destination port permitted
+by a rule. Explain why a stateless firewall forwards this packet and why a stateful firewall,
+using the same underlying rule, drops it.
+\item Explain why ``stateful'' does not imply ``inspects application content,'' and give an example
+of an attack that passes through a stateful firewall completely undetected as a result.
+\item An ACL has, in order: (1) allow TCP any any port 22, (2) deny TCP 203.0.113.0/24 any port 22.
+Explain what happens to an SSH packet from 203.0.113.5, and identify the minimal change to the ACL
+that fixes the problem.
+\item Explain why an ACL's implicit deny-all is described as a default-deny posture, and connect
+this principle to least privilege from Chapter~\ref{ch:2.1}.
+\item Two ACLs contain the exact same five rules, but administrator A orders them one way and
+administrator B orders them differently. Explain how this alone can produce two different security
+postures despite having identical rule content.
+\item Using the first-match-wins flowchart, explain what it would mean, mechanically, for a rule
+placed after the implicit deny-all to have any effect. Why does every ACL authoring guide treat
+placement after deny-all as equivalent to deleting the rule?
+\item An administrator wants to add a temporary, broad allow rule for troubleshooting without
+risking that it silently shadows an important existing deny rule placed later in the list. Using
+the safe-authoring pattern from this chapter, describe where the temporary rule should go and why.
+\item A company places its only firewall at the internet perimeter, with public web and mail
+servers on the same internal network segment as the finance and engineering teams. Explain what a
+screened subnet (DMZ) and an internal firewall boundary would each add to this design, and why a
+single perimeter firewall is not enough to contain a compromise of the public web server.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item A stateless firewall evaluates each packet's header in isolation with no memory of any
+connection, so a spoofed ACK packet matching an allowed destination port is forwarded regardless of
+whether a real session was ever established. A stateful firewall, using the identical rule, checks
+the packet against its connection-tracking table first. Finding no matching entry in the
+\texttt{ESTABLISHED} state for those endpoints, it drops the packet -- return traffic is only
+recognized and permitted for sessions the firewall itself watched being set up through the
+three-way handshake.
+\answerlabel{3.4.A}
+\item ``Stateful'' describes what the firewall tracks -- connection state, meaning whether a session
+was legitimately established -- not what it inspects inside the payload. A stateful firewall
+confirms a session is real and then permits all further traffic on it without examining the
+application-layer content at all. Malware delivered inside an HTTPS stream on port 443 passes
+through completely undetected as a result. The firewall correctly recognizes the connection as an
+established, legitimate session, and has no visibility into what is actually being transmitted
+inside it.
+\answerlabel{3.4.A}
+\item Because ACLs are evaluated first-match-wins, an SSH packet from 203.0.113.5 matches rule~1
+(``allow TCP any any port 22'') first and is permitted immediately. The ACL never reaches rule~2, so
+the more specific deny is unreachable dead code -- this is rule shadowing. The minimal fix is to
+reorder the rules so the specific deny comes first: (1) deny TCP 203.0.113.0/24 any port 22, (2)
+allow TCP any any port 22. The narrower, more urgent rule is then checked before the broad allow can
+shadow it.
+\answerlabel{3.4.B}
+\item An ACL's implicit deny-all drops anything that matched no explicit rule above it, meaning
+only traffic explicitly permitted is ever allowed through -- everything else is rejected by default.
+This is the identical principle behind least privilege from Chapter~\ref{ch:2.1}: rather than
+granting broad access and trying to block specific bad cases, both approaches start from zero
+access and add back only what is specifically justified. This minimizes what an attacker can reach
+if a case was simply never anticipated.
+\answerlabel{3.4.B}
+\item Because evaluation is first-match-wins, the physical order of otherwise identical rules
+determines which rule actually governs a given packet, not the content of the rules themselves.
+Suppose administrator A places a specific deny above a broad allow, and administrator B places them
+in the reverse order. A's ACL blocks the traffic the deny targets, while B's ACL allows it straight
+through via the broad rule before the deny is ever reached -- two firewalls enforcing the exact same
+five rules produce opposite real-world outcomes purely because of sequence.
+\answerlabel{3.4.B}
+\item Evaluation stops the instant a packet matches any rule, and the implicit deny-all matches
+literally every remaining packet by design. So no packet ever reaches a rule listed after it,
+because the deny-all has already claimed the match and evaluation has already stopped. A rule
+placed after deny-all is therefore mechanically identical to a rule that was never written: it can
+never be reached regardless of what it says. That is exactly why it is treated as equivalent to
+deletion rather than as a weaker or lower-priority rule.
+\answerlabel{3.4.B}
+\item The temporary allow rule should be placed \emph{after} the important deny rule it must not
+shadow, not before it -- following the safe-authoring pattern of putting the most specific,
+highest-stakes rules first. Placing the broad temporary allow above the deny would let it match and
+terminate evaluation for every packet the deny was meant to catch, exactly as in the
+rule-shadowing example. Placing it below instead ensures the deny is still checked first for any
+packet it applies to, while the temporary allow still catches whatever traffic remains for the
+troubleshooting window -- the flow of traffic still matches the stated policy, and tracing any given
+packet against the ordered list confirms it.
+\answerlabel{3.4.D}
+\item A single perimeter firewall protects the boundary with the internet, but once the public web
+server behind it is compromised, nothing stops the attacker from pivoting sideways to finance and
+engineering -- every internal system sits on the same trusted segment. A screened subnet moves the
+public web and mail servers into their own segment, behind a second firewall boundary separating
+them from the internal network, so a compromise of those exposed servers does not automatically
+reach anything else. An internal firewall boundary between finance and engineering adds a further
+layer of the same containment: even a compromise that reaches one internal zone still has to cross
+another enforced boundary to reach the other.
+\answerlabel{3.4.C}
+\end{answerkey}

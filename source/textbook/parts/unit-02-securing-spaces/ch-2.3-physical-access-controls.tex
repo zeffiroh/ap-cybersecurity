@@ -1,0 +1,436 @@
+\chapter{Physical Access Controls}
+\label{ch:2.3}
+\chaptertopic{Topic 2.3}
+
+\chapterquote{He who defends everything defends nothing.}{attributed to Frederick the Great}
+
+\section{Motivation}
+
+Chapter~\ref{ch:2.2} catalogued how physical attacks succeed: tailgating, lock bypass,
+environmental disaster, device theft and tampering. This chapter is the mirror image -- the
+controls a facility actually deploys to stop each of those attacks, and, just as importantly, how
+those controls combine. No single lock, camera, or guard is sufficient on its own; every one of
+them can be individually defeated. The organizing idea of this chapter is \textbf{defense in
+depth}. Layer independent controls so that an attacker who defeats one layer still has to
+defeat the next, and the next, before reaching anything of value.
+
+\begin{apalignment}{Unit 2: Securing Spaces}{Topic 2.3 -- Protecting Physical Spaces}
+\begin{apobjectives}
+\apobjective{2.3.A}{Mitigate Risk}{Identify the managerial controls that govern physical security -- the policies, standards and procedures that decide who may enter which space, how visitors and contractors are handled, how credentials are issued and withdrawn, and how all of it is reviewed.}
+\apobjective{2.3.B}{Mitigate Risk}{Determine which mitigations to apply to a documented physical weakness, choosing among them on the strength of what each one actually removes, what it costs, and what remains afterwards.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Access Control Layers}
+
+Four distinct control types recur across every secure facility, and each addresses a different
+part of the problem.
+
+A \textbf{keyed lock} is the oldest and simplest control. It restricts entry to whoever holds the
+correct physical key, requires no power or network, and is cheap and reliable as a fallback. Its
+weaknesses are equally plain. A key can be copied, lost, or stolen with no digital trace at all.
+A former employee who never returned a key remains a threat until the lock is physically
+rekeyed. A lock produces no audit log; there is no way to review who entered a room at 2~a.m.\
+last Tuesday.
+
+\begin{definition}{RFID badge system}
+An electronic access-control credential, stored on a smart card or RFID badge, that a reader
+checks against an authorization database for a specific door and time, logging the transaction as
+it does so.
+\end{definition}
+
+Badge systems solve exactly the two problems locks cannot. \textbf{Revocation}: one database
+update disables a lost or stolen badge instantly, versus physically retrieving a key. An
+\textbf{audit trail} records exactly which badge accessed which door, and when. Their
+weakness is that they verify possession of a credential, not identity. A stolen badge is a valid
+badge until it is reported and revoked, which is why badge systems are typically paired with a
+second factor.
+
+\textbf{Biometric} controls verify identity directly, through a fingerprint, iris, or facial
+pattern that cannot be handed to someone else or forgotten. They introduce a different kind of
+risk: the system stores a template derived from the biometric sample, and unlike a compromised
+password, a compromised fingerprint cannot simply be changed. Every biometric system is also
+characterized by two competing error rates. \textbf{False acceptance rate (FAR)} is the chance an
+unauthorized person is let in; \textbf{false rejection rate (FRR)} is the chance an authorized
+person is turned away. Tuning a system to lower one necessarily raises the other -- a policy
+tradeoff between security and user friction, not a purely technical one.
+
+\begin{definition}{Mantrap}
+An architectural control consisting of two interlocked doors with a small chamber between them,
+where the outer door must close and lock before the inner door can open, eliminating the physical
+opportunity for a second person to follow someone through.
+\end{definition}
+
+A mantrap's cost is throughput: it admits one person (or one small verified group) per cycle,
+acceptable for a data-center server floor and unworkable for a busy office lobby.
+
+\begin{lstlisting}[language=Python, caption={Auditing a facility's access-control layers for gaps}]
+def find_access_gaps(facility):
+    """facility: dict of booleans like {"lock": bool, "badge_reader": bool,
+       "biometric": bool, "mantrap": bool, "cctv": bool}.
+       Returns a sorted list of gap labels for controls that are absent."""
+    required = {
+        "lock": "no-physical-lock",
+        "badge_reader": "no-audit-trail",
+        "biometric": "no-identity-verification",
+        "mantrap": "tailgating-possible",
+        "cctv": "no-visual-record",
+    }
+    return sorted(label for control, label in required.items()
+                  if not facility.get(control, False))
+\end{lstlisting}
+
+A typical secure facility stacks these layers in sequence: a perimeter fence, a keyed lock at the
+building entrance, a badge reader at the secured zone (audit trail and revocation), a mantrap
+before the server floor (eliminates tailgating), a biometric reader inside the mantrap (verifies
+identity, not just badge possession), CCTV throughout, and a guard for judgment calls none of the
+above can make. Each layer assumes the previous one may fail.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  ring/.style={draw=kickstartermaroon, thick},
+]
+\foreach \r/\clr/\lbl/\ang in {
+  3.2/kickstartercream/{Perimeter fence}/60,
+  2.6/white/{Keyed lock}/60,
+  2.0/kickstartermaroon!10/{Badge reader}/60,
+  1.4/kickstartermaroon!20/{Mantrap}/60,
+  0.8/kickstartermaroon!30/{Biometric}/60
+}
+  \draw[ring, fill=\clr] (0,0) circle (\r);
+\node[font=\tiny, align=center] at (0,0) {Server\\floor};
+\node[font=\tiny, anchor=west] at (0.85,0.5) {Biometric};
+\node[font=\tiny, anchor=west] at (1.45,1.0) {Mantrap};
+\node[font=\tiny, anchor=west] at (2.05,1.5) {Badge reader};
+\node[font=\tiny, anchor=west] at (2.65,2.0) {Keyed lock};
+\node[font=\tiny, anchor=west] at (3.25,2.5) {Perimeter fence};
+\end{tikzpicture}
+\caption{Defense in depth as concentric layers: an attacker must defeat every ring in sequence to
+reach the asset at the center, and each ring is a different kind of obstacle the outer ones do not
+cover.}
+\label{fig:2.3-defense-in-depth}
+\end{figure}
+
+\begin{misconception}
+\textbf{``A badge reader is enough; locks are old-fashioned.''} A lock provides a power-independent
+fallback. If the badge system loses power or is misconfigured, a mechanical lock still prevents
+the door from becoming unsecured by default.
+\end{misconception}
+
+\section{Surveillance Systems}
+
+If access controls decide \emph{who} enters, surveillance records \emph{what happens} once they
+do. \textbf{CCTV} functions as both a \textbf{detective control} -- recording events and enabling
+after-the-fact review -- and a mild deterrent, since visible cameras discourage some opportunistic
+attempts. It is emphatically not a preventive control: a camera cannot stop someone from climbing
+a fence, only record that they did.
+
+Two architectures dominate. \textbf{Analog CCTV} runs dedicated coaxial cable to monitors or
+DVRs, which makes it immune to network hacking or remote DoS. It limits resolution, though, and
+requires an attacker to physically cut a cable to defeat it -- and physical access to that cable
+is enough. \textbf{IP cameras} operate as independent network devices with their own address,
+enabling remote viewing, motion detection, and facial recognition. That same network presence is
+a logical attack surface: many ship with unchanged default credentials (\texttt{admin}/\texttt{admin})
+that tools like Shodan can locate at internet scale, and an unencrypted video stream can be
+intercepted or spoofed with fabricated frames.
+
+Coverage design matters as much as the hardware. A \textbf{blind spot} -- any area outside every
+camera's field of view -- is exactly what an attacker seeks out, and system designers close them
+with deliberately overlapping fields of view. A pan-tilt-zoom (PTZ) camera trades wide coverage for
+a temporary blind spot of its own: while it is panned left, an intruder can cross undetected on the
+right. Thermal imaging, which detects heat rather than visible light, holds up in total darkness,
+fog, and heavy rain where an ordinary camera fails outright.
+
+\begin{lstlisting}[language=Python, caption={Computing surveillance coverage and identifying blind spots}]
+def coverage_report(zones, monitored_zones):
+    """zones: list of all zone names. monitored_zones: set of zone names
+       with camera coverage. Returns (coverage_percent, sorted blind spots)."""
+    monitored = set(monitored_zones)
+    blind_spots = sorted(z for z in zones if z not in monitored)
+    coverage_percent = 100 * len(monitored & set(zones)) / len(zones) if zones else 100
+    return coverage_percent, blind_spots
+\end{lstlisting}
+
+How a feed is watched matters as much as whether it exists. \textbf{Active monitoring} -- guards
+watching live feeds -- lets staff detect and respond to a tailgating event or a fence breach as it
+happens. Human attention degrades measurably, though, after roughly twenty minutes of watching
+static screens. \textbf{Passive monitoring} -- recording to storage for later review -- is cheap and
+valuable forensically, but does nothing to interrupt an attack in progress. Mitigating a
+surveillance system's own logical exposure means isolating cameras on a dedicated VLAN, replacing
+every default credential, keeping firmware current, and encrypting video both in transit and at
+rest.
+
+\begin{misconception}
+\textbf{``Networked IP cameras are inherently more secure than old analog systems.''} IP cameras
+add resolution and analytics, but also an internet-reachable attack surface an analog coaxial loop
+never has. An analog system cannot be hacked remotely; a poorly secured IP camera can be found and
+controlled from anywhere.
+\end{misconception}
+
+\section{Personnel Controls and Defense in Depth}
+
+Technology alone cannot close every gap, because judgment does not automate well. A
+\textbf{security guard} is the most flexible control available precisely because a guard can
+observe, reason, and respond in ways a lock or camera cannot. Guard duties fall into three roles. \textbf{Patrol} disrupts an attacker's ability to work at
+leisure by imposing a hard, if irregular, deadline. \textbf{Reception and access verification}
+lets a trained guard notice a tailgating attempt or an implausible cover story that a badge reader
+simply cannot evaluate. \textbf{Response} means physically investigating whatever an alarm or
+camera flags -- without it, an alarm is only a deterrent, not a barrier, since an attacker who
+knows response is slow can afford to work through it.
+
+Visitors are one of the highest-risk populations in any facility precisely because they are
+unknown people with legitimate, if temporary, access. A \textbf{visitor log} records who entered,
+under whose sponsorship, and when they left, creating an audit trail and assigning accountability
+to a named internal sponsor. An \textbf{escort policy} requires every visitor be accompanied by an
+authorized employee at all times, enforced by guards who verify that anyone without an employee
+badge has a chaperone.
+
+\begin{example}[Layers multiply attacker cost]
+Consider a fictional data center, Novara. With only a badge reader, an attacker needs one thing: a
+cloned or stolen badge. Add a guard at reception, and the attacker must also defeat
+social-engineering detection. Add CCTV, and the attacker must avoid being recorded. Add a mantrap,
+and the attacker must enter alone and pass biometric verification. Each additional layer does not
+add to the attacker's cost \emph{linearly} -- it multiplies it, because every layer must be
+defeated simultaneously, and failing any single one ends the attack. A facility's ``depth score'' --
+the count of distinct control categories actually present -- is a useful proxy for its real
+posture. Five categories mean five independent problems the attacker must solve, and solving four
+is not enough.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Scoring a defense-in-depth plan by category coverage}]
+CATEGORIES = ["perimeter", "personnel", "electronic_access", "physical_barrier", "monitoring"]
+
+def evaluate_depth(layers):
+    """layers: dict mapping category name -> bool (present or not).
+       Returns (depth_score, recommendation)."""
+    depth_score = sum(1 for c in CATEGORIES if layers.get(c, False))
+    if depth_score >= 4:
+        recommendation = "strong"
+    elif depth_score >= 2:
+        recommendation = "adequate"
+    else:
+        recommendation = "weak"
+    return depth_score, recommendation
+\end{lstlisting}
+
+Defense in depth has real costs -- guards are expensive relative to automated controls, strict
+visitor policies slow legitimate work, mantraps create bottlenecks at peak hours -- and a security
+program must weigh those costs against asset value and realistic risk using the exact vocabulary
+from Chapter~\ref{ch:2.1}.
+
+\begin{misconception}
+\textbf{``More guards means more security.''} Redundant personnel in the same role add cost
+without closing any \emph{new} gap. The benefit of defense in depth comes from covering additional
+control categories, not from duplicating one that already works.
+\end{misconception}
+
+\section{Managerial Controls and the Credential Lifecycle}
+
+Every technical and physical control examined so far is only as good as the policy that governs
+who gets one and when it is taken away. A \textbf{physical security policy} states principle and
+intent: who may authorize access to a restricted zone, how visitors are handled, how quickly a
+departing employee's credentials must be revoked. It is deliberately written to outlive any
+single vendor's product. A policy that names a specific badge-reader model is a drafting error, not
+a strength. It locks the organization to hardware that will eventually be discontinued or replaced,
+and it forces a policy rewrite for a purely technical upgrade. Worse, it confuses what is actually
+required (a credential that can be individually revoked and logged) with the current implementation
+of that requirement.
+
+\begin{definition}{Separation of duties}
+Dividing a sensitive process across multiple people so that no single individual can both request
+and grant a benefit, and can later mark their own work as reviewed.
+\end{definition}
+
+Applied to credential management, separation of duties means the person who approves an access
+request, the person who provisions the badge, and the person who periodically reviews the resulting
+audit log are three distinct roles. Collapsing all three into one accountable person may look
+efficient. But it removes the independent check that catches an error or an abuse before it
+compounds -- the same logic that keeps one person from both writing and auditing a company's own
+checks.
+
+\begin{example}[A recertification that reviews nothing]
+A quarterly access recertification sends each space owner a list of everyone with access to their
+area for approval. If most owners press a single ``approve all'' button within a minute of
+receiving the list, the control is being performed on schedule and generates a complete evidentiary
+trail. It still catches nothing, though, because no owner is actually comparing the list against
+who should have access. A control's presence in the audit record is not evidence that it functioned;
+an assessor has to check whether the human step it depends on was genuinely exercised, not merely
+whether it was logged.
+\end{example}
+
+\begin{definition}{Crime Prevention Through Environmental Design (CPTED)}
+A design philosophy that reduces opportunities for crime through the physical layout of a space
+itself, rather than through added hardware, organized around natural surveillance, natural access
+control, territorial reinforcement, and maintenance.
+\end{definition}
+
+\textbf{Natural surveillance} arranges windows, lighting, and landscaping so that legitimate
+occupants can casually observe approaches and entrances as a byproduct of ordinary use. A lobby
+with clear sightlines to the parking lot, for instance, deters loitering more cheaply than an
+additional camera covering the same view. \textbf{Natural access control} uses walkways, fencing, and building
+placement to funnel visitors toward a single, obviously legitimate entrance, so that anyone
+approaching from another direction stands out rather than blending in. \textbf{Territorial
+reinforcement} uses signage, landscaping transitions, and low symbolic barriers to signal that a
+space is privately owned and monitored. That discourages the casual trespasser who would not
+attempt the same approach against a clearly guarded boundary. \textbf{Maintenance} closes the
+loop: an unmaintained property signals that nobody is paying attention, and a well-kept one
+signals the opposite. Broken fixtures and overgrown landscaping are treated as security lapses,
+not merely cosmetic ones. CPTED is deliberately cheap relative to hardware controls, because it
+reshapes the opportunity structure of a space rather than adding anything to monitor or maintain.
+It mitigates the same tailgating and unauthorized-entry risks from Chapter~\ref{ch:2.2} as a
+by-product of good building design, not an added device.
+
+\begin{misconception}
+\textbf{``A control that ran on schedule and left a record must have worked.''} Evidence of
+execution is not evidence of effect. A recertification, an audit, or a patrol that is performed
+mechanically, without the human judgment the control was designed to apply, produces a clean paper
+trail and closes nothing.
+\end{misconception}
+
+\section{Environmental Controls}
+
+The controls that answer Chapter~\ref{ch:2.2}'s environmental threats are worth examining as
+engineered systems in their own right, because the mechanism -- not just the threat -- is where the
+AP-level detail lives.
+
+\textbf{Hot aisle / cold aisle containment} arranges server racks so cool intake air and hot
+exhaust air never mix. Physical curtains or panels separate a cold aisle, fed by raised-floor or
+overhead ducts, from a hot aisle behind the racks. This roughly doubles cooling efficiency, since
+the HVAC unit sees a higher, more useful return temperature. It also prevents the uncontained hot
+spots that would otherwise cause correlated failures across many racks in the same area.
+
+Clean-agent fire suppression depends on a detail easy to overlook: it only works in a sealed room.
+FM-200 and similar gases suppress combustion by absorbing heat and interrupting the chemical
+reaction. But if a door is propped open during discharge, the gas concentration drops below the
+suppression threshold and the fire simply continues. That is why door closers, gaskets, and
+cable-entry seals are treated as part of the fire-suppression design, not a separate concern.
+Early-warning detection compounds this. A \textbf{VESDA} (Very Early Smoke Detection Apparatus)
+system continuously samples air and detects smoke particles at concentrations far below what a
+standard ionization detector triggers on. That buys operators minutes for an orderly shutdown
+instead of seconds for an emergency one.
+
+The power stack has three layers with different jobs. A \textbf{UPS} responds in milliseconds --
+faster than any generator failover -- providing clean, regulated power through the first moments of
+an outage. It also filters the surges and brownouts that would otherwise silently corrupt data
+even without a full blackout. A \textbf{generator} takes over for extended runtime, typically
+starting within 10 to 30 seconds, with critical facilities running N+1 or 2N redundant units so no
+single generator failure drops the load. A \textbf{PDU} distributes that power to individual racks
+and devices. A managed PDU can also remotely cycle power to a locked-up server, eliminating the
+need for a technician to physically enter the room for a routine reboot.
+
+\begin{lstlisting}[language=Python, caption={Generating environmental alert codes from sensor readings}]
+def environmental_alerts(sensors):
+    """sensors: list of dicts like {"zone": str, "temp_c": float,
+       "humidity_pct": float}. Returns sorted "ZONE:ALERT_CODE" strings
+       for every reading outside the safe operating window."""
+    alerts = []
+    for s in sensors:
+        if not (18 <= s["temp_c"] <= 27):
+            alerts.append(f"{s['zone']}:HIGH_TEMP" if s["temp_c"] > 27
+                          else f"{s['zone']}:LOW_TEMP")
+        if not (40 <= s["humidity_pct"] <= 60):
+            alerts.append(f"{s['zone']}:HIGH_HUMIDITY" if s["humidity_pct"] > 60
+                          else f"{s['zone']}:LOW_HUMIDITY")
+    return sorted(alerts)
+\end{lstlisting}
+
+An operator reading a single HIGH\_TEMP alert investigates a failing fan. An operator reading
+HIGH\_TEMP across an entire aisle suspects HVAC failure and escalates to facilities instead --
+the same aggregate-versus-isolated reasoning that distinguishes a jamming attack from ordinary
+noise in Chapter~\ref{ch:1.3}. All of it, ultimately, protects one pillar of the CIA triad from
+Chapter~\ref{ch:2.1}: availability. A threat actor who understands a target's HVAC schedule could,
+in principle, trigger a temperature-based denial of service without ever touching a keyboard.
+That is exactly why environmental systems belong in a security threat model, not just a
+facilities maintenance log.
+
+\begin{misconception}
+\textbf{``Cold is always safer than warm for servers.''} Temperatures below roughly 18\textdegree{}C
+increase condensation risk and, in low humidity, electrostatic-discharge risk to circuit boards.
+The safe operating window has a lower bound as well as an upper one.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A facility has a badge reader and CCTV but no mantrap. Using the access-gap logic from this
+chapter, identify the specific gap this creates and explain which attack from Chapter~\ref{ch:2.2}
+it leaves open.
+\item Explain why a biometric access system cannot be tuned to simultaneously minimize both false
+acceptance rate and false rejection rate, and describe the security-versus-usability tradeoff this
+creates.
+\item An IP camera system uses default admin credentials on every unit. Explain why this is a
+greater risk for IP cameras than the equivalent scenario would be for an analog CCTV system.
+\item A facility has three existing control categories. Using the ``layers multiply attacker
+cost'' argument from this chapter, explain why adding a fourth independent category is more
+valuable than adding a second guard to a facility that already has one.
+\item A data center's fire-suppression system is FM-200-based, but a technician regularly props
+open the server-room door for ventilation. Explain specifically why this practice defeats the
+suppression system even though the gas canisters themselves are fully charged and functional.
+\item In the Novara example, an attacker facing a badge reader, a guard, CCTV, and a mantrap must
+defeat all four to reach the server floor. Explain why solving three of the four categories still
+results in a fully failed attack, and why this is described as multiplicative rather than
+additive.
+\item A quarterly access recertification shows every space owner approving their list within a
+minute of receiving it, generating a complete, timestamped audit trail. Explain why this record
+is not, by itself, evidence that the control is working, and describe what an assessor would need
+to check instead.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item The gap is a missing mantrap, which leaves tailgating (Chapter~\ref{ch:2.2}) open. With only
+a badge reader and CCTV, a legitimate employee can badge through and an attacker can follow them in
+before the door closes. The CCTV records the event without doing anything to stop it. A mantrap
+specifically removes the physical opportunity for that second person to pass through, which neither
+a badge reader nor a camera does on its own.
+\answerlabel{2.3.B}
+\item False acceptance rate and false rejection rate move in opposite directions for a fixed
+biometric matching threshold. Tightening the match criteria to reject more impostors (lowering FAR)
+necessarily rejects more legitimate users whose live sample varies slightly from their enrolled
+template (raising FRR); loosening it does the reverse. This creates a security-versus-usability
+tradeoff. An organization protecting a very high-value asset accepts more legitimate-user friction
+(favoring low FAR), while a high-throughput, lower-risk entrance accepts a slightly higher
+impostor-acceptance risk to keep queues moving (favoring low FRR).
+\answerlabel{2.3.A}
+\item Default credentials on an IP camera are reachable over the network from anywhere an attacker
+can route packets to it. Internet-scanning tools like Shodan can locate internet-exposed devices
+running unchanged default logins at scale, turning one policy lapse into a remotely exploitable
+vulnerability across every unit at once. An analog CCTV system running dedicated coaxial cable has
+no equivalent network-reachable credential to default in the first place; defeating it requires
+physical access to the cable itself, which is a fundamentally different, much narrower attack
+surface.
+\answerlabel{2.3.B}
+\item Adding a fourth independent control category closes a gap no existing layer covers. That
+means an attacker must now defeat an entirely new kind of obstacle to succeed -- multiplying, not
+merely adding to, the difficulty of the overall attack, per the layers-multiply-attacker-cost
+argument. Adding a second guard duplicates a role that is already present and does not close any
+new gap. An attacker who has already worked out how to get past one guard faces essentially the
+same problem against a second, since both guards defend against the same category of failure.
+\answerlabel{2.3.A}
+\item Clean-agent suppression works by raising the concentration of the suppressant gas inside a
+sealed volume high enough to interrupt combustion or displace oxygen below the level fire needs to
+continue. A propped-open door breaks the seal the entire design depends on.
+Discharged gas escapes into the corridor rather than accumulating in the room, so the
+concentration around the actual fire never reaches the suppression threshold. The fire continues
+to burn regardless of how fully charged or well-maintained the canisters are. The fault is
+architectural, not chemical: door closers, gaskets, and cable-entry seals are part of the
+fire-suppression system's design, not a separate facilities concern. A technician's ventilation
+habit defeats the entire investment as completely as an empty canister would.
+\answerlabel{2.3.B}
+\item Every layer must be defeated for the attack to succeed at all, so solving three of the four
+categories leaves the attacker exactly as stopped as solving zero of them. The single remaining
+uncrossed layer ends the intrusion regardless of how much effort went into the others. This is
+multiplicative rather than additive because the attacker's total probability of success is the
+product of their probability of defeating each independent layer, not a sum of partial progress.
+Defeating 75\% of the categories does not yield 75\% of a successful breach -- it yields a failed
+one, exactly as a single successful layer would.
+\answerlabel{2.3.A}
+\item A clean, timestamped audit trail only proves the control ran on schedule and produced a
+recorded output. It says nothing about whether the human judgment the control depends on --
+actually comparing the list against who should have access -- was genuinely exercised. Approving
+within a minute of receipt is itself evidence the list was very unlikely to have been carefully
+reviewed. An assessor would need to check for effect, not execution. One way: deliberately include
+a name that should not be on a given list during a test cycle, and confirm that at least one
+reviewer catches and flags it, rather than accepting the presence of a completed record as proof
+the review happened.
+\answerlabel{2.3.B}
+\end{answerkey}

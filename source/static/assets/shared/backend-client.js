@@ -1,0 +1,294 @@
+/* grading persistence */
+(function (global) {
+  "use strict";
+
+  var STORAGE_KEY = "apcyber_progress_v1";
+
+  function neonReady() {
+    return !!(global.Neon && global.Neon.isConfigured());
+  }
+
+  function loadLocal() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      if (!data || typeof data !== "object") return { items: {}, history: [], pending: {}, attempts: {} };
+      if (!data.items) data.items = {};
+      if (!data.history) data.history = [];
+      if (!data.pending) data.pending = {};
+      if (!data.attempts) data.attempts = {};
+      return data;
+    } catch (e) {
+      return { items: {}, history: [], pending: {}, attempts: {} };
+    }
+  }
+
+  function saveLocal(data) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      // Storage full, disabled, or private-browsing, degrade silently,
+      // same spirit as the old no-backend-configured no-op.
+    }
+  }
+
+  function recordLocal(payload) {
+    if (!payload || !payload.topic_id || !payload.item_id) return;
+    var data = loadLocal();
+    var isPending = payload.status === "pending";
+    var points = typeof payload.points === "number" ? payload.points : (payload.correct ? 1 : 0);
+    var maxPoints = typeof payload.maxPoints === "number" ? payload.maxPoints : 1;
+    var email = String(payload.email || "").trim().toLowerCase();
+
+    // Pending items (e.g. an exit ticket awaiting instructor grading) have no
+    // score yet, so they must not count toward totals or show up as "wrong" —
+    // they're tracked separately and rendered in the Exit Tickets section.
+    if (isPending) {
+      if (!data.pending) data.pending = {};
+      if (!data.pending[payload.topic_id]) data.pending[payload.topic_id] = {};
+      data.pending[payload.topic_id][payload.item_id] = {
+        atom_id: payload.atom_id || payload.item_id,
+        kind: payload.kind || "item",
+        status: "pending",
+        response: payload.response || "",
+        maxPoints: maxPoints,
+        email: email,
+        ts: Date.now()
+      };
+    } else {
+      if (!data.items[payload.topic_id]) data.items[payload.topic_id] = {};
+      data.items[payload.topic_id][payload.item_id] = {
+        atom_id: payload.atom_id || payload.item_id,
+        kind: payload.kind || "item",
+        correct: !!payload.correct,
+        points: points,
+        maxPoints: maxPoints,
+        explanation: payload.explanation || "",
+        email: email,
+        ts: Date.now()
+      };
+      data.history.push({ points: points, maxPoints: maxPoints, email: email, ts: Date.now() });
+      if (data.history.length > 500) data.history = data.history.slice(-500);
+      // A pending item that finally got graded moves out of "pending".
+      if (data.pending && data.pending[payload.topic_id]) {
+        delete data.pending[payload.topic_id][payload.item_id];
+      }
+    }
+
+    // Per-attempt history for coding problems, so students can review or
+    // restore an earlier submission (see pyodide-runner.js's "Past Attempts").
+    if (payload.kind === "coding_problem") {
+      if (!data.attempts) data.attempts = {};
+      if (!data.attempts[payload.topic_id]) data.attempts[payload.topic_id] = {};
+      if (!data.attempts[payload.topic_id][payload.item_id]) data.attempts[payload.topic_id][payload.item_id] = [];
+      var list = data.attempts[payload.topic_id][payload.item_id];
+      list.push({
+        response: payload.response || "",
+        correct: !!payload.correct,
+        points: points,
+        maxPoints: maxPoints,
+        explanation: payload.explanation || "",
+        ts: Date.now()
+      });
+      if (list.length > 20) data.attempts[payload.topic_id][payload.item_id] = list.slice(-20);
+    }
+
+    saveLocal(data);
+  }
+
+  function localReport() {
+    var data = loadLocal();
+    var byTopic = {}, wrongAnswers = [], exitTickets = [];
+    var totalPoints = 0, totalMax = 0, submissionCount = 0;
+
+    Object.keys(data.pending || {}).forEach(function (topicId) {
+      Object.keys(data.pending[topicId]).forEach(function (itemId) {
+        var p = data.pending[topicId][itemId];
+        if (p.kind !== "exit_ticket") return;
+        exitTickets.push({
+          topic_id: topicId,
+          atom_id: p.atom_id,
+          item_id: itemId,
+          status: "pending",
+          response: p.response,
+          points: 0,
+          maxPoints: p.maxPoints,
+          email: p.email
+        });
+      });
+    });
+
+    Object.keys(data.items).forEach(function (topicId) {
+      var items = data.items[topicId];
+      var points = 0, maxPoints = 0;
+      Object.keys(items).forEach(function (itemId) {
+        var it = items[itemId];
+        points += it.points;
+        maxPoints += it.maxPoints;
+        totalPoints += it.points;
+        totalMax += it.maxPoints;
+        submissionCount++;
+        if (!it.correct) {
+          wrongAnswers.push({
+            topic_id: topicId,
+            atom_id: it.atom_id,
+            kind: it.kind,
+            explanation: it.explanation
+          });
+        }
+      });
+      byTopic[topicId] = { points: points, maxPoints: maxPoints, items: items };
+    });
+
+    return {
+      overall: {
+        percent: totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 0,
+        points: totalPoints,
+        maxPoints: totalMax,
+        submissionCount: submissionCount
+      },
+      byTopic: byTopic,
+      history: data.history,
+      exitTickets: exitTickets,
+      wrongAnswers: wrongAnswers
+    };
+  }
+
+  function mergeReports(remote, local, email) {
+    if (!remote || !remote.byTopic) return local;
+    var me = String(email || "").trim().toLowerCase();
+    var remoteTs = {}, newestRemote = 0;
+    (remote.history || []).forEach(function (h) {
+      var t = Date.parse(h.timestamp) || 0;
+      var key = h.topic_id + "::" + h.item_id;
+      if (!remoteTs[key] || t > remoteTs[key]) remoteTs[key] = t;
+      if (t > newestRemote) newestRemote = t;
+    });
+
+    var byTopic = {}, localWins = {}, added = 0;
+    Object.keys(remote.byTopic).forEach(function (topicId) {
+      byTopic[topicId] = { items: Object.assign({}, remote.byTopic[topicId].items) };
+    });
+    Object.keys(local.byTopic).forEach(function (topicId) {
+      var items = local.byTopic[topicId].items;
+      Object.keys(items).forEach(function (itemId) {
+        if (items[itemId].email !== me) return; // another student on this device, or untagged legacy data
+        if (!byTopic[topicId]) byTopic[topicId] = { items: {} };
+        var key = topicId + "::" + itemId;
+        var have = byTopic[topicId].items[itemId];
+        if (!have || (items[itemId].ts || 0) > (remoteTs[key] || 0)) {
+          if (!have) added++;
+          byTopic[topicId].items[itemId] = items[itemId];
+          localWins[key] = true;
+        }
+      });
+    });
+
+    var totalPoints = 0, totalMax = 0;
+    Object.keys(byTopic).forEach(function (topicId) {
+      var t = byTopic[topicId], points = 0, maxPoints = 0;
+      Object.keys(t.items).forEach(function (itemId) {
+        points += t.items[itemId].points;
+        maxPoints += t.items[itemId].maxPoints;
+      });
+      t.points = points; t.maxPoints = maxPoints;
+      totalPoints += points; totalMax += maxPoints;
+    });
+
+    var wrongAnswers = (remote.wrongAnswers || []).filter(function (w) {
+      return !localWins[w.topic_id + "::" + w.item_id];
+    });
+    Object.keys(localWins).forEach(function (key) {
+      var parts = key.split("::"), it = byTopic[parts[0]].items[parts[1]];
+      if (!it.correct) {
+        wrongAnswers.push({ topic_id: parts[0], atom_id: it.atom_id, item_id: parts[1], kind: it.kind, explanation: it.explanation });
+      }
+    });
+
+    var history = (remote.history || []).concat((local.history || []).filter(function (h) {
+      return h.email === me && (h.ts || 0) > newestRemote;
+    }));
+
+    var exitTickets = (remote.exitTickets || []).slice();
+    (local.exitTickets || []).forEach(function (e) {
+      if (e.email !== me) return;
+      var dup = exitTickets.some(function (r) { return r.topic_id === e.topic_id && r.item_id === e.item_id; });
+      if (!dup) exitTickets.push(e);
+    });
+
+    return Object.assign({}, remote, {
+      overall: {
+        percent: totalMax > 0 ? Math.round((totalPoints / totalMax) * 100) : 0,
+        points: totalPoints,
+        maxPoints: totalMax,
+        submissionCount: ((remote.overall && remote.overall.submissionCount) || 0) + added
+      },
+      byTopic: byTopic,
+      history: history,
+      exitTickets: exitTickets,
+      wrongAnswers: wrongAnswers
+    });
+  }
+
+  function localAttempts(topicId, itemId) {
+    var data = loadLocal();
+    return (data.attempts && data.attempts[topicId] && data.attempts[topicId][itemId]) || [];
+  }
+
+  var Backend = {
+    submit: function (payload) {
+      recordLocal(payload);
+      if (!neonReady()) return Promise.resolve(true);
+      return Neon.rpc("api_submit", { p: payload }, { keepalive: true }).then(function () {
+        return true;
+      }).catch(function (err) {
+        console.warn("[Backend] optional network mirror failed, progress is still saved locally:", err);
+        return true;
+      });
+    },
+
+    gradeSubmission: function (payload) {
+      if (!neonReady()) {
+        console.warn("[Backend] gradeSubmission skipped, Neon is not configured, and instructor grading has no local/static equivalent.");
+        return Promise.resolve(false);
+      }
+      return Neon.rpc("api_grade_submission", { p: payload }).then(function (data) {
+        if (data && data.ok === false) console.error("[Backend] gradeSubmission rejected:", data.error);
+        return !!(data && data.ok);
+      }).catch(function (err) {
+        console.error("[Backend] gradeSubmission failed:", err);
+        return false;
+      });
+    },
+
+    getStudentReport: function (email) {
+      if (!neonReady() || !email) return Promise.resolve(localReport());
+      return Neon.rpc("api_student_report", { p_email: email }).then(function (remote) {
+        return mergeReports(remote, localReport(), email);
+      }).catch(function (err) {
+        console.warn("[Backend] studentReport unavailable, using local record:", err);
+        return localReport();
+      });
+    },
+
+    getClassReport: function () {
+      if (!neonReady()) return Promise.resolve(null);
+      return Neon.rpc("api_class_report", {}).catch(function (err) {
+        console.error("[Backend] classReport failed after retries:", err);
+        return null;
+      });
+    },
+
+    isConfigured: function () {
+      return neonReady();
+    },
+
+    /** Past submissions for one coding problem, most recent last. Always
+     *  local, replay is a per-device convenience, not a synced record. */
+    getAttempts: function (topicId, itemId) {
+      return localAttempts(topicId, itemId);
+    }
+  };
+
+  global.Backend = Backend;
+})(window);

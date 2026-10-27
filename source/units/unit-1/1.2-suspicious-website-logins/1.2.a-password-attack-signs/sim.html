@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<!-- 1.2.a SIM, "Login Monitor". Single-file, offline, deterministic. No emoji/icons.
+     Theme tokens inlined from assets/theme/theme.css (THEME.md). Fake-network engine
+     replays a scripted authentication log; student flags the brute-force account. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.2.a - Login Monitor</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:860px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:#000;color:#00ff00;font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre-wrap;line-height:1.4;height:260px;overflow-y:auto;font-size:13px;}
+.dim{color:#00aa00;}.bright{color:#00ff00;font-weight:bold;}
+.fail-line{color:#ff4444;}.ok-line{color:#00ff00;}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.flag-row{margin:10px 0 6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.flag-row label{font-family:var(--mono-font);font-size:13px;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.feedback{font-family:var(--mono-font);margin-top:8px;min-height:18px;font-size:13px;}
+.scenario-title{font-family:var(--mono-font);font-size:12px;color:var(--muted);margin-bottom:4px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+  <div class="window">
+    <div class="titlebar">
+      <span>1.2.a - Login Monitor</span>
+      <span class="controls">[_][^][X]</span>
+    </div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Watch the live authentication log. When you believe an account is under a brute-force
+         attack, select its username from the list and click <b>Flag Account</b> before the
+         attacker succeeds. Reach <b id="goal">4</b> correct detections to meet the objective.</p>
+
+      <div class="scenario-title">meridian-router auth.log (live feed) &#9474; 02:13 UTC</div>
+      <div class="terminal" id="log"></div>
+
+      <div class="flag-row">
+        <label>Suspect account:</label>
+        <select id="user-sel" style="font-family:var(--mono-font);padding:3px;">
+          <option value="">(select username)</option>
+          <option value="admin">admin</option>
+          <option value="jsmith">jsmith</option>
+          <option value="mlopez">mlopez</option>
+          <option value="guest">guest</option>
+          <option value="bkumar">bkumar</option>
+        </select>
+        <button class="btn" onclick="flagAccount()">Flag Account</button>
+        <button class="btn" onclick="nextScenario()">Next scenario</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+
+      <div class="statusbar" id="score">
+        SCORE 0 / 4 | scenario 1 of 4 | OBJECTIVE: <span class="bad">not yet met</span>
+      </div>
+      <div class="legend">No network. Log is simulated and deterministic. FAIL = failed login, OK = success. Time shown is UTC.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+/* ---- Fake Network Engine: scripted deterministic auth-log replays ---- */
+
+/* Each scenario defines the log events and the answer (which user is under attack).
+   Events: {dt: seconds-offset, user, ok, ip, note}
+   The sim plays them back one at a time using a timer, so the log scrolls like a live feed.
+   The student can flag at any time; early (before attacker succeeds) = correct.
+   GOAL: correctly identify the attacker's target account in 4 of 4 scenarios. */
+
+var SCENARIOS = [
+  {
+    label: "Scenario 1 of 4",
+    answer: "admin",
+    events: [
+      {dt:0,   user:"jsmith", ok:true,  ip:"192.168.1.10",  note:""},
+      {dt:2,   user:"mlopez", ok:true,  ip:"192.168.1.14",  note:""},
+      {dt:5,   user:"admin",  ok:false, ip:"192.168.1.201", note:"UNKNOWN DEVICE"},
+      {dt:6,   user:"admin",  ok:false, ip:"192.168.1.201", note:"UNKNOWN DEVICE"},
+      {dt:7,   user:"admin",  ok:false, ip:"192.168.1.201", note:"UNKNOWN DEVICE"},
+      {dt:8,   user:"admin",  ok:false, ip:"192.168.1.201", note:"UNKNOWN DEVICE"},
+      {dt:9,   user:"admin",  ok:false, ip:"192.168.1.201", note:"UNKNOWN DEVICE"},
+      {dt:10,  user:"bkumar", ok:true,  ip:"192.168.1.22",  note:""},
+      {dt:11,  user:"admin",  ok:true,  ip:"192.168.1.201", note:"ATTACKER SUCCEEDED"}
+    ]
+  },
+  {
+    label: "Scenario 2 of 4",
+    answer: "guest",
+    events: [
+      {dt:0,   user:"jsmith", ok:true,  ip:"192.168.1.10",  note:""},
+      {dt:3,   user:"guest",  ok:false, ip:"10.0.0.99",     note:"UNKNOWN DEVICE"},
+      {dt:4,   user:"guest",  ok:false, ip:"10.0.0.99",     note:"UNKNOWN DEVICE"},
+      {dt:5,   user:"mlopez", ok:true,  ip:"192.168.1.14",  note:""},
+      {dt:6,   user:"guest",  ok:false, ip:"10.0.0.99",     note:"UNKNOWN DEVICE"},
+      {dt:7,   user:"guest",  ok:false, ip:"10.0.0.99",     note:"UNKNOWN DEVICE"},
+      {dt:8,   user:"guest",  ok:false, ip:"10.0.0.99",     note:"UNKNOWN DEVICE"},
+      {dt:9,   user:"guest",  ok:true,  ip:"10.0.0.99",     note:"ATTACKER SUCCEEDED"}
+    ]
+  },
+  {
+    label: "Scenario 3 of 4",
+    answer: "bkumar",
+    events: [
+      {dt:0,   user:"admin",  ok:true,  ip:"192.168.1.2",   note:""},
+      {dt:1,   user:"jsmith", ok:false, ip:"192.168.1.10",  note:""},
+      {dt:2,   user:"jsmith", ok:true,  ip:"192.168.1.10",  note:""},
+      {dt:3,   user:"bkumar", ok:false, ip:"172.16.0.55",   note:"UNKNOWN DEVICE"},
+      {dt:4,   user:"bkumar", ok:false, ip:"172.16.0.55",   note:"UNKNOWN DEVICE"},
+      {dt:5,   user:"bkumar", ok:false, ip:"172.16.0.55",   note:"UNKNOWN DEVICE"},
+      {dt:6,   user:"bkumar", ok:false, ip:"172.16.0.55",   note:"UNKNOWN DEVICE"},
+      {dt:7,   user:"bkumar", ok:false, ip:"172.16.0.55",   note:"UNKNOWN DEVICE"},
+      {dt:8,   user:"mlopez", ok:true,  ip:"192.168.1.14",  note:""},
+      {dt:9,   user:"bkumar", ok:true,  ip:"172.16.0.55",   note:"ATTACKER SUCCEEDED"}
+    ]
+  },
+  {
+    label: "Scenario 4 of 4",
+    answer: "mlopez",
+    events: [
+      {dt:0,   user:"jsmith", ok:true,  ip:"192.168.1.10",  note:""},
+      {dt:2,   user:"mlopez", ok:false, ip:"203.0.113.9",   note:"UNKNOWN DEVICE"},
+      {dt:3,   user:"admin",  ok:true,  ip:"192.168.1.2",   note:""},
+      {dt:4,   user:"mlopez", ok:false, ip:"203.0.113.9",   note:"UNKNOWN DEVICE"},
+      {dt:5,   user:"mlopez", ok:false, ip:"203.0.113.9",   note:"UNKNOWN DEVICE"},
+      {dt:6,   user:"mlopez", ok:false, ip:"203.0.113.9",   note:"UNKNOWN DEVICE"},
+      {dt:7,   user:"mlopez", ok:false, ip:"203.0.113.9",   note:"UNKNOWN DEVICE"},
+      {dt:8,   user:"bkumar", ok:true,  ip:"192.168.1.22",  note:""},
+      {dt:9,   user:"mlopez", ok:true,  ip:"203.0.113.9",   note:"ATTACKER SUCCEEDED"}
+    ]
+  }
+];
+
+var GOAL = 4;
+var idx = 0, score = 0, met = false;
+var timer = null, eventIdx = 0, scenarioDone = false, flagged = false, answered = false;
+var BASE_TIME = "02:13:";
+
+function pad2(n){ return n < 10 ? "0" + n : "" + n; }
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function fmtTime(offset){
+  var s = offset % 60;
+  var m = Math.floor(offset / 60) % 60;
+  return "02:" + pad2(13 + m) + ":" + pad2(s);
+}
+
+function appendLine(ev){
+  var log = document.getElementById("log");
+  var t = fmtTime(ev.dt);
+  var status = ev.ok ? "OK  " : "FAIL";
+  var note = ev.note ? "  [" + ev.note + "]" : "";
+  var cls = ev.ok ? "ok-line" : "fail-line";
+  var line = document.createElement("span");
+  line.className = cls;
+  // Highlight attacker success distinctly
+  if(ev.note && ev.note.indexOf("ATTACKER") !== -1){
+    line.className = "bright";
+  }
+  line.textContent = t + "  " + status + "  " + padR(ev.user, 8) + "  " + padR(ev.ip, 17) + note + "\n";
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function padR(s, n){ while(s.length < n) s = s + " "; return s; }
+
+function startScenario(){
+  var log = document.getElementById("log");
+  log.innerHTML = "";
+  var sc = SCENARIOS[idx];
+  eventIdx = 0; scenarioDone = false; flagged = false; answered = false;
+  document.getElementById("fb").textContent = "";
+  document.getElementById("user-sel").value = "";
+  updateBar();
+
+  // Header line
+  var hdr = document.createElement("span");
+  hdr.className = "dim";
+  hdr.textContent = "-- " + sc.label + " -- watching auth.log --\n";
+  log.appendChild(hdr);
+
+  // Play events one at a time using the time deltas
+  playNext();
+}
+
+function playNext(){
+  if(timer) clearTimeout(timer);
+  var sc = SCENARIOS[idx];
+  if(eventIdx >= sc.events.length){ scenarioDone = true; onScenarioEnd(); return; }
+  var ev = sc.events[eventIdx];
+  // Delay between events: use delta from previous event (capped for playability)
+  var delay = 900;
+  if(eventIdx > 0){
+    var prev = sc.events[eventIdx - 1];
+    delay = Math.min((ev.dt - prev.dt) * 900, 2500);
+  }
+  timer = setTimeout(function(){
+    appendLine(ev);
+    eventIdx++;
+    // Check if this was the attacker success event
+    if(ev.note && ev.note.indexOf("ATTACKER") !== -1){
+      scenarioDone = true;
+      onScenarioEnd();
+    } else {
+      playNext();
+    }
+  }, delay);
+}
+
+function onScenarioEnd(){
+  if(!answered){
+    // Student did not flag in time
+    var fb = document.getElementById("fb");
+    fb.innerHTML = '<span class="bad">TIME UP.</span> The attacker succeeded. The target was: <b>' +
+      esc(SCENARIOS[idx].answer) + '</b>. Click "Next scenario" to continue.';
+    answered = true;
+    updateBar();
+  }
+}
+
+function flagAccount(){
+  if(answered) return;
+  var sel = document.getElementById("user-sel").value;
+  if(!sel){ document.getElementById("fb").textContent = "Select a username first."; return; }
+  answered = true;
+  if(timer) clearTimeout(timer);
+  var sc = SCENARIOS[idx];
+  var fb = document.getElementById("fb");
+  if(sel === sc.answer){
+    score++;
+    if(score >= GOAL) met = true;
+    fb.innerHTML = '<span class="ok">CORRECT.</span> ' + esc(sel) + ' was under a brute-force attack. ' +
+      'Signals: rapid FAIL events, unusual time, unknown device. Click "Next scenario".';
+  } else {
+    fb.innerHTML = '<span class="bad">INCORRECT.</span> ' + esc(sel) + ' was not the target. ' +
+      'The correct answer was <b>' + esc(sc.answer) + '</b>. ' +
+      'Look for 5+ FAIL events from an unknown device. Click "Next scenario".';
+  }
+  // Continue showing remaining log events in background for learning
+  if(!scenarioDone) playNext();
+  updateBar();
+}
+
+function nextScenario(){
+  if(timer) clearTimeout(timer);
+  idx = (idx + 1) % SCENARIOS.length;
+  startScenario();
+}
+
+function updateBar(){
+  var sc = SCENARIOS[idx];
+  document.getElementById("score").innerHTML =
+    "SCORE " + score + " / " + GOAL + " | scenario " + (idx+1) + " of " + SCENARIOS.length +
+    " | OBJECTIVE: " +
+    (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+document.getElementById("goal").textContent = GOAL;
+startScenario();
+</script>
+</body>
+</html>

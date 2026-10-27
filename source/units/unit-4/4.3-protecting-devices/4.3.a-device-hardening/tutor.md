@@ -1,0 +1,9 @@
+# 4.3.a tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The image worth carrying into this skill: every device ships from the factory optimized for the easiest possible setup, not for security, which means "default configuration" and "maximally exploitable configuration" are often the same thing. Hardening isn't adding new protection so much as it's *removing* invitations that were switched on by default, the open port nobody uses, the guest account nobody disabled, the admin password that's identical across ten thousand identical devices sitting on shelves. Before you can defend a device, you have to first stop advertising it as an easy target.
+
+## The big picture
+The four-part checklist, change defaults, remove what's unneeded, enable protective features, lock down accounts, is really least privilege from 4.2.d applied to a machine instead of a person, and it's worth seeing them as the same discipline wearing two hats: a device that only runs the services its job requires has a smaller blast radius for exactly the same reason an account with only the access it needs does. The idea that should stick longest, though, is configuration drift: hardening is not a one-time checklist you complete and move on from, it's a state that constantly decays as administrators install software, open a port "temporarily," or reset something during troubleshooting, which is precisely why mature programs pair hardening with automated tools (Ansible, Puppet, Group Policy) that continuously re-check the live device against a known-good baseline. Keep that idea active through the rest of 4.3: hardening removes unnecessary risk *before* an incident, endpoint protection (4.3.b) catches malicious activity that a hardened device still lets through, and patching (4.3.c) closes the vulnerabilities that hardening alone can't touch because they're bugs in code the device actually needs to run.

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password-attack signs (failed attempts, unusual times, unknown devices), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Password-attack signs (failed attempts, unusual times, unknown devices)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.2.a: Detect brute-force login attempts</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 1.2.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the detector a login-monitoring system would use. Given a list of authentication events,
+return every username that has five or more failed login attempts within any 60-second window.</p>
+<p>This is the core algorithm behind real intrusion-detection rules (e.g., fail2ban's default
+policy). The defender's goal is to catch automated password-guessing tools before they succeed.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(events: list[dict]) -&gt; list[str]</code> in the code editor (see the Reference section below). Return the sorted, de-duplicated list of usernames flagged as brute-force
+targets.</p>
+<h2>Input</h2>
+<p>A list of event dicts. Each dict has:
+- <code>ts</code> (<code>int</code>), Unix timestamp in seconds of the login attempt
+- <code>user</code> (<code>str</code>), the username targeted
+- <code>ok</code> (<code>bool</code>), <code>True</code> if the login succeeded, <code>False</code> if it failed</p>
+<p>Events may arrive in any order (do not assume sorted by timestamp).</p>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of unique usernames that triggered the brute-force threshold: 5 or more
+<strong>failed</strong> logins (where <code>ok == False</code>) within any 60-second window. A window is valid when
+<code>max_ts - min_ts &lt; 60</code> (strict less-than, so exactly 60 is NOT within the window). Successes
+are ignored for counting purposes.</p>
+<h2>Examples</h2>
+<pre><code>events = [
+    {&quot;ts&quot;: 1000, &quot;user&quot;: &quot;alice&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 1010, &quot;user&quot;: &quot;alice&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 1020, &quot;user&quot;: &quot;alice&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 1030, &quot;user&quot;: &quot;alice&quot;, &quot;ok&quot;: False},
+    {&quot;ts&quot;: 1040, &quot;user&quot;: &quot;alice&quot;, &quot;ok&quot;: False},  # 5 failures in 40s -&gt; flagged
+    {&quot;ts&quot;: 1000, &quot;user&quot;: &quot;bob&quot;,   &quot;ok&quot;: False},
+    {&quot;ts&quot;: 1100, &quot;user&quot;: &quot;bob&quot;,   &quot;ok&quot;: False},  # 2 failures, not enough -&gt; not flagged
+]
+solve(events) -&gt; [&quot;alice&quot;]
+</code></pre>
+<pre><code>solve([]) -&gt; []
+</code></pre>
+<pre><code># Four failures in window: below threshold
+events = [{&quot;ts&quot;: i*10, &quot;user&quot;: &quot;carol&quot;, &quot;ok&quot;: False} for i in range(4)]
+solve(events) -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Events may be unsorted; your solution must handle any ordering.</li>
+<li>The 60-second window: at least 5 failures where <code>max_ts - min_ts &lt; 60</code>.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>events</code>)</h3>
+<p>A <code>list[dict]</code>. Each dict is one authentication event with exactly these keys:
+- <code>ts</code>   (<code>int</code>), Unix timestamp in whole seconds
+- <code>user</code> (<code>str</code>), username targeted by the attempt
+- <code>ok</code>   (<code>bool</code>), <code>True</code> = login succeeded, <code>False</code> = login failed</p>
+<p>The list may be empty. Events may appear in any order (unsorted by timestamp).</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of usernames that are flagged as brute-force targets.</p>
+<h3>Detection rule (precise)</h3>
+<p>A username is flagged if and only if there exist at least 5 events for that user where:
+1. <code>ok == False</code> (failed logins only; successes do NOT count toward the threshold)
+2. <code>max(ts) - min(ts) &lt; 60</code> across those 5 (or more) events (strict less-than; the window is
+   open on the right, spans of exactly 60 seconds are NOT within the window)</p>
+<p>Algorithm: for each username, collect all timestamps where <code>ok == False</code>, sort them, then use a
+sliding window: for each position <code>i</code>, check if <code>ts[i+4] - ts[i] &lt; 60</code>; if so, flag the user.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Output always sorted ascending and de-duplicated.</li>
+<li>Empty input returns <code>[]</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.2.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from collections import defaultdict
+from typing import List, Dict, Any
+
+
+def solve(events: List[Dict[str, Any]]) -&gt; List[str]:
+    """Return sorted, de-duplicated usernames with &gt;=5 failed logins in any 60s window."""
+    # Group failure timestamps by user
+    failures: Dict[str, List[int]] = defaultdict(list)
+    for ev in events:
+        if not ev.get("ok", True):
+            failures[ev["user"]].append(ev["ts"])
+
+    flagged = set()
+    for user, timestamps in failures.items():
+        timestamps.sort()
+        # Sliding window of size 5: if ts[i+4] - ts[i] &lt; 60, threshold met
+        for i in range(len(timestamps) - 4):
+            if timestamps[i + 4] - timestamps[i] &lt; 60:
+                flagged.add(user)
+                break  # Already flagged; stop early
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- helpers -------------------------------------------------------
+def _e(ts, user, ok):
+    return {"ts": ts, "user": user, "ok": ok}
+
+
+# ---- visible cases -------------------------------------------------------
+def test_single_user_flagged():
+    events = [
+        _e(1000, "alice", False),
+        _e(1010, "alice", False),
+        _e(1020, "alice", False),
+        _e(1030, "alice", False),
+        _e(1040, "alice", False),  # 5 failures in 40s -&gt; flagged
+    ]
+    assert impl.solve(events) == ["alice"]
+
+
+def test_two_users_one_flagged():
+    events = [
+        _e(1000, "alice", False),
+        _e(1010, "alice", False),
+        _e(1020, "alice", False),
+        _e(1030, "alice", False),
+        _e(1040, "alice", False),
+        _e(1000, "bob",   False),
+        _e(1100, "bob",   False),  # only 2 failures, spread across &gt;60s -&gt; not flagged
+    ]
+    assert impl.solve(events) == ["alice"]
+
+
+def test_empty():
+    assert impl.solve([]) == []
+
+
+def test_all_successes_not_flagged():
+    events = [_e(1000 + i * 5, "carol", True) for i in range(10)]
+    assert impl.solve(events) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_exactly_four_failures_not_flagged():
+    events = [_e(1000 + i * 10, "dave", False) for i in range(4)]
+    assert impl.solve(events) == []
+
+
+def test_window_boundary_exactly_60_not_flagged():
+    # 5 events spanning exactly 60 seconds: ts[0]=0, ts[4]=60 -&gt; NOT flagged (strict &lt;60)
+    events = [_e(i * 15, "eve", False) for i in range(5)]  # 0,15,30,45,60 -&gt; span=60 -&gt; NOT flagged
+    assert impl.solve(events) == []
+
+
+def test_window_boundary_just_inside_flagged():
+    # 5 events spanning 59 seconds -&gt; flagged
+    events = [
+        _e(0,  "frank", False),
+        _e(15, "frank", False),
+        _e(30, "frank", False),
+        _e(45, "frank", False),
+        _e(59, "frank", False),  # span = 59 &lt; 60 -&gt; flagged
+    ]
+    assert impl.solve(events) == ["frank"]
+
+
+def test_unsorted_events_handled():
+    # Events arrive out of order; solution must sort
+    events = [
+        _e(1040, "grace", False),
+        _e(1000, "grace", False),
+        _e(1020, "grace", False),
+        _e(1030, "grace", False),
+        _e(1010, "grace", False),
+    ]
+    assert impl.solve(events) == ["grace"]
+
+
+def test_success_in_middle_not_counted():
+    # 4 failures + 1 success in window -&gt; only 4 failures counted -&gt; not flagged
+    events = [
+        _e(1000, "henry", False),
+        _e(1010, "henry", False),
+        _e(1020, "henry", True),   # success -- not counted
+        _e(1030, "henry", False),
+        _e(1040, "henry", False),
+    ]
+    assert impl.solve(events) == []
+
+
+def test_multiple_users_both_flagged_sorted():
+    events = (
+        [_e(2000 + i * 5, "zara", False) for i in range(5)] +
+        [_e(3000 + i * 5, "alice", False) for i in range(5)]
+    )
+    result = impl.solve(events)
+    assert result == ["alice", "zara"]
+    assert result == sorted(result)
+
+
+def test_second_window_triggers_flag():
+    # First 5 events spread beyond 60s, but a LATER group of 5 within 60s
+    events = [
+        _e(0,   "iris", False),
+        _e(70,  "iris", False),
+        _e(140, "iris", False),
+        _e(210, "iris", False),
+        _e(280, "iris", False),  # window 0-280 -&gt; 280s -&gt; not flagged
+        # Second cluster within 60s
+        _e(400, "iris", False),
+        _e(410, "iris", False),
+        _e(420, "iris", False),
+        _e(430, "iris", False),
+        _e(440, "iris", False),  # window 400-440 -&gt; 40s -&gt; flagged
+    ]
+    assert impl.solve(events) == ["iris"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

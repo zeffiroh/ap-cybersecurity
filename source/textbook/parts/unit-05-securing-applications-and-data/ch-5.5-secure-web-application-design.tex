@@ -1,0 +1,311 @@
+\chapter{Secure Web Application Design}
+\label{ch:5.5}
+\chaptertopic{Topic 5.5}
+
+\chapterquote{There are two ways of constructing a software design: one way is to make it so simple that there are obviously no deficiencies, and the other way is to make it so complicated that there are no obvious deficiencies.}{C.~A.~R. Hoare, 1980 ACM Turing Award Lecture}
+
+\section{Motivation}
+
+Chapter~\ref{ch:5.1} showed what SQL injection, XSS, and BOLA look like from the attacker's side.
+This chapter is the defender's answer, built as a discipline rather than a single fix. Three habits
+make up that discipline: treat input as hostile by default, keep a codebase secure by construction
+rather than by after-the-fact patching, and let automated testing find what those habits still
+missed before an attacker does.
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.5 -- Protecting Applications}
+\begin{apobjectives}
+\apobjective{5.5.A}{Mitigate Risk}{Explain the secure-coding habits (least privilege in code, parameterized queries, secrets management, failing securely, dependency management) that prevent vulnerabilities by construction, and how automated testing (SAST, DAST) plus human penetration testing verify those habits actually held.}
+\apobjective{5.5.B}{Mitigate Risk}{Explain what checking untrusted input actually protects -- which interpreter is prevented from receiving syntax it would have obeyed -- and where the check has to run, why an allowlist beats a denylist, and which downstream defenses validation cannot replace.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Input Validation and Sanitization}
+
+Every application is fundamentally a machine that takes input and does something with it. Some
+fraction of everyone typing into a form is not filling out their name -- they are trying to break the
+application.
+
+\begin{definition}{Input validation}
+Checking that input conforms to what an application expects before it is used, as distinct from
+\textbf{sanitization}, which transforms accepted input to remove or neutralize dangerous content
+rather than rejecting it outright.
+\end{definition}
+
+Two philosophies govern validation. A \textbf{denylist} tries to enumerate the bad things --
+reject any input containing \texttt{SELECT}, a \texttt{<script>} tag, a semicolon. It fails
+constantly, because attackers are endlessly creative at encoding or rephrasing an attack past a
+specific blocked pattern (\texttt{SELECT} becomes \texttt{SeLeCt}; a semicolon becomes its
+URL-encoded \texttt{\%3B}). An \textbf{allowlist} flips the logic entirely: define exactly what
+valid input looks like -- a ZIP code is five digits, a quantity is an integer between 1 and 99 --
+and reject anything that does not match. Allowlisting is dramatically more robust because it never
+has to anticipate every possible attack. It only has to know what correct looks like, and
+correctness is almost always a far smaller, better-defined space than every way to attack a field.
+
+\begin{lstlisting}[language=Python, caption={Allowlist validation for two field types}]
+import re
+
+FIELD_PATTERNS = {
+    "zip_code": re.compile(r"^\d{5}$"),
+    "email": re.compile(r"^[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}$"),
+}
+
+def validate_field(field_type, value):
+    """Returns True if value matches the allowlist pattern for field_type."""
+    pattern = FIELD_PATTERNS.get(field_type)
+    return pattern is not None and bool(pattern.match(value))
+\end{lstlisting}
+
+Validation performed only in the browser is worthless for security, because the browser is entirely
+under the attacker's control. JavaScript can be disabled, the page can be edited with developer
+tools, or a crafted HTTP request can bypass the browser entirely with a tool like curl. The rule to
+memorize is unconditional -- never trust client-side validation for security; it must be re-enforced
+on the server on every request, regardless of what the client claims it already checked.
+
+Before validating at all, an application often must \textbf{canonicalize} input to a single,
+predictable form. \texttt{../etc/passwd} and its URL-encoded form \texttt{..\%2Fetc\%2Fpasswd} are
+the same logical string in two different representations. A validator that checks the raw,
+un-canonicalized value can be tricked into approving something malicious, because it never recognized
+what the string actually decodes to. The correct order is decode and normalize first, then validate
+the canonical form. Validating before decoding is a classic bypass technique that smuggles
+path-traversal or injection payloads directly past a naive filter.
+
+\begin{misconception}
+\textbf{``Sanitizing input once when it's received protects it everywhere it's later used.''} The
+correct encoding depends entirely on the output context -- HTML, SQL, a shell command, JSON. A
+single upstream sanitization pass is not a substitute for context-specific \textbf{output encoding}
+applied at each point data is actually used.
+\end{misconception}
+
+SQL injection, XSS, and command injection all share the identical root failure: an application
+trusted that input was ``just data.'' It actually contained characters a downstream interpreter --
+a SQL engine, a browser, a shell -- treats as code. Rigorous input validation closes exactly this
+gap at its source, before any of Chapter~\ref{ch:5.1}'s three attacks ever gets the chance to run.
+
+\section{Secure Coding Practices}
+
+Input validation stops one specific failure. \textbf{Secure coding} is the larger discipline: habits
+and defaults built into every line of code so vulnerabilities are prevented by construction rather
+than caught after the fact.
+
+\textbf{Least privilege in code} extends Chapter~\ref{ch:4.2}'s principle beyond human accounts to
+the code itself. A database connection should use an account that can only read and write the
+specific tables it needs, never one with administrative rights over the entire database. A web
+server process should never run as root, so that a single exploited bug becomes a contained failure
+rather than a full system compromise. \textbf{Parameterized queries} are the single highest-leverage
+habit against SQL injection specifically. Compare
+\texttt{"SELECT * FROM users WHERE name = '" + name + "'"} -- dangerous, since the attacker's input
+becomes query syntax -- to a query with \texttt{name} passed as a separate bound parameter, which is
+safe because the driver treats it strictly as data no matter what characters it contains. One habit,
+applied everywhere a query touches user input, eliminates the risk regardless of what validation
+happened upstream. That is exactly why it counts as defense in depth alongside validation, rather
+than a replacement for it.
+
+\begin{lstlisting}[language=Python, caption={Auditing an application configuration against secure-coding practices}]
+def audit_secure_coding(config):
+    """config: dict like {"uses_parameterized_queries": bool,
+       "hardcoded_secrets": bool, "runs_as_root": bool,
+       "verbose_errors_in_production": bool}.
+       Returns sorted violated-practice labels."""
+    violations = []
+    if not config.get("uses_parameterized_queries", False):
+        violations.append("string-built-sql")
+    if config.get("hardcoded_secrets", False):
+        violations.append("hardcoded-secret")
+    if config.get("runs_as_root", False):
+        violations.append("excessive-process-privilege")
+    if config.get("verbose_errors_in_production", False):
+        violations.append("information-disclosure")
+    return sorted(violations)
+\end{lstlisting}
+
+Secrets do not belong in source code at all: a hardcoded password or API key lives forever in
+version-control history, visible to anyone with repository read access. It is trivially found by
+both automated scanners and human review. Loading secrets at runtime from a secrets manager or
+environment variable means rotating a compromised one requires no code change or redeployment.
+\textbf{Failing securely} means an unexpected exception in an authentication check must deny access
+by default, never accidentally grant it. What a failure \emph{reveals} matters too: a verbose error
+page showing a stack trace or internal file path hands an attacker reconnaissance information, so
+production code should log details internally while showing only a generic message externally.
+Finally, \textbf{dependency management} recognizes that a vulnerability in any one of an
+application's dozens or hundreds of third-party libraries becomes a vulnerability in the whole
+application, exactly as Chapter~\ref{ch:4.3}'s patch-gap reasoning predicts. Excellent original code
+sitting on a five-year-old unpatched library is not secure code.
+
+\begin{misconception}
+\textbf{``Secure coding is just input validation done well.''} Input validation is one practice
+among several; parameterized queries, secrets management, least privilege, and dependency management
+each close an entirely independent class of vulnerability that validation alone cannot touch.
+\end{misconception}
+
+\section{Application Security Testing}
+
+Writing secure code is not the same as \emph{knowing} your code is secure. Two complementary
+automated testing families answer that question from opposite directions.
+
+\begin{definition}{SAST (static application security testing)}
+Analyzing source code without executing it, searching for known-dangerous patterns -- a
+string-concatenated SQL query, a call to \texttt{eval()} on user-controllable input, a hardcoded
+secret. SAST catches these the moment code is written, often directly inside an editor or as a
+CI/CD gate before a pull request merges.
+\end{definition}
+
+Because SAST never runs the program, it sees every code path, including rarely exercised error
+handlers a live test might never stumble into. It catches vulnerabilities at the cheapest point
+to fix, before deployment. Its cost is a high false-positive rate: a static tool cannot always tell
+whether a flagged string concatenation actually reaches a database call with attacker-controlled
+input, so it tends to over-flag. It also cannot see anything that only exists because of how the
+deployed system is configured.
+
+\begin{definition}{DAST (dynamic application security testing)}
+Testing a running application from the outside as a black box -- sending real HTTP requests, fuzzing
+form fields, manipulating cookies. It observes the responses for signs of a vulnerability, the
+way an actual attacker would.
+\end{definition}
+
+DAST naturally catches runtime and configuration issues source code alone cannot reveal, and its
+findings carry a lower false-positive rate. If the scanner injected a payload and got a genuinely
+suspicious response back, something real is usually happening. Its cost is the mirror image of
+SAST's -- it needs a running, reachable instance of the application, so it necessarily happens later
+in the development cycle. It can only find what it actually tests: code paths its crawler never
+reaches stay invisible.
+
+\begin{lstlisting}[language=Python, caption={A miniature static-analysis scanner for dangerous code patterns}]
+import re
+
+DANGEROUS_PATTERNS = {
+    "eval_call": re.compile(r"\beval\("),
+    "string_built_sql": re.compile(r"(?i)select.*\+"),
+    "hardcoded_secret": re.compile(r"(?i)(password|api_key)\s*=\s*[\"']"),
+}
+
+def scan_source_lines(lines):
+    """Returns sorted (line_number, pattern_name) pairs for matches."""
+    findings = []
+    for i, line in enumerate(lines, start=1):
+        for name, pattern in DANGEROUS_PATTERNS.items():
+            if pattern.search(line):
+                findings.append((i, name))
+    return sorted(findings)
+\end{lstlisting}
+
+\begin{example}[Why the two approaches complement rather than compete]
+SAST is cheap, early, and exhaustive over source code but blind to runtime behavior and prone to
+false alarms. DAST is realistic and low-noise but late, incomplete in coverage, and blind to the
+code that produced whatever it observes. A mature CI/CD pipeline runs SAST on every commit for fast
+developer feedback and DAST against a staging deployment before release as a realistic pre-flight
+check, then correlates the two. A finding confirmed by both tools is high-confidence. A SAST-only
+finding needs a human to check reachability, and a DAST-only finding needs a human to trace back to
+the responsible line of code.
+\end{example}
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.6cm, minimum height=0.9cm, align=center, font=\scriptsize},
+]
+\node[box, fill=kickstartercream] (commit) at (0,0) {Every commit};
+\node[box, fill=kickstartermaroon!15] (sast) at (3.2,0) {SAST\\(source, no run)};
+\node[box, fill=kickstartercream] (staging) at (6.4,0) {Staging\\deployment};
+\node[box, fill=kickstartermaroon!15] (dast) at (9.6,0) {DAST\\(live requests)};
+\node[box, fill=kickstartermaroon!30] (release) at (12.8,0) {Release};
+\draw[-{Latex[length=2mm]}] (commit) -- (sast);
+\draw[-{Latex[length=2mm]}] (sast) -- (staging);
+\draw[-{Latex[length=2mm]}] (staging) -- (dast);
+\draw[-{Latex[length=2mm]}] (dast) -- (release);
+\node[font=\scriptsize\sffamily, gray, align=center] at (6.4,-1.1) {a finding confirmed by both is high-confidence; a finding from only one still needs a human};
+\end{tikzpicture}%
+}
+\caption{SAST runs early and cheaply on every commit, before the application even exists as a
+running system; DAST runs later against a real staging deployment. Neither stage substitutes for
+the other.}
+\label{fig:5.5-sast-dast}
+\end{figure}
+
+Neither replaces a human \textbf{penetration test}: a skilled person who chains together multiple
+weak findings and reasons about business-logic flaws no automated tool can recognize. ``Can a
+regular user manipulate this parameter to view another user's invoice?'' is exactly the BOLA
+question from Chapter~\ref{ch:5.1}, and it takes human judgment, not a scanner, to notice it applies
+here. Mature programs use SAST and DAST for continuous, high-volume coverage and reserve human
+penetration testing for periodic, deeper assurance ahead of major releases.
+
+\begin{misconception}
+\textbf{``A clean SAST/DAST scan means the application has no vulnerabilities.''} Both tools only
+find what they are specifically built to look for. Business-logic flaws and novel attack chains
+typically require human penetration testing to uncover at all.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item Explain why an allowlist validator for a ZIP-code field is more robust against novel attack
+variants than a denylist that blocks specific known-bad substrings.
+\item An application validates a filename only in its raw, un-decoded form before checking for
+path-traversal sequences. Explain how this ordering mistake lets an attacker smuggle a malicious
+path past the filter, and identify the correct order of operations.
+\item Explain why parameterized queries are described as defense in depth alongside input
+validation, rather than a replacement for it.
+\item A SAST scanner flags a string-concatenated SQL query as a potential vulnerability, but a human
+reviewer determines the concatenated value never actually contains user input. Explain why this
+illustrates SAST's characteristic tradeoff.
+\item Explain why neither SAST nor DAST would likely catch a BOLA vulnerability where an
+authenticated user can view another user's invoice by changing a URL parameter, and explain what
+kind of testing would.
+\item Using the CI/CD pipeline diagram, explain why running DAST only, and skipping SAST entirely,
+would still leave a codebase without the cheapest and earliest opportunity this chapter describes
+to catch a vulnerability, even if DAST eventually caught the same issue later.
+\item A finding is confirmed independently by both a SAST scan on a commit and a DAST scan against
+staging. Explain why this combination is treated as higher-confidence than either finding alone,
+referencing each tool's characteristic weakness from this chapter.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item A denylist must anticipate every possible way an attacker might encode or rephrase a bad
+value, which is an effectively unbounded space attackers keep finding new members of. An allowlist
+instead only has to define what a valid five-digit ZIP code actually looks like -- a small,
+well-defined space -- and rejects everything else by default. A novel attack variant it has never
+seen still fails to match the pattern and is rejected automatically.
+\answerlabel{5.5.B}
+\item Checking the raw, un-decoded filename lets an attacker submit an encoded path-traversal
+sequence, such as \texttt{..\%2Fetc\%2Fpasswd}, that does not visibly match the filter's raw-text
+check for \texttt{../} but decodes to exactly that traversal once the application later normalizes
+it. The correct order is to decode and canonicalize the input to its single predictable form first,
+then validate that canonical form. That way the filter inspects the value the application will
+actually act on.
+\answerlabel{5.5.B}
+\item Parameterized queries eliminate the SQL-injection risk at the database layer regardless of
+what validation happened upstream, but they do nothing for XSS, path traversal, or command
+injection in the same request. Input validation catches malformed or suspicious input broadly across
+all of these classes before it is used anywhere. Each closes a different gap, so running both
+together is layered defense in depth, not two attempts at the same fix.
+\answerlabel{5.5.A}
+\item This illustrates SAST's high false-positive rate. Because SAST never executes the program, it
+cannot always determine whether a flagged pattern's actual runtime inputs are attacker-controlled,
+so it tends to over-flag constructs that merely resemble a vulnerability. Human review is needed to
+confirm reachability before treating a finding as real.
+\answerlabel{5.5.A}
+\item SAST only recognizes dangerous code \emph{patterns} in source, and correctly-written
+authorization code that simply forgets to check object ownership contains no dangerous pattern to
+flag. DAST sends automated requests and looks for anomalous responses, but a BOLA request returns a
+normal-looking, well-formed response. It is only wrong because it belongs to someone else, a
+business-logic judgment no automated tool is positioned to make. A human penetration test, which
+reasons about business logic such as ``can this parameter be manipulated to view another user's
+data,'' is the kind of testing that catches it.
+\answerlabel{5.5.A}
+\item SAST runs on source code before the application is ever deployed, catching a vulnerability at
+the cheapest possible point to fix -- before a pull request even merges. DAST requires a running,
+reachable instance of the application, so it necessarily happens later in the development cycle,
+after code has already progressed further through the pipeline. In a real organization, more work
+has potentially been built on top of the flawed code by then. Skipping SAST means giving up that
+early, low-cost catch even if DAST eventually finds the identical issue. The fix now
+competes with everything built on top of it in the meantime, and the cost of fixing a defect
+generally grows the later it is caught.
+\answerlabel{5.5.A}
+\item SAST's characteristic weakness is a high false-positive rate, since it cannot always confirm
+a flagged pattern is actually reachable with attacker-controlled input. DAST's findings carry a
+lower false-positive rate but a narrower scope, since it can only find what it actually tests.
+When both tools independently flag the same issue through their very different methods -- one
+reading source, the other sending live requests -- the chance that both are wrong about the exact
+same finding for unrelated reasons is far lower than either tool being wrong alone. That is why
+convergent findings from both are treated as high-confidence.
+\answerlabel{5.5.A}
+\end{answerkey}

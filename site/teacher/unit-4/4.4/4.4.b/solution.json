@@ -1,0 +1,6 @@
+{
+  "atom_id": "4.4.b",
+  "topic_id": "4.4",
+  "title": "Log analysis",
+  "solution_py": "\"\"\"Reference solution for 4.4.b. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\n\nWINDOW_SECONDS = 60\nMIN_FAILURES = 5\n\n\ndef solve(entries: list) -> list:\n    \"\"\"Flag usernames showing a brute-force pattern: 5+ FAILED attempts within any\n    60-second window.\n\n    Args:\n        entries: list of dicts with keys ts (int), user (str), result (\"SUCCESS\"/\"FAILED\").\n            Not guaranteed sorted by timestamp.\n\n    Returns:\n        Alphabetically sorted list of unique usernames flagged for brute-force.\n    \"\"\"\n    failures_by_user = {}\n    for entry in entries:\n        if entry.get(\"result\") == \"FAILED\":\n            user = entry[\"user\"]\n            failures_by_user.setdefault(user, []).append(entry[\"ts\"])\n\n    flagged = set()\n    for user, timestamps in failures_by_user.items():\n        timestamps.sort()\n        if len(timestamps) < MIN_FAILURES:\n            continue\n        for i in range(len(timestamps) - MIN_FAILURES + 1):\n            span = timestamps[i + MIN_FAILURES - 1] - timestamps[i]\n            if span <= WINDOW_SECONDS:\n                flagged.add(user)\n                break\n\n    return sorted(flagged)\n"
+}

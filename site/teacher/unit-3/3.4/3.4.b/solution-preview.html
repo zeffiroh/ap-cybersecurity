@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firewall rules and access control lists (ACLs), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Firewall rules and access control lists (ACLs)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.4.b: ACL evaluator (first-match-wins)</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.4.B, 3.4.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Implement a firewall ACL evaluator. Given an ordered list of rules and a list of packets, decide
+the verdict ("allow" or "deny") for each packet using first-match-wins evaluation with an implicit
+deny-all at the end of the list.</p>
+<p>A <strong>rule</strong> is a dict with these string/number keys:
+- <code>"action"</code>, <code>"allow"</code> or <code>"deny"</code>
+- <code>"src"</code>, source IP string, or <code>"any"</code>
+- <code>"dst"</code>, destination IP string, or <code>"any"</code>
+- <code>"port"</code>, destination port integer, or <code>0</code> meaning any port
+- <code>"proto"</code>, protocol string: <code>"tcp"</code>, <code>"udp"</code>, or <code>"any"</code></p>
+<p>A <strong>packet</strong> is a dict with:
+- <code>"src"</code>, source IP string
+- <code>"dst"</code>, destination IP string
+- <code>"port"</code>, destination port integer
+- <code>"proto"</code>, protocol string (<code>"tcp"</code> or <code>"udp"</code>)</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(rules, packets)</code> in the code editor (see the Reference section below).</p>
+<ul>
+<li><code>rules</code>, ordered list of rule dicts (evaluate top to bottom, first match wins)</li>
+<li><code>packets</code>, list of packet dicts (evaluate independently, in order)</li>
+</ul>
+<p>Return a <code>list[str]</code> of verdicts (<code>"allow"</code> or <code>"deny"</code>), one per packet, in the same order as
+<code>packets</code>.</p>
+<h2>Rule matching</h2>
+<p>A rule matches a packet when ALL of the following hold:
+1. <code>rule["src"] == "any"</code> OR <code>rule["src"] == packet["src"]</code>
+2. <code>rule["dst"] == "any"</code> OR <code>rule["dst"] == packet["dst"]</code>
+3. <code>rule["port"] == 0</code> OR <code>rule["port"] == packet["port"]</code>
+4. <code>rule["proto"] == "any"</code> OR <code>rule["proto"] == packet["proto"]</code></p>
+<p>Walk <code>rules</code> in order; return the <strong>first</strong> matching rule's <code>"action"</code>. If no rule in the list
+matches, the verdict is <code>"deny"</code> (the implicit deny-all, you do not need a literal rule for this;
+just return <code>"deny"</code> when nothing matches).</p>
+<h2>Examples</h2>
+<pre><code class="language-python">rules = [
+    {&quot;action&quot;: &quot;allow&quot;, &quot;src&quot;: &quot;10.0.4.0&quot;, &quot;dst&quot;: &quot;10.0.1.5&quot;, &quot;port&quot;: 3306, &quot;proto&quot;: &quot;tcp&quot;},
+    {&quot;action&quot;: &quot;deny&quot;,  &quot;src&quot;: &quot;any&quot;,      &quot;dst&quot;: &quot;10.0.1.5&quot;, &quot;port&quot;: 3306, &quot;proto&quot;: &quot;tcp&quot;},
+]
+packets = [
+    {&quot;src&quot;: &quot;10.0.4.0&quot;, &quot;dst&quot;: &quot;10.0.1.5&quot;, &quot;port&quot;: 3306, &quot;proto&quot;: &quot;tcp&quot;},   # matches rule 1 -&gt; allow
+    {&quot;src&quot;: &quot;10.0.9.9&quot;, &quot;dst&quot;: &quot;10.0.1.5&quot;, &quot;port&quot;: 3306, &quot;proto&quot;: &quot;tcp&quot;},   # matches rule 2 -&gt; deny
+    {&quot;src&quot;: &quot;10.0.9.9&quot;, &quot;dst&quot;: &quot;10.0.1.5&quot;, &quot;port&quot;: 22,   &quot;proto&quot;: &quot;tcp&quot;},   # matches nothing -&gt; deny
+]
+solve(rules, packets) == [&quot;allow&quot;, &quot;deny&quot;, &quot;deny&quot;]
+</code></pre>
+<h2>Shadowing example</h2>
+<pre><code class="language-python">rules = [
+    {&quot;action&quot;: &quot;allow&quot;, &quot;src&quot;: &quot;any&quot;, &quot;dst&quot;: &quot;any&quot;, &quot;port&quot;: 22, &quot;proto&quot;: &quot;tcp&quot;},   # too broad, placed first
+    {&quot;action&quot;: &quot;deny&quot;,  &quot;src&quot;: &quot;203.0.113.0&quot;, &quot;dst&quot;: &quot;10.0.1.10&quot;, &quot;port&quot;: 22, &quot;proto&quot;: &quot;tcp&quot;},
+]
+packet = {&quot;src&quot;: &quot;203.0.113.0&quot;, &quot;dst&quot;: &quot;10.0.1.10&quot;, &quot;port&quot;: 22, &quot;proto&quot;: &quot;tcp&quot;}
+# The broad rule 1 matches first, so the deny in rule 2 never fires:
+solve(rules, [packet]) == [&quot;allow&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(rules: list[dict], packets: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input</h3>
+<h4><code>rules</code>, list of rule dicts, evaluated top-to-bottom (first match wins)</h4>
+<p>Each rule dict has:
+- <code>"action"</code> (str): <code>"allow"</code> or <code>"deny"</code>
+- <code>"src"</code> (str): source IP address, or <code>"any"</code>
+- <code>"dst"</code> (str): destination IP address, or <code>"any"</code>
+- <code>"port"</code> (int): destination port, or <code>0</code> meaning any port
+- <code>"proto"</code> (str): <code>"tcp"</code>, <code>"udp"</code>, or <code>"any"</code></p>
+<h4><code>packets</code>, list of packet dicts, evaluated independently, in order</h4>
+<p>Each packet dict has:
+- <code>"src"</code> (str): source IP address
+- <code>"dst"</code> (str): destination IP address
+- <code>"port"</code> (int): destination port
+- <code>"proto"</code> (str): <code>"tcp"</code> or <code>"udp"</code></p>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[str]</code> of verdicts, one per packet, each <code>"allow"</code> or <code>"deny"</code>, in the same order as
+<code>packets</code>.</p>
+<h3>Rule matching</h3>
+<p>A rule matches a packet when ALL hold:
+1. <code>rule["src"] == "any"</code> OR <code>rule["src"] == packet["src"]</code>
+2. <code>rule["dst"] == "any"</code> OR <code>rule["dst"] == packet["dst"]</code>
+3. <code>rule["port"] == 0</code> OR <code>rule["port"] == packet["port"]</code>
+4. <code>rule["proto"] == "any"</code> OR <code>rule["proto"] == packet["proto"]</code></p>
+<p>Evaluation returns the <strong>first</strong> matching rule's action. If no rule matches, the implicit
+deny-all applies: verdict = <code>"deny"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function; deterministic; no I/O; no network access.</li>
+<li><code>rules</code> list is not mutated by <code>solve</code>.</li>
+<li>Standard library only.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.4.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements a first-match-wins ACL evaluator with an implicit deny-all.
+"""
+from typing import List, Dict
+
+
+def _rule_matches(rule: Dict, packet: Dict) -&gt; bool:
+    if rule["src"] != "any" and rule["src"] != packet["src"]:
+        return False
+    if rule["dst"] != "any" and rule["dst"] != packet["dst"]:
+        return False
+    if rule["port"] != 0 and rule["port"] != packet["port"]:
+        return False
+    if rule["proto"] != "any" and rule["proto"] != packet["proto"]:
+        return False
+    return True
+
+
+def solve(rules: List[Dict], packets: List[Dict]) -&gt; List[str]:
+    """Evaluate each packet against the ACL using first-match-wins logic.
+
+    Args:
+        rules:   Ordered list of ACL rule dicts (action, src, dst, port, proto).
+        packets: List of packet dicts (src, dst, port, proto).
+
+    Returns:
+        List of 'allow' / 'deny' verdicts, one per packet, in order.
+    """
+    verdicts: List[str] = []
+    for pkt in packets:
+        verdict = "deny"  # implicit deny-all
+        for rule in rules:
+            if _rule_matches(rule, pkt):
+                verdict = rule["action"]
+                break
+        verdicts.append(verdict)
+    return verdicts
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def test_basic_allow_and_deny():
+    rules = [
+        {"action": "allow", "src": "10.0.4.0", "dst": "10.0.1.5", "port": 3306, "proto": "tcp"},
+        {"action": "deny", "src": "any", "dst": "10.0.1.5", "port": 3306, "proto": "tcp"},
+    ]
+    packets = [
+        {"src": "10.0.4.0", "dst": "10.0.1.5", "port": 3306, "proto": "tcp"},
+        {"src": "10.0.9.9", "dst": "10.0.1.5", "port": 3306, "proto": "tcp"},
+        {"src": "10.0.9.9", "dst": "10.0.1.5", "port": 22, "proto": "tcp"},
+    ]
+    assert impl.solve(rules, packets) == ["allow", "deny", "deny"]
+
+
+def test_shadowing_broad_rule_first():
+    rules = [
+        {"action": "allow", "src": "any", "dst": "any", "port": 22, "proto": "tcp"},
+        {"action": "deny", "src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"},
+    ]
+    packet = {"src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"}
+    # Broad allow matches first; the deny below it is unreachable (shadowed).
+    assert impl.solve(rules, [packet]) == ["allow"]
+
+
+def test_specific_rule_first_fixes_shadowing():
+    rules = [
+        {"action": "deny", "src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"},
+        {"action": "allow", "src": "any", "dst": "any", "port": 22, "proto": "tcp"},
+    ]
+    packets = [
+        {"src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"},
+        {"src": "198.51.100.1", "dst": "10.0.1.10", "port": 22, "proto": "tcp"},
+    ]
+    assert impl.solve(rules, packets) == ["deny", "allow"]
+
+
+def test_any_fields_match_everything():
+    rules = [
+        {"action": "allow", "src": "any", "dst": "any", "port": 0, "proto": "any"},
+    ]
+    packets = [
+        {"src": "1.1.1.1", "dst": "2.2.2.2", "port": 9999, "proto": "udp"},
+        {"src": "8.8.8.8", "dst": "9.9.9.9", "port": 1, "proto": "tcp"},
+    ]
+    assert impl.solve(rules, packets) == ["allow", "allow"]
+
+
+def test_proto_mismatch_falls_through_to_implicit_deny():
+    rules = [
+        {"action": "allow", "src": "any", "dst": "any", "port": 53, "proto": "udp"},
+    ]
+    packets = [
+        {"src": "10.0.0.2", "dst": "8.8.8.8", "port": 53, "proto": "tcp"},  # wrong proto
+    ]
+    assert impl.solve(rules, packets) == ["deny"]
+
+
+def test_empty_rules_denies_everything():
+    packets = [{"src": "1.1.1.1", "dst": "2.2.2.2", "port": 80, "proto": "tcp"}]
+    assert impl.solve([], packets) == ["deny"]
+
+
+def test_empty_packets():
+    rules = [{"action": "allow", "src": "any", "dst": "any", "port": 0, "proto": "any"}]
+    assert impl.solve(rules, []) == []
+
+
+def test_multiple_packets_order_preserved():
+    rules = [
+        {"action": "allow", "src": "any", "dst": "any", "port": 443, "proto": "tcp"},
+        {"action": "allow", "src": "any", "dst": "any", "port": 80, "proto": "tcp"},
+        {"action": "deny", "src": "any", "dst": "any", "port": 0, "proto": "any"},
+    ]
+    packets = [
+        {"src": "a", "dst": "b", "port": 443, "proto": "tcp"},
+        {"src": "a", "dst": "b", "port": 21, "proto": "tcp"},
+        {"src": "a", "dst": "b", "port": 80, "proto": "tcp"},
+    ]
+    assert impl.solve(rules, packets) == ["allow", "deny", "allow"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

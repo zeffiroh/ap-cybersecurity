@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.1.b, Device Tampering, Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 16px;cursor:pointer;margin:4px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.btn.active{background:#000080;color:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:12px;white-space:pre-wrap;line-height:1.4;min-height:160px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .terminal{border:1px solid #ccc;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}.scorepanel .bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 8px;}
+.toolbar{margin-bottom:8px;}
+.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.device-card {
+  background: var(--win-face);
+  padding: 8px;
+  border: 2px inset;
+  border-color: var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+}
+.device-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--fg);
+  padding-bottom: 2px;
+}
+.device-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.device-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.threat-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>4.1.b, Physical Hardening Simulator</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Physical Device Hardening</h1>
+      <p>Configure the physical and logical security settings of the devices below. You have <strong>8 credits</strong> to deploy mitigations. Deploy the correct defenses to block all 6 audit attacks.</p>
+
+      <div style="font-weight: bold; margin-bottom: 8px;" id="credit-counter">Credits Remaining: 8 / 8</div>
+
+      <div class="layout-grid">
+        <div class="device-card">
+          <div class="device-title">1. Lobby Workstation (workstation_1)</div>
+          <div class="threat-desc">Open receptionist desk. High risk of unauthorized USB devices (Rubber Ducky) and visitors rebooting the system to bypass login.</div>
+          <div class="device-controls">
+            <label><input type="checkbox" id="w1_usb_block" onchange="FNE.updateCredits()"> Install USB Port Blockers (1cr)</label>
+            <label><input type="checkbox" id="w1_bios_hard" onchange="FNE.updateCredits()"> Harden BIOS & Disable USB Boot (1cr)</label>
+            <label><input type="checkbox" id="w1_fde" onchange="FNE.updateCredits()"> Enable Full Disk Encryption (1cr)</label>
+            <label><input type="checkbox" id="w1_case_lock" onchange="FNE.updateCredits()"> Install Case Lock (1cr)</label>
+          </div>
+        </div>
+
+        <div class="device-card">
+          <div class="device-title">2. Doctor's Laptop (workstation_2)</div>
+          <div class="threat-desc">Highly mobile. Regularly taken outside the clinic. High risk of physical theft and offline drive reading.</div>
+          <div class="device-controls">
+            <label><input type="checkbox" id="w2_usb_block" onchange="FNE.updateCredits()"> Install USB Port Blockers (1cr)</label>
+            <label><input type="checkbox" id="w2_bios_hard" onchange="FNE.updateCredits()"> Harden BIOS & Disable USB Boot (1cr)</label>
+            <label><input type="checkbox" id="w2_fde" onchange="FNE.updateCredits()"> Enable Full Disk Encryption (1cr)</label>
+            <label><input type="checkbox" id="w2_case_lock" onchange="FNE.updateCredits()"> Install Case Lock (1cr)</label>
+          </div>
+        </div>
+
+        <div class="device-card">
+          <div class="device-title">3. Patient Exam Room PC (workstation_3)</div>
+          <div class="threat-desc">Stationary PC in exam rooms. Staff regularly leave patients alone here. High risk of boot bypass via Live Linux USB.</div>
+          <div class="device-controls">
+            <label><input type="checkbox" id="w3_usb_block" onchange="FNE.updateCredits()"> Install USB Port Blockers (1cr)</label>
+            <label><input type="checkbox" id="w3_bios_hard" onchange="FNE.updateCredits()"> Harden BIOS & Disable USB Boot (1cr)</label>
+            <label><input type="checkbox" id="w3_fde" onchange="FNE.updateCredits()"> Enable Full Disk Encryption (1cr)</label>
+            <label><input type="checkbox" id="w3_case_lock" onchange="FNE.updateCredits()"> Install Case Lock (1cr)</label>
+          </div>
+        </div>
+
+        <div class="device-card">
+          <div class="device-title">4. Closet Server (server_01)</div>
+          <div class="threat-desc">Located in unlocked storage closet. High risk of case opening to steal physical disk drive or insert hardware keylogger.</div>
+          <div class="device-controls">
+            <label><input type="checkbox" id="w4_usb_block" onchange="FNE.updateCredits()"> Install USB Port Blockers (1cr)</label>
+            <label><input type="checkbox" id="w4_bios_hard" onchange="FNE.updateCredits()"> Harden BIOS & Disable USB Boot (1cr)</label>
+            <label><input type="checkbox" id="w4_fde" onchange="FNE.updateCredits()"> Enable Full Disk Encryption (1cr)</label>
+            <label><input type="checkbox" id="w4_case_lock" onchange="FNE.updateCredits()"> Install Case Lock (1cr)</label>
+          </div>
+        </div>
+      </div>
+
+      <div id="controls-section" style="margin-bottom: 8px;">
+        <button class="btn" onclick="FNE.runAudit()">Run Physical Audit Checks</button>
+        <button class="btn" onclick="FNE.resetConfig()">Reset Configuration</button>
+      </div>
+
+      <div id="stage" class="terminal"><span class="prompt">audit@local-security:~$ </span>Select your mitigations above and click "Run Physical Audit Checks" to evaluate defense effectiveness.</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 6 │ OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  if(document.body.classList.contains('theme-win')){
+    document.body.classList.remove('theme-win');
+    document.body.classList.add('theme-linux');
+  } else {
+    document.body.classList.remove('theme-linux');
+    document.body.classList.add('theme-win');
+  }
+}
+
+var FNE = (function(){
+  var score = 0, MAX = 6, met = false;
+  var maxCredits = 8;
+  
+  function getSelectedCount() {
+    var inputs = document.querySelectorAll('input[type="checkbox"]');
+    var count = 0;
+    inputs.forEach(function(ip) {
+      if (ip.checked) count++;
+    });
+    return count;
+  }
+
+  function updateCredits() {
+    var used = getSelectedCount();
+    var rem = maxCredits - used;
+    var el = document.getElementById('credit-counter');
+    if (rem < 0) {
+      el.innerHTML = '<span style="color:#aa0000; font-weight:bold;">Credits Overallocated: ' + rem + '</span>';
+    } else {
+      el.innerHTML = 'Credits Remaining: ' + rem + ' / ' + maxCredits;
+    }
+  }
+
+  function resetConfig() {
+    var inputs = document.querySelectorAll('input[type="checkbox"]');
+    inputs.forEach(function(ip) {
+      ip.checked = false;
+      ip.disabled = false;
+    });
+    score = 0;
+    met = false;
+    updateCredits();
+    document.getElementById('stage').innerHTML = '<span class="prompt">audit@local-security:~$ </span>Configuration reset. Ready.';
+    setScore();
+  }
+
+  function setScore(){
+    var el = document.getElementById('score');
+    el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+      (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+  }
+
+  function runAudit() {
+    var used = getSelectedCount();
+    if (used > maxCredits) {
+      alert("Error: You spent " + used + " credits, but only have " + maxCredits + "! Please disable some options.");
+      return;
+    }
+
+    // Read values
+    var w1_usb = document.getElementById('w1_usb_block').checked;
+    var w1_bios = document.getElementById('w1_bios_hard').checked;
+    var w2_fde = document.getElementById('w2_fde').checked;
+    var w3_bios = document.getElementById('w3_bios_hard').checked;
+    var w4_fde = document.getElementById('w4_fde').checked;
+    var w4_lock = document.getElementById('w4_case_lock').checked;
+
+    var logLines = [];
+    score = 0;
+
+    logLines.push("Starting Physical Threat Simulation Tests...\n");
+
+    // Attack 1: Lobby Workstation USB Rubber Ducky
+    logLines.push("[ATTACK 1] Adversary tries to insert a USB Rubber Ducky into Lobby PC.");
+    if (w1_usb) {
+      logLines.push(" -> [BLOCKED] Physical USB port blockers prevented device insertion. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] Rogue USB HID keyboard insertion succeeded. Keys injected commands. Workstation Compromised.\n");
+    }
+
+    // Attack 2: Lobby Workstation boot bypass
+    logLines.push("[ATTACK 2] Adversary restarts Lobby PC and tries booting into Live Linux.");
+    if (w1_bios) {
+      logLines.push(" -> [BLOCKED] BIOS password & USB boot disabled prevented boot override. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] Booted live environment, accessed internal storage. Data Compromised.\n");
+    }
+
+    // Attack 3: Doctor's Laptop theft
+    logLines.push("[ATTACK 3] Doctor's laptop is stolen from exam room desk.");
+    if (w2_fde) {
+      logLines.push(" -> [BLOCKED] Storage is fully encrypted. Drive cannot be read offline. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] Hard drive removed, read on attacker machine. Patient PII Leaked.\n");
+    }
+
+    // Attack 4: Patient Exam PC boot bypass
+    logLines.push("[ATTACK 4] Attacker boots Exam Room PC using external USB.");
+    if (w3_bios) {
+      logLines.push(" -> [BLOCKED] BIOS settings restricted boot sequence. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] System booted external USB. Local login bypassed.\n");
+    }
+
+    // Attack 5: Closet Server drive theft
+    logLines.push("[ATTACK 5] Intruder breaks into unlocked closet and pulls the server drive.");
+    if (w4_fde) {
+      logLines.push(" -> [BLOCKED] FDE active, TPM check failed offline, data unreadable. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] Server database storage parsed offline. Database Compromised.\n");
+    }
+
+    // Attack 6: Closet Server keylogger installation
+    logLines.push("[ATTACK 6] Intruder tries opening server chassis to install hardware keylogger.");
+    if (w4_lock) {
+      logLines.push(" -> [BLOCKED] Physical case lock prevented chassis opening. Success!\n");
+      score++;
+    } else {
+      logLines.push(" -> [FAILED] Chassis opened. Hardware keylogger placed inline. Credentials Stolen.\n");
+    }
+
+    var el = document.getElementById('stage');
+    if (score === MAX) {
+      met = true;
+      logLines.push("AUDIT SUCCESS: All physical attacks blocked! Workstations hardened. Objective Met.");
+    } else {
+      logLines.push("AUDIT FAIL: " + (MAX - score) + " attacks succeeded. Revise your configuration.");
+    }
+
+    el.innerHTML = '<span class="prompt">audit@local-security:~$ </span>' + logLines.join('\n');
+    setScore();
+  }
+
+  return {
+    updateCredits: updateCredits,
+    resetConfig: resetConfig,
+    runAudit: runAudit
+  };
+})();
+</script>
+</body>
+</html>

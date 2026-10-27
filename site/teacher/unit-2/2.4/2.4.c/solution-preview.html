@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motion detectors and sensor-based detection, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Motion detectors and sensor-based detection  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.4.c: Motion-sensor event classifier</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 2.4.B, 2.4.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building the automated triage logic for a facility's motion-sensor monitoring system at
+Crestfield Analytics. Given a list of motion-sensor trigger events, classify each one as a
+<strong>TRUE_DETECTION</strong> (a real person likely caused it) or a <strong>FALSE_POSITIVE</strong> (a known nuisance
+cause, sunlight, HVAC airflow, a pet, an insect, vibration, or foliage, likely caused it), and
+return the IDs of the events that are true detections.</p>
+<p>Single-technology sensors (<code>pir</code>, <code>microwave</code>, <code>ultrasonic</code>) report one cause tag. A
+<strong>dual-technology</strong> sensor reports two independent cause tags, one from its PIR element, one
+from its microwave element, and only counts as a true detection when <strong>both</strong> elements agree the
+cause is genuine (AND-logic). This mirrors the lesson: a dual-tech sensor exists specifically to
+suppress the false-positive causes that fool a single technology, so if <em>either</em> element's cause
+is a known false-positive cause, the whole event is a false positive.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(events, false_positive_causes)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>events</code>: <code>list[dict]</code>, each dict has:</li>
+<li><code>"id"</code>: <code>str</code>, event identifier, e.g. <code>"EVT-001"</code></li>
+<li><code>"sensor_type"</code>: <code>str</code>, <code>"pir"</code>, <code>"microwave"</code>, <code>"ultrasonic"</code>, or <code>"dual-tech"</code></li>
+<li>single-tech events also have <code>"cause"</code>: <code>str</code></li>
+<li>dual-tech events instead have <code>"cause_pir"</code>: <code>str</code> and <code>"cause_mw"</code>: <code>str</code></li>
+<li><code>false_positive_causes</code>: <code>set[str]</code>, known false-positive cause tags, e.g.
+  <code>{"sunlight", "hvac_airflow", "pet", "insect", "vibration", "foliage"}</code></li>
+</ul>
+<h2>Output</h2>
+<p>A <strong>sorted list of unique event ID strings</strong> that classify as TRUE_DETECTION. Empty list if none.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">events = [
+    {&quot;id&quot;: &quot;EVT-001&quot;, &quot;sensor_type&quot;: &quot;pir&quot;, &quot;cause&quot;: &quot;person&quot;},
+    {&quot;id&quot;: &quot;EVT-002&quot;, &quot;sensor_type&quot;: &quot;pir&quot;, &quot;cause&quot;: &quot;sunlight&quot;},
+]
+fp = {&quot;sunlight&quot;, &quot;hvac_airflow&quot;, &quot;pet&quot;, &quot;insect&quot;, &quot;vibration&quot;, &quot;foliage&quot;}
+solve(events, fp)  -&gt;  [&quot;EVT-001&quot;]
+
+events2 = [
+    {&quot;id&quot;: &quot;EVT-010&quot;, &quot;sensor_type&quot;: &quot;dual-tech&quot;, &quot;cause_pir&quot;: &quot;person&quot;, &quot;cause_mw&quot;: &quot;person&quot;},
+    {&quot;id&quot;: &quot;EVT-011&quot;, &quot;sensor_type&quot;: &quot;dual-tech&quot;, &quot;cause_pir&quot;: &quot;hvac_airflow&quot;, &quot;cause_mw&quot;: &quot;person&quot;},
+]
+solve(events2, fp)  -&gt;  [&quot;EVT-010&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Every event has the fields required for its <code>sensor_type</code> as described in the Reference section below.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list[dict], false_positive_causes: set[str]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>events</code>)</h3>
+<p><code>list[dict]</code> where each dict represents one motion-sensor trigger event and has:
+- <code>"id"</code>: <code>str</code>, unique event identifier string
+- <code>"sensor_type"</code>: <code>str</code>, one of <code>"pir"</code>, <code>"microwave"</code>, <code>"ultrasonic"</code>, <code>"dual-tech"</code>
+- For <code>sensor_type</code> in <code>{"pir", "microwave", "ultrasonic"}</code> (single-technology sensors):
+  - <code>"cause"</code>: <code>str</code>, the tag describing what triggered the sensor (e.g. <code>"person"</code>,
+    <code>"sunlight"</code>, <code>"hvac_airflow"</code>, <code>"pet"</code>, <code>"insect"</code>, <code>"vibration"</code>, <code>"foliage"</code>)
+- For <code>sensor_type == "dual-tech"</code>:
+  - <code>"cause_pir"</code>: <code>str</code>, the cause tag reported by the PIR element
+  - <code>"cause_mw"</code>: <code>str</code>, the cause tag reported by the microwave element</p>
+<h3>Input (<code>false_positive_causes</code>)</h3>
+<p><code>set[str]</code>, the set of cause tags that are known false-positive causes (e.g.
+<code>{"sunlight", "hvac_airflow", "pet", "insect", "vibration", "foliage"}</code>). Any cause tag NOT in
+this set is treated as a genuine, person-consistent cause.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of event IDs that classify as <strong>TRUE_DETECTION</strong>. Events
+that classify as FALSE_POSITIVE are simply omitted from the result. Empty list if none.</p>
+<h3>Classification rules</h3>
+<ul>
+<li><strong>Single-technology sensor</strong> (<code>pir</code>, <code>microwave</code>, or <code>ultrasonic</code>): the event is a
+  TRUE_DETECTION if and only if <code>"cause"</code> is NOT in <code>false_positive_causes</code>.</li>
+<li><strong>Dual-technology sensor</strong> (<code>dual-tech</code>): AND-logic. The event is a TRUE_DETECTION if and only
+  if BOTH <code>"cause_pir"</code> and <code>"cause_mw"</code> are NOT in <code>false_positive_causes</code>. If either element's
+  cause is a known false-positive cause, the whole event is a FALSE_POSITIVE, even if the other
+  element's cause is genuine.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Every event dict has a well-formed <code>"id"</code> and <code>"sensor_type"</code> plus the cause field(s) required
+  for that sensor type, per the input spec above.</li>
+<li>Event IDs are unique within a single call.</li>
+<li>Output is always sorted ascending and de-duplicated.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.4.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict, List, Set
+
+
+def solve(events: List[Dict], false_positive_causes: Set[str]) -&gt; List[str]:
+    """Return sorted list of event IDs that classify as TRUE_DETECTION.
+
+    Single-technology sensors (pir, microwave, ultrasonic): TRUE_DETECTION iff "cause" is
+    NOT in false_positive_causes.
+
+    Dual-technology sensors (dual-tech): AND-logic. TRUE_DETECTION iff BOTH "cause_pir" and
+    "cause_mw" are NOT in false_positive_causes. Either element reporting a known
+    false-positive cause makes the whole event a FALSE_POSITIVE.
+    """
+    true_detections = []
+
+    for e in events:
+        sensor_type = e["sensor_type"]
+
+        if sensor_type == "dual-tech":
+            pir_ok = e["cause_pir"] not in false_positive_causes
+            mw_ok = e["cause_mw"] not in false_positive_causes
+            is_true = pir_ok and mw_ok
+        else:
+            is_true = e["cause"] not in false_positive_causes
+
+        if is_true:
+            true_detections.append(e["id"])
+
+    return sorted(set(true_detections))
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---------------------------------------------------------------------------
+# Shared fixtures — deterministic, matches lesson's known false-positive causes
+# ---------------------------------------------------------------------------
+FP = {"sunlight", "hvac_airflow", "pet", "insect", "vibration", "foliage"}
+
+
+def _single(id_, sensor_type, cause):
+    return {"id": id_, "sensor_type": sensor_type, "cause": cause}
+
+
+def _dual(id_, cause_pir, cause_mw):
+    return {"id": id_, "sensor_type": "dual-tech", "cause_pir": cause_pir, "cause_mw": cause_mw}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_pir_person_is_true_detection():
+    events = [_single("EVT-001", "pir", "person")]
+    assert impl.solve(events, FP) == ["EVT-001"]
+
+
+def test_pir_sunlight_is_false_positive():
+    events = [_single("EVT-002", "pir", "sunlight")]
+    assert impl.solve(events, FP) == []
+
+
+def test_microwave_vibration_is_false_positive():
+    events = [_single("EVT-003", "microwave", "vibration")]
+    assert impl.solve(events, FP) == []
+
+
+def test_ultrasonic_person_is_true_detection():
+    events = [_single("EVT-004", "ultrasonic", "person")]
+    assert impl.solve(events, FP) == ["EVT-004"]
+
+
+def test_dual_tech_both_person_is_true_detection():
+    events = [_dual("EVT-005", "person", "person")]
+    assert impl.solve(events, FP) == ["EVT-005"]
+
+
+def test_dual_tech_pir_false_positive_overrides():
+    events = [_dual("EVT-006", "hvac_airflow", "person")]
+    assert impl.solve(events, FP) == []
+
+
+def test_dual_tech_mw_false_positive_overrides():
+    events = [_dual("EVT-007", "person", "vibration")]
+    assert impl.solve(events, FP) == []
+
+
+def test_empty_events():
+    assert impl.solve([], FP) == []
+
+
+def test_mixed_batch():
+    events = [
+        _single("EVT-008", "pir", "person"),
+        _single("EVT-009", "pir", "pet"),
+        _single("EVT-010", "microwave", "hvac_airflow"),
+        _dual("EVT-011", "person", "person"),
+        _dual("EVT-012", "person", "vibration"),
+        _single("EVT-013", "ultrasonic", "insect"),
+    ]
+    assert impl.solve(events, FP) == ["EVT-008", "EVT-011"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_dual_tech_both_false_positive():
+    """Both elements report known false-positive causes -&gt; still false positive."""
+    events = [_dual("EVT-014", "sunlight", "vibration")]
+    assert impl.solve(events, FP) == []
+
+
+def test_single_tech_unknown_cause_treated_as_genuine():
+    """A cause tag not in the known false-positive set is treated as genuine (e.g. "tailgater")."""
+    events = [_single("EVT-015", "pir", "tailgater")]
+    assert impl.solve(events, FP) == ["EVT-015"]
+
+
+def test_output_sorted_and_deduplicated():
+    events = [
+        _single("EVT-020", "pir", "person"),
+        _single("EVT-019", "microwave", "person"),
+        _single("EVT-018", "ultrasonic", "person"),
+    ]
+    result = impl.solve(events, FP)
+    assert result == sorted(result)
+    assert result == ["EVT-018", "EVT-019", "EVT-020"]
+
+
+def test_all_sensor_types_mixed_with_custom_fp_set():
+    """A smaller false_positive_causes set changes which causes count as genuine."""
+    custom_fp = {"sunlight"}
+    events = [
+        _single("EVT-021", "pir", "hvac_airflow"),   # not in custom_fp -&gt; true detection
+        _single("EVT-022", "pir", "sunlight"),        # in custom_fp -&gt; false positive
+        _dual("EVT-023", "hvac_airflow", "person"),   # neither in custom_fp -&gt; true detection
+    ]
+    assert impl.solve(events, custom_fp) == ["EVT-021", "EVT-023"]
+
+
+def test_no_true_detections_returns_empty_list():
+    events = [
+        _single("EVT-024", "pir", "pet"),
+        _dual("EVT-025", "person", "foliage"),
+    ]
+    assert impl.solve(events, FP) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

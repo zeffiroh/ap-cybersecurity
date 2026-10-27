@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integrity and authenticity (HMAC), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Integrity and authenticity (HMAC)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.3.c: Implement HMAC-SHA256 by hand</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.3.B, 5.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>An API needs to verify that requests were sent by a client holding a shared secret key, and
+that the request body wasn't tampered with in transit. Rather than calling Python's built-in
+<code>hmac</code> module, build the FIPS 198-1 HMAC construction yourself on top of <code>hashlib.sha256</code>, so
+you can see exactly how the ipad/opad key-nesting defeats length-extension attacks.</p>
+<h2>Function contract</h2>
+<p>Implement, in the code editor:
+- <code>hmac_sha256(key: bytes, message: bytes) -&gt; str</code>, return the HMAC-SHA256 tag as a
+  lowercase 64-character hex string.
+- <code>verify(key: bytes, message: bytes, tag: str) -&gt; bool</code>, recompute the tag and compare it
+  (case-insensitively) to the given <code>tag</code> using a constant-time comparison.
+- <code>solve(data: dict) -&gt; dict</code>, the blackbox entry point that dispatches to the two functions
+  above (see the Reference section below).</p>
+<p>You must implement the ipad/opad key derivation and the double-nested hashing yourself. You
+may use <code>hashlib.sha256</code> only as the inner hash primitive <code>H()</code>, do not import the <code>hmac</code>
+module for the core logic.</p>
+<h2>The construction (FIPS 198-1)</h2>
+<pre><code>HMAC(key, message) = H( (key XOR opad) || H( (key XOR ipad) || message ) )
+</code></pre>
+<ul>
+<li>Block size for SHA-256 is 64 bytes.</li>
+<li>If <code>key</code> is longer than 64 bytes, replace it with <code>H(key)</code> first.</li>
+<li>Right-pad <code>key</code> with <code>0x00</code> bytes up to exactly 64 bytes -&gt; call this <code>k0</code>.</li>
+<li><code>ipad</code> = the byte <code>0x36</code> repeated 64 times; <code>opad</code> = the byte <code>0x5c</code> repeated 64 times.</li>
+<li><code>inner_key = k0 XOR ipad</code>, <code>outer_key = k0 XOR opad</code> (byte-wise XOR).</li>
+<li><code>inner_hash = H(inner_key || message)</code></li>
+<li>final tag = <code>H(outer_key || inner_hash)</code>, hex-encoded.</li>
+</ul>
+<h2>Input / Output</h2>
+<ul>
+<li><code>hmac_sha256(key, message)</code>: <code>key: bytes</code>, <code>message: bytes</code> -&gt; hex <code>str</code> tag.</li>
+<li><code>verify(key, message, tag)</code>: <code>tag: str</code> (hex, any case) -&gt; <code>bool</code>.</li>
+<li><code>solve(data)</code>: <code>data = {"op": "tag", "key": "&lt;hex&gt;", "message": "&lt;str&gt;"}</code> -&gt;
+  <code>{"tag": "&lt;hex&gt;"}</code>, or <code>data = {"op": "verify", "key": "&lt;hex&gt;", "message": "&lt;str&gt;", "tag": "&lt;hex&gt;"}</code>
+  -&gt; <code>{"valid": &lt;bool&gt;}</code>.</li>
+</ul>
+<h2>Examples</h2>
+<pre><code>hmac_sha256(b&quot;secretkey&quot;, b&quot;transfer $100 to acct 42&quot;)
+  -&gt; &quot;5b1f9a2c...b3&quot; (64 hex chars; must match Python's hmac.new(key, msg, sha256).hexdigest())
+
+verify(b&quot;secretkey&quot;, b&quot;transfer $100 to acct 42&quot;, &quot;5b1f9a2c...b3&quot;) -&gt; True
+verify(b&quot;secretkey&quot;, b&quot;transfer $900 to acct 42&quot;, &quot;5b1f9a2c...b3&quot;) -&gt; False  # tampered message
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only (<code>hashlib</code> only, no <code>hmac</code> module).</li>
+<li>Correctness is checked against Python's own <code>hmac</code> module inside the tests (used there only
+  as an independent oracle, not as part of your implementation).</li>
+<li>Must pass all cases in the tests (visible + hidden), including empty keys/messages, keys
+  longer than the 64-byte block size, and case-insensitive tag comparison in <code>verify()</code>.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry points</h3>
+<pre><code class="language-python">def hmac_sha256(key: bytes, message: bytes) -&gt; str
+def verify(key: bytes, message: bytes, tag: str) -&gt; bool
+def solve(data: dict) -&gt; dict
+</code></pre>
+<p><code>solve()</code> is the blackbox entry point; <code>hmac_sha256()</code> and <code>verify()</code> are the underlying
+primitives it's built on and are tested directly as well.</p>
+<h3>Input</h3>
+<ul>
+<li><code>hmac_sha256(key, message)</code>: <code>key</code> and <code>message</code> are raw <code>bytes</code> of any length (including
+  empty and longer-than-block-size keys).</li>
+<li><code>verify(key, message, tag)</code>: same <code>key</code>/<code>message</code> as above; <code>tag</code> is a hex string (may be
+  upper or lower case) claiming to be the correct HMAC-SHA256 tag.</li>
+<li><code>solve(data)</code>: <code>data</code> is a <code>dict</code> with <code>"op"</code> equal to <code>"tag"</code> or <code>"verify"</code>.</li>
+<li><code>"tag"</code>: <code>{"op": "tag", "key": &lt;hex str&gt;, "message": &lt;str&gt;}</code></li>
+<li><code>"verify"</code>: <code>{"op": "verify", "key": &lt;hex str&gt;, "message": &lt;str&gt;, "tag": &lt;hex str&gt;}</code></li>
+<li><code>key</code> arrives as a hex string (decode with <code>bytes.fromhex</code>); <code>message</code> arrives as a
+    plain UTF-8 string (encode with <code>.encode("utf-8")</code>).</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<ul>
+<li><code>hmac_sha256(...)</code> returns a lowercase hex string (64 hex characters for SHA-256).</li>
+<li><code>verify(...)</code> returns <code>bool</code>.</li>
+<li><code>solve(...)</code> returns <code>{"tag": &lt;hex str&gt;}</code> for op <code>"tag"</code>, or <code>{"valid": &lt;bool&gt;}</code> for op <code>"verify"</code>.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure functions, deterministic, no I/O, no network. Standard library only
+  (<code>hashlib.sha256</code> may be used as the inner hash primitive <code>H()</code>; the ipad/opad key
+  derivation and double-nesting must be implemented directly, not via the <code>hmac</code> module).</li>
+<li>Must implement the FIPS 198-1 HMAC construction:
+  <code>HMAC(key, message) = H((key XOR opad) || H((key XOR ipad) || message))</code>, with
+  <code>ipad = 0x36</code> and <code>opad = 0x5c</code> repeated to the 64-byte SHA-256 block size, and keys
+  longer than the block size first hashed down with <code>H()</code> before padding.</li>
+<li>Any single-bit change to <code>message</code> or <code>key</code> must produce a different tag.</li>
+<li><code>verify()</code> must accept tags regardless of hex case (upper/lower).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.3.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements the FIPS 198-1 HMAC construction by hand (ipad/opad nesting) on top of
+hashlib.sha256, used only as the inner H() step. Crypto problems implement the underlying math/logic directly rather than calling hmac.*.
+"""
+import hashlib
+
+BLOCK_SIZE = 64  # SHA-256 block size in bytes
+IPAD = 0x36
+OPAD = 0x5C
+
+
+def _h(data: bytes) -&gt; bytes:
+    """The inner hash primitive H(). Only stdlib hashlib.sha256 is used here."""
+    return hashlib.sha256(data).digest()
+
+
+def _derive_key(key: bytes) -&gt; bytes:
+    """Normalize key to exactly BLOCK_SIZE bytes per FIPS 198-1:
+    hash keys longer than the block size, right-pad shorter keys with zero bytes."""
+    if len(key) &gt; BLOCK_SIZE:
+        key = _h(key)
+    return key + b"\x00" * (BLOCK_SIZE - len(key))
+
+
+def _xor_bytes(data: bytes, pad: int) -&gt; bytes:
+    return bytes(b ^ pad for b in data)
+
+
+def hmac_sha256(key: bytes, message: bytes) -&gt; str:
+    """Compute HMAC-SHA256(key, message) and return the tag as a lowercase hex string.
+
+    HMAC(key, message) = H( (key XOR opad) || H( (key XOR ipad) || message ) )
+    """
+    k0 = _derive_key(key)
+    inner_key = _xor_bytes(k0, IPAD)
+    outer_key = _xor_bytes(k0, OPAD)
+    inner_hash = _h(inner_key + message)
+    tag = _h(outer_key + inner_hash)
+    return tag.hex()
+
+
+def _constant_time_equal(a: str, b: str) -&gt; bool:
+    """Compare two equal-or-unequal-length strings without short-circuiting on the
+    first mismatch, to avoid leaking timing information about where tags differ."""
+    if len(a) != len(b):
+        return False
+    result = 0
+    for ca, cb in zip(a, b):
+        result |= ord(ca) ^ ord(cb)
+    return result == 0
+
+
+def verify(key: bytes, message: bytes, tag: str) -&gt; bool:
+    """Return True iff `tag` is the correct HMAC-SHA256 tag for (key, message)."""
+    expected = hmac_sha256(key, message)
+    return _constant_time_equal(expected, tag.lower())
+
+
+def solve(data: dict) -&gt; dict:
+    """Blackbox entry point. Dispatches on data['op']:
+      - {"op": "tag", "key": &lt;hex str&gt;, "message": &lt;str&gt;}
+            -&gt; {"tag": &lt;hex str&gt;}
+      - {"op": "verify", "key": &lt;hex str&gt;, "message": &lt;str&gt;, "tag": &lt;hex str&gt;}
+            -&gt; {"valid": &lt;bool&gt;}
+    Keys and messages are given as UTF-8 strings; `key` is provided as a hex string
+    to allow arbitrary binary-looking keys through a JSON-friendly interface.
+    """
+    op = data["op"]
+    key = bytes.fromhex(data["key"])
+    message = data["message"].encode("utf-8")
+    if op == "tag":
+        return {"tag": hmac_sha256(key, message)}
+    elif op == "verify":
+        return {"valid": verify(key, message, data["tag"])}
+    else:
+        raise ValueError(f"unknown op: {op!r}")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import hashlib
+import hmac as _stdlib_hmac  # only used here, in tests, as an independent oracle
+
+
+def _oracle_tag(key: bytes, message: bytes) -&gt; str:
+    """Independent reference tag computed with Python's stdlib hmac, used only to
+    check the student implementation's output, never as part of the implementation."""
+    return _stdlib_hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+# ---- visible cases -------------------------------------------------------
+def test_matches_stdlib_hmac_short_key():
+    key = b"secretkey"
+    message = b"transfer $100 to acct 42"
+    got = impl.hmac_sha256(key, message)
+    assert got == _oracle_tag(key, message)
+
+
+def test_matches_stdlib_hmac_long_key():
+    key = b"x" * 100  # longer than the 64-byte block size, exercises key-hashing path
+    message = b"hello world"
+    got = impl.hmac_sha256(key, message)
+    assert got == _oracle_tag(key, message)
+
+
+def test_tampered_message_changes_tag():
+    key = b"secretkey"
+    original = b"transfer $100 to acct 42"
+    tampered = b"transfer $900 to acct 42"
+    tag_original = impl.hmac_sha256(key, original)
+    tag_tampered = impl.hmac_sha256(key, tampered)
+    assert tag_original != tag_tampered
+
+
+def test_verify_accepts_correct_tag():
+    key = b"apikey123"
+    message = b"GET /accounts/42"
+    tag = impl.hmac_sha256(key, message)
+    assert impl.verify(key, message, tag) is True
+
+
+def test_verify_rejects_tampered_message():
+    key = b"apikey123"
+    message = b"GET /accounts/42"
+    tag = impl.hmac_sha256(key, message)
+    assert impl.verify(key, b"GET /accounts/99", tag) is False
+
+
+def test_solve_tag_op():
+    result = impl.solve({"op": "tag", "key": "deadbeef", "message": "hello"})
+    expected = _oracle_tag(bytes.fromhex("deadbeef"), b"hello")
+    assert result == {"tag": expected}
+
+
+def test_solve_verify_op():
+    key_hex = "deadbeef"
+    tag = _oracle_tag(bytes.fromhex(key_hex), b"hello")
+    result = impl.solve({"op": "verify", "key": key_hex, "message": "hello", "tag": tag})
+    assert result == {"valid": True}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_wrong_key_fails_verify():
+    message = b"payload"
+    tag = impl.hmac_sha256(b"key-a", message)
+    assert impl.verify(b"key-b", message, tag) is False
+
+
+def test_empty_message():
+    key = b"secretkey"
+    got = impl.hmac_sha256(key, b"")
+    assert got == _oracle_tag(key, b"")
+
+
+def test_empty_key():
+    message = b"some data"
+    got = impl.hmac_sha256(b"", message)
+    assert got == _oracle_tag(b"", message)
+
+
+def test_key_exactly_block_size():
+    key = b"k" * 64  # exactly the SHA-256 block size boundary
+    message = b"boundary case"
+    got = impl.hmac_sha256(key, message)
+    assert got == _oracle_tag(key, message)
+
+
+def test_single_bit_flip_changes_tag_completely():
+    key = b"secretkey"
+    a = b"password reset for user 1000"
+    b = b"password reset for user 1001"  # differs by a single character
+    tag_a = impl.hmac_sha256(key, a)
+    tag_b = impl.hmac_sha256(key, b)
+    assert tag_a != tag_b
+    # avalanche: tags should differ in most positions, not just a trailing few
+    diff = sum(1 for x, y in zip(tag_a, tag_b) if x != y)
+    assert diff &gt; len(tag_a) // 4
+
+
+def test_verify_case_insensitive_hex_tag():
+    key = b"secretkey"
+    message = b"case check"
+    tag = impl.hmac_sha256(key, message)
+    assert impl.verify(key, message, tag.upper()) is True
+
+
+def test_solve_verify_op_rejects_bad_tag():
+    result = impl.solve({"op": "verify", "key": "aa", "message": "x", "tag": "0" * 64})
+    assert result == {"valid": False}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

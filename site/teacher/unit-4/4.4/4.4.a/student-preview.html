@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endpoint detection and response (EDR), Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Endpoint detection and response (EDR)</h1>
+<h1>Coding problem, 4.4.a: EDR telemetry analyzer</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 4.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>An EDR agent streams process-event telemetry from an endpoint. Each event records a process, its
+parent process, whether it opened an external network connection, and how many bytes it
+transferred. Build the analyzer that flags processes exhibiting either of the two classic
+red flags an EDR platform's behavioral detection looks for: a "living off the land" parent-child
+relationship, or unusual outbound data transfer.</p>
+<h2>Function contract</h2>
+<p>Implement <code>def solve(events: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A list of dicts, each with keys <code>pid</code> (int), <code>process</code> (str), <code>parent_process</code> (str),
+<code>external_connection</code> (bool), <code>bytes_transferred</code> (int).</p>
+<h2>Output</h2>
+<p>A sorted list of <code>pid</code> (int) for every event that is flagged.</p>
+<h2>Detection rules (a process is flagged if EITHER rule fires)</h2>
+<ol>
+<li><strong>Living-off-the-land parent-child pair:</strong> <code>process</code> (case-insensitive) is one of the script
+   interpreters <code>{"powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe"}</code> AND
+   <code>parent_process</code> (case-insensitive) is <strong>not</strong> <code>"explorer.exe"</code> (the only parent considered a
+   normal, user-initiated launch of an interpreter). Any other parent, including
+   <code>winword.exe</code>, <code>outlook.exe</code>, <code>svchost.exe</code>, or a browser, is treated as suspicious, matching
+   the living-off-the-land pattern where a document or script silently spawns a shell.</li>
+<li><strong>Unusual outbound transfer:</strong> <code>external_connection</code> is <code>True</code> AND <code>bytes_transferred &gt; 1000000</code>
+   (strictly greater than 1,000,000 bytes).</li>
+</ol>
+<h2>Examples</h2>
+<pre><code>[{&quot;pid&quot;: 501, &quot;process&quot;: &quot;powershell.exe&quot;, &quot;parent_process&quot;: &quot;winword.exe&quot;,
+  &quot;external_connection&quot;: True, &quot;bytes_transferred&quot;: 500},
+ {&quot;pid&quot;: 502, &quot;process&quot;: &quot;chrome.exe&quot;, &quot;parent_process&quot;: &quot;explorer.exe&quot;,
+  &quot;external_connection&quot;: True, &quot;bytes_transferred&quot;: 200000},
+ {&quot;pid&quot;: 503, &quot;process&quot;: &quot;backup.exe&quot;, &quot;parent_process&quot;: &quot;explorer.exe&quot;,
+  &quot;external_connection&quot;: True, &quot;bytes_transferred&quot;: 5000000}]
+    -&gt; [501, 503]
+</code></pre>
+<p><em>(pid 501 flagged for the living-off-the-land parent; pid 503 flagged for excessive outbound
+transfer; pid 502 is a normal browser launch under the transfer threshold.)</em></p>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Case-insensitive matching of process/parent names.</li>
+<li>Return a de-duplicated, ascending-sorted list of pids (each pid appears at most once even if
+  both rules fire).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list) -&gt; list
+</code></pre>
+<h3>Input (<code>events</code>)</h3>
+<p>A list of dicts, each describing one EDR process event:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>type</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pid</code></td>
+<td>int</td>
+<td>process id</td>
+</tr>
+<tr>
+<td><code>process</code></td>
+<td>str</td>
+<td>the process image name, e.g. <code>"powershell.exe"</code></td>
+</tr>
+<tr>
+<td><code>parent_process</code></td>
+<td>str</td>
+<td>the parent process image name, e.g. <code>"winword.exe"</code></td>
+</tr>
+<tr>
+<td><code>external_connection</code></td>
+<td>bool</td>
+<td>whether the process opened a connection to an external host</td>
+</tr>
+<tr>
+<td><code>bytes_transferred</code></td>
+<td>int</td>
+<td>total bytes transferred over that connection (0 if none)</td>
+</tr>
+</tbody>
+</table>
+<h3>Output (<code>result</code>)</h3>
+<p>A de-duplicated, ascending-sorted list of <code>int</code> pids for every flagged event.</p>
+<h3>Detection rules (flag if EITHER fires)</h3>
+<ol>
+<li><code>process.lower()</code> is in <code>{"powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe",
+   "mshta.exe"}</code> AND <code>parent_process.lower()</code> is not <code>"explorer.exe"</code>.</li>
+<li><code>external_connection</code> is <code>True</code> AND <code>bytes_transferred &gt; 1000000</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
+<li>Process/parent name matching is case-insensitive.</li>
+<li>The output list has no duplicate pids and is sorted ascending.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 4.4.a. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+
+
+def solve(events: list) -&gt; list:
+    """Flag EDR process events showing a living-off-the-land parent-child pair or an
+    unusually large outbound data transfer.
+
+    Args:
+        events: list of dicts with keys pid (int), process (str), parent_process (str),
+            external_connection (bool), bytes_transferred (int).
+
+    Returns:
+        Sorted list of unique pids (int) flagged by either detection rule.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_prompt_scenario():
+    events = [
+        {"pid": 501, "process": "powershell.exe", "parent_process": "winword.exe",
+         "external_connection": True, "bytes_transferred": 500},
+        {"pid": 502, "process": "chrome.exe", "parent_process": "explorer.exe",
+         "external_connection": True, "bytes_transferred": 200000},
+        {"pid": 503, "process": "backup.exe", "parent_process": "explorer.exe",
+         "external_connection": True, "bytes_transferred": 5000000},
+    ]
+    assert impl.solve(events) == [501, 503]
+
+
+def test_example_2_no_flags():
+    events = [
+        {"pid": 1, "process": "notepad.exe", "parent_process": "explorer.exe",
+         "external_connection": False, "bytes_transferred": 0},
+        {"pid": 2, "process": "cmd.exe", "parent_process": "explorer.exe",
+         "external_connection": False, "bytes_transferred": 0},
+    ]
+    assert impl.solve(events) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_events():
+    assert impl.solve([]) == []
+
+
+def test_case_insensitive_matching():
+    events = [
+        {"pid": 10, "process": "PowerShell.EXE", "parent_process": "WINWORD.EXE",
+         "external_connection": False, "bytes_transferred": 0},
+    ]
+    assert impl.solve(events) == [10]
+
+
+def test_interpreter_from_explorer_is_safe():
+    events = [
+        {"pid": 20, "process": "cmd.exe", "parent_process": "explorer.exe",
+         "external_connection": False, "bytes_transferred": 0},
+        {"pid": 21, "process": "CMD.EXE", "parent_process": "EXPLORER.EXE",
+         "external_connection": False, "bytes_transferred": 0},
+    ]
+    assert impl.solve(events) == []
+
+
+def test_transfer_threshold_boundary_not_exceeded():
+    events = [
+        {"pid": 30, "process": "sync.exe", "parent_process": "explorer.exe",
+         "external_connection": True, "bytes_transferred": 1000000},
+    ]
+    assert impl.solve(events) == []
+
+
+def test_transfer_threshold_boundary_exceeded():
+    events = [
+        {"pid": 31, "process": "sync.exe", "parent_process": "explorer.exe",
+         "external_connection": True, "bytes_transferred": 1000001},
+    ]
+    assert impl.solve(events) == [31]
+
+
+def test_no_external_connection_ignores_large_transfer():
+    events = [
+        {"pid": 40, "process": "backup.exe", "parent_process": "explorer.exe",
+         "external_connection": False, "bytes_transferred": 9999999},
+    ]
+    assert impl.solve(events) == []
+
+
+def test_result_deduplicated_and_sorted():
+    events = [
+        {"pid": 60, "process": "mshta.exe", "parent_process": "outlook.exe",
+         "external_connection": True, "bytes_transferred": 5000000},
+        {"pid": 50, "process": "wscript.exe", "parent_process": "outlook.exe",
+         "external_connection": False, "bytes_transferred": 0},
+    ]
+    assert impl.solve(events) == [50, 60]
+
+
+def test_living_off_the_land_variants():
+    events = [
+        {"pid": 71, "process": "cscript.exe", "parent_process": "svchost.exe",
+         "external_connection": False, "bytes_transferred": 0},
+        {"pid": 72, "process": "wscript.exe", "parent_process": "outlook.exe",
+         "external_connection": False, "bytes_transferred": 0},
+    ]
+    assert impl.solve(events) == [71, 72]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

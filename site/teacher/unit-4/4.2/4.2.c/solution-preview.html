@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session security, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Session security  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.2.c: Classify session-security incidents</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A security analyst receives short incident-report strings describing observed session behavior.
+Build the classifier that maps each description to the correct session-security category.</p>
+<p>Categories:
+- <code>"hijacking"</code>, an already-authenticated session token is stolen (XSS read, network sniffing,
+  malware) and reused by an attacker
+- <code>"fixation"</code>, an attacker supplies a session ID to the victim before login, then reuses that
+  same ID after the victim authenticates
+- <code>"insecure_cookie"</code>, the session cookie is missing a secure attribute (HttpOnly, Secure, or
+  SameSite) that would have prevented exposure or misuse
+- <code>"timeout_issue"</code>, a session remains valid far longer than it should because of a missing or
+  misconfigured idle/absolute timeout
+- <code>"secure"</code>, the report describes a session that is properly protected (regeneration, secure
+  flags, timeouts all present) with no vulnerability
+- <code>"unknown"</code>, nothing in the report matches any category</p>
+<p>A report may match exactly one category. If no category matches, return <code>"unknown"</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(report: str) -&gt; str</code> in the code editor (see the Reference section below).
+Return the single category label string. Matching is case-insensitive substring detection using
+the indicator sets defined in the Reference section below.</p>
+<h2>Input</h2>
+<p>A single string describing observed session behavior on a device, browser, or server.</p>
+<h2>Output</h2>
+<p>One of: <code>"hijacking"</code>, <code>"fixation"</code>, <code>"insecure_cookie"</code>, <code>"timeout_issue"</code>, <code>"secure"</code>, <code>"unknown"</code>.</p>
+<h2>Examples</h2>
+<pre><code>&quot;Session token was sniffed over unencrypted HTTP and replayed by an attacker&quot; -&gt; &quot;hijacking&quot;
+&quot;Attacker sent a link with a pre-set session id; victim logged in and id unchanged&quot; -&gt; &quot;fixation&quot;
+&quot;Session cookie has no HttpOnly flag configured; automated scan flagged the issue&quot; -&gt; &quot;insecure_cookie&quot;
+&quot;Logged-in kiosk left unattended for hours with no idle timeout configured&quot; -&gt; &quot;timeout_issue&quot;
+&quot;Session id regenerated at login; cookie set Secure, HttpOnly, SameSite=Strict&quot; -&gt; &quot;secure&quot;
+&quot;User changed their display name in account settings&quot; -&gt; &quot;unknown&quot;
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Detection by case-insensitive substring match against indicator sets in the Reference section below.</li>
+<li>Exactly one label returned (string, not list).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(report: str) -&gt; str
+</code></pre>
+<h3>Input (<code>report</code>)</h3>
+<p>A single string describing observed session behavior on a device, browser, or server.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>Exactly one string from
+<code>{"hijacking", "fixation", "insecure_cookie", "timeout_issue", "secure", "unknown"}</code>.</p>
+<h3>Indicator phrase sets (case-insensitive substring match)</h3>
+<ul>
+<li><strong>fixation:</strong> <code>fixation</code>, <code>pre-set session</code>, <code>attacker-supplied session</code>, <code>session id unchanged
+  after login</code>, <code>id unchanged</code>, <code>session id before</code>, <code>known session id</code>, <code>id was already set</code></li>
+<li><strong>hijacking:</strong> <code>sniffed</code>, <code>sniffing</code>, <code>intercepted</code>, <code>stolen session</code>, <code>stole the session</code>,
+  <code>replayed</code>, <code>captured token</code>, <code>plain http</code>, <code>plaintext</code>, <code>read by an injected script</code>,
+  <code>read via injected</code>, <code>malware read the</code>, <code>xss</code> (only when paired with theft/read context, treated as a hijacking signal), <code>reused by an attacker</code></li>
+<li><strong>insecure_cookie:</strong> <code>missing httponly</code>, <code>no httponly</code>, <code>httponly flag</code>, <code>missing secure flag</code>,
+  <code>no secure flag</code>, <code>missing samesite</code>, <code>no samesite</code>, <code>cookie has no</code>, <code>cookie is missing</code>,
+  <code>readable from client-side javascript</code>, <code>not set to httponly</code></li>
+<li><strong>timeout_issue:</strong> <code>no idle timeout</code>, <code>no timeout</code>, <code>without a timeout</code>, <code>left unattended</code>,
+  <code>no absolute timeout</code>, <code>never expires</code>, <code>does not expire</code>, <code>session never times out</code>,
+  <code>unattended for</code>, <code>abandoned</code>, <code>kiosk</code></li>
+<li><strong>secure:</strong> <code>regenerated at login</code>, <code>session id regenerated</code>, <code>secure, httponly</code>, <code>all secure
+  flags</code>, <code>properly secured</code>, <code>idle timeout</code> combined with <code>secure</code> context, <code>secure flags set</code>,
+  <code>set secure</code>, <code>set httponly</code>, <code>samesite=strict</code>, <code>session expired automatically</code></li>
+<li>If no indicator matches: return <code>"unknown"</code>.</li>
+<li>Priority order when multiple sets match (should not occur in well-formed test data, but if it
+  does): fixation &gt; hijacking &gt; insecure_cookie &gt; timeout_issue &gt; secure &gt; unknown.
+  Rationale: fixation and hijacking describe an active compromise and must be surfaced first;
+  insecure_cookie and timeout_issue describe latent misconfigurations; secure is the fallback
+  "all clear" only when nothing else matched.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Matching is case-insensitive substring match.</li>
+<li>Returns a single string (not a list).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.2.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+
+def solve(report: str) -&gt; str:
+    """Classify a session-security incident report by its behavioral signature.
+
+    Args:
+        report: A string containing the incident report description.
+
+    Returns:
+        The category string: "hijacking", "fixation", "insecure_cookie",
+        "timeout_issue", "secure", or "unknown".
+    """
+    if not isinstance(report, str):
+        return "unknown"
+
+    report_lower = report.lower()
+
+    # Priority order: fixation &gt; hijacking &gt; insecure_cookie &gt; timeout_issue &gt; secure &gt; unknown
+
+    # 1. fixation
+    fixation_indicators = [
+        "fixation", "pre-set session", "attacker-supplied session",
+        "session id unchanged after login", "id unchanged", "session id before",
+        "known session id", "id was already set"
+    ]
+    if any(ind in report_lower for ind in fixation_indicators):
+        return "fixation"
+
+    # 2. hijacking
+    hijacking_indicators = [
+        "sniffed", "sniffing", "intercepted", "stolen session", "stole the session",
+        "replayed", "captured token", "plain http", "plaintext",
+        "read by an injected script", "read via injected", "malware read the",
+        "xss", "reused by an attacker"
+    ]
+    if any(ind in report_lower for ind in hijacking_indicators):
+        return "hijacking"
+
+    # 3. insecure_cookie
+    insecure_cookie_indicators = [
+        "missing httponly", "no httponly", "httponly flag", "missing secure flag",
+        "no secure flag", "missing samesite", "no samesite", "cookie has no",
+        "cookie is missing", "readable from client-side javascript",
+        "not set to httponly"
+    ]
+    if any(ind in report_lower for ind in insecure_cookie_indicators):
+        return "insecure_cookie"
+
+    # 4. timeout_issue
+    timeout_indicators = [
+        "no idle timeout", "no timeout", "without a timeout", "left unattended",
+        "no absolute timeout", "never expires", "does not expire",
+        "session never times out", "unattended for", "abandoned", "kiosk"
+    ]
+    if any(ind in report_lower for ind in timeout_indicators):
+        return "timeout_issue"
+
+    # 5. secure
+    secure_indicators = [
+        "regenerated at login", "session id regenerated", "secure, httponly",
+        "all secure flags", "properly secured", "secure flags set",
+        "set secure", "set httponly", "samesite=strict",
+        "session expired automatically"
+    ]
+    if any(ind in report_lower for ind in secure_indicators):
+        return "secure"
+
+    return "unknown"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1():
+    assert impl.solve("Session token was sniffed over unencrypted HTTP and replayed by an attacker") == "hijacking"
+
+
+def test_example_2():
+    assert impl.solve("Attacker sent a link with a pre-set session id; victim logged in and id unchanged") == "fixation"
+
+
+def test_example_3():
+    assert impl.solve("Session cookie has no HttpOnly flag configured; automated scan flagged the missing attribute") == "insecure_cookie"
+
+
+def test_example_4():
+    assert impl.solve("Logged-in kiosk left unattended for hours with no idle timeout configured") == "timeout_issue"
+
+
+def test_example_5():
+    assert impl.solve("Session id regenerated at login; cookie set Secure, HttpOnly, SameSite=Strict") == "secure"
+
+
+def test_example_6():
+    assert impl.solve("User changed their display name in account settings") == "unknown"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty():
+    assert impl.solve("") == "unknown"
+
+
+def test_case_insensitive():
+    assert impl.solve("TOKEN WAS SNIFFED ON PUBLIC WIFI") == "hijacking"
+    assert impl.solve("COOKIE IS MISSING THE SECURE FLAG") == "insecure_cookie"
+
+
+def test_priority_fixation_over_hijacking():
+    # contains "pre-set session" (fixation) and "sniffed" (hijacking).
+    # fixation must win per interface.md priority order.
+    assert impl.solve("Attacker used a pre-set session id; token was later sniffed too") == "fixation"
+
+
+def test_priority_hijacking_over_insecure_cookie():
+    # contains "intercepted" (hijacking) and "missing httponly" (insecure_cookie).
+    # hijacking must win per interface.md priority order.
+    assert impl.solve("Token was intercepted; cookie also missing httponly flag") == "hijacking"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

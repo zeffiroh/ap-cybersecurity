@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.4.c, Digital signatures, Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#e0e0e0;--win-title-fg:#000;--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.wrap{max-width:880px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--win-face);padding:12px;display:flex;flex-direction:column;gap:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:120px}.terminal .prompt{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.scorepanel .ok{color:#008000;font-weight:bold}.scorepanel .bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 4px}.toolbar{margin-bottom:8px}.panel{background:#fff;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);padding:10px}.panel h2{font-size:14px;margin-top:0;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:4px}.case{border:1px dotted #ccc;padding:8px;margin-bottom:12px}.case .row{display:flex;justify-content:space-between;font-size:12px;gap:8px;flex-wrap:wrap}.case .label{font-weight:bold}.case .mono{font-family:var(--mono-font);font-size:12px;word-break:break-all}.case-controls{margin-top:6px;display:flex;gap:6px}.case-controls .btn.selected-valid{background:#c8e6c9}.case-controls .btn.selected-forged{background:#ffcdd2}.feedback-box{font-size:12px;font-weight:bold;margin-top:6px}.feedback-box.correct{color:#008000}.feedback-box.incorrect{color:#aa0000}.work{font-family:var(--mono-font);font-size:11px;color:var(--muted);margin-top:4px;white-space:pre-wrap}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.4.c, Digital Signatures: VALID or FORGED?</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>The signer's key pair is <span class="mono">(e, n) = (17, 3233)</span> public and
+      <span class="mono">(d, n) = (2753, 3233)</span> private (textbook-scale RSA, p=61, q=53).
+      For each case below, a message, a claimed signature, and a public key used to verify are
+      shown. Recompute <span class="mono">digest = SHA-256(message) mod n</span> for the
+      displayed message, compare it to <span class="mono">signature^e mod n</span>, and classify
+      the case as <b>VALID</b> or <b>FORGED/TAMPERED</b>. Reach the target score to complete the
+      objective.</p>
+
+      <div class="panel">
+        <h2>Signature verification cases</h2>
+        <div id="cases"></div>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 6 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var CASES=[{id:'c1',message:'transfer $500 to acct 17',signature:1397,e:17,n:3233,actualDigest:2470,verdict:'VALID',note:"Signature was produced for exactly this message with the signer's own key pair."},{id:'c2',message:'transfer $900 to acct 17',signature:1397,e:17,n:3233,actualDigest:1328,verdict:'FORGED',note:'The message was altered ($500 -> $900) after signing; the signature still matches the old $500 digest, not this one. Integrity is violated.'},{id:'c3',message:'approve deployment build 42',signature:1758,e:17,n:3233,actualDigest:965,verdict:'VALID',note:"Signature was produced for exactly this message with the signer's own key pair."},{id:'c4',message:'grant admin access to eve',signature:707,e:17,n:3233,actualDigest:2129,verdict:'FORGED',note:'The signature was actually produced for a different message ("...to jdoe"); someone substituted a different name. Integrity is violated.'},{id:'c5',message:'reset password for user carol',signature:3146,e:7,n:3599,actualDigest:250,verdict:'FORGED',note:"This signature is genuinely valid under the signer's real key (17, 3233), but here it is checked against an unrelated public key (7, 3599). Verifying with the wrong public key must fail, authenticity cannot be confirmed against the wrong identity."},{id:'c6',message:'release patch v1.2.3',signature:1986,e:17,n:3233,actualDigest:1522,verdict:'VALID',note:"Signature was produced for exactly this message with the signer's own key pair."}];var answers={};var MAX=CASES.length;function modPow(base,exp,mod){base=BigInt(base);exp=BigInt(exp);mod=BigInt(mod);var result=1n;base=base%mod;while(exp>0n){if(exp%2n===1n){result=(result*base)%mod;}
+exp=exp/2n;base=(base*base)%mod;}
+return result;}
+function renderCases(){var host=document.getElementById('cases');var html='';CASES.forEach(function(c,idx){var recovered=modPow(c.signature,c.e,c.n).toString();html+='<div class="case" data-id="'+c.id+'">'+'<div class="row"><span class="label">Case '+(idx+1)+'</span>'+'<span class="mono">verify key (e, n) = ('+c.e+', '+c.n+')</span></div>'+'<div class="row"><span class="label">message</span><span class="mono">"'+c.message+'"</span></div>'+'<div class="row"><span class="label">claimed signature</span><span class="mono">'+c.signature+'</span></div>'+'<div class="work">recomputed digest = SHA-256(message) mod n = '+c.actualDigest+'\\nrecovered = signature^e mod n = '+recovered+'\\nmatch? '+(recovered===String(c.actualDigest)?'yes':'no')+'</div>'+'<div class="case-controls">'+'<button class="btn" onclick="answer(&quot;'+c.id+'&quot;,&quot;VALID&quot;)">Mark VALID</button>'+'<button class="btn" onclick="answer(&quot;'+c.id+'&quot;,&quot;FORGED&quot;)">Mark FORGED/TAMPERED</button>'+'</div>'+'<div class="feedback-box" id="fb-'+c.id+'"></div>'+'</div>';});host.innerHTML=html;}
+function answer(id,choice){var c=CASES.find(function(x){return x.id===id;});answers[id]=choice;var fb=document.getElementById('fb-'+id);var caseEl=document.querySelector('.case[data-id="'+id+'"]');var buttons=caseEl.querySelectorAll('.case-controls .btn');buttons.forEach(function(b){b.classList.remove('selected-valid','selected-forged');});if(choice==='VALID'){buttons[0].classList.add('selected-valid');}
+else{buttons[1].classList.add('selected-forged');}
+if(choice===c.verdict){fb.className='feedback-box correct';fb.innerText='Correct, '+c.note;}else{fb.className='feedback-box incorrect';fb.innerText='Incorrect. Correct answer: '+c.verdict+'. '+c.note;}
+checkObjective();}
+function checkObjective(){var score=0;CASES.forEach(function(c){if(answers[c.id]===c.verdict){score++;}});var met=(score===MAX);var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+MAX+' &#9474; OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+renderCases();checkObjective();</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.4.b, Alarm systems, Simulation</title>
+<style>:root{--bg:#ffffff;--fg:#000000;--muted:#555555;--rule:#000000;--win-face:#c0c0c0;--win-light:#ffffff;--win-shadow:#808080;--win-dark:#000000;--win-title:#000080;--win-title-fg:#ffffff;--win-title-inactive:#7f7f7f;--lin-panel:#f5f5f5;--lin-border:#cccccc;--lin-accent:#3465a4;--term-bg:#000000;--term-fg:#00ff00;--term-dim:#00aa00;--term-cursor:#00ff00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;--tok-op:var(--fg)}html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}*{box-sizing:border-box}code,pre,.mono{font-family:var(--mono-font)}hr{border:none;border-top:1px solid var(--rule)}.theme-win .window{background:var(--win-face);padding:2px}.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);box-shadow:inset 1px 1px 0 0 var(--win-light),inset -1px -1px 0 0 var(--win-shadow)}.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;align-items:center}.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px}.window-body{background:var(--bg);color:var(--fg);padding:10px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);outline:none}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px}.theme-linux{--win-face:var(--lin-panel)}.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0}.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none}.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600}.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px}.theme-linux .btn:active{background:#ececec}.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent)}.theme-linux{--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px}.terminal .prompt{color:var(--term-dim)}.scorepanel{font-family:var(--mono-font)}.scorepanel .ok{color:#008000}.theme-linux .scorepanel .ok{color:#2f9e44}.scorepanel .bad{color:#aa0000}.wrap{max-width:920px;margin:16px auto;padding:0 12px}.toolbar{margin-bottom:8px}.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap}.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold}table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px}th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left}th{background:var(--win-face)}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.4.b, Alarm Panel Triage Console</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>A sensor event has come in from the control panel. Decide the correct classification:
+      <b>SUPPRESSED</b> (system disarmed), <b>FALSE_ALARM</b> (tripped during the exit-delay grace
+      period), <b>LOCAL_ONLY</b> (a real trip, but not yet cross-zone verified so only the local
+      siren sounds), or <b>DISPATCH</b> (verified, or a panic button, so the monitoring center
+      calls police). Reach 6 correct calls to meet the objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">alarm-panel&gt; </span>Loading event...</div>
+
+      <div class="choice-btns">
+        <button class="btn choice" data-v="SUPPRESSED" onclick="chooseVerdict(this)">SUPPRESSED</button>
+        <button class="btn choice" data-v="FALSE_ALARM" onclick="chooseVerdict(this)">FALSE_ALARM</button>
+        <button class="btn choice" data-v="LOCAL_ONLY" onclick="chooseVerdict(this)">LOCAL_ONLY</button>
+        <button class="btn choice" data-v="DISPATCH" onclick="chooseVerdict(this)">DISPATCH</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Event</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 6 &#9474; Event 1 of 8 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var EVENTS=[{zone:"front-door",sensor:"contact",arm_state:"ARMED_AWAY",since_armed_sec:12,verdict:"FALSE_ALARM",explain:"Tripped only 12 seconds after arming, well inside the 45-second exit-delay grace period. The occupant is still leaving; this is expected behavior, not an intrusion."},{zone:"back-window",sensor:"contact",arm_state:"DISARMED",since_armed_sec:0,verdict:"SUPPRESSED",explain:"The system is DISARMED, so no zone is being monitored. The panel logs the event but takes no alarm action."},{zone:"garage",sensor:"glass_break",arm_state:"ARMED_AWAY",since_armed_sec:900,verdict:"LOCAL_ONLY",explain:"A real trip well past the exit delay, but no other zone corroborates it within the verification window, siren sounds locally, but without cross-zone verification this alone does not auto-dispatch."},{zone:"living-room",sensor:"panic",arm_state:"DISARMED",since_armed_sec:0,verdict:"DISPATCH",explain:"A panic/duress button bypasses arm-state and verification checks entirely, a human deliberately signaled for help, so it escalates straight to dispatch."},{zone:"side-door",sensor:"contact",arm_state:"ARMED_STAY",since_armed_sec:600,verdict:"LOCAL_ONLY",explain:"Perimeter contact trips while armed-stay, well past exit delay, a real event, but treated as LOCAL_ONLY unless another zone also trips within the verification window."},{zone:"kitchen-window",sensor:"glass_break",arm_state:"ARMED_AWAY",since_armed_sec:50,verdict:"DISPATCH",explain:"Past the 45-second exit delay, and paired with a corroborating trip in a different zone within the 120-second verification window, cross-zone verification promotes this to DISPATCH."},{zone:"lobby",sensor:"contact",arm_state:"ARMED_AWAY",since_armed_sec:44,verdict:"FALSE_ALARM",explain:"44 seconds since arming is still inside the 45-second exit-delay window (boundary: must be >= 45 to count as a real trip)."},{zone:"server-room",sensor:"contact",arm_state:"ARMED_AWAY",since_armed_sec:45,verdict:"LOCAL_ONLY",explain:"Exactly 45 seconds, the exit delay has just elapsed, so this now counts as a real trip. With no corroborating zone in this batch, it stays LOCAL_ONLY rather than auto-dispatching."}];var idx=0,score=0,GOAL=6,met=false,submitted=false,selected=null;function renderTable(ev){var html='<table><tr><th>field</th><th>value</th></tr>';html+='<tr><td>zone</td><td>'+ev.zone+'</td></tr>';html+='<tr><td>sensor</td><td>'+ev.sensor+'</td></tr>';html+='<tr><td>arm_state</td><td>'+ev.arm_state+'</td></tr>';html+='<tr><td>since_armed_sec</td><td>'+ev.since_armed_sec+'</td></tr>';html+='</table>';return html;}
+function renderRecord(){var e=EVENTS[idx];var stage=document.getElementById('stage');stage.innerHTML='<span class="prompt">EVT-'+(idx+1)+' alarm-panel&gt; </span>\n'+renderTable(e);selected=null;submitted=false;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});document.getElementById('feedback').innerHTML='';updateStatus();}
+function chooseVerdict(btn){if(submitted)return;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});btn.classList.add('sel');selected=btn.getAttribute('data-v');}
+function submitChoice(){if(submitted||!selected)return;submitted=true;var e=EVENTS[idx];var isCorrect=selected===e.verdict;var fb=document.getElementById('feedback');if(isCorrect){score++;fb.innerHTML='<span class="ok">CORRECT.</span> '+e.explain;}else{fb.innerHTML='<span class="bad">INCORRECT.</span> Correct verdict: '+e.verdict+'. '+e.explain;}
+if(score>=GOAL)met=true;updateStatus();}
+function nextRecord(){idx=(idx+1)%EVENTS.length;renderRecord();}
+function updateStatus(){var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+GOAL+' &#9474; Event '+(idx+1)+' of '+EVENTS.length+' &#9474; OBJECTIVE: '+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+renderRecord();</script>
+</body>
+</html>

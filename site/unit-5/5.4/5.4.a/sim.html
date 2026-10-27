@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.4.a, Public/private key pairs, Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#e0e0e0;--win-title-fg:#000;--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.wrap{max-width:880px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--win-face);padding:12px;display:flex;flex-direction:column;gap:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn:disabled{color:var(--win-shadow);cursor:default}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:120px}.terminal .prompt{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.scorepanel .ok{color:#008000;font-weight:bold}.scorepanel .bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 4px}h2{font-size:14px;margin:0 0 6px;border-bottom:1px solid #999;padding-bottom:4px}.toolbar{margin-bottom:8px}.panel{background:#fff;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);padding:10px}.theme-linux .panel{border:1px solid #ccc}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.field{display:flex;flex-direction:column;gap:3px}.field label{font-weight:bold;font-size:12px}.field select,.field input{font-family:var(--mono-font);font-size:12px;padding:3px;border:1px solid var(--win-shadow)}.keybox{font-family:var(--mono-font);font-size:12px;background:#eee;border:1px solid #ccc;padding:6px 8px;margin-top:4px}.keybox .pub{color:#004a00}.keybox .priv{color:#7a0000}.scenario{border-top:1px dotted #999;padding-top:10px;margin-top:4px}.scenario p{margin:4px 0;font-size:13px}.choices{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.feedback{font-size:12px;font-weight:bold;margin-top:6px;min-height:16px}.feedback.correct{color:#008000}.feedback.incorrect{color:#aa0000}.small{font-size:11px;color:var(--muted)}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.4.a, Public/private key pairs</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Generate a small-number RSA key pair from two primes (p, q), watch n and phi(n) compute
+      live, find a valid private exponent d for a given public exponent e, then correctly
+      classify which key is used in five sender/receiver/signer/verifier scenarios. Reach
+      5 / 5 on the scenario rounds to meet the objective.</p>
+
+            <div class="panel">
+        <h2>1. Generate a key pair</h2>
+        <div class="row">
+          <div class="field">
+            <label for="p-select">Prime p</label>
+            <select id="p-select" onchange="regen()">
+              <option value="3">3</option>
+              <option value="5" selected>5</option>
+              <option value="7">7</option>
+              <option value="11">11</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="q-select">Prime q</label>
+            <select id="q-select" onchange="regen()">
+              <option value="3">3</option>
+              <option value="7">7</option>
+              <option value="11" selected>11</option>
+              <option value="13">13</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="e-select">Public exponent e</label>
+            <select id="e-select" onchange="regen()">
+              <option value="3">3</option>
+              <option value="7">7</option>
+            </select>
+          </div>
+        </div>
+        <div id="stage" class="terminal"><span class="prompt">keygen&gt; </span>ready.</div>
+        <div id="keybox" class="keybox"></div>
+        <p class="small">n = p &times; q &nbsp;&middot;&nbsp; phi(n) = (p-1) &times; (q-1) &nbsp;&middot;&nbsp;
+        d is searched so that (e &times; d) mod phi(n) = 1. If p and q are equal, no valid n/phi(n)
+        pair exists for RSA (n would not have two distinct factors), pick different primes.</p>
+      </div>
+
+            <div class="panel scenario" id="scenario-panel">
+        <h2>2. Which key is used?</h2>
+        <p id="scenario-text">Loading scenario...</p>
+        <div class="choices" id="scenario-choices"></div>
+        <div class="feedback" id="scenario-feedback"></div>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+function gcd(a,b){while(b){[a,b]=[b,a%b];}return a;}
+function findD(e,phiN){for(var d=2;d<phiN;d++){if((e*d)%phiN===1)return d;}
+return null;}
+function regen(){var p=parseInt(document.getElementById('p-select').value,10);var q=parseInt(document.getElementById('q-select').value,10);var e=parseInt(document.getElementById('e-select').value,10);var stage=document.getElementById('stage');var keybox=document.getElementById('keybox');if(p===q){stage.innerHTML='<span class="prompt">keygen&gt; </span>ERROR: p and q must be distinct primes.';keybox.innerHTML='';return;}
+var n=p*q;var phiN=(p-1)*(q-1);if(gcd(e,phiN)!==1){stage.innerHTML='<span class="prompt">keygen&gt; </span>'+'n = p * q = '+p+' * '+q+' = '+n+'\n'+'phi(n) = (p-1)(q-1) = '+(p-1)+' * '+(q-1)+' = '+phiN+'\n'+'ERROR: gcd(e, phi(n)) != 1 for e='+e+', pick a different e.';keybox.innerHTML='';return;}
+var d=findD(e,phiN);stage.innerHTML='<span class="prompt">keygen&gt; </span>'+'n = p * q = '+p+' * '+q+' = '+n+'\n'+'phi(n) = (p-1)(q-1) = '+(p-1)+' * '+(q-1)+' = '+phiN+'\n'+'searching for d such that (e * d) mod phi(n) = 1 ...\n'+'found d = '+d+'  (check: '+e+' * '+d+' = '+(e*d)+', '+(e*d)+' mod '+phiN+' = '+((e*d)%phiN)+')';keybox.innerHTML='<div class="pub">PUBLIC KEY  (e, n) = ('+e+', '+n+')</div>'+'<div class="priv">PRIVATE KEY (d, n) = ('+d+', '+n+')</div>';}
+var SCENARIOS=[{text:"Alice wants to send Bob a message that only Bob can read. Which key does Alice use to encrypt it?",options:["Alice's private key","Alice's public key","Bob's public key","Bob's private key"],answer:2,explain:"Encrypt with the recipient's public key; only Bob's matching private key can decrypt it."},{text:"Bob receives the encrypted message. Which key does Bob use to decrypt it?",options:["Bob's public key","Bob's private key","Alice's public key","Alice's private key"],answer:1,explain:"Only the private key that matches the public key used to encrypt can reverse the operation, that's Bob's private key."},{text:"Bob wants to prove a document came from him. Which key does he use to sign it?",options:["Bob's public key","Bob's private key","Alice's public key","Alice's private key"],answer:1,explain:"Signing uses the private key, only Bob holds it, so only Bob could have produced a valid signature."},{text:"Alice receives Bob's signed document. Which key does she use to verify the signature?",options:["Alice's private key","Bob's private key","Bob's public key","Alice's public key"],answer:2,explain:"Anyone with Bob's public key can verify a signature made with his private key."},{text:"Given p = 3, q = 11 (from the atom's worked example): what is phi(n)?",options:["33","20","14","2"],answer:1,explain:"phi(n) = (p-1)(q-1) = (3-1)(11-1) = 2 * 10 = 20."}];var current=0;var correctCount=0;var answered=[];function renderScenario(){var oldNext=document.getElementById('next-scenario-btn');if(oldNext)oldNext.remove();var s=SCENARIOS[current];document.getElementById('scenario-text').textContent='('+(current+1)+' / '+SCENARIOS.length+') '+s.text;var choices=document.getElementById('scenario-choices');choices.innerHTML='';s.options.forEach(function(opt,i){var b=document.createElement('button');b.className='btn';b.textContent=opt;b.onclick=function(){chooseAnswer(i);};choices.appendChild(b);});document.getElementById('scenario-feedback').textContent='';document.getElementById('scenario-feedback').className='feedback';}
+function chooseAnswer(i){if(answered[current])return;answered[current]=true;var s=SCENARIOS[current];var fb=document.getElementById('scenario-feedback');var buttons=document.querySelectorAll('#scenario-choices .btn');buttons.forEach(function(b){b.disabled=true;});if(i===s.answer){correctCount++;fb.className='feedback correct';fb.textContent='Correct, '+s.explain;}else{fb.className='feedback incorrect';fb.textContent='Incorrect, '+s.explain;}
+updateScore();if(current<SCENARIOS.length-1){var nextBtn=document.createElement('button');nextBtn.id='next-scenario-btn';nextBtn.className='btn';nextBtn.textContent='Next scenario ->';nextBtn.style.marginTop='6px';nextBtn.onclick=function(){current++;renderScenario();};document.getElementById('scenario-panel').appendChild(nextBtn);}}
+function updateScore(){var el=document.getElementById('score');var met=(correctCount===SCENARIOS.length);el.innerHTML='SCORE '+correctCount+' / '+SCENARIOS.length+' │ OBJECTIVE: '+
+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+regen();renderScenario();updateScore();</script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strengthening authentication: length/complexity, randomness, MFA, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Strengthening authentication: length/complexity, randomness, MFA  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem -- 1.2.c: TOTP Verifier</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 1.2.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Implement the server-side Time-based One-Time Password (TOTP) verifier that an authentication
+backend would call to check a user's second factor. Given the shared secret, a submitted code,
+and the current time, return True if the code is valid for the current 30-second window.</p>
+<p>This is the algorithm defined in RFC 6238 (TOTP) / RFC 4226 (HOTP), implemented using only
+Python's standard library <code>hmac</code> and <code>hashlib</code> modules.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(secret: str, code: str, t: int) -&gt; bool</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>secret</code> (<code>str</code>) -- the shared secret key, encoded as an <strong>even-length lowercase hex string</strong>
+  (e.g. <code>"0a1b2c3d"</code> represents 4 bytes: <code>b'\x0a\x1b\x2c\x3d'</code>).</li>
+<li><code>code</code> (<code>str</code>) -- the 6-digit code submitted by the user, zero-padded if necessary
+  (e.g. <code>"007342"</code> or <code>"123456"</code>).</li>
+<li><code>t</code> (<code>int</code>) -- the current Unix timestamp (seconds since epoch) at the moment of verification.</li>
+</ul>
+<h2>Output</h2>
+<p><code>True</code> if the computed TOTP code for the current 30-second step matches <code>code</code>; <code>False</code> otherwise.</p>
+<h2>Algorithm (exact steps, deterministic)</h2>
+<ol>
+<li>Decode the secret: <code>key = bytes.fromhex(secret)</code></li>
+<li>Compute the time step: <code>step = t // 30</code></li>
+<li>Encode the step as an 8-byte big-endian integer: <code>msg = step.to_bytes(8, 'big')</code></li>
+<li>Compute HMAC-SHA1: <code>digest = hmac.new(key, msg, hashlib.sha1).digest()</code>
+   (This produces a 20-byte bytes object.)</li>
+<li>Dynamic truncation:
+   a. <code>offset = digest[19] &amp; 0x0f</code>
+   b. <code>p = ((digest[offset] &amp; 0x7f) &lt;&lt; 24) | (digest[offset+1] &lt;&lt; 16) | (digest[offset+2] &lt;&lt; 8) | digest[offset+3]</code></li>
+<li>Compute the OTP: <code>otp = p % 1_000_000</code></li>
+<li>Zero-pad: <code>expected = str(otp).zfill(6)</code></li>
+<li>Return <code>code == expected</code></li>
+</ol>
+<h2>Examples</h2>
+<pre><code class="language-python"># Using key=bytes.fromhex(&quot;3132333435363738393031323334353637383930&quot;) (RFC 4226 test vector)
+# At t=59 (step=1): expected code is &quot;287082&quot;
+solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;287082&quot;, 59)   -&gt; True
+solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;287082&quot;, 60)   -&gt; False  # step changed
+solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;000000&quot;, 59)   -&gt; False  # wrong code
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, stdlib only (<code>hmac</code>, <code>hashlib</code>).</li>
+<li>Accept only the CURRENT step (no window drift / no adjacent steps).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(secret: str, code: str, t: int) -&gt; bool
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>secret</code> (<code>str</code>) -- even-length lowercase hex string encoding the TOTP shared secret key
+  (e.g. <code>"0a1b2c3d"</code> = 4 bytes). Tests only use valid hex strings of 4-20 bytes.</li>
+<li><code>code</code> (<code>str</code>) -- 6-character string of decimal digits, zero-padded (e.g. <code>"007342"</code>).</li>
+<li><code>t</code> (<code>int</code>) -- current Unix timestamp (non-negative integer).</li>
+</ul>
+<h3>Output</h3>
+<p><code>bool</code> -- <code>True</code> if <code>code</code> matches the TOTP for the 30-second step containing <code>t</code>; else <code>False</code>.</p>
+<h3>Algorithm (exact, deterministic -- all tests derive expected values from this spec)</h3>
+<pre><code>key    = bytes.fromhex(secret)
+step   = t // 30
+msg    = step.to_bytes(8, byteorder='big')
+digest = hmac.new(key, msg, hashlib.sha1).digest()   # 20 bytes
+
+offset = digest[19] &amp; 0x0f
+p      = ((digest[offset] &amp; 0x7f) &lt;&lt; 24
+         | digest[offset+1] &lt;&lt; 16
+         | digest[offset+2] &lt;&lt; 8
+         | digest[offset+3])
+otp    = p % 1_000_000
+expected = str(otp).zfill(6)
+
+return code == expected
+</code></pre>
+<h3>RFC 4226 test vector (for implementation validation)</h3>
+<p>Secret (ASCII "12345678901234567890" = 20 bytes, hex below):</p>
+<pre><code>secret = &quot;3132333435363738393031323334353637383930&quot;
+</code></pre>
+<p>Known correct codes per HOTP counter (step for TOTP = t // 30):</p>
+<table>
+<thead>
+<tr>
+<th>step (t value)</th>
+<th>expected code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1  (t = 30-59)</td>
+<td>287082</td>
+</tr>
+<tr>
+<td>2  (t = 60-89)</td>
+<td>359152</td>
+</tr>
+<tr>
+<td>3  (t = 90-119)</td>
+<td>969429</td>
+</tr>
+</tbody>
+</table>
+<p>These are derived from the RFC 4226 test vectors. the tests uses them to validate any
+implementation.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only: <code>import hmac</code>, <code>import hashlib</code>.</li>
+<li>Only the CURRENT step is accepted (no window tolerance / no drift allowance).</li>
+<li><code>code</code> is always exactly 6 characters. A code with fewer than 6 digits is already zero-padded
+  by the caller.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.2.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+import hmac
+import hashlib
+
+
+def solve(secret: str, code: str, t: int) -&gt; bool:
+    """Verify a 6-digit TOTP code against the shared secret at Unix timestamp t.
+
+    Args:
+        secret: even-length hex string encoding the shared key (e.g. "0a1b2c3d").
+        code:   6-character zero-padded decimal string (e.g. "007342").
+        t:      current Unix timestamp (int, seconds since epoch).
+    Returns:
+        True if code matches TOTP(secret, t // 30); False otherwise.
+    """
+    key = bytes.fromhex(secret)
+    step = t // 30
+    msg = step.to_bytes(8, byteorder='big')
+    digest = hmac.new(key, msg, hashlib.sha1).digest()
+
+    # RFC 4226 dynamic truncation
+    offset = digest[19] &amp; 0x0f
+    p = (((digest[offset] &amp; 0x7f) &lt;&lt; 24)
+         | (digest[offset + 1] &lt;&lt; 16)
+         | (digest[offset + 2] &lt;&lt; 8)
+         | digest[offset + 3])
+
+    otp = p % 1_000_000
+    expected = str(otp).zfill(6)
+    return code == expected
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+RFC_SECRET = "3132333435363738393031323334353637383930"
+
+
+# ---- visible cases (RFC 4226 test vectors) ----------------------------------
+
+def test_rfc_step1_correct():
+    """RFC 4226 step=1: t=59 -&gt; code '287082'."""
+    assert impl.solve(RFC_SECRET, "287082", 59) is True
+
+
+def test_rfc_step2_correct():
+    """RFC 4226 step=2: t=89 -&gt; code '359152'."""
+    assert impl.solve(RFC_SECRET, "359152", 89) is True
+
+
+def test_rfc_step3_correct():
+    """RFC 4226 step=3: t=90 -&gt; code '969429'."""
+    assert impl.solve(RFC_SECRET, "969429", 90) is True
+
+
+def test_wrong_code_rejected():
+    """A wrong code for a valid step must return False."""
+    assert impl.solve(RFC_SECRET, "000000", 59) is False
+
+
+def test_expired_code_rejected():
+    """Code for step=1 must be rejected at t=60 (step=2)."""
+    # step=1 code is "287082"; at t=60 step=2 expects "359152"
+    assert impl.solve(RFC_SECRET, "287082", 60) is False
+
+
+# ---- hidden / edge cases ----------------------------------------------------
+
+def test_same_step_different_timestamp():
+    """t=30 and t=59 share step=1; both should accept the same code."""
+    assert impl.solve(RFC_SECRET, "287082", 30) is True
+    assert impl.solve(RFC_SECRET, "287082", 59) is True
+
+
+def test_step_boundary():
+    """t=60 is exactly the start of step=2; must accept step=2 code only."""
+    assert impl.solve(RFC_SECRET, "359152", 60) is True
+    assert impl.solve(RFC_SECRET, "287082", 60) is False  # step=1 code rejected at step=2
+
+
+def test_t_zero():
+    """t=0 is step=0; computed value must be deterministic."""
+    # Compute expected: step=0, verify True/False is consistent
+    result_true = impl.solve("0a1b2c3d", "497680", 0)
+    result_false = impl.solve("0a1b2c3d", "000000", 0)
+    assert result_true is True
+    assert result_false is False
+
+
+def test_different_key_same_time():
+    """Different keys produce different codes at the same timestamp."""
+    # Both at t=0 (step=0)
+    # key "0a1b2c3d" -&gt; "497680"; key "deadbeef" -&gt; "057490"
+    assert impl.solve("0a1b2c3d", "497680", 0) is True
+    assert impl.solve("deadbeef", "057490", 0) is True
+    # Cross-key: "0a1b2c3d" code must fail for "deadbeef" key
+    assert impl.solve("deadbeef", "497680", 0) is False
+
+
+def test_replay_blocked():
+    """Code valid at t=59 (step=1) must be rejected at t=60 (step=2)."""
+    # This is the core replay-prevention property
+    valid_code = "287082"  # step=1
+    assert impl.solve(RFC_SECRET, valid_code, 59) is True
+    assert impl.solve(RFC_SECRET, valid_code, 60) is False
+    assert impl.solve(RFC_SECRET, valid_code, 119) is False  # step=3 also wrong
+
+
+def test_code_must_be_exact_string():
+    """Code matching is an exact string comparison after zero-padding."""
+    # "287082" passes; "28708" (5 digits) or "2870820" (7) should not match
+    assert impl.solve(RFC_SECRET, "28708", 59) is False
+    assert impl.solve(RFC_SECRET, " 287082", 59) is False
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

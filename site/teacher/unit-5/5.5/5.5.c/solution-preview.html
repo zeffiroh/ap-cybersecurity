@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Application security testing (SAST/DAST), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Application security testing (SAST/DAST)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.5.c: Static-analysis scanner (SAST)</h1>
+<p><strong>Skill:</strong> Detect Attacks, Mitigate Risk · <strong>Maps to:</strong> 5.5.B, 5.5.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build a miniature SAST rule engine. Given the source lines of a file (as a list of strings, one
+per line, 1-indexed), scan each line for known dangerous patterns and return a list of findings, exactly what a real static-analysis tool's rule engine does before a human triages the results.</p>
+<p>Detect these categories:
+- <code>"sql-injection-risk"</code>, a SQL keyword (<code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>) combined with
+  string concatenation (<code>+</code>) or an f-string/<code>.format(</code>/<code>%</code> on the same line (i.e., the query is
+  being built dynamically instead of parameterized).
+- <code>"eval-use"</code>, the line calls <code>eval(</code> or <code>exec(</code>.
+- <code>"hardcoded-secret"</code>, the line assigns a literal string to a variable whose name contains
+  <code>password</code>, <code>secret</code>, <code>api_key</code>, or <code>token</code> (case-insensitive), e.g. <code>password = "hunter2"</code>.
+  An assignment that reads from an environment variable or config object (no literal string on the
+  right-hand side) is NOT a finding.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(lines: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>lines</code>: <code>list[str]</code>, source code lines, in file order. Line numbers are 1-indexed (the first
+  element of the list is line 1).</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[dict]</code>, each <code>{"line": int, "category": str}</code>, <strong>sorted by line number ascending</strong>, then by
+category name ascending for findings on the same line. If a line matches more than one category,
+emit one finding per matching category. If no lines match, return <code>[]</code>.</p>
+<h2>Examples</h2>
+<pre><code>lines = [
+  'query = &quot;SELECT * FROM users WHERE name = \'&quot; + user_input + &quot;\'&quot;',
+  'password = &quot;hunter2&quot;',
+  'eval(user_expr)',
+]
+solve(lines) -&gt; [
+  {&quot;line&quot;: 1, &quot;category&quot;: &quot;sql-injection-risk&quot;},
+  {&quot;line&quot;: 2, &quot;category&quot;: &quot;hardcoded-secret&quot;},
+  {&quot;line&quot;: 3, &quot;category&quot;: &quot;eval-use&quot;},
+]
+</code></pre>
+<pre><code>lines = ['password = os.environ[&quot;DB_PASSWORD&quot;]', 'db.query(stmt, params)']
+solve(lines) -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Findings are sorted by <code>line</code>, then <code>category</code> (both ascending).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(lines: list) -&gt; list
+</code></pre>
+<h3>Input (<code>lines</code>)</h3>
+<p><code>list[str]</code>, source-code lines, in file order (position 1 = first line, i.e. 1-indexed).</p>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[dict]</code>, each <code>{"line": int, "category": str}</code>, sorted by <code>line</code> ascending, then by
+<code>category</code> ascending for findings on the same line. A single line may contribute more than one
+finding if it matches more than one category.</p>
+<h3>Categories</h3>
+<ul>
+<li><code>"sql-injection-risk"</code>, a SQL keyword (<code>SELECT</code>/<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>, case-insensitive)
+  appears on a line that also builds the string dynamically (<code>+</code> concatenation, an f-string,
+  <code>.format(</code>, or <code>%</code> formatting) rather than using a parameterized placeholder.</li>
+<li><code>"eval-use"</code>, the line calls <code>eval(</code> or <code>exec(</code>.</li>
+<li><code>"hardcoded-secret"</code>, the line assigns a quoted string literal to a variable whose name
+  contains <code>password</code>, <code>secret</code>, <code>api_key</code>, or <code>token</code> (case-insensitive). An assignment that
+  reads from an environment variable or config object (no literal string on the right-hand side)
+  is NOT a finding.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Parameterized queries (e.g. <code>execute("... WHERE id = ?", (x))</code>) are NOT flagged.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.5.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+import re
+from typing import Dict, List
+
+_SQL_KEYWORD = re.compile(r"\b(SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE)
+_DYNAMIC_BUILD = re.compile(r"\+|f[\"']|\.format\(|%\s*[\"']|[\"']\s*%")
+_EVAL_USE = re.compile(r"\b(eval|exec)\s*\(")
+_SECRET_ASSIGN = re.compile(
+    r"\b\w*(password|secret|api_key|token)\w*\s*=\s*[\"']", re.IGNORECASE
+)
+
+
+def solve(lines: List[str]) -&gt; List[Dict[str, object]]:
+    """Scan source lines for known dangerous patterns (miniature SAST rule engine).
+
+    Returns findings sorted by line ascending, then category ascending; a line may
+    contribute more than one finding.
+    """
+    findings = []
+    for i, line in enumerate(lines, start=1):
+        cats = set()
+        if _SQL_KEYWORD.search(line) and _DYNAMIC_BUILD.search(line):
+            cats.add("sql-injection-risk")
+        if _EVAL_USE.search(line):
+            cats.add("eval-use")
+        if _SECRET_ASSIGN.search(line):
+            cats.add("hardcoded-secret")
+        for cat in cats:
+            findings.append({"line": i, "category": cat})
+    findings.sort(key=lambda f: (f["line"], f["category"]))
+    return findings
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import os
+
+
+# ---- visible cases -------------------------------------------------------
+def test_mixed_findings():
+    lines = [
+        'query = "SELECT * FROM users WHERE name = \'" + user_input + "\'"',
+        'password = "hunter2"',
+        'eval(user_expr)',
+    ]
+    assert impl.solve(lines) == [
+        {"line": 1, "category": "sql-injection-risk"},
+        {"line": 2, "category": "hardcoded-secret"},
+        {"line": 3, "category": "eval-use"},
+    ]
+
+
+def test_safe_lines_no_findings():
+    lines = ['password = os.environ["DB_PASSWORD"]', 'db.query(stmt, params)']
+    assert impl.solve(lines) == []
+
+
+def test_clean_code_no_findings():
+    lines = ["def add(a, b):", "    return a + b", "", "result = add(1, 2)"]
+    assert impl.solve(lines) == []
+
+
+def test_parameterized_sql_not_flagged():
+    lines = ['cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))']
+    assert impl.solve(lines) == []
+
+
+def test_exec_flagged_same_as_eval():
+    lines = ["exec(payload)"]
+    assert impl.solve(lines) == [{"line": 1, "category": "eval-use"}]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_multiple_categories_same_line():
+    lines = ['token = "abc123"; eval(token)']
+    result = impl.solve(lines)
+    assert result == [
+        {"line": 1, "category": "eval-use"},
+        {"line": 1, "category": "hardcoded-secret"},
+    ]
+
+
+def test_case_insensitive_secret_keyword_and_sql():
+    lines = ['API_KEY = "sk_live_xyz"', 'q = "select * from t where x=" + v']
+    assert impl.solve(lines) == [
+        {"line": 1, "category": "hardcoded-secret"},
+        {"line": 2, "category": "sql-injection-risk"},
+    ]
+
+
+def test_fstring_sql_flagged():
+    lines = ['q = f"SELECT * FROM t WHERE id={uid}"']
+    assert impl.solve(lines) == [{"line": 1, "category": "sql-injection-risk"}]
+
+
+def test_empty_input():
+    assert impl.solve([]) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

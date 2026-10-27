@@ -1,0 +1,24 @@
+(function () {
+  var nav = document.querySelector(".apnav");
+  if (!nav) return;
+  function all() { return nav.querySelectorAll("details"); }
+  function closeAll(except) { all().forEach(function (d) { if (d !== except) d.open = false; }); }
+  function bind(d) {
+    d.addEventListener("toggle", function () {
+      if (!d.open) return;
+      closeAll(d);
+      var m = d.querySelector(".apn-menu"), s = d.querySelector("summary").getBoundingClientRect();
+      nav.style.setProperty("--apnav-top", Math.max(0, nav.getBoundingClientRect().top) + "px");
+      m.style.left = Math.max(8, Math.min(s.left, innerWidth - m.offsetWidth - 8)) + "px";
+      var on = m.querySelector(".on");
+      if (on) on.scrollIntoView({ block: "center" });
+      var input = m.querySelector("input");
+      if (input) input.focus();
+    });
+  }
+  all().forEach(bind);
+  document.addEventListener("click", function (e) { if (!nav.contains(e.target)) closeAll(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(); }, true);
+  nav.addEventListener("scroll", function () { closeAll(); });
+  window.AayatNav = { bind: bind };
+})();

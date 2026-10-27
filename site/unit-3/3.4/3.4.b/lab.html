@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.4.b Lab, Firewall Rules and First-Match-Wins</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Firewall Rules and First-Match-Wins</h1>
+  <p class="sub">Write an ordered ACL, replay traffic through it, and watch rule order decide who gets in.</p>
+
+  <div class="brief">
+    <p>A firewall evaluates its rules <b>top to bottom and stops at the first match</b>. Anything that
+    matches no rule hits the <b>default deny</b>. You will write an access control list, replay a fixed
+    set of packets through it, and see exactly which rule decided each one. Then you will build the
+    classic ordering mistake, a broad <code>allow</code> that shadows a specific <code>deny</code> below
+    it, and fix it. Rule format, one per line:</p>
+    <p><code>action proto src dst dport</code> &nbsp;&mdash;&nbsp; e.g. <code>allow tcp any 10.0.0.5 443</code>. Use <code>any</code> as a wildcard. Lines starting with <code>#</code> are comments.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="web"><span>Allow inbound web traffic (<code>tcp 443</code> and <code>tcp 80</code>) to the server and block everything else, including the RDP (<code>3389</code>) probe.</span>
+      <div class="hint"><details><summary>Hint</summary>Two <code>allow</code> rules for 443 and 80, then a final <code>deny any any any any</code>. The RDP packet matches no allow, so it falls to the deny.</details></div></li>
+    <li data-m="trap"><span>Reproduce the shadowing bug: put a broad <code>allow tcp any any any</code> <b>above</b> a <code>deny ... 3389</code> and confirm the RDP attack is wrongly ALLOWED.</span>
+      <div class="hint"><details><summary>Hint</summary>Add <code>allow tcp any any any</code> near the top and <code>deny tcp any 10.0.0.5 3389</code> below it. The broad allow matches first, so the deny never runs.</details></div></li>
+    <li data-m="fix"><span>Fix the order: move the <code>deny ... 3389</code> <b>above</b> the broad allow so the attack is blocked while web still works.</span>
+      <div class="hint"><details><summary>Hint</summary>Specific rules go first. Put <code>deny tcp any 10.0.0.5 3389</code> before <code>allow tcp any any any</code>. Now the deny matches the RDP packet first.</details></div></li>
+  </ul>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Access control list (evaluated top to bottom)</h3>
+      <textarea id="rules" rows="8" spellcheck="false"># action proto src dst dport   (any = wildcard)
+allow tcp any 10.0.0.5 443
+allow tcp any 10.0.0.5 80
+deny any any any any</textarea>
+      <div class="row">
+        <button class="primary" id="eval">Evaluate traffic</button>
+        <button id="reset" title="Clear mission progress for this lab">Reset missions</button>
+      </div>
+      <p class="note">Default policy if nothing matches: <b>deny</b>.</p>
+      <div class="console" id="parsewarn" style="display:none"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Replayed packets</h3>
+      <p class="note">The server under protection is <code>10.0.0.5</code>. The RDP packet from <code>203.0.113.9</code> is the attack.</p>
+      <div class="scroll">
+        <table class="data" id="tbl">
+          <thead><tr><th>#</th><th>packet</th><th>matched rule</th><th>verdict</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Why order is a security control</h2>
+    <p>A firewall ACL is not a set, it is a <i>sequence</i>. Because evaluation stops at the first match, a
+    broad <code>allow</code> placed above a specific <code>deny</code> shadows it: the deny can never run,
+    and the traffic it was meant to block sails through. The fix is not a new rule but a new order,
+    specific rules first, broad rules last, and an explicit default deny at the bottom. This is the
+    first-match-wins evaluation and rule-shadowing gap named in LO 3.4.B and 3.4.C. In production the same
+    discipline applies to cloud security groups and host firewalls, where one over-broad allow at the top
+    quietly undoes everything below it.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc;var missions=new Lab.Missions("3.4.b",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});document.getElementById("reset").addEventListener("click",function(){missions.reset();document.getElementById("debrief").classList.remove("show");});var PACKETS=[{proto:"tcp",src:"203.0.113.9",dst:"10.0.0.5",dport:443,note:"web client (HTTPS)"},{proto:"tcp",src:"198.51.100.7",dst:"10.0.0.5",dport:80,note:"web client (HTTP)"},{proto:"tcp",src:"192.0.2.44",dst:"10.0.0.5",dport:443,note:"web client (HTTPS)"},{proto:"tcp",src:"203.0.113.9",dst:"10.0.0.5",dport:3389,note:"RDP probe  <-- attack"},{proto:"tcp",src:"45.33.0.1",dst:"10.0.0.5",dport:22,note:"SSH attempt"},{proto:"udp",src:"8.8.8.8",dst:"10.0.0.5",dport:53,note:"DNS reply"},{proto:"tcp",src:"10.0.0.9",dst:"10.0.0.5",dport:445,note:"SMB (file share)"},{proto:"tcp",src:"203.0.113.9",dst:"10.0.0.5",dport:8080,note:"alt-HTTP probe"}];var ATTACK=PACKETS[3];function parseRules(text){var rules=[],warnings=[];text.split("\n").forEach(function(raw,i){var line=raw.trim();if(!line||line[0]==="#")return;var p=line.split(/\s+/);if(p.length!==5){warnings.push("line "+(i+1)+": expected 5 fields, got "+p.length+"  ("+esc(raw)+")");return;}
+var action=p[0].toLowerCase();if(action!=="allow"&&action!=="deny"){warnings.push("line "+(i+1)+": action must be allow or deny");return;}
+rules.push({action:action,proto:p[1].toLowerCase(),src:p[2],dst:p[3],dport:p[4].toLowerCase(),raw:line});});return{rules:rules,warnings:warnings};}
+function fieldMatch(ruleVal,pktVal){return ruleVal==="any"||String(ruleVal)===String(pktVal);}
+function ruleMatches(rule,pkt){return fieldMatch(rule.proto,pkt.proto)&&fieldMatch(rule.src,pkt.src)&&fieldMatch(rule.dst,pkt.dst)&&fieldMatch(rule.dport,pkt.dport);}
+function evaluate(rules,pkt){for(var i=0;i<rules.length;i++){if(ruleMatches(rules[i],pkt))return{verdict:rules[i].action,idx:i};}
+return{verdict:"deny",idx:-1};}
+function run(){var parsed=parseRules(document.getElementById("rules").value);var rules=parsed.rules;var warn=document.getElementById("parsewarn");if(parsed.warnings.length){warn.style.display="block";warn.innerHTML=parsed.warnings.map(function(w){return'<span class="err">'+w+"</span>";}).join("\n");}else{warn.style.display="none";}
+var tb=document.querySelector("#tbl tbody");tb.innerHTML=PACKETS.map(function(pkt){var r=evaluate(rules,pkt);var ruleLabel=r.idx===-1?"(default)":"#"+(r.idx+1)+" "+esc(rules[r.idx].raw);var cls=r.verdict==="allow"?"ok":"bad";var pktStr=pkt.proto+" "+pkt.src+" -> "+pkt.dst+":"+pkt.dport;return"<tr><td>"+"</td><td>"+esc(pktStr)+"<br><span style='color:#777'>"+esc(pkt.note)+"</span></td>"+"<td>"+ruleLabel+"</td><td class='"+cls+"'>"+r.verdict.toUpperCase()+"</td></tr>";}).join("");Array.prototype.forEach.call(tb.querySelectorAll("tr"),function(tr,i){tr.cells[0].textContent=i+1;});checkMissions(rules);}
+function broadAllowIndex(rules){for(var i=0;i<rules.length;i++){var r=rules[i];if(r.action==="allow"&&r.dport==="any"&&fieldMatch(r.proto,ATTACK.proto)&&fieldMatch(r.src,ATTACK.src)&&fieldMatch(r.dst,ATTACK.dst))return i;}
+return-1;}
+function denyAttackIndex(rules){for(var i=0;i<rules.length;i++){if(rules[i].action==="deny"&&ruleMatches(rules[i],ATTACK)&&rules[i].dport!=="any")return i;}
+return-1;}
+function checkMissions(rules){var web443=evaluate(rules,PACKETS[0]).verdict==="allow";var web80=evaluate(rules,PACKETS[1]).verdict==="allow";var web443b=evaluate(rules,PACKETS[2]).verdict==="allow";var attack=evaluate(rules,ATTACK).verdict;if(web443&&web80&&web443b&&attack==="deny")missions.complete("web");var ba=broadAllowIndex(rules),da=denyAttackIndex(rules);if(ba!==-1&&da!==-1&&ba<da&&attack==="allow")missions.complete("trap");if(ba!==-1&&da!==-1&&da<ba&&attack==="deny"&&web443)missions.complete("fix");}
+document.getElementById("eval").addEventListener("click",run);run();})();</script>
+</body>
+</html>

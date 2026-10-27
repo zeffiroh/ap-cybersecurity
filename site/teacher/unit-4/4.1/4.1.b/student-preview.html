@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device tampering and physical compromise, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Device tampering and physical compromise</h1>
+<h1>Coding problem, 4.1.b: Device tampering and physical compromise</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 4.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>In a physical security audit, we collect logs from system motherboards, BIOS events, and OS events. You must implement a parser that reads these logs and identifies all compromised devices.</p>
+<p>A device is considered physically compromised if it triggers any of the following rules:
+1.  <strong>Chassis Intrusion:</strong> <code>event_type == "chassis_intrusion"</code> and <code>details</code> contains <code>"open"</code> (case-insensitive).
+2.  <strong>Unauthorized Boot:</strong> <code>event_type == "boot"</code> and <code>details</code> contains <code>"usb"</code>, <code>"external"</code>, or <code>"live"</code> (case-insensitive).
+3.  <strong>USB Rubber Ducky:</strong> A <code>usb_insert</code> event with <code>"keyboard"</code> or <code>"hid"</code> in <code>details</code> (case-insensitive) followed by a <code>command</code> event on the same device within 3 seconds, where the command <code>details</code> contains <code>"powershell"</code>, <code>"cmd.exe"</code>, or <code>"download"</code> (case-insensitive).</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(logs: list) -&gt; list</code> in the code editor (see the Reference section below).
+Return the sorted list of compromised device IDs.</p>
+<h2>Input</h2>
+<p>A list of dicts:</p>
+<pre><code class="language-python">[
+    {
+        &quot;timestamp&quot;: &quot;2026-06-25T12:00:00Z&quot;,
+        &quot;device_id&quot;: &quot;laptop_01&quot;,
+        &quot;event_type&quot;: &quot;boot&quot;,
+        &quot;details&quot;: &quot;Booted from external USB drive&quot;
+    }
+]
+</code></pre>
+<h2>Output</h2>
+<p>A list of strings, e.g. <code>["laptop_01"]</code>, sorted alphabetically.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">solve([
+    {&quot;timestamp&quot;: &quot;2026-06-25T10:00:00Z&quot;, &quot;device_id&quot;: &quot;pc_01&quot;, &quot;event_type&quot;: &quot;chassis_intrusion&quot;, &quot;details&quot;: &quot;chassis opened detected&quot;}
+]) -&gt; [&quot;pc_01&quot;]
+
+solve([
+    {&quot;timestamp&quot;: &quot;2026-06-25T10:00:00Z&quot;, &quot;device_id&quot;: &quot;pc_02&quot;, &quot;event_type&quot;: &quot;usb_insert&quot;, &quot;details&quot;: &quot;USB Keyboard connected&quot;},
+    {&quot;timestamp&quot;: &quot;2026-06-25T10:00:02Z&quot;, &quot;device_id&quot;: &quot;pc_02&quot;, &quot;event_type&quot;: &quot;command&quot;, &quot;details&quot;: &quot;powershell -nop -w hidden -c Get-Process&quot;}
+]) -&gt; [&quot;pc_02&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Pure function, offline, standard library only.</li>
+<li>Timestamps are ISO-8601 strings.</li>
+<li>Sorted return list with unique elements.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(logs: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>logs</code>)</h3>
+<p>A list of log dictionaries, sorted chronologically. Each log contains:
+- <code>timestamp</code>: ISO-8601 string (e.g. <code>"2026-06-25T12:00:00Z"</code>)
+- <code>device_id</code>: string identifier (e.g. <code>"workstation_01"</code>)
+- <code>event_type</code>: string representing the log event type
+- <code>details</code>: string containing incident or event details</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A list of strings representing the <code>device_id</code>s flagged as physically compromised, sorted alphabetically with no duplicates.</p>
+<h3>Detection Rules (Case-Insensitive)</h3>
+<ol>
+<li><strong>Chassis Intrusion:</strong> Any log entry where <code>event_type == "chassis_intrusion"</code> and the word <code>"open"</code> is present in the <code>details</code>.</li>
+<li><strong>Unauthorized Boot:</strong> Any log entry where <code>event_type == "boot"</code> and the <code>details</code> contains the words <code>"usb"</code>, <code>"external"</code>, or <code>"live"</code>.</li>
+<li><strong>USB Rubber Ducky (Keystroke Injection):</strong> A log entry where <code>event_type == "usb_insert"</code> and <code>details</code> contains <code>"keyboard"</code> or <code>"hid"</code>, which is followed by a <code>command</code> log entry on the <em>same</em> device such that:<ul>
+<li>The command's timestamp <code>t_cmd</code> is greater than or equal to the USB insertion's timestamp <code>t_usb</code>.</li>
+<li>The time difference <code>(t_cmd - t_usb).total_seconds() &lt;= 3</code>.</li>
+<li>The command's <code>details</code> contains the words <code>"powershell"</code>, <code>"cmd.exe"</code>, or <code>"download"</code>.</li>
+</ul>
+</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Timestamps can be parsed using <code>datetime.fromisoformat(ts.replace("Z", "+00:00"))</code>.</li>
+</ul></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 4.1.b. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+
+
+def solve(logs: list) -&gt; list:
+    """Analyze logs to detect physical tampering and device compromise.
+
+    Args:
+        logs: A list of log dictionaries, sorted chronologically.
+
+    Returns:
+        A list of compromised device IDs, sorted alphabetically.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def test_empty():
+    assert impl.solve([]) == []
+
+
+def test_chassis_intrusion():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "pc_01", "event_type": "chassis_intrusion", "details": "chassis opened detected"}
+    ]
+    assert impl.solve(logs) == ["pc_01"]
+
+
+def test_unauthorized_boot():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "laptop_02", "event_type": "boot", "details": "Booted from external Live USB"}
+    ]
+    assert impl.solve(logs) == ["laptop_02"]
+
+
+def test_usb_rubber_ducky_success():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "pc_02", "event_type": "usb_insert", "details": "USB HID Keyboard connected"},
+        {"timestamp": "2026-06-25T10:00:02Z", "device_id": "pc_02", "event_type": "command", "details": "powershell -nop -w hidden -c payload"}
+    ]
+    assert impl.solve(logs) == ["pc_02"]
+
+
+def test_usb_rubber_ducky_too_late():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "pc_02", "event_type": "usb_insert", "details": "USB HID Keyboard connected"},
+        {"timestamp": "2026-06-25T10:00:05Z", "device_id": "pc_02", "event_type": "command", "details": "powershell -nop -w hidden -c payload"}
+    ]
+    assert impl.solve(logs) == []
+
+
+def test_usb_rubber_ducky_different_device():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "pc_01", "event_type": "usb_insert", "details": "USB HID Keyboard connected"},
+        {"timestamp": "2026-06-25T10:00:01Z", "device_id": "pc_02", "event_type": "command", "details": "powershell -nop -w hidden -c payload"}
+    ]
+    assert impl.solve(logs) == []
+
+
+def test_multiple_compromises():
+    logs = [
+        {"timestamp": "2026-06-25T10:00:00Z", "device_id": "pc_03", "event_type": "chassis_intrusion", "details": "Intrusion switch opened"},
+        {"timestamp": "2026-06-25T10:05:00Z", "device_id": "pc_01", "event_type": "boot", "details": "booting usb medium"},
+        {"timestamp": "2026-06-25T10:10:00Z", "device_id": "pc_02", "event_type": "user_login", "details": "admin login"}
+    ]
+    assert impl.solve(logs) == ["pc_01", "pc_03"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

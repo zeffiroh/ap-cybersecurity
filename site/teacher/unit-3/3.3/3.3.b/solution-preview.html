@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traffic isolation and zero-trust segmentation, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Traffic isolation and zero-trust segmentation  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.3.b: Zero Trust Access Proxy</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.3.B, 3.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>In a Zero Trust Network Architecture (ZTNA), network access is never implicitly granted based on a user's location. Instead, every request to access a corporate resource must be explicitly authenticated, authorized, and checked for health compliance.</p>
+<p>You are tasked with implementing the evaluation logic for a Zero Trust access proxy. The proxy evaluates a batch of access requests against a central policy and filters out any requests that fail to meet authorization, location, or posture requirements.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(requests: list, policy: dict) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>requests</code>: A list of dictionaries representing connection requests.
+  <code>python
+  requests = [
+      {
+          "id": "REQ-001",
+          "user": "alice",
+          "role": "doctor",
+          "resource": "ehr_db",
+          "ip": "192.168.1.50",
+          "device_posture": {"antivirus_ok": True, "disk_encrypted": True}
+      }
+  ]</code></li>
+<li><code>policy</code>: A dictionary detailing the security rules.
+  <code>python
+  policy = {
+      "allowed_roles": {
+          "ehr_db": ["doctor", "admin"],
+          "mri_machine": ["admin", "technician"]
+      },
+      "requires_internal": ["ehr_db", "mri_machine"],
+      "requires_posture": ["ehr_db"],
+      "internal_prefixes": ["192.168.1.", "10.0."]
+  }</code></li>
+</ul>
+<h2>Output</h2>
+<p>A list of strings representing the <code>id</code>s of requests that are <strong>allowed</strong>, maintaining their original order.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">requests = [
+    {
+        &quot;id&quot;: &quot;REQ-001&quot;,
+        &quot;user&quot;: &quot;alice&quot;,
+        &quot;role&quot;: &quot;doctor&quot;,
+        &quot;resource&quot;: &quot;ehr_db&quot;,
+        &quot;ip&quot;: &quot;192.168.1.50&quot;,
+        &quot;device_posture&quot;: {&quot;antivirus_ok&quot;: True, &quot;disk_encrypted&quot;: True}
+    },
+    {
+        &quot;id&quot;: &quot;REQ-002&quot;,
+        &quot;user&quot;: &quot;bob&quot;,
+        &quot;role&quot;: &quot;guest&quot;,
+        &quot;resource&quot;: &quot;ehr_db&quot;,
+        &quot;ip&quot;: &quot;192.168.1.60&quot;,
+        &quot;device_posture&quot;: {&quot;antivirus_ok&quot;: True}
+    }
+]
+# REQ-001 is allowed (role is doctor, IP matches internal prefix, posture checks are all True).
+# REQ-002 is denied (guest role is not allowed on ehr_db).
+
+solve(requests, policy) -&gt; [&quot;REQ-001&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>All requests have the required keys.</li>
+<li>Must pass all cases in the tests.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(requests: list, policy: dict) -&gt; list
+</code></pre>
+<h3>Input (<code>requests</code>, <code>policy</code>)</h3>
+<ul>
+<li><code>requests</code>: <code>list[dict]</code>, List of connection requests. Each request is a dictionary with:</li>
+<li><code>id</code>: <code>str</code>, Unique request identifier.</li>
+<li><code>user</code>: <code>str</code>, Username.</li>
+<li><code>role</code>: <code>str</code>, User role (e.g., "doctor", "guest", "admin").</li>
+<li><code>resource</code>: <code>str</code>, Destination resource name.</li>
+<li><code>ip</code>: <code>str</code>, Source IP address.</li>
+<li><code>device_posture</code>: <code>dict[str, bool]</code>, Key-value pairs of health posture checks.</li>
+<li><code>policy</code>: <code>dict</code>, Zero-trust access policy specification containing:</li>
+<li><code>allowed_roles</code>: <code>dict[str, list[str]]</code>, Resource name mapped to list of allowed roles.</li>
+<li><code>requires_internal</code>: <code>list[str]</code>, List of resources requiring an internal IP address.</li>
+<li><code>requires_posture</code>: <code>list[str]</code>, List of resources requiring full device posture compliance.</li>
+<li><code>internal_prefixes</code>: <code>list[str]</code>, List of IP address prefix strings considered internal.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[str]</code>, List of <code>id</code>s of the requests that are <strong>allowed</strong>, preserving their original order.</p>
+<h3>Policy Rules</h3>
+<p>For a connection request to be allowed, it must satisfy all of the following:
+1. <strong>Role Authorization:</strong> The request's <code>role</code> must be in the <code>allowed_roles</code> list for the requested <code>resource</code>. If the resource is not in <code>allowed_roles</code>, it is automatically denied.
+2. <strong>Network Isolation:</strong> If the <code>resource</code> is in the <code>requires_internal</code> list, the request's <code>ip</code> must start with one of the prefixes in the <code>internal_prefixes</code> list.
+3. <strong>Posture Check:</strong> If the <code>resource</code> is in the <code>requires_posture</code> list, all checks within the request's <code>device_posture</code> dictionary must be <code>True</code>. If <code>device_posture</code> has no checks, it is considered compliant.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Output list preserves the relative order of allowed request IDs from the input.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.3.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+"""
+from typing import List, Dict, Any
+
+
+def solve(requests: List[Dict[str, Any]], policy: Dict[str, Any]) -&gt; List[str]:
+    """Evaluate Zero Trust connection requests against access policy rules.
+
+    Args:
+        requests: list of request dictionaries.
+        policy: policy dictionary.
+
+    Returns:
+        List of request IDs that are allowed.
+    """
+    allowed_ids = []
+    allowed_roles = policy.get("allowed_roles", {})
+    requires_internal = policy.get("requires_internal", [])
+    requires_posture = policy.get("requires_posture", [])
+    internal_prefixes = policy.get("internal_prefixes", [])
+
+    for req in requests:
+        rid = req["id"]
+        res = req["resource"]
+        role = req["role"]
+        ip = req["ip"]
+        posture = req.get("device_posture", {})
+
+        # Rule 1: Role Authorization
+        if res not in allowed_roles:
+            continue
+        if role not in allowed_roles[res]:
+            continue
+
+        # Rule 2: Network Isolation (Implicit trust is not granted, must verify prefix)
+        if res in requires_internal:
+            ip_ok = False
+            for prefix in internal_prefixes:
+                if ip.startswith(prefix):
+                    ip_ok = True
+                    break
+            if not ip_ok:
+                continue
+
+        # Rule 3: Posture Check
+        if res in requires_posture:
+            posture_ok = True
+            for val in posture.values():
+                if not val:
+                    posture_ok = False
+                    break
+            if not posture_ok:
+                continue
+
+        allowed_ids.append(rid)
+
+    return allowed_ids
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def test_example():
+    policy = {
+        "allowed_roles": {
+            "ehr_db": ["doctor", "admin"],
+            "mri_machine": ["admin", "technician"]
+        },
+        "requires_internal": ["ehr_db", "mri_machine"],
+        "requires_posture": ["ehr_db"],
+        "internal_prefixes": ["192.168.1.", "10.0."]
+    }
+    requests = [
+        {
+            "id": "REQ-01",
+            "user": "alice",
+            "role": "doctor",
+            "resource": "ehr_db",
+            "ip": "192.168.1.50",
+            "device_posture": {"antivirus_ok": True, "disk_encrypted": True}
+        },
+        {
+            "id": "REQ-02",
+            "user": "bob",
+            "role": "guest",
+            "resource": "ehr_db",
+            "ip": "192.168.1.60",
+            "device_posture": {"antivirus_ok": True}
+        },
+        {
+            "id": "REQ-03",
+            "user": "charlie",
+            "role": "admin",
+            "resource": "mri_machine",
+            "ip": "203.0.113.4",  # external
+            "device_posture": {}
+        }
+    ]
+    # REQ-01: Allowed (Matches doctor role, internal IP, clean posture)
+    # REQ-02: Denied (Guest role not allowed on ehr_db)
+    # REQ-03: Denied (External IP for mri_machine which requires internal)
+    assert impl.solve(requests, policy) == ["REQ-01"]
+
+
+def test_posture_failure():
+    policy = {
+        "allowed_roles": {"ehr_db": ["doctor"]},
+        "requires_internal": [],
+        "requires_posture": ["ehr_db"],
+        "internal_prefixes": []
+    }
+    requests = [
+        {
+            "id": "REQ-01",
+            "user": "alice",
+            "role": "doctor",
+            "resource": "ehr_db",
+            "ip": "12.0.0.1",
+            "device_posture": {"antivirus_ok": True, "disk_encrypted": False}
+        }
+    ]
+    # Denied because disk_encrypted is False
+    assert impl.solve(requests, policy) == []
+
+
+def test_empty_posture_allowed():
+    policy = {
+        "allowed_roles": {"ehr_db": ["doctor"]},
+        "requires_internal": [],
+        "requires_posture": ["ehr_db"],
+        "internal_prefixes": []
+    }
+    requests = [
+        {
+            "id": "REQ-01",
+            "user": "alice",
+            "role": "doctor",
+            "resource": "ehr_db",
+            "ip": "12.0.0.1",
+            "device_posture": {}  # empty is compliant
+        }
+    ]
+    assert impl.solve(requests, policy) == ["REQ-01"]
+
+
+def test_empty_requests():
+    policy = {
+        "allowed_roles": {"ehr_db": ["doctor"]},
+        "requires_internal": [],
+        "requires_posture": ["ehr_db"],
+        "internal_prefixes": []
+    }
+    assert impl.solve([], policy) == []
+
+
+def test_resource_not_in_policy():
+    policy = {
+        "allowed_roles": {"ehr_db": ["doctor"]},
+        "requires_internal": [],
+        "requires_posture": [],
+        "internal_prefixes": []
+    }
+    requests = [
+        {
+            "id": "REQ-01",
+            "user": "alice",
+            "role": "doctor",
+            "resource": "some_other_db",
+            "ip": "12.0.0.1",
+            "device_posture": {}
+        }
+    ]
+    assert impl.solve(requests, policy) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

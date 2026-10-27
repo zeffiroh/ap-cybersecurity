@@ -1,0 +1,1144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AP Cybersecurity - Unit 4 Adaptive Quiz Bank
+  Unit: Securing Devices | Topics: 4.1-4.4
+  32 questions across 8 stimulus sets | calibrated="false"
+  Skills: 1.A 1.C 1.D 2.A 3.A 3.B
+-->
+<unit_quizbank unit_id="U4" unit_title="Securing Devices" version="1.0" calibrated="false">
+
+<!-- S01 - Windows Event Log (Brute Force + Privilege Escalation)
+     Topics: 4.1, 4.4 | Skills: 1.A 3.B 3.A 3.A+2.A -->
+<stimulus_set id="U4-S01" difficulty_range="1-3">
+  <stimulus>
+    <type>windows_event_log</type>
+    <label>Exhibit A - Windows Security Event Log: ClearPath Financial Workstation</label>
+    <context>ClearPath Financial EDR flagged FINANCE-WS-04 for anomalous authentication on a Saturday evening. The following Security Event Log was exported for SOC triage.</context>
+    <artifact format="log_file">
+      <log_type>Windows Security Event Log - FINANCE-WS-04 (10.0.1.47)</log_type>
+      <entries>
+TIME      EVENT_ID  LEVEL    ACCOUNT       SOURCE_IP       DESCRIPTION
+--------- --------- -------- ------------- --------------- ----------------------------------
+20:41:02  4625      FAILURE  Administrator 203.0.113.22    Logon failed: unknown username
+20:41:06  4625      FAILURE  admin         203.0.113.22    Logon failed: unknown username
+20:41:10  4625      FAILURE  j.reyes       203.0.113.22    Logon failed: wrong password
+20:41:12  4625      FAILURE  j.reyes       203.0.113.22    Logon failed: wrong password
+20:41:14  4624      SUCCESS  j.reyes       203.0.113.22    Logon Type 10 (RemoteInteractive)
+20:41:19  4672      INFO     j.reyes       203.0.113.22    Special privileges: SeDebugPrivilege
+20:41:31  4688      INFO     FINANCE-WS-04 local           Process: cmd.exe (parent: rdpclip.exe)
+20:41:44  4688      INFO     FINANCE-WS-04 local           Process: net.exe "net user /add svc_backup P@ss1234"
+20:42:01  4688      INFO     FINANCE-WS-04 local           Process: net.exe "net localgroup Administrators svc_backup /add"
+20:58:33  4688      INFO     FINANCE-WS-04 local           Process: powershell.exe -enc [base64 payload]
+21:03:14  4698      INFO     FINANCE-WS-04 local           Scheduled task: "WindowsUpdateService" (trigger: startup)
+      </entries>
+      <note>j.reyes credentials stolen in prior ARP poisoning incident. RDP (port 3389) open inbound per firewall Rule 4.</note>
+    </artifact>
+    <provenance>Fictional. All accounts, IPs, and events are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S01-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S01</stimulus_ref>
+        <topic_refs>4.4</topic_refs><lo_refs>LO 4.4.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.4.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.38</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Events at 20:41:10-20:41:14 show two failed logons for j.reyes then a success from 203.0.113.22. Given that j.reyes's credentials were previously stolen via ARP poisoning, what attack type does this sequence represent?</stem>
+      <choices>
+        <choice key="A">Credential stuffing - the attacker used j.reyes's previously stolen credentials, with the two failures reflecting minor variants before the exact stolen password succeeded.</choice>
+        <choice key="B">A brute-force attack that guessed j.reyes's password on the third attempt.</choice>
+        <choice key="C">A pass-the-hash attack using j.reyes's NTLM hash from a previous session.</choice>
+        <choice key="D">A password spray attack targeting multiple accounts simultaneously.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>The note confirms j.reyes's credentials were stolen in the prior ARP poisoning incident. The pattern - two quick failures then success from the same external IP - is consistent with credential stuffing: trying the known stolen password with minor variants before the exact credentials succeed. Three attempts is far too few for brute-force; the attacker had the password and tested variants first.</explanation>
+      <distractor_rationale>
+        <choice key="B">Three attempts is too few for brute-force, which involves hundreds or thousands of attempts across a wordlist. Context confirms credentials were already known to the attacker.</choice>
+        <choice key="C">Pass-the-hash uses NTLM hashes directly over SMB, not over RDP (which uses password authentication). Event 4624 shows Logon Type 10 (RemoteInteractive/RDP).</choice>
+        <choice key="D">Password spraying targets many accounts with one common password to avoid lockout. This log shows attempts against j.reyes only from one IP - inconsistent with a spray pattern.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S01-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S01</stimulus_ref>
+        <topic_refs>4.4</topic_refs><lo_refs>LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 4.4.B" weight="0.72"/>
+        <secondary skill="1.A" lo="LO 4.4.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.48</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Events 20:41:44 and 20:42:01 show "net user /add svc_backup" then "net localgroup Administrators svc_backup /add" executed via cmd.exe. Analyze what these two commands accomplish and why this constitutes a critical persistence mechanism.</stem>
+      <choices>
+        <choice key="A">They create a backup service account with standard user privileges - a routine IT task that blends with normal operations.</choice>
+        <choice key="B">These commands fail silently because j.reyes lacks administrative privileges to create accounts or modify local groups.</choice>
+        <choice key="C">They are harmless because svc_backup is local (not domain) administrator, limiting access to FINANCE-WS-04 only.</choice>
+        <choice key="D">Together they create a new local administrator account (svc_backup) with a known password - a backdoor that survives j.reyes's password reset or account disablement, giving the attacker persistent admin access until svc_backup is discovered and removed.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>The two-command sequence is textbook persistence: net user /add creates an account with a known password; net localgroup Administrators elevates it to local admin. This backdoor is independent of j.reyes - resetting or disabling her account does not remove svc_backup. The attacker can return anytime via RDP as svc_backup with full local admin privileges. Event 4698 (scheduled task creation) adds another persistence layer ensuring malware runs at startup.</explanation>
+      <distractor_rationale>
+        <choice key="A">svc_backup is immediately elevated to Administrators (20:42:01) - not standard user. The "svc_" prefix is naming camouflage, a documented attacker technique to blend with legitimate service accounts.</choice>
+        <choice key="B">Event 4672 at 20:41:19 shows j.reyes's session received SeDebugPrivilege and SeImpersonatePrivilege - elevated privileges obtained via privilege escalation after RDP logon. Subsequent commands succeed, evidenced by the scheduled task at 21:03:14.</choice>
+        <choice key="C">Local administrator access to a finance workstation is critical: it provides persistent RDP access, locally cached credentials, and a lateral movement platform. "Only local" understates the risk.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S01-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S01</stimulus_ref>
+        <topic_refs>4.1 4.4</topic_refs><lo_refs>LO 4.1.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.4.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 4.1.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>4.1 4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Event 21:03:14 shows a scheduled task named "WindowsUpdateService" created with a startup trigger. Evaluating this in context of the full log, what is the security significance of the task name chosen by the attacker?</stem>
+      <choices>
+        <choice key="A">The name mimics a legitimate Windows system process, blending with genuine update-related tasks in Task Scheduler - reducing the likelihood an administrator performing manual review would flag it as malicious without deeper investigation.</choice>
+        <choice key="B">The name "WindowsUpdateService" is technically invalid for a scheduled task and would cause silent execution failure.</choice>
+        <choice key="C">The name triggers Windows Defender to whitelist the task automatically because it matches a known Windows component name.</choice>
+        <choice key="D">Task names do not matter - all scheduled tasks with startup triggers are equally visible in Event Viewer and detected during incident response.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Defense evasion through naming camouflage is documented in MITRE ATT&amp;CK T1036 (Masquerading). By naming the malicious task "WindowsUpdateService," the attacker exploits the cognitive shortcut that Windows has many legitimate update-related processes. A cursory review of Task Scheduler would show this task among dozens of genuine Windows tasks; "WindowsUpdateService" sounds entirely plausible. Only careful examination of the task action (base64 PowerShell payload), trigger, and creation timestamp reveals its malicious nature.</explanation>
+      <distractor_rationale>
+        <choice key="B">Scheduled task names have no technical restrictions causing execution failure. Any string is valid. The name affects human detectability, not execution success.</choice>
+        <choice key="C">Windows Defender does not whitelist based on display name alone - this would be trivially exploitable. Defender uses behavioral analysis, signatures, and reputation services beyond the display name.</choice>
+        <choice key="D">While tasks are visible, the volume of legitimate tasks makes manual review impractical without automation. EDR tools monitor Event ID 4698 and flag suspicious payloads, but human review is easily fooled by plausible names.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S01-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S01</stimulus_ref>
+        <topic_refs>4.1 4.2 4.4</topic_refs><lo_refs>LO 4.1.A LO 4.2.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.4.B" weight="0.53"/>
+        <secondary skill="2.A" lo="LO 4.2.A" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.42</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>4.1 4.2 4.4</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The attack succeeded via four enabling conditions: (1) RDP open from the internet; (2) j.reyes's credentials stolen via ARP poisoning; (3) no MFA on RDP; (4) no account lockout after repeated failures. Which control set, applied specifically to FINANCE-WS-04, breaks the attack chain at the authentication stage - even with RDP open and credentials already stolen?</stem>
+      <choices>
+        <choice key="A">Enforce MFA for all RDP sessions (Windows Hello for Business or third-party MFA provider) - even with stolen credentials, the attacker cannot authenticate without the second factor only j.reyes possesses. Additionally configure account lockout after 5 failed attempts to catch the variant-testing phase.</choice>
+        <choice key="B">Install endpoint antivirus on FINANCE-WS-04 to detect the net.exe commands used to create the backdoor account.</choice>
+        <choice key="C">Rename the Administrator account to a non-standard name, preventing the attacker from identifying the correct username.</choice>
+        <choice key="D">Require RDP sessions to use Network Level Authentication (NLA), which encrypts credential exchange and prevents interception during login.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>MFA directly breaks the stolen-credential attack: the attacker has j.reyes's password but not her second factor (phone, hardware token). Account lockout at 5 failures catches the two-variant-then-success pattern at 20:41:10-12 - a 3-attempt threshold would have locked j.reyes's account before the 20:41:14 success. Together these defeat credential stuffing even with known-compromised passwords, independent of whether RDP is open or closed.</explanation>
+      <distractor_rationale>
+        <choice key="B">Antivirus might detect post-access persistence commands but does not prevent the initial authentication at 20:41:14. Stopping the attack at authentication is superior to detecting actions after the attacker has an active session.</choice>
+        <choice key="C">The attacker used j.reyes's legitimate account, not Administrator. Renaming Administrator has zero effect on attacks using compromised legitimate user credentials.</choice>
+        <choice key="D">NLA encrypts RDP credential exchange in transit. The attacker in this incident used credentials already stolen via ARP poisoning - they were not intercepting the RDP login itself. NLA does not prevent authentication with known valid credentials.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S02 - Linux Malware Persistence (Syslog + Crontab)
+     Topics: 4.1, 4.4 | Skills: 1.A 1.C 3.B 3.B+2.A -->
+<stimulus_set id="U4-S02" difficulty_range="1-3">
+  <stimulus>
+    <type>endpoint_syslog</type>
+    <label>Exhibit B - Syslog and Process Listing: Xtensr Labs Linux Server</label>
+    <context>Sysadmin p.novak found unusual entries in the syslog and crontab of XLAB-LINUX-03 during a health check. The server runs Ubuntu 22.04, hosts internal dev tooling, and was last patched 14 months ago.</context>
+    <artifact format="composite">
+      <component id="B1" type="log_file">
+        <log_type>Syslog - XLAB-LINUX-03 (last 72 hours, excerpted)</log_type>
+        <entries>
+Mar 10 02:14:11 sshd[4421]: Accepted password for www-data from 203.0.113.55 port 49201
+Mar 10 02:14:22 sudo[4440]: www-data : USER=root ; COMMAND=/bin/bash
+Mar 10 02:14:48 kernel: [UFW ALLOW] SRC=203.0.113.55 DST=10.0.3.5 PROTO=TCP DPT=4444
+Mar 10 02:15:03 cron[4501]: (root) CMD (/tmp/.update &gt;&gt; /dev/null 2&gt;&amp;1)
+Mar 11 09:22:17 sshd[5112]: Accepted password for www-data from 203.0.113.55 port 52018
+Mar 11 09:22:31 kernel: [UFW ALLOW] SRC=203.0.113.55 DST=10.0.3.5 PROTO=TCP DPT=4444
+Mar 12 03:44:02 cron[6011]: (root) CMD (/tmp/.update &gt;&gt; /dev/null 2&gt;&amp;1)
+        </entries>
+      </component>
+      <component id="B2" type="terminal_output">
+        <log_type>crontab -l (root) and /tmp directory listing</log_type>
+        <commands>
+root@XLAB-LINUX-03:~# crontab -l
+*/1 * * * * /tmp/.update &gt;&gt; /dev/null 2&gt;&amp;1
+@reboot     /tmp/.update &gt;&gt; /dev/null 2&gt;&amp;1
+
+root@XLAB-LINUX-03:~# ls -la /tmp/
+-rwxr-xr-x 1 root root 14872 Mar 10 02:15 .update
+-rw-r--r-- 1 www-data www-data 412 Mar 10 02:15 .config
+
+root@XLAB-LINUX-03:~# file /tmp/.update
+/tmp/.update: ELF 64-bit LSB executable, x86-64, statically linked, stripped
+        </commands>
+      </component>
+    </artifact>
+    <provenance>Fictional. All hostnames, IPs, and log entries are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S02-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S02</stimulus_ref>
+        <topic_refs>4.4</topic_refs><lo_refs>LO 4.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 4.4.A" weight="0.80"/>
+        <secondary skill="3.B" lo="LO 4.4.B" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta><b_param>-0.30</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The syslog shows www-data (a web service account) successfully authenticating via SSH from external IP 203.0.113.55 and immediately running /bin/bash as root via sudo. Which indicator most strongly classifies this as unauthorized rather than legitimate administration?</stem>
+      <choices>
+        <choice key="A">www-data is a web service account that should never authenticate via SSH or hold sudo access - it exists to run web server processes non-interactively and does not initiate external SSH sessions or escalate to root shell.</choice>
+        <choice key="B">The SSH connection occurred at 02:14 AM - outside normal business hours.</choice>
+        <choice key="C">The connection originated from 203.0.113.55, an external IP - all legitimate SSH should come from internal IPs only.</choice>
+        <choice key="D">sudo ran /bin/bash rather than a specific command, which is unusual but could reflect an administrator preference.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>www-data is the standard Ubuntu web server account (Apache/Nginx). It should never have SSH shell access or sudo privileges - it exists to run web processes non-interactively. www-data connecting interactively via SSH from an external IP and escalating to root is a strong indicator: the web server was likely compromised through a web application vulnerability, the attacker added SSH credentials to www-data for persistence, and a sudo misconfiguration gave instant root access.</explanation>
+      <distractor_rationale>
+        <choice key="B">Legitimate administrators do respond to incidents at 2 AM and automated scripts run overnight. Timing alone is insufficient without corroborating indicators like account type.</choice>
+        <choice key="C">Administrators may connect from external IPs via VPN. The combination of external IP and www-data account type is more diagnostic than external IP alone.</choice>
+        <choice key="D">B identifies the more fundamental problem: www-data should never have sudo access at all, making any sudo command from this account suspicious regardless of which command was run.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S02-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S02</stimulus_ref>
+        <topic_refs>4.1 4.4</topic_refs><lo_refs>LO 4.1.B LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.4.B" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 4.1.B" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.1 4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Component B2 shows /tmp/.update scheduled via cron every minute and at every reboot, identified as a stripped ELF executable. Explain what the combination of location (/tmp/), dot prefix, one-minute frequency, and stripped binary reveals about this file.</stem>
+      <choices>
+        <choice key="A">Each element is a deliberate attacker choice: /tmp/ is world-writable and often excluded from integrity monitoring; the dot prefix hides the file from standard ls without -la; one-minute cron frequency ensures rapid C2 re-establishment if the process is killed; and stripping removes the symbol table to hinder reverse engineering. Together these indicate a persistence implant designed for stealth and reliability.</choice>
+        <choice key="B">The file is a legitimate system update utility - /tmp is used for temporary system files and .update confirms its function.</choice>
+        <choice key="C">The file is a malformed package that failed installation to /usr/bin and landed in /tmp - a routine package manager error.</choice>
+        <choice key="D">The stripped ELF indicates the binary was compiled for a different architecture and will not execute correctly on this x86-64 system.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Each technical choice reflects attacker operational security: /tmp/ is writable by all users and frequently excluded from file integrity monitoring baselines; the dot prefix makes the file invisible to plain "ls" output; a 1-minute cron restarts the C2 beacon within 60 seconds if killed; stripping removes symbol names and debug information that would help analysis. The @reboot trigger ensures the implant survives server restarts. This is a textbook Linux persistence implant design.</explanation>
+      <distractor_rationale>
+        <choice key="B">Legitimate system utilities are installed in /usr/bin or /usr/sbin via package managers with cryptographic verification, not dropped as hidden stripped binaries in /tmp.</choice>
+        <choice key="C">Package managers produce error messages on failure, not hidden executable files in /tmp. The pattern here is intentional attacker activity, not a package installation artifact.</choice>
+        <choice key="D">"Stripped" refers to debug symbol removal, not architecture mismatch. The file output explicitly states "ELF 64-bit LSB executable, x86-64" - this binary is built for exactly this host's architecture.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S02-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S02</stimulus_ref>
+        <topic_refs>4.1 4.4</topic_refs><lo_refs>LO 4.1.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 4.4.B" weight="0.68"/>
+        <secondary skill="1.C" lo="LO 4.1.A" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>4.1 4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The syslog shows port 4444 being allowed inbound by UFW on March 10 and again March 11. Port 4444 is the default listener for Metasploit Meterpreter reverse shells. Analyzing all log evidence together, what attack scenario does the complete set of indicators describe?</stem>
+      <choices>
+        <choice key="A">The attacker compromised the unpatched web server via a vulnerability, escalated from www-data to root via sudo misconfiguration, opened port 4444 for a reverse shell, and installed /tmp/.update as a persistent C2 implant that re-establishes the connection every minute - maintaining persistent root-level access across reboots and process kills.</choice>
+        <choice key="B">The attacker installed a web application on port 4444 to serve content externally, using www-data as the service user.</choice>
+        <choice key="C">The attacker is using port 4444 as an alternative SSH port after being blocked on port 22.</choice>
+        <choice key="D">The UFW rules for port 4444 were added by a developer for legitimate tooling, and /tmp/.update is an unrelated file from a testing session.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>The evidence forms a coherent attack narrative: initial access via web vulnerability on the 14-month-unpatched server → www-data SSH persistence added → sudo misconfiguration exploited for root shell → UFW modified to allow port 4444 → /tmp/.update cron implant installed. Port 4444 re-opening on March 11 confirms the attacker returned using established persistence. This is complete post-exploitation: initial access, privilege escalation, defense evasion (hidden file, /tmp), and persistence (cron + @reboot).</explanation>
+      <distractor_rationale>
+        <choice key="B">Port 4444 is not a web service port. The inbound UFW rule opens 4444 to receive reverse shell connections from the attacker, not to serve web content to external users.</choice>
+        <choice key="C">Port 4444 is not SSH (port 22). A reverse shell on port 4444 connects from the victim to the attacker - opposite direction from SSH. These are fundamentally different protocols and connection patterns.</choice>
+        <choice key="D">Legitimate developer tooling is not installed as hidden dot-prefixed root-owned files in /tmp via www-data sudo at 02:14 AM from an external IP. The entire pattern contradicts legitimate activity.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S02-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S02</stimulus_ref>
+        <topic_refs>4.1 4.3 4.4</topic_refs><lo_refs>LO 4.1.A LO 4.3.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 4.4.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 4.1.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.42</b_param><a_param>1.57</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3 4.4</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>p.novak must contain and remediate XLAB-LINUX-03, compromised for at least 14 days and hosting tooling used by 12 developers. Rank the correct response action sequence and identify which two actions, if done in the wrong order, would destroy forensic evidence or allow the attacker to re-establish access.</stem>
+      <choices>
+        <choice key="A">1. Run "rm -rf /tmp/.update" to remove malware. 2. Reset www-data credentials. 3. Apply all patches. 4. Restore from backup. Removing active malware is first priority.</choice>
+        <choice key="B">1. Patch the server to close the initial vulnerability. 2. Delete /tmp/.update. 3. Remove the www-data sudo entry. 4. Change the www-data SSH password. Patching first prevents re-exploitation during remediation.</choice>
+        <choice key="C">1. Isolate the server (disable eth0 or shut down switch port). 2. Take a forensic disk image before any changes. 3. Enumerate all persistence mechanisms (cron, SSH authorized_keys, sudo entries, systemd timers). 4. Patch, harden, and redeploy from known-good image. Isolate first to stop C2; image before touching anything; investigate then remediate.</choice>
+        <choice key="D">1. Notify the 12 developers. 2. Schedule downtime for next maintenance window. 3. Run antivirus scan. 4. Review cron jobs. Minimizing developer disruption is the priority.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>Forensic image before any changes (step 2) is critical - deleting /tmp/.update (as in A and C) destroys the malware sample needed to analyze C2 infrastructure and other persistence mechanisms. Isolation first (step 1) stops the active C2 beacon and prevents the attacker from deploying new persistence when they detect their beacon dropping. Enumerating all persistence (step 3) catches hidden mechanisms beyond the visible cron job. Redeploying from a known-good image (step 4) is more reliable than manual cleanup on a 14-month-compromised server.</explanation>
+      <distractor_rationale>
+        <choice key="A">Deleting /tmp/.update first destroys the primary forensic artifact before imaging. Without the binary, analysis of C2 protocol, additional persistence, and initial exploitation vector is impossible.</choice>
+        <choice key="B">Patching on a live compromised server means the attacker receives a C2 notification when the system restarts, may re-deploy persistence, and patch installation modifies forensic state. Containment before remediation is the correct sequence.</choice>
+        <choice key="D">Scheduling remediation for the next maintenance window allows weeks more of attacker access, active C2, and potential lateral movement to all 12 developers' systems. Active compromise requires immediate containment, not scheduling.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S03 - Patch Management Report (Unpatched CVEs)
+     Topics: 4.1, 4.3 | Skills: 1.A 1.C 2.A 2.A+1.D -->
+<stimulus_set id="U4-S03" difficulty_range="1-3">
+  <stimulus>
+    <type>patch_management_report</type>
+    <label>Exhibit C - Vulnerability Scan Report: Xtensr Labs</label>
+    <context>Xtensr Labs quarterly vulnerability scan completed March 15. The following table shows highest-severity findings for unpatched systems. The patch team has a stated SLA of 30 days for CRITICAL vulnerabilities.</context>
+    <artifact format="log_file">
+      <log_type>Qualys Vulnerability Scan - Top Unpatched Findings (CRITICAL + HIGH)</log_type>
+      <entries>
+HOST         CVE             CVSS  SEV       DAYS_OPEN  PATCH_AVAILABLE  EXPLOITED
+------------ --------------- ----- --------- ---------- ---------------- --------
+DB-SERVER-01 CVE-2023-34362  9.8   CRITICAL  210        YES (Jun 2023)   YES - ransomware
+DB-SERVER-01 CVE-2021-44228  10.0  CRITICAL  847        YES (Dec 2021)   YES - Log4Shell
+XLAB-LINUX   CVE-2023-0386   7.8   HIGH      420        YES (Mar 2023)   YES - priv esc
+FINANCE-WS   CVE-2023-28252  7.8   HIGH      362        YES (Apr 2023)   YES - CLFS driver
+HR-SERVER    CVE-2022-47966  9.8   CRITICAL  440        YES (Jan 2023)   YES - RCE
+WEB-APP-01   CVE-2023-44487  7.5   HIGH      165        YES (Oct 2023)   YES - HTTP/2 flood
+      </entries>
+      <note>SLA compliance: 0/3 CRITICAL vulnerabilities patched within 30-day SLA. CVE-2023-34362 is the MOVEit SQL injection used by Cl0p ransomware. CVE-2021-44228 is Log4Shell.</note>
+    </artifact>
+    <provenance>Real CVE IDs used for educational reference. All host names and environments are fictional.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S03-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S03</stimulus_ref>
+        <topic_refs>4.1</topic_refs><lo_refs>LO 4.1.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.1.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.35</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>4.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>DB-SERVER-01 has CVE-2021-44228 (Log4Shell, CVSS 10.0) open for 847 days with a patch available since December 2021. Which statement most accurately characterizes organizational risk from this unpatched vulnerability?</stem>
+      <choices>
+        <choice key="A">Critical risk - Log4Shell (CVSS 10.0, maximum score) remains widely exploited; after 847 days unpatched, the server has had nearly 2.5 years of exposure to a remotely exploitable unauthenticated RCE vulnerability with exploit code publicly available in dozens of frameworks and automated scanning tools.</choice>
+        <choice key="B">Low risk - after 847 days most attackers have moved on to newer vulnerabilities and Log4Shell exploits are no longer in active circulation.</choice>
+        <choice key="C">Moderate risk - CVSS 10.0 vulnerabilities are common and most are patched before exploitation, so the 847-day window likely occurred during a period of low attacker interest.</choice>
+        <choice key="D">Risk depends on whether the database server is internet-facing - if it serves only internal applications, Log4Shell poses minimal risk.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Log4Shell achieved CVSS 10.0 (maximum) due to: network-exploitable, no authentication required, no user interaction, remote code execution. Exploit code was incorporated into Metasploit and custom tools within days of disclosure. After 847 days, automated scanning tools continuously probe the internet for vulnerable systems. Widely-exploited vulnerabilities remain in attacker toolkits indefinitely - WannaCry (2017) still infects systems using EternalBlue patched in March 2017. A patch has been available since December 2021: 847 days of inaction is a serious governance failure.</explanation>
+      <distractor_rationale>
+        <choice key="B">This assumption is consistently wrong in practice. Widely-exploited vulnerabilities remain in attacker toolkits indefinitely - they are automated and cost nothing to continue using.</choice>
+        <choice key="C">CVSS 10.0 is assigned only when all attack vector metrics are worst-case (network, no auth, no interaction, high impact on all three CIA dimensions). Log4Shell was described as potentially the most severe vulnerability ever discovered due to its prevalence across Java applications.</choice>
+        <choice key="D">Log4Shell's JNDI injection can be triggered through any data that reaches a Log4j-enabled application - including internal API calls, log messages containing attacker-controlled strings, and email content processed by Java applications. Internal-only deployment does not eliminate the risk.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S03-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S03</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.A LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.3.A" weight="0.70"/>
+        <secondary skill="3.A" lo="LO 4.1.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.12</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>85</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The note confirms "SLA compliance: 0/3 CRITICAL vulnerabilities patched within 30-day SLA." Explain what a patch management SLA is and why failing it for CRITICAL vulnerabilities represents a governance failure beyond just a technical delay.</stem>
+      <choices>
+        <choice key="A">A patching SLA is a vendor commitment guaranteeing patches are delivered within a set timeframe - the failure means the software vendor broke its contract with Xtensr Labs.</choice>
+        <choice key="B">The SLA failure is significant only if a breach has occurred - until exploitation happens, the risk is theoretical and the governance failure is minor.</choice>
+        <choice key="C">A patching SLA only applies to vendor-supported software - since Log4j is open-source, the SLA does not apply and the delay is not a governance failure.</choice>
+        <choice key="D">A patch management SLA is an internal organizational commitment defining maximum acceptable time between vulnerability disclosure and remediation. Failing it for three CRITICALs - each with patches available 440-847 days - shows the patch process is systemically broken: tickets are not prioritized, tested, or deployed within the risk-acceptable window. This creates documented negligence and may violate compliance frameworks requiring timely patching (PCI DSS, HIPAA, SOC 2).</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>A patch management SLA is an internal policy commitment representing the organization's self-imposed risk tolerance. Failing it for three CRITICALs (all with patches available 440-847 days) means the patch process is not functioning as designed. This is a governance failure because: the policy exists (demonstrating awareness of the risk); the patches exist (ruling out technical impossibility); and the organization is choosing through inaction to remain exposed beyond its own defined acceptable risk threshold. This creates both technical risk and organizational accountability.</explanation>
+      <distractor_rationale>
+        <choice key="A">Patch management SLAs are internal organizational commitments, not vendor contracts. The vendor's obligation is to release patches - which all vendors have done. The SLA governs when Xtensr Labs applies those patches.</choice>
+        <choice key="B">Risk does not begin at exploitation - it begins at vulnerability disclosure. All three CVEs are marked "EXPLOITED" in the wild, meaning real attackers are actively using them. The probability of exploitation is not theoretical.</choice>
+        <choice key="C">SLAs apply to all software in the environment regardless of licensing model. Open-source software with known CVEs and available patches carries the same internal patch management obligations as commercial software.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S03-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S03</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.B LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 4.3.A" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 4.1.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.80</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>98</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The patch team argues "patches cannot be applied immediately because we need to test them first to ensure they don't break production applications." Given the CVSS scores and days-open values, what is the most appropriate response to this argument for the three CRITICAL vulnerabilities?</stem>
+      <choices>
+        <choice key="A">The team is correct - all patches must be tested for 90 days before deployment to prevent production outages from incompatible updates.</choice>
+        <choice key="B">Skip patching for the three CRITICALs and deploy compensating controls (IDS signatures, WAF rules) instead, providing equivalent protection without production risk.</choice>
+        <choice key="C">Testing is necessary but must be time-boxed proportionally to severity: CRITICAL vulnerabilities (CVSS 9.8-10.0, actively exploited in the wild) warrant an expedited 48-72 hour test cycle in a staging environment followed by emergency deployment. The current 210-847 day delay is not careful testing - it is patch avoidance. A ransomware breach (the documented real consequence of unpatched CVE-2023-34362) would cost far more than any patch regression.</choice>
+        <choice key="D">Apply patches immediately without testing to minimize exposure, since vulnerability risk exceeds any risk from untested patches.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>The "testing needed" argument is valid in principle but cannot justify a 2.5-year delay. Risk-proportional testing is the correct framework: CRITICAL actively-exploited CVEs trigger emergency change procedures with compressed but adequate test windows (48-72 hours in staging). The risk comparison is explicit in the report: CVE-2023-34362 is used by the Cl0p ransomware group. The financial and operational cost of ransomware against DB-SERVER-01 vastly exceeds any patch testing investment. No staging environment is itself a separate remediation item.</explanation>
+      <distractor_rationale>
+        <choice key="A">90-day testing for all patches regardless of severity inverts the risk calculation. 90 more days of CVSS 10.0 exposure to an actively-exploited vulnerability exceeds the risk of any reasonably-expected patch regression.</choice>
+        <choice key="B">Compensating controls reduce exploitation risk but do not eliminate it - they are appropriate temporary measures during an emergency patch cycle, not permanent replacements for patching critical vulnerabilities.</choice>
+        <choice key="D">Applying patches without any testing on a production database server can cause outages affecting all dependent applications. A 48-72 hour staging test is minimum due diligence that prevents self-inflicted downtime while dramatically compressing exposure.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S03-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S03</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.A LO 4.3.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 4.3.B" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 4.3.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.44</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>164</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>Note that XLAB-LINUX-03 (CVE-2023-0386, privilege escalation, 420 days open) was the server compromised in Exhibit B - the unpatched kernel vulnerability was likely the escalation vector. Using both exhibits, document the risk conclusion and minimum viable patch management program that would have prevented the Exhibit B compromise.</stem>
+      <choices>
+        <choice key="A">Risk conclusion: the Exhibit B compromise was unrelated to patching - the attacker used SSH credentials, not a kernel exploit. Patch management would not have prevented it.</choice>
+        <choice key="B">Risk conclusion: patching is only relevant for internet-facing systems. Since XLAB-LINUX-03 is an internal dev server, its patch status does not meaningfully affect attack risk.</choice>
+        <choice key="C">Risk conclusion: the compromise occurred because the server was 14 months old - hardware replacement every 12 months would prevent similar incidents. Minimum viable program: 12-month hardware replacement cycle.</choice>
+        <choice key="D">Risk conclusion: the 420-day open HIGH vulnerability on XLAB-LINUX-03 (CVE-2023-0386, kernel privilege escalation) provided the path from www-data to root - without it, the attacker would have been limited to www-data privileges and could not have installed root-owned cron jobs or modified UFW rules. Minimum viable program: automated scanning on a defined cycle; risk-tiered SLAs with enforcement tracking; a staging environment for patch validation; and an emergency procedure for actively-exploited CVEs bypassing normal change management timelines.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>The connection is direct: the syslog shows www-data running sudo /bin/bash to achieve a root shell. CVE-2023-0386 is a Linux kernel local privilege escalation affecting Ubuntu 22.04 - the exact OS on XLAB-LINUX-03. The root access pattern (www-data to root) is consistent with kernel privilege escalation. The minimum viable patch program addresses four systemic failures: detection (scanning), prioritization (risk-tiered SLAs), validation (staging), and emergency procedures (bypass normal change management for actively-exploited CVEs).</explanation>
+      <distractor_rationale>
+        <choice key="A">A kernel privilege escalation exploit (CVE-2023-0386) allows www-data to escalate without needing sudo at all - the 420-day kernel vulnerability is directly relevant. Even if the sudo path was taken, the kernel CVE provided a backup escalation path making the attacker more resilient to partial remediation.</choice>
+        <choice key="B">The Exhibit B compromise began with web application access - the server hosts internal development tooling accessible from web-facing applications. Internal servers accessible via web application tiers are absolutely within scope for patch management.</choice>
+        <choice key="C">Hardware age has no inherent relationship to security vulnerability status. A brand-new server with unpatched software is more vulnerable than a 3-year-old server with all patches current. Replacement cycles address hardware support, not software vulnerability management.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S04 - Authentication Policy Gap Analysis
+     Topics: 4.2, 4.3 | Skills: 1.A 1.C 1.D 2.A -->
+<stimulus_set id="U4-S04" difficulty_range="1-3">
+  <stimulus>
+    <type>auth_policy_config</type>
+    <label>Exhibit D - Authentication Policy Audit: Xtensr Labs</label>
+    <context>Following the FINANCE-WS-04 RDP compromise, Xtensr Labs' CISO requested an authentication policy audit. The IT team provided the following document as the "current enforced policy."</context>
+    <artifact format="annotated_policy">
+      <org>Xtensr Labs - IT Security</org>
+      <doc_id>AUTH-POL-2022-001 (Last reviewed: January 2022)</doc_id>
+      <subject>Authentication and Password Policy</subject>
+      <body>
+3.0 PASSWORD REQUIREMENTS
+3.1 Minimum password length: 8 characters.
+3.2 Passwords must contain at least one uppercase letter.
+3.3 Passwords must be changed every 90 days.
+3.4 Last 5 passwords cannot be reused.
+    [AUDITOR NOTE: NIST SP 800-63B (2017) recommends AGAINST mandatory periodic
+     rotation and character-class complexity rules. Policy is 2+ years outdated.]
+
+4.0 MULTI-FACTOR AUTHENTICATION
+4.1 MFA is recommended for all remote access connections.
+4.2 MFA is required for administrative accounts accessing the cloud console.
+    [AUDITOR NOTE: "Recommended" is not enforced. RDP, VPN, and email remain
+     MFA-optional for non-admin accounts. The FINANCE-WS-04 incident exploited
+     exactly this gap.]
+
+5.0 ACCOUNT MANAGEMENT
+5.1 Accounts inactive for 180 days will be reviewed annually.
+5.2 Shared service accounts are permitted with documented approval.
+    [AUDITOR NOTE: 180-day review with annual cadence means accounts can be
+     inactive up to 365 days before action. Shared accounts create audit trail gaps.]
+
+6.0 PRIVILEGED ACCESS
+6.1 Privileged accounts must use separate credentials from standard accounts.
+6.2 Privileged account sessions should be logged.
+    [AUDITOR NOTE: "Should be logged" is advisory. No PAM solution deployed.
+     Privileged session logs exist only where admins manually configure them.]
+      </body>
+    </artifact>
+    <provenance>Fictional policy document created for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S04-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S04</stimulus_ref>
+        <topic_refs>4.2</topic_refs><lo_refs>LO 4.2.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.2.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.28</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>4.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Section 4.1 states MFA is "recommended" for remote access. The auditor notes the FINANCE-WS-04 incident exploited exactly this gap. Which policy change most directly addresses the RDP credential-stuffing attack visible in Exhibit A?</stem>
+      <choices>
+        <choice key="A">Change Section 3.1 to require a minimum password length of 16 characters instead of 8.</choice>
+        <choice key="B">Change Section 5.1 to review inactive accounts every 30 days instead of 180 days.</choice>
+        <choice key="C">Change Section 4.1 from "recommended" to "required" for all remote access methods including RDP, VPN, and email, and deploy a technical enforcement mechanism (MFA gateway, Duo, Windows Hello for Business) that prevents authentication completion without the second factor.</choice>
+        <choice key="D">Remove Section 3.3 (90-day rotation) per NIST guidance, which will automatically strengthen authentication posture.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>The Exhibit A attacker used stolen valid credentials to authenticate via RDP. MFA requires a second factor the attacker does not possess - breaking the chain even with known credentials. The change must be both policy (language from "recommended" to "required") and technical (an enforcement mechanism that physically prevents authentication without MFA, since policy language without technical enforcement is not enforced in practice).</explanation>
+      <distractor_rationale>
+        <choice key="A">Longer passwords improve brute-force resistance. The attack used known-valid stolen credentials - the password's length is irrelevant once it has been harvested. MFA addresses the stolen-credential scenario; password length does not.</choice>
+        <choice key="B">More frequent inactive account reviews do not address the Exhibit A attack vector - j.reyes's account was active and legitimately used. The control gap was authentication factor strength, not account activity monitoring.</choice>
+        <choice key="D">Removing rotation is correct NIST-aligned improvement, but it adds no additional authentication factor. Removing rotation without adding MFA leaves single-factor authentication unchanged for the stolen-credential attack scenario.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S04-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S04</stimulus_ref>
+        <topic_refs>4.2</topic_refs><lo_refs>LO 4.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.2.B" weight="0.72"/>
+        <secondary skill="1.A" lo="LO 4.2.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The auditor's note on Section 3.3 references NIST SP 800-63B's recommendation against mandatory 90-day password rotation. Explain the evidence-based reason NIST made this recommendation, and what NIST recommends instead.</stem>
+      <choices>
+        <choice key="A">NIST recommends against rotation because it is too expensive at scale, instead recommending outsourcing password management to a third-party identity provider.</choice>
+        <choice key="B">NIST recommends against rotation because changing passwords frequently causes users to write them down, though NIST provides no alternative control recommendation.</choice>
+        <choice key="C">NIST recommends against rotation only for organizations under 100 employees - larger organizations should still enforce 90-day rotation as a best practice.</choice>
+        <choice key="D">NIST found that mandatory rotation causes predictable minimal changes (Password1! to Password2!) that satisfy rules without improving security. NIST instead recommends: screening new passwords against known-breached lists; enforcing length (minimum 8 characters, encouraging passphrases); requiring rotation only when a password is known compromised; and implementing MFA to reduce the impact of any stolen password.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>NIST SP 800-63B explicitly states verifiers "SHOULD NOT require memorized secrets to be changed arbitrarily (e.g., periodically)." The evidence: mandatory rotation leads to predictable transformation patterns (appending incrementing numbers, changing one character) that meet policy requirements while providing minimal security improvement. NIST's positive recommendations redirect investment toward breach-list screening, length-only requirements, and MFA - controls with better evidence bases than periodic rotation.</explanation>
+      <distractor_rationale>
+        <choice key="A">NIST's rotation guidance is based on evidence of counterproductive user behavior, not cost. NIST does not recommend outsourcing as an alternative in SP 800-63B.</choice>
+        <choice key="B">NIST provides explicit positive alternatives - breach screening, length requirements, and MFA. It does not recommend simply accepting longer exposure on static passwords without compensating controls.</choice>
+        <choice key="C">NIST SP 800-63B applies to all organizations without size-based exceptions. The guidance is based on human cognitive behavior patterns that apply regardless of organizational scale.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S04-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S04</stimulus_ref>
+        <topic_refs>4.2 4.3</topic_refs><lo_refs>LO 4.2.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.D" lo="LO 4.3.B" weight="0.65"/>
+        <secondary skill="2.A" lo="LO 4.2.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.80</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>98</est_response_time_sec>
+        <prerequisite_topics>4.2 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Section 6.2 states privileged sessions "should be logged" but no PAM (Privileged Access Management) solution is deployed. In the context of the Exhibit A compromise (svc_backup created with administrator privileges), what would a PAM solution have provided that standard Windows Event Log did not?</stem>
+      <choices>
+        <choice key="A">A PAM solution would have prevented svc_backup's creation because PAM requires all accounts to be created through a ticketing system with prior approval.</choice>
+        <choice key="B">A PAM solution provides session recording (full keystroke and screen capture), just-in-time access (privileges granted only for a defined window), credential vaulting (privileged passwords auto-rotated without user knowledge), and real-time behavioral alerting - providing both a forensic record of exactly what the attacker did and in-session detection of the account creation commands, rather than sparse Event IDs discovered in post-incident review.</choice>
+        <choice key="C">A PAM solution encrypts all privileged credentials so even if stolen they cannot be used, effectively replacing MFA for administrator accounts.</choice>
+        <choice key="D">A PAM solution logs privileged activity to the same Windows Event Log already shown in Exhibit A, providing no additional visibility beyond what was already captured.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>PAM provides capabilities beyond standard event logging: session recording captures a full video/keystroke record; just-in-time access means credentials are only active for a specific approved window, making persistent stolen credentials less useful; credential vaulting rotates passwords automatically so harvested credentials expire; behavioral alerting detects anomalous patterns (creating new accounts mid-session) in real time rather than requiring post-incident log review. These capabilities would have flagged the svc_backup creation as anomalous during the attacker's session rather than hours later in log review.</explanation>
+      <distractor_rationale>
+        <choice key="A">PAM controls access to privileged credentials - it does not inherently block specific commands within an authenticated session. Its value is detection, recording, and just-in-time access control, not blocking specific shell commands.</choice>
+        <choice key="C">PAM credential vaulting manages and rotates credentials but does not make stolen credentials useless in the same way MFA does. PAM and MFA are complementary - addressing different aspects of privileged access security.</choice>
+        <choice key="D">PAM provides session recording (video), behavior analytics, just-in-time provisioning, and credential vaulting - fundamentally different from Windows Event IDs, which record individual events without behavioral baselining or session context.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S04-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S04</stimulus_ref>
+        <topic_refs>4.2 4.3</topic_refs><lo_refs>LO 4.2.A LO 4.3.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 4.3.B" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 4.2.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.45</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>165</est_response_time_sec>
+        <prerequisite_topics>4.2 4.3</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The CISO must present a revised authentication policy aligned with NIST SP 800-63B. Using the auditor notes, which policy revision set is most complete and aligned with current best practice?</stem>
+      <choices>
+        <choice key="A">Increase minimum password length to 20 characters, reduce rotation to every 180 days, and require MFA for all cloud console access. Keep RDP single-factor since it is protected by the perimeter firewall.</choice>
+        <choice key="B">Outsource identity management to a third-party SSO provider and eliminate all internal password requirements, since SSO providers handle security automatically.</choice>
+        <choice key="C">Keep existing policy but enforce it more strictly through HR disciplinary action for non-compliance, which will improve adherence without requiring technical changes.</choice>
+        <choice key="D">Remove mandatory rotation (replace with breach-list screening at password change); set minimum length to 15 characters with no character-class requirements; require MFA for ALL remote access (RDP, VPN, email, cloud console) with technical enforcement; reduce inactive account review to 90 days with automated disablement at threshold; eliminate shared service accounts or require individual assignment with justification; deploy PAM for all privileged accounts with mandatory session recording.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>B implements NIST SP 800-63B comprehensively: removing rotation (replacing with breach screening) eliminates predictable rotation patterns; length-only requirements encourage passphrases without symbol-appending; MFA for ALL remote access with technical enforcement closes the "recommended" gap that enabled the Exhibit A attack; 90-day automated inactive account disablement prevents zombie account accumulation; eliminating shared accounts restores individual audit trail accountability; PAM adds session recording and real-time anomaly detection. Each change addresses a documented auditor finding.</explanation>
+      <distractor_rationale>
+        <choice key="A">Keeping RDP single-factor because "the perimeter firewall protects it" directly repeats the rationale that enabled the Exhibit A compromise - the firewall rule permitting RDP from the internet shows perimeter protection alone is insufficient. MFA provides defense in depth independent of perimeter integrity.</choice>
+        <choice key="B">SSO handles authentication federation, not security policy definition. An SSO deployment still requires defining required authentication factors, credential management, and access controls. SSO is an implementation mechanism, not a replacement for having a policy.</choice>
+        <choice key="C">Enforcing an outdated policy more strictly does not fix its technical inadequacies. 90-day rotation with 8-character minimum remains NIST-deprecated regardless of enforcement stringency. Technical controls enforce policy more reliably than disciplinary mechanisms.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S05 - IoT Device Security (Firmware + Default Credentials)
+     Topics: 4.1, 4.3 | Skills: 1.A 1.C 2.A 1.D+2.A -->
+<stimulus_set id="U4-S05" difficulty_range="1-3">
+  <stimulus>
+    <type>iot_device_inventory</type>
+    <label>Exhibit E - Medical IoT Device Inventory: Meridian Health Clinic</label>
+    <context>Meridian Health Clinic installed 7 networked medical IoT devices (infusion pumps and patient monitoring units) two years ago. During a security review the biomedical engineering team produced the following status table.</context>
+    <artifact format="log_file">
+      <log_type>Medical IoT Device Inventory - Firmware and Security Status</log_type>
+      <entries>
+DEVICE_ID   TYPE            FIRMWARE  LATEST   DAYS_BEHIND  DEFAULT_CREDS     NETWORK_SEG
+----------- --------------- --------- -------- ------------ ----------------- -----------
+PUMP-01     Infusion Pump   v2.1.0    v2.4.2   847          YES (admin/admin)  VLAN 1
+PUMP-02     Infusion Pump   v2.1.0    v2.4.2   847          YES               VLAN 1
+MONITOR-01  Patient Monitor v1.0.0    v1.8.3   1100         YES (root/root)   VLAN 1
+MONITOR-02  Patient Monitor v1.5.2    v1.8.3   488          YES               VLAN 1
+MONITOR-03  Patient Monitor v1.5.2    v1.8.3   488          NO                VLAN 1
+MONITOR-04  Patient Monitor v1.0.0    v1.8.3   1100         YES (root/root)   VLAN 1
+      </entries>
+      <note>All devices on VLAN 1 shared with clinical workstations and guest WiFi. Manufacturer advisory: firmware v2.1.x contains unpatched RCE vulnerability. Default credentials unchanged since installation.</note>
+    </artifact>
+    <provenance>Fictional. All device details are invented for educational purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S05-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S05</stimulus_ref>
+        <topic_refs>4.1</topic_refs><lo_refs>LO 4.1.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.1.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.40</b_param><a_param>0.88</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>4.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Five of six devices still use factory default credentials (admin/admin, root/root). Which security principle does leaving default credentials unchanged most directly violate?</stem>
+      <choices>
+        <choice key="A">Least privilege - default credentials grant too many permissions to too many users.</choice>
+        <choice key="B">Availability - default credentials allow attackers to change administrative settings and take devices offline.</choice>
+        <choice key="C">Confidentiality - default credentials expose patient monitoring data to unauthorized viewers.</choice>
+        <choice key="D">Secure configuration (hardening) - all devices must have factory defaults changed before deployment because default credentials are publicly documented and exploited by automated scanners within hours of network connectivity.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Changing default credentials before deployment is one of the most fundamental hardening requirements documented in CIS Benchmarks, NIST SP 800-123, and manufacturer security guidelines. Default credentials (admin/admin, root/root) are publicly listed in product manuals, indexed by Shodan, and targeted by Mirai-variant botnets within minutes of internet exposure. Medical IoT devices on a flat network alongside clinical workstations are particularly high-risk - compromising a patient monitor via default credentials grants network-level access to the entire clinical VLAN.</explanation>
+      <distractor_rationale>
+        <choice key="A">Least privilege governs what an authenticated user can do within a system. Default credentials are an authentication weakness - the principle violated is secure configuration, not the scope of privileges post-authentication.</choice>
+        <choice key="B">Availability is one potential impact, but it is a consequence, not the security principle violated. The principle is the mandatory hardening baseline that defaults must be changed before any device connects to a network.</choice>
+        <choice key="C">Confidentiality is impacted when unauthorized access occurs, but the principle violated by not changing defaults is the mandatory pre-deployment hardening step - which protects all three CIA dimensions simultaneously.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S05-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S05</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.A LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.1.A" weight="0.70"/>
+        <secondary skill="3.A" lo="LO 4.3.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.52</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>MONITOR-01 and MONITOR-04 run firmware v1.0.0, 1100 days behind current. The biomedical team argues "firmware updates on medical devices require FDA re-certification and cannot be applied routinely." Explain the security risk of accepting this argument without further mitigation.</stem>
+      <choices>
+        <choice key="A">The FDA re-certification argument is correct and no further action is needed - regulatory compliance requirements override cybersecurity best practices for medical devices.</choice>
+        <choice key="B">While FDA re-certification requirements are real for functional changes, accepting 1100+ days of exposure to known vulnerabilities on patient monitoring devices without any compensating controls is clinically indefensible. Compensating controls - network isolation (dedicated medical device VLAN, no routing to clinical workstations or internet), disabling unused network services, monitoring device traffic for anomalies - must be deployed while the update path is pursued through the appropriate regulatory channel.</choice>
+        <choice key="C">Firmware version v1.0.0 indicates first-generation hardware that should be physically replaced rather than updated, since patches are not appropriate for early hardware generations.</choice>
+        <choice key="D">The FDA re-certification concern only applies to firmware that modifies clinical function - security-only patches can be applied immediately without re-certification.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The FDA approval pathway for medical device firmware is real but does not justify zero compensating controls. NIST IR 8228 and FDA's own post-market cybersecurity guidance acknowledge that when patching is delayed by regulatory processes, compensating controls must fill the gap. Network segmentation - a dedicated medical device VLAN with no routing to clinical workstations or internet - limits the blast radius of any compromised device to the medical segment only, preventing lateral movement to patient records or wider hospital infrastructure while the update pathway is pursued.</explanation>
+      <distractor_rationale>
+        <choice key="A">The FDA publishes cybersecurity guidance for medical devices and does not exempt them from security controls. FDA's 2022 guidance on cybersecurity in medical devices explicitly discusses compensating controls and vulnerability management during approval processes.</choice>
+        <choice key="C">Firmware version numbers do not indicate hardware generation. v1.0.0 is a software release identifier. Manufacturers routinely support older hardware with firmware security updates independent of the hardware's age.</choice>
+        <choice key="D">This partially reflects FDA guidance but oversimplifies: even security-only patches require manufacturer testing and validation before clinical deployment. "Can be applied immediately" is not accurate for regulated medical environments without manufacturer and clinical validation.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S05-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S05</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.B LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 4.3.A" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 4.1.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>All six devices sit on VLAN 1 with clinical workstations, the rogue AP from Unit 3 Exhibit A, and guest WiFi clients. Which single network configuration change most significantly reduces risk from both the default credentials and outdated firmware vulnerabilities simultaneously?</stem>
+      <choices>
+        <choice key="A">Change default credentials on all six devices immediately, blocking unauthorized access regardless of network topology.</choice>
+        <choice key="B">Move all medical IoT devices to a dedicated isolated VLAN (e.g., VLAN 40) with no routing to clinical workstations, guest WiFi, or internet - only allowing communication to a specific clinical application server on defined ports. This limits any compromised device's network reach regardless of whether firmware is patched or defaults are changed.</choice>
+        <choice key="C">Disable WiFi on all medical IoT devices and require wired Ethernet only, preventing wireless attack vectors.</choice>
+        <choice key="D">Install a host-based firewall on each medical device blocking all inbound connections from any network segment.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>VLAN isolation addresses both risks simultaneously without modifying the devices: (1) if a device is compromised via default credentials, the attacker is contained within the medical device VLAN - they cannot reach clinical workstations or patient records; (2) if an outdated firmware vulnerability is exploited remotely, lateral movement is blocked by the VLAN boundary. The switch-level isolation requires no device modification, no clinical risk, and can be completed in hours via switch configuration - making it the fastest, safest, and most comprehensive interim control.</explanation>
+      <distractor_rationale>
+        <choice key="A">Changing credentials is essential but addresses only the authentication vulnerability. An attacker who subsequently obtains new credentials still has full VLAN 1 access to clinical workstations. Credentials alone do not limit lateral movement scope.</choice>
+        <choice key="C">Disabling WiFi removes one attack vector but does not address exploitation of firmware vulnerabilities via wired network access - all devices remain on VLAN 1 and are reachable from any connected device regardless of their wireless status.</choice>
+        <choice key="D">Medical IoT devices often run embedded firmware without configurable host-based firewalls. Even if available, blocking inbound connections may prevent clinical monitoring software from communicating with the device, breaking primary clinical function.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S05-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S05</stimulus_ref>
+        <topic_refs>4.1 4.3</topic_refs><lo_refs>LO 4.1.A LO 4.3.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.D" lo="LO 4.3.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 4.3.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.45</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>165</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The security review must produce a prioritized IoT remediation plan addressing: (1) default credentials on 5/6 devices; (2) outdated firmware with known RCE on 4/6 devices; (3) flat network placing IoT alongside clinical workstations. Using DAYS_OPEN values and patient safety context, document the correct priority order with justification.</stem>
+      <choices>
+        <choice key="A">First: firmware updates (highest CVSS). Second: default credentials. Third: network segmentation (requires infrastructure change and is lowest priority).</choice>
+        <choice key="B">First: network segmentation (VLAN isolation) - limits blast radius of both credential and firmware risks simultaneously, requires no device modification, and can be completed in hours. Second: change default credentials - eliminates lowest-friction attack vector before tackling more complex firmware remediation. Third: pursue firmware update path through manufacturer and regulatory channel - most complex, benefits from protection already provided by isolation and credential hardening.</choice>
+        <choice key="C">Replace all six devices with newer models immediately, eliminating all three risks simultaneously.</choice>
+        <choice key="D">First: default credentials. Second: firmware updates. Third: network segmentation - architectural changes should follow device-level hardening.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Prioritization logic: (1) Network isolation first - fastest to implement (switch config, no device downtime, no regulatory approval), provides immediate blast-radius containment for both credential and firmware risks, avoids any device modification risk in a clinical environment where device availability is patient-safety-critical; (2) Default credentials second - once isolated, closes the lowest-friction attack vector with minimal device interaction; (3) Firmware updates last - longest timeline due to manufacturer coordination and regulatory pathway, but the first two controls have already significantly reduced exposure while this is pursued. This follows the incident response principle: contain first, then harden incrementally.</explanation>
+      <distractor_rationale>
+        <choice key="A">Firmware updates first faces the longest timeline due to regulatory requirements - prioritizing them delays faster-deployable controls that provide immediate risk reduction. In a clinical environment, extended exposure during a slow firmware update process poses unacceptable patient safety risk.</choice>
+        <choice key="C">Device replacement is the slowest, most expensive option and should be planned for end-of-life devices while interim controls protect patients. Waiting for replacement without interim controls accepts unmitigated risk during procurement timelines measured in months.</choice>
+        <choice key="D">Credential change before isolation means that during the subsequent firmware update period (which may take months), the firmware vulnerability is still fully exposed to the clinical network. Isolation should precede credential changes to maximize the protective benefit of each subsequent step.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S06 - Unattended Workstation Incident
+     Topics: 4.2, 4.3 | Skills: 1.A 1.C 2.A 1.D+2.A -->
+<stimulus_set id="U4-S06" difficulty_range="1-3">
+  <stimulus>
+    <type>incident_report</type>
+    <label>Exhibit F - Incident Report: Unattended Unlocked Workstation, Xtensr Labs</label>
+    <context>An HR manager left their workstation unlocked for 45 minutes during a meeting. The security team reviewed CCTV footage and filed the following report.</context>
+    <artifact format="incident_report">
+      <org>Xtensr Labs - Security Operations</org>
+      <report_id>IR-2024-0314-02</report_id>
+      <date_of_incident>2024-03-14, 10:15-11:02</date_of_incident>
+      <narrative>
+At 10:15, HR Manager D. Osei left HR-WS-01 unlocked and unattended for a 45-minute meeting.
+At 10:17, an unidentified individual entered the HR office (door propped open) and sat at
+HR-WS-01 for approximately 4 minutes.
+
+CCTV observations during the 4-minute period:
+  - Individual opened browser to HR self-service portal
+  - Individual connected a personal USB drive to the left USB port
+  - Individual accessed D.Osei's open email client
+  - Individual printed two documents from the adjacent printer
+
+Post-incident findings:
+  - HR portal session: 14 employee records accessed (names, salaries, SSNs)
+  - Email client: 3 outbound emails sent to external Gmail address (content unknown - deleted)
+  - USB drive: no forensic copy taken (port was not write-blocked at time of review)
+  - Printer output tray: two documents removed - content unknown
+
+D. Osei confirmed they authorized no third party to use their workstation.
+      </narrative>
+    </artifact>
+    <provenance>Fictional. All names and events are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S06-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S06</stimulus_ref>
+        <topic_refs>4.2</topic_refs><lo_refs>LO 4.2.C</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.2.C" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.35</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>4.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The entire incident was enabled because D. Osei's workstation was logged in and unlocked during a 45-minute absence. Which single control would most directly have prevented all unauthorized access to the workstation?</stem>
+      <choices>
+        <choice key="A">Locking the workstation before leaving (Windows+L or automatic lock-on-idle policy enforced by Group Policy), ensuring the session requires re-authentication before any access regardless of physical device access.</choice>
+        <choice key="B">Requiring D. Osei to use a more complex password that would be harder for the intruder to guess.</choice>
+        <choice key="C">Installing antivirus that would detect the USB device insertion and quarantine any transferred files.</choice>
+        <choice key="D">Enabling full-disk encryption on HR-WS-01, preventing the intruder from reading files even with physical device access.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>An unlocked workstation with an active session presents zero authentication barrier. Screen lock - manual (Windows+L) or automatic (2-5 minute idle timeout via Group Policy) - requires re-authentication before the session can be used. This single control would have prevented all four observed harms: portal access, USB connection with active session, email client access, and printing - none of which required defeating encryption or guessing passwords; they all exploited the already-authenticated session left open.</explanation>
+      <distractor_rationale>
+        <choice key="B">Password complexity does not help when the workstation is already unlocked and authenticated. The intruder did not need D. Osei's password - the session was active. Complex passwords protect against credential guessing at the login screen, not against a live authenticated session.</choice>
+        <choice key="C">Antivirus might detect malicious files on the USB but CCTV suggests data was copied from the workstation to the USB (not malware from USB to workstation). Antivirus also does not prevent the portal access, email sending, or printing that occurred in the same session.</choice>
+        <choice key="D">Full-disk encryption protects data on a powered-off or locked device. It has no effect on an active authenticated session - the OS has already decrypted the drive for use. An unlocked workstation with FDE is as accessible as one without it while the session is active.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S06-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S06</stimulus_ref>
+        <topic_refs>4.2 4.3</topic_refs><lo_refs>LO 4.2.C LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.3.A" weight="0.70"/>
+        <secondary skill="3.B" lo="LO 4.2.C" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.2 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The report notes "no forensic copy taken - port was not write-blocked at time of review." Explain why the absence of write-blocking during the USB port review is a significant forensic investigation failure.</stem>
+      <choices>
+        <choice key="A">Write-blocking is only needed for the suspect USB drive itself, not for reviewing the workstation USB port - the port hardware cannot be write-blocked.</choice>
+        <choice key="B">Write-blocking is a physical security measure that locks the USB port to prevent future unauthorized insertions - irrelevant to investigating past incidents.</choice>
+        <choice key="C">Without write-blocking, any tool run on the workstation during review (antivirus scan, file listing, forensic software) potentially modifies metadata (access timestamps, modification dates) on files the USB accessed - contaminating the forensic timeline and potentially making evidence inadmissible in legal or HR proceedings. Write-blocking preserves the evidential state of storage media unchanged.</choice>
+        <choice key="D">The absence of write-blocking only matters if the case proceeds to criminal court - for internal HR investigations, unblocked forensic review is acceptable standard practice.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>Digital forensic integrity requires that examination does not alter the evidence. Every read operation on a live OS updates "last accessed" timestamps; antivirus scans write quarantine logs; system tools create temporary files. Without write-blocking (hardware write blocker or forensic boot environment), the examiner's own actions contaminate the timestamps, access logs, and metadata critical for establishing what the intruder accessed and what was copied - evidence required for both internal accountability and any legal action.</explanation>
+      <distractor_rationale>
+        <choice key="A">Write-blocking applies to the storage media being examined - the workstation's hard drive should be forensically imaged before any tools run on it. The concern is not the physical port but the filesystem artifacts on the storage media.</choice>
+        <choice key="B">Write-blocking is an examination technique preserving digital evidence state, not a physical access control for the USB port. These are different controls with different purposes.</choice>
+        <choice key="D">Digital forensic best practices (NIST SP 800-86, RFC 3227) recommend write-blocking for all forensic examinations. Internal HR investigations that may later become legal matters require the same evidentiary standards. Contaminated evidence undermines all downstream processes.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S06-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S06</stimulus_ref>
+        <topic_refs>4.2 4.3</topic_refs><lo_refs>LO 4.2.C LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 4.3.B" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 4.2.C" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>4.2 4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The intruder sent 3 emails from D. Osei's open email client to an external Gmail address. Which technical control at the email gateway would have prevented data exfiltration via email during the unauthorized session, without requiring D. Osei to take any additional action?</stem>
+      <choices>
+        <choice key="A">Requiring D. Osei to re-enter their password before each email is sent.</choice>
+        <choice key="B">Configuring a Data Loss Prevention (DLP) policy on the email gateway that scans outbound emails for sensitive data patterns (SSNs, salary figures, HR record formats) and blocks or quarantines messages containing them before delivery to external recipients - operating at server level regardless of who initiates the email from D. Osei's client.</choice>
+        <choice key="C">Disabling the email client on HR-WS-01 and requiring D. Osei to use webmail only, which is harder to access from an unlocked session.</choice>
+        <choice key="D">Installing an outbound email encryption plugin that encrypts all emails automatically, preventing the Gmail recipient from reading stolen content.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>A DLP policy at the email gateway operates independently of the email client, authenticated user, or session state. Whether D. Osei or an intruder sends an email from HR-WS-01, the gateway scans content before delivery. If the email contains recognizable HR data patterns (SSN format, salary fields), the gateway blocks or quarantines it and alerts security - potentially revealing the actual email content needed to determine what was exfiltrated. This is a server-side control requiring no action by D. Osei that works regardless of workstation lock status.</explanation>
+      <distractor_rationale>
+        <choice key="A">Re-entering the password before each email would be disruptive to D. Osei's workflow and provides no protection here since the intruder had an already-authenticated session - password re-entry prompts on a compromised active session can be bypassed in various ways.</choice>
+        <choice key="C">Webmail accessed through a browser on an unlocked workstation is equally accessible to an intruder. The barrier is the workstation session lock, not the email delivery mechanism.</choice>
+        <choice key="D">Outbound email encryption protects content in transit and at rest at the recipient but does not prevent the data from being sent. The Gmail recipient's client decrypts the content. Encryption prevents interception but not intentional exfiltration to a chosen recipient.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S06-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S06</stimulus_ref>
+        <topic_refs>4.2 4.3</topic_refs><lo_refs>LO 4.2.C LO 4.3.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.D" lo="LO 4.3.B" weight="0.53"/>
+        <secondary skill="2.A" lo="LO 4.3.A" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.46</b_param><a_param>1.62</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>166</est_response_time_sec>
+        <prerequisite_topics>4.2 4.3</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The incident enabled four distinct harms: (1) HR portal data access (14 records with SSNs/salaries); (2) email exfiltration (3 emails to external Gmail); (3) USB data transfer (no forensic copy); (4) physical document theft (2 printed documents). Document the minimum control addressing each harm independently, and identify which single control prevents the most harms simultaneously.</stem>
+      <choices>
+        <choice key="A">Screen lock prevents all four harms simultaneously - it is the single highest-value control and no other controls are needed.</choice>
+        <choice key="B">Disabling USB ports on all HR workstations prevents harm 3 and indirectly prevents harm 1 because the attacker would have less exploration time - making USB port disablement the highest single-value control.</choice>
+        <choice key="C">Installing antivirus on HR-WS-01 would detect the USB device, alert the SOC, and prevent email exfiltration through behavior monitoring - making it the single highest-value control across all four harms.</choice>
+        <choice key="D">Harm 1 (portal): session-scoped MFA requiring re-authentication for sensitive HR data access. Harm 2 (email): DLP gateway blocking external email with HR data patterns. Harm 3 (USB): endpoint USB device control blocking unregistered drives from mounting. Harm 4 (printing): print job authentication requiring badge swipe before release. Single most impactful control: workstation auto-lock policy (5-minute idle timeout via Group Policy) - it prevents all four harms by eliminating the unauthorized session before any harmful action occurs.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>B correctly identifies independent controls for each harm AND the single highest-value control: auto-lock prevents the unauthorized session entirely, making all four individual controls redundant for this specific incident. However, the independent controls matter for defense in depth: if screen lock fails (too-long timeout, policy disabled), DLP stops harm 2, USB device control stops harm 3, print release authentication stops harm 4, and session-scoped MFA stops harm 1. Auto-lock is highest-value because it has 4/4 harm prevention coverage at the session level; each individual control covers at most 1/4 harms.</explanation>
+      <distractor_rationale>
+        <choice key="A">Screen lock does prevent all four harms simultaneously, making it the highest-value single control - but A fails to identify independent controls for each harm, which the question specifically asks for. Defense in depth requires controls at multiple layers, not relying solely on session lock.</choice>
+        <choice key="B">USB port disablement prevents harm 3 but has no effect on harms 1 (portal via browser), 2 (email via client), or 4 (printing). The "indirect" time-management effect is speculative and not a documented control mechanism.</choice>
+        <choice key="C">Antivirus detects known malicious files - it does not prevent USB data copying (legitimate-looking file transfer), does not scan email content at the gateway level, does not prevent portal access, and does not stop printing. It would not have prevented any of the four documented harms.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S07 - Windows Server Hardening Assessment
+     Topics: 4.3 | Skills: 1.A 1.C 3.A 3.A+1.D -->
+<stimulus_set id="U4-S07" difficulty_range="1-3">
+  <stimulus>
+    <type>hardening_checklist</type>
+    <label>Exhibit G - CIS Benchmark Assessment: ClearPath Financial File Server</label>
+    <context>ClearPath Financial's quarterly CIS Benchmark assessment of FILESERV-01 (Windows Server 2019) produced the following high-severity failing controls.</context>
+    <artifact format="log_file">
+      <log_type>CIS Microsoft Windows Server 2019 Benchmark - Failed Controls (HIGH + CRITICAL)</log_type>
+      <entries>
+CONTROL  DESCRIPTION                                     STATUS  SEV       RATIONALE
+-------- ----------------------------------------------- ------- --------- -----------------------
+1.1.1    Enforce password history (24 passwords)         FAIL    HIGH      Currently set to 5
+2.3.1    Disable SMBv1 protocol                          FAIL    CRITICAL  WannaCry/EternalBlue
+2.3.2    Require SMB signing on domain members           FAIL    HIGH      SMB relay attacks
+9.1.1    Windows Firewall enabled (domain profile)       FAIL    HIGH      Firewall disabled
+17.1.1   Audit logon events (Success and Failure)        FAIL    HIGH      No logon auditing
+18.2.1   Disable LLMNR                                   FAIL    HIGH      Credential relay via Responder
+18.3.1   Disable WPAD                                    FAIL    HIGH      MITM credential capture
+      </entries>
+    </artifact>
+    <provenance>Fictional assessment. CIS Benchmark control IDs are real references used for educational purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S07-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S07</stimulus_ref>
+        <topic_refs>4.3</topic_refs><lo_refs>LO 4.3.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 4.3.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.28</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Control 2.3.1 (Disable SMBv1) is rated CRITICAL with rationale "WannaCry/EternalBlue." SMBv1 was patched by Microsoft in March 2017 (MS17-010). Why is an enabled SMBv1 on a production server in 2024 still rated CRITICAL rather than historical/low-risk?</stem>
+      <choices>
+        <choice key="A">WannaCry is now obsolete - CRITICAL severity is an artifact of outdated benchmark templates not updated since 2017.</choice>
+        <choice key="B">The CRITICAL rating is primarily due to SMBv1 performance degradation on modern networks - the security concern is secondary to operational impact.</choice>
+        <choice key="C">Even with MS17-010 patched, SMBv1 has fundamental protocol-level weaknesses (no mandatory signing, no encryption, weaker authentication) that make it vulnerable to credential relay attacks independent of the EternalBlue exploit. Disabling SMBv1 eliminates an entire attack surface - not just one CVE - and any system with SMBv1 reachable via network without signing is exploitable via SMB relay with tools like Responder and Impacket.</choice>
+        <choice key="D">SMBv1 is CRITICAL because it prevents Windows from applying future security updates automatically.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>SMBv1 disablement is separate from patching the EternalBlue CVE. Even fully patched SMBv1 has protocol-design weaknesses that SMBv2/v3 address: lack of mandatory signing enables SMB relay attacks; no transport encryption; weaker authentication negotiation. Controls 18.2.1 (LLMNR) and 18.3.1 (WPAD) in the same checklist are related - LLMNR/WPAD poisoning captures credentials that are relayed over SMBv1 to authenticate to servers without challenge. The combination of SMBv1 + no SMB signing + LLMNR enabled creates a documented actively-exploited attack chain that compromises servers without any CVE exploitation. Microsoft disabled SMBv1 by default in Windows 10 v1709 and later precisely because its design weaknesses are unfixable by patch.</explanation>
+      <distractor_rationale>
+        <choice key="A">SMB relay attacks using Responder remain standard lateral movement techniques in 2024. The protocol weaknesses are design-level (not patchable), which is why Microsoft deprecated SMBv1 entirely rather than patching it further.</choice>
+        <choice key="B">SMBv1 has negligible performance impact on modern hardware. The CRITICAL rating is purely a security designation based on exploitation prevalence and severity.</choice>
+        <choice key="D">SMBv1 has no relationship to Windows Update functionality. Windows Update uses HTTPS, not SMB protocol. These are independent systems.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S07-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S07</stimulus_ref>
+        <topic_refs>4.3</topic_refs><lo_refs>LO 4.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 4.3.A" weight="0.70"/>
+        <secondary skill="3.A" lo="LO 4.3.B" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.52</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Control 17.1.1 shows logon auditing (success and failure) is not configured. Control 9.1.1 shows Windows Firewall is disabled on the domain profile. Explain why both failures compound each other to create a particularly dangerous configuration.</stem>
+      <choices>
+        <choice key="A">The firewall failure is the primary risk and auditing failure is minor - network monitoring provides detection even without endpoint logon audit events.</choice>
+        <choice key="B">Without the firewall all ports are exposed, and without logon auditing, brute-force attacks on those exposed ports produce no Event 4625 records - the attacker can attempt unlimited authentication without generating detectable log artifacts, and any successful authentication has no baseline for anomaly detection.</choice>
+        <choice key="C">Both controls are redundant with Active Directory domain controller logs - disabling them on a domain member server has no security impact since domain logons are logged centrally.</choice>
+        <choice key="D">The Windows Firewall failure is more severe because it prevents Windows Defender from updating its signature database.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The two failures interact adversarially: (1) disabled Windows Firewall means all services (SMB, RDP, WMI, SQL) normally blocked inbound are reachable - attackers can attempt authentication against any listening service; (2) disabled logon auditing means failed attempts (Event 4625) and successes (Event 4624) are not recorded locally. An attacker brute-forcing the file server's exposed services generates no log evidence - the SOC cannot detect it, measure scope, or confirm when successful authentication occurred. The combination creates an exposed, invisible attack surface where intrusion leaves no local forensic trace.</explanation>
+      <distractor_rationale>
+        <choice key="A">Network monitoring can detect connection volume anomalies but cannot correlate them with authentication outcomes without endpoint log data. A successful authentication following failed attempts may be indistinguishable from legitimate access in network metadata alone.</choice>
+        <choice key="C">Domain controller logs capture domain account logons but not local service logons. Local accounts (like svc_backup from Exhibit A) authenticate against the local SAM database - these logons do not appear in domain controller logs at all.</choice>
+        <choice key="D">Windows Defender signature updates use HTTPS via Windows Update, completely independent of Windows Firewall domain profile settings. These are entirely separate systems.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S07-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S07</stimulus_ref>
+        <topic_refs>4.3</topic_refs><lo_refs>LO 4.3.A LO 4.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.3.B" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 4.3.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>102</est_response_time_sec>
+        <prerequisite_topics>4.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Controls 18.2.1 (Disable LLMNR) and 18.3.1 (Disable WPAD) are both rated HIGH in a server hardening benchmark. Which explanation most accurately describes the attack vector these protocols enable on a local network?</stem>
+      <choices>
+        <choice key="A">LLMNR and WPAD are only attack vectors on wireless networks - disabling them is unnecessary for wired servers.</choice>
+        <choice key="B">LLMNR and WPAD are only relevant for client workstations - servers do not initiate LLMNR queries and are not affected by WPAD poisoning.</choice>
+        <choice key="C">LLMNR and WPAD are Windows protocols that broadcast name resolution requests on the local network segment. An attacker running Responder on the same segment responds to these broadcasts with their own address, causing Windows clients and servers to authenticate to the attacker's host using NTLM credentials - which can then be relayed to other servers (SMB relay) or cracked offline. Disabling them eliminates the mechanism by which attackers passively collect NTLM credentials without any active exploitation.</choice>
+        <choice key="D">LLMNR and WPAD attacks require the attacker to have already compromised a host on the network - they cannot be initiated from an external position.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>LLMNR/WPAD poisoning are passive credential capture techniques requiring only network adjacency (not prior compromise). When Windows cannot resolve a hostname via DNS, it falls back to LLMNR/NetBIOS broadcast. Responder intercepts these broadcasts and responds - Windows then attempts NTLM authentication to the attacker's "resolved" host. The captured hash is cracked offline or relayed to authenticate to other servers (if SMB signing is disabled - as shown in Control 2.3.2). Servers initiate name resolution queries for log targets, backup servers, network shares, and other resources - they are equally susceptible to Responder attacks as clients.</explanation>
+      <distractor_rationale>
+        <choice key="A">LLMNR operates at the IP network layer, functioning identically on wired and wireless. The broadcast is a network-layer protocol, not a wireless-specific mechanism.</choice>
+        <choice key="B">Servers do initiate LLMNR queries - any Windows process that attempts hostname resolution failing DNS falls back to LLMNR. Backup agents, monitoring software, and administrative tools all trigger this fallback.</choice>
+        <choice key="D">LLMNR/WPAD poisoning is specifically a network-adjacency technique - an attacker with wired or WiFi network access (or VPN) can run Responder without any prior host compromise. This is frequently used as a first-foothold technique.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S07-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S07</stimulus_ref>
+        <topic_refs>4.3</topic_refs><lo_refs>LO 4.3.A LO 4.3.B LO 4.3.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.3.C" weight="0.53"/>
+        <secondary skill="1.D" lo="LO 4.3.B" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.46</b_param><a_param>1.62</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>166</est_response_time_sec>
+        <prerequisite_topics>4.3</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The security team must remediate all seven failing controls in one maintenance window. Controls 2.3.1 (SMBv1), 2.3.2 (SMB signing), 18.2.1 (LLMNR), 18.3.1 (WPAD) form an interconnected attack chain. Controls 9.1.1 (firewall), 17.1.1 (auditing), 1.1.1 (password history) are independent. Which implementation order minimizes risk during the maintenance window?</stem>
+      <choices>
+        <choice key="A">Apply all changes simultaneously via Group Policy push - most efficient and minimizes maintenance window duration.</choice>
+        <choice key="B">Disable SMBv1 last because it is most likely to break legacy applications - test all other changes before touching SMBv1.</choice>
+        <choice key="C">Apply password policy controls first, then SMB changes, then firewall - progressing from least-disruptive to most-disruptive.</choice>
+        <choice key="D">First enable auditing (17.1.1) and firewall (9.1.1) - these provide detection and containment capability before other changes are made. Then disable LLMNR and WPAD (18.2.1, 18.3.1) to close passive credential capture. Then disable SMBv1 (2.3.1) and enable SMB signing (2.3.2) together as an interdependent pair, testing after application. Finally apply password history (1.1.1) which takes effect at next password change with no service impact.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>The sequencing follows three principles: (1) Detection before remediation - enabling auditing first means any issues during subsequent changes are logged; (2) Containment before protocol changes - enabling the firewall before modifying SMB configuration limits blast radius if a change causes unexpected behavior; (3) Interdependent controls together - SMBv1 and SMB signing are tested as a pair because disabling SMBv1 may break legacy client dependencies and enabling signing requires verifying no legitimate traffic breaks. Password history changes last because they take effect only at next password change (no service disruption) and provide no immediate security benefit during the window.</explanation>
+      <distractor_rationale>
+        <choice key="A">Simultaneous Group Policy push is high risk - if SMBv1 disablement breaks a legacy dependency, simultaneous firewall enablement may prevent administrator access to reverse the change. Sequential application with verification allows targeted rollback of individual changes.</choice>
+        <choice key="B">Saving SMBv1 (CRITICAL severity) for last applies the highest-severity control under maximum time pressure with least time for testing and rollback. CRITICAL controls should be addressed early after detection and containment are established, not last.</choice>
+        <choice key="C">Password history changes provide no immediate security benefit during the maintenance window and produce no service disruption, making them the lowest-urgency change. Starting with them uses window time on the lowest-value control first, leaving the high-value changes (firewall, auditing, SMBv1) for later when time pressure is higher.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S08 - Agricultural IoT Compromise Investigation
+     Topics: 4.1, 4.4 | Skills: 1.A 3.B 3.A 3.A+1.D -->
+<stimulus_set id="U4-S08" difficulty_range="1-3">
+  <stimulus>
+    <type>investigation_report</type>
+    <label>Exhibit H - Device Compromise Investigation: Meridian AgriTech Cooperative IoT</label>
+    <context>A regional agricultural cooperative discovered network-connected grain silo sensors and irrigation controllers had been remotely accessed and manipulated. The following investigation report was filed after engaging a forensic firm.</context>
+    <artifact format="investigation_report">
+      <org>Meridian AgriTech Cooperative - IT Security Investigation</org>
+      <report_id>INV-2024-AGRI-001</report_id>
+      <date>March 20, 20XX</date>
+      <subject>Investigation: Unauthorized Access to Agricultural IoT Control Systems</subject>
+      <findings>
+DEVICE SCOPE:
+  47 grain silo temperature/humidity sensors (firmware v1.2.0, released 2019)
+  12 irrigation controllers (firmware v2.0.1, released 2020)
+  All communicate via MQTT over port 1883 (unencrypted, no authentication)
+
+ACCESS METHOD:
+  Attacker found devices via Shodan search for MQTT port 1883 default banner
+  MQTT broker: no authentication configured (anonymous connections permitted)
+  No TLS on MQTT channel
+
+ACTIONS OBSERVED:
+  - Temperature thresholds on 31 silos modified (set to non-alert values)
+  - Irrigation schedules on 8 controllers modified (overwatering)
+  - Firmware update pushed to 15 sensors from unknown origin
+
+TIMELINE:
+  First unauthorized connection: Feb 14
+  Last confirmed access: Mar 03 (18 days before discovery)
+
+ROOT CAUSES:
+  1. Default MQTT config: no authentication, no TLS
+  2. Devices directly internet-accessible via public IP (no firewall/NAT)
+  3. No firmware signature verification on devices
+  4. No network monitoring or anomaly detection on MQTT broker
+      </findings>
+    </artifact>
+    <provenance>Fictional. All organizations and events are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U4-S08-Q1">
+      <meta><unit>U4</unit><stimulus_ref>U4-S08</stimulus_ref>
+        <topic_refs>4.1</topic_refs><lo_refs>LO 4.1.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 4.1.A" weight="0.80"/>
+        <secondary skill="3.B" lo="LO 4.4.A" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta><b_param>-0.25</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>4.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The report states the MQTT broker "had no authentication configured" and devices were "directly internet-accessible via public IP." Which two fundamental IoT security principles did these conditions violate?</stem>
+      <choices>
+        <choice key="A">Availability and redundancy - lack of authentication makes devices unable to maintain uptime guarantees.</choice>
+        <choice key="B">Authentication (requiring identity verification before allowing any command or data access) and network exposure minimization (IoT control systems should be behind NAT/firewall and never directly internet-accessible without specific justified requirement) - both foundational IoT security requirements in NIST IR 8228.</choice>
+        <choice key="C">Non-repudiation and audit trail - lack of authentication means actions cannot be attributed to specific users.</choice>
+        <choice key="D">Encryption and data integrity - the violation was specifically the MQTT channel lacking TLS, not authentication or network exposure.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Two distinct foundational principles are violated: (1) Authentication - MQTT without credentials means any device that can reach port 1883 can subscribe to all sensor topics, publish commands to all controllers, and push firmware updates with no identity verification; (2) Network exposure minimization - NIST IR 8228 explicitly states IoT devices should not be directly internet-accessible without justification; control systems belong behind NAT/firewall with specific access rules, not discoverable on Shodan. Together these gave the attacker both discovery access (Shodan found them) and unrestricted command access (no credentials required).</explanation>
+      <distractor_rationale>
+        <choice key="A">Availability addresses uptime and failover, not access control. The security failures here are authentication and exposure-related, not availability-architectural.</choice>
+        <choice key="C">Non-repudiation requires authenticated audit logs capturing attributed actions. While the investigation would benefit from non-repudiation, the root cause violations enabling the attack were authentication absence and direct internet exposure - not the audit trail gap.</choice>
+        <choice key="D">TLS encryption is root cause 1 (listed separately in the report as "no TLS"). The question asks which two principles the authentication and network exposure conditions violated specifically - those map to authentication and exposure minimization.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S08-Q2">
+      <meta><unit>U4</unit><stimulus_ref>U4-S08</stimulus_ref>
+        <topic_refs>4.1 4.4</topic_refs><lo_refs>LO 4.1.B LO 4.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 4.4.A" weight="0.70"/>
+        <secondary skill="1.C" lo="LO 4.1.B" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.52</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>4.1 4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Root cause 3 states "no cryptographic firmware signature verification." The attacker pushed firmware to 15 sensors from an unknown origin. Analyze what absence of firmware signature verification enables and why it is particularly dangerous in an agricultural control context.</stem>
+      <choices>
+        <choice key="A">Without signature verification, any MQTT client reaching the broker can push arbitrary firmware. Malicious firmware can alter sensor readings (reporting normal temperatures while real values trigger spoilage), disable alert thresholds silently, add persistent backdoors surviving factory reset, or disable devices during critical periods. In agricultural context, corrupted grain storage data could cause undetected crop spoilage at scale and food safety violations since the manipulation appears as normal sensor readings.</choice>
+        <choice key="B">Firmware without signature verification only risks device bricking - unsigned firmware might crash sensors but cannot cause malicious behavior since sensors have no CPU to execute arbitrary code.</choice>
+        <choice key="C">Unsigned firmware is dangerous only with physical device access - remote firmware push requires signing regardless of MQTT authentication state.</choice>
+        <choice key="D">The firmware update risk is minor because sensors can always be manually reset to factory firmware eliminating any malicious changes.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Firmware signature verification (the manufacturer's private key signs the firmware; the device verifies with an embedded public key) ensures only authorized firmware runs. Without it, any firmware binary the MQTT broker accepts installs permanently. Malicious firmware reporting false-normal temperature values while real conditions exceed spoilage thresholds is particularly insidious: (1) the manipulation is invisible (readings appear correct); (2) harm affects food safety at scale (31 silos); (3) damage may not be discovered until physical inspection reveals spoiled grain weeks later. This is qualitatively different from a data breach - it causes direct physical-world harm.</explanation>
+      <distractor_rationale>
+        <choice key="B">IoT sensors run embedded software (firmware) on microcontrollers - that is how firmware works. Firmware IS executable code controlling sensor behavior. Sensors absolutely execute arbitrary code through their firmware - the entire function of the device is firmware-defined.</choice>
+        <choice key="C">The report demonstrates remote firmware push via MQTT without physical access - the attacker used this capability against 15 sensors remotely. Signature verification operates at the device level (the device checks the signature before installation) independently of the transport mechanism.</choice>
+        <choice key="D">Factory reset may not restore genuine firmware if malicious firmware disabled the reset function or modified the update mechanism. Assuming factory reset is always reliable is not sound incident response for devices with unknown malicious firmware of unknown scope.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S08-Q3">
+      <meta><unit>U4</unit><stimulus_ref>U4-S08</stimulus_ref>
+        <topic_refs>4.1 4.4</topic_refs><lo_refs>LO 4.4.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.4.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 4.4.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>102</est_response_time_sec>
+        <prerequisite_topics>4.1 4.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Unauthorized access lasted 18 days (Feb 14 to Mar 3) before discovery. Root cause 4 states "no network monitoring or anomaly detection on MQTT broker." Evaluating the monitoring capability most likely to have triggered earlier detection, which is correct?</stem>
+      <choices>
+        <choice key="A">Installing antivirus on the MQTT broker server would have detected the attacker's connection and terminated it automatically.</choice>
+        <choice key="B">MQTT broker connection logging with anomaly detection alerting on new client IDs from unknown external IPs, wildcard topic subscriptions, or publish events to firmware update topics outside scheduled maintenance windows.</choice>
+        <choice key="C">The 18-day window is acceptable - most agricultural IoT standards allow monthly review cycles and discovering the breach within a month is within norms.</choice>
+        <choice key="D">Physical inspection of grain silos would have revealed the temperature threshold changes and triggered investigation, making network monitoring redundant.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>MQTT broker logs record every client connection, subscription, and publish event. An anomaly detection rule would flag: (1) a new client ID never seen before connecting from an external IP on Feb 14; (2) that client subscribing to wildcard topics covering all sensor namespaces; (3) publish events to firmware update topics from an anonymous client. Any single anomaly would be highly irregular compared to the baseline of known agricultural management software clients. A SIEM integration or simple broker-level alert rules (flag new external IP connecting to broker) would have triggered within minutes of Feb 14, reducing the 18-day window to hours.</explanation>
+      <distractor_rationale>
+        <choice key="A">Antivirus detects malicious software on the host - not unauthorized network connections to a legitimate broker service. The attacker used the MQTT broker as designed (just without authorization). Antivirus cannot distinguish an unauthorized MQTT client from a legitimate one.</choice>
+        <choice key="C">18 days is not within acceptable standards for IoT control system intrusion. NIST CSF and ICS-CERT guidance recommends continuous monitoring with anomaly detection for OT/IoT control systems. The harm potential (food spoilage at scale, food safety) makes extended dwell time unacceptable.</choice>
+        <choice key="D">Physical inspection reveals consequences after harm has occurred, not during the access window. By the time physical spoilage is visible, the attacker may have been present for weeks and potentially pushed malicious firmware making future access persistent.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U4-S08-Q4">
+      <meta><unit>U4</unit><stimulus_ref>U4-S08</stimulus_ref>
+        <topic_refs>4.1 4.3 4.4</topic_refs><lo_refs>LO 4.1.A LO 4.3.A LO 4.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 4.3.A" weight="0.53"/>
+        <secondary skill="1.D" lo="LO 4.1.A" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.48</b_param><a_param>1.63</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>168</est_response_time_sec>
+        <prerequisite_topics>4.1 4.3 4.4</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The cooperative must redesign its agricultural IoT architecture to address all four root causes while remaining viable for a rural cooperative with limited IT staff. Which redesign most completely addresses all root causes?</stem>
+      <choices>
+        <choice key="A">Replace all 59 devices with newer authenticated models and hire a full-time OT security engineer.</choice>
+        <choice key="B">Change the MQTT port from 1883 to a non-standard port (e.g., 18830) to prevent Shodan discovery, which was the initial attack vector.</choice>
+        <choice key="C">Disconnect all 59 devices from the internet and manage them only via on-site laptop - air-gapping the entire agricultural control network.</choice>
+        <choice key="D">Implement MQTT authentication (username/password per device minimum; TLS client certificates for irrigation controllers) and TLS encryption; place all IoT devices behind NAT/firewall permitting only the management application to reach the broker; require manufacturer-signed firmware with device-level signature verification before installation; deploy lightweight MQTT broker connection logging with automated alerts on new external client IDs - all manageable through a cloud-hosted MQTT broker (AWS IoT Core, HiveMQ Cloud) providing these features without dedicated on-site IT infrastructure.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>B maps to all four root causes: (1) MQTT authentication with TLS closes the anonymous-connection and unencrypted-channel gaps; (2) NAT/firewall with application-specific access removes direct internet exposure; (3) firmware signature verification closes the unsigned-firmware gap; (4) broker connection logging with anomaly alerts closes the detection gap. The cloud broker suggestion addresses the "limited IT staff" constraint - managed cloud MQTT brokers provide authentication, TLS, connection logging, and alerting as built-in features with no on-premises infrastructure required, making this operationally viable for a small rural cooperative with no dedicated security staff.</explanation>
+      <distractor_rationale>
+        <choice key="A">Device replacement is the slowest and most expensive option. Hiring a full-time OT security engineer may not be financially viable for a rural cooperative. The architectural issues (no firewall, no monitoring) would recur with new devices if not addressed simultaneously.</choice>
+        <choice key="B">Port obfuscation is trivially defeated by a port scanner (Shodan indexes all ports). Changing to port 18830 does not implement authentication, add TLS, remove internet exposure, or add monitoring. It delays re-discovery by hours at most.</choice>
+        <choice key="C">Air-gapping removes the remote monitoring capability that motivated IoT deployment - the cooperative cannot monitor 59 field devices across large agricultural land without remote connectivity. The solution should secure remote access, not eliminate it.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+</unit_quizbank>

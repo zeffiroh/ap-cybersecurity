@@ -1,0 +1,9 @@
+# 4.1.b tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The sentence to actually internalize here is blunt on purpose: if an attacker has physical access to your device, it is no longer your device. Everything you've learned so far about strong passwords and clever authentication schemes quietly assumes the chassis in front of you is trustworthy, that nobody has opened the case, swapped the RAM, or plugged something into a port while you weren't looking. Unit 2 spent a lot of time on physical security for buildings; this skill is the same argument scaled down to a single laptop, and the punchline is identical: no software control, however well designed, survives an attacker who can touch the hardware it runs on.
+
+## The big picture
+What makes the USB Rubber Ducky and the hardware keylogger worth remembering together is that they attack from opposite directions of the exact same blind spot: operating systems are built to implicitly trust anything that looks like a keyboard, and antivirus software only ever inspects files and running code, never raw electrical signals arriving before the OS gets involved. Neither attack is a software bug; both are a category of threat that pure software defense literally cannot see, which is exactly why the fixes in this skill (BIOS passwords, disabled boot-from-USB, port blockers) are physical and firmware-level rather than another antivirus signature. Full-disk encryption deserves special attention here because it's your first real preview of Unit 4.2's authentication material: FDE bound to a TPM is really a possession-based unlock gate for an entire drive, and the cold-boot attack is a reminder, one you'll see again with session tokens in 4.2.c, that a cryptographically sound control can still fail because of exactly *when* it's active, not because the crypto itself is weak.

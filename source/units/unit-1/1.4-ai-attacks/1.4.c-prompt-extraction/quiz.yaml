@@ -1,0 +1,73 @@
+atom: 1.4.c
+title: Prompt extraction of sensitive info
+lo:
+- 1.4.A
+items:
+- id: q1
+  type: mcq
+  prompt: An LLM outputs 'sk-prod-abc123XYZ789' as part of a response. What class of sensitive data has leaked?
+  options:
+  - System prompt
+  - Email address
+  - Password
+  - API key
+  answer: 3
+  points: 1
+  explain: API keys follow recognizable token patterns (e.g. 'sk-' prefix) and grant programmatic access to services. Their presence in any output is a credential leak.
+- id: q2
+  type: mcq
+  prompt: Why can an LLM 'leak' its system prompt even when instructed to keep it confidential?
+  options:
+  - Because the system prompt is stored in a database the model can query
+  - Because the model lacks a memory of what it was told
+  - Because system prompts are always public by design
+  - Because the model treats all context, including the system prompt, as text it can reason about and quote
+  answer: 3
+  points: 1
+  explain: LLMs process all context tokens together in a single window; 'keep this secret' is a policy instruction the model may follow imperfectly when asked the right adversarial query.
+- id: q3
+  type: multi
+  prompt: Select ALL data classes that an output filter should scan for before delivering LLM responses to end users.
+  options:
+  - API keys / credentials
+  - User's account balance
+  - System-prompt contents
+  - Email addresses of internal staff
+  answer:
+  - 0
+  - 2
+  - 3
+  points: 2
+  explain: A user's account balance is legitimate output the chatbot is supposed to provide. The other three are sensitive classes (credentials, internal configuration, personal contact data) that an output filter should redact or block.
+- id: q4
+  type: short
+  prompt: Name one limitation of regex-based output filters for detecting LLM leaks.
+  accept:
+  - encoding
+  - rephrase
+  - paraphrase
+  - evade
+  - structured patterns only
+  - creative
+  - obfuscate
+  - base64
+  - split
+  - anticipate
+  points: 1
+  explain: Regex only matches patterns the defender anticipated. An adversary can evade it by rephrasing (describing the key in prose), encoding (base64), or splitting the token across sentences.
+- id: q5
+  type: mcq
+  prompt: Which architectural control best prevents a leaked API key in LLM output from being exploited?
+  options:
+  - Increasing the LLM's context window
+  - Logging all LLM outputs to a SIEM
+  - Using a larger model that is less likely to leak
+  - Never embedding live credentials in the LLM's context in the first place
+  answer: 3
+  points: 1
+  explain: The safest control is not putting live credentials in the context at all. The LLM cannot leak what it never had. Larger models or more logging do not prevent extraction of credentials that are present.
+- id: q6
+  type: code
+  prompt: Implement solve() in problem/ to detect leak types via regex (graded automatically).
+  grader: problem
+  points: 3

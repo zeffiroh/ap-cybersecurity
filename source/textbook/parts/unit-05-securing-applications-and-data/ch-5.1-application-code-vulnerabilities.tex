@@ -1,0 +1,384 @@
+\chapter{Application Code Vulnerabilities}
+\label{ch:5.1}
+\chaptertopic{Topic 5.1}
+
+\chapterquote{When you have eliminated the impossible, whatever remains, however improbable, must be the truth.}{Arthur Conan Doyle, \emph{The Sign of Four} (1890)}
+
+\section{Motivation}
+
+The final unit moves to the innermost layer of the whole course: the application code itself, and
+the data it stores. Every earlier unit assumed a working application underneath it -- a login page,
+a database, an API. This chapter is about what happens when that application trusts input it
+should not have trusted. Three examples recur throughout: a SQL query built from unescaped user
+text, a page that renders a malicious script as if the developer wrote it, and an API that forgets
+to check whether a caller owns the object they are asking for. It closes with the aggregate
+consequence of all three: the data breach, and how to size up how bad one actually is.
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.1 -- Application and Data Vulnerabilities and Attacks}
+\begin{apobjectives}
+\apobjective{5.1.A}{Analyze Risk}{Account for the ways an adversary turns a weakness in a program or a stored file into a concrete outcome for the organization that owns it -- records read that should not have been readable, records altered or erased, or a service that stops working because the data it depends on was destroyed.}
+\apobjective{5.1.B}{Analyze Risk}{Explain the mechanism by which a particular attack reaches a particular defect: which input the attacker controls, which trust boundary that input crosses unchecked, and what the receiving interpreter or check -- a SQL parser, a browser's HTML/JavaScript engine, or an API's authorization logic -- does with it once it arrives.}
+\apobjective{5.1.C}{Analyze Risk}{Judge and record the risk a given application or data weakness poses, so that the finding can be ranked against other findings and handed to whoever will decide whether to fix it, defer it, or accept it.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{SQL Injection}
+
+Web applications almost universally sit on top of a relational database, and building a query
+typically means splicing user input directly into it.
+
+\begin{definition}{SQL injection (SQLi)}
+An attack in which a user types SQL syntax instead of ordinary data, and the application pastes it
+unmodified into a query, causing the database to execute the attacker's SQL as if it were the
+application's own code.
+\end{definition}
+
+The mechanism is a simple failure to separate code from data. A query built by string concatenation
+--
+\begin{lstlisting}[language=Python, caption={An SQL-injectable login query}]
+query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "';"
+\end{lstlisting}
+lets an attacker type \texttt{admin'--} as the username. The resulting query becomes
+\texttt{SELECT * FROM users WHERE username = 'admin'--' AND password = 'anything';} -- and because
+\texttt{--} is SQL's comment character, everything after it is discarded, including the password
+check. The attacker is logged in as \texttt{admin} having supplied no password at all.
+
+Attackers have catalogued recurring payload families. \textbf{Authentication bypass} uses
+\texttt{OR} logic -- typing \texttt{' OR '1'='1} as a password makes the WHERE clause always true,
+returning the first user in the table, often an administrator. \textbf{Comment truncation} is the
+\texttt{admin'--} pattern above. \textbf{UNION-based extraction} appends the attacker's own SELECT
+to the original query -- \texttt{UNION SELECT username, password FROM users} dumps credentials
+alongside whatever the page normally returns. \textbf{Stacked queries} attempt a second statement
+entirely, as in \texttt{'; DROP TABLE users--}. \textbf{Time-based blind injection} is used when the
+application shows no visible output at all: an attacker uses \texttt{SLEEP(5)} and infers data one
+bit at a time purely from whether the response is slow.
+
+\begin{lstlisting}[language=Python, caption={Flagging SQL-injection patterns in request parameters}]
+import re
+
+SQLI_PATTERNS = [
+    re.compile(r"--"), re.compile(r"/\*"), re.compile(r"(?i)\bunion\b\s+select"),
+    re.compile(r"(?i)\bor\b\s+['\"]?1['\"]?\s*=\s*['\"]?1"),
+    re.compile(r"(?i)\bdrop\b\s+table"),
+]
+
+def flag_sqli(params):
+    """params: list of raw parameter strings.
+       Returns sorted params matching any known SQLi pattern."""
+    return sorted(p for p in params if any(pat.search(p) for pat in SQLI_PATTERNS))
+\end{lstlisting}
+
+Prevention fixes the root cause rather than filtering symptoms: a \textbf{parameterized query}
+(prepared statement) passes the SQL template and the data values to the database driver separately,
+so the driver handles quoting and escaping and user data can never be parsed as SQL syntax, no
+matter what characters it contains. A Web Application Firewall can block known payloads in transit,
+but is a supplementary layer, not a substitute for fixing the query itself.
+
+\begin{misconception}
+\textbf{``Encoding the output prevents injection.''} Output encoding is the fix for cross-site
+scripting, covered next in this chapter. SQL injection is an input-parsing problem at the database
+layer and requires parameterized queries, not output encoding.
+\end{misconception}
+
+\begin{example}[The MOVEit Transfer breach, 2023: One SQLi Flaw, Thousands of Victims]
+In late May 2023, the Cl0p ransomware group began exploiting \textbf{CVE-2023-34362}, a SQL
+injection vulnerability in Progress Software's MOVEit Transfer. MOVEit is a managed file-transfer
+product widely used by corporations and government agencies to move sensitive files between
+organizations. The flaw let an unauthenticated attacker send a crafted SQL payload directly to
+MOVEit's own web application, gaining access to its underlying database. From there, the attacker
+could plant a web shell that allowed arbitrary file theft from every organization running an
+unpatched instance.\srccite{5.1}{1} Because MOVEit was itself infrastructure -- a shared tool many
+separate companies used to transfer files, not a single company's own application -- one
+vulnerability in one product cascaded into one of the largest mass-breach events on record.
+Security researchers ultimately tied the campaign to more than 2{,}700 affected organizations and
+upwards of 95~million exposed individual records, including payroll data, health information, and
+Social Security numbers.\srccite{5.1}{2} Many of those victims had never directly used MOVEit
+themselves; their data simply passed through a vendor who did. Cl0p did not need to compromise
+each of those thousands of organizations individually; a single unescaped input field in one
+shared product did the work for them. The case is the sharpest illustration in this chapter of why
+a parameterized-query fix at the root of the query, rather than any downstream filtering, is the
+only defense that actually closes an SQL injection flaw. It also shows why the severity of a
+single application vulnerability has to be evaluated against everyone who depends on that
+application, not just the organization that wrote it.
+\end{example}
+
+\section{Cross-Site Scripting (XSS)}
+
+\begin{definition}{Cross-site scripting (XSS)}
+Including untrusted input in a page sent to a browser without neutralizing it first, so that HTML
+or JavaScript in that input executes with the same trust and access as code the developer actually
+wrote.
+\end{definition}
+
+XSS is, structurally, the same root failure as SQL injection applied to a different interpreter: a
+failure to separate data from code. A string like
+\texttt{<script>stealCookie(document.cookie)</script>} stops being ``just text'' and becomes an
+executable instruction the moment a browser renders it unescaped.
+Because the script then runs inside the victim's own already-authenticated session, it can read
+cookies and session tokens, make requests as the logged-in user, or silently redirect them --
+without needing to guess a single password.
+
+Three variants matter, and distinguishing them is an AP-level skill in itself. \textbf{Reflected
+XSS} arrives in the request itself -- typically a URL parameter -- and the server echoes it straight
+back unescaped. The victim must be tricked into clicking a crafted link for the payload to fire at
+all; nothing is stored anywhere. \textbf{Stored (persistent) XSS} is saved server-side, in a
+comment field or user profile, and served to every subsequent viewer automatically. It is more
+dangerous precisely because it needs no social-engineering step: an administrator viewing an
+infected page may hand the attacker an elevated session without ever clicking anything crafted.
+\textbf{DOM-based XSS} lives entirely in client-side JavaScript: the page's own script reads
+untrusted data from the URL fragment or \texttt{document.referrer} and writes it into an unsafe
+sink like \texttt{innerHTML}, never touching the server at all. That lets it hide from server-side
+filters completely, since the server never sees the malicious value.
+
+\begin{lstlisting}[language=Python, caption={Detecting dangerous unescaped-HTML patterns in user content}]
+import re
+
+XSS_PATTERNS = [re.compile(r"<script"), re.compile(r"(?i)on\w+\s*="),
+                re.compile(r"(?i)javascript:")]
+
+def is_dangerous(content):
+    """Returns True if content contains an unescaped XSS-indicative pattern."""
+    return any(pat.search(content) for pat in XSS_PATTERNS)
+\end{lstlisting}
+
+The root defense against all three variants is the same regardless of which one is in play:
+\textbf{output encoding}, converting special characters (\texttt{<}, \texttt{>}, \texttt{"},
+\texttt{'}) to their literal-text equivalents before untrusted data is placed into HTML. Modern
+frameworks (React, Vue, Django templates) escape by default, which is why the standard guidance is
+``always escape on output, not just on input.'' The same string can be perfectly safe in a
+plain-text field and dangerous the moment it is rendered into HTML, so input validation alone
+cannot substitute for output-context escaping. A \textbf{Content-Security-Policy} header adds a
+second layer by restricting which scripts a browser will execute at all, and marking session cookies
+\texttt{HttpOnly} means JavaScript cannot read them even if a payload does manage to execute.
+
+\begin{misconception}
+\textbf{``Filtering \texttt{<script>} tags is enough.''} Attackers have countless other vectors --
+\texttt{onerror=}, \texttt{javascript:} URLs, SVG markup -- and deny-listing a single tag name is
+trivially bypassed. Escaping output is the reliable fix; blocking specific tag names is not.
+\end{misconception}
+
+\section{API Vulnerabilities}
+
+Modern applications are built almost entirely on APIs -- structured, predictable endpoints a
+mobile app or web client calls directly, such as \texttt{GET /api/accounts/482}. That predictability
+is exactly what makes them an attractive target: an attacker does not need to reverse-engineer a
+page, only change a number in a URL and observe what comes back.
+
+\begin{definition}{Broken Object Level Authorization (BOLA / IDOR)}
+An API flaw in which an endpoint accepts a client-supplied object identifier and returns or
+modifies that object without verifying that the currently authenticated caller is actually
+authorized for \emph{that specific object}.
+\end{definition}
+
+The failure is a confusion between two genuinely different questions. \textbf{Authentication} asks
+``is this token valid?''; \textbf{authorization} asks ``does this specific token's owner have
+permission to see this specific object?'' BOLA is what happens when only the first question gets
+asked. A user logged in as account 482 who calls \texttt{GET /api/accounts/483} on a
+BOLA-vulnerable API receives account 483's private balance. The server verified only that a valid
+session existed, never whether that session belonged to account 483. Object identifiers like
+sequential database primary keys are frequently predictable, so this is easy for an attacker to
+discover by simply incrementing a number.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.0cm, minimum height=0.9cm, align=center, font=\scriptsize},
+]
+\node[box, fill=kickstartercream] (user) at (0,0) {Caller authenticated\\as account 482};
+\node[box] (req) at (3.6,0) {GET /api/accounts/483};
+\node[box, fill=kickstartermaroon!10] (authn) at (7.2,0.9) {Authentication check:\\``is this token valid?''\\\checkmark\ passes};
+\node[box, fill=kickstartermaroon!25] (authz) at (7.2,-0.9) {Authorization check:\\``does 482 own 483?''\\\textbf{never asked}};
+\draw[-{Latex[length=2mm]}] (user) -- (req);
+\draw[-{Latex[length=2mm]}] (req) -- (authn);
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (req) -- (authz);
+\node[font=\scriptsize\sffamily, kickstartermaroon] at (10.6,-0.9) {account 483's data returned};
+\end{tikzpicture}
+\caption{BOLA is a missing second check, not a missing first one: the request clears authentication
+cleanly, and the vulnerability is entirely that authorization -- does this specific caller own this
+specific object -- is never evaluated at all.}
+\label{fig:5.1-bola}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={Checking an API request against object ownership}]
+def authorize_request(caller_id, requested_object_id, ownership_table):
+    """ownership_table: dict mapping object_id -> owner_id.
+       Returns True if caller_id owns requested_object_id."""
+    return ownership_table.get(requested_object_id) == caller_id
+\end{lstlisting}
+
+Two related flaws share the same root cause. \textbf{Excessive data exposure} happens when an
+endpoint returns a full internal object -- password hashes, internal notes, another user's email --
+because a developer serialized the entire database row and trusted the front-end to hide the extra
+fields. An attacker inspecting the raw response sees everything the front-end was merely choosing
+not to display. \textbf{Broken function-level authorization} occurs when an endpoint meant
+only for administrators, such as \texttt{POST /api/users/482/promote}, is reachable by any
+authenticated user because the server checks only that the caller is logged in, never that they
+hold the required role. APIs make this class of bug unusually common because access control has to
+be re-implemented correctly on \emph{every single endpoint}. A large API surface with dozens or
+hundreds of endpoints multiplies the chance that one of them simply forgets the check.
+
+\begin{misconception}
+\textbf{``Hiding a button in the UI prevents unauthorized access.''} An attacker can call the API
+directly with a tool like curl or Postman, bypassing the UI entirely. Hiding a button changes what
+is convenient to do, not what is possible to do.
+\end{misconception}
+
+\section{Data Breaches and Their Impact}
+
+\begin{definition}{Data breach}
+Any incident in which sensitive, protected, or confidential data is accessed, disclosed, or
+exfiltrated by someone not authorized to have it.
+\end{definition}
+
+A breach can be caused by nearly any vulnerability in this chapter -- SQL injection dumping a
+database, an XSS payload stealing session cookies, a BOLA flaw letting one account read another's
+records. It can also come from an entirely non-technical cause: a lost laptop, a misconfigured
+cloud bucket left publicly readable, a successful phishing attack that hands over valid
+credentials. The cause varies widely; what makes it a breach specifically is that data crossed a
+trust boundary it should never have crossed.
+
+Three factors determine severity, and reasoning about impact rather than mere occurrence is itself
+the AP-level skill here. \textbf{Sensitivity} of the exposed data ranges from a leaked list of
+public blog titles (low harm) through email addresses (enabling targeted phishing, but not
+immediately catastrophic) to \textbf{PII}, financial data, health records (\textbf{PHI}), and
+authentication secrets (high harm, enabling identity theft or account takeover outright). A
+breach exposing hashed-and-salted passwords is meaningfully less severe than one exposing the same
+passwords in plaintext, since hashing forces an attacker to do additional work before the data is
+usable. \textbf{Scale} multiplies both direct harm and organizational consequence: fifty records
+from an internal tool and fifty million records from a national retailer are not the same event by
+any measure that matters. \textbf{Time to detect and contain} determines how much data an attacker
+extracts and how much time they have to monetize it. Breaches an organization identifies and
+contains itself, quickly, cost markedly less on average than ones an attacker or an outside party
+discovers months later -- a pattern IBM's annual \emph{Cost of a Data Breach Report} has found
+consistently for years\srccite{5.1}{3} -- which is exactly why the detection controls from
+Chapter~\ref{ch:4.4} are properly understood as part of the breach-response story, not a separate
+topic.
+
+\begin{lstlisting}[language=Python, caption={Scoring a breach's severity from exposed data, scale, and detection time}]
+SENSITIVITY_WEIGHTS = {"public": 1, "email": 3, "pii": 8, "financial": 9, "phi": 9, "credentials": 10}
+
+def breach_severity(categories, record_count, days_to_detect):
+    """categories: list of sensitivity category strings.
+       Returns a numeric severity score."""
+    sensitivity_score = max((SENSITIVITY_WEIGHTS.get(c, 0) for c in categories), default=0)
+    scale_multiplier = 1 + min(record_count, 10_000_000) / 1_000_000
+    detection_multiplier = 1 + min(days_to_detect, 180) / 30
+    return round(sensitivity_score * scale_multiplier * detection_multiplier, 1)
+\end{lstlisting}
+
+Once a breach is confirmed, organizations follow a defined arc: \textbf{contain} (revoke
+credentials, patch the hole, isolate affected systems), \textbf{assess} (what data, how many
+records, which individuals), \textbf{notify}, and \textbf{remediate} (fix the root cause, rotate
+secrets, offer credit monitoring where appropriate). Many jurisdictions legally require notifying
+affected individuals and regulators within a set window -- the European Union's GDPR requires
+notifying the relevant supervisory authority within 72 hours of becoming aware of a breach, and is
+the canonical example.\srccite{5.1}{4}
+Even a well-handled breach carries lasting cost beyond the immediate arc: leaked credentials
+frequently get reused elsewhere, since many people reuse passwords across sites, causing a second
+wave of unrelated account compromises long after the original incident is closed.
+
+\begin{misconception}
+\textbf{``Small breaches don't need a formal response.''} A small breach of highly sensitive data
+-- forty patients' health records -- can be more severe than a large breach of low-sensitivity data
+-- four million newsletter email addresses. Severity depends on data type and scale together, never
+scale alone.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item Explain why parameterized queries prevent SQL injection structurally, while output encoding
+does not, and why the reverse is true for cross-site scripting.
+\item A comment field allows a payload to be saved and later viewed by an administrator with no
+link ever being clicked. Identify which XSS variant this is and explain why it is considered more
+dangerous than a variant requiring the victim to click a crafted link.
+\item An API endpoint checks that a request carries a valid authentication token but returns
+whatever object ID the client requests. Explain precisely which check is missing and why
+``the token is valid'' is an insufficient basis for authorization.
+\item Explain why a breach exposing 40 patient health records can be scored as more severe than a
+breach exposing 4 million newsletter email addresses, using the severity factors from this chapter.
+\item Explain why hiding a UI button that would let a user access another account's data does not
+constitute a real fix for a BOLA vulnerability, and describe what the actual fix must check and
+where.
+\item In the MOVEit Transfer breach, over 2{,}700 organizations were affected by a single SQL
+injection flaw in one shared product, including companies that never used MOVEit directly. Explain
+mechanically how an organization's data could be exposed through a vendor's vulnerability it had
+no direct relationship with, and why this changes how severity should be assessed compared to a
+breach confined to one company's own application.
+\item Using the BOLA diagram, explain precisely why the \texttt{authorize\_request} function in
+this chapter's code listing cannot be satisfied by checking \texttt{caller\_id} alone, and why the
+\texttt{ownership\_table} lookup is the specific piece of logic a purely authentication-based check
+omits.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Parameterized queries fix SQL injection structurally because the SQL template and the data
+values travel to the database driver on two separate channels -- the driver never re-parses the
+data as syntax, no matter what characters it contains, so there is nothing left for an attacker to
+inject into. Output encoding cannot fix SQLi because the vulnerable parsing happens inside the
+database, before any HTML is ever generated. The relationship flips for XSS: the vulnerable parser
+is the browser's HTML/JS engine, which runs long after the query already returned, so escaping the
+data at the point it is written into HTML removes its ability to be parsed as markup or script --
+while parameterizing a SQL query does nothing to protect a page that echoes that same data
+unescaped.
+\answerlabel{5.1.B}
+\item This is stored (persistent) XSS. It is more dangerous than reflected XSS because it requires
+no social-engineering step at all -- the payload sits in the database and fires automatically for
+every subsequent viewer, including an administrator who did nothing riskier than open the page,
+potentially handing the attacker an elevated session without a single crafted link ever being
+clicked.
+\answerlabel{5.1.B}
+\item The missing check is object-level authorization: verifying that the specific authenticated
+caller is permitted to access the specific object identifier requested, not merely that the caller
+holds some valid token. ``The token is valid'' only answers the authentication question (who is this
+caller?); it says nothing about the authorization question (is this caller allowed to see this
+object?), and an API that asks only the first question is vulnerable to BOLA/IDOR the moment object
+identifiers are guessable or enumerable.
+\answerlabel{5.1.C}
+\item Severity depends on sensitivity and scale together, not scale alone. Health records are
+high-sensitivity data -- PHI -- capable of enabling identity theft, insurance fraud, or targeted
+extortion against the specific 40 individuals involved, while newsletter email addresses are
+low-sensitivity data whose main downside is an increase in targeted phishing risk. Multiplying a
+high sensitivity weight by a small record count can therefore outscore a low sensitivity weight
+multiplied by a huge record count, exactly as the chapter's severity model computes.
+\answerlabel{5.1.C}
+\item Hiding a UI button only changes what is convenient to do through the graphical interface; it
+does nothing to the API endpoint itself, which remains reachable directly through a tool like curl
+or Postman that never renders the UI at all. The actual fix must check, on the server, for every
+request to that endpoint, that the object identifier supplied belongs to the authenticated caller
+-- an ownership check performed in application logic before data is returned or modified, not a
+cosmetic change to what the front-end displays.
+\answerlabel{5.1.C}
+\item MOVEit was infrastructure shared across organizations: many companies used it only to
+transfer files to or from other parties, meaning a third party's own data could pass through, or
+be stored temporarily in, an unpatched MOVEit instance the affected organization never operated or
+even selected itself. The SQL injection flaw gave attackers direct database access and a web shell
+on the MOVEit server itself, so any file that server held -- regardless of which downstream
+organization it belonged to -- was reachable without the attacker ever touching that
+organization's own network or systems. This changes severity assessment because impact can no
+longer be scoped to the vulnerable organization alone; it has to account for every party whose
+data transits or rests on the vulnerable shared system, which is exactly why one CVE produced
+harm at the scale of thousands of separate breach notifications.
+\answerlabel{5.1.A}
+\item The function requires \texttt{ownership\_table.get(requested\_object\_id) == caller\_id} to
+return true, which is a comparison between the object's actual owner and the requesting caller --
+information that authentication alone never supplies, since authentication only confirms the
+caller's own identity, not who owns the specific object being requested. Checking
+\texttt{caller\_id} alone (or merely that it is present and valid) answers only ``is this caller
+someone?'' -- exactly the authentication branch in the diagram that passes cleanly even for account
+483's data being requested by account 482. The \texttt{ownership\_table} lookup is precisely the
+missing authorization branch: it is the one piece of logic that actually asks whether \emph{this}
+caller is allowed to reach \emph{this} object, rather than merely confirming the caller is logged
+in as somebody.
+\answerlabel{5.1.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{5.1}{1}Cybersecurity and Infrastructure Security Agency and Federal Bureau of Investigation,
+Cybersecurity Advisory AA23-158A, ``\#StopRansomware: CL0P Ransomware Gang Exploits CVE-2023-34362
+MOVEit Vulnerability,'' June 7, 2023.
+\item \srcitem{5.1}{2}Brett Callow, ``Unpacking the MOVEit Breach: Statistics and Analysis,'' Emsisoft Blog,
+figures as tallied June 28, 2024.
+\item \srcitem{5.1}{3}IBM Security, \emph{Cost of a Data Breach Report 2023}.
+\item \srcitem{5.1}{4}Regulation (EU) 2016/679 (General Data Protection Regulation), Art.\ 33(1).
+\end{enumerate}

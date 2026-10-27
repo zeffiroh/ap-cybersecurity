@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.2.b Lab, Cracking Password Hashes</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Cracking Password Hashes</h1>
+  <p class="sub">Recover real hashes with a wordlist, then watch salting and stretching defeat the same attack.</p>
+
+  <div class="brief">
+    <p>You are the defender studying how an attacker turns a stolen hash back into a password. The
+    cracking below is <b>real</b>: your browser hashes each word in a wordlist and compares it to the
+    leaked digests, exactly as <code>hashcat</code> or John the Ripper would. You will crack a batch of
+    fast unsalted hashes, then see why the <i>same</i> wordlist barely dents salted and key-stretched
+    storage. The defensive lesson is the timing difference.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="crack"><span>Crack at least 4 of the 6 leaked <code>SHA-256</code> hashes with the wordlist.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Run attack</b> on the unsalted column. Weak, common passwords fall almost instantly because the whole wordlist is hashed in well under a second.</details></div></li>
+    <li data-m="salt"><span>Run the same attack against the salted hashes and see the per-word cost rise.</span>
+      <div class="hint"><details><summary>Hint</summary>A unique salt per user means the attacker cannot reuse one hash across accounts, every account must be attacked separately. Watch the "hashes computed" count.</details></div></li>
+    <li data-m="stretch"><span>Run the attack against the key-stretched scheme and compare the time per candidate.</span>
+      <div class="hint"><details><summary>Hint</summary>Key stretching deliberately makes one guess thousands of times slower by iterating the hash. The same wordlist now takes far longer, which is exactly the point. Real systems use PBKDF2, bcrypt, scrypt, or Argon2 for this.</details></div></li>
+  </ul>
+
+  <p class="status" id="status">Loading the hashing engine...</p>
+
+  <div class="panel">
+    <h3>Wordlist (attacker's candidate passwords)</h3>
+    <p class="note">A trimmed <code>rockyou</code>-style list. Edit it to add guesses; one per line.</p>
+    <textarea id="wordlist" rows="6" spellcheck="false">123456
+password
+qwerty
+letmein
+dragon
+monkey
+sunshine
+iloveyou
+admin
+football
+master
+trustno1</textarea>
+    <p class="note">Two leaked accounts (<code>lena</code>, <code>arun</code>) use long, unguessable passwords that are <b>not</b> in this list, they should survive every scheme.</p>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel">
+      <h3>Attack configuration</h3>
+      <label class="field" for="scheme">Stored-hash scheme</label>
+      <select id="scheme">
+        <option value="sha256">Unsalted SHA-256 (fast, legacy)</option>
+        <option value="salt">Salted SHA-256 (unique salt per user)</option>
+        <option value="stretch">Salted + key stretching, 60,000 iterated SHA-256 rounds</option>
+      </select>
+      <div class="row">
+        <button class="primary" id="go" disabled>Run attack</button>
+      </div>
+      <div class="console" id="log" style="margin-top:12px"><span class="dim">Choose a scheme and run the attack.</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Leaked account table</h3>
+      <div class="scroll">
+        <table class="data" id="tbl">
+          <thead><tr><th>user</th><th>status</th><th>recovered password</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">What the timing proved</h2>
+    <p>Unsalted SHA-256 is a <i>fast</i> hash: a modern machine computes billions per second, so a
+    wordlist of common passwords is exhausted instantly and identical passwords share a digest. A unique
+    <b>salt</b> per user removes the shared-digest shortcut, so precomputed rainbow tables are useless and
+    every account must be attacked on its own. <b>Key stretching</b> (PBKDF2, bcrypt, scrypt, Argon2)
+    then makes each single guess thousands of times more expensive on purpose, so even a short wordlist
+    becomes slow to run. Strong, unique passwords plus a salted, stretched hash is the defense named in
+    LO 1.2.B and detailed in topic 4.2.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var ASSETS="../../../assets/";var statusEl=document.getElementById("status");var logEl=document.getElementById("log");var esc=Lab.esc;var py=null;var missions=new Lab.Missions("1.2.b",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});var ACCOUNTS=[{user:"mara",pw:"password"},{user:"devin",pw:"qwerty"},{user:"priya",pw:"iloveyou"},{user:"sam",pw:"dragon"},{user:"lena",pw:"Tr0ub4dor&3"},{user:"arun",pw:"correct-horse-battery-staple"}];function renderTable(state){var tb=document.querySelector("#tbl tbody");tb.innerHTML=ACCOUNTS.map(function(a){var r=state[a.user];var cls=r?"ok":"bad";var status=r?"CRACKED":"not cracked";return"<tr><td>"+esc(a.user)+"</td><td class='"+cls+"'>"+status+"</td><td>"+(r?esc(r):"&mdash;")+"</td></tr>";}).join("");}
+renderTable({});var PY_SETUP=["import hashlib, time","ROUNDS = 60000","def one(scheme, salt, pw):","    if scheme == 'sha256':","        return hashlib.sha256(pw).hexdigest()","    if scheme == 'salt':","        return hashlib.sha256(salt + pw).hexdigest()","    h = salt + pw","    for _ in range(ROUNDS):","        h = hashlib.sha256(h).digest()","    return h.hex()","def make_hashes(accounts, scheme):","    out = []","    for i, a in enumerate(accounts):","        salt = ('' if scheme == 'sha256' else 'salt%02d' % i).encode()","        out.append({'user': a['user'], 'salt': salt.decode(), 'digest': one(scheme, salt, a['pw'].encode())})","    return out","def crack(targets, words, scheme):","    found = {}","    computed = 0","    t0 = time.time()","    for t in targets:","        salt = t['salt'].encode()","        for w in words:","            if one(scheme, salt, w.encode()) == t['digest']:","                found[t['user']] = w","                computed += 1","                break","            computed += 1","    return found, computed, time.time() - t0"].join("\n");function attack(){var scheme=document.getElementById("scheme").value;var words=document.getElementById("wordlist").value.split("\n").map(function(w){return w.trim();}).filter(Boolean);document.getElementById("go").disabled=true;logEl.innerHTML='<span class="dim">hashing wordlist against '+ACCOUNTS.length+' accounts...</span>';setTimeout(function(){var r;try{py.globals.set("accounts_json",JSON.stringify(ACCOUNTS));py.globals.set("words_json",JSON.stringify(words));py.globals.set("scheme_in",scheme);r=py.runPython("import json\n"+"targets = make_hashes(json.loads(accounts_json), scheme_in)\n"+"found, computed, secs = crack(targets, json.loads(words_json), scheme_in)\n"+"json.dumps({'found': found, 'computed': computed, 'secs': secs})");}catch(e){logEl.innerHTML='<span class="err">'+esc(String(e.message||e).split("\n").slice(-3).join("\n"))+'</span>';document.getElementById("go").disabled=false;return;}
+var data=JSON.parse(r);renderTable(data.found);var n=Object.keys(data.found).length;var perGuess=data.computed?(data.secs*1000/data.computed):0;logEl.innerHTML='<span class="ok">'+n+' / '+ACCOUNTS.length+' accounts cracked</span>\n'+'scheme: '+esc(scheme)+'\n'+'hashes computed: '+data.computed+'\n'+'total time: '+data.secs.toFixed(3)+' s\n'+'time per guess: '+perGuess.toFixed(5)+' ms';if(scheme==="sha256"&&n>=4)missions.complete("crack");if(scheme==="salt")missions.complete("salt");if(scheme==="stretch")missions.complete("stretch");document.getElementById("go").disabled=false;},30);}
+Lab.pyodide(ASSETS,[],function(m){statusEl.textContent=m;}).then(function(p){py=p;py.runPython(PY_SETUP);statusEl.textContent="Ready. Run the attack on the unsalted hashes first.";document.getElementById("go").disabled=false;}).catch(function(e){statusEl.innerHTML='<span class="err">Could not start the hashing engine: '+esc(String(e.message||e))+'</span>';});document.getElementById("go").addEventListener("click",attack);})();</script>
+</body>
+</html>

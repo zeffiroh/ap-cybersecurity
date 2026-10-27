@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2.2 Physical Security Breaches · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "2.2", topicTitle: "Physical Vulnerabilities and Attacks", chapterLabel: "Topic 2.2" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 2.2</h1>
+    <h2 class="textbook-subtitle">Physical Vulnerabilities and Attacks</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. How Physical Perimeters Fail</a></li>
+        <li><a href="#sec-technical">II. Badge Systems: Wiegand, 125 kHz RFID, and Cloning</a></li>
+        <li><a href="#sec-case">III. Case Studies: the Barclays and Santander Intrusions and Badge Cloning</a></li>
+        <li><a href="#sec-protection">IV. Closing Physical Gaps: Anti-Tailgating, Modern Credentials, Sanitization</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 2: Securing Spaces</strong> &middot; Topic 2.2, Physical Vulnerabilities and Attacks</p>
+  <ul>
+    <li><span class="ap-code">2.2.A</span> <span class="ap-skill">Analyze Risk</span><br>Identify the physical attacks an organisation is realistically likely to face, from following someone through a controlled door to defeating a lock, duplicating a credential, or removing equipment outright.</li>
+    <li><span class="ap-code">2.2.B</span> <span class="ap-skill">Analyze Risk</span><br>Explain the causal path by which a threat exploits a physical weakness and produces a specific outcome for an asset, its loss, its damage, the disruption of the service it supports, or its destruction.</li>
+    <li><span class="ap-code">2.2.C</span> <span class="ap-skill">Analyze Risk</span><br>Assess the risk arising from an identified physical weakness and record it in a form that supports a decision: what was observed, what it would allow, how likely and how costly, and who owns the outcome.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. How Physical Perimeters Fail</h3>
+
+<p>Every network defense discussed elsewhere in this course assumes something implicit: that the server, the workstation, or the network switch is physically inaccessible to an attacker. This assumption is frequently false, and when it fails, every technical control built on top of it can be trivially bypassed. <span class="annot">Physical security<span class="tip"><strong>Physical Security</strong>The set of measures designed to protect people, buildings, and physical assets, servers, documents, devices, from physical threats such as unauthorized entry, theft, vandalism, and environmental damage. Distinct from but foundational to cybersecurity: an attacker with physical access to a server rack can often bypass every network-based control instantly. <em>NIST SP 800-53 control family PE (Physical and Environmental Protection) governs this domain.</em></span></span> is the discipline of preventing, detecting, and responding to unauthorized physical access to facilities and equipment. A well-known principle in security engineering captures why this matters so much: "if an attacker has physical access to a device, it is not your device anymore." Disk encryption can be bypassed by removing a drive and mounting it elsewhere; a locked screen can be bypassed by physically resetting a BIOS password; a segmented network can be bypassed by plugging a rogue device directly into an internal switch port. Physical security breaches, therefore, are not a lesser or old-fashioned category of attack, they are frequently the fastest, cheapest path to compromising an otherwise well-defended digital environment.</p>
+
+<p>This chapter surveys the primary physical attack vectors an adversary uses to defeat facility perimeter controls, grounding each in the CIA-triad and control-taxonomy vocabulary introduced in Topic 2.1.</p>
+
+<h4><span class="annot">Tailgating<span class="tip"><strong>Tailgating (Piggybacking)</strong>Following an authorized person through a secured door without presenting your own credentials, relying on the natural human politeness reflex of holding a door open for someone walking behind you. "Piggybacking" is sometimes used when the person being followed is aware and complicit; "tailgating" typically implies the authorized person is unaware. <em>MITRE ATT&amp;CK T1078 (Valid Accounts) covers the credential-based equivalent; physical tailgating has no formal ATT&amp;CK ID because ATT&amp;CK is network-focused, but it is treated as an initial-access vector in physical penetration testing methodologies (e.g., TIBER-EU, red team engagements).</em></span></span> and Piggybacking</h4>
+<p>Tailgating exploits a purely social vulnerability rather than a technical one: most people find it rude to let a door slam in the face of someone walking a few steps behind them, especially if that person is carrying boxes, wearing a uniform, or simply smiling and making small talk. An attacker exploiting tailgating needs no stolen badge, no cloned credential, and no technical skill at all, only the confidence to walk through a door someone else has opened, often while pretending to be a delivery driver, a new hire, or a contractor running late for a meeting. Because tailgating bypasses the badge reader entirely, it defeats the access-control system without ever triggering an unauthorized-badge alert, making it especially dangerous against facilities that rely on badge logs as their primary detective control.</p>
+
+<h4><span class="annot">Badge Cloning<span class="tip"><strong>Badge Cloning</strong>Copying the data stored on a legitimate access badge onto a blank card, creating a functional duplicate that a reader will accept as authentic. Cheap handheld RFID readers/writers, some costing under $50, can clone many older badge technologies from a few inches away, even through a wallet or bag, without the victim's knowledge. <em>Low-frequency (125 kHz) proximity badges (e.g., HID ProxCard) are especially vulnerable because they broadcast an unencrypted, static identifier. High-frequency smart cards using ISO/IEC 14443 with cryptographic mutual authentication (e.g., DESFire EV2/EV3, iCLASS SE) are far more resistant.</em></span></span></h4>
+<p>Badge cloning targets the credential itself rather than the human holding it. Many legacy access-control badges transmit a fixed, unencrypted identifier over radio frequency whenever they are within range of a reader, meaning an attacker can silently read and clone a badge from a distance, for example, by brushing past a target in a crowded elevator with a concealed reader in a backpack. Once cloned, the duplicate badge functions identically to the original at every reader in the building, and because it presents a "valid" credential to the access-control system, no alert is generated; the system has no way of knowing the credential was duplicated rather than presented by its rightful owner.</p>
+
+<h4><span class="annot">Dumpster Diving<span class="tip"><strong>Dumpster Diving</strong>Searching through an organization's discarded trash or recycling to recover sensitive information, printed documents, sticky notes with passwords, old hard drives, org charts, internal memos. Legal in most U.S. jurisdictions once trash is placed in a public area for collection (per California v. Greenwood, 1988), making it a low-risk, high-reward reconnaissance technique for attackers. <em>A classic pretexting/reconnaissance vector documented extensively by social engineer Kevin Mitnick; still explicitly tested in physical penetration testing engagements today.</em></span></span></h4>
+<p>Dumpster diving is a reconnaissance vector, not an intrusion vector on its own, but it frequently supplies the information an attacker needs to succeed at tailgating, badge cloning, or pretexting. Discarded documents can reveal employee names, internal project codenames, org charts, vendor relationships, and even discarded access badges or hardware that were never properly deactivated or wiped. Because it requires no interaction with employees and carries minimal legal risk in most jurisdictions, dumpster diving remains a favored first step for attackers building a convincing pretext.</p>
+
+<h4>Device Theft and Environmental Threats</h4>
+<p>Direct theft of unattended devices, a laptop left on a coffee-shop table, an unlocked workstation in an open office, a decommissioned server awaiting disposal, remains one of the highest-frequency causes of confidentiality breaches, precisely because the data on the device, not the device's hardware value, is usually the attacker's real objective. Separately, <span class="annot">environmental threats<span class="tip"><strong>Environmental Threat</strong>A physical threat originating from natural or infrastructure sources rather than a human adversary, fire, flood, earthquake, power outage, extreme temperature. Environmental threats primarily target availability, though fire or flood damage to storage media can also destroy integrity guarantees (e.g., corrupting backups). <em>NIST SP 800-53 control family PE includes explicit sub-controls for fire protection (PE-13), water damage protection (PE-15), and temperature/humidity controls (PE-14).</em></span></span>, fire, flooding, power loss, extreme temperature, target the same physical facilities without any adversarial intent at all, yet they are formally included within physical security scope because they threaten the same assets through the same physical access point: the building itself. A risk assessment that only models human adversaries while ignoring a building's location in a flood plain or its aging electrical infrastructure has an incomplete threat model.</p>
+
+<h4>Defeating the Lock Itself: Picking, Shimming, and Bypass</h4>
+<p>A lock is a mechanical authentication device, and like every authentication device it has failure modes that have nothing to do with guessing the secret. Three families are worth distinguishing, because they call for three different remedies.</p>
+
+<p><strong>Manipulation</strong> defeats the mechanism on its own terms. A pin tumbler lock stacks a driver pin and a key pin in each chamber; the correct key raises every stack so that the split between the two sits exactly at the shear line, freeing the plug to rotate. Picking exploits the fact that no lock is machined perfectly: applying light rotational tension makes the chambers bind one at a time, in an order determined by tolerances rather than by the key, so each binding pin can be set individually and the search collapses from a combinatorial problem into a sequential one. Raking and bump keys are faster, cruder applications of the same physics. The countermeasure is not a bigger padlock but a mechanism designed against manipulation, security pins that give false feedback when set, tighter tolerances, and, where it matters, a rating from a recognised scheme such as ANSI/BHMA A156.30 for high-security cylinders.</p>
+
+<p><strong>Bypass</strong> ignores the mechanism altogether, which is why it is both the most common and the most under-defended. Shimming, sometimes called loiding, slips a thin flexible card or shim against the angled face of a spring latch and pushes it back into the door; the lock is never touched and is undamaged afterwards. A latch protector or an anti-shim deadlatch plunger, a small secondary pin that rides on the strike plate and blocks the main latch from retracting, defeats it for a few pounds per door, which is why its absence is a reportable finding. The under-door tool works the same way against the wrong control: in many buildings the door is released from the inside by a request-to-exit sensor or a lever handle, and a hooked wire passed beneath the door can operate that inside handle from outside. The badge reader on the corridor face is entirely bypassed, and the access log records nothing at all, because from the panel&rsquo;s point of view somebody simply left.</p>
+
+<figure class="chapter-image">
+<svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" width="100%"
+     aria-label="A cutaway elevation of a controlled door showing eight components and the attack that acts on each. From the top: the closer, defeated by propping the door open; the hinges on the corridor side, defeated by removing hinge pins; the badge reader on the outside face, bypassed entirely by tailgating; the reader-to-panel cable in the outside wall, attacked by an inline Wiegand sniffer; the cylinder, attacked by picking or bumping; the spring latch and strike, attacked by shimming; the frame anchorage, attacked by forcing; and the request-to-exit sensor and inside lever, attacked by an under-door tool. A note records that only the cylinder and the reader generate any entry in the access log.">
+  <rect x="0" y="0" width="720" height="300" fill="#f7f8fa"/>
+  <text x="18" y="24" font-family="Georgia, serif" font-size="15" font-weight="bold" fill="#1a1a1a">A controlled door is eight components, and it is only as strong as the weakest one</text>
+  <text x="18" y="42" font-family="Georgia, serif" font-size="11" fill="#555">Left of the door: outside (uncontrolled side). Right: inside (controlled side).</text>
+  <rect x="250" y="60" width="120" height="210" fill="#e8ddc9" stroke="#7a6a4f" stroke-width="2"/>
+  <rect x="238" y="54" width="12" height="222" fill="#c8ccd4" stroke="#5b6b85"/>
+  <rect x="370" y="54" width="12" height="222" fill="#c8ccd4" stroke="#5b6b85"/>
+  <text x="310" y="170" font-family="Georgia, serif" font-size="12" fill="#7a6a4f" text-anchor="middle">door leaf</text>
+  <circle cx="360" cy="165" r="5" fill="#5b6b85"/>
+  <rect x="374" y="100" width="6" height="18" fill="#b3261e"/>
+  <rect x="374" y="200" width="6" height="18" fill="#b3261e"/>
+  <rect x="244" y="150" width="4" height="26" fill="#2e7d32"/>
+  <g font-family="Georgia, serif" font-size="10.5" fill="#1a1a1a">
+    <text x="20" y="76" font-weight="bold">1 Closer</text><text x="20" y="90">propped open with a wedge</text>
+    <text x="20" y="112" font-weight="bold">2 Hinges</text><text x="20" y="126">pins driven out where they</text><text x="20" y="139">face the uncontrolled side</text>
+    <text x="20" y="161" font-weight="bold">3 Badge reader</text><text x="20" y="175">never challenged, tailgating</text><text x="20" y="188">passes it entirely</text>
+    <text x="20" y="210" font-weight="bold">4 Reader-to-panel cable</text><text x="20" y="224">inline sniffer captures every</text><text x="20" y="237">Wiegand frame in the clear</text>
+    <text x="450" y="76" font-weight="bold">5 Cylinder</text><text x="450" y="90">picked, raked, or bumped</text>
+    <text x="450" y="112" font-weight="bold">6 Latch and strike</text><text x="450" y="126">shimmed, unless a deadlatch</text><text x="450" y="139">plunger blocks the latch</text>
+    <text x="450" y="161" font-weight="bold">7 Frame anchorage</text><text x="450" y="175">forced; the cylinder rating is</text><text x="450" y="188">irrelevant to this one</text>
+    <text x="450" y="210" font-weight="bold">8 Exit device / REX sensor</text><text x="450" y="224">operated from outside with an</text><text x="450" y="237">under-door tool</text>
+  </g>
+  <g stroke="#5b6b85" stroke-width="1" fill="none" stroke-dasharray="2 2">
+    <path d="M180 72 L250 66"/><path d="M180 120 L238 110"/><path d="M180 170 L244 163"/><path d="M180 218 L238 210"/>
+    <path d="M446 72 L366 160"/><path d="M446 120 L382 109"/><path d="M446 170 L382 209"/><path d="M446 218 L378 250"/>
+  </g>
+  <text x="18" y="268" font-family="Georgia, serif" font-size="11" fill="#b3261e">Of the eight, only the reader and the cylinder produce any entry in the access log. Attacks on 1, 2, 5, 6, 7 and 8 leave it clean.</text>
+  <text x="18" y="285" font-family="Georgia, serif" font-size="11" fill="#555">Component numbers are keyed to the discussion above; the drawing is schematic and not to scale.</text>
+</svg>
+  <figcaption><strong>Figure 2.2.1</strong>, The components of a badge-controlled door and the attack that acts on each. An assessment records the weakest component, not the strongest, and notes that most of these attacks generate no access-control event at all, which is why a clean badge log is not evidence that nobody came through.</figcaption>
+</figure>
+
+<p><strong>Destructive entry</strong> forces the door, the frame, or the hinge. It is loud, evidential, and correspondingly rare against a monitored site, but it sets the floor on what any other control can achieve: a high-security cylinder in a hollow frame secured by three-quarter-inch screws is protected to the strength of the screws. Assessors record the weakest element of the assembly, not the strongest, because that is the one an adversary will find.</p>
+
+<p>Two observations follow for anyone documenting findings. First, bypass techniques leave the access-control log clean, so a site cannot argue from an absence of anomalous badge events that no unauthorised entry occurred. Second, the door is a system, cylinder, latch, strike, frame, hinges, closer, and the exit device on the far side, and its strength is that of the weakest component, so a finding must name the component rather than the door.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">Red teams reach for the cheapest vector first</span>
+  Attack sophistication is a cost, and an adversary spends it only when the cheap option fails. A physical assessor therefore works up the cost curve rather than down it: try the unlocked side door, then the propped fire exit, then walking in behind someone, then a pretext at reception, and only then reach for a cloning tool. The order matters for defenders because it predicts which weakness will actually be used. A site that has bought interlocked vestibules for its main entrance and leaves the loading dock propped open through the working day has spent its budget on the fourth item in that list while leaving the first unaddressed, and an adversary will never get far enough down the list to encounter the vestibule.
+</div>
+
+<h4>Pretexting as the Connective Tissue of Physical Attacks</h4>
+<p>Nearly every physical attack vector above is strengthened by <span class="annot">pretexting<span class="tip"><strong>Pretexting</strong>Constructing a fabricated scenario or identity to justify an otherwise suspicious request or presence, impersonating a delivery driver, an HVAC technician, a new employee, or an auditor. Pretexting is the physical-world analog of the phishing pretext covered in Unit 1, applied to face-to-face or phone interaction instead of email. <em>A core discipline within social engineering; formalized in Kevin Mitnick's The Art of Deception (2002) and Christopher Hadnagy's Social Engineering: The Science of Human Hacking.</em></span></span>: a fabricated identity or story that makes an attacker's physical presence seem legitimate and unremarkable. A person wearing a high-visibility vest and carrying a clipboard is rarely questioned, regardless of whether they actually work for the building's utility contractor. This is why physical security awareness training emphasizes verifying credentials regardless of appearance or uniform, and why receptionists and front-desk staff, often an organization's actual first line of physical defense, are a critical, frequently under-trained control.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. Badge Systems: Wiegand, 125 kHz RFID, and Cloning</h3>
+
+<p>Physical attack vectors are frequently dismissed as "low-tech," but several rely on specific, well-documented technical mechanisms worth understanding at the protocol level.</p>
+
+<h4>The Wiegand Protocol and Legacy Badge Vulnerabilities</h4>
+<p>Most legacy proximity badge systems communicate between the badge reader and the access-control panel using the <span class="annot">Wiegand protocol<span class="tip"><strong>Wiegand Protocol</strong>A decades-old, low-level electrical signaling standard used to transmit a badge's ID number from a card reader to an access-control panel over two wires (DATA0 and DATA1). Wiegand was never designed with encryption or authentication in mind, it simply transmits the card's identifier in the clear as a series of voltage pulses. <em>Named after the "Wiegand effect" (a magnetic phenomenon originally used in early card technology). The most common format, 26-bit Wiegand, is publicly documented and trivially sniffable with commodity hardware.</em></span></span>, a signaling standard from the 1970s that transmits the badge's identification number as unencrypted electrical pulses between the reader and the control panel. Because this transmission is in the clear, an attacker with brief physical access to the wiring between a reader and its panel (frequently exposed on the unsecured, "outside" face of a door) can install a small inline sniffing device that captures every badge number presented to that reader, including badges belonging to other employees who pass by afterward. This is functionally identical in concept to a network packet sniffer intercepting unencrypted traffic, applied to a physical access-control bus instead of Ethernet.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Wiegand 26-bit Frame Structure</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Standard 26-bit Wiegand format (H10301), transmitted in the clear
+# Bit layout:
+#   Bit 1        : Even parity bit (covers bits 2-13)
+#   Bits 2-9     : Facility Code (0-255)
+#   Bits 10-25   : Card Number (0-65535)
+#   Bit 26       : Odd parity bit (covers bits 14-25)
+
+# Example captured frame (interpreted):
+Facility Code: 118
+Card Number:   40221
+Parity Check:  PASS (even) / PASS (odd)
+
+# A sniffer or cloner requires only these two decimal values to
+# fabricate a functionally identical badge -- no cryptographic
+# secret, certificate, or key material is involved.</code></pre>
+</div>
+
+<p>Because a 26-bit Wiegand credential contains no cryptographic signature, just a facility code and a card number, both plainly interpretable once captured, any device capable of emitting the correct Wiegand pulse train is indistinguishable from the original badge to the reader and access panel. This is the specific technical reason legacy low-frequency (125 kHz) proximity systems are considered cryptographically weak by modern standards, and why the hardening section below recommends migrating to challenge-response smart card protocols.</p>
+
+<h4>125 kHz Passive RFID Cloning</h4>
+<p>The most widely deployed legacy badge technology operates at 125 kHz using passive <span class="annot">RFID<span class="tip"><strong>RFID, Radio-Frequency Identification</strong>A technology that uses radio waves to wirelessly transmit a small amount of identifying data from a tag (the badge) to a reader, without requiring line-of-sight or physical contact. "Passive" RFID tags have no internal battery, they draw power from the reader's own radio signal to briefly power up and transmit their stored ID. <em>ISO/IEC 18000 governs various RFID air-interface standards; 125 kHz low-frequency proximity cards predate most modern ISO smart-card standards and remain common in older building deployments due to installed-base inertia.</em></span></span> tags, which contain no processing capability and simply echo back a fixed identifier whenever energized by a reader's radio field. Because the tag is passive, it responds to any compatible reader, including a cheap, commercially available handheld cloning device, without any way to verify that the reader querying it is a legitimate access-control panel. An attacker can walk close enough to a target (a few centimeters to a few inches, depending on the device) and silently capture the badge's identifier through a wallet, bag, or clothing, entirely without the victim's awareness, then write that identifier onto a blank card in under a minute.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">A static identifier is a password that cannot be changed</span>
+  The core vulnerability across nearly every legacy badge cloning attack is identical to the vulnerability behind static password reuse: the credential is a static value that never changes and carries no proof of the presenter's legitimacy beyond "I know this number." A modern smart card defeats cloning not by hiding the number better, but by never transmitting the secret at all, instead performing a cryptographic challenge-response exchange (see Section IV) where the badge proves it holds a secret key without ever revealing that key over the air.
+</div>
+
+<h4>Cross-Referencing Badge Logs for Breach Indicators</h4>
+<p>Detecting badge cloning or tailgating after the fact relies on log correlation. A common indicator is a "badge used in two places at once" or "impossible travel" pattern, the same badge ID recorded entering a west-coast facility and, within an implausibly short window, a facility on the opposite side of the country.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Access Control Log (Anomaly Detection)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>2026-07-08 08:14:02  BADGE_ID=40221  READER=HQ-LOBBY-01     RESULT=GRANTED
+2026-07-08 08:14:07  BADGE_ID=40221  READER=HQ-SRVROOM-03   RESULT=GRANTED
+2026-07-08 08:16:55  BADGE_ID=40221  READER=BRANCH-DENVER-01 RESULT=GRANTED  <-- ANOMALY
+
+# Alert logic:
+# Badge 40221 (HQ - Boston) granted entry at Denver branch reader
+# only 2m48s after HQ server room entry. Physical travel time
+# between sites: minimum 4.5 hours by air. Flag as CLONED_CREDENTIAL.</code></pre>
+</div>
+
+      </section>
+
+<h4>Assessing and Documenting a Physical Finding</h4>
+<p>An observation that stays in an assessor&rsquo;s notebook changes nothing. The purpose of documentation is to move a finding to the person who controls the budget and the decision, in a form that lets them rank it against every other claim on the same money. A finding is therefore not a sentence but a record, and the fields are not bureaucratic filler, each one answers a question the decision-maker will otherwise ask.</p>
+<ul>
+  <li><strong>Asset and location.</strong> Which specific thing is at stake, and where. &ldquo;The building&rdquo; cannot be assigned a value; &ldquo;the second-floor communications room, cabinet B&rdquo; can.</li>
+  <li><strong>Observed condition.</strong> What was actually seen, stated so that another person could verify it on a return visit. Dated photographs where the site permits them.</li>
+  <li><strong>Threat event.</strong> Following NIST SP 800-30&rsquo;s distinction, the specific thing that could happen, not the category of adversary.</li>
+  <li><strong>Consequence.</strong> Which of loss, damage, disruption or destruction results, and to which asset. These are different outcomes with different costs: a stolen laptop is a loss, a severed fibre is disruption, a flooded rack is destruction.</li>
+  <li><strong>Likelihood and impact,</strong> on a stated scale, with the reasoning shown. A number without its derivation cannot be challenged, and a rating nobody can challenge is a rating nobody will act on.</li>
+  <li><strong>Existing controls and residual risk.</strong> What already stands in the way, and what remains after it.</li>
+  <li><strong>Recommendation, owner, and date.</strong> A risk with no named owner is a risk that will be rediscovered at the next assessment.</li>
+</ul>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">Physical Risk Register, worked entry</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>FINDING ID....... PHY-2026-014
+ASSET............ Comms room 2F-B: core switch, branch NVR, patch frame
+                  Replacement + rebuild valued at AV = $60,000
+OBSERVED......... Door fitted with a plain spring latch; no deadlatch plunger.
+                  Latch retracted with a plastic shim in under 10 seconds
+                  during the 14 Mar walkthrough. Door is on a public corridor
+                  shared with two non-tenant businesses. Photographed.
+THREAT EVENT..... Unescorted person shims the latch outside staffed hours and
+                  reaches an open switch port / removes the NVR.
+CONSEQUENCE...... Loss (equipment), disruption (branch network down until
+                  replacement), and a plausible confidentiality impact if a
+                  rogue device is left on a trusted port.
+EXISTING CTRLS... Badge reader on the door (bypassed by this technique, and it
+                  logs nothing); corridor camera, not monitored, 14-day retention.
+LIKELIHOOD....... Moderate. Corridor is semi-public; no challenge procedure
+                  after 18:00; two propping incidents already in the log.
+IMPACT........... EF = 0.5 -> SLE = $60,000 x 0.5 = $30,000
+                  ARO estimated 0.2 (once in 5 years)
+                  ALE = $30,000 x 0.2 = $6,000/yr
+RESIDUAL......... Unchanged by existing controls; neither the reader nor the
+                  unmonitored camera acts on this vector.
+RECOMMENDATION... (1) Fit a deadlatch strike + latch protector -- $180/door,
+                      one-off, removes the shim vector outright.
+                  (2) Add a door-position contact to the monitored panel --
+                      $400 + monitoring, detects propping and forced entry.
+                  Post-control ARO estimated 0.04 -> ALE $1,200/yr.
+                  Net first-year benefit ~ $4,200 against ~$600 of cost.
+OWNER............ Facilities Manager, Branch Operations
+REVIEW BY........ 30 Apr 2026</code></pre>
+</div>
+
+<p>Two habits separate a register that gets funded from one that gets filed. The first is that every rating carries its reasoning in the same record, so a reviewer who disagrees with the likelihood can argue with the evidence rather than with the number. The second is that the recommendation is costed. A finding that says &ldquo;improve physical security&rdquo; competes badly against a finding that says &ldquo;$180 per door removes a vector we demonstrated in ten seconds&rdquo;, and the difference between them is entirely in the writing.</p>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: the Barclays and Santander Intrusions and Badge Cloning</h3>
+
+<h4>Case Study 2.2.1: The 2013 Barclays and Santander Branch Intrusions, A Pretext, a Door, and a Small Piece of Hardware</h4>
+<p>In April 2013 a man presented himself at the Swiss Cottage branch of Barclays in north London, told staff he was an IT engineer sent to service a computer, and was allowed to work unsupervised on a branch machine. What he installed was a <span class="annot">KVM switch<span class="tip"><strong>KVM Device</strong>A keyboard-video-mouse device sits between a computer and its peripherals. A benign one lets an administrator drive several machines from one console; one with a network or 3G module attached relays the screen and accepts keystrokes remotely, giving an operator elsewhere the same control as somebody sitting at the desk. Because it is a peripheral rather than software, it installs in seconds, needs no credentials, and is invisible to endpoint security running on the host. <em>Physically it looks like an ordinary dongle on the back of a tower, which is why concealment behind a desk is usually sufficient.</em></span></span> with a remote-access module, a small dongle plugged in behind the machine, requiring no password, no exploit, and no software installation. Once fitted, accomplices operating remotely had the same control over that branch terminal as a member of staff sitting at it, and used it to move approximately &pound;1.3 million out of the bank. The Metropolitan Police arrested eight men in September 2013 and charges followed; Barclays recovered the bulk of the money and said no customer suffered loss (<a href="https://www.theregister.com/2013/09/20/barclays_cyber_cops_make_arrests" target="_blank" rel="noopener">The Register, 20 September 2013</a>; <a href="https://www.itv.com/news/london/story/2013-09-20/barclays-bank-1-3m-theft/" target="_blank" rel="noopener">ITV News</a>). A near-identical attempt against a Santander branch at Surrey Quays later the same year was interrupted, the police having been forewarned.</p>
+
+<p>The case is instructive precisely because nothing technically remarkable happened. The vulnerability was procedural: no requirement that an engineer&rsquo;s visit be matched against a scheduled work order, no requirement that an unknown visitor be escorted, and no physical restriction on the ports of a machine sitting on the banking network. The vector was a pretext plus five minutes of unsupervised access. The impact was a direct financial loss, and it reached that scale because a branch terminal was trusted by the systems behind it in a way the person at the keyboard was not verified to deserve. Every technical control the bank operated on its network was intact throughout; none of them was positioned to see a stranger with a screwdriver.</p>
+
+<p>The generalisation matters more than the anecdote. An adversary who reaches a port on a trusted machine inherits that machine&rsquo;s network position. The same reasoning explains why the 2013 Target intrusion is a physical-security case as much as a network one: the initial credentials belonged to <a href="https://krebsonsecurity.com/2014/02/target-hackers-broke-in-via-hvac-company/" target="_blank" rel="noopener">Fazio Mechanical Services, an HVAC contractor</a>, a firm whose relationship with Target was refrigeration and billing rather than payment processing. The vendor was inside the trust boundary because of a physical-plant function, and the network did not partition on that distinction. Contractor access, the badge, the port, and the account, is a single problem, and organisations that assign it to three different teams tend to secure two of the three.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">Physical and network access are one attack surface</span>
+  A recurring theme across breach postmortems is the organisational seam: physical security teams and network security teams that do not share findings or coordinate access reviews, so that a contractor is offboarded from one system and not the other. An unbadged visitor who walks past a receptionist and sits down at an unlocked, logged-in workstation has just achieved, in ten seconds, what a network attacker might spend weeks trying to accomplish remotely. Physical security and cybersecurity are the same discipline wearing different hats.
+</div>
+
+<h4>Case Study 2.2.2: Corporate Espionage via Badge Cloning at Trade Shows and Conferences</h4>
+<p>Physical penetration testing firms and security researchers have repeatedly documented (and demonstrated live at security conferences such as DEF CON) how trivially inexpensive commercial RFID reader/writer devices can clone unencrypted 125 kHz proximity badges from a distance of several inches, without the badge holder's knowledge, in crowded public settings such as conference badge-scanning lines, elevators, or public transit. In one widely cited category of red-team engagement, testers posing as attendees at industry conferences have cloned employee badges from targets standing nearby in line for coffee or registration, then used the cloned credentials to walk directly into the target company's headquarters days later, bypassing the front desk, the badge reader, and any human challenge entirely, because the credential itself was accepted as fully legitimate. These engagements consistently find that organizations relying solely on 125 kHz proximity technology, without a corresponding PIN, biometric, or supervised-entry layer, have effectively no meaningful access control at all, the "lock" is only as strong as an unencrypted number that anyone nearby can silently copy.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Vulnerability, vector, and impact are three separate claims</span>
+  Three things are routinely collapsed into one and are worth keeping apart. The <em>vulnerability</em> is the standing weakness: a door that stays unlatched for four seconds, a credential that is a static number, a skip that is never locked. The <em>vector</em> is the action that exploits it: following someone through, presenting a duplicate card, recovering a document from the skip. The <em>impact</em> is what the asset then suffers. Badge cloning and tailgating exploit different vulnerabilities by different vectors and arrive at the same impact, an unauthorised person inside a controlled space, which is exactly why a control that addresses one leaves the other untouched. Dumpster diving is different in kind: it produces no impact by itself, and its harm is entirely in what it makes the next attack possible.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Closing Physical Gaps: Anti-Tailgating, Modern Credentials, Sanitization</h3>
+
+<p>Defending against physical breach vectors requires layered controls addressing the social, procedural, and technical dimensions of each attack simultaneously, a direct application of the defense-in-depth principle from Topic 2.1.</p>
+
+<h4>1. Anti-Tailgating Controls</h4>
+<p>The most effective technical countermeasure to tailgating is a <span class="annot">mantrap<span class="tip"><strong>Mantrap (Access Control Vestibule)</strong>A small, interlocked double-door chamber where the second door cannot open until the first door has fully closed and locked, and typically only one person's credential/weight is authorized to pass through per cycle. Physically prevents more than one person from entering on a single valid credential. <em>Formally termed an "access control vestibule" in modern building codes (e.g., NFPA 101). Covered in NIST SP 800-53 control PE-3 as a physical enforcement mechanism.</em></span></span> or access control vestibule, which physically enforces single-person entry through interlocked doors, sometimes paired with a weight sensor to detect a second person attempting to pass on one badge scan. Where mantraps are cost-prohibitive, organizations rely on procedural and cultural controls: mandatory challenge policies requiring employees to politely question anyone without a visible badge, and a strong security-awareness culture that treats "holding the door" for an unbadged stranger as a policy violation rather than a courtesy.</p>
+
+<h4>2. Migrating Away From Static, Clonable Credentials</h4>
+<p>The Section II analysis of Wiegand and 125 kHz RFID cloning points directly to the fix: replace static-identifier credentials with cryptographic challenge-response smart cards, such as those compliant with <span class="annot">ISO/IEC 14443<span class="tip"><strong>ISO/IEC 14443</strong>An international standard governing high-frequency (13.56 MHz) contactless smart cards, including the cryptographic challenge-response protocols used by modern access badges (e.g., MIFARE DESFire, HID iCLASS SE). Unlike 125 kHz passive tags, these cards can perform on-card cryptographic operations and never transmit their secret key over the air. <em>Also the underlying standard family for contactless payment cards and many government ID credentials.</em></span></span>, which perform mutual cryptographic authentication between card and reader, the badge proves possession of a secret key through a challenge-response exchange without ever transmitting that key itself, making passive cloning cryptographically infeasible rather than merely inconvenient. Pairing badge access with a second factor, such as a PIN pad or biometric reader, converts a single-factor "something you have" credential into true multi-factor physical authentication, directly mitigating the impact of a successful clone even if one occurs.</p>
+
+<h4>3. Data Sanitization and Physical Document Controls</h4>
+<p>Dumpster diving is mitigated by enforcing document classification and destruction policy: sensitive documents must be shredded (cross-cut, not strip-cut, per most compliance frameworks) rather than discarded intact, and decommissioned storage media must undergo certified data sanitization or physical destruction consistent with <span class="annot">NIST SP 800-88<span class="tip"><strong>NIST SP 800-88, Guidelines for Media Sanitization</strong>The authoritative U.S. federal standard specifying how to properly destroy or sanitize data on storage media before disposal or reuse, based on the media's type and the data's sensitivity. Defines three sanitization categories: Clear (basic overwrite), Purge (cryptographic erase or degaussing), and Destroy (physical destruction, e.g., shredding or incineration). <em>NIST Special Publication 800-88 Rev. 1 (2014) is the governing standard, widely referenced in compliance frameworks including HIPAA and PCI-DSS.</em></span></span> before it ever reaches a dumpster.</p>
+
+<h4>4. Device-Level Controls Against Theft</h4>
+<p>Full-disk encryption ensures that a stolen device's confidentiality is preserved even after physical loss, transforming a device-theft incident from a guaranteed data breach into a mere hardware-replacement cost, provided the encryption key itself was not also compromised. Automatic screen-lock timeouts, cable locks for shared workstations, and asset-tagging with remote-wipe capability round out the standard device-theft control set.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Every control here has a category and a function</span>
+  Every control in this section maps back to the CIA triad vocabulary from Topic 2.1: mantraps and smart cards are preventive/physical controls protecting confidentiality; badge log anomaly detection is a detective/technical control; full-disk encryption is a preventive/technical control that specifically neutralizes the confidentiality impact of a device-theft incident even after prevention has already failed. Naming the property and the control type for a given defence is a check on whether the defence has been understood: a control whose function you cannot state is one whose failure mode you cannot predict.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-53 Rev. 5: Security and Privacy Controls for Information Systems and Organizations, Control Family PE (2020).</li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-88 Rev. 1: Guidelines for Media Sanitization (2014).</li><li style='margin-bottom: 12px; text-align: justify;'>Mitnick, K. D., &amp; Simon, W. L. (2002). The Art of Deception: Controlling the Human Element of Security. Wiley.</li><li style='margin-bottom: 12px; text-align: justify;'>Hadnagy, C. (2018). Social Engineering: The Science of Human Hacking (2nd Edition). Wiley.</li><li style='margin-bottom: 12px; text-align: justify;'>Metropolitan Police / contemporaneous reporting on the 2013 Barclays Swiss Cottage and Santander Surrey Quays KVM intrusions (The Register, ITV News, September 2013).</li><li style='margin-bottom: 12px; text-align: justify;'>Krebs, B. (2014). Target Hackers Broke in Via HVAC Company. KrebsOnSecurity.</li><li style='margin-bottom: 12px; text-align: justify;'>ANSI/BHMA A156.30, American National Standard for High Security Cylinders.</li><li style='margin-bottom: 12px; text-align: justify;'>ISO/IEC 14443: Identification cards, Contactless integrated circuit cards, Proximity cards.</li><li style='margin-bottom: 12px; text-align: justify;'>California v. Greenwood, 486 U.S. 35 (1988).</li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+    <div class="question-block">
+      <div class="question-header">Question 1: Explain why the Wiegand protocol makes 125 kHz proximity badges vulnerable to cloning, and describe what specifically distinguishes a modern ISO/IEC 14443 smart card from a legacy proximity badge at the protocol level.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+      <div class="solution-content" id="sol-1">
+        <p>The Wiegand protocol transmits a badge's facility code and card number as unencrypted electrical pulses between the reader and the access-control panel, with no cryptographic protection at any point in the transmission. Because a 125 kHz proximity badge is a passive tag that simply echoes a fixed identifier to any compatible reader, an attacker with a commodity RFID reader/writer can silently capture that identifier from a short distance and duplicate it onto a blank card. The resulting clone presents an identical identifier to any reader in the system and is therefore indistinguishable from the legitimate credential, the access-control system has no mechanism to detect that a duplication, rather than a legitimate presentation, has occurred.
+
+An ISO/IEC 14443 smart card resolves this by performing mutual cryptographic challenge-response authentication: the reader sends a random challenge, and the card computes a response using a secret key stored securely on the card, without ever transmitting that key over the air. Because the secret itself is never exposed to interception, an attacker who captures the wireless exchange cannot derive the key or fabricate a valid response to a future challenge, making passive cloning cryptographically infeasible rather than merely difficult.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 2: A security team notices badge ID 40221 was granted entry at a Boston headquarters server room and, less than three minutes later, granted entry at a Denver branch office reader. Explain what this log pattern indicates and identify the underlying physical attack vector.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+      <div class="solution-content" id="sol-2">
+        <p>This pattern is a classic "impossible travel" anomaly: the minimum physical travel time between Boston and Denver by any commercial transportation method vastly exceeds the roughly three-minute gap between the two badge-read events. Since a single physical badge cannot be presented at two geographically distant readers within a window shorter than the travel time between them, the log indicates that the credential has been duplicated, most likely via badge cloning, where an attacker captured the unencrypted identifier from the legitimate badge (for example, using a concealed RFID reader) and wrote it onto a second physical card that was then used independently at the Denver site. This is a detective control (log correlation and anomaly detection) identifying after the fact what a purely technical access-control check could not catch in real time, since the cloned badge presents a fully "valid" credential to each individual reader.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 3: Explain why tailgating is considered a purely social attack vector rather than a technical one, and describe the specific physical control that most directly neutralizes it.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+      <div class="solution-content" id="sol-3">
+        <p>Tailgating requires no technical exploitation of the badge, the reader, or the access-control panel at all, the attacker never presents a credential of any kind. Instead, the attack exploits a social norm: an authorized individual holding a secured door open for someone walking closely behind them, driven by politeness rather than a security decision. Because no invalid or duplicated credential is ever presented to the reader, the access-control system generates no anomalous log entry, meaning purely technical detective controls (such as duplicate-badge or impossible-travel analysis) are blind to this vector entirely.
+
+The physical control that most directly neutralizes tailgating is a mantrap (access control vestibule): an interlocked double-door chamber, often paired with a weight or occupancy sensor, that physically enforces single-person passage per valid credential presentation. Because the second door cannot open until the first has fully closed, and the chamber is sized and sensored to reject a second occupant, a mantrap makes tailgating an enforcement failure the system can physically prevent, rather than a social norm the system merely hopes employees will resist.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="review-questions">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1 <span class="ap-code">2.2.A</span>, An assessor opens a badge-controlled door in under ten seconds by slipping a plastic card against the angled face of the spring latch. The cylinder is untouched and the door is undamaged. Which attack is this, and which single component would defeat it?</div>
+      <ol type="A">
+        <li>Lock picking; a cylinder with security pins.</li>
+        <li>Shimming; a deadlatch plunger riding on the strike, which blocks the latch from retracting.</li>
+        <li>Destructive entry; a reinforced frame anchored into the structure.</li>
+        <li>Badge cloning; a card compliant with ISO/IEC 14443.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2 <span class="ap-code">2.2.A</span> <span class="ap-code">2.2.B</span>, After an out-of-hours intrusion, a site argues that no unauthorised entry occurred because the access-control log records no badge events for the period. What is wrong with that argument?</div>
+      <ol type="A">
+        <li>Nothing; a complete badge log is conclusive evidence that the door was not opened.</li>
+        <li>Badge logs are cleared nightly by default, so an empty log is expected.</li>
+        <li>Most entry techniques, tailgating, shimming, hinge removal, an under-door tool operating the inside handle, never present a credential, so the panel has nothing to record.</li>
+        <li>The log records only failed attempts, so successful entries never appear in it.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3 <span class="ap-code">2.2.A</span>, Why does a 125 kHz proximity badge submit to cloning so readily, in a way that a 13.56 MHz card running a challenge-response protocol does not?</div>
+      <ol type="A">
+        <li>The low-frequency tag holds a static identifier and echoes it to any reader that energises it, so capturing the identifier is equivalent to holding the credential.</li>
+        <li>Low-frequency radio can be received from much greater distances, so the attacker never needs to approach the target.</li>
+        <li>The low-frequency card encrypts its identifier with a key printed on the card itself.</li>
+        <li>The two technologies are equally clonable; the difference is only the cost of the reader.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 4 <span class="ap-code">2.2.B</span>, A branch terminal on the banking network is left unattended while a visitor claiming to be a service engineer works on it, and a remote-access dongle is fitted to it. Which statement best characterises the mechanism by which the weakness produced the loss?</div>
+      <ol type="A">
+        <li>The attacker exploited a software vulnerability in the terminal&rsquo;s operating system.</li>
+        <li>The attacker defeated the bank&rsquo;s network encryption in transit.</li>
+        <li>The attacker inherited the terminal&rsquo;s trusted network position, because the systems behind it authenticated the machine rather than verifying the person operating it.</li>
+        <li>The attacker escalated privileges by cracking the branch manager&rsquo;s password.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 5 <span class="ap-code">2.2.B</span>, A contractor engaged for refrigeration maintenance holds credentials that reach systems entirely unrelated to refrigeration. Which weakness does this describe, and what makes it consequential?</div>
+      <ol type="A">
+        <li>A weak password policy; the contractor&rsquo;s password was too short.</li>
+        <li>Absent segmentation of third-party access, so a foothold obtained at a small vendor reaches assets that vendor has no business function near.</li>
+        <li>A missing patch on the contractor&rsquo;s workstation, which is the vendor&rsquo;s responsibility rather than the client&rsquo;s.</li>
+        <li>An environmental threat, because refrigeration failure would affect availability.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 6 <span class="ap-code">2.2.C</span>, Which of the following is the most useful entry in a physical risk register?</div>
+      <ol type="A">
+        <li>&ldquo;Building security is inadequate and should be improved as a priority.&rdquo;</li>
+        <li>&ldquo;Comms room 2F-B: spring latch shimmed in under ten seconds on 14 Mar; badge reader does not see this vector; AV $60,000, EF 0.5, ARO 0.2, ALE $6,000; deadlatch strike $180 removes it; owner Facilities Manager; review 30 Apr.&rdquo;</li>
+        <li>&ldquo;Several doors were found to be vulnerable during the assessment.&rdquo;</li>
+        <li>&ldquo;Risk rating: HIGH.&rdquo;</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 1 <span class="ap-code">2.2.A</span> <span class="ap-code">2.2.B</span> <span class="ap-code">2.2.C</span>, During a walkthrough of a regional office you observe: a rear fire door held open with a wedge during the afternoon; a wiring closet secured by a plain spring latch on a corridor shared with other tenants; employee badges that are 125 kHz proximity cards; and a paper recycling skip in the unfenced car park. (a) For each observation, name the attack it enables and the consequence category, loss, damage, disruption, or destruction, that most directly follows. (b) Choose the observation you would rank highest and defend the ranking in terms of likelihood and impact rather than severity language. (c) Write the finding for that observation as a register entry, including a costed recommendation and a named owner. Invented but plausible figures are acceptable provided you state the basis for each.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 2 <span class="ap-code">2.2.A</span> <span class="ap-code">2.2.B</span>, A facility manager proposes replacing every 125 kHz badge with a cryptographic smart card, arguing that this will end unauthorised entry. (a) Explain what the migration genuinely fixes, at the level of the mechanism. (b) Identify two attacks from this chapter that the migration leaves entirely untouched, and explain in each case why the new credential is irrelevant to them. (c) Recommend two further controls that address the residual attacks, stating for each its function and category, and explain why the resulting set is more robust than any single stronger credential could be.</div>
+    </div>
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">2.2.A</span>
+      <p class="key-why">Shimming works against the angled face of a spring latch, pushing it back into the door without engaging the locking mechanism at all; a deadlatch plunger rides on the strike plate when the door is closed and mechanically prevents the main latch from retracting, which is why its absence is a standard finding. <strong>A</strong> misidentifies the technique: picking manipulates the pin stacks inside the cylinder, and the scenario states the cylinder was untouched, so a better cylinder changes nothing. <strong>C</strong> is inconsistent with an undamaged door. <strong>D</strong> addresses the credential, and no credential was presented.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. C</span><span class="key-lo">2.2.A &middot; 2.2.B</span>
+      <p class="key-why">The access-control panel records credential presentations. Techniques that never present a credential produce no record, and several of them, the under-door tool in particular, look to the panel like an ordinary exit. An empty log is therefore consistent both with nobody entering and with a competent entry, and cannot distinguish between them; this is why door-position contacts, which report the physical state of the door rather than credential events, are the complementary control. <strong>A</strong> asserts the conclusion the argument needs and the chapter refutes. <strong>B</strong> and <strong>D</strong> are simply false as descriptions of how these systems log.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. A</span><span class="key-lo">2.2.A</span>
+      <p class="key-why">A passive low-frequency tag has no processing capability; energised by any compatible field, it returns a fixed number, and that number is the whole credential. Capture equals possession. A card performing challenge-response proves it holds a key without transmitting the key, so a recording of the exchange authorises nothing later. <strong>B</strong> inverts the physics and is not the mechanism regardless: the vulnerability is the static value, not the range. <strong>C</strong> describes a scheme that would defeat itself and is not what these cards do. <strong>D</strong> denies the distinction the entire migration recommendation rests on.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. C</span><span class="key-lo">2.2.B</span>
+      <p class="key-why">The dongle sits between the machine and its peripherals and needs no credentials, no exploit, and no software installation; what it grants the remote operator is the position of somebody sitting at that desk, and the systems behind the terminal extend trust to the terminal. The causal chain runs from an unverified visitor to unsupervised port access to inherited trust. <strong>A</strong>, <strong>B</strong> and <strong>D</strong> each import a technical compromise that the scenario does not contain and that the attack does not require, which is precisely what makes this class of intrusion cheap.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">2.2.B</span>
+      <p class="key-why">The weakness is architectural: access granted for one business function reaches assets belonging to another, so compromising the smallest party in the supply chain yields a path to the largest prize. <strong>A</strong> and <strong>C</strong> name real hygiene problems, but both are contingent, a strong password and a patched workstation still leave the excessive reach intact once the account is used legitimately or the vendor is compromised by another route. <strong>D</strong> confuses the vendor&rsquo;s trade with the threat: the risk here is the credential&rsquo;s reach, not the refrigeration plant.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. B</span><span class="key-lo">2.2.C</span>
+      <p class="key-why">It names the asset and location, states an observation another person could verify with a date, quantifies likelihood and impact with the derivation visible, prices the remedy, and assigns an owner and a review date, which is what allows the finding to be compared against competing claims on the same budget. <strong>A</strong> and <strong>C</strong> identify no asset, no specific condition, and no action, so nothing can be costed or assigned. <strong>D</strong> supplies a rating with no evidence behind it; a rating that cannot be argued with is a rating that will not be funded.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 1</span><span class="key-lo">2.2.A &middot; 2.2.B &middot; 2.2.C</span>
+      <p class="key-why"><strong>Model answer.</strong> (a) The wedged fire door defeats the closer and enables unescorted entry, and its most direct consequence is loss, an intruder inside with access to equipment, with disruption following if a service is interfered with. The spring-latched wiring closet on a shared corridor enables shimming, whose direct consequences are loss of equipment and disruption of the network the closet serves, with a confidentiality exposure if a rogue device is left on a port. The 125 kHz badges enable cloning, whose consequence is not the loss of the card but unauthorised entry that the access log records as legitimate, loss, and the degradation of the log as evidence. The unfenced paper skip enables dumpster diving; it produces no direct consequence at all, which is the point worth making, and its harm is the pretext material it supplies to the other three attacks. (b) A defensible highest ranking is the wiring closet: likelihood is high because the corridor is semi-public and the technique needs ten seconds and no tools, and impact is high because the closet concentrates network dependency for the whole office, so the same event yields both equipment loss and site-wide disruption. The wedged door is comparably likely but its impact is contingent on what the intruder then reaches; the badges have high impact but require an adversary to get close enough to a cardholder first; the skip has high likelihood and no direct impact. A response ranking the wedged door first is acceptable if it argues likelihood and impact rather than asserting severity. (c) The register entry must contain, at minimum, asset and location, a dated verifiable observation, the threat event, the consequence category, likelihood and impact with the derivation shown, the existing controls and why they do not act on this vector, a costed recommendation, an owner, and a review date. <br><strong>Look for:</strong> consequence categories used precisely rather than interchangeably; the recognition that dumpster diving is enabling reconnaissance with no direct consequence; a ranking argued in terms of the two risk variables; and a register entry in which every rating is accompanied by the basis for it. A response that ranks by adjective (&ldquo;this one is most severe&rdquo;) has not done the task.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 2</span><span class="key-lo">2.2.A &middot; 2.2.B</span>
+      <p class="key-why"><strong>Model answer.</strong> (a) The migration removes the static-secret problem. A 125 kHz tag returns a fixed identifier to any reader that energises it, so a capture is a working duplicate; a card performing mutual challenge-response proves possession of a key without transmitting it, so an intercepted exchange authorises nothing afterwards. What is fixed is credential duplication, and only that. (b) Two untouched attacks, with reasons: tailgating never interrogates the credential at all, the door is already open, and the strength of the card is irrelevant to a person walking through behind its holder; and shimming or an under-door tool acts on the latch or the inside exit device, so the reader is bypassed rather than defeated and, on the last of these, the panel logs an ordinary exit. Dumpster diving and destructive entry are equally acceptable answers on the same reasoning. (c) Two further controls, for example: an interlocked vestibule or optical turnstile that admits one person per credential, physical, preventive, acting on tailgating; and a door-position contact reporting to a monitored panel, together with a deadlatch strike, physical, detective and preventive respectively, acting on propping, shimming and forced entry. A supervised-entry or challenge policy is acceptable as an administrative preventive control. The set is stronger than any single credential because the attacks have independent mechanisms: no property of a card, however cryptographically sound, addresses a door that is standing open. <br><strong>Look for:</strong> part (a) stated at the level of the mechanism, static value versus proof of possession, rather than &ldquo;it is encrypted&rdquo;; two residual attacks each with an explicit reason the credential is irrelevant; two controls labelled on both axes; and a closing argument grounded in the independence of the mechanisms rather than a general appeal to layering.</p>
+    </div>
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager"><a class="prev" href="../2.1/notes.html"><span class="pager-label">Previous</span>&larr; 2.1 Security Foundations (CIA Triad)</a><a class="next" href="../2.3/notes.html"><span class="pager-label">Next</span>2.3 Physical Access Controls &rarr;</a></nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

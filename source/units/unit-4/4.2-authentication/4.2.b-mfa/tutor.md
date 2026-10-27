@@ -1,0 +1,9 @@
+# 4.2.b tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+Before the lecture, fix this trap in your head so it doesn't catch you on the exam: two passwords is not two-factor authentication, no matter how many boxes you type into. What makes something MFA is that the factors come from different *categories*, something you know, something you have, something you are, because the whole point is forcing an attacker to succeed at two structurally different kinds of theft simultaneously, not just guess twice. A stolen password plus a stolen second password is still just one skill (guessing or phishing secrets) executed twice.
+
+## The big picture
+The ranking from SMS codes up through FIDO2 hardware keys is really a story about which attacks each method was never designed to survive, and it's worth tracing the causal chain rather than memorizing the order: SMS fails because a phone *number* is a carrier-controlled abstraction that can be SIM-swapped away from the phone itself; TOTP fixes that by binding the secret to the device, but a human is still capable of typing a valid code into a fake site, so phishing-relay attacks still work; push notifications fix the typing problem but open a new one, MFA fatigue, where the attacker just spams approval requests until an exhausted user taps yes. FIDO2/WebAuthn is the only method here that closes all three gaps at once, and it does it structurally, not through user vigilance: the cryptographic handshake is bound to the exact domain, so the key simply refuses to respond to a perfect-looking fake page. That's worth connecting back to 4.1.b's evil-maid-style lesson about *when* a control is active, MFA methods aren't ranked by how strong the secret is, they're ranked by how many different tricks a human being can be fooled into cooperating with.

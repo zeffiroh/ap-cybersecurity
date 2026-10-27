@@ -1,0 +1,373 @@
+\chapter{Physical Detection Systems}
+\label{ch:2.4}
+\chaptertopic{Topic 2.4}
+
+\chapterquote{Trust, but verify.}{Russian proverb, popularized in English by Ronald Reagan}
+
+\section{Motivation}
+
+Chapter~\ref{ch:2.3} was about controls that keep an attacker out. This closing chapter of Unit~2
+is about the layer that assumes a control has already failed, or is being actively tested, and
+asks a narrower question: how does a facility \emph{notice}? Access logs, alarm systems, and
+motion sensors are all detective, not preventive, controls -- none of them stops an intruder
+physically. Their value is entirely in how fast and how reliably they shrink the gap between an
+intrusion starting and someone finding out. That gap is exactly how much damage an
+attacker gets to do uncontested.
+
+\begin{apalignment}{Unit 2: Securing Spaces}{Topic 2.4 -- Detecting Physical Attacks}
+\begin{apobjectives}
+\apobjective{2.4.A}{Detect Attacks}{Identify the ways a security control can reveal a physical attack -- the sensor that reports a state change, the camera that supplies the assessment, the log that records a credential, and the human patrol that observes what none of them are positioned to see.}
+\apobjective{2.4.B}{Detect Attacks}{Determine where a detective control has to sit to be useful: which boundary, which choke point, which asset, and why a sensor placed at the wrong point in an intruder's path detects the attack too late to act on it.}
+\apobjective{2.4.C}{Detect Attacks}{Apply detection techniques to a specific situation, reading the evidence a physical intrusion leaves across several independent systems and assembling it into an account that will survive scrutiny.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Access Logs and Monitoring}
+
+Every badge reader, key-card door, and biometric scanner generates a continuous stream of
+timestamped records the instant someone attempts or succeeds at entry.
+
+\begin{definition}{Physical access log}
+A timestamped record of credential presentations at controlled entry points, typically including
+who presented a credential, which door, when, and whether it was granted or denied.
+\end{definition}
+
+Unlike a camera feed, which requires a human to watch, a log can be searched and analyzed
+automatically -- which is what makes it a genuinely active detective control rather than just a
+record. Three recurring patterns distinguish an attack from ordinary use. A \textbf{location
+inconsistency} is a single credential appearing at two geographically separated readers within a
+window too short for legitimate travel. The same badge logged at a front lobby at 07:55 and at a
+server-room door at 02:17 the same night is not one person moving quickly -- it is a cloned or
+shared credential. A \textbf{repeated denial burst} is a cluster of ACCESS DENIED events for one
+credential in a short window. This is the access-log equivalent of a network brute-force attack, and
+detected with the same logic: count failures per credential per window, alert past a threshold.
+\textbf{After-hours access} requires a baseline defined per door, not per building -- a server
+room is expected to be empty at midnight even in a building with round-the-clock cleaning staff.
+Any access to it outside its authorized schedule warrants an alert, regardless of whether the
+badge itself is valid.
+
+\begin{lstlisting}[language=Python, caption={Flagging access-log anomalies across three rules}]
+def flag_access_anomalies(entries, denial_threshold=5, denial_window=60,
+                           location_gap_seconds=300, after_hours_start=22,
+                           after_hours_end=6, restricted_doors=frozenset()):
+    """entries: list of dicts like {"badge_id": str, "door": str,
+       "timestamp": int, "hour": int, "result": str}.
+       Returns sorted badge IDs triggering any alert rule."""
+    flagged = set()
+    by_badge = {}
+    for e in entries:
+        by_badge.setdefault(e["badge_id"], []).append(e)
+
+    for badge_id, badge_entries in by_badge.items():
+        badge_entries.sort(key=lambda e: e["timestamp"])
+        denials = [e["timestamp"] for e in badge_entries if e["result"] == "DENIED"]
+        left = 0
+        for right in range(len(denials)):
+            while denials[right] - denials[left] > denial_window:
+                left += 1
+            if right - left + 1 >= denial_threshold:
+                flagged.add(badge_id)
+
+        for e in badge_entries:
+            if e["door"] in restricted_doors:
+                if e["hour"] >= after_hours_start or e["hour"] < after_hours_end:
+                    flagged.add(badge_id)
+
+        for a, b in zip(badge_entries, badge_entries[1:]):
+            if a["door"] != b["door"] and b["timestamp"] - a["timestamp"] < location_gap_seconds:
+                flagged.add(badge_id)
+    return sorted(flagged)
+\end{lstlisting}
+
+Tailgating (Chapter~\ref{ch:2.2}) is the one pattern a badge log cannot catch directly, because the
+attacker never swipes at all. It can still surface indirectly, though: if the count recorded by an
+anti-passback badge system falls below what an independent people-counter sensor observed at the
+same door, the difference itself is the alert. In practice, an organization aggregates all of
+this into a Security Information and Event Management (SIEM) platform that applies threshold,
+schedule, and correlation rules across every reader at once. The platform then ranks the resulting alerts by
+severity for a tier-1 analyst to triage.
+
+\begin{misconception}
+\textbf{``A valid badge swipe means the entry was authorized.''} A badge can be cloned, stolen, or
+knowingly shared; a valid swipe only proves a credential was presented, not that the right person
+presented it. Context -- the time, the location, the frequency -- is what actually determines
+legitimacy.
+\end{misconception}
+
+\section{Alarm Systems}
+
+An alarm system occupies the middle ground between a lock that keeps someone out and a camera
+that merely records that they got in anyway: it is a detective control whose job is to notice an
+intrusion in progress and trigger a response fast enough to matter. Nothing about a siren
+physically stops someone from climbing through a broken window. Treating an armed alarm as
+equivalent to a locked door is the single most common physical-security planning mistake, because
+it misallocates budget and attention toward a control that cannot actually prevent anything.
+
+An alarm system has four parts. \textbf{Sensors} detect a specific event at a specific
+location: a door/window contact (a reed switch that opens when the door swings), or a
+glass-break sensor tuned specifically to the acoustic signature of shattering glass, to avoid
+false trips from ordinary loud noise. A \textbf{panic button} is different in kind: it is not
+triggered by an intrusion event at all, but by a person deliberately signaling they need help. The
+\textbf{control panel} tracks which zones are armed, runs timing logic, and decides whether a trip
+sounds a local siren, calls the monitoring center, or both. The \textbf{monitoring / central
+station} is a staffed facility that receives the panel's signal, attempts to verify it, and
+dispatches police if warranted.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.6cm, minimum height=0.9cm, align=center, font=\scriptsize},
+]
+\node[box, fill=kickstartercream] (sensor) at (0,0) {Sensor trips};
+\node[box] (panel) at (3,0) {Control panel:\\zone armed? in delay?};
+\node[box, fill=kickstartermaroon!10] (susp) at (6.4,1.3) {Suppressed\\(disarmed / in delay)};
+\node[box, fill=kickstartermaroon!10] (local) at (6.4,0) {Local-only\\(siren, no dispatch)};
+\node[box, fill=kickstartermaroon!25] (dispatch) at (6.4,-1.3) {Verified dispatch\\(cross-zone / panic)};
+\draw[-{Latex[length=2mm]}] (sensor) -- (panel);
+\draw[-{Latex[length=2mm]}] (panel) -- (susp);
+\draw[-{Latex[length=2mm]}] (panel) -- (local);
+\draw[-{Latex[length=2mm]}] (panel) -- (dispatch);
+\end{tikzpicture}
+\caption{Response is tiered, not binary: the same sensor trip resolves to suppression,
+a local-only siren, or a verified dispatch depending on arm state, delay windows, and
+corroborating signals.}
+\label{fig:2.4-alarm-tiers}
+\end{figure}
+
+\begin{definition}{Entry/exit delay}
+A timed grace period -- typically 45 to 60 seconds -- that lets a legitimate occupant leave through
+a designated door after arming, or reach the panel to disarm on arrival, without a sensor trip
+during that window counting as an intrusion.
+\end{definition}
+
+The hardest engineering problem in alarm design is not detecting a sensor trip; it is telling a
+trip caused by an intruder apart from one caused by the occupant who just armed the system and is
+walking out the door. That distinction is exactly what entry/exit delay windows solve. False alarms are the alarm
+industry's central operational problem: the overwhelming majority of dispatches trace back to
+pets, wind-blown curtains, or a door not fully latched. Many jurisdictions now fine or
+decline to dispatch to repeat false-alarm addresses as a result. \textbf{Cross-zone verification} -- requiring
+two independent sensors to trip within a short window of each other before treating an event as
+high-confidence -- and \textbf{video verification} -- letting a monitoring-center operator visually
+confirm a person before calling police -- both reduce false dispatch. Systems supporting
+verification typically receive faster, higher-priority response, because dispatchers can trust the
+alert.
+
+\begin{lstlisting}[language=Python, caption={Classifying alarm events by confidence and response tier}]
+def classify_alarm_event(sensor_type, arm_state, in_exit_delay, in_entry_delay,
+                          cross_zone_confirmed):
+    """Returns one of "suppressed", "false_alarm", "local_only", "dispatch"."""
+    if sensor_type == "panic":
+        return "dispatch"
+    if arm_state == "disarmed":
+        return "suppressed"
+    if in_exit_delay or in_entry_delay:
+        return "suppressed"
+    if cross_zone_confirmed:
+        return "dispatch"
+    return "local_only"
+\end{lstlisting}
+
+Response is deliberately tiered. A local-only response -- siren and strobe, no call to
+authorities -- suits low-confidence, single-sensor trips and deters an opportunist without
+consuming monitoring-center resources on every ambiguous trip. A verified dispatch is reserved for
+high-confidence events. Panic and duress signals bypass every other layer of this logic entirely
+-- no verification, no arm-state check -- and escalate straight to dispatch, because a human
+deliberately pressed the button. The cost of ignoring a real emergency far outweighs the cost
+of occasionally dispatching on a false one.
+
+\begin{misconception}
+\textbf{``An armed alarm prevents a break-in.''} An alarm is a detective and response control, not
+a preventive one -- it can only notice and react to an intrusion already underway, not physically
+stop it. That job belongs to the locks, mantraps, and barriers of Chapter~\ref{ch:2.3}.
+\end{misconception}
+
+\begin{example}[Why an excellent detector still cries wolf almost every time]
+Consider a zone with a genuinely good detector: it alarms on a real intrusion 99 times out of 100.
+On any ordinary night with no intruder, it produces a nuisance alarm 1 percent of the time.
+Suppose a real intrusion at this zone happens on roughly one night in a thousand. Across a
+thousand nights, the detector fires about one true alarm from the single real event and about ten
+false alarms from the 999 quiet nights (0.01~$\times$~999~$\approx$~10). An alarm from this zone is
+therefore genuine roughly $1/(1+10) \approx 9\%$ of the time -- despite every published
+specification of the sensor being excellent. Nothing is wrong with the hardware; the event's
+rarity, not the detector's quality, dominates the result. This is the same base-rate reasoning that
+governs any low-prevalence screening problem, from medical testing to network intrusion detection.
+It also has a real historical price tag. Problem-oriented policing research places the false rate
+for police-dispatched burglar alarms at roughly 94 to 98 percent. In 1999, only about 0.3 percent
+of the alarm calls Salt Lake City police attended turned out to involve an actual
+crime.\srccite{2.4}{1} In 2000, Salt Lake City adopted a verified-response
+policy under which police attend an alarm only after a private responder or camera has confirmed a
+crime in progress, and alarm-related dispatch volume fell sharply as a result.
+\end{example}
+
+Three practical conclusions follow directly from the arithmetic above. First, a monitoring
+operation cannot be designed on the assumption that alarms are usually real, because for rare
+events they structurally never will be. It has to be designed instead to dispose of the common (false)
+case cheaply. Second, the way to raise the fraction of genuine alarms is to add an
+\emph{independent} second signal, not to make one sensor stricter. This is exactly why cross-zone
+verification and the dual-technology AND-logic covered later in this chapter work: they attack the
+ten false alarms rather than trying to make the one real alarm more certain. Third, the cost of
+false alarms is not a minor operational nuisance. It is the mechanism by which a detection program
+stops being answered at all, whether the responder is a police dispatcher or a
+security-operations-center analyst deciding which of a thousand daily alerts deserves a look.
+
+\section{Motion Sensors}
+
+A badge reader only fires when a badge is presented, and no organization watches every camera feed
+in real time. Motion sensors close exactly that gap: always-on detective controls that alert the
+instant something moves in a space that should be empty, without identifying who moved or why.
+
+\begin{definition}{Passive infrared (PIR) sensor}
+A motion sensor that emits no energy of its own and instead watches the infrared (heat) radiation
+already present in a room. It divides its field of view into segments and detects a rapid
+\emph{change} in infrared level as a warm object crosses a segment boundary.
+\end{definition}
+
+Because PIR responds to \emph{change}, not to heat itself, a person standing perfectly still long
+enough can occasionally go undetected -- no motion means no delta, and no delta means no trigger.
+\textbf{Microwave sensors} work differently: they actively emit a signal and measure its
+reflection, detecting motion via the \textbf{Doppler shift} in the returning wave -- the same
+physics behind a radar speed gun. Microwave energy passes through thin walls and glass that block
+infrared. That is a strength for coverage and a weakness for containment, since a microwave sensor can
+trigger on motion in an adjacent room outside the zone it is meant to protect. Ultrasonic sensors
+apply the same Doppler principle with sound instead, at shorter range and with more susceptibility
+to HVAC-airflow false triggers.
+
+\begin{example}[Why dual-technology sensors use AND, not OR]
+A PIR element triggers on sudden heat-source movement that is not a person -- sunlight sweeping a
+wall, a heating vent kicking on. A microwave element triggers on motion a PIR would never see --
+vibration from a passing truck, HVAC airflow. Combining both technologies in one housing and
+requiring \emph{both} to trigger within the same short window, rather than either alone, sharply
+cuts false positives. Sunlight glare fools a PIR element but produces no Doppler shift, and
+airflow can fool a microwave element but produces no meaningful infrared delta. The tradeoff is a
+small risk of missing a true detection, if an intruder's movement happens not to trigger both
+elements simultaneously. That is an acceptable cost in a zone where every false dispatch has a real
+price.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Classifying a motion-sensor trigger as a true detection or false positive}]
+KNOWN_FALSE_CAUSES = {
+    "pir": {"sunlight", "hvac_vent", "pet", "insect", "curtain_sway"},
+    "microwave": {"hvac_airflow", "adjacent_room_traffic", "radio_interference"},
+}
+
+def classify_trigger(sensor_type, cause, dual_tech_confirmed=None):
+    """sensor_type: "pir", "microwave", or "dual". cause: str describing
+       what triggered the sensor. dual_tech_confirmed: bool, only relevant
+       when sensor_type == "dual" -- whether both elements agreed."""
+    if sensor_type == "dual":
+        return "true_detection" if dual_tech_confirmed else "false_positive"
+    if cause in KNOWN_FALSE_CAUSES.get(sensor_type, set()):
+        return "false_positive"
+    return "true_detection"
+\end{lstlisting}
+
+Placement mirrors camera placement from Chapter~\ref{ch:2.3}: mount high enough to resist
+tampering, and angle the detection cone toward doors and choke points rather than open floor space.
+Avoid pointing a PIR sensor at a window, an HVAC vent, or anything that sways in an air
+current, since each is a documented false-trigger source. \textbf{Sensitivity tuning} is a
+tradeoff dial, not a one-directional improvement. Higher sensitivity catches slower, more careful
+movement, but also a mouse or a shifting shadow -- and enough nuisance triggers train staff to ignore
+alerts entirely, which is a worse outcome than a slightly less sensitive sensor. Facilities
+compound this with \textbf{zoned detection}: separate sensors covering distinct areas so an
+alert also identifies \emph{where}. Perimeter sensors (fences, exterior contacts) layer
+outside interior sensors (room-level PIR and dual-technology units in high-value rooms), giving
+defense in depth if the perimeter layer is defeated.
+
+\begin{misconception}
+\textbf{``Higher sensitivity is always better security.''} Maximum sensitivity also catches pets,
+insects, and sunlight glare as false positives, and enough of those get a sensor's alerts
+deprioritized or disabled by fatigued staff -- the opposite of better security.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A badge shows a valid entry at the front lobby at 07:55 and a valid entry at a server-room
+door 250 miles away at 08:03 the same morning. Explain which detection rule this triggers and why
+the badge being ``valid'' at both doors does not make the access legitimate.
+\item Explain why an alarm system's entry/exit delay is necessary even though its purpose,
+described plainly, is to \emph{not} alert on some real sensor trips.
+\item A monitoring center receives a single door-contact trip with no corroborating sensor. Explain
+why cross-zone verification would change how this event is classified, and what specific risk
+verification is designed to reduce.
+\item Explain why a dual-technology motion sensor uses AND-logic between its PIR and microwave
+elements rather than OR-logic, and describe the one scenario in which this design choice could
+cause a missed true detection.
+\item A facility experiences frequent nuisance alerts from a PIR sensor mounted near a window.
+Using the placement and sensitivity concepts from this chapter, explain two independent changes
+that would reduce false positives without simply disabling the sensor.
+\item In the worked base-rate example, a detector that is 99\% accurate on both true and false
+alarms is still only genuine about 9\% of the time it fires. Explain, without recomputing the
+arithmetic, why adding a second, independent sensor and requiring both to agree raises this
+fraction far more effectively than replacing the single sensor with an even more accurate one.
+\item Salt Lake City's verified-response policy means police attend an alarm only after a private
+responder or camera confirms a crime in progress. Explain what problem in the alarm-response
+pipeline this policy directly targets, and why it is a structural fix rather than merely a stricter
+threshold on the same detector.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item This triggers a location-inconsistency rule: the same credential appearing at two
+geographically separated readers within a window too short for legitimate travel. A badge being
+``valid'' at both doors only proves a credential was presented and accepted at each reader
+individually -- it says nothing about whether the same physical person carried it to both places.
+250 miles in eight minutes is physically impossible for one person, which is exactly the
+context (time and location together) that the chapter argues a raw badge-valid signal cannot
+supply on its own.
+\answerlabel{2.4.A}
+\item The entry/exit delay is necessary precisely because a legitimate occupant arming the system
+and walking out, or arriving and walking to the panel to disarm, produces a sensor trip that is
+indistinguishable at the sensor level from an intruder's trip. Without the delay window, the system
+cannot tell the two apart, and every legitimate arming or disarming cycle would itself trigger a
+false alarm. Deliberately not alerting on that specific, predictable, low-risk trip is what makes
+the rest of the system's alerts trustworthy.
+\answerlabel{2.4.B}
+\item A single door-contact trip with no corroborating sensor is low-confidence: it could be an
+intrusion, or a door not fully latched, wind, or routine staff movement outside the expected
+schedule. Cross-zone verification would reclassify this event by requiring a second, independent
+sensor to trip within a short window before treating it as high-confidence. That directly reduces
+the risk of a false dispatch -- committing a costly police or guard response to an event that,
+statistically, is overwhelmingly likely to be a nuisance trigger rather than a genuine intrusion.
+\answerlabel{2.4.B}
+\item AND-logic requires both the PIR and microwave elements to trigger within the same short
+window, which sharply cuts false positives because the two technologies fail independently.
+Sunlight glare fools a PIR element but produces no Doppler shift, and HVAC airflow or vibration
+fools a microwave element but produces no meaningful infrared delta, so a false trigger on one
+element alone is suppressed. The tradeoff is a missed true detection in the scenario where a real
+intruder's movement happens to trigger only one element within the window -- for instance, someone
+moving slowly enough, or in a way that produces a strong infrared delta but an unusually weak
+Doppler return, so the microwave element never confirms within the required window.
+\answerlabel{2.4.A}
+\item Two independent changes work. First, reposition the sensor (or re-angle its detection cone) away from the
+window and toward the choke point it is actually meant to protect, since a PIR aimed at or near a
+window will register sunlight sweeping across the glass as a rapid infrared change. Second, reduce
+sensitivity or switch to a dual-technology unit requiring AND-logic confirmation, which filters out
+the single-element triggers a window view is prone to producing, without disabling detection
+entirely. Placement and sensitivity are independent levers -- fixing one does not fix the other, and
+a well-placed sensor tuned too aggressively will still nuisance-trigger, just on different causes.
+\answerlabel{2.4.B}
+\item A single sensor's false alarms are dominated by the sheer number of quiet nights, not by any
+flaw a slightly better accuracy figure would fix. Even a very good detector still produces a
+large absolute number of false positives across enough uneventful nights, because the rare event
+being detected, not the sensor's quality, dominates the arithmetic. A second, \emph{independent}
+sensor changes the structure of the problem instead of nudging one number: for a false alarm to
+pass both sensors, the two unrelated failure causes (sunlight glare, HVAC airflow, and so on) must
+occur simultaneously, in a way that fools both technologies at once. That is dramatically
+rarer than either failure occurring alone -- exactly why cross-zone and dual-technology
+verification outperform a marginal accuracy improvement on a single sensor.
+\answerlabel{2.4.C}
+\item Verified response directly targets the flood of false dispatches that the base-rate
+arithmetic guarantees any rare-event detector will generate, by moving the confirmation step
+earlier in the pipeline -- before police are sent -- rather than after. It is a structural fix, not
+a stricter threshold, because it does not change any sensor's sensitivity or accuracy at all. It
+inserts an independent corroborating check (a private responder or camera) between the alarm
+firing and the costly response, which is the same principle behind cross-zone verification, applied
+at the level of an entire city's dispatch policy rather than one alarm panel.
+\answerlabel{2.4.C}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{2.4}{1}Rana Sampson, \emph{False Burglar Alarms}, 2nd ed., Problem-Oriented Guides
+for Police, Problem-Specific Guides Series No.\ 5 (U.S.\ Department of Justice, Office of
+Community Oriented Policing Services, 2007); Salt Lake City figures per the same guide.
+\end{enumerate}

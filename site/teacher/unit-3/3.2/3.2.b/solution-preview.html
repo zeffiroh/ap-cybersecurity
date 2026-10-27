@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Managerial controls and security policies, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Managerial controls and security policies  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.2.b: Control-type classifier</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.2.A, 3.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building a control matrix tool for Crestfield Analytics' security program. Given a list of
+implemented security scenarios, classify each one by control family: <code>"managerial"</code>,
+<code>"technical"</code>, or <code>"physical"</code>, based on how the control is actually implemented (its
+<code>"mechanism"</code>), not on what risk it happens to address.</p>
+<h2>Function contract</h2>
+<p>Implement <code>classify_controls(scenarios)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>scenarios</code>: <code>list[dict]</code>, each with:</li>
+<li><code>"id"</code>: <code>str</code>, a scenario identifier</li>
+<li><code>"description"</code>: <code>str</code>, flavor text describing the scenario (not used for classification)</li>
+<li><code>"mechanism"</code>: <code>str</code>, one of <code>"policy_document"</code>, <code>"training_program"</code>,
+    <code>"access_review_process"</code>, <code>"software_or_hardware_enforcement"</code>, <code>"physical_barrier"</code></li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code> of classifications, <strong>one per input scenario, in the same order as the input</strong>. Each
+entry is one of <code>"managerial"</code>, <code>"technical"</code>, <code>"physical"</code>.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">scenarios = [
+    {&quot;id&quot;: &quot;s1&quot;, &quot;description&quot;: &quot;New hires sign a document listing allowed and prohibited use of company laptops.&quot;,
+     &quot;mechanism&quot;: &quot;policy_document&quot;},
+    {&quot;id&quot;: &quot;s2&quot;, &quot;description&quot;: &quot;The office network blocks known-malicious IP ranges automatically.&quot;,
+     &quot;mechanism&quot;: &quot;software_or_hardware_enforcement&quot;},
+    {&quot;id&quot;: &quot;s3&quot;, &quot;description&quot;: &quot;The server room door requires a badge to open.&quot;,
+     &quot;mechanism&quot;: &quot;physical_barrier&quot;},
+]
+classify_controls(scenarios)  -&gt;  [&quot;managerial&quot;, &quot;technical&quot;, &quot;physical&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Classification depends only on <code>"mechanism"</code>, never on <code>"description"</code> text.</li>
+<li>Mapping: <code>"policy_document"</code>, <code>"training_program"</code>, and <code>"access_review_process"</code> are all
+  <code>"managerial"</code>; <code>"software_or_hardware_enforcement"</code> is <code>"technical"</code>; <code>"physical_barrier"</code> is
+  <code>"physical"</code>.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def classify_controls(scenarios: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>scenarios</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"id"</code>: <code>str</code>
+- <code>"description"</code>: <code>str</code>, flavor text, not used for classification logic
+- <code>"mechanism"</code>: <code>str</code>, one of <code>"policy_document"</code>, <code>"training_program"</code>,
+  <code>"access_review_process"</code>, <code>"software_or_hardware_enforcement"</code>, <code>"physical_barrier"</code></p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> the same length as <code>scenarios</code>, in the <strong>same order as the input</strong>, where each
+element is one of <code>"managerial"</code>, <code>"technical"</code>, <code>"physical"</code>.</p>
+<h3>Classification rule</h3>
+<ul>
+<li><code>mechanism</code> in <code>{"policy_document", "training_program", "access_review_process"}</code> -&gt; <code>"managerial"</code></li>
+<li><code>mechanism == "software_or_hardware_enforcement"</code> -&gt; <code>"technical"</code></li>
+<li><code>mechanism == "physical_barrier"</code> -&gt; <code>"physical"</code></li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>"mechanism"</code> always contains one of the five listed values in test data (no invalid values).</li>
+<li>Output order matches input order exactly.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.2.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict, List
+
+_MANAGERIAL = {"policy_document", "training_program", "access_review_process"}
+_TECHNICAL = {"software_or_hardware_enforcement"}
+_PHYSICAL = {"physical_barrier"}
+
+
+def classify_controls(scenarios: List[Dict]) -&gt; List[str]:
+    """Classify each scenario's control family by its 'mechanism' field.
+
+    Rules (see the Reference section below):
+      - policy_document / training_program / access_review_process -&gt; managerial
+      - software_or_hardware_enforcement -&gt; technical
+      - physical_barrier -&gt; physical
+    """
+    result = []
+    for s in scenarios:
+        mech = s["mechanism"]
+        if mech in _MANAGERIAL:
+            result.append("managerial")
+        elif mech in _TECHNICAL:
+            result.append("technical")
+        elif mech in _PHYSICAL:
+            result.append("physical")
+        else:
+            raise ValueError(f"unknown mechanism: {mech}")
+    return result
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _s(id_, desc, mech):
+    return {"id": id_, "description": desc, "mechanism": mech}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_policy_document_is_managerial():
+    scenarios = [_s("s1", "New hires sign an AUP.", "policy_document")]
+    assert impl.classify_controls(scenarios) == ["managerial"]
+
+
+def test_software_enforcement_is_technical():
+    scenarios = [_s("s2", "Firewall blocks malicious IPs automatically.", "software_or_hardware_enforcement")]
+    assert impl.classify_controls(scenarios) == ["technical"]
+
+
+def test_physical_barrier_is_physical():
+    scenarios = [_s("s3", "Server room door requires a badge.", "physical_barrier")]
+    assert impl.classify_controls(scenarios) == ["physical"]
+
+
+def test_training_program_is_managerial():
+    scenarios = [_s("s4", "Annual phishing-awareness training for all staff.", "training_program")]
+    assert impl.classify_controls(scenarios) == ["managerial"]
+
+
+def test_access_review_process_is_managerial():
+    scenarios = [_s("s5", "Quarterly review of who has admin access.", "access_review_process")]
+    assert impl.classify_controls(scenarios) == ["managerial"]
+
+
+def test_mixed_batch_order_preserved():
+    scenarios = [
+        _s("a", "desc a", "physical_barrier"),
+        _s("b", "desc b", "policy_document"),
+        _s("c", "desc c", "software_or_hardware_enforcement"),
+    ]
+    assert impl.classify_controls(scenarios) == ["physical", "managerial", "technical"]
+
+
+def test_empty_scenarios():
+    assert impl.classify_controls([]) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_all_three_managerial_mechanisms():
+    scenarios = [
+        _s("1", "d1", "policy_document"),
+        _s("2", "d2", "training_program"),
+        _s("3", "d3", "access_review_process"),
+    ]
+    assert impl.classify_controls(scenarios) == ["managerial", "managerial", "managerial"]
+
+
+def test_description_text_does_not_affect_classification():
+    """Even if description mentions a firewall, mechanism decides the classification."""
+    scenarios = [_s("x", "Employees are trained on how firewalls work.", "training_program")]
+    assert impl.classify_controls(scenarios) == ["managerial"]
+
+
+def test_large_batch_deterministic():
+    mechs = ["policy_document", "training_program", "access_review_process",
+             "software_or_hardware_enforcement", "physical_barrier"]
+    expected_map = {
+        "policy_document": "managerial",
+        "training_program": "managerial",
+        "access_review_process": "managerial",
+        "software_or_hardware_enforcement": "technical",
+        "physical_barrier": "physical",
+    }
+    scenarios = [_s(str(i), f"d{i}", mechs[i % 5]) for i in range(20)]
+    expected = [expected_map[mechs[i % 5]] for i in range(20)]
+    assert impl.classify_controls(scenarios) == expected
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

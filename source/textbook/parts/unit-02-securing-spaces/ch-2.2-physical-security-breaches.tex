@@ -1,0 +1,370 @@
+\chapter{Physical Security Breaches}
+\label{ch:2.2}
+\chaptertopic{Topic 2.2}
+
+\chapterquote{The only truly secure system is one that is powered off, cast in a block of concrete and sealed in a lead-lined room with armed guards --- and even then I have my doubts.}{Eugene H. Spafford, quoted in \emph{Scientific American} (March 1989)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:2.1} gave you the vocabulary to reason about any security goal in the abstract.
+This chapter grounds that vocabulary in the oldest attack surface there is: the physical building
+and the physical device. Firewalls and encryption dominate the popular image of cybersecurity. But a remarkable share of
+real breaches begin with an attacker simply walking through a door, or with a laptop that leaves
+an office and comes back subtly different. Locks, badge readers, HVAC systems, and disk encryption
+all defend the same underlying asset that Chapter~\ref{ch:2.1} described abstractly. Here, though,
+the threats are a held-open door, a burst pipe, and a stolen hard drive, not a phishing email.
+
+\begin{apalignment}{Unit 2: Securing Spaces}{Topic 2.2 -- Physical Vulnerabilities and Attacks}
+\begin{apobjectives}
+\apobjective{2.2.A}{Analyze Risk}{Identify the physical attacks an organization is realistically likely to face, from following someone through a controlled door to defeating a lock, duplicating a credential, or removing equipment outright.}
+\apobjective{2.2.B}{Analyze Risk}{Explain the causal path by which a threat exploits a physical weakness and produces a specific outcome for an asset -- its loss, its damage, the disruption of the service it supports, or its destruction.}
+\apobjective{2.2.C}{Analyze Risk}{Assess the risk arising from an identified physical weakness and record it in a form that supports a decision: what was observed, what it would allow, how likely and how costly, and who owns the outcome.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Unauthorized Physical Access}
+
+\begin{definition}{Tailgating}
+Following an authorized person through a secured door without using one's own credentials, while
+the authorized person is unaware, or does not consent to, the attacker's entry.
+\end{definition}
+
+Tailgating exploits an ordinary social norm: holding a door for the person behind you. An attacker
+carrying a box or coffee, hands visibly full, approaches a card-reader door timed just behind a
+legitimate employee. The employee swipes in and holds the door out of courtesy, and the attacker
+walks through having scanned no badge at all. The access log shows only the legitimate employee's
+entry -- the attacker leaves no direct trace in the system meant to record exactly this event.
+This is the same social pressure studied in Chapter~\ref{ch:1.1}: urgency, authority cues, and
+plain politeness make people reluctant to demand a badge from someone who looks like they belong.
+
+\begin{definition}{Piggybacking}
+The consensual counterpart to tailgating: an authorized employee knowingly lets an unverified
+person through a secured entry, usually as a favor to a familiar contractor or visitor.
+\end{definition}
+
+In an access log, piggybacking is indistinguishable from tailgating -- one badge swipe, two
+people through the door. The difference is intent, but the security exposure is identical: an
+unverified person now has physical access. Recognition is not authorization; a familiar face may
+be a former employee whose access was supposed to be revoked.
+
+When tailgating fails or is impractical, an attacker may target the lock itself. \textbf{Lock
+picking} manipulates a pin-tumbler lock's pins with specialized tools, requiring only hours of
+practice against simple locks and needing no cryptographic knowledge at all. A \textbf{bump key}
+is cut to a generic profile and, struck with a mallet while turned, momentarily bounces every pin
+past the shear line at once. \textbf{Shimming} slides a thin metal shim into a padlock's shackle to
+retract its locking mechanism directly. And \textbf{RFID badge cloning} captures the radio signal
+of an access badge with a concealed reader and replays it from a blank credential. This is trivial
+against older 125~kHz proximity cards, which carry no cryptographic protection at all, with
+hardware costing under fifty dollars.
+
+\begin{example}[Physical access as a force multiplier]
+Once an attacker reaches a device physically, most software-layer controls stop mattering. A
+locked laptop can be booted from an external USB drive to mount its disk directly or reset its
+local administrator password. Either route entirely bypasses the operating-system login screen it
+was never asked to authenticate against. An Ethernet port behind a bypassed lock can host a rogue
+network tap. Full-disk encryption is one of the very few controls that survives physical
+possession. Even then, it only holds if the device was powered off when it was taken, so its
+decryption key was not sitting in memory waiting to be read.
+\end{example}
+
+Access logs can still surface these attacks algorithmically, even without a human watching every
+door. A well-instrumented system flags a physical impossibility: one badge swiping door D1 at
+08:04:11 and door D2 (some distance away) at 08:04:13 did not happen by one person walking
+normally. It also flags a door logging a single swipe while a separate camera sensor counts two
+people crossing -- that mismatch is tailgating by definition, whether or not anyone consented.
+
+\begin{lstlisting}[language=Python, caption={Flagging tailgating and impossible-speed badge events}]
+def flag_access_anomalies(events, min_seconds_between_doors=10):
+    """events: list of dicts like {"badge_id": str, "door_id": str,
+       "timestamp": int, "crossings_detected": int}, sorted by timestamp
+       is not assumed. Returns sorted event indices flagged as anomalous:
+       either a door recorded more physical crossings than badge swipes,
+       or the same badge appears at two different doors too quickly."""
+    flagged = set()
+    for i, e in enumerate(events):
+        if e["crossings_detected"] > 1:
+            flagged.add(i)
+
+    by_badge = {}
+    for i, e in enumerate(events):
+        by_badge.setdefault(e["badge_id"], []).append((e["timestamp"], i, e["door_id"]))
+    for badge_events in by_badge.values():
+        badge_events.sort()
+        for (t1, i1, d1), (t2, i2, d2) in zip(badge_events, badge_events[1:]):
+            if d1 != d2 and t2 - t1 < min_seconds_between_doors:
+                flagged.add(i1)
+                flagged.add(i2)
+    return sorted(flagged)
+\end{lstlisting}
+
+The corresponding defenses target the exploit, not the symptom. A \textbf{mantrap} -- two
+interlocked doors where the second cannot open until the first closes -- removes the physical
+opportunity for a second person to follow through at all. Upgrading legacy proximity cards to
+encrypted, mutually authenticated 13.56~MHz cards (MIFARE DESFire) removes the cloning
+vulnerability. And awareness training built around a simple rule -- one badge, one person -- turns
+the social norm that tailgating exploits into a norm that defeats it instead.
+
+\begin{misconception}
+\textbf{``A locked door means the room is secure.''} A lock is a delay mechanism, not an absolute
+barrier. Lock-bypass techniques, credential cloning, and tailgating all defeat it without leaving
+the kind of obvious evidence a broken window would.
+\end{misconception}
+
+\section{Environmental Vulnerabilities}
+
+Not every threat to a server room is a person trying to get in. A server room can be destroyed
+just as thoroughly by conditions that are never ``unauthorized'' in the access-control sense at
+all. Because these are not attacks in the social-engineering sense, they are easy to
+under-prioritize -- even though the outcome is the same as ransomware: systems go offline, and
+sometimes data is destroyed outright.
+
+\textbf{Power.} A total outage stops everything immediately absent backup power, and a merely
+``dirty'' supply -- voltage spikes, sags, brownouts -- can corrupt in-flight writes or degrade
+power supplies over time. An \textbf{uninterruptible power supply (UPS)} bridges the gap between
+an outage and generator start, or rides out a short dip entirely. Data centers commonly
+design for \textbf{N+1 redundancy}: enough generator and UPS capacity that any single unit can
+fail without causing an outage. A generator that has not been load-tested in a year is not a
+control at all, just an assumption.
+
+\textbf{HVAC.} Cooling is not a comfort feature in a server room; it is life support for hardware
+that throttles or shuts down once internal temperatures cross a safety threshold. A broken chiller
+or a clogged filter can push rack temperatures past safe limits within minutes in a dense room.
+Humidity matters in both directions -- too little raises static-discharge risk to circuit boards,
+too much promotes condensation and corrosion. That is why facilities target roughly
+18--27\textdegree{}C and 40--60\% relative humidity per ASHRAE guidelines, alarming on either
+threshold.
+
+\textbf{Fire.} Fire is the most destructive environmental threat, and a server room complicates
+the standard response. Water-based sprinklers, the default suppressant almost everywhere else,
+will destroy the exact equipment they are meant to protect. Data centers instead use
+\textbf{clean-agent fire suppression} (FM-200, inert-gas systems) that extinguishes fire by
+displacing oxygen or interrupting the chemical reaction without damaging electronics. This is
+paired with early smoke and heat detection tuned to trigger well before a sprinkler-grade
+threshold would.
+
+\textbf{Water and flooding.} Burst pipes, groundwater intrusion in basement facilities, and roof
+leaks all threaten electronics through short-circuiting and corrosion. Burst pipes are especially
+dangerous when plumbing is routed above a server room -- a design flaw whenever a data center
+shares a building with restrooms or kitchens upstairs. \textbf{Raised flooring} elevates equipment
+above the slab so a shallow flood does not reach it directly. Floor-level water sensors trigger an
+alarm at the first sign of moisture, rather than after damage has already occurred.
+
+\begin{lstlisting}[language=Python, caption={Triaging environmental sensor readings by severity}]
+def triage_reading(temp_c, humidity_pct, smoke_detected, water_detected):
+    """Returns "critical", "warning", or "normal" for one sensor snapshot."""
+    if smoke_detected or water_detected:
+        return "critical"
+    temp_bad = not (18 <= temp_c <= 27)
+    humidity_bad = not (40 <= humidity_pct <= 60)
+    if temp_bad and humidity_bad:
+        return "critical"
+    if temp_bad or humidity_bad:
+        return "warning"
+    return "normal"
+\end{lstlisting}
+
+All four categories -- power, HVAC, fire, water -- are first and foremost availability threats. An
+outage from any one of them takes systems offline the same way a DDoS attack does, except the
+``attacker'' is a physical process rather than a person. A mature risk analysis, using
+Chapter~\ref{ch:2.1}'s vocabulary, scores these risks with the same rigor as a targeted attack,
+because the impact to the organization can be identical or worse.
+
+\begin{misconception}
+\textbf{``Sprinklers are fine for a server room like anywhere else in the building.''}
+Water-based sprinklers actively destroy electronics; a data center's fire suppression is
+specifically chosen so that a false alarm, or even a real fire, does not itself become a
+total-loss event.
+\end{misconception}
+
+\section{Device Theft and Tampering}
+
+Unauthorized access gets an attacker into a building. Once a device is reachable -- or once it
+leaves the building in an employee's bag -- the attacker's goal shifts to the device itself.
+
+\begin{definition}{Device tampering}
+A covert, typically brief physical alteration of a device -- hardware, firmware, or a peripheral
+-- intended to compromise it without the owner's knowledge, as distinct from device theft, which
+is the device's outright physical removal.
+\end{definition}
+
+The naive framing of theft is ``we lost a \$1{,}500 laptop''; the real cost is almost always the
+data, not the hardware. A stolen \emph{unencrypted} laptop hands an attacker every file, cached
+credential, and saved browser session on the disk, often without guessing a single password.
+Booting from external media lets an attacker mount the disk or reset the local administrator
+account without ever going through the intended login screen. \textbf{Full-disk encryption} is the
+single most effective control against this specific threat. If the drive is encrypted and the
+device was off -- so its key was never resident in memory -- when it was taken, the stolen disk is
+unreadable without the key.
+
+\begin{example}[The evil-maid attack]
+An attacker with brief, unsupervised physical access to a device -- the textbook case is a hotel
+room cleaner -- boots a malicious USB image that replaces the boot loader with a fake password
+prompt visually identical to the real one. The attacker then leaves. The next time the legitimate
+owner enters their disk-encryption password, the fake loader silently captures it and reboots into the genuine
+system as though nothing happened. The owner never notices anything wrong; the attacker now holds
+the encryption key and can return later, or exfiltrate it over a network channel, to unlock the
+data at leisure. This defeats full-disk encryption not by breaking any cryptography, but by
+exploiting the brief unsupervised window \emph{before} that session's encryption was ever engaged.
+\end{example}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  evilstep/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.6cm, minimum height=1cm, align=center, font=\scriptsize},
+  yshift/.style={},
+]
+\node[evilstep, fill=kickstartercream] (t1) at (0,0) {1. Attacker gets brief\\unsupervised access};
+\node[evilstep, fill=kickstartermaroon!20] (t2) at (4.1,0) {2. Boots malicious USB,\\installs fake password\\prompt, leaves};
+\node[evilstep, fill=kickstartercream] (t3) at (8.2,0) {3. Owner returns, types\\real password into\\the fake prompt};
+\node[evilstep, fill=kickstartermaroon!20] (t4) at (4.1,-2) {4. Fake loader captures\\the key, reboots into\\the genuine system};
+\node[evilstep, fill=kickstartercream] (t5) at (8.2,-2) {5. Owner sees nothing\\wrong; attacker holds\\the encryption key};
+\draw[-{Latex[length=2mm]}] (t1) -- (t2);
+\draw[-{Latex[length=2mm]}] (t2) -- (t3);
+\draw[-{Latex[length=2mm]}] (t3) -- (t4);
+\draw[-{Latex[length=2mm]}] (t4) -- (t5);
+\node[font=\scriptsize\sffamily, gray] at (4.1,1) {the cryptography is never broken -- only the moment before it engages};
+\end{tikzpicture}
+\caption{The evil-maid attack succeeds entirely in the window before disk encryption is engaged
+for the session; the encryption itself is never attacked.}
+\label{fig:2.2-evil-maid}
+\end{figure}
+
+Tampering is not limited to software. A rogue USB implant placed inline between a keyboard and a
+computer silently logs every keystroke, including passwords, and can exfiltrate over its own
+hidden radio. A ``free'' USB charging cable or promotional drive can present itself to the
+operating system as an innocuous device while secretly acting as a keyboard that types malicious
+commands the moment it is plugged in. Because these implants are physically small and often
+hidden in plain sight, tampering can go undetected indefinitely unless staff are specifically
+trained to notice inconsistencies.
+
+Detection here relies on physical evidence rather than a login prompt, since tampering is
+engineered to leave no digital trace. \textbf{Tamper-evident seals} -- stickers that visibly tear
+or reveal a ``VOID'' pattern if removed -- over a laptop's screws or a server's chassis panel let
+staff visually confirm a device has not been opened. Scheduled comparison of serial numbers and
+asset tags against inventory catches a swapped device. And staff trained to notice an unfamiliar
+dongle in a keyboard port, or a boot that took slightly longer than usual, generate the kind of
+soft signal that should trigger a review rather than be dismissed.
+
+\begin{lstlisting}[language=Python, caption={Triaging a device incident report by organizational risk}]
+def triage_device_incident(encrypted, seal_intact, hours_since_last_check):
+    """Returns "LOW", "MEDIUM", or "HIGH" risk for a reported theft/
+    tampering incident."""
+    if not encrypted and hours_since_last_check > 24:
+        return "HIGH"
+    if not seal_intact:
+        return "HIGH" if not encrypted else "MEDIUM"
+    if not encrypted:
+        return "MEDIUM"
+    return "LOW"
+\end{lstlisting}
+
+Organizations reduce the impact of theft with asset tags and inventory tracking (so a missing
+device is noticed in hours, not months), \textbf{remote wipe} capability through mobile-device
+management tools, and cable locks that raise the bar against opportunistic theft from a shared
+workspace. None of these stop a prepared, determined attacker, and none of them address tampering
+at all, since tampering never requires removing the device from the room.
+
+\begin{misconception}
+\textbf{``If a laptop is password-protected, a thief can't get the data.''} A login password
+protects the normal operating-system boot path only. An attacker with physical possession can
+usually boot from external media and read the disk directly unless the disk's contents are
+themselves encrypted.
+\end{misconception}
+
+\begin{example}[Writing a physical risk register entry that actually supports a decision]
+``Building security is inadequate'' cannot be acted on -- it names no observation, no mechanism,
+and no owner. A useful entry names all four things the treatment decision in Chapter~\ref{ch:2.1}
+needs. It states what was observed: the loading-dock door was found propped open during three of
+five unannounced site visits. It states what that would allow: an unbadged person can reach the
+receiving corridor and, from there, an unlocked electrical room. It gives an estimate of
+likelihood and impact: moderate likelihood given the recurring pattern, high impact given the
+electrical room's contents. And it names an owner accountable for the finding until it is closed:
+the facilities manager, with a documented remediation date. A risk register entry that skips any
+one of these four elements -- especially the owner -- tends to stay open indefinitely, because no
+specific person is answerable for it.
+\end{example}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An access log shows door D1 recording a single badge swipe while a separate camera sensor
+counts two people entering within the same second. Explain whether this is tailgating or
+piggybacking, and explain why the distinction does not change the security response.
+\item Explain why a locked, powered-on laptop with full-disk encryption enabled is still
+vulnerable to an evil-maid attack, and identify the specific moment in the attack where the
+encryption is defeated.
+\item A facility's sensors report rising temperature and rising humidity simultaneously. Explain
+why this combination is treated as more severe than either reading alone, and name the underlying
+failure it most likely indicates.
+\item Explain why data centers use clean-agent fire suppression instead of water sprinklers, and
+identify which CIA pillar (from Chapter~\ref{ch:2.1}) this control is primarily protecting.
+\item A device incident report shows an unencrypted laptop with an intact tamper seal, last
+inventoried 30 hours ago. Using the triage logic from this chapter, determine its risk level and
+explain which single factor is doing the most work in that classification.
+\item In the evil-maid attack, the disk encryption itself is never broken. Explain precisely what
+the attacker does capture, and why a tamper-evident seal over the laptop's chassis would not have
+prevented this specific attack even though it would have revealed physical tampering with the
+hardware.
+\item A risk register entry reads only ``building security is inadequate.'' Rewrite it in your
+own words to include the four elements this chapter requires, using a physical weakness of your
+choosing. Then explain why omitting the owner in particular tends to leave a finding open
+indefinitely.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item This is tailgating or piggybacking depending on intent, which the log alone cannot
+distinguish -- both produce exactly one badge swipe against two people crossing. The distinction
+does not change the security response because the exposure is identical in either case: an
+unverified person now has physical access to the space. The appropriate fix -- a mantrap,
+awareness training, or an anti-passback rule flagging the crossing-count mismatch -- targets the
+physical opportunity for a second person to pass through, not the second person's motive.
+\answerlabel{2.2.A}
+\item Full-disk encryption only protects data once the encryption key is not resident anywhere an
+attacker can read it. An evil-maid attack defeats it not by breaking the cryptography but by
+exploiting the brief unsupervised window \emph{before} the owner next enters their password. The
+attacker replaces the boot loader with a fake, visually identical prompt, and the owner's next
+login hands the real key to the attacker's captured prompt rather than to the genuine decryption
+process. The encryption is defeated at the moment the owner types their password into the
+attacker's fake loader, not at any later point.
+\answerlabel{2.2.B}
+\item Rising temperature and rising humidity together, rather than either alone, typically indicate
+an HVAC failure rather than a localized problem such as one failing fan or a single humidifier
+malfunction. This is because a working HVAC system actively regulates both variables
+simultaneously, and only a systemic failure lets both drift out of range together. The combination
+is treated as more severe because it signals a facility-wide root cause requiring immediate
+escalation to facilities management, rather than a narrow fix like replacing one component.
+\answerlabel{2.2.B}
+\item Water-based sprinklers, the default fire suppressant elsewhere, would themselves destroy the
+electronics they were meant to save, converting a fire event into a guaranteed total-loss event for
+every device in the room. Clean-agent systems (FM-200, inert gas) suppress the fire by displacing
+oxygen or interrupting the combustion reaction without depositing any conductive or corrosive
+residue on hardware. This control primarily protects \textbf{availability}: its entire purpose is
+keeping systems reachable and operational, not confidential or unaltered.
+\answerlabel{2.2.C}
+\item Applying the triage function: \texttt{encrypted=False}, \texttt{seal\_intact=True},
+\texttt{hours\_since\_last\_check=30}. Because the device is unencrypted and more than 24 hours have
+elapsed since the last check, the first branch fires and the incident is classified \textbf{HIGH}
+risk. The factor doing the most work is the missing encryption combined with the extended
+uninventoried window: an encrypted device in the same scenario would only reach MEDIUM, because an
+attacker without the key gains nothing from physical possession alone. An unencrypted device left
+unaccounted for over a day, by contrast, gives an attacker ample time to extract everything on the
+disk.
+\answerlabel{2.2.C}
+\item The attacker captures the decryption password itself, typed by the owner into a fake boot
+loader that is visually indistinguishable from the real one -- not any weakness in the encryption
+algorithm. A tamper-evident seal over the chassis would not prevent this because the evil-maid
+attack does not require opening the case at all. The attacker boots the machine from an external
+USB drive through the normal boot process, replaces the boot loader in software, and closes the
+lid, leaving every physical seal untouched. The seal detects hardware-level intrusion; this attack
+is entirely a software substitution that happens between two ordinary boots.
+\answerlabel{2.2.B}
+\item A usable entry names all four elements. What was observed: for example, the server-room
+door badge reader has logged three tailgating-pattern crossing-count mismatches in the past
+month. What it would allow: an unbadged individual reaching racks containing production database
+servers. Likelihood and impact: moderate likelihood given the recurring pattern, high impact given
+the asset. And a named owner accountable until the finding closes: the facilities or
+physical-security manager, with a documented remediation date. Omitting the owner tends to leave a
+finding open indefinitely, because a risk with no specific person answerable for it has no one
+whose job performance is affected by it staying unresolved. It becomes everyone's problem in
+theory and no one's in practice.
+\answerlabel{2.2.C}
+\end{answerkey}

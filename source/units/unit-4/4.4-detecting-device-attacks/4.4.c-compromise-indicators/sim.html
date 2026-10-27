@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.4.c, Identifying compromised devices (indicators of compromise), Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 16px;cursor:pointer;margin:4px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:12px;white-space:pre-wrap;line-height:1.4;min-height:180px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .terminal{border:1px solid #ccc;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}.scorepanel .bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 8px;}
+.toolbar{margin-bottom:8px;}
+.controls-area{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>4.4.c, IOC device triage</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Indicators of Compromise Triage Simulation</h1>
+      <p>Review the IOCs observed on each device in the console. Use the weight table (known
+      hash=6, AV disabled=5, new admin account=4, unusual outbound traffic=3, unexpected
+      scheduled task=3, registry run key=2, failed-login cluster=1; clean&lt;4, suspicious 4-7,
+      compromised&gt;=8) to classify each device. Achieve a perfect score of 5 / 5 to complete
+      the drill.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">ioc-triage@meridian:~$ </span>Loading device queue...</div>
+
+      <div class="controls-area" id="controls">
+        <button class="btn" onclick="FNE.act('clean')">Clean</button>
+        <button class="btn" onclick="FNE.act('suspicious')">Suspicious</button>
+        <button class="btn" onclick="FNE.act('compromised')">Compromised</button>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 │ OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  if(document.body.classList.contains('theme-win')){
+    document.body.classList.remove('theme-win');
+    document.body.classList.add('theme-linux');
+  } else {
+    document.body.classList.remove('theme-linux');
+    document.body.classList.add('theme-win');
+  }
+}
+
+var FNE = (function(){
+  var score = 0, MAX = 5, met = false;
+  var currentIndex = 0;
+
+  var devices = [
+    {
+      report: "DEVICE A: antivirus/EDR disabled (weight 5) + new unauthorized admin account (weight 4). Total score = 9.",
+      category: "compromised",
+      explain: "9 >= 8 (the compromised threshold). Disabled security tooling plus a new unauthorized admin account together describe a coherent attack narrative."
+    },
+    {
+      report: "DEVICE B: a single cluster of failed logins (weight 1). Total score = 1.",
+      category: "clean",
+      explain: "A lone, low-weight IOC (score 1) stays well under the suspicious threshold of 4 -- likely an ordinary user mistyping a password."
+    },
+    {
+      report: "DEVICE C: known-malicious file hash match (weight 6) + unusual outbound traffic (weight 3) + registry run-key persistence added (weight 2). Total score = 11.",
+      category: "compromised",
+      explain: "11 >= 8. Three independent IOCs, including a confirmed malicious hash, combine into strong evidence of compromise."
+    },
+    {
+      report: "DEVICE D: an unexpected scheduled task (weight 3). Total score = 3.",
+      category: "clean",
+      explain: "A single weight-3 IOC stays under the suspicious threshold of 4 -- worth a quick look, but not yet enough evidence to escalate."
+    },
+    {
+      report: "DEVICE E: new unauthorized admin account (weight 4) + a cluster of failed logins (weight 1). Total score = 5.",
+      category: "suspicious",
+      explain: "5 falls in the 4-7 suspicious band -- enough combined evidence to investigate further, but not yet at the compromised threshold of 8."
+    }
+  ];
+
+  function render(){
+    var el = document.getElementById('stage');
+    if(currentIndex < devices.length) {
+      el.innerHTML = '<span class="prompt">ioc-triage@meridian:~$ </span><strong>[DEVICE ' + (currentIndex + 1) + ']</strong>\n\n' + devices[currentIndex].report;
+    } else {
+      if(score === MAX) {
+        met = true;
+        el.innerHTML = '<span class="prompt">ioc-triage@meridian:~$ </span><strong>TRIAGE COMPLETE</strong>\n\nAll devices triaged. Perfect score achieved. Objective Met.';
+      } else {
+        el.innerHTML = '<span class="prompt">ioc-triage@meridian:~$ </span><strong>TRIAGE COMPLETE</strong>\n\nScore: ' + score + '/' + MAX + '. You must achieve 5/5. Press "Restart" to retry.';
+        document.getElementById('controls').innerHTML = '<button class="btn" onclick="FNE.restart()">Restart</button>';
+      }
+    }
+    setScore();
+  }
+
+  function setScore(){
+    var el = document.getElementById('score');
+    el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+      (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+  }
+
+  function controlsHtml(){
+    return '<button class="btn" onclick="FNE.act(\'clean\')">Clean</button>' +
+      '<button class="btn" onclick="FNE.act(\'suspicious\')">Suspicious</button>' +
+      '<button class="btn" onclick="FNE.act(\'compromised\')">Compromised</button>';
+  }
+
+  function act(category){
+    if (currentIndex >= devices.length) return;
+
+    var current = devices[currentIndex];
+    var isCorrect = (category === current.category);
+    if(isCorrect) {
+      score++;
+    }
+
+    var el = document.getElementById('stage');
+    el.innerHTML = '<span class="prompt">ioc-triage@meridian:~$ </span>' +
+      (isCorrect ? '<strong>CORRECT!</strong>' : '<strong>INCORRECT.</strong>') + '\n\n' +
+      current.explain + '\n\nPress "Next" to continue.';
+
+    document.getElementById('controls').innerHTML = '<button class="btn" onclick="FNE.next()">Next</button>';
+  }
+
+  function next(){
+    currentIndex++;
+    if (currentIndex < devices.length) {
+      document.getElementById('controls').innerHTML = controlsHtml();
+    }
+    render();
+  }
+
+  function restart(){
+    score = 0;
+    currentIndex = 0;
+    met = false;
+    document.getElementById('controls').innerHTML = controlsHtml();
+    render();
+  }
+
+  setTimeout(render, 10);
+
+  return { act:act, next:next, restart:restart };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unauthorized physical access (tailgating, piggybacking, lock bypass), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Unauthorized physical access (tailgating, piggybacking, lock bypass)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.2.a: Detect unauthorized physical access in a badge log</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 2.2.A, 2.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A building security system writes one log record per door event. Your job is to implement the
+analyst's first-pass filter: given a list of log records, return the event IDs of all records
+that indicate a likely unauthorized physical access attempt, based on two detection rules:</p>
+<p><strong>Rule 1, Impossible speed (tailgating / badge pass-back indicator).</strong>
+If the same badge ID appears at two different doors and the time between events is less than
+the minimum walk time (distance_meters / MAX_WALK_SPEED), the second event is suspicious.
+<code>MAX_WALK_SPEED = 2.0</code> meters per second.</p>
+<p><strong>Rule 2, Sensor mismatch (tailgating indicator).</strong>
+If an event has <code>"sensor_count": 2</code> (or higher) but only one badge swipe was recorded (i.e.,
+the event itself has <code>"badge": &lt;a badge id&gt;</code> and no second badge event at the same door within
+1 second), that event is suspicious.</p>
+<p>Return the list of flagged event IDs (strings), sorted ascending. An event may match both rules
+but should appear only once.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(records: list[dict]) -&gt; list[str]</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>records</code>, a list of dicts, each with keys:
+- <code>"id"</code> (str): unique event identifier, e.g. <code>"E001"</code>
+- <code>"time"</code> (int): Unix timestamp in seconds (integer)
+- <code>"badge"</code> (str | None): badge ID that was swiped, or <code>None</code> if no swipe
+- <code>"door"</code> (str): door identifier, e.g. <code>"D1"</code>
+- <code>"distance_from_prev"</code> (int | None): meters from the previous door this badge was seen at,
+  or <code>None</code> if this is the badge's first appearance or badge is None
+- <code>"sensor_count"</code> (int): number of bodies the door sensor detected crossing (1 = normal)</p>
+<p>Records are provided in chronological order (ascending <code>"time"</code>).</p>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of flagged event IDs. Empty list if no violations found.</p>
+<h2>Examples</h2>
+<pre><code>[
+  {&quot;id&quot;:&quot;E001&quot;,&quot;time&quot;:1000,&quot;badge&quot;:&quot;B-204&quot;,&quot;door&quot;:&quot;D1&quot;,&quot;distance_from_prev&quot;:None,&quot;sensor_count&quot;:1},
+  {&quot;id&quot;:&quot;E002&quot;,&quot;time&quot;:1003,&quot;badge&quot;:&quot;B-204&quot;,&quot;door&quot;:&quot;D2&quot;,&quot;distance_from_prev&quot;:50,&quot;sensor_count&quot;:1},
+  {&quot;id&quot;:&quot;E003&quot;,&quot;time&quot;:2000,&quot;badge&quot;:&quot;B-117&quot;,&quot;door&quot;:&quot;D1&quot;,&quot;distance_from_prev&quot;:None,&quot;sensor_count&quot;:2},
+]
+-&gt; [&quot;E002&quot;, &quot;E003&quot;]
+
+E002: B-204 covers 50 m in 3 s = 16.7 m/s &gt; 2.0 m/s  (Rule 1)
+E003: sensor_count=2 with one swipe                    (Rule 2)
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>MAX_WALK_SPEED = 2.0 m/s (defined in the Reference section below).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(records: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>records</code>)</h3>
+<p>A list of dicts in chronological order, each with:
+- <code>"id"</code> (str): unique event ID, e.g. <code>"E001"</code>
+- <code>"time"</code> (int): Unix timestamp in whole seconds
+- <code>"badge"</code> (str | None): badge ID swiped, or None if no swipe
+- <code>"door"</code> (str): door identifier
+- <code>"distance_from_prev"</code> (int | None): distance in meters from where this badge was last seen,
+  or None if badge is None or first appearance
+- <code>"sensor_count"</code> (int): number of bodies detected crossing the threshold (normally 1)</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of flagged event IDs. Empty list if none.</p>
+<h3>Detection rules</h3>
+<ul>
+<li><strong>Rule 1, Impossible speed:</strong> A record is flagged if <code>badge</code> is not None,
+  <code>distance_from_prev</code> is not None, and
+  <code>distance_from_prev / (time - prev_time_for_this_badge) &gt; MAX_WALK_SPEED</code>.
+  <code>MAX_WALK_SPEED = 2.0</code> (meters per second).
+  Division by zero (same timestamp): always flag.</li>
+<li><strong>Rule 2, Sensor mismatch:</strong> A record is flagged if <code>sensor_count &gt;= 2</code> and
+  <code>badge</code> is not None (a door with no swipe at all is a separate alarm; not in scope).</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Records are always in ascending time order.</li>
+<li>Output is sorted ascending and de-duplicated (an event matching both rules appears once).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.2.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict, Any
+
+MAX_WALK_SPEED = 2.0  # meters per second
+
+
+def solve(records: List[Dict[str, Any]]) -&gt; List[str]:
+    """Return sorted list of event IDs that indicate unauthorized physical access.
+
+    Rule 1 — Impossible speed: badge appears at a new door faster than MAX_WALK_SPEED.
+    Rule 2 — Sensor mismatch: sensor_count &gt;= 2 with a single badge swipe.
+    """
+    flagged = set()
+    # Track last seen time per badge for Rule 1
+    last_time: Dict[str, int] = {}
+
+    for rec in records:
+        eid = rec["id"]
+        badge = rec["badge"]
+        t = rec["time"]
+        dist = rec["distance_from_prev"]
+        sensor = rec["sensor_count"]
+
+        # Rule 1: impossible speed
+        if badge is not None and dist is not None:
+            if badge in last_time:
+                elapsed = t - last_time[badge]
+                if elapsed == 0 or dist / elapsed &gt; MAX_WALK_SPEED:
+                    flagged.add(eid)
+            last_time[badge] = t
+        elif badge is not None:
+            last_time[badge] = t
+
+        # Rule 2: sensor mismatch (two or more bodies, only one badge)
+        if badge is not None and sensor &gt;= 2:
+            flagged.add(eid)
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- helpers ---------------------------------------------------------------
+def mk(eid, time, badge, door, dist, sensor):
+    return {"id": eid, "time": time, "badge": badge, "door": door,
+            "distance_from_prev": dist, "sensor_count": sensor}
+
+
+# ---- visible cases ---------------------------------------------------------
+def test_impossible_speed_flagged():
+    # B-204 covers 50 m in 3 s = 16.7 m/s &gt; 2.0 — flag E002
+    records = [
+        mk("E001", 1000, "B-204", "D1", None, 1),
+        mk("E002", 1003, "B-204", "D2", 50,   1),
+    ]
+    assert impl.solve(records) == ["E002"]
+
+
+def test_sensor_mismatch_flagged():
+    # sensor_count=2 with one badge swipe — flag E003
+    records = [
+        mk("E003", 2000, "B-117", "D1", None, 2),
+    ]
+    assert impl.solve(records) == ["E003"]
+
+
+def test_clean_entry_not_flagged():
+    # 10 m in 10 s = 1.0 m/s &lt;= 2.0; sensor=1 — clean
+    records = [
+        mk("E004", 3000, "B-011", "D1", None, 1),
+        mk("E005", 3010, "B-011", "D2", 10,   1),
+    ]
+    assert impl.solve(records) == []
+
+
+def test_empty_log():
+    assert impl.solve([]) == []
+
+
+def test_both_rules_same_event():
+    # sensor=2 AND speed violation on same record — appears once
+    records = [
+        mk("E010", 5000, "B-300", "D1", None, 1),
+        mk("E011", 5001, "B-300", "D2", 30,   2),  # 30/1=30 m/s AND sensor=2
+    ]
+    result = impl.solve(records)
+    assert result == ["E011"]
+    assert result.count("E011") == 1
+
+
+def test_multiple_badges_only_one_flagged():
+    # B-001 is clean; B-002 has impossible speed
+    records = [
+        mk("E020", 6000, "B-001", "D1", None, 1),
+        mk("E021", 6100, "B-001", "D2", 100,  1),   # 100/100=1.0 m/s — OK
+        mk("E022", 6000, "B-002", "D1", None, 1),
+        mk("E023", 6002, "B-002", "D2", 20,   1),   # 20/2=10 m/s — flagged
+    ]
+    assert impl.solve(records) == ["E023"]
+
+
+# ---- hidden / edge cases ---------------------------------------------------
+def test_same_timestamp_flagged():
+    # elapsed=0 — always flag (division by zero case)
+    records = [
+        mk("E030", 7000, "B-400", "D1", None, 1),
+        mk("E031", 7000, "B-400", "D2", 1,    1),
+    ]
+    assert impl.solve(records) == ["E031"]
+
+
+def test_no_badge_not_flagged_by_speed():
+    # badge=None rows should not trigger Rule 1 or Rule 2
+    records = [
+        mk("E040", 8000, None, "D1", None, 1),
+        mk("E041", 8001, None, "D1", 5,    1),
+    ]
+    assert impl.solve(records) == []
+
+
+def test_exactly_at_speed_limit_not_flagged():
+    # 20 m in 10 s = exactly 2.0 m/s — not strictly greater than limit
+    records = [
+        mk("E050", 9000, "B-500", "D1", None, 1),
+        mk("E051", 9010, "B-500", "D2", 20,   1),
+    ]
+    assert impl.solve(records) == []
+
+
+def test_sorted_output():
+    # Multiple violations — result must be sorted
+    records = [
+        mk("E060", 10000, "B-600", "D1", None, 1),
+        mk("E061", 10001, "B-600", "D2", 50,   2),  # both rules
+        mk("E062", 10100, "B-700", "D1", None, 2),  # Rule 2
+    ]
+    result = impl.solve(records)
+    assert result == sorted(result)
+    assert "E061" in result
+    assert "E062" in result
+
+
+def test_first_appearance_no_flag():
+    # First time a badge is seen — no distance_from_prev, no speed check
+    records = [
+        mk("E070", 11000, "B-800", "D1", None, 1),
+    ]
+    assert impl.solve(records) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

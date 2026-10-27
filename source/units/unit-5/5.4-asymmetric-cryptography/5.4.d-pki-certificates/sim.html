@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.4.d, PKI and digital certificates, Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#e0e0e0;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--win-face);padding:12px;display:flex;flex-direction:column;gap:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:120px;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}
+.scorepanel .bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 4px;}
+.toolbar{margin-bottom:8px;}
+.chain{display:flex;flex-direction:column;gap:8px;}
+.cert{background:#fff;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);padding:8px 10px;}
+.cert .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;font-family:var(--mono-font);}
+.cert .row .k{color:var(--muted);}
+.cert .flag{font-weight:bold;}
+.cert .flag.bad{color:#aa0000;}
+.cert .flag.ok{color:#008000;}
+.arrow{text-align:center;font-family:var(--mono-font);color:var(--muted);}
+.scenario-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+.scenario-nav .btn.active{border-color:var(--win-dark) var(--win-light) var(--win-light) var(--win-dark);font-weight:bold;}
+.verdict-controls{display:flex;gap:8px;margin-top:8px;}
+.result-line{font-family:var(--mono-font);font-size:12px;margin-top:6px;min-height:18px;}
+.result-line.correct{color:#008000;font-weight:bold;}
+.result-line.incorrect{color:#aa0000;font-weight:bold;}
+.trust-store{font-family:var(--mono-font);font-size:11px;color:var(--muted);margin-top:4px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.4.d, Certificate Chain Inspector</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>You are the browser. For each certificate chain below (leaf presented by a server, up
+      through any intermediates, to a claimed root), inspect every certificate's subject, issuer,
+      public key, validity window, and revocation flag, then decide <b>TRUST</b> or <b>REJECT</b>.
+      A chain is trustworthy only if every signature verifies, every issuer/subject link matches,
+      no certificate is expired or revoked, and the chain ends at a root already in the trust
+      store below. Reach the target score to complete the objective.</p>
+
+      <div class="trust-store" id="trust-store"></div>
+
+      <div class="scenario-nav" id="scenario-nav"></div>
+
+      <div class="chain" id="chain"></div>
+
+      <div class="verdict-controls">
+        <button class="btn" onclick="FNE.decide('trust')">TRUST</button>
+        <button class="btn" onclick="FNE.decide('reject')">REJECT</button>
+      </div>
+      <div class="result-line" id="result-line"></div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 0 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Theme toggle ---- */
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Fake Network Engine (FNE): deterministic, offline certificate-chain scenarios ---- */
+var FNE = (function(){
+  var score = 0, met = false, answered = {};
+  var current = 0;
+
+  var TRUSTED_ROOTS = { "Meridian Root CA": [17, 2773] };
+
+  // Each scenario: a leaf-first chain, plus the ground-truth verdict + reason (for feedback).
+  var SCENARIOS = [
+    {
+      id: "valid",
+      label: "1. Bank site",
+      truth: "trust",
+      reason: "Every signature verifies, no expiry/revocation issues, and the chain reaches a trusted root.",
+      chain: [
+        { subject: "www.meridianbank.example", issuer: "Meridian Intermediate CA",
+          public_key: "[17, 2501]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "Meridian Intermediate CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2537]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "Meridian Root CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2773]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, is_root: true, in_trust_store: true }
+      ]
+    },
+    {
+      id: "expired",
+      label: "2. Expired leaf",
+      truth: "reject",
+      reason: "The leaf's not_after (9000) is before the current time (9500) -- the certificate's validity window has passed.",
+      chain: [
+        { subject: "shop.meridianretail.example", issuer: "Meridian Intermediate CA",
+          public_key: "[17, 2501]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 9500, flag: "EXPIRED (current_time 9500 > not_after 9000)" },
+        { subject: "Meridian Intermediate CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2537]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 9500 },
+        { subject: "Meridian Root CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2773]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 9500, is_root: true, in_trust_store: true }
+      ]
+    },
+    {
+      id: "revoked",
+      label: "3. Revoked intermediate",
+      truth: "reject",
+      reason: "The intermediate CA's private key was compromised and its certificate was revoked -- checked via CRL/OCSP, independent of its stated expiration.",
+      chain: [
+        { subject: "api.meridianpay.example", issuer: "Meridian Intermediate CA",
+          public_key: "[17, 2501]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "Meridian Intermediate CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2537]", not_before: 1000, not_after: 9000, revoked: true,
+          sig_ok: true, current_time: 5000, flag: "REVOKED (private key compromise reported to CA)" },
+        { subject: "Meridian Root CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2773]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, is_root: true, in_trust_store: true }
+      ]
+    },
+    {
+      id: "untrusted-root",
+      label: "4. Self-signed, untrusted",
+      truth: "reject",
+      reason: "The root's own signature verifies fine, but its subject is NOT in the trust store below -- nobody independently vouches for this root, so the chain cannot be trusted.",
+      chain: [
+        { subject: "internal.notarealcorp.example", issuer: "NotARealCorp Root",
+          public_key: "[9, 3599]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "NotARealCorp Root", issuer: "NotARealCorp Root",
+          public_key: "[9, 3599]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, is_root: true, in_trust_store: false,
+          flag: "NOT IN TRUST STORE" }
+      ]
+    },
+    {
+      id: "broken-link",
+      label: "5. Broken chain link",
+      truth: "reject",
+      reason: "The leaf's issuer field says \"Contoso Intermediate CA\", but the next certificate up is subject \"Meridian Intermediate CA\" -- the names don't match, so there is no valid signer to check the leaf's signature against.",
+      chain: [
+        { subject: "portal.meridianhr.example", issuer: "Contoso Intermediate CA",
+          public_key: "[17, 2501]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, flag: "issuer field does not match next cert's subject" },
+        { subject: "Meridian Intermediate CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2537]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "Meridian Root CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2773]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, is_root: true, in_trust_store: true }
+      ]
+    },
+    {
+      id: "bad-signature",
+      label: "6. Tampered signature",
+      truth: "reject",
+      reason: "The leaf's fields no longer match what was actually signed -- verifying its signature against the intermediate's public key fails, meaning the certificate was altered (or forged) after issuance.",
+      chain: [
+        { subject: "secure.meridianbank.example", issuer: "Meridian Intermediate CA",
+          public_key: "[17, 2501]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: false, current_time: 5000, flag: "SIGNATURE DOES NOT VERIFY against issuer's public key" },
+        { subject: "Meridian Intermediate CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2537]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000 },
+        { subject: "Meridian Root CA", issuer: "Meridian Root CA",
+          public_key: "[17, 2773]", not_before: 1000, not_after: 9000, revoked: false,
+          sig_ok: true, current_time: 5000, is_root: true, in_trust_store: true }
+      ]
+    }
+  ];
+
+  var MAX = SCENARIOS.length;
+
+  function renderTrustStore(){
+    var names = Object.keys(TRUSTED_ROOTS);
+    document.getElementById('trust-store').innerText =
+      'LOCAL TRUST STORE (pre-installed roots): ' +
+      names.map(function(n){ return n + ' -> public_key ' + JSON.stringify(TRUSTED_ROOTS[n]); }).join('; ');
+  }
+
+  function renderNav(){
+    var nav = document.getElementById('scenario-nav');
+    nav.innerHTML = '';
+    SCENARIOS.forEach(function(s, i){
+      var b = document.createElement('button');
+      b.className = 'btn' + (i === current ? ' active' : '');
+      b.innerText = s.label + (answered[s.id] ? ' [' + (answered[s.id] === 'correct' ? 'OK' : 'X') + ']' : '');
+      b.onclick = function(){ current = i; render(); };
+      nav.appendChild(b);
+    });
+  }
+
+  function render(){
+    renderNav();
+    var s = SCENARIOS[current];
+    var el = document.getElementById('chain');
+    el.innerHTML = '';
+    s.chain.forEach(function(c, i){
+      var div = document.createElement('div');
+      div.className = 'cert';
+      var kind = c.is_root ? 'ROOT CA (self-signed)' : (i === 0 ? 'LEAF (end-entity)' : 'INTERMEDIATE CA');
+      var html = '<div class="row"><span class="k">[' + kind + ']</span><span></span></div>';
+      html += '<div class="row"><span class="k">subject</span><span>' + c.subject + '</span></div>';
+      html += '<div class="row"><span class="k">issuer</span><span>' + c.issuer + '</span></div>';
+      html += '<div class="row"><span class="k">public_key [e, n]</span><span>' + c.public_key + '</span></div>';
+      html += '<div class="row"><span class="k">validity</span><span>not_before=' + c.not_before +
+              ', not_after=' + c.not_after + ' (current_time=' + c.current_time + ')</span></div>';
+      html += '<div class="row"><span class="k">revoked</span><span>' + c.revoked + '</span></div>';
+      html += '<div class="row"><span class="k">signature verifies</span><span>' + c.sig_ok + '</span></div>';
+      if (c.is_root) {
+        html += '<div class="row"><span class="k">in trust store</span><span>' + c.in_trust_store + '</span></div>';
+      }
+      if (c.flag) {
+        html += '<div class="row"><span class="flag bad">&#8594; ' + c.flag + '</span></div>';
+      }
+      div.innerHTML = html;
+      el.appendChild(div);
+      if (i < s.chain.length - 1) {
+        var arrow = document.createElement('div');
+        arrow.className = 'arrow';
+        arrow.innerText = 'signed by ↓ (issuer must equal next cert\'s subject)';
+        el.appendChild(arrow);
+      }
+    });
+    document.getElementById('result-line').innerText = '';
+    document.getElementById('result-line').className = 'result-line';
+    setScore();
+  }
+
+  function decide(choice){
+    var s = SCENARIOS[current];
+    var line = document.getElementById('result-line');
+    if (answered[s.id]) {
+      line.innerText = 'Already answered: ' + (answered[s.id] === 'correct' ? 'correct.' : 'incorrect, reason: ' + s.reason);
+      line.className = 'result-line ' + (answered[s.id] === 'correct' ? 'correct' : 'incorrect');
+      return;
+    }
+    var isCorrect = choice === s.truth;
+    answered[s.id] = isCorrect ? 'correct' : 'incorrect';
+    if (isCorrect) score++;
+    line.innerText = (isCorrect ? 'Correct. ' : 'Incorrect. ') + s.reason;
+    line.className = 'result-line ' + (isCorrect ? 'correct' : 'incorrect');
+    renderNav();
+    setScore();
+  }
+
+  function setScore(){
+    met = (score === MAX) && (Object.keys(answered).length === MAX);
+    var el = document.getElementById('score');
+    el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+      (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+  }
+
+  function init(){
+    renderTrustStore();
+    render();
+  }
+
+  return { decide: decide, init: init };
+})();
+
+FNE.init();
+</script>
+</body>
+</html>

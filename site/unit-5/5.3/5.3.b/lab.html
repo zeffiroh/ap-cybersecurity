@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.3.b Lab, Why a Nonce Must Never Repeat</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Why a Nonce Must Never Repeat</h1>
+  <p class="sub">Reuse one counter in a stream cipher and watch a second message fall out of the first.</p>
+
+  <div class="brief">
+    <p>All encryption below is real <code>AES-CTR</code> run by your browser's Web Crypto, under one secret
+    key that never changes. AES-CTR is a stream cipher: it turns the key and a <b>nonce</b> (the starting
+    counter) into a keystream, then XORs that keystream with your plaintext. The security rests on one rule,
+    <b>never reuse a nonce with the same key</b>. You will see why: encrypt two messages under the same
+    counter and the keystream cancels out, so <code>C1 XOR C2 = P1 XOR P2</code>. If you know the first
+    message, you recover the second with no key at all.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="fresh"><span>Encrypt both messages with a <b>fresh random nonce</b> each, and confirm the two ciphertexts look unrelated.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Encrypt with unique nonces</b>. Each message gets its own counter, so <code>C1 XOR C2</code> is just noise and reveals nothing.</details></div></li>
+    <li data-m="reuse"><span>Encrypt both messages <b>reusing the same nonce</b>, then recover message 2 from message 1 as known plaintext.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Encrypt reusing one nonce</b>, then <b>Recover message 2</b>. The tool computes <code>P2 = C1 XOR C2 XOR P1</code> byte by byte, no key needed.</details></div></li>
+    <li data-m="proof"><span>Run the same recovery against the <b>unique-nonce</b> ciphertexts and confirm it yields garbage.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Try recovery on unique-nonce output</b>. Without a shared keystream, <code>C1 XOR C2 XOR P1</code> is meaningless, so the attack fails.</details></div></li>
+  </ul>
+
+  <p class="status" id="status">Generating a key...</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Two messages to protect</h3>
+      <label class="field" for="m1">Message 1 (the attacker will treat this as known plaintext)</label>
+      <input type="text" id="m1" value="MEET AT PIER 7 AT NOON ON FRIDAY" spellcheck="false">
+      <label class="field" for="m2">Message 2 (secret; the attacker does not know it)</label>
+      <input type="text" id="m2" value="WIRE THE RANSOM TO ACCOUNT 90321" spellcheck="false">
+      <div class="row">
+        <button class="primary" id="uniq" disabled>Encrypt with unique nonces</button>
+        <button class="primary" id="same" disabled>Encrypt reusing one nonce</button>
+      </div>
+      <div class="row">
+        <button id="recover" disabled>Recover message 2 (from reused-nonce output)</button>
+        <button id="recoverU" disabled>Try recovery on unique-nonce output</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>What happened</h3>
+      <div class="console" id="out"><span class="dim">Encrypt the messages to begin.</span></div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">The nonce is the whole defense</h2>
+    <p>AES-CTR encrypts by generating a keystream from (key, nonce) and XORing it with the plaintext:
+    <code>C = P XOR KS</code>. If two messages reuse the same key <i>and</i> nonce, they share the same
+    keystream, so <code>C1 XOR C2 = (P1 XOR KS) XOR (P2 XOR KS) = P1 XOR P2</code>, the keystream vanishes.
+    Any known or guessable plaintext then peels the other message open, with no key required. This is
+    exactly the flaw that broke WEP (topic 3.2). A unique nonce per message, plus disciplined key lifecycle
+    management, is the control named in LO 5.3.A and 5.3.B; authenticated modes such as AES-GCM add
+    integrity on top. The algorithm was never broken here, the <i>operating practice</i> was.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc,hex=Lab.hex,bytes=Lab.bytes;var statusEl=document.getElementById("status");var out=document.getElementById("out");var key=null;var store={};var missions=new Lab.Missions("5.3.b",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});function xor(a,b){var n=Math.min(a.length,b.length),o=new Uint8Array(n);for(var i=0;i<n;i++)o[i]=a[i]^b[i];return o;}
+function printable(u8){return Array.prototype.map.call(u8,function(b){return(b>=32&&b<127)?String.fromCharCode(b):".";}).join("");}
+function ctrParams(nonceBytes){var counter=new Uint8Array(16);counter.set(nonceBytes.subarray(0,16));return{name:"AES-CTR",counter:counter,length:64};}
+function enc(plain,nonce){return crypto.subtle.encrypt(ctrParams(nonce),key,plain).then(function(ct){return new Uint8Array(ct);});}
+function encryptUnique(){var p1=bytes(document.getElementById("m1").value);var p2=bytes(document.getElementById("m2").value);var n1=crypto.getRandomValues(new Uint8Array(16));var n2=crypto.getRandomValues(new Uint8Array(16));Promise.all([enc(p1,n1),enc(p2,n2)]).then(function(r){store.uniq={c1:r[0],c2:r[1],p1:p1,p2:p2};var diff=hex(xor(r[0],r[1]));out.innerHTML='<span class="dim">unique nonces, different keystream for each message</span>\n'+'nonce 1: <span class="q">'+hex(n1)+'</span>\n'+'nonce 2: <span class="q">'+hex(n2)+'</span>\n\n'+'C1: <span class="q">'+hex(r[0])+'</span>\n'+'C2: <span class="q">'+hex(r[1])+'</span>\n\n'+'<span class="dim">C1 XOR C2 (should be noise):</span>\n<span class="q">'+diff+'</span>\n\n'+'<span class="ok">The two ciphertexts share nothing. Nothing leaks.</span>';document.getElementById("recoverU").disabled=false;missions.complete("fresh");});}
+function encryptReuse(){var p1=bytes(document.getElementById("m1").value);var p2=bytes(document.getElementById("m2").value);var nonce=crypto.getRandomValues(new Uint8Array(16));Promise.all([enc(p1,nonce),enc(p2,nonce)]).then(function(r){store.reuse={c1:r[0],c2:r[1],p1:p1,p2:p2};var diff=hex(xor(r[0],r[1]));out.innerHTML='<span class="err">same nonce used for BOTH messages (the mistake)</span>\n'+'nonce: <span class="q">'+hex(nonce)+'</span>\n\n'+'C1: <span class="q">'+hex(r[0])+'</span>\n'+'C2: <span class="q">'+hex(r[1])+'</span>\n\n'+'<span class="dim">C1 XOR C2  equals  P1 XOR P2 (keystream cancelled):</span>\n<span class="q">'+diff+'</span>\n\n'+'Now press <b>Recover message 2</b>.';document.getElementById("recover").disabled=false;});}
+function recover(kind){var s=store[kind];if(!s){out.innerHTML='<span class="err">Encrypt first.</span>';return;}
+var guess=xor(xor(s.c1,s.c2),s.p1);var truth=printable(s.p2.subarray(0,guess.length));var got=printable(guess);var success=(got===truth);out.innerHTML='<span class="dim">attacker computes  P2 = C1 XOR C2 XOR P1  (knows P1 only)</span>\n\n'+'recovered message 2: <span class="'+(success?"ok":"err")+'">'+esc(got)+'</span>\n'+'actual message 2:    <span class="dim">'+esc(truth)+'</span>\n\n'+
+(success?'<span class="err">Full recovery. The reused nonce leaked the entire secret message.</span>':'<span class="ok">Garbage. With unique nonces there is no shared keystream to cancel, so the attack fails.</span>');if(kind==="reuse"&&success)missions.complete("reuse");if(kind==="uniq"&&!success)missions.complete("proof");}
+crypto.subtle.generateKey({name:"AES-CTR",length:256},false,["encrypt","decrypt"]).then(function(k){key=k;statusEl.textContent="Ready. One AES-256 key is loaded. Start with unique nonces.";document.getElementById("uniq").disabled=false;document.getElementById("same").disabled=false;}).catch(function(e){statusEl.innerHTML='<span class="err">Web Crypto unavailable: '+esc(String(e.message||e))+'</span>';});document.getElementById("uniq").addEventListener("click",encryptUnique);document.getElementById("same").addEventListener("click",encryptReuse);document.getElementById("recover").addEventListener("click",function(){recover("reuse");});document.getElementById("recoverU").addEventListener("click",function(){recover("uniq");});})();</script>
+</body>
+</html>

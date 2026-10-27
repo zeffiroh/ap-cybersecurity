@@ -1,0 +1,6 @@
+{
+  "atom_id": "3.1.b",
+  "topic_id": "3.1",
+  "title": "DNS attacks (spoofing, cache poisoning)",
+  "solution_py": "\"\"\"Reference solution for 3.1.b. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\nfrom typing import List, Dict\n\n\ndef solve(queries: List[Dict]) -> List[str]:\n    \"\"\"Classify each DNS query's resolver race outcome as WIN, POISON, or REJECT.\n\n    Rules (see the Reference section below):\n      1. A reply is a \"valid candidate\" iff tx_id, port, and qname all match the query.\n      2. No valid candidates -> REJECT.\n      3. Otherwise the valid candidate with the smallest 'arrival' wins the race:\n         from == \"authoritative\" -> WIN, from == \"attacker\" -> POISON.\n    \"\"\"\n    result = []\n    for q in queries:\n        candidates = [\n            r for r in q[\"replies\"]\n            if r[\"tx_id\"] == q[\"tx_id\"] and r[\"port\"] == q[\"port\"] and r[\"qname\"] == q[\"qname\"]\n        ]\n        if not candidates:\n            result.append(\"REJECT\")\n            continue\n        winner = min(candidates, key=lambda r: r[\"arrival\"])\n        result.append(\"WIN\" if winner[\"from\"] == \"authoritative\" else \"POISON\")\n    return result\n"
+}

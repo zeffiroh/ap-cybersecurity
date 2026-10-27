@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.4.c Lab, Signing, Verifying, and the Private Key</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Signing, Verifying, and the Private Key</h1>
+  <p class="sub">Sign with a private key, verify with the public key, then fail to forge without it.</p>
+
+  <div class="brief">
+    <p>This uses real <code>RSA-PSS</code> with <code>SHA-256</code> from your browser's Web Crypto. A
+    digital signature is produced with a <b>private key</b> that only the sender holds, and checked with the
+    matching <b>public key</b> that anyone may have. A valid signature proves three things at once: the
+    message was not altered (integrity), it came from the private-key holder (authenticity), and the signer
+    cannot later deny it (non-repudiation). You will sign and verify a software release, break verification
+    by tampering, and then step into the attacker's shoes, holding only the public key, to see why a forgery
+    is impossible.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="sign"><span>Sign the release note with the publisher's private key and verify it with the public key.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Sign (private key)</b>, then <b>Verify (public key)</b>. A matching key pair returns VALID.</details></div></li>
+    <li data-m="tamper"><span>Change the message after signing, then verify, and watch it fail.</span>
+      <div class="hint"><details><summary>Hint</summary>Edit the release note, do <b>not</b> re-sign, and press Verify. The signature was computed over the old bytes, so the check fails.</details></div></li>
+    <li data-m="forge"><span>As an attacker with only the public key, try to forge a signature for your own message.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Attacker forge attempt</b>. The attacker can only sign with their <i>own</i> private key; verified against the real public key, the forged signature is rejected.</details></div></li>
+  </ul>
+
+  <p class="status" id="status">Generating key pairs...</p>
+
+  <div class="panel">
+    <h3>Software release note (the thing being signed)</h3>
+    <textarea id="msg" rows="2" spellcheck="false">release: aayac-tools v2.4.1  sha256-of-build: 7f3c...a19  safe-to-install: yes</textarea>
+    <p class="note">Publisher public key: <code id="pubfp">...</code> &nbsp; Private key (secret): <code id="privfp">...</code></p>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel">
+      <h3>Actions</h3>
+      <div class="row">
+        <button class="primary" id="sign" disabled>Sign (private key)</button>
+        <button class="primary" id="verify" disabled>Verify (public key)</button>
+      </div>
+      <div class="row">
+        <button id="forge" disabled>Attacker forge attempt (public key only)</button>
+      </div>
+      <label class="field" style="margin-top:12px">Signature currently attached</label>
+      <div class="console" id="sig" style="min-height:46px"><span class="dim">unsigned</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Verification result</h3>
+      <div class="console" id="out"><span class="dim">Sign, then verify.</span></div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Only the private key can sign</h2>
+    <p>Signing hashes the message and transforms that digest with the <b>private key</b>; verification uses
+    the <b>public key</b> to check that the signature matches the hash of the message in hand. Change one byte
+    of the message and the hash changes, so the old signature no longer verifies, that is integrity. Because
+    only the publisher holds the private key, a valid signature could only have come from them, that is
+    authenticity and non-repudiation. An attacker with the public key can verify signatures but cannot create
+    them; signing with any other key produces a signature the real public key rejects. This is the guarantee
+    in LO 5.4.B, and it is stronger than a shared-secret MAC (5.3.c): with a MAC, every party who can verify
+    can also forge, because they share the one secret key.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>(function(){var esc=Lab.esc,hex=Lab.hex,bytes=Lab.bytes;var statusEl=document.getElementById("status");var out=document.getElementById("out");var sigEl=document.getElementById("sig");var ALG={name:"RSA-PSS",saltLength:32};var publisher=null,attacker=null;var signature=null;var signedBytes=null;var sigSource=null;var missions=new Lab.Missions("5.4.c",document.getElementById("missions"),document.getElementById("progress"),function(){document.getElementById("debrief").classList.add("show");});function genKeys(){var spec={name:"RSA-PSS",modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:"SHA-256"};return crypto.subtle.generateKey(spec,true,["sign","verify"]);}
+function fp(key){return crypto.subtle.exportKey(key.type==="private"?"pkcs8":"spki",key).then(function(raw){return crypto.subtle.digest("SHA-256",raw).then(function(d){return hex(d).slice(0,16);});});}
+function showSig(){if(!signature){sigEl.innerHTML='<span class="dim">unsigned</span>';return;}
+sigEl.innerHTML='<span class="dim">signed by '+sigSource+'</span>\n<span class="q">'+
+hex(signature).slice(0,96)+'...</span>';}
+function sign(){signedBytes=bytes(document.getElementById("msg").value);crypto.subtle.sign(ALG,publisher.privateKey,signedBytes).then(function(s){signature=new Uint8Array(s);sigSource="publisher";showSig();out.innerHTML='<span class="dim">Signed with the publisher private key. Now press Verify.</span>';});}
+function forge(){document.getElementById("msg").value="release: aayac-tools v2.4.1  safe-to-install: yes  (BACKDOORED BUILD)";signedBytes=bytes(document.getElementById("msg").value);crypto.subtle.sign(ALG,attacker.privateKey,signedBytes).then(function(s){signature=new Uint8Array(s);sigSource="attacker";showSig();out.innerHTML='<span class="dim">Attacker signed a backdoored note with their own key. Press Verify (public key).</span>';});}
+function verify(){var current=bytes(document.getElementById("msg").value);if(!signature){out.innerHTML='<span class="err">Nothing is signed yet.</span>';return;}
+crypto.subtle.verify(ALG,publisher.publicKey,signature,current).then(function(ok){var changed=hex(current)!==hex(signedBytes||new Uint8Array());out.innerHTML='<span class="dim">checking the attached signature against the publisher public key</span>\n'+'signature source: '+(sigSource||"none")+'\n'+'message changed since signing: '+(changed?"yes":"no")+'\n\n'+
+(ok?'<span class="ok">VALID. Authentic, unaltered, and only the publisher could have produced it.</span>':'<span class="err">INVALID. The signature does not match this message under the publisher key.</span>');if(ok&&sigSource==="publisher"&&!changed)missions.complete("sign");if(!ok&&sigSource==="publisher"&&changed)missions.complete("tamper");if(!ok&&sigSource==="attacker")missions.complete("forge");});}
+Promise.all([genKeys(),genKeys()]).then(function(pair){publisher=pair[0];attacker=pair[1];return Promise.all([fp(publisher.publicKey),fp(publisher.privateKey)]);}).then(function(f){document.getElementById("pubfp").textContent=f[0];document.getElementById("privfp").textContent=f[1];statusEl.textContent="Ready. Sign the release note, then verify it.";["sign","verify","forge"].forEach(function(id){document.getElementById(id).disabled=false;});}).catch(function(e){statusEl.innerHTML='<span class="err">Web Crypto unavailable: '+esc(String(e.message||e))+'</span>';});document.getElementById("sign").addEventListener("click",sign);document.getElementById("verify").addEventListener("click",verify);document.getElementById("forge").addEventListener("click",forge);})();</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Application monitoring and logging, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Application monitoring and logging  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.6.a: Brute-force detector (SIEM alert rule)</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 5.6.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Implement the SIEM alert rule described in the lesson: given a list of parsed application log
+entries, return every IP address whose failed-login (<code>401</code>) count exceeds a threshold within a
+rolling time window, a classic brute-force signal.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(entries: list, threshold: int, window_seconds: int) -&gt; list</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>entries</code>: <code>list[dict]</code>, each <code>{"ip": str, "ts": int, "status": int}</code> (<code>ts</code> = seconds since
+  start of log, not necessarily sorted).</li>
+<li><code>threshold</code>: <code>int</code>, minimum number of <code>401</code> events within the window to flag the IP.</li>
+<li><code>window_seconds</code>: <code>int</code>, rolling window size, in seconds (inclusive on both ends).</li>
+</ul>
+<h2>Output</h2>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of flagged IP addresses.</p>
+<h2>Examples</h2>
+<pre><code>entries = [
+  {&quot;ip&quot;:&quot;10.0.0.1&quot;,&quot;ts&quot;:0,&quot;status&quot;:401},
+  {&quot;ip&quot;:&quot;10.0.0.1&quot;,&quot;ts&quot;:10,&quot;status&quot;:401},
+  {&quot;ip&quot;:&quot;10.0.0.1&quot;,&quot;ts&quot;:20,&quot;status&quot;:401},
+]
+solve(entries, threshold=3, window_seconds=60) -&gt; [&quot;10.0.0.1&quot;]
+</code></pre>
+<pre><code>entries = [{&quot;ip&quot;:&quot;10.0.0.2&quot;,&quot;ts&quot;:0,&quot;status&quot;:200}]
+solve(entries, threshold=1, window_seconds=60) -&gt; []   # success responses never count
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Only <code>status == 401</code> entries count toward the brute-force count; other codes are ignored.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(entries: list, threshold: int, window_seconds: int) -&gt; list
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>entries</code>: <code>list[dict]</code>, each <code>{"ip": str, "ts": int, "status": int}</code>. <code>ts</code> is seconds since
+  the start of the log (non-negative int, not necessarily sorted). <code>status</code> is an HTTP status
+  code; only <code>401</code> entries count toward brute-force detection.</li>
+<li><code>threshold</code>: <code>int</code>, minimum number of 401 events within the window to flag the IP.</li>
+<li><code>window_seconds</code>: <code>int</code>, inclusive rolling window size, in seconds.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>Sorted, de-duplicated <code>list[str]</code> of IP addresses for which some window
+<code>[start, start + window_seconds]</code> (with <code>start</code> equal to one of that IP's 401 timestamps)
+contains <code>&gt;= threshold</code> 401 events.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Only entries with <code>status == 401</code> count; other status codes are ignored for detection.</li>
+<li>The window bounds are inclusive: an event with <code>ts == start + window_seconds</code> counts.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.6.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from collections import defaultdict
+from typing import Dict, List
+
+
+def solve(entries: List[Dict[str, object]], threshold: int, window_seconds: int) -&gt; List[str]:
+    """Flag source IPs whose failed-login count reaches &gt;= threshold within some rolling
+    window of window_seconds, per the SIEM brute-force rule described in the lesson."""
+    by_ip: Dict[str, List[int]] = defaultdict(list)
+    for e in entries:
+        if e.get("status") == 401:
+            by_ip[e["ip"]].append(e["ts"])
+
+    flagged = set()
+    for ip, times in by_ip.items():
+        times = sorted(times)
+        for start in times:
+            count = sum(1 for t in times if start &lt;= t &lt;= start + window_seconds)
+            if count &gt;= threshold:
+                flagged.add(ip)
+                break
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_brute_force_flagged():
+    entries = [
+        {"ip": "10.0.0.1", "ts": 0, "status": 401},
+        {"ip": "10.0.0.1", "ts": 10, "status": 401},
+        {"ip": "10.0.0.1", "ts": 20, "status": 401},
+        {"ip": "10.0.0.1", "ts": 30, "status": 401},
+        {"ip": "10.0.0.1", "ts": 40, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=5, window_seconds=60) == ["10.0.0.1"]
+
+
+def test_successful_logins_not_counted():
+    entries = [
+        {"ip": "10.0.0.2", "ts": 0, "status": 200},
+        {"ip": "10.0.0.2", "ts": 1, "status": 200},
+        {"ip": "10.0.0.2", "ts": 2, "status": 200},
+    ]
+    assert impl.solve(entries, threshold=2, window_seconds=60) == []
+
+
+def test_below_threshold_not_flagged():
+    entries = [
+        {"ip": "10.0.0.3", "ts": 0, "status": 401},
+        {"ip": "10.0.0.3", "ts": 5, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=5, window_seconds=60) == []
+
+
+def test_multiple_ips_flagged_sorted():
+    entries = [
+        {"ip": "10.0.0.9", "ts": 0, "status": 401},
+        {"ip": "10.0.0.9", "ts": 1, "status": 401},
+        {"ip": "10.0.0.5", "ts": 0, "status": 401},
+        {"ip": "10.0.0.5", "ts": 1, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=2, window_seconds=60) == ["10.0.0.5", "10.0.0.9"]
+
+
+def test_events_too_far_apart_not_flagged():
+    entries = [
+        {"ip": "10.0.0.4", "ts": 0, "status": 401},
+        {"ip": "10.0.0.4", "ts": 120, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=2, window_seconds=60) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_window_boundary_inclusive():
+    entries = [
+        {"ip": "10.0.0.6", "ts": 0, "status": 401},
+        {"ip": "10.0.0.6", "ts": 60, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=2, window_seconds=60) == ["10.0.0.6"]
+
+
+def test_unsorted_input():
+    entries = [
+        {"ip": "10.0.0.7", "ts": 40, "status": 401},
+        {"ip": "10.0.0.7", "ts": 0, "status": 401},
+        {"ip": "10.0.0.7", "ts": 20, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=3, window_seconds=60) == ["10.0.0.7"]
+
+
+def test_mixed_status_only_401_counts():
+    entries = [
+        {"ip": "10.0.0.8", "ts": 0, "status": 401},
+        {"ip": "10.0.0.8", "ts": 1, "status": 200},
+        {"ip": "10.0.0.8", "ts": 2, "status": 403},
+        {"ip": "10.0.0.8", "ts": 3, "status": 401},
+    ]
+    assert impl.solve(entries, threshold=2, window_seconds=60) == ["10.0.0.8"]
+
+
+def test_empty_entries():
+    assert impl.solve([], threshold=1, window_seconds=60) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

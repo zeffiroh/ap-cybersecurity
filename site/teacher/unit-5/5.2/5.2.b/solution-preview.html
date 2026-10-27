@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roles, permissions, and least privilege, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Roles, permissions, and least privilege  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.2.b: Detect least-privilege violations</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.2.A, 5.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the audit function a security reviewer would run over a company's role assignments. Given a
+map of roles to the permissions they grant, a map of users to their assigned roles, and a map of
+users to the minimum permission set their job function actually requires, find every user who
+holds at least one permission (via their assigned roles) that is NOT in their job function's
+required set.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(roles: dict, user_roles: dict, job_requirements: dict) -&gt; dict</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>roles</code>: <code>dict[str, list[str]]</code>, role name -&gt; list of permissions it grants.</li>
+<li><code>user_roles</code>: <code>dict[str, list[str]]</code>, user name -&gt; list of role names assigned to them.</li>
+<li><code>job_requirements</code>: <code>dict[str, list[str]]</code>, user name -&gt; list of permissions their job function
+  actually requires.</li>
+</ul>
+<h2>Output</h2>
+<p>A dict mapping each violating user to the <strong>sorted</strong> list of their excess (unauthorized)
+permissions. Users with no excess permissions are omitted entirely from the result.</p>
+<h2>Examples</h2>
+<pre><code>roles = {&quot;support&quot;: [&quot;read_ticket&quot;, &quot;write_ticket_reply&quot;], &quot;billing&quot;: [&quot;read_invoice&quot;, &quot;issue_refund&quot;]}
+user_roles = {&quot;dana&quot;: [&quot;support&quot;, &quot;billing&quot;]}
+job_requirements = {&quot;dana&quot;: [&quot;read_ticket&quot;, &quot;write_ticket_reply&quot;]}
+
+solve(roles, user_roles, job_requirements)
+-&gt; {&quot;dana&quot;: [&quot;issue_refund&quot;, &quot;read_invoice&quot;]}
+</code></pre>
+<pre><code>roles = {&quot;support&quot;: [&quot;read_ticket&quot;]}
+user_roles = {&quot;sam&quot;: [&quot;support&quot;]}
+job_requirements = {&quot;sam&quot;: [&quot;read_ticket&quot;]}
+
+solve(roles, user_roles, job_requirements)
+-&gt; {}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>A user with roles granting no permissions beyond their job requirements is omitted from the
+  output entirely (not included with an empty list).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(roles: dict, user_roles: dict, job_requirements: dict) -&gt; dict
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>roles</code>: <code>dict[str, list[str]]</code>, role name -&gt; permissions it grants.</li>
+<li><code>user_roles</code>: <code>dict[str, list[str]]</code>, user name -&gt; assigned role names.</li>
+<li><code>job_requirements</code>: <code>dict[str, list[str]]</code>, user name -&gt; permissions their job requires. A user
+  absent from this dict requires no permissions (empty set).</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>dict[str, list[str]]</code> mapping each user who has at least one excess permission to the <strong>sorted</strong>
+list of their excess permissions (permissions granted by their roles but not in their job
+requirements). Users with zero excess permissions are omitted entirely from the result.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Permissions from multiple assigned roles are unioned (deduplicated) before comparing against
+  job requirements.</li>
+<li>Unknown role names in <code>user_roles</code> (not present in <code>roles</code>) contribute no permissions.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.2.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict, List
+
+
+def solve(
+    roles: Dict[str, List[str]],
+    user_roles: Dict[str, List[str]],
+    job_requirements: Dict[str, List[str]],
+) -&gt; Dict[str, List[str]]:
+    """Flag users whose role-derived permissions exceed their job requirements."""
+    result: Dict[str, List[str]] = {}
+    for user, assigned_roles in user_roles.items():
+        granted = set()
+        for role in assigned_roles:
+            granted.update(roles.get(role, []))
+        required = set(job_requirements.get(user, []))
+        excess = granted - required
+        if excess:
+            result[user] = sorted(excess)
+    return result
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_dana_has_excess():
+    roles = {"support": ["read_ticket", "write_ticket_reply"], "billing": ["read_invoice", "issue_refund"]}
+    user_roles = {"dana": ["support", "billing"]}
+    job_requirements = {"dana": ["read_ticket", "write_ticket_reply"]}
+    assert impl.solve(roles, user_roles, job_requirements) == {"dana": ["issue_refund", "read_invoice"]}
+
+
+def test_sam_no_excess_omitted():
+    roles = {"support": ["read_ticket"]}
+    user_roles = {"sam": ["support"]}
+    job_requirements = {"sam": ["read_ticket"]}
+    assert impl.solve(roles, user_roles, job_requirements) == {}
+
+
+def test_multiple_users_mixed():
+    roles = {"support": ["read_ticket", "write_ticket_reply"], "admin": ["delete_user", "read_ticket"]}
+    user_roles = {"a": ["support"], "b": ["admin"]}
+    job_requirements = {"a": ["read_ticket", "write_ticket_reply"], "b": ["read_ticket"]}
+    assert impl.solve(roles, user_roles, job_requirements) == {"b": ["delete_user"]}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_user_with_no_roles():
+    roles = {"support": ["read_ticket"]}
+    user_roles = {"ghost": []}
+    job_requirements = {"ghost": []}
+    assert impl.solve(roles, user_roles, job_requirements) == {}
+
+
+def test_user_missing_from_job_requirements_treated_as_none_required():
+    roles = {"support": ["read_ticket"]}
+    user_roles = {"newhire": ["support"]}
+    job_requirements = {}
+    assert impl.solve(roles, user_roles, job_requirements) == {"newhire": ["read_ticket"]}
+
+
+def test_overlapping_roles_deduplicated():
+    roles = {"r1": ["p1", "p2"], "r2": ["p2", "p3"]}
+    user_roles = {"u": ["r1", "r2"]}
+    job_requirements = {"u": ["p1", "p2", "p3"]}
+    assert impl.solve(roles, user_roles, job_requirements) == {}
+
+
+def test_empty_inputs():
+    assert impl.solve({}, {}, {}) == {}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access logs and monitoring, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Access logs and monitoring  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.4.a: Access log anomaly detector</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 2.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building the detection engine for a physical access control monitoring system at Crestfield Analytics. Given a list of timestamped access log entries, identify every badge ID that triggers at least one of three alert rules:</p>
+<ul>
+<li><strong>Rule 0, Repeated denial burst:</strong> 5 or more ACCESS DENIED events for the same badge within any 60-second sliding window.</li>
+<li><strong>Rule 1, After-hours valid access to a restricted door:</strong> any GRANTED entry at a door whose name starts with <code>"restricted-"</code> between 22:00 and 05:59 (inclusive, using the entry's local time).</li>
+<li><strong>Rule 2, Location inconsistency:</strong> the same badge granted at two different doors within a gap of 10 minutes (600 seconds) where those two doors are listed as geographically separated in a provided <code>far_pairs</code> set of frozensets.</li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(entries, far_pairs)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>entries</code>: <code>list[dict]</code>, each dict has:</li>
+<li><code>"ts"</code>: <code>int</code>, Unix timestamp (seconds)</li>
+<li><code>"badge"</code>: <code>str</code>, badge identifier e.g. <code>"B-0101"</code></li>
+<li><code>"door"</code>: <code>str</code>, door identifier e.g. <code>"restricted-server-room-A"</code></li>
+<li><code>"outcome"</code>: <code>str</code>, <code>"GRANTED"</code> or <code>"DENIED"</code></li>
+<li><code>far_pairs</code>: <code>set[frozenset]</code>, each element is a frozenset of two door names that are geographically far apart.</li>
+</ul>
+<h2>Output</h2>
+<p>A <strong>sorted list of unique badge ID strings</strong> that triggered one or more rules. Empty list if no alerts.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">entries = [
+    {&quot;ts&quot;: 1710230400, &quot;badge&quot;: &quot;B-0101&quot;, &quot;door&quot;: &quot;lobby&quot;, &quot;outcome&quot;: &quot;DENIED&quot;},
+    {&quot;ts&quot;: 1710230410, &quot;badge&quot;: &quot;B-0101&quot;, &quot;door&quot;: &quot;lobby&quot;, &quot;outcome&quot;: &quot;DENIED&quot;},
+    {&quot;ts&quot;: 1710230420, &quot;badge&quot;: &quot;B-0101&quot;, &quot;door&quot;: &quot;lobby&quot;, &quot;outcome&quot;: &quot;DENIED&quot;},
+    {&quot;ts&quot;: 1710230430, &quot;badge&quot;: &quot;B-0101&quot;, &quot;door&quot;: &quot;lobby&quot;, &quot;outcome&quot;: &quot;DENIED&quot;},
+    {&quot;ts&quot;: 1710230440, &quot;badge&quot;: &quot;B-0101&quot;, &quot;door&quot;: &quot;lobby&quot;, &quot;outcome&quot;: &quot;DENIED&quot;},
+]
+far_pairs = set()
+solve(entries, far_pairs)  -&gt;  [&quot;B-0101&quot;]
+
+entries2 = [
+    {&quot;ts&quot;: 1710288001, &quot;badge&quot;: &quot;B-0202&quot;, &quot;door&quot;: &quot;restricted-vault&quot;, &quot;outcome&quot;: &quot;GRANTED&quot;},
+]
+# ts 1710288001 = 2024-03-13 02:00:01 UTC  (after-hours)
+far_pairs2 = set()
+solve(entries2, far_pairs2)  -&gt;  [&quot;B-0202&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Treat all timestamps as UTC when checking hour for after-hours (hour in {22,23,0,1,2,3,4,5}).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(entries: list[dict], far_pairs: set[frozenset]) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>entries</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"ts"</code>: <code>int</code>, Unix timestamp in seconds (UTC)
+- <code>"badge"</code>: <code>str</code>, badge identifier string
+- <code>"door"</code>: <code>str</code>, door/reader name string
+- <code>"outcome"</code>: <code>str</code>, either <code>"GRANTED"</code> or <code>"DENIED"</code></p>
+<h3>Input (<code>far_pairs</code>)</h3>
+<p><code>set[frozenset]</code>, each frozenset contains exactly two door name strings that are geographically
+far apart (i.e., the same badge appearing at both within 600 seconds is a location inconsistency).</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of badge IDs that triggered one or more alert rules.
+Empty list if no alerts.</p>
+<h3>Alert rules</h3>
+<ul>
+<li><strong>Rule 0, Repeated denial burst:</strong> count DENIED events per badge in any 60-second sliding
+  window. Flag the badge if count &gt;= 5.</li>
+<li><strong>Rule 1, After-hours restricted access:</strong> flag a badge if it has any GRANTED entry at a door
+  whose name starts with <code>"restricted-"</code> and whose timestamp UTC hour is in {22,23,0,1,2,3,4,5}.</li>
+<li><strong>Rule 2, Location inconsistency:</strong> for each badge, scan GRANTED entries in timestamp order.
+  If two consecutive GRANTED entries at different doors occur within 600 seconds AND that door pair
+  is in <code>far_pairs</code>, flag the badge.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Entries may be given in any order; sort by <code>"ts"</code> internally as needed.</li>
+<li>Output always sorted ascending and de-duplicated.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.4.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Set, FrozenSet, Dict
+import datetime
+
+
+def solve(entries: List[Dict], far_pairs: Set[FrozenSet]) -&gt; List[str]:
+    """Return sorted list of badge IDs that triggered one or more alert rules.
+
+    Rule 0: &gt;=5 DENIED events for same badge within any 60-second window.
+    Rule 1: GRANTED at a 'restricted-' door during UTC hour in {22,23,0,1,2,3,4,5}.
+    Rule 2: same badge GRANTED at two far-apart doors within 600 seconds.
+    """
+    flagged = set()
+
+    # Group entries by badge
+    by_badge: Dict[str, List[Dict]] = {}
+    for e in entries:
+        by_badge.setdefault(e["badge"], []).append(e)
+
+    after_hours = {22, 23, 0, 1, 2, 3, 4, 5}
+
+    for badge, evts in by_badge.items():
+        evts_sorted = sorted(evts, key=lambda x: x["ts"])
+
+        # Rule 0: repeated denial burst (&gt;= 5 DENIED in 60s sliding window)
+        denials = [e["ts"] for e in evts_sorted if e["outcome"] == "DENIED"]
+        for i in range(len(denials)):
+            window_end = denials[i] + 60
+            count = sum(1 for ts in denials[i:] if ts &lt;= window_end)
+            if count &gt;= 5:
+                flagged.add(badge)
+                break
+
+        # Rule 1: after-hours restricted access (GRANTED at restricted- door, UTC hour in set)
+        for e in evts_sorted:
+            if e["outcome"] == "GRANTED" and e["door"].startswith("restricted-"):
+                hour = datetime.datetime.utcfromtimestamp(e["ts"]).hour
+                if hour in after_hours:
+                    flagged.add(badge)
+                    break
+
+        # Rule 2: location inconsistency (GRANTED at two far doors within 600s)
+        granted = [e for e in evts_sorted if e["outcome"] == "GRANTED"]
+        for i in range(len(granted) - 1):
+            a, b = granted[i], granted[i + 1]
+            if a["door"] != b["door"] and (b["ts"] - a["ts"]) &lt;= 600:
+                pair = frozenset({a["door"], b["door"]})
+                if pair in far_pairs:
+                    flagged.add(badge)
+                    break
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---------------------------------------------------------------------------
+# Helpers — seeded, deterministic test data
+# ---------------------------------------------------------------------------
+# Base timestamp: 2024-03-13 08:00:00 UTC = 1710316800
+BASE = 1710316800
+# After-hours base: 2024-03-13 23:00:00 UTC = 1710370800
+AH = 1710370800
+
+
+def _e(ts, badge, door, outcome):
+    return {"ts": ts, "badge": badge, "door": door, "outcome": outcome}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_rule0_burst_exactly_five():
+    """Five denials within 60s triggers Rule 0."""
+    entries = [_e(BASE + i * 10, "B-0001", "lobby", "DENIED") for i in range(5)]
+    assert impl.solve(entries, set()) == ["B-0001"]
+
+
+def test_rule0_four_denials_no_flag():
+    """Four denials within 60s does NOT trigger Rule 0."""
+    entries = [_e(BASE + i * 10, "B-0002", "lobby", "DENIED") for i in range(4)]
+    assert impl.solve(entries, set()) == []
+
+
+def test_rule1_after_hours_restricted():
+    """GRANTED at restricted- door at 23:00 UTC triggers Rule 1."""
+    entries = [_e(AH, "B-0003", "restricted-server-room", "GRANTED")]
+    assert impl.solve(entries, set()) == ["B-0003"]
+
+
+def test_rule1_after_hours_non_restricted_no_flag():
+    """After-hours GRANTED at non-restricted door does NOT trigger Rule 1."""
+    entries = [_e(AH, "B-0004", "lobby", "GRANTED")]
+    assert impl.solve(entries, set()) == []
+
+
+def test_rule2_location_inconsistency():
+    """Same badge at two far doors within 600s triggers Rule 2."""
+    fp = {frozenset({"door-A", "door-B"})}
+    entries = [
+        _e(BASE, "B-0005", "door-A", "GRANTED"),
+        _e(BASE + 300, "B-0005", "door-B", "GRANTED"),
+    ]
+    assert impl.solve(entries, fp) == ["B-0005"]
+
+
+def test_rule2_no_far_pair_no_flag():
+    """Same badge at two doors within 600s but NOT a far pair does NOT flag."""
+    entries = [
+        _e(BASE, "B-0006", "door-A", "GRANTED"),
+        _e(BASE + 300, "B-0006", "door-C", "GRANTED"),
+    ]
+    fp = {frozenset({"door-A", "door-B"})}  # door-C not paired with door-A
+    assert impl.solve(entries, fp) == []
+
+
+def test_empty_entries():
+    """Empty log returns empty list."""
+    assert impl.solve([], set()) == []
+
+
+def test_multiple_badges_some_flagged():
+    """Only the badge that crosses a threshold is returned; others are clean."""
+    entries = (
+        [_e(BASE + i * 10, "B-0007", "lobby", "DENIED") for i in range(6)]
+        + [_e(BASE + 100, "B-0008", "lobby", "DENIED")]  # single denial — clean
+    )
+    assert impl.solve(entries, set()) == ["B-0007"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_rule0_spread_across_61s_no_flag():
+    """Five denials spread across 61s do NOT form a 60s window of 5."""
+    entries = [_e(BASE + i * 16, "B-0009", "lobby", "DENIED") for i in range(5)]
+    # deltas: 0,16,32,48,64 — last pair 0..64 = 64s &gt; 60s; 16..64 = 48s but only 4 in window
+    assert impl.solve(entries, set()) == []
+
+
+def test_rule1_boundary_hour_22():
+    """GRANTED at restricted- door at exactly hour 22 UTC triggers Rule 1."""
+    ts_22 = 1710370800 - 3600  # 22:00 UTC on 2024-03-13
+    entries = [_e(ts_22, "B-0010", "restricted-vault", "GRANTED")]
+    assert impl.solve(entries, set()) == ["B-0010"]
+
+
+def test_rule2_gap_exactly_600s():
+    """Gap of exactly 600s between far-door GRANTEDs triggers Rule 2 (&lt;=600)."""
+    fp = {frozenset({"site-X", "site-Y"})}
+    entries = [
+        _e(BASE, "B-0011", "site-X", "GRANTED"),
+        _e(BASE + 600, "B-0011", "site-Y", "GRANTED"),
+    ]
+    assert impl.solve(entries, fp) == ["B-0011"]
+
+
+def test_output_sorted_multiple_flags():
+    """Result is sorted when multiple badges are flagged."""
+    entries = (
+        [_e(BASE + i * 10, "B-0013", "lobby", "DENIED") for i in range(5)]
+        + [_e(BASE + i * 10, "B-0012", "lobby", "DENIED") for i in range(5)]
+    )
+    result = impl.solve(entries, set())
+    assert result == sorted(result)
+    assert "B-0012" in result and "B-0013" in result
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

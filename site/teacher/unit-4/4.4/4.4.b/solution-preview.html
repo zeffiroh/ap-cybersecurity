@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log analysis, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Log analysis  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.4.b: Brute-force log correlator</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 4.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>An authentication log records every login attempt as an event with a username, a timestamp (in
+seconds), and a result (<code>"SUCCESS"</code> or <code>"FAILED"</code>). A brute-force attack shows up as a cluster of
+failed attempts for the same user, tightly packed in time. Build the correlator that scans the
+log and flags every username showing this pattern.</p>
+<h2>Function contract</h2>
+<p>Implement <code>def solve(entries: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A list of dicts, each with keys <code>ts</code> (int, seconds since some reference point), <code>user</code> (str),
+<code>result</code> (str, <code>"SUCCESS"</code> or <code>"FAILED"</code>). Entries are not guaranteed to already be sorted by
+timestamp.</p>
+<h2>Output</h2>
+<p>A sorted list of usernames (str) flagged for a brute-force pattern.</p>
+<h2>Detection rule</h2>
+<p>A user is flagged if there exist <strong>5 or more <code>"FAILED"</code> entries for that user</strong> where the time
+span from the earliest to the latest of those 5 (or more) entries is <strong>at most 60 seconds</strong>
+(inclusive). In other words: sort that user's failed-attempt timestamps ascending; if any 5
+consecutive failed timestamps (in that sorted order) span 60 seconds or less
+(<code>timestamps[i+4] - timestamps[i] &lt;= 60</code>), the user is flagged. <code>SUCCESS</code> entries do not count
+toward the failure count and do not reset or break a streak of failures, only <code>FAILED</code> entries
+matter for this rule.</p>
+<h2>Examples</h2>
+<pre><code>[{&quot;ts&quot;: 0, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 13, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 21, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 30, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 38, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 46, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;SUCCESS&quot;},
+ {&quot;ts&quot;: 100, &quot;user&quot;: &quot;agarcia&quot;, &quot;result&quot;: &quot;FAILED&quot;},
+ {&quot;ts&quot;: 1662, &quot;user&quot;: &quot;agarcia&quot;, &quot;result&quot;: &quot;FAILED&quot;}]
+    -&gt; [&quot;jsmith&quot;]
+</code></pre>
+<p><em>(jsmith has 5 failures spanning 0-38s = 38s &lt;= 60s -&gt; flagged. agarcia has only 2 failures,
+1562s apart -&gt; not flagged.)</em></p>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Input entries may arrive out of timestamp order; sort within your implementation.</li>
+<li>Return a de-duplicated, alphabetically sorted list of usernames.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(entries: list) -&gt; list
+</code></pre>
+<h3>Input (<code>entries</code>)</h3>
+<p>A list of dicts, each an authentication log event:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>type</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ts</code></td>
+<td>int</td>
+<td>timestamp in seconds (not guaranteed sorted across the list)</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>str</td>
+<td>username the attempt was made against</td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td>str</td>
+<td><code>"SUCCESS"</code> or <code>"FAILED"</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Output (<code>result</code>)</h3>
+<p>A de-duplicated, alphabetically sorted list of <code>str</code> usernames flagged for a brute-force pattern.</p>
+<h3>Detection rule</h3>
+<p>For each user, collect all <code>FAILED</code> timestamps and sort them ascending. The user is flagged if
+any 5 consecutive timestamps in that sorted list (<code>t[i]</code> through <code>t[i+4]</code>) satisfy
+<code>t[i+4] - t[i] &lt;= 60</code>. A user needs at least 5 total failed attempts to be eligible; <code>SUCCESS</code>
+entries are ignored entirely for this rule (they do not reset or interrupt a failure streak).</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
+<li>Input order is not guaranteed; sort per-user failed timestamps before evaluating the rule.</li>
+<li>The 60-second window is inclusive (<code>&lt;= 60</code>, not <code>&lt; 60</code>).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.4.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+WINDOW_SECONDS = 60
+MIN_FAILURES = 5
+
+
+def solve(entries: list) -&gt; list:
+    """Flag usernames showing a brute-force pattern: 5+ FAILED attempts within any
+    60-second window.
+
+    Args:
+        entries: list of dicts with keys ts (int), user (str), result ("SUCCESS"/"FAILED").
+            Not guaranteed sorted by timestamp.
+
+    Returns:
+        Alphabetically sorted list of unique usernames flagged for brute-force.
+    """
+    failures_by_user = {}
+    for entry in entries:
+        if entry.get("result") == "FAILED":
+            user = entry["user"]
+            failures_by_user.setdefault(user, []).append(entry["ts"])
+
+    flagged = set()
+    for user, timestamps in failures_by_user.items():
+        timestamps.sort()
+        if len(timestamps) &lt; MIN_FAILURES:
+            continue
+        for i in range(len(timestamps) - MIN_FAILURES + 1):
+            span = timestamps[i + MIN_FAILURES - 1] - timestamps[i]
+            if span &lt;= WINDOW_SECONDS:
+                flagged.add(user)
+                break
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_prompt_scenario():
+    entries = [
+        {"ts": 0, "user": "jsmith", "result": "FAILED"},
+        {"ts": 13, "user": "jsmith", "result": "FAILED"},
+        {"ts": 21, "user": "jsmith", "result": "FAILED"},
+        {"ts": 30, "user": "jsmith", "result": "FAILED"},
+        {"ts": 38, "user": "jsmith", "result": "FAILED"},
+        {"ts": 46, "user": "jsmith", "result": "SUCCESS"},
+        {"ts": 100, "user": "agarcia", "result": "FAILED"},
+        {"ts": 1662, "user": "agarcia", "result": "FAILED"},
+    ]
+    assert impl.solve(entries) == ["jsmith"]
+
+
+def test_example_2_no_flags():
+    entries = [
+        {"ts": 0, "user": "mchen", "result": "SUCCESS"},
+        {"ts": 500, "user": "rpatel", "result": "FAILED"},
+        {"ts": 1700, "user": "rpatel", "result": "FAILED"},
+    ]
+    assert impl.solve(entries) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_entries():
+    assert impl.solve([]) == []
+
+
+def test_fewer_than_five_failures_never_flagged():
+    entries = [
+        {"ts": t, "user": "twilson", "result": "FAILED"} for t in [0, 5, 10, 15]
+    ]
+    assert impl.solve(entries) == []
+
+
+def test_five_failures_exactly_at_60s_boundary_flags():
+    entries = [
+        {"ts": t, "user": "bwright", "result": "FAILED"} for t in [0, 15, 30, 45, 60]
+    ]
+    assert impl.solve(entries) == ["bwright"]
+
+
+def test_five_failures_just_over_60s_does_not_flag():
+    entries = [
+        {"ts": t, "user": "bwright", "result": "FAILED"} for t in [0, 15, 30, 45, 61]
+    ]
+    assert impl.solve(entries) == []
+
+
+def test_out_of_order_input_still_correlated_correctly():
+    entries = [
+        {"ts": 46, "user": "jsmith", "result": "SUCCESS"},
+        {"ts": 21, "user": "jsmith", "result": "FAILED"},
+        {"ts": 0, "user": "jsmith", "result": "FAILED"},
+        {"ts": 38, "user": "jsmith", "result": "FAILED"},
+        {"ts": 13, "user": "jsmith", "result": "FAILED"},
+        {"ts": 30, "user": "jsmith", "result": "FAILED"},
+    ]
+    assert impl.solve(entries) == ["jsmith"]
+
+
+def test_sliding_window_finds_cluster_not_just_first_and_last():
+    # 7 failures total; the FIRST-to-LAST span is 200s (too wide), but a 5-in-a-row
+    # cluster from index 1..5 spans only 40s and should still trigger the flag.
+    entries = [
+        {"ts": 0, "user": "cluster", "result": "FAILED"},
+        {"ts": 100, "user": "cluster", "result": "FAILED"},
+        {"ts": 110, "user": "cluster", "result": "FAILED"},
+        {"ts": 120, "user": "cluster", "result": "FAILED"},
+        {"ts": 130, "user": "cluster", "result": "FAILED"},
+        {"ts": 140, "user": "cluster", "result": "FAILED"},
+        {"ts": 200, "user": "cluster", "result": "FAILED"},
+    ]
+    assert impl.solve(entries) == ["cluster"]
+
+
+def test_multiple_users_result_sorted_alphabetically():
+    entries = []
+    for t in [0, 10, 20, 30, 40]:
+        entries.append({"ts": t, "user": "zach", "result": "FAILED"})
+    for t in [0, 10, 20, 30, 40]:
+        entries.append({"ts": t, "user": "amy", "result": "FAILED"})
+    assert impl.solve(entries) == ["amy", "zach"]
+
+
+def test_success_entries_do_not_count_as_failures():
+    entries = [
+        {"ts": 0, "user": "user1", "result": "SUCCESS"},
+        {"ts": 5, "user": "user1", "result": "FAILED"},
+        {"ts": 10, "user": "user1", "result": "SUCCESS"},
+        {"ts": 15, "user": "user1", "result": "FAILED"},
+        {"ts": 20, "user": "user1", "result": "SUCCESS"},
+        {"ts": 25, "user": "user1", "result": "FAILED"},
+    ]
+    assert impl.solve(entries) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

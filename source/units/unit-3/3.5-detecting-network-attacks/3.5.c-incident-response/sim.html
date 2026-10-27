@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<!-- 3.5.c SIM, "Meridian High School Ransomware Incident Timeline". Single-file, offline, deterministic.
+     No emoji/icons. Theme tokens inline from THEME.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.5.c - Incident response sequence - Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:960px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px 4px 2px 0;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre-wrap;line-height:1.4;min-height:80px;margin-top:10px;}
+.terminal .dim{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+h2{font-size:14px;margin:10px 0 4px;}
+.toolbar{margin-bottom:8px;}
+table{border-collapse:collapse;width:100%;margin-bottom:6px;background:#fff;}
+th,td{padding:5px 7px;border:1px solid #808080;text-align:left;font-size:12.5px;vertical-align:top;}
+th{background:var(--win-face);}
+select{font-family:var(--ui-font);font-size:12.5px;padding:1px;}
+.section{margin-top:12px;background:#fff;padding:10px;border:1px solid #808080;}
+.mono{font-family:var(--mono-font);}
+p.note{font-size:12px;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.5.c - Meridian High School Ransomware Incident Timeline</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>A ransomware incident hit the Meridian High School lab subnet. Below are 9 response
+      actions taken by the IT team, listed out of order. Assign each action to its correct NIST
+      SP 800-61 phase. All 9 must be correctly classified to meet the objective.</p>
+
+      <div class="section">
+        <h2>Response action log (shuffled)</h2>
+        <table id="acttbl">
+          <tr><th>#</th><th>Action</th><th>Your phase assignment</th></tr>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="verify()">Verify phase assignments</button>
+        <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="terminal" id="log"><span class="dim">ir# </span>Assign every action to a phase, then verify.</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 9 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+      <p class="note">Canonical order: Preparation, Identification, Containment, Eradication,
+      Recovery, Lessons Learned. Watch for actions that sound proactive but are actually
+      out of sequence (e.g. eradicating before the host is contained).</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+var PHASES = ["Preparation", "Identification", "Containment", "Eradication", "Recovery", "Lessons Learned"];
+
+var actions = [
+  {n:1, text:"Rebuild the file server from a verified clean backup and reconnect it to the network.", answer:"Recovery"},
+  {n:2, text:"Delete the attacker's backdoor scheduled task from the domain controller.", answer:"Eradication"},
+  {n:3, text:"Draft and rehearse the school's incident response plan with IT staff.", answer:"Preparation"},
+  {n:4, text:"Confirm that the ransomware alert is a real compromise, not a false positive.", answer:"Identification"},
+  {n:5, text:"Disconnect the infected lab subnet from the rest of the network.", answer:"Containment"},
+  {n:6, text:"Write an incident timeline and update the response plan based on what was learned.", answer:"Lessons Learned"},
+  {n:7, text:"Patch the vulnerability the attacker used to gain initial access.", answer:"Eradication"},
+  {n:8, text:"Monitor the recovered systems closely for any sign the compromise persists.", answer:"Recovery"},
+  {n:9, text:"Escalate the confirmed incident to the response team lead per the escalation chain.", answer:"Identification"}
+];
+
+function buildTable(){
+  var tbl = document.getElementById("acttbl");
+  actions.forEach(function(a){
+    var row = document.createElement("tr");
+    var opts = "<option value=\"\">--</option>";
+    PHASES.forEach(function(p){ opts += "<option value=\"" + p + "\">" + p + "</option>"; });
+    row.innerHTML =
+      "<td>" + a.n + "</td>" +
+      "<td>" + a.text + "</td>" +
+      "<td><select id=\"p_" + a.n + "\">" + opts + "</select></td>";
+    tbl.appendChild(row);
+  });
+}
+buildTable();
+
+function verify(){
+  var lines = [];
+  var score = 0;
+  actions.forEach(function(a){
+    var sel = document.getElementById("p_" + a.n).value;
+    var ok = sel === a.answer;
+    if (ok) score++;
+    lines.push("Action " + a.n + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + a.answer + "]"));
+  });
+  var met = (score === actions.length);
+  document.getElementById("log").innerHTML = "<span class=\"dim\">ir# </span>show phase-assignment results\n\n" +
+    lines.join("\n") + "\n\n" +
+    (met ? "TIMELINE RECONSTRUCTED CORRECTLY." : "Some assignments incorrect. Recheck the phase order and try again.");
+  document.getElementById("score").innerHTML = "SCORE " + score + " / " + actions.length + " &#9474; OBJECTIVE: " +
+    (met ? "<span class=\"ok\">MET</span>" : "<span class=\"bad\">not yet met</span>");
+}
+
+function resetAll(){
+  actions.forEach(function(a){
+    document.getElementById("p_" + a.n).value = "";
+  });
+  document.getElementById("log").innerHTML = "<span class=\"dim\">ir# </span>Reset. Assign every action to a phase, then verify.";
+  document.getElementById("score").innerHTML = "SCORE 0 / 9 &#9474; OBJECTIVE: <span class=\"bad\">not yet met</span>";
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# 5.3.c tutor notes
+
+Notes for the pre- and post-lecture tutor posts.
+
+## The intuition to hold onto
+The gap worth naming before this lecture starts: 5.3.a taught you that a hash detects tampering, but only if the attacker can't also update the hash after they tamper, and a plain hash is public and keyless, so any attacker who can rewrite your message can just as easily recompute a matching digest for their rewritten version. That's not a hash function being broken; it's a hash function doing exactly what it was designed to do, applied in a context where the design assumption (an untampered channel for the digest) silently failed. HMAC exists because "the data matches its digest" and "the data came from someone who knew a secret" are two completely different claims, and only the second one survives an active attacker.
+
+## The big picture
+The detail worth remembering longest is why HMAC doesn't just do the obvious thing, hash the secret and message concatenated together, and it comes down to length-extension attacks on Merkle-Damgard hashes like SHA-256: the digest exposes exactly the internal state an attacker needs to keep hashing from, letting them extend a message and produce a valid tag for it without ever learning the key. HMAC's double-nested construction specifically closes that leak. You don't need the ipad/opad constants memorized, but you should walk away able to state precisely what integrity means versus what authenticity means, because that distinction is the whole atom in miniature, and it's the exact gap that 5.4.c's digital signatures close one level further, HMAC proves authenticity to anyone who shares the secret, but can't prove *which* of the two secret-holders actually sent a message; a signature, built on an asymmetric key pair instead of one shared secret, finally closes that last gap too.

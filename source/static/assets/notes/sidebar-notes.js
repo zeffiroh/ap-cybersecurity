@@ -1,0 +1,310 @@
+/* Collapsible Notes Sidebar + Click-to-Highlight */
+
+(function () {
+  const NOTES_PREFIX = "apcyber-notes-";
+  const HIGHLIGHTS_PREFIX = "apcyber-highlights-";
+  const COLLAPSE_KEY = "apcyber-sidebar-collapsed";
+
+  function topicId() {
+    return (window.EBOOK_META || { topicId: "0.0" }).topicId;
+  }
+  function notesKey() {
+    return NOTES_PREFIX + topicId();
+  }
+  function highlightsKey() {
+    return HIGHLIGHTS_PREFIX + topicId();
+  }
+
+  function loadHighlights() {
+    try {
+      return JSON.parse(localStorage.getItem(highlightsKey()) || "[]");
+    } catch (e) {
+      return [];
+    }
+  }
+  function saveHighlights(list) {
+    localStorage.setItem(highlightsKey(), JSON.stringify(list));
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // ── SIDEBAR COLLAPSE ──
+  function toggleSidebar(forceState) {
+    const sidebar = document.getElementById("notesSidebar");
+    if (!sidebar) return;
+    const collapsed = typeof forceState === "boolean" ? forceState : !sidebar.classList.contains("collapsed");
+    sidebar.classList.toggle("collapsed", collapsed);
+    localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+  }
+
+  function initSidebarToggle() {
+    const tab = document.getElementById("notesSidebarTab");
+    const closeBtn = document.getElementById("notesSidebarClose");
+    if (tab) tab.addEventListener("click", () => toggleSidebar());
+    if (closeBtn) closeBtn.addEventListener("click", () => toggleSidebar(true));
+    const stored = localStorage.getItem(COLLAPSE_KEY);
+    toggleSidebar(stored === null ? true : stored === "1");
+  }
+
+  function openSidebar() {
+    toggleSidebar(false);
+  }
+
+  function renderProfNotesFromBody() {
+    const container = document.getElementById("sideProfNoteList");
+    if (!container) return;
+    const notes = Array.from(document.querySelectorAll(".chapter-body .prof-note"));
+    if (!notes.length) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML = notes
+      .map((el) => {
+        const variantClass = ["exam-focus", "critical", "connection"].find((c) => el.classList.contains(c)) || "";
+        return '<div class="side-note ' + variantClass + '">' + el.innerHTML + "</div>";
+      })
+      .join("");
+  }
+
+  // ── FREE-WRITE NOTES TEXTAREA ──
+  function initTextarea() {
+    const textarea = document.getElementById("userNotesInput");
+    const status = document.getElementById("notesSaveStatus");
+    if (!textarea) return;
+    textarea.value = localStorage.getItem(notesKey()) || "";
+    let saveTimer = null;
+    textarea.addEventListener("input", () => {
+      if (status) status.textContent = "Saving…";
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        localStorage.setItem(notesKey(), textarea.value);
+        if (status) status.textContent = "Saved";
+      }, 400);
+    });
+  }
+
+  // ── HIGHLIGHTS: render into .chapter-body on load ──
+  function findTextNode(root, quote, skipCount) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement && n.parentElement.closest(".user-highlight") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    let node, seen = 0;
+    while ((node = walker.nextNode())) {
+      const idx = node.textContent.indexOf(quote);
+      if (idx === -1) continue;
+      if (seen < skipCount) { seen++; continue; }
+      return { node, idx };
+    }
+    return null;
+  }
+
+  function wrapHighlight(hl) {
+    const body = document.querySelector(".chapter-body");
+    if (!body) return;
+    if (document.getElementById("hl-" + hl.id)) return; // already rendered
+    const all = loadHighlights();
+    const sameQuoteBefore = all.filter((h) => h.quote === hl.quote && h.id < hl.id).length;
+    const found = findTextNode(body, hl.quote, sameQuoteBefore);
+    if (!found) return;
+    const range = document.createRange();
+    range.setStart(found.node, found.idx);
+    range.setEnd(found.node, found.idx + hl.quote.length);
+    const mark = document.createElement("mark");
+    mark.className = "user-highlight" + (hl.note ? " has-note" : "");
+    mark.id = "hl-" + hl.id;
+    mark.setAttribute("data-hid", hl.id);
+    try {
+      range.surroundContents(mark);
+    } catch (e) {
+      /* selection spans multiple elements; skip */
+    }
+  }
+
+  function renderAllHighlights() {
+    loadHighlights().forEach(wrapHighlight);
+  }
+
+  function renderSidebarHighlightList() {
+    const container = document.getElementById("sideHighlightList");
+    if (!container) return;
+    const list = loadHighlights();
+    if (!list.length) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:11.5px;">No highlights yet, select text in the chapter to add one.</p>';
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (hl) =>
+          '<div class="side-highlight" data-hid="' + hl.id + '">' +
+          '<span class="sh-quote">' + escHtml(hl.quote) + "</span>" +
+          (hl.note ? '<span class="sh-note">' + escHtml(hl.note) + "</span>" : "") +
+          '<button class="sh-remove" data-id="' + hl.id + '">Remove</button>' +
+          "</div>"
+      )
+      .join("");
+  }
+
+  function addHighlight(quote, note) {
+    const list = loadHighlights();
+    const entry = { id: Date.now(), quote: quote, note: note || "" };
+    list.push(entry);
+    saveHighlights(list);
+    wrapHighlight(entry);
+    renderSidebarHighlightList();
+    return entry;
+  }
+
+  function updateHighlightNote(id, note) {
+    const list = loadHighlights();
+    const entry = list.find((h) => String(h.id) === String(id));
+    if (!entry) return;
+    entry.note = note;
+    saveHighlights(list);
+    const mark = document.getElementById("hl-" + id);
+    if (mark) mark.classList.toggle("has-note", !!note);
+    renderSidebarHighlightList();
+  }
+
+  function removeHighlight(id) {
+    const list = loadHighlights().filter((h) => String(h.id) !== String(id));
+    saveHighlights(list);
+    const mark = document.getElementById("hl-" + id);
+    if (mark) {
+      const parent = mark.parentNode;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+      parent.normalize();
+    }
+    renderSidebarHighlightList();
+  }
+
+  // ── SELECTION TOOLBAR ("Highlight" button on text selection) ──
+  function initSelectionToolbar() {
+    const body = document.querySelector(".chapter-body");
+    if (!body) return;
+    const toolbar = document.createElement("div");
+    toolbar.className = "highlight-toolbar";
+    toolbar.textContent = "+ Highlight";
+    document.body.appendChild(toolbar);
+
+    let pendingText = null;
+
+    document.addEventListener("mouseup", (e) => {
+      if (toolbar.contains(e.target)) return;
+      const sel = window.getSelection();
+      const text = sel && sel.toString().trim();
+      if (!text || !sel.anchorNode || !body.contains(sel.anchorNode)) {
+        toolbar.style.display = "none";
+        return;
+      }
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      pendingText = text;
+      toolbar.style.top = window.scrollY + rect.top - 32 + "px";
+      toolbar.style.left = window.scrollX + rect.left + "px";
+      toolbar.style.display = "block";
+    });
+
+    toolbar.addEventListener("click", () => {
+      if (!pendingText) return;
+      addHighlight(pendingText, "");
+      toolbar.style.display = "none";
+      window.getSelection().removeAllRanges();
+      pendingText = null;
+    });
+  }
+
+  // ── POPOVER (click an existing highlight to add/edit/remove its note) ──
+  function initHighlightPopover() {
+    const popover = document.createElement("div");
+    popover.className = "highlight-popover";
+    popover.innerHTML =
+      '<span class="hp-quote" id="hpQuote"></span>' +
+      '<textarea id="hpNoteInput" placeholder="Add a note to this highlight..."></textarea>' +
+      '<div class="hp-actions">' +
+      '<button class="hp-remove" id="hpRemove">Remove</button>' +
+      '<button class="hp-save" id="hpSave">Save</button>' +
+      "</div>";
+    document.body.appendChild(popover);
+
+    let activeId = null;
+
+    function close() {
+      popover.style.display = "none";
+      activeId = null;
+    }
+
+    document.addEventListener("click", (e) => {
+      const mark = e.target.closest(".user-highlight");
+      if (mark) {
+        const id = mark.getAttribute("data-hid");
+        const hl = loadHighlights().find((h) => String(h.id) === String(id));
+        if (!hl) return;
+        activeId = id;
+        popover.querySelector("#hpQuote").textContent = hl.quote;
+        popover.querySelector("#hpNoteInput").value = hl.note || "";
+        const rect = mark.getBoundingClientRect();
+        popover.style.top = window.scrollY + rect.bottom + 6 + "px";
+        popover.style.left = window.scrollX + rect.left + "px";
+        popover.style.display = "block";
+        return;
+      }
+      if (!popover.contains(e.target)) close();
+    });
+
+    popover.querySelector("#hpSave").addEventListener("click", () => {
+      if (!activeId) return;
+      updateHighlightNote(activeId, popover.querySelector("#hpNoteInput").value.trim());
+      close();
+    });
+    popover.querySelector("#hpRemove").addEventListener("click", () => {
+      if (!activeId) return;
+      removeHighlight(activeId);
+      close();
+    });
+  }
+
+  // ── EXPORT HOOKS (available for reader.js EPUB/Okular export) ──
+  function getProfNotesText() {
+    return Array.from(document.querySelectorAll(".chapter-body .prof-note")).map((el) => {
+      const label = el.querySelector(".prof-note-label");
+      const labelText = label ? label.textContent.trim() : "Note";
+      const text = el.textContent.replace(labelText, "").trim();
+      return { label: labelText, text: text };
+    });
+  }
+
+  function getUserNotesText() {
+    const textarea = document.getElementById("userNotesInput");
+    return textarea ? textarea.value.trim() : "";
+  }
+
+  function getHighlightsText() {
+    return loadHighlights().map((h) => ({ label: "Highlight", text: h.note ? '"' + h.quote + '" — ' + h.note : '"' + h.quote + '"' }));
+  }
+
+  window.SidebarNotes = {
+    getProfNotesText: getProfNotesText,
+    getUserNotesText: getUserNotesText,
+    getHighlightsText: getHighlightsText,
+    toggle: toggleSidebar,
+    open: openSidebar,
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initSidebarToggle();
+    renderProfNotesFromBody();
+    initTextarea();
+    renderAllHighlights();
+    renderSidebarHighlightList();
+    initSelectionToolbar();
+    initHighlightPopover();
+
+    document.addEventListener("click", (e) => {
+      if (e.target.classList && e.target.classList.contains("sh-remove")) {
+        removeHighlight(e.target.getAttribute("data-id"));
+      }
+    });
+  });
+})();

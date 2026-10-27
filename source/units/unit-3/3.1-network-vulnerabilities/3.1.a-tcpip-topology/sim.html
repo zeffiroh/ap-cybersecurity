@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.1.a, TCP/IP fundamentals and network topology flaws, Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+  margin-right: 4px; margin-bottom: 4px;}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px; margin-bottom: 8px;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:3px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}.scorepanel .bad{color:#aa0000;font-weight:bold;}
+.tok-kw{color:var(--tok-kw);font-weight:bold;}.tok-str{color:var(--tok-str);}
+.tok-num{color:var(--tok-num);}.tok-com{color:var(--tok-com);font-style:italic;}.tok-fn{color:var(--tok-fn);}
+h1{font-size:16px;margin:0 0 4px;}
+.toolbar{margin-bottom:8px;}
+select, input[type="text"] {
+  font-family: var(--mono-font);
+  background: #fff;
+  color: #000;
+  border: 1px solid var(--win-shadow);
+  padding: 2px;
+}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.1.a, TCP/IP Network Topology and Spoofing Simulation</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Demonstrate your understanding of TCP/IP handshakes, header layer mapping, spoofing exposure, packet analysis, and boundaries. Complete all 5 phases to reach a score of 5.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">sim&gt; </span>Loading...</div>
+      
+      <div id="controls" style="margin-top:8px">
+        <!-- Interactive controls will be loaded here dynamically -->
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 │ OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+var FNE = (function(){
+  var score = 0, MAX = 5, met = false;
+  var currentPhase = 1;
+  var handshakeState = ""; // "", "SYN", "SYN-ACK", "ACK"
+
+  var world = {
+    subnet: "10.0.1.0/24",
+    packets: [
+      {src: "10.0.1.55", dst: "10.0.1.1", msg: "TCP SYN"},
+      {src: "192.168.5.9", dst: "10.0.1.1", msg: "TCP SYN"},
+      {src: "10.0.1.200", dst: "10.0.1.1", msg: "TCP ACK"}
+    ]
+  };
+
+  function renderScore() {
+    var el = document.getElementById('score');
+    el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+      (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+  }
+
+  function init() {
+    loadPhase(1);
+  }
+
+  function loadPhase(phase) {
+    currentPhase = phase;
+    var stage = document.getElementById('stage');
+    var ctrl = document.getElementById('controls');
+    
+    if (phase === 1) {
+      stage.innerHTML = "=== PHASE 1: TCP THREE-WAY HANDSHAKE ===\n" +
+                        "Client [10.0.1.55] wants to connect to Web Server [10.0.1.1] on port 80.\n" +
+                        "Current connection state: " + (handshakeState || "CLOSED") + "\n\n" +
+                        "Choose the correct sequence of packets to establish the connection.";
+      
+      ctrl.innerHTML = 
+        '<button class="btn" onclick="FNE.act(\'send_syn\')">Send SYN</button>' +
+        '<button class="btn" onclick="FNE.act(\'send_synack\')">Send SYN-ACK</button>' +
+        '<button class="btn" onclick="FNE.act(\'send_ack\')">Send ACK</button>';
+    } 
+    else if (phase === 2) {
+      stage.innerHTML = "=== PHASE 2: HEADER LAYER MAPPING ===\n" +
+                        "Map each field to its correct TCP/IP model layer:\n\n" +
+                        "1. Destination Port (e.g., port 80)\n" +
+                        "2. Destination IP Address (e.g., 10.0.1.1)\n" +
+                        "3. Destination MAC Address (e.g., 00:0a:95:9d:68:16)\n" +
+                        "4. HTTP Request Payload (e.g., GET /index.html)";
+      
+      ctrl.innerHTML = 
+        '<div>' +
+        '  <label style="display:inline-block;width:120px">Port: </label>' +
+        '  <select id="sel_port">' +
+        '    <option value="">--select--</option>' +
+        '    <option value="app">Application</option>' +
+        '    <option value="trans">Transport</option>' +
+        '    <option value="net">Internet</option>' +
+        '    <option value="access">Network Access</option>' +
+        '  </select>' +
+        '</div>' +
+        '<div style="margin-top:6px">' +
+        '  <label style="display:inline-block;width:120px">IP Address: </label>' +
+        '  <select id="sel_ip">' +
+        '    <option value="">--select--</option>' +
+        '    <option value="app">Application</option>' +
+        '    <option value="trans">Transport</option>' +
+        '    <option value="net">Internet</option>' +
+        '    <option value="access">Network Access</option>' +
+        '  </select>' +
+        '</div>' +
+        '<div style="margin-top:6px">' +
+        '  <label style="display:inline-block;width:120px">MAC Address: </label>' +
+        '  <select id="sel_mac">' +
+        '    <option value="">--select--</option>' +
+        '    <option value="app">Application</option>' +
+        '    <option value="trans">Transport</option>' +
+        '    <option value="net">Internet</option>' +
+        '    <option value="access">Network Access</option>' +
+        '  </select>' +
+        '</div>' +
+        '<div style="margin-top:6px">' +
+        '  <label style="display:inline-block;width:120px">HTTP Payload: </label>' +
+        '  <select id="sel_payload">' +
+        '    <option value="">--select--</option>' +
+        '    <option value="app">Application</option>' +
+        '    <option value="trans">Transport</option>' +
+        '    <option value="net">Internet</option>' +
+        '    <option value="access">Network Access</option>' +
+        '  </select>' +
+        '</div>' +
+        '<div style="margin-top:10px">' +
+        '  <button class="btn" onclick="FNE.act(\'submit_mapping\')">Submit Mapping</button>' +
+        '</div>';
+    } 
+    else if (phase === 3) {
+      stage.innerHTML = "=== PHASE 3: SPOOFING EXPOSURE ===\n" +
+                        "Question: Why are source IP addresses easily forged (spoofed) in standard TCP/IP?\n\n" +
+                        "Choose the best explanation:";
+      
+      ctrl.innerHTML = 
+        '<div style="margin-bottom:6px"><input type="radio" name="p3" id="p3_1" value="1"> <label for="p3_1">The IP header uses a 32-bit checksum which guarantees packet validity.</label></div>' +
+        '<div style="margin-bottom:6px"><input type="radio" name="p3" id="p3_2" value="2"> <label for="p3_2">IP was designed for cooperative trust; headers lack cryptographic source authentication.</label></div>' +
+        '<div style="margin-bottom:6px"><input type="radio" name="p3" id="p3_3" value="3"> <label for="p3_3">DNS translates domain names to IPs, preventing spoofing automatically.</label></div>' +
+        '<div style="margin-top:10px"><button class="btn" onclick="FNE.act(\'submit_exposure\')">Submit Answer</button></div>';
+    } 
+    else if (phase === 4) {
+      stage.innerHTML = "=== PHASE 4: LOG ANALYSIS ===\n" +
+                        "Corporate Subnet Range: " + world.subnet + " (Expected subnet)\n" +
+                        "You captured the following inbound packets at the gateway interface:\n\n" +
+                        "Index 0: Src=" + world.packets[0].src + ", Dst=" + world.packets[0].dst + " (" + world.packets[0].msg + ")\n" +
+                        "Index 1: Src=" + world.packets[1].src + ", Dst=" + world.packets[1].dst + " (" + world.packets[1].msg + ")\n" +
+                        "Index 2: Src=" + world.packets[2].src + ", Dst=" + world.packets[2].dst + " (" + world.packets[2].msg + ")\n\n" +
+                        "Enter the 0-based index of the packet that is suspicious of IP spoofing:";
+      
+      ctrl.innerHTML = 
+        '<input type="text" id="spoofed_idx" style="width:50px"> ' +
+        '<button class="btn" onclick="FNE.act(\'submit_log\')">Verify Packet</button>';
+    } 
+    else if (phase === 5) {
+      stage.innerHTML = "=== PHASE 5: BOUNDARY MITIGATION ===\n" +
+                        "What is the standard boundary control used by routers to block packets with spoofed source IPs?\n\n" +
+                        "Choose the correct defense:";
+      
+      ctrl.innerHTML = 
+        '<div style="margin-bottom:6px"><input type="radio" name="p5" id="p5_1" value="1"> <label for="p5_1">MAC Flooding: Overwhelming switch translation tables.</label></div>' +
+        '<div style="margin-bottom:6px"><input type="radio" name="p5" id="p5_2" value="2"> <label for="p5_2">Ingress/Egress Filtering: Dropping packets whose source IPs don\'t match their arrival interface subnet.</label></div>' +
+        '<div style="margin-bottom:6px"><input type="radio" name="p5" id="p5_3" value="3"> <label for="p5_3">Network Address Translation (NAT): Mapping private IPs to public ones.</label></div>' +
+        '<div style="margin-top:10px"><button class="btn" onclick="FNE.act(\'submit_mitigation\')">Submit Answer</button></div>';
+    } 
+    else {
+      stage.innerHTML = "=== SIMULATION COMPLETE ===\n\n" +
+                        "Congratulations! You completed all phases.\n" +
+                        "Your final score: " + score + " / 5.\n\n" +
+                        "You understand TCP/IP fundamentals, topology flaws, and the mechanisms of IP spoofing.";
+      ctrl.innerHTML = '<button class="btn" onclick="FNE.act(\'reset\')">Restart Sim</button>';
+    }
+  }
+
+  function act(action) {
+    if (action === 'reset') {
+      score = 0;
+      currentPhase = 1;
+      handshakeState = "";
+      met = false;
+      loadPhase(1);
+      renderScore();
+      return;
+    }
+
+    if (currentPhase === 1) {
+      if (action === 'send_syn') {
+        if (handshakeState === "") {
+          handshakeState = "SYN";
+          loadPhase(1);
+        } else {
+          alert("Incorrect handshake step! Handshake reset.");
+          handshakeState = "";
+          loadPhase(1);
+        }
+      } else if (action === 'send_synack') {
+        if (handshakeState === "SYN") {
+          handshakeState = "SYN-ACK";
+          loadPhase(1);
+        } else {
+          alert("Incorrect handshake step! Handshake reset.");
+          handshakeState = "";
+          loadPhase(1);
+        }
+      } else if (action === 'send_ack') {
+        if (handshakeState === "SYN-ACK") {
+          handshakeState = "ACK";
+          score = 1;
+          alert("Three-way handshake completed successfully! +1 Point.");
+          loadPhase(2);
+          renderScore();
+        } else {
+          alert("Incorrect handshake step! Handshake reset.");
+          handshakeState = "";
+          loadPhase(1);
+        }
+      }
+    } 
+    else if (currentPhase === 2) {
+      if (action === 'submit_mapping') {
+        var p = document.getElementById('sel_port').value;
+        var ip = document.getElementById('sel_ip').value;
+        var m = document.getElementById('sel_mac').value;
+        var pay = document.getElementById('sel_payload').value;
+
+        if (p === 'trans' && ip === 'net' && m === 'access' && pay === 'app') {
+          score = 2;
+          alert("Correct mapping! Transport -> Port, Internet -> IP, Network Access -> MAC, Application -> HTTP. +1 Point.");
+          loadPhase(3);
+          renderScore();
+        } else {
+          alert("Incorrect mapping! Try again.");
+        }
+      }
+    } 
+    else if (currentPhase === 3) {
+      if (action === 'submit_exposure') {
+        var opt = document.querySelector('input[name="p3"]:checked');
+        if (!opt) {
+          alert("Please select an answer.");
+          return;
+        }
+        if (opt.value === "2") {
+          score = 3;
+          alert("Correct! IP lacks built-in source validation, which allows forgery. +1 Point.");
+          loadPhase(4);
+          renderScore();
+        } else {
+          alert("Incorrect reason. Try again!");
+        }
+      }
+    } 
+    else if (currentPhase === 4) {
+      if (action === 'submit_log') {
+        var idx = document.getElementById('spoofed_idx').value.trim();
+        if (idx === "1") {
+          score = 4;
+          alert("Correct! Packet 1 lists source IP 192.168.5.9 which is outside the expected 10.0.1.0/24 subnet. +1 Point.");
+          loadPhase(5);
+          renderScore();
+        } else {
+          alert("Incorrect index. Analyze the IP addresses relative to 10.0.1.0/24.");
+        }
+      }
+    } 
+    else if (currentPhase === 5) {
+      if (action === 'submit_mitigation') {
+        var opt = document.querySelector('input[name="p5"]:checked');
+        if (!opt) {
+          alert("Please select an answer.");
+          return;
+        }
+        if (opt.value === "2") {
+          score = 5;
+          met = true;
+          alert("Correct! Ingress/Egress filtering verifies source addresses at boundary interfaces. +1 Point.");
+          loadPhase(6); // complete
+          renderScore();
+        } else {
+          alert("Incorrect control. Try again!");
+        }
+      }
+    }
+  }
+
+  return { init: init, act: act };
+})();
+
+window.onload = function() {
+  FNE.init();
+};
+</script>
+</body>
+</html>

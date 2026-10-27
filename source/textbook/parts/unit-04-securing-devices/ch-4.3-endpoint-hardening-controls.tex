@@ -1,0 +1,368 @@
+\chapter{Endpoint Hardening Controls}
+\label{ch:4.3}
+\chaptertopic{Topic 4.3}
+
+\chapterquote{An ounce of prevention is worth a pound of cure.}{Benjamin Franklin (1736)}
+
+\section{Motivation}
+
+Chapter~\ref{ch:4.2} controlled who is allowed to authenticate. This chapter is about the device
+itself, independent of who is logging into it. How does it arrive from the factory? What actively
+watches it while it runs? What happens after a vendor discovers a flaw in it? The three sections
+build a timeline: harden the device before it is ever deployed, defend it continuously while it
+operates, and close the specific flaws vendors find in it over its whole operational life.
+
+\begin{apalignment}{Unit 4: Securing Devices}{Topic 4.3 -- Protecting Devices}
+\begin{apobjectives}
+\apobjective{4.3.A}{Mitigate Risk}{Apply the four categories of device hardening --
+changing default credentials, disabling unneeded services and ports, enabling protective features
+the vendor ships off by default, and restricting accounts and privileges -- and explain how
+configuration-management tooling detects and corrects the configuration drift that erodes a
+hardening baseline over time.}
+\apobjective{4.3.B}{Mitigate Risk}{Account for how anti-malware software actually reaches a
+verdict -- by identity, by structure, or by observed behavior -- and state what each of those three
+procedures can and cannot see, including why no update schedule allows a signature to match code
+that has never been analyzed.}
+\apobjective{4.3.C}{Mitigate Risk}{Explain why applying operating-system and application updates
+reduces risk in a specific rather than general way: each fix removes the particular defect an
+exploit depends on, and the interval between a public exploit and a deployed fix is the window in
+which most compromise happens.}
+\apobjective{4.3.D}{Mitigate Risk}{Set up a firewall on the device itself -- default action,
+per-network profile, ordered or precedence-based rules restricted by port, source, and program, and
+logging -- and be able to say which traffic this catches that a firewall at the network boundary
+never sees.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Device Hardening}
+
+Every device ships from the factory configured for maximum compatibility and ease of setup, not
+security. Identical default administrator passwords ship across thousands of units. Unneeded
+services run because a manufacturer assumed someone might want them. Open remote-management ports
+are left convenient for a technician.
+
+\begin{definition}{Device hardening}
+The systematic process of closing unnecessary doors before a device is deployed, and periodically
+re-closing them as configurations drift. The goal is to reduce the device's \textbf{attack
+surface} -- the total set of ways an attacker could interact with it to cause harm.
+\end{definition}
+
+The 2016 Mirai botnet from Chapter~\ref{ch:4.1} is the canonical illustration of what an
+unhardened device costs at scale: it was built almost entirely from IoT devices still running
+factory credentials nobody had ever changed.\srccite{4.3}{1} Hardening frameworks like CIS
+Benchmarks and NIST SP 800-70 decompose the practice into four categories. \textbf{Change
+defaults}: every default password -- the OS account, the BIOS/UEFI firmware interface, a router or
+camera's built-in web panel -- must become a unique, strong credential. Default credentials are
+publicly documented, so there is no secrecy to rely on. \textbf{Remove or disable what is not
+needed}: every service, protocol, and open port not actively required by the device's function is
+an unnecessary risk. The governing question for each one is simply whether the device's legitimate
+business function requires it. \textbf{Enable protective features} that ship off by default
+because they add friction: host-based firewalls, full-disk encryption, automatic screen lock,
+Secure Boot to block unsigned code at startup. \textbf{Lock down accounts and privileges}: disable
+built-in guest accounts, rename or disable the default administrator/root account, and require
+explicit privilege elevation (\texttt{sudo}, UAC) for administrative tasks rather than running
+everything as root.
+
+\begin{lstlisting}[language=Python, caption={Checking a device configuration against a hardening baseline}]
+def check_hardening(config, baseline):
+    """config, baseline: dicts of the same control names -> expected
+       values, e.g. {"default_password_changed": True, "telnet_enabled": False}.
+       Returns sorted control names where config deviates from baseline."""
+    return sorted(name for name, expected in baseline.items()
+                  if config.get(name) != expected)
+\end{lstlisting}
+
+A hardened device does not stay hardened. Administrators install new software, enable a port
+``temporarily'' for a project, or reset a setting during troubleshooting, and each change is a
+potential re-opening of a closed door -- a phenomenon called \textbf{configuration drift}.
+Professional security programs address this with configuration-management tools (Ansible, Puppet,
+Group Policy) that continuously compare a device's live state against its known-good baseline and
+alert on, or automatically correct, any deviation.
+
+\begin{misconception}
+\textbf{``Changing the password is enough.''} Changing the default password is the single most
+important first step, but a genuinely hardened device also disables unneeded services, enables
+protective features, and restricts account privileges -- password change alone leaves the other
+three categories untouched.
+\end{misconception}
+
+\section{Antivirus and Endpoint Protection}
+
+Even on a fully hardened device, a user still has to open files, visit websites, and plug in
+external media -- and every one of those interactions is an opportunity for malware to run.
+
+\begin{definition}{Signature-based detection}
+A malware-detection method that matches files or memory against a database of unique byte
+sequences extracted from known malware. Fast and accurate for cataloged threats, but blind by
+construction to anything not yet in the database.
+\end{definition}
+
+Signature detection's blind spot is exactly what \textbf{polymorphic malware} exploits: code that
+changes its shape or re-encrypts itself on every compilation, altering its signature while its
+malicious function stays identical. The same threat evades a signature check indefinitely without
+ever changing what it actually does. \textbf{Heuristic analysis} answers this by scanning
+a program's code for patterns commonly associated with malware -- suspicious API calls, instructions
+that modify critical system files -- rather than matching an exact fingerprint. \textbf{Behavioral
+analysis} goes further still, watching a program \emph{as it runs}. A seemingly harmless utility
+that suddenly injects code into another process, opens a raw network socket, and begins encrypting
+user files in rapid succession is flagged and terminated as characteristic of ransomware -- entirely
+independent of whether its file signature matches anything on record. The tradeoff is direct:
+behavioral analysis catches genuinely novel threats that signatures cannot, but it is
+computationally expensive and carries a higher \textbf{false-positive} rate, since legitimate
+administrative software can perform some of the same actions a real attack would.
+
+\begin{definition}{Host-based firewall}
+Security software running directly on a single device -- distinct from the network firewall at an
+organization's perimeter -- that filters inbound and outbound traffic against local rules.
+\end{definition}
+
+A host-based firewall closes two specific gaps a perimeter firewall cannot. First, it blocks an
+already compromised machine on the same local network from reaching services on this device at
+all. Second, it blocks malware that does manage to run on this device from ever reaching its
+\textbf{command-and-control (C2)} server outbound. That second gap renders an otherwise-successful
+infection functionally useless, because the malware can never receive instructions or exfiltrate
+anything.
+
+\begin{example}[Configuring a host-based firewall on Linux and Windows]
+On a Linux endpoint, \texttt{ufw} (Uncomplicated Firewall) is a common front end for the kernel's
+own \texttt{netfilter} rules. A minimal hardening baseline denies everything inbound by default and
+explicitly allows only the ports the device's function actually requires:
+\begin{lstlisting}[language=bash, caption={ufw baseline: deny by default, allow only SSH and HTTPS}]
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp    comment 'SSH management'
+sudo ufw allow 443/tcp   comment 'HTTPS service'
+sudo ufw enable
+\end{lstlisting}
+On Windows, the equivalent baseline is set through the \texttt{NetSecurity} PowerShell module
+rather than a GUI, which is what makes it scriptable across a fleet via configuration management:
+\begin{lstlisting}[caption={Windows NetSecurity: block inbound by default, allow one named rule}]
+Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Block
+New-NetFirewallRule -DisplayName "Allow-RDP-Mgmt" -Direction Inbound `
+    -Protocol TCP -LocalPort 3389 -Action Allow -Profile Domain
+\end{lstlisting}
+Both examples encode the same underlying policy: a default-deny inbound posture with narrow, named
+exceptions. That is precisely the traffic a perimeter firewall cannot enforce once two devices are
+already talking on the same local segment.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={A detection rule engine combining signatures and behavioral thresholds}]
+def evaluate_process(process, signatures, behavior_threshold=3):
+    """process: dict like {"hash": str, "actions": list[str]}.
+       signatures: set of known-bad hashes.
+       Returns "signature-match", "behavioral-flag", or "clean"."""
+    if process["hash"] in signatures:
+        return "signature-match"
+    suspicious_actions = {"code_injection", "raw_socket", "mass_file_encrypt"}
+    matched = suspicious_actions & set(process["actions"])
+    if len(matched) >= behavior_threshold:
+        return "behavioral-flag"
+    return "clean"
+\end{lstlisting}
+
+Managing antivirus and firewall configuration across thousands of individual devices by hand is
+impractical. That is why enterprises deploy an \textbf{Endpoint Protection Platform (EPP)}: a
+single agent per device combining antivirus, host firewall, intrusion prevention, and data-loss
+prevention, all reporting to one central console. That console lets administrators monitor
+fleet-wide status, push updates uniformly, and remotely isolate a compromised device with a single
+click.
+
+\begin{misconception}
+\textbf{``Having an antivirus means I don't need a firewall.''} Antivirus blocks malicious files
+and code execution; a firewall regulates network traffic. They defend against different vectors
+entirely, and neither one substitutes for the other.
+\end{misconception}
+
+\section{Patching and Regular Updates}
+
+Antivirus and firewalls defend a device from the outside, watching for known-bad files and
+traffic. Many of history's most damaging breaches needed neither a tricked user nor a signature
+evasion at all -- they exploited a \textbf{known, published} vulnerability that the victim simply
+had not yet fixed.
+
+\begin{definition}{CVE (Common Vulnerabilities and Exposures)}
+A public, unique identifier assigned to a disclosed software vulnerability, typically accompanied
+by a \textbf{CVSS} severity score from 0 to 10 describing how easy and damaging exploitation would
+be.
+\end{definition}
+
+A vulnerability's lifecycle runs through discovery, responsible disclosure to the vendor with time
+to fix it, and patch release. Then comes \textbf{weaponization} -- attackers reverse-engineering
+the patch itself, sometimes within hours, since a patch's code diff directly reveals exactly what
+was broken and how. The moment a patch ships, the vulnerability effectively becomes public
+knowledge regardless of whether an exploit yet exists. A race begins between defenders applying
+the fix and attackers building a working exploit from the disclosure.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  ev/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.4cm, minimum height=1.0cm, align=center, font=\scriptsize},
+]
+\node[ev, fill=kickstartercream] (disc) at (0,0) {Discovery};
+\node[ev, fill=kickstartercream] (disclose) at (2.9,0) {Responsible\\disclosure};
+\node[ev] (patch) at (5.8,0) {Patch\\released};
+\node[ev, fill=kickstartermaroon!20] (weapon) at (8.7,0) {Weaponization\\(diff reverse-\\engineered)};
+\node[ev, fill=kickstartermaroon!30] (exploit) at (11.6,0) {n-day exploit\\against unpatched\\systems};
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (disc) -- (disclose);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (disclose) -- (patch);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (patch) -- (weapon);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (weapon) -- (exploit);
+\node[font=\scriptsize\sffamily, gray] at (5.8,-1.1) {a zero-day attack occurs before this point; every stage after it is the n-day race};
+\end{tikzpicture}
+\caption{The vulnerability lifecycle. Patch release does not end the risk -- it starts a race
+between defenders applying the fix and attackers reverse-engineering it from the patch itself.}
+\label{fig:4.3-vuln-lifecycle}
+\end{figure}
+
+\begin{example}[Zero-day versus n-day]
+A \textbf{zero-day} vulnerability is being actively exploited \emph{before} any patch exists at
+all. There are zero days of protection available even for a fully up-to-date system, and only
+other layered defenses (behavioral detection, network segmentation) can help. An \textbf{n-day}
+vulnerability is one for which a patch has existed for some number of days, but the target system
+simply has not applied it yet. The overwhelming majority of real-world breaches exploit n-day
+vulnerabilities, not zero-days. Reusing a known exploit against an unpatched target is far cheaper
+for an attacker than discovering something genuinely new, and most organizations lag behind on
+patching long enough to make that bet reliably pay off.
+\end{example}
+
+\begin{example}[CVE-2017-0144 and the WannaCry exploit window]
+\textbf{CVE-2017-0144}, an SMBv1 remote-code-execution flaw in Windows (CVSS v3 base score 8.8),
+illustrates the patch-to-weaponization race precisely. Microsoft shipped the fix as bulletin
+\textbf{MS17-010} on \textbf{March 14, 2017}.\srccite{4.3}{2} The exploit built around that flaw,
+code-named \textbf{EternalBlue}, was leaked publicly by the Shadow Brokers group on April 14,
+2017 -- one month after the patch. Just under two months after the original patch, on
+\textbf{May 12, 2017}, the \textbf{WannaCry} ransomware worm combined EternalBlue with a
+self-propagation mechanism to infect more than 200{,}000 machines across 150
+countries within days.\srccite{4.3}{3} Every one of those machines had gone unpatched despite the
+fix already sitting on Microsoft's servers for that entire window. WannaCry is not a
+zero-day case study; every infected machine was vulnerable to a flaw with a known fix, which is
+exactly what makes it the canonical n-day breach rather than a genuinely novel attack.
+\end{example}
+
+Patching is not free, which is the actual reason unpatched year-old vulnerabilities remain common
+despite patching's obvious value. A patch can break a business-critical application that depends
+on old behavior. Some patches require a reboot that must be scheduled around business needs. A
+large enterprise may have tens of thousands of endpoints, each needing separate validation. Some
+critical systems run software the vendor no longer supports at all (\textbf{end-of-life}), meaning
+no patch will ever exist and only compensating controls like network isolation remain available.
+
+\begin{lstlisting}[language=Python, caption={Prioritizing a patch by severity, exploitation status, and exposure}]
+def patch_urgency(cvss_score, actively_exploited, internet_facing):
+    """Returns "emergency", "high", "scheduled", or "routine"."""
+    if actively_exploited and internet_facing:
+        return "emergency"
+    if actively_exploited or (cvss_score >= 9.0 and internet_facing):
+        return "high"
+    if cvss_score >= 7.0:
+        return "scheduled"
+    return "routine"
+\end{lstlisting}
+
+Mature organizations run a formal \textbf{patch management} process rather than patching ad hoc.
+First, inventory what is running, since a patch cannot be applied to an unknown asset. Next,
+prioritize new patches by CVSS severity, whether exploitation is already occurring in the wild,
+and whether the affected service is internet-facing. Test in a non-production environment to catch
+compatibility breaks before they hit production. Deploy in waves on a defined \textbf{patch
+cadence}, reserving emergency out-of-cycle deployment for critical, actively exploited flaws.
+Finally, verify the patch was actually applied fleet-wide -- partial or failed rollouts are common,
+and they leave silent, undetected gaps behind.
+
+\begin{misconception}
+\textbf{``Zero-days are the main way organizations get breached.''} Most real-world breaches exploit
+n-day vulnerabilities -- known flaws with an available patch that simply was not applied in time.
+Zero-days are comparatively rare and expensive for an attacker to obtain or develop.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A newly purchased IoT camera has its default administrator password unchanged and Telnet
+enabled by default. Using the four-category hardening checklist from this chapter, identify which
+two categories this failure falls under and explain why changing only the password would leave the
+device still exposed.
+\item Explain why polymorphic malware defeats signature-based detection while leaving its actual
+malicious behavior completely unchanged, and explain which detection method in this chapter is
+specifically designed to catch it anyway.
+\item Malware successfully executes on a hardened, antivirus-protected laptop but never manages to
+contact its command-and-control server. Explain which specific control is responsible for that
+outcome and why it renders the infection functionally useless despite having already run.
+\item A CVE is disclosed alongside its patch. Explain why attackers can sometimes weaponize the
+vulnerability within hours of the patch's release, even though the patch was meant to fix the
+problem, not enable new attacks.
+\item Explain why an organization might rationally choose to delay applying a released patch for
+several days rather than deploying it immediately, and explain how a formal patch-management
+process reduces the risk of that delay without eliminating it entirely.
+\item Using the vulnerability-lifecycle diagram, explain why WannaCry is placed at the
+``n-day exploit'' stage rather than the ``weaponization'' stage, even though EternalBlue itself
+was built by reverse-engineering a patch.
+\item A CISO argues that since most breaches are n-day rather than zero-day, patching quickly
+matters more than funding zero-day threat research. Using the vulnerability-lifecycle diagram and
+the patch-urgency logic from this chapter, explain what evidence in this chapter supports that
+argument, and identify one category of system (from the patching-is-not-free discussion) where
+speed alone cannot close the gap.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item The unchanged default password falls under \emph{change defaults}, and the enabled Telnet
+service falls under \emph{remove or disable what is not needed}. Changing only the password would
+leave Telnet -- an insecure, plaintext remote-management protocol -- still reachable, giving an
+attacker a second independent path onto the device that the password change never touched.
+\answerlabel{4.3.A}
+\item Polymorphic malware re-encrypts or reshapes its own code on every compilation, changing its
+byte-level signature while its underlying malicious function stays identical, so a signature
+database built on the old fingerprint never matches the new one. Behavioral analysis is designed to
+catch it anyway, since it watches what a program actually does at runtime -- injecting code,
+opening raw sockets, mass-encrypting files -- rather than matching against a static fingerprint.
+\answerlabel{4.3.B}
+\item A host-based firewall is responsible: it blocks outbound traffic from the infected device to
+any command-and-control server the malware attempts to reach. This renders the infection
+functionally useless despite having already executed, because the malware can neither receive
+further instructions nor exfiltrate any data it collected.
+\answerlabel{4.3.D}
+\item A released patch's binary diff directly reveals which code paths changed. That lets an
+attacker reverse-engineer exactly what was broken and reconstruct a working exploit from the
+comparison alone -- as CVE-2017-0144 showed, where EternalBlue was built from the same
+vulnerability class MS17-010 had already patched. The patch fixes the flaw for defenders who apply
+it, but its public release simultaneously hands attackers a precise roadmap to the flaw for anyone
+who has not.
+\answerlabel{4.3.C}
+\item A patch can break a business-critical application depending on old behavior, may require a
+disruptive reboot, and at enterprise scale needs individual validation across tens of thousands of
+endpoints. Immediate blanket deployment carries its own operational risk. A formal patch
+management process reduces, without eliminating, that delay's risk: it prioritizes the patch using
+CVSS severity and active-exploitation status, tests it in a non-production environment first, and
+deploys it on a defined cadence, with emergency out-of-cycle deployment reserved for critical,
+actively exploited flaws.
+\answerlabel{4.3.C}
+\item Weaponization is the act of reverse-engineering a working exploit from the patch, which
+happened quickly for EternalBlue. But WannaCry itself did not strike until May 12, 2017, nearly two
+months after the March 14 patch, and every machine it infected was one that had not yet applied a
+fix that had been available the entire time. WannaCry is the exploitation of that already-weaponized
+flaw against unpatched targets, which is precisely the definition of the n-day stage: the exploit
+existed and worked, but the window it succeeded in was created by delayed patching, not by any
+remaining novelty in the vulnerability itself.
+\answerlabel{4.3.C}
+\item The chapter's own claim that most real-world breaches exploit n-day rather than zero-day
+vulnerabilities supports the CISO's argument, as does the vulnerability-lifecycle diagram: it shows
+the n-day window opening the moment a patch ships and staying open until every affected system is
+patched. Closing that window faster removes far more real-world risk than defending against the
+comparatively rare zero-day case. The category where speed alone cannot close the gap is
+end-of-life systems. A vendor that no longer supports the software will never release a patch to
+deploy quickly in the first place, so no patch-management process, however fast, can close that
+specific n-day window -- only compensating controls like network isolation remain available.
+\answerlabel{4.3.C}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{4.3}{1}M.\ Antonakakis, T.\ April, M.\ Bailey, et al., ``Understanding the Mirai
+Botnet,'' \emph{26th USENIX Security Symposium}, Vancouver, August 16--18, 2017, pp.\ 1093--1110 --
+the peer-reviewed analysis documenting Mirai's compromise of IoT devices through roughly 60
+hardcoded factory-default Telnet username/password pairs.
+\item \srcitem{4.3}{2}Microsoft Corporation, Security Bulletin MS17-010, ``Security Update for
+Microsoft Windows SMB Server,'' released March 14, 2017, addressing CVE-2017-0144 (CVSS v3 base
+score 8.8).
+\item \srcitem{4.3}{3}Cloudflare, ``What Was the WannaCry Ransomware Attack?,'' Cloudflare Learning
+Center -- reporting the Shadow Brokers' April 14, 2017 public leak of the EternalBlue exploit and
+WannaCry's spread to more than 200{,}000 computers across over 150 countries beginning May 12,
+2017.
+\end{enumerate}

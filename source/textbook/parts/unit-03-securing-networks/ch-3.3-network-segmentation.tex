@@ -1,0 +1,353 @@
+\chapter{Network Segmentation}
+\label{ch:3.3}
+\chaptertopic{Topic 3.3}
+
+\chapterquote{He who defends everything defends nothing.}{attributed to Frederick the Great}
+
+\section{Motivation}
+
+Chapter~\ref{ch:3.1} noted, almost in passing, that a flat network gives a compromised
+workstation direct visibility to every server, printer, and camera on it. This chapter takes that
+observation seriously and builds it into a full defensive strategy: dividing a network into zones
+so that a breach in one zone cannot automatically reach another. This chapter covers four
+techniques that do that division, each enforced at a different layer. Routed subnets and VLANs are
+the coarse-grained tools most organizations start with. Private VLANs and Zero Trust
+microsegmentation narrow that boundary down to a single host. Physical air gaps remove the network
+connection entirely. The chapter moves from the coarsest of these tools to the most demanding, and
+closes with the one that removes the network altogether.
+
+\begin{apalignment}{Unit 3: Securing Networks}{Topic 3.3 -- Protecting Networks: Segmentation}
+\begin{apobjectives}
+\apobjective{3.3.A}{Mitigate Risk}{Identify the techniques by which a network is divided into
+separately governed zones -- routed subnets, VLANs and their private-VLAN refinement, host-level
+microsegmentation under a Zero Trust policy, and physical air gaps -- and know at which layer each
+is enforced.}
+\apobjective{3.3.B}{Mitigate Risk}{Explain why dividing a network raises its security: what a
+boundary denies an intruder who is already inside, how it shrinks the reach of a single compromise,
+and where segmentation stops helping.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{VLANs and Segmentation}
+
+The coarsest form of segmentation predates VLANs entirely: dividing a network into separate IP
+subnets, each behind its own router interface, so that traffic between subnets must pass through
+-- and can be filtered by -- a router. VLANs formalize that same layer-3 idea inside a single
+physical switch, without requiring a separate cable plant for every subnet.
+
+\begin{definition}{VLAN (Virtual Local Area Network)}
+A logical broadcast domain created in switch software rather than by physical cabling, so that
+traffic broadcast on one VLAN never reaches devices on another unless a router or layer-3 switch
+explicitly forwards it.
+\end{definition}
+
+A single physical switch can host dozens of VLANs simultaneously. Think of VLANs as walls inside
+one building: the structure is a single physical switch, but the walls separate HR from
+Engineering from the guest lobby. A fire in the lobby does not automatically spread to the server
+room, because the wall is in the way.
+
+An administrator assigns each switch port to a VLAN by numeric ID. A device plugged into a
+VLAN~10 port sends traffic that stays on VLAN~10. Reaching a device on VLAN~20 instead requires
+that traffic to leave through a router -- a process called \textbf{inter-VLAN routing} -- and only
+if a firewall rule explicitly permits it.
+
+\begin{example}[Segmentation limiting a compromise]
+An attacker compromises a guest laptop on the visitor Wi-Fi VLAN. Without segmentation, that laptop
+could scan and reach every device on the network. With segmentation in place, the damage stays
+confined to the guest VLAN specifically. There is no physical layer-2 path to the corporate file
+server on the internal employee VLAN, and the router forwards only what an access-control list
+explicitly permits between the two. \textbf{Lateral movement} -- an attacker's technique for
+hopping from one compromised host toward a more valuable target -- hits a wall at the first VLAN
+boundary instead of continuing unopposed.
+\end{example}
+
+A common small-to-medium design uses four VLANs. The \textbf{management VLAN} carries switches,
+routers, and infrastructure devices, never exposed to ordinary users. The \textbf{internal employee
+VLAN} carries staff workstations and printers. The \textbf{server VLAN} carries databases and file
+shares. The \textbf{guest/IoT VLAN} carries visitor laptops and smart devices.
+
+Firewall rules between them follow least privilege from Chapter~\ref{ch:2.1}. Employees reach
+servers on specific ports only: 443 for HTTPS, 445 for file sharing. Guest devices cannot reach any
+internal VLAN at all. IoT devices can reach only the internet, never internal resources.
+
+\begin{lstlisting}[language=Python, caption={Determining which traffic flows a VLAN scheme blocks}]
+def blocked_flows(host_vlan, flows, allowed_pairs):
+    """host_vlan: dict mapping host name -> VLAN id.
+       flows: list of (src_host, dst_host) tuples.
+       allowed_pairs: set of (src_vlan, dst_vlan) tuples permitted to
+       communicate (same VLAN is always implicitly allowed).
+       Returns sorted (src, dst) pairs that are blocked."""
+    blocked = []
+    for src, dst in flows:
+        src_vlan, dst_vlan = host_vlan[src], host_vlan[dst]
+        if src_vlan == dst_vlan:
+            continue
+        if (src_vlan, dst_vlan) not in allowed_pairs:
+            blocked.append((src, dst))
+    return sorted(blocked)
+\end{lstlisting}
+
+When a single switch port must carry traffic for multiple VLANs -- typically the uplink between a
+switch and a router -- it runs in \textbf{trunk mode}, adding an 802.1Q tag to each frame
+identifying its VLAN. The router strips the tag, applies its rules, and re-tags the outbound frame
+for its destination VLAN. \textbf{Access ports}, where end-user devices plug in, carry exactly one
+VLAN and never use tags at all -- the tagging is invisible to the endpoint.
+
+\begin{misconception}
+\textbf{``Setting up VLANs means attackers definitely cannot cross them.''} VLANs stop direct
+layer-2 traffic, full stop. If the router or firewall rules governing inter-VLAN traffic are
+misconfigured to permit everything, segmentation is defeated entirely. The firewall policy at the
+routing boundary is what actually enforces the separation, not the VLAN tag itself.
+\end{misconception}
+
+\section{Traffic Isolation and Zero Trust}
+
+VLANs solve the flat-network problem at a coarse grain, but a meaningful gap remains: within one
+VLAN, every device can still freely reach every other device. If a single employee's laptop on the
+``Employees'' VLAN is compromised, the attacker can scan and attack every other machine sharing
+that VLAN without crossing a single boundary.
+
+\begin{definition}{Zero Trust}
+A security paradigm built on the principle ``never trust, always verify,'' a phrase coined by
+analyst John Kindervag in 2010.\srccite{3.3}{1} Network access is never granted implicitly based on
+a user's physical or logical location. Being plugged into an office Ethernet port, or connected to
+corporate Wi-Fi, is treated as no more trustworthy than the public internet. Every request to
+access a resource must be explicitly authenticated, authorized, and encrypted.
+\end{definition}
+
+Zero Trust rests on three principles, formalized under nearly these exact names in Microsoft's own
+Zero Trust guidance.\srccite{3.3}{2} \textbf{Verify explicitly} means authenticating and authorizing
+every request against every available signal -- user identity, device health, location, and anomaly
+detection -- rather than trusting a session once it is established. \textbf{Use least-privilege
+access} extends Chapter~\ref{ch:2.1}'s risk vocabulary with Just-In-Time and Just-Enough-Access
+policies, granting a role only what it needs, only when it needs it. \textbf{Assume breach} means
+designing as though an attacker is already inside. It calls for minimizing blast radius through
+fine-grained segmentation, encrypting every session regardless of whether it is ``internal,'' and
+monitoring continuously for anomalies rather than trusting that perimeter defenses already caught
+everything.
+
+\begin{definition}{Microsegmentation}
+A security technique that applies fine-grained policy down to the individual workload or device
+level, rather than grouping hundreds of devices into one VLAN and letting them communicate freely.
+\end{definition}
+
+Under microsegmentation, five hundred employee laptops are not treated as one trusted group.
+Policies enforced by software-defined networking controllers, or by endpoint host firewalls, can
+forbid laptops from communicating with each other entirely, permitting each to reach only specific
+central servers and the internet. At the physical switch level, the same idea is implemented with
+\textbf{Private VLANs (PVLANs)}, which divide one VLAN's broadcast domain into sub-domains using
+three port types. \textbf{Isolated ports} cannot reach any other port in the same PVLAN except a
+promiscuous one, even though they share the same subnet. \textbf{Community ports} can reach other
+ports in their own community group and promiscuous ports, but nothing else. \textbf{Promiscuous
+ports} can reach everything; they are typically reserved for the router or default gateway, so
+every host can still reach the internet and DNS.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  port/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\scriptsize},
+]
+\node[port, fill=kickstartermaroon!25] (prom) at (3.2,1.6) {Promiscuous port\\(router / gateway)};
+\node[port, fill=kickstartercream] (iso1) at (0,0) {Isolated port A};
+\node[port, fill=kickstartercream] (iso2) at (0,-1.3) {Isolated port B};
+\node[port, fill=white] (com1) at (6.4,0) {Community port X};
+\node[port, fill=white] (com2) at (6.4,-1.3) {Community port Y};
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (iso1) -- (prom);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (iso2) -- (prom);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (com1) -- (prom);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (com2) -- (prom);
+\draw[-{Latex[length=2mm]}, kickstartermaroon] (com1) -- (com2);
+\draw[gray, dashed] (iso1) -- (iso2) node[midway, right, font=\tiny, gray] {never};
+\draw[gray, dashed] (iso1) -- (com1) node[midway, above, font=\tiny, gray, sloped] {never};
+\end{tikzpicture}
+\caption{Private VLAN port types: isolated ports reach only the promiscuous port; community ports
+reach their own community and the promiscuous port; the promiscuous port reaches everything.}
+\label{fig:3.3-pvlan}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={Evaluating a PVLAN traffic request by port type}]
+def pvlan_allowed(src_type, dst_type, same_community=True):
+    """src_type, dst_type: "isolated", "community", or "promiscuous".
+       same_community: whether src and dst are in the same community
+       group (only relevant when both are "community").
+       Returns True if traffic is permitted."""
+    if src_type == "promiscuous" or dst_type == "promiscuous":
+        return True
+    if src_type == "isolated" or dst_type == "isolated":
+        return False
+    return same_community
+\end{lstlisting}
+
+\begin{example}[The same attack under two architectures]
+An attacker compromises a reception-desk PC. Under traditional VLANs, that PC shares VLAN~10 with
+HR, finance, and printers. Ransomware on the compromised machine scans the subnet, finds an
+exploitable service, and encrypts fifty other machines within minutes -- the entire VLAN was one
+blast radius.
+
+Under Zero Trust with microsegmentation, the same PC sits on an isolated PVLAN port. When the
+malware attempts to scan its local subnet, the switch simply drops the packets, because an isolated
+port cannot reach any peer. To reach a server at all, the request must pass through a Zero Trust
+proxy that verifies the machine's security posture. Because that posture is now compromised
+(unusual outbound scanning detected), its access token is revoked. The blast radius is exactly one
+machine, not fifty.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={A minimal Zero Trust access-proxy evaluation}]
+def evaluate_access_request(user_role, device_posture, resource_sensitivity):
+    """user_role: str. device_posture: "healthy" or "compromised".
+       resource_sensitivity: "low", "medium", or "high".
+       Returns "allow" or "deny"."""
+    if device_posture == "compromised":
+        return "deny"
+    if resource_sensitivity == "high" and user_role not in ("admin", "server-owner"):
+        return "deny"
+    return "allow"
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``Once we set up VLANs, we have achieved Zero Trust.''} VLANs are a tool for traditional,
+coarse segmentation based on IP routing. Zero Trust requires continuous verification of identity
+and device health for every request -- a flat VLAN, even a well-designed one, still relies on
+implicit trust for any two devices sharing it.
+\end{misconception}
+
+\section{Physical Air Gaps}
+
+VLANs and Zero Trust microsegmentation still assume some network path exists, even if policy
+restricts it. An \textbf{air gap} removes that path entirely: no network connection, wired or
+wireless, links the protected system to any other network at all. It is segmentation's most
+extreme case, the limit every other technique in this chapter approaches but does not reach.
+
+\begin{definition}{Air gap}
+A physical isolation strategy in which a system or network has no direct or indirect network
+connection -- wired or wireless -- to any other network, including the internet. Data can cross an
+air gap only through physical media or a human operator, never through a wire or a radio signal.
+\end{definition}
+
+Air gaps protect the systems with the least tolerance for compromise: nuclear-plant control
+systems, classified military networks, and industrial control systems that run physical machinery.
+An air gap defeats every network-based technique earlier in this chapter -- phishing, lateral
+movement, a compromised Zero Trust proxy -- because no network path exists for any of them to use.
+
+\begin{example}[Stuxnet: crossing an air gap without a network]
+In 2010, researchers identified a worm, later named Stuxnet, running inside the centrifuge-control
+network at Iran's Natanz uranium-enrichment facility -- a network with no direct connection to the
+internet.\srccite{3.3}{3} Stuxnet did not cross that air gap over a wire. It spread through
+infected USB drives, carried in by contractors whose own computers had been infected first, and
+once inside it searched specifically for the industrial-control software running the centrifuges.
+It then issued destructive commands to the centrifuges while feeding plant operators falsified
+sensor readings showing normal operation, ultimately damaging close to a thousand of
+them.\srccite{3.3}{3} An air gap eliminates the network path into a system. It does not eliminate
+the person who still has to carry software onto it.
+\end{example}
+
+\begin{misconception}
+\textbf{``An air-gapped system cannot be hacked.''} An air gap removes the network attack surface,
+not every attack surface. Removable media, a compromised update process, or a person with physical
+access remain valid paths in -- Stuxnet reached Natanz's isolated network without ever touching the
+internet.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An attacker compromises a guest laptop on an isolated guest VLAN with no inter-VLAN routing
+rule to the server VLAN. Explain, step by step, why the attacker cannot reach the internal file
+server even after fully compromising the guest laptop.
+\item Explain the difference between an access port and a trunk port, and explain why the 802.1Q
+tag used on a trunk port would break things if it were mistakenly applied to an access port.
+\item Two employee laptops sit on the same VLAN with no microsegmentation. Explain why a
+traditional VLAN boundary does nothing to stop one compromised laptop from directly attacking the
+other, and describe the specific control that would.
+\item A PVLAN has one isolated port and one community port in the same PVLAN. Explain whether
+traffic between them is permitted, and explain what would need to change for them to communicate.
+\item Explain why Zero Trust treats a device's physical connection to the corporate Wi-Fi network
+as no more trustworthy than a connection from the public internet, and explain how this differs
+from the assumption underlying traditional VLAN-based segmentation.
+\item In the reception-desk PC example, ransomware on the compromised machine cannot even
+enumerate other hosts on its own subnet under the Zero Trust / PVLAN architecture. Explain
+mechanically why the scan itself fails, referencing the specific port type the reception PC sits
+on.
+\item A network architect proposes replacing VLANs entirely with microsegmentation, arguing VLANs
+are now obsolete. Using the ``walls inside one building'' analogy from this chapter, explain why
+VLANs and microsegmentation address different granularities of the same problem rather than one
+simply superseding the other.
+\item An air-gapped industrial control network has no wired or wireless connection to any other
+network. Using the Stuxnet case, explain how an attacker still compromised it, and explain what
+that reveals about the limits of segmentation as a defense.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item VLANs are logical broadcast domains created in switch software, so traffic broadcast on the
+guest VLAN never physically reaches devices on the server VLAN unless a router or layer-3 switch
+explicitly forwards it. With no inter-VLAN routing rule permitting that path, there is simply no
+layer-2 route from the compromised guest laptop to the file server. Reaching it would require
+traffic to leave through a router and be explicitly allowed by a firewall rule, neither of which
+exists here. The compromise stays confined to the guest VLAN regardless of what the attacker does
+on the laptop itself.
+\answerlabel{3.3.A}
+\item An access port carries exactly one VLAN's traffic and is what end-user devices plug into,
+with no tagging visible to the endpoint at all. A trunk port carries multiple VLANs over a single
+physical link by adding an 802.1Q tag identifying each frame's VLAN, typically used on the uplink
+between a switch and a router. If the tag were mistakenly applied to an access port, the connected
+device -- which expects untagged Ethernet frames -- would receive frames it cannot parse correctly.
+It has no VLAN-aware network stack expecting an 802.1Q header.
+\answerlabel{3.3.A}
+\item A VLAN boundary only separates \emph{different} VLANs from each other. It does nothing to
+restrict traffic between two devices that share the same VLAN, since a VLAN is one broadcast domain
+in which every member is implicitly free to reach every other member. One compromised laptop can
+therefore scan and attack the other directly. Microsegmentation -- enforced at the host level
+through software-defined networking policy or, at the physical switch level, through Private VLANs
+-- is the specific control that would stop this, by denying communication between individual hosts
+even though they share a subnet.
+\answerlabel{3.3.B}
+\item Traffic between an isolated port and a community port in the same PVLAN is not permitted: an
+isolated port can reach only a promiscuous port, never any other port in the PVLAN regardless of
+its type. For them to communicate, at least one of the two would need to be reconfigured as a
+promiscuous port (which can reach everything) or the isolated port would need to be changed to a
+community port within the same community group as the other.
+\answerlabel{3.3.A}
+\item Zero Trust rests on the principle ``never trust, always verify'': a device's physical or
+logical location is never treated as evidence of trustworthiness. Being plugged into corporate
+Wi-Fi grants no more implicit access than a connection from the public internet would -- every
+request must still be explicitly authenticated, authorized, and encrypted. Traditional VLAN-based
+segmentation assumes the opposite: once a device is placed on a given VLAN, it is implicitly trusted
+to communicate freely with every other device sharing that VLAN, with no per-request verification
+at all.
+\answerlabel{3.3.B}
+\item The reception PC sits on an isolated PVLAN port, and an isolated port can reach only the
+promiscuous port -- never any other port in the same PVLAN, including other machines on the exact
+same subnet. When the ransomware attempts to scan its local subnet, every packet it sends toward
+another host's IP is dropped at the switch itself, because the switch enforces the isolated port's
+restriction in hardware regardless of what the infected machine's software attempts. The scan
+produces no responses, because the probe packets never leave the switch in the first place.
+\answerlabel{3.3.A}
+\item VLANs solve the coarse-grained problem of separating large groups from each other -- HR from
+Engineering from the guest lobby -- the way interior walls separate departments in a building.
+Microsegmentation solves a finer-grained problem VLANs were never designed for: restricting
+communication between individual devices \emph{within} one of those walled-off groups. It works the
+way a locked office door restricts movement within a single department that already has its own
+wall. Removing the walls (VLANs) and relying on microsegmentation alone would mean every device
+authenticates individually, which Zero Trust supports. But coarse routing and broadcast-domain
+separation still have to happen somewhere. The two techniques operate at different layers of the
+same defense-in-depth strategy, not as competing replacements for each other.
+\answerlabel{3.3.A}
+\item Stuxnet reached Natanz's air-gapped centrifuge network without any network connection at
+all, by spreading through infected USB drives carried in by people. An air gap closes only the
+network path into a system; it does nothing to close a path that runs through removable media or a
+person with physical access. Every segmentation technique in this chapter -- VLANs, Zero Trust, and
+the air gap itself -- narrows or removes a \emph{network} path, but none of them substitutes for
+controlling what physical media, and what people, are allowed to touch a protected system.
+\answerlabel{3.3.A}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{3.3}{1}John Kindervag, ``No More Chewy Centers: Introducing The Zero Trust Model
+Of Information Security,'' Forrester Research, November 2010 -- the report that coined ``Zero
+Trust'' and ``never trust, always verify.''
+\item \srcitem{3.3}{2}Microsoft, ``Zero Trust security in Azure,'' Microsoft Learn -- states the
+Verify explicitly / Use least privilege access / Assume breach principles as Microsoft's own
+Zero Trust guidance.
+\item \srcitem{3.3}{3}Kim Zetter, ``An Unprecedented Look at Stuxnet, the World's First Digital
+Weapon,'' \emph{Wired}, November 3, 2014.
+\end{enumerate}

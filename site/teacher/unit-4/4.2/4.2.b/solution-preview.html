@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-factor authentication, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Multi-factor authentication  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.2.b: Classify a login attempt's MFA strength</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.2.A, 4.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A security analyst receives, for each login attempt, the list of authentication factors that were
+presented (e.g. <code>["password", "sms_code"]</code>). Build the classifier that determines whether the
+attempt satisfies true multi-factor authentication, and if so, whether it relies on a
+phishing-resistant possession factor or a phishable one.</p>
+<p>Categories of result:
+- <code>"single_factor"</code>, the presented factors, once mapped to their factor category (knowledge /
+  possession / inherence), cover fewer than two distinct categories. This includes presenting only
+  one factor, presenting several factors from the <em>same</em> category (e.g. two passwords), an empty
+  list, or a list of only unrecognized factor strings.
+- <code>"mfa_phishing_resistant"</code>, two or more distinct factor categories are present, and at least one
+  of the presented factors is a phishing-resistant possession factor (<code>hardware_key</code> or <code>fido2</code>).
+- <code>"mfa_phishable"</code>, two or more distinct factor categories are present, but no phishing-resistant
+  possession factor was used (e.g. it relies on <code>sms_code</code>, <code>totp_code</code>, <code>authenticator_app</code>,
+  <code>push_approved</code>, or <code>backup_code</code> for the possession factor).</p>
+<p>The exact factor-to-category mapping and full rule set are defined in the Reference section below, implementations must follow it precisely.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(factors: list[str]) -&gt; str</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A list of strings, each a recognized or unrecognized factor name. May be empty.</p>
+<h2>Output</h2>
+<p>One of: <code>"single_factor"</code>, <code>"mfa_phishable"</code>, <code>"mfa_phishing_resistant"</code>.</p>
+<h2>Examples</h2>
+<pre><code>[&quot;password&quot;]                          -&gt; &quot;single_factor&quot;
+[&quot;password&quot;, &quot;password&quot;]              -&gt; &quot;single_factor&quot;
+[&quot;password&quot;, &quot;security_question&quot;]     -&gt; &quot;single_factor&quot;
+[&quot;password&quot;, &quot;sms_code&quot;]              -&gt; &quot;mfa_phishable&quot;
+[&quot;password&quot;, &quot;push_approved&quot;]         -&gt; &quot;mfa_phishable&quot;
+[&quot;password&quot;, &quot;hardware_key&quot;]          -&gt; &quot;mfa_phishing_resistant&quot;
+[&quot;password&quot;, &quot;sms_code&quot;, &quot;hardware_key&quot;] -&gt; &quot;mfa_phishing_resistant&quot;
+[&quot;biometric&quot;, &quot;password&quot;]             -&gt; &quot;mfa_phishable&quot;
+[]                                     -&gt; &quot;single_factor&quot;
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Follow the exact factor -&gt; category mapping in the Reference section below.</li>
+<li>Unrecognized factor strings must not raise an error; they are simply ignored.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(factors: list[str]) -&gt; str
+</code></pre>
+<h3>Input (<code>factors</code>)</h3>
+<p>A list of strings, each naming an authentication factor presented during one login attempt, e.g.
+<code>["password", "hardware_key"]</code>. Order does not matter. The list may be empty.</p>
+<h3>Factor -&gt; category mapping (exact, case-sensitive strings)</h3>
+<table>
+<thead>
+<tr>
+<th>factor string</th>
+<th>category</th>
+<th>phishing-resistant?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>password</code></td>
+<td>knowledge</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>pin</code></td>
+<td>knowledge</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>security_question</code></td>
+<td>knowledge</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>sms_code</code></td>
+<td>possession</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>totp_code</code></td>
+<td>possession</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>authenticator_app</code></td>
+<td>possession</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>push_approved</code></td>
+<td>possession</td>
+<td>no (unverified push approval; MFA-fatigue risk)</td>
+</tr>
+<tr>
+<td><code>backup_code</code></td>
+<td>possession</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>hardware_key</code></td>
+<td>possession</td>
+<td><strong>yes</strong></td>
+</tr>
+<tr>
+<td><code>fido2</code></td>
+<td>possession</td>
+<td><strong>yes</strong></td>
+</tr>
+<tr>
+<td><code>biometric</code></td>
+<td>inherence</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Any string not in this table is an <strong>unrecognized factor</strong> and is ignored when determining
+categories (it does not count toward the category set and does not trigger phishing-resistant
+status), but it does not cause an error.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>Exactly one string from <code>{"single_factor", "mfa_phishable", "mfa_phishing_resistant"}</code>.</p>
+<h3>Classification rules</h3>
+<ol>
+<li>Map every string in <code>factors</code> to a category using the table above; unrecognized strings map to
+   no category and are skipped.</li>
+<li>Let <code>distinct_categories</code> be the set of distinct categories (<code>knowledge</code>, <code>possession</code>,
+   <code>inherence</code>) actually present among recognized factors.</li>
+<li>If <code>len(distinct_categories) &lt; 2</code> (this includes an empty list, an all-unrecognized list, and a
+   list where every recognized factor maps to the same single category, e.g. two knowledge
+   credentials): return <code>"single_factor"</code>.</li>
+<li>Otherwise (2 or more distinct categories are present):</li>
+<li>If any recognized factor is a phishing-resistant possession factor (<code>hardware_key</code> or
+     <code>fido2</code>): return <code>"mfa_phishing_resistant"</code>.</li>
+<li>Otherwise: return <code>"mfa_phishable"</code>.</li>
+</ol>
+<p>Phishing-resistance takes priority: if a phishing-resistant possession factor is present alongside
+any number of phishable factors, the result is still <code>"mfa_phishing_resistant"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Does not raise on empty lists or unrecognized factor strings.</li>
+<li>Returns a single string (not a list).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.2.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Optional
+
+# factor string -&gt; category
+_CATEGORY = {
+    "password": "knowledge",
+    "pin": "knowledge",
+    "security_question": "knowledge",
+    "sms_code": "possession",
+    "totp_code": "possession",
+    "authenticator_app": "possession",
+    "push_approved": "possession",
+    "backup_code": "possession",
+    "hardware_key": "possession",
+    "fido2": "possession",
+    "biometric": "inherence",
+}
+
+# possession-factor strings that are considered phishing-resistant
+_PHISHING_RESISTANT = {"hardware_key", "fido2"}
+
+
+def _category_of(factor: str) -&gt; Optional[str]:
+    return _CATEGORY.get(factor)
+
+
+def solve(factors: List[str]) -&gt; str:
+    """Classify a login attempt's MFA strength from its presented factors.
+
+    Args:
+        factors: list of authentication-factor strings presented during one login
+            attempt (e.g. ["password", "hardware_key"]). May be empty.
+
+    Returns:
+        One of "single_factor", "mfa_phishable", "mfa_phishing_resistant".
+    """
+    if not factors:
+        return "single_factor"
+
+    distinct_categories = set()
+    has_phishing_resistant = False
+
+    for factor in factors:
+        category = _category_of(factor)
+        if category is None:
+            continue  # unrecognized factor: ignored
+        distinct_categories.add(category)
+        if factor in _PHISHING_RESISTANT:
+            has_phishing_resistant = True
+
+    if len(distinct_categories) &lt; 2:
+        return "single_factor"
+
+    if has_phishing_resistant:
+        return "mfa_phishing_resistant"
+
+    return "mfa_phishable"
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_password_only():
+    assert impl.solve(["password"]) == "single_factor"
+
+
+def test_example_two_passwords():
+    assert impl.solve(["password", "password"]) == "single_factor"
+
+
+def test_example_password_security_question():
+    assert impl.solve(["password", "security_question"]) == "single_factor"
+
+
+def test_example_password_sms():
+    assert impl.solve(["password", "sms_code"]) == "mfa_phishable"
+
+
+def test_example_password_push():
+    assert impl.solve(["password", "push_approved"]) == "mfa_phishable"
+
+
+def test_example_password_hardware_key():
+    assert impl.solve(["password", "hardware_key"]) == "mfa_phishing_resistant"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_list():
+    assert impl.solve([]) == "single_factor"
+
+
+def test_edge_unknown_factor_only():
+    assert impl.solve(["carrier_pigeon"]) == "single_factor"
+
+
+def test_edge_unknown_plus_known_single_category():
+    # unrecognized factor is ignored; only "password" (knowledge) remains -&gt; single_factor
+    assert impl.solve(["password", "carrier_pigeon"]) == "single_factor"
+
+
+def test_biometric_plus_password_is_phishable_not_resistant():
+    # knowledge + inherence = 2 distinct categories, but no phishing-resistant possession
+    # factor was used, so it falls to mfa_phishable per the spec.
+    assert impl.solve(["biometric", "password"]) == "mfa_phishable"
+
+
+def test_fido2_string_variant():
+    assert impl.solve(["password", "fido2"]) == "mfa_phishing_resistant"
+
+
+def test_priority_hardware_key_wins_over_phishable_factor():
+    # hardware_key present alongside a phishable sms_code -&gt; still phishing-resistant result
+    assert impl.solve(["password", "sms_code", "hardware_key"]) == "mfa_phishing_resistant"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

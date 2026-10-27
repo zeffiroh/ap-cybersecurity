@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3.2 Wireless Network Security · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "3.2", topicTitle: "Managerial Controls and Wireless Security", chapterLabel: "Topic 3.2" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 3.2</h1>
+    <h2 class="textbook-subtitle">Protecting Networks: Managerial Controls and Wireless Security</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. Why Wireless Inverts Wired Security Assumptions</a></li>
+        <li><a href="#sec-technical">II. From WEP to WPA3: How Each Wireless Protocol Broke</a></li>
+        <li><a href="#sec-case">III. Case Studies: KRACK and the DEF CON Wall of Sheep</a></li>
+        <li><a href="#sec-protection">IV. Managerial and Wireless Controls: Baselines, WPA3, 802.1X, Guest Networks</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+        <li><a href="#sec-practice">VI. Practice Questions &amp; Answer Key</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 3: Securing Networks</strong> &middot; Topic 3.2, Protecting Networks: Managerial Controls and Wireless Security</p>
+  <ul>
+    <li><span class="ap-code">3.2.A</span> <span class="ap-skill">Mitigate Risk</span><br>Identify the managerial controls that govern how a network is secured, the written policies, standards and baselines, change control, acceptable-use and vendor agreements, security training, and audit, and explain how each shapes what the technical controls are actually configured to do.</li>
+    <li><span class="ap-code">3.2.B</span> <span class="ap-skill">Mitigate Risk</span><br>Configure the security features of a wireless network deliberately: choose between WPA2 and WPA3 and know why, require protected management frames, disable convenience features that weaken the network, and decide between a shared key and per-user enterprise authentication with 802.1X and EAP.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. Why Wireless Inverts Wired Security Assumptions</h3>
+
+<p>Wireless local area networks fundamentally invert the security assumptions that govern wired infrastructure. On a physical Ethernet segment, an adversary must obtain a tangible foothold, a patch cable, a wall jack, physical access to a switch closet, before capturing a single frame. The <span class="annot">IEEE 802.11<span class="tip"><strong>IEEE 802.11</strong>The family of technical standards that define how Wi-Fi works, how devices find networks, associate with access points, and exchange data over radio frequencies. First ratified in 1997, it has been continuously amended (802.11b, g, n, ac, ax...) to add speed and, eventually, security. <em>Maintained by the IEEE 802.11 Working Group. The current consolidated baseline is IEEE 802.11-2020, which folds in 802.11i (security) and prior amendments.</em></span></span> family of standards removes that physical barrier entirely: the transmission medium is free space, and any radio receiver within range, a laptop in a parking lot, a device on the floor below, can passively intercept every frame without ever touching a wire or triggering a physical alarm. This single architectural fact is the root of nearly every wireless vulnerability discussed in this chapter, and it explains why wireless security engineering is disproportionately concerned with <span class="annot">confidentiality<span class="tip"><strong>Confidentiality (CIA Triad)</strong>One of the three pillars of the CIA triad, ensuring information is not disclosed to unauthorized parties. In wireless contexts, confidentiality means an eavesdropper capturing your radio signal should not be able to read the data inside it. <em>NIST FIPS 199 formally defines confidentiality as "preserving authorized restrictions on information access and disclosure."</em></span></span> and <span class="annot">authentication<span class="tip"><strong>Authentication</strong>The process of proving that an entity (a user, a device, a network) is who or what it claims to be. In wireless security this cuts both ways: the client must prove its identity to the access point, and, often overlooked, the access point should prove its identity to the client, or the client risks associating with an impostor. <em>NIST SP 800-63-3 defines the digital identity model underlying modern authentication assurance levels (AAL1–AAL3).</em></span></span> at the link layer, whereas wired Ethernet historically deferred those concerns to higher layers.</p>
+
+<p>The academic study of wireless security is best understood as a three-decade arms race between the IEEE, the cryptographic research community, and attackers who systematically broke each successive generation of protection. The original 802.11 standard shipped in 1997 with <span class="annot">Wired Equivalent Privacy (WEP)<span class="tip"><strong>WEP, Wired Equivalent Privacy</strong>The very first Wi-Fi encryption scheme, designed to make wireless "as safe as" a wired cable. It failed catastrophically. WEP encrypted frames with the RC4 stream cipher but reused short initialization vectors, letting attackers statistically recover the key after collecting enough traffic, sometimes in under a minute. <em>Formally deprecated by the Wi-Fi Alliance in 2004 and prohibited for use in PCI-DSS environments since 2008. See Fluhrer, Mantin &amp; Shamir (2001), "Weaknesses in the Key Scheduling Algorithm of RC4."</em></span></span>, a protocol whose name reflected an aspirational, and, as researchers quickly proved, entirely false, promise of parity with wired confidentiality. WEP's failure was not an implementation bug but a fundamental cryptographic design flaw, and its collapse motivated the IEEE to convene the 802.11i task group, whose 2004 amendment introduced the <span class="annot">Robust Security Network (RSN)<span class="tip"><strong>Robust Security Network (RSN)</strong>The formal architecture defined in IEEE 802.11i that replaced WEP's ad-hoc encryption with a rigorously specified framework: strong ciphers (CCMP/AES), a structured key-derivation handshake, and mutual authentication options. WPA2 is the Wi-Fi Alliance's certification name for products implementing RSN. <em>Codified in IEEE 802.11i-2004, later folded into the IEEE 802.11-2007 consolidated standard.</em></span></span> framework underpinning WPA2, and whose refinement continues today with WPA3.</p>
+
+<p>A second conceptual pillar of this chapter is the distinction between attacks on the <em>cryptographic layer</em> (breaking the confidentiality or integrity of the encrypted link) and attacks on the <em>trust layer</em> (tricking a human or device into associating with an illegitimate network in the first place). WEP and the KRACK vulnerability discussed later are cryptographic-layer failures, the math or its implementation is broken. <span class="annot">Evil twin<span class="tip"><strong>Evil Twin Access Point</strong>A rogue Wi-Fi access point configured to broadcast the same SSID (network name) as a legitimate one, tricking nearby devices into connecting to the attacker instead. Once connected, the attacker can intercept, modify, or redirect all of the victim's traffic. Named because it is visually and functionally a "twin" of the real network, just malicious. <em>Classified under MITRE ATT&amp;CK T1557 (Adversary-in-the-Middle) with the sub-technique of rogue Wi-Fi access points.</em></span></span> attacks and rogue access points, by contrast, exploit a trust-layer weakness: 802.11 client devices historically had no cryptographically verifiable way to distinguish a legitimate access point from an impostor broadcasting an identical <span class="annot">SSID<span class="tip"><strong>SSID, Service Set Identifier</strong>The human-readable network name you see when you open your Wi-Fi list (e.g., "Starbucks-WiFi" or "CorpNet-Guest"). It is broadcast in plaintext in beacon frames and is trivially spoofable, any device can announce any SSID it wants, regardless of who actually operates the underlying network. <em>Defined in IEEE 802.11-2020 §9.4.2.2. Maximum length is 32 octets.</em></span></span>. Both failure modes matter equally in practice, because a network can be perfectly encrypted with WPA3 and still be defeated entirely by social and trust-layer manipulation.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">The medium is the vulnerability</span>
+  Students often ask why wireless gets its own chapter separate from general network security. The answer is the broadcast medium. On wired Ethernet, an attacker needs a foothold before they can even see your traffic. On Wi-Fi, the "wire" is the air itself, anyone with a $30 USB radio adapter in promiscuous mode can passively capture every frame your laptop sends from a coffee shop parking lot, without ever being detected. This is why wireless protocols must do cryptographic heavy lifting (encryption AND authentication) that wired networks have historically been able to defer to higher layers like TLS.
+</div>
+
+<p>Finally, consider the layered relationship between the 802.11 <em>management frame</em> plane and the <em>data frame</em> plane. Management frames, beacons, probe requests/responses, authentication, association, and deauthentication frames, coordinate how a client discovers and joins a network. Critically, in WPA2 and earlier, these management frames were transmitted <strong>unencrypted and unauthenticated</strong>, a design decision that enables the deauthentication attacks central to both evil-twin campaigns and to the four-way handshake capture technique described in Section II. <span class="annot">Protected Management Frames (PMF)<span class="tip"><strong>Protected Management Frames (PMF / 802.11w)</strong>An amendment that adds cryptographic protection to certain 802.11 management frames, most importantly deauthentication and disassociation frames, preventing an attacker from forging them to forcibly disconnect clients. Mandatory for WPA3, optional in WPA2. <em>Standardized as IEEE 802.11w-2009, later merged into IEEE 802.11-2012. WPA3-Personal and WPA3-Enterprise both require PMF to be enabled.</em></span></span>, standardized in 802.11w, is the direct academic and engineering response to this gap, and its mandatory adoption under WPA3 is one of the most consequential changes covered in this chapter.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. From WEP to WPA3: How Each Wireless Protocol Broke</h3>
+
+<h4>WEP: The RC4 Initialization Vector Failure</h4>
+<p>WEP encrypted each frame using the <span class="annot">RC4<span class="tip"><strong>RC4 Stream Cipher</strong>A fast, simple symmetric stream cipher designed by Ron Rivest in 1987. It generates a pseudorandom keystream that is XORed with plaintext to produce ciphertext. RC4's simplicity made it popular for early wireless and TLS implementations, but statistical biases in its keystream output made it fundamentally unsuited for security-critical use once those biases were understood. <em>RC4 was formally prohibited in TLS by RFC 7465 (2015) due to these biases. It remains a textbook example of a cipher that is fast but cryptographically weak.</em></span></span> stream cipher combined with a 24-bit <span class="annot">initialization vector (IV)<span class="tip"><strong>Initialization Vector (IV)</strong>A short, supposedly-random value combined with a secret key to ensure that encrypting the same plaintext twice produces different ciphertext each time. If an IV is reused with the same key, an attacker can XOR the two ciphertexts together to cancel out the keystream and recover information about the plaintext. WEP's IV was only 24 bits, a space of just 16.7 million values, guaranteeing frequent reuse ("IV collision") on any busy network within hours. <em>Fluhrer, Mantin &amp; Shamir (2001) showed that certain "weak IVs" leak key-schedule bits directly, enabling full key recovery from as few as ~40,000–85,000 captured packets using the FMS attack, later refined by the PTW attack (2007) to under 40,000 packets.</em></span></span> prepended to a static, shared 40-bit or 104-bit key. Because the IV space is so small and WEP implementations rarely randomized it robustly, high-traffic networks would exhaust and repeat IVs within hours, allowing tools such as <code>aircrack-ng</code> to statistically recover the full key through passive traffic collection alone, no active interaction with the target was even required. WEP additionally used a linear CRC-32 checksum for integrity rather than a cryptographic MAC, permitting bit-flipping attacks that let adversaries modify captured ciphertext and still pass the integrity check. These two flaws in combination made WEP recoverable in minutes on any moderately active network, and its retirement was formalized by the Wi-Fi Alliance's introduction of WPA in 2003 and WPA2 in 2004.</p>
+
+<h4>WPA2 and the Four-Way Handshake</h4>
+<p>WPA2, standardized under 802.11i, replaced RC4 with <span class="annot">CCMP<span class="tip"><strong>CCMP, Counter Mode with CBC-MAC Protocol</strong>The encryption protocol mandated by WPA2, built on the AES block cipher. It combines AES in Counter Mode (for confidentiality) with CBC-MAC (for integrity/authenticity), an "authenticated encryption" construction that protects data from both eavesdropping and tampering in a single operation. <em>Specified in IEEE 802.11i-2004 §8.3.3, using AES with 128-bit keys and a 48-bit packet number (PN) that replaces WEP's flawed 24-bit IV, eliminating the IV-reuse class of attacks entirely.</em></span></span>, an AES-based authenticated encryption scheme that eliminated WEP's IV-collision weaknesses outright. WPA2-Personal derives its session keys from a <span class="annot">Pre-Shared Key (PSK)<span class="tip"><strong>Pre-Shared Key (PSK)</strong>A password shared in advance between all clients and the access point, the Wi-Fi password you type in at home. It is run through PBKDF2 with the SSID as a salt and 4,096 iterations to derive the 256-bit Pairwise Master Key (PMK). Because it is a single shared secret known to every device on the network, it provides no per-user accountability and is vulnerable to offline dictionary attack if the password is weak. <em>IEEE 802.11i §8.5.1.1 defines PSK derivation: PMK = PBKDF2(HMAC-SHA1, passphrase, ssid, 4096, 256).</em></span></span>, typically a memorized passphrase, processed through PBKDF2 to yield a 256-bit <span class="annot">Pairwise Master Key (PMK)<span class="tip"><strong>Pairwise Master Key (PMK)</strong>The long-lived, top-level cryptographic key from which all session-specific keys are ultimately derived. In WPA2-Personal, the PMK is derived from the PSK/passphrase; in WPA2-Enterprise, it is delivered fresh from the RADIUS server after a successful 802.1X authentication. The PMK itself is never transmitted over the air, only its derivatives are exchanged during the handshake. <em>802.11i §8.5.</em></span></span>. From this PMK, the actual per-session encryption keys are negotiated live via the <span class="annot">Four-Way Handshake<span class="tip"><strong>WPA2 Four-Way Handshake</strong>The EAPOL exchange between an access point and a client that derives fresh, per-session encryption keys from the shared PMK, without ever transmitting those keys in the clear. Both sides contribute a random nonce; the resulting Pairwise Transient Key (PTK) is a function of the PMK, both nonces, and both MAC addresses, making it unique to that specific session. Frame 2 of the handshake contains a MIC computed with the derived key, capturing it is what lets an offline dictionary/brute-force attack test candidate passphrases without further network interaction. <em>Specified in IEEE 802.11i §8.5.2. The frames use the EAPOL-Key (Extensible Authentication Protocol over LAN) format defined in IEEE 802.1X-2010.</em></span></span>, in which the AP and client each supply a random nonce (ANonce and SNonce) that, combined with the PMK and both devices' MAC addresses, produce a unique <span class="annot">Pairwise Transient Key (PTK)<span class="tip"><strong>Pairwise Transient Key (PTK)</strong>The session-specific working key actually used to encrypt traffic between one client and the AP, derived fresh for every connection from the PMK plus both nonces and both MAC addresses via a pseudo-random function (PRF-384 or PRF-512). Because it incorporates random nonces, even if an attacker recovers one session's PTK, prior and future sessions remain protected, provided the handshake itself is not replayed. <em>IEEE 802.11i §8.5.1.2.</em></span></span> for that session. This design means the shared password itself never crosses the air interface, only the handshake frames, which is why attackers must capture the handshake and perform an <em>offline</em> dictionary or brute-force attack rather than reading the password directly.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">802.11 EAPOL Handshake Capture (airodump-ng / aircrack-ng)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Step 1: Put wireless adapter into monitor mode
+$ sudo airmon-ng start wlan0
+  PHY  Interface  Driver     Chipset
+  phy0 wlan0      ath9k_htc  Qualcomm Atheros AR9271
+  (monitor mode enabled on wlan0mon)
+
+# Step 2: Target discovery, identify BSSID, channel, and encryption
+$ sudo airodump-ng wlan0mon
+  BSSID              PWR  Beacons  CH  ENC   CIPHER  AUTH  ESSID
+  A4:2B:8C:11:F0:9E   -41      812  6   WPA2  CCMP    PSK   CorpNet-Guest
+
+# Step 3: Lock onto target channel and capture EAPOL frames to a file
+$ sudo airodump-ng -c 6 --bssid A4:2B:8C:11:F0:9E -w handshake_capture wlan0mon
+
+# Step 4 (active variant): force a fresh handshake via deauth (see Evil Twin section)
+$ sudo aireplay-ng --deauth 5 -a A4:2B:8C:11:F0:9E wlan0mon
+  14:22:07  Sending 64 directed DeAuth (code 7). STMAC: [98:F1:70:AA:BB:CC]
+  14:22:07  Sending 64 directed DeAuth (code 7). STMAC: [98:F1:70:AA:BB:CC]
+  ... client reassociates, four-way handshake frames captured ...
+
+$ sudo airodump-ng -c 6 --bssid A4:2B:8C:11:F0:9E -w handshake_capture wlan0mon
+  CH  6 ][ WPA handshake: A4:2B:8C:11:F0:9E
+
+# Step 5: Offline dictionary attack against the captured EAPOL Message 2 MIC
+$ aircrack-ng -w /usr/share/wordlists/rockyou.txt handshake_capture-01.cap
+  Opening handshake_capture-01.cap
+  Read 91442 packets.
+  1 potential targets
+  [00:03:41] 812004/14344391 keys tested (3719.02 k/s)
+  KEY FOUND! [ SummerInterns2024 ]
+  Master Key     : 8C 3F ... (32 bytes)
+  Transient Key  : A1 0E ... (48 bytes)
+  EAPOL HMAC     : 2D 91 ... (verified)</code></pre>
+</div>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">A captured handshake is a verifier, not the password</span>
+  Capturing a WPA2 handshake does <strong>not</strong> hand the attacker the password. It hands them the raw material, the ANonce, SNonce, MAC addresses, and the MIC from EAPOL Message 2, needed to run an <em>offline</em> guessing attack. Every candidate passphrase in a wordlist is run through PBKDF2 to derive a candidate PMK, then through the PRF to derive a candidate PTK, then used to recompute the MIC and check it against the captured value. This is why passphrase strength (entropy) is the single biggest determinant of WPA2-Personal security, a strong, random passphrase makes this offline search computationally infeasible, while a dictionary-word passphrase falls in seconds to minutes on GPU-accelerated hardware.
+</div>
+
+<h4>KRACK: Key Reinstallation Attacks (CVE-2017-13077 and related)</h4>
+<p>In October 2017, Belgian researcher <span class="annot">Mathy Vanhoef<span class="tip"><strong>Mathy Vanhoef</strong>A security researcher (then at KU Leuven, Belgium) who discovered and responsibly disclosed the KRACK attack in 2017, and later co-discovered the 2019 Dragonblood vulnerabilities affecting WPA3's SAE handshake. His work is a canonical example of protocol-level (not implementation-level) cryptographic research applied to real-world wireless standards. <em>Vanhoef, M. &amp; Piessens, F. (2017). "Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2." ACM CCS 2017.</em></span></span> disclosed a family of vulnerabilities in the WPA2 four-way handshake itself, not in any particular vendor's implementation, but in the protocol's state machine as specified in 802.11i. The core flaw exploited the handshake's retransmission logic: because wireless links are lossy, the AP is permitted to retransmit Message 3 of the four-way handshake if it does not receive an acknowledgment. Vanhoef showed that a man-in-the-middle attacker could selectively block Message 4 (the client's final acknowledgment) and force the AP to retransmit Message 3. Critically, many client implementations, upon receiving this "new" Message 3, would <em>reinstall</em> an already-in-use encryption key, and in the process, reset the associated nonce and packet-number counters back to zero. Reusing a nonce with a stream-cipher-style construction (CCMP's AES-CTR mode) is cryptographically catastrophic: it allows an attacker to decrypt captured packets and, in some configurations, forge and inject traffic.</p>
+
+<p>The disclosure was tracked under a cluster of CVE identifiers, most notably <span class="annot">CVE-2017-13077<span class="tip"><strong>CVE-2017-13077</strong>The specific CVE identifier for the KRACK vulnerability affecting reinstallation of the Pairwise Transient Key (PTK) during the four-way handshake, the most severe of the disclosed KRACK variants because it affects the primary data-traffic encryption key. <em>NVD CVSSv3 base score: 5.3–8.1 depending on platform and implementation, reflecting that impact varied significantly by how a given vendor's supplicant handled key reinstallation. Android 6.0 clients were especially vulnerable because a quirk in their wpa_supplicant implementation reinstalled an all-zero key, making decryption trivial.</em></span></span> (PTK reinstallation) alongside related identifiers covering group-key and Fast BSS Transition handshake variants (CVE-2017-13078 through CVE-2017-13088). Because the flaw lived in the 802.11i specification's state machine rather than any single vendor's code, essentially every WPA2 implementation on every platform, Windows, Linux, Android, iOS, embedded IoT stacks, required a patch. The Wi-Fi Alliance responded by mandating that certified devices test for and reject key-reinstallation attempts, and the eventual replacement handshake in WPA3 (SAE, discussed below) was engineered with different forward-secrecy properties that structurally reduce this class of risk.</p>
+
+<h4>WPA3 and the SAE (Dragonfly) Handshake</h4>
+<p>WPA3, certified by the Wi-Fi Alliance beginning in 2018, replaces the PSK-based four-way handshake with <span class="annot">Simultaneous Authentication of Equals (SAE)<span class="tip"><strong>SAE, Simultaneous Authentication of Equals</strong>Also called the "Dragonfly handshake." A password-authenticated key exchange used in WPA3-Personal that replaces the WPA2 PSK model. Instead of directly deriving a key from the password, both parties use the password to jointly compute a shared secret element on an elliptic curve, then prove to each other that they know it, without ever transmitting anything from which the password could be recovered offline. <em>Standardized in IEEE 802.11-2020 §12.4, based on Dan Harkins' Dragonfly key exchange (RFC 7664).</em></span></span>, colloquially known as the Dragonfly handshake. SAE is a <span class="annot">password-authenticated key exchange (PAKE)<span class="tip"><strong>Password-Authenticated Key Exchange (PAKE)</strong>A class of cryptographic protocol that lets two parties who share only a low-entropy password establish a high-entropy shared secret key, while resisting offline dictionary attacks, an eavesdropper who captures the entire exchange gains no information usable to guess the password offline. Contrast with WPA2's PSK/4-way handshake, where a captured handshake CAN be dictionary-attacked offline. <em>SAE is one of several PAKE constructions; others include SRP (Secure Remote Password) and OPAQUE.</em></span></span> built on elliptic-curve cryptography, and it provides two properties WPA2-Personal structurally lacks. First, it resists offline dictionary attacks: because the exchanged messages are derived through a "hash-to-curve" construction rather than a direct hash of the password, an attacker who captures the entire SAE exchange gains no material usable for offline guessing, each password guess requires a fresh, detectable interaction with the live AP, which can be rate-limited. Second, SAE provides <span class="annot">forward secrecy<span class="tip"><strong>Forward Secrecy (Perfect Forward Secrecy)</strong>A property ensuring that if a long-term secret (like a password) is compromised in the future, past encrypted sessions cannot be decrypted retroactively. This works because each session's encryption key is derived using ephemeral, randomly-generated values that are discarded after use and never stored anywhere, so there is nothing left to compromise even if the attacker later learns the password. <em>WPA2-Personal lacks this property for the initial key material derivation from PSK; WPA3's SAE provides it via ephemeral Diffie-Hellman-style key agreement on elliptic curves.</em></span></span>: session keys are derived using ephemeral values discarded after the session ends, so recovering the network password at a later date does not allow retroactive decryption of previously captured traffic, a property WPA2-Personal cannot offer, since its PMK is a static function of the PSK alone.</p>
+
+<p>WPA3 also mandates <span class="annot">Protected Management Frames (802.11w)<span class="tip"><strong>802.11w Mandatory Adoption in WPA3</strong>Whereas WPA2 made management-frame protection optional (and rarely deployed), WPA3 certification requires it, cryptographically authenticating deauthentication and disassociation frames so that an attacker cannot simply forge them to knock clients offline or force handshake recapture, as was trivial under WPA2.</span></span> as a baseline certification requirement, closing the deauthentication-frame forgery gap described in Section I and directly undermining the deauth-driven handshake-capture workflow shown above. Notably, SAE itself was not without early flaws: Vanhoef and Ronen's 2019 "Dragonblood" research disclosed timing and cache-based side-channel weaknesses in several SAE implementations (tracked as CVE-2019-9494 and CVE-2019-9495) that could leak information usable to accelerate offline attacks despite SAE's theoretical resistance, a reminder that protocol-level security guarantees are only as strong as constant-time, side-channel-resistant implementations.</p>
+
+<h4>WPS: The PIN Brute-Force and Pixie Dust Attacks</h4>
+<p><span class="annot">Wi-Fi Protected Setup (WPS)<span class="tip"><strong>WPS, Wi-Fi Protected Setup</strong>A consumer convenience feature that lets a device join a WPA/WPA2 network by entering an 8-digit PIN or pressing a physical button, instead of typing the full passphrase. Marketed for ease of use on devices with no keyboard (printers, IoT devices), it introduced a much weaker authentication path than the underlying WPA2 network it protects. <em>Introduced by the Wi-Fi Alliance in 2006; the design flaw was publicly disclosed by Stefan Viehböck and independently by Craig Heffner in December 2011.</em></span></span> introduced an alternative onboarding path authenticated by an 8-digit PIN. The design flaw, disclosed in 2011, is that the AP validates the PIN in two independent 4-digit halves and explicitly signals via the EAP-NACK response whether each half was correct, collapsing what should be a 10^8 search space into two separate searches of at most 10^4 and 10^3 (the 8th digit is a checksum), a combined worst case of roughly 11,000 attempts rather than 100 million. Tools such as <code>reaver</code> and <code>bully</code> automate this online brute-force, typically recovering the PIN, and from it the full WPA2 passphrase, within 4–10 hours against a vulnerable AP with no lockout policy.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">WPS Pixie Dust Attack (reaver / pixiewps)</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code># Step 1: Identify WPS-enabled targets
+$ sudo wash -i wlan0mon
+  BSSID              Ch  WPS Version  WPS Locked  ESSID
+  A4:2B:8C:11:F0:9E  6   1.0          No          CorpNet-Guest
+
+# Step 2: Initiate WPS exchange to capture the M1–M3 Diffie-Hellman/hash values
+$ sudo reaver -i wlan0mon -b A4:2B:8C:11:F0:9E -c 6 -K 1 -vv
+  [+] Waiting for beacon from A4:2B:8C:11:F0:9E
+  [+] Associated with A4:2B:8C:11:F0:9E (ESSID: CorpNet-Guest)
+  [+] Sending EAPOL START request
+  [+] Received identity request
+  [+] Sending identity response
+  [+] Received M1 message
+  [P] PKE: 3F7A0C9E...   [P] PKR: 88D14BE2...
+  [P] E-Hash1: 91AC44FF...   [P] E-Hash2: 0C3E9B12...
+  [P] Authkey: 5FA0...
+
+# Step 3: Feed captured values to pixiewps, exploiting insufficient entropy
+#          in vulnerable chipset PRNGs (Ralink, Broadcom, Realtek) that generate
+#          the E-S1/E-S2 secret nonces predictably or with a low-entropy seed
+$ pixiewps --pke 3F7A0C9E... --pkr 88D14BE2... --e-hash1 91AC44FF... \
+           --e-hash2 0C3E9B12... --authkey 5FA0... --e-nonce A210BC...
+  [*] E-S1: 00000000000000000000000000000000
+  [*] E-S2: 00000000000000000000000000000000
+  [+] WPS pin: 62931753
+
+# Step 4: Recover WPA2 passphrase using the derived WPS PIN
+$ reaver -i wlan0mon -b A4:2B:8C:11:F0:9E -c 6 -p 62931753
+  [+] Pin cracked in 3 seconds
+  [+] WPA PSK: 'SummerInterns2024'</code></pre>
+</div>
+
+<p>Unlike the online brute-force approach, the <span class="annot">Pixie Dust attack<span class="tip"><strong>Pixie Dust Attack</strong>An offline WPS attack, disclosed by researcher Dominique Bongard in 2014, that exploits access points whose random number generator produces the WPS secret nonces (E-S1 and E-S2) with insufficient entropy, sometimes even hardcoded to zero. Because these values are supposed to be unpredictable but are not, an attacker can mathematically recompute the WPS PIN offline from a single captured exchange, in seconds, without any further interaction with the AP. <em>Affects specific chipset/firmware combinations (notably older Ralink, Realtek, and Broadcom implementations); the pixiewps tool automates the offline recovery.</em></span></span> discovered by Dominique Bongard in 2014 requires only a single WPS exchange and performs the PIN recovery entirely offline by exploiting predictable pseudorandom number generation in the affected chipset's WPS implementation, reducing recovery time from hours to seconds against vulnerable hardware. Because WPS provides no meaningful security benefit that outweighs this risk, and because a compromised WPS PIN yields the full WPA2/WPA3 passphrase regardless of that passphrase's strength, disabling WPS entirely is a universal hardening recommendation covered further in Section IV.</p>
+
+<h4>Evil Twin Access Points and Deauthentication</h4>
+<p>An evil twin attack begins with reconnaissance: the attacker passively observes beacon frames to learn a target network's SSID, channel, and security configuration, then configures a rogue AP, often using inexpensive hardware or a tool such as <code>hostapd</code> combined with a captive portal framework, broadcasting an identical SSID, and frequently a spoofed <span class="annot">BSSID<span class="tip"><strong>BSSID, Basic Service Set Identifier</strong>The MAC address of the radio interface operating an access point, functioning as its unique hardware identifier on the network. Client devices use the SSID for human-readable network selection but ultimately associate with a specific BSSID. Attackers can spoof a BSSID to make a rogue AP appear, at a superficial glance, identical to the legitimate one. <em>Defined in IEEE 802.11-2020 §9.4.1.4.</em></span></span> matching the legitimate infrastructure. Because client devices typically auto-select the AP with the strongest received signal strength among matching SSIDs, an attacker with a nearby, higher-power rogue radio can passively win this competition without any active interference. Where passive positioning alone is insufficient, the attacker escalates to an active <span class="annot">deauthentication attack<span class="tip"><strong>Deauthentication (Deauth) Attack</strong>An attack that abuses the unencrypted, unauthenticated 802.11 deauthentication management frame (reason code field per §9.4.1.7) to forge a disconnect notice, appearing to come from the legitimate AP or client, forcibly terminating a victim's connection. Because pre-WPA3 deauth frames carry no cryptographic proof of origin, any device within range can spoof them for any BSSID. Once disconnected, the victim's device automatically searches for and reconnects to the strongest available network matching the remembered SSID, often the attacker's evil twin. <em>Formalized in the original 802.11 MAC specification; closed by 802.11w Protected Management Frames, mandatory under WPA3.</em></span></span>, broadcasting forged deauthentication frames that appear to originate from the legitimate AP's BSSID, forcing the victim's device to disconnect and automatically attempt reassociation, frequently landing on the attacker's stronger, identically-named rogue AP instead.</p>
+
+<p>Once a victim associates with the evil twin, the attacker sits in a full <span class="annot">adversary-in-the-middle (AiTM)<span class="tip"><strong>Adversary-in-the-Middle (AiTM)</strong>An attack position where the adversary secretly relays and can inspect or modify all communication between two parties who believe they are communicating directly with each other. Formerly commonly called "man-in-the-middle" (MITM); MITRE ATT&amp;CK has adopted the gender-neutral "adversary-in-the-middle" terminology. An evil twin AP is a textbook AiTM position at the network layer. <em>MITRE ATT&amp;CK T1557.</em></span></span> position over all of the victim's traffic. A common monetization technique is the deployment of a <span class="annot">captive portal<span class="tip"><strong>Captive Portal</strong>A web page that intercepts a newly-connected device's first HTTP request and redirects it to a login or terms-of-service page before granting further internet access, the legitimate technique used by hotel and airport Wi-Fi. Attackers abuse the same mechanism on an evil twin AP to present a convincing fake login page (e.g., mimicking a hotel's real portal, or an "enter your corporate credentials to continue" page) that silently harvests whatever credentials the victim submits. <em>Typically implemented with DNS hijacking (redirecting all DNS queries to the attacker's web server) combined with HTTP 302 redirects.</em></span></span> that mimics a legitimate hotel, airport, or corporate login page, harvesting whatever credentials the victim submits before "granting" internet access, an attack technique frequently demonstrated live at the DEF CON security conference's long-running Wall of Sheep exhibit, which passively displays credentials captured in plaintext from conference attendees' devices connecting to open or spoofed networks, as an ongoing public awareness demonstration of exactly this risk.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">One unprotected frame, two different attacks</span>
+  Notice how the deauthentication attack appears twice in this chapter: once as the active technique used to force a WPA2 handshake capture (Section II, four-way handshake), and again as the mechanism that kicks a victim off a legitimate network so they land on an evil twin. It is the same underlying protocol weakness, unauthenticated management frames, enabling two conceptually distinct attack goals. 802.11w/WPA3 mandatory PMF closes both avenues simultaneously.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: KRACK and the DEF CON Wall of Sheep</h3>
+
+<h4>Case Study 3.2.1: The 2017 KRACK Disclosure</h4>
+<p>On October 16, 2017, Mathy Vanhoef and Frank Piessens of KU Leuven publicly disclosed the Key Reinstallation Attack against the WPA2 four-way handshake, following a coordinated, months-long responsible disclosure process involving the Wi-Fi Alliance, US-CERT, and dozens of affected vendors. The research was presented at the ACM Conference on Computer and Communications Security (CCS 2017) under the title "Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2," and it demonstrated that the vulnerability was not confined to a buggy vendor implementation but was reproducible against the 802.11i specification's handshake state machine itself, meaning virtually every certified WPA2 device worldwide, an install base numbering in the billions, required a security patch. Android and Linux devices running certain versions of <code>wpa_supplicant</code> (2.4 and 2.5) were disproportionately affected because a bug in their handling of Message 3 retransmission caused them to install an all-zero encryption key rather than merely reinstalling the correct one, making decryption of subsequent traffic trivial rather than merely theoretically possible.</p>
+
+<p>The disclosure triggered a coordinated vendor patch cycle across Microsoft, Apple, Google, and the embedded/IoT ecosystem, but patch adoption on legacy and embedded devices, printers, IP cameras, industrial control equipment, remained incomplete for years afterward, illustrating a recurring theme in protocol-level vulnerabilities: a flaw in the standard itself creates patch-management burden that outlives any single product's supported lifecycle. KRACK is studied academically not only for its technical mechanism but as a case study in coordinated disclosure at internet scale, and it directly motivated design choices in WPA3's SAE handshake intended to be more resilient to nonce-reuse-class attacks.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">A flaw in the specification is not a flaw in one vendor&rsquo;s code</span>
+  KRACK illustrates a distinction that is easy to blur: a vulnerability in the <em>specification</em> versus a vulnerability in one vendor's <em>code</em>. Heartbleed (in OpenSSL) was an implementation bug, other TLS libraries were unaffected. KRACK was a flaw in the 802.11i handshake logic itself, meaning that even a "perfect," bug-free implementation of the standard as written was still vulnerable. That is why literally every certified WPA2 device needed a patch, not just products from one vendor.
+</div>
+
+<h4>Case Study 3.2.2: DEF CON's Wall of Sheep and Public Evil Twin Demonstrations</h4>
+<p>Since 2002, the DEF CON security conference in Las Vegas has operated the "Wall of Sheep," a passive monitoring exhibit that captures unencrypted credentials and session data traversing the conference's open and often intentionally spoofed wireless networks, then anonymizes and projects partial captures on a public screen as a live demonstration of exactly how easily plaintext credentials and unprotected sessions can be harvested over Wi-Fi. Security researchers and volunteers at the event have repeatedly deployed evil twin access points broadcasting SSIDs matching conference-official or nearby hotel networks as part of sanctioned research and awareness exercises, and attendees who connect, sometimes despite explicit warnings, routinely have credentials harvested via captive portals or passive protocol analysis, reinforcing the persistent real-world prevalence of this attack pattern well beyond any single incident.</p>
+
+<p>This case study pattern extends into documented incidents affecting travelers at airports and hotels, where threat actors have registered SSIDs closely mimicking a venue's official "Free Airport WiFi" or hotel guest network, then deployed captive portals requesting loyalty-program, corporate VPN, or payment credentials under the pretext of "verifying" the guest's stay or membership. The FBI's Internet Crime Complaint Center (IC3) has issued public advisories specifically warning travelers about evil twin Wi-Fi scams in transportation hubs, noting that victims frequently cannot distinguish a malicious SSID from a legitimate one because both are, by design, visually and functionally identical at the point of connection, precisely the trust-layer weakness described in Section I.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Encryption secures the link to whichever access point you joined, not its identity</span>
+  A student's most common misconception in this unit: assuming that if a network uses WPA2 or WPA3 encryption, it must be safe. An evil twin AP can run WPA3 encryption itself, encryption protects the link between the victim and whichever AP they associated with, not the identity of that AP. The victim's traffic is perfectly encrypted <em>to the attacker</em>. This is why trust-layer defenses (certificate-pinned VPNs, 802.1X mutual authentication, user vigilance about network names) are conceptually separate from, and equally necessary alongside, cryptographic-layer defenses like WPA3.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Managerial and Wireless Controls: Baselines, WPA3, 802.1X, Guest Networks</h3>
+
+<h4>1. Managerial Controls: The Decisions That Precede Any Configuration</h4>
+
+<p>Every technical control in this chapter is the downstream expression of a managerial one. A <em>managerial control</em> is an administrative decision that governs how security is planned, assigned, and verified, distinct from a <em>technical control</em> such as CCMP encryption that a machine enforces, and from a <em>physical control</em> such as a locked wiring closet. NIST SP 800-53 organises controls into these families precisely because a network is only as secure as the policies that decide how it is built and who is accountable when it is not. The managerial controls that determine a wireless deployment&rsquo;s security are the following.</p>
+
+<ul>
+  <li><strong>Policy and standards.</strong> A wireless security policy states what is required, for example, that WPA3 with protected management frames is the baseline, that WPS is prohibited, and that guest traffic is isolated, while a configuration standard or baseline turns that policy into the specific settings an engineer applies to every access point, so that security does not depend on each engineer&rsquo;s memory. NIST SP 800-153 supplies such a baseline for wireless local area networks.</li>
+  <li><strong>The authentication-model decision.</strong> Choosing between a single pre-shared key and per-user enterprise authentication with 802.1X is a managerial decision about accountability and revocation, not a technical one; the technical work of configuring RADIUS follows from it. This is examined concretely in subsection 3 below.</li>
+  <li><strong>Change and configuration management.</strong> A documented process for reviewing and recording changes to access-point configuration is what prevents a transitional WPA2-fallback mode, enabled once for one legacy printer, from silently persisting across the whole fleet for years.</li>
+  <li><strong>Acceptable-use and vendor agreements.</strong> Rules governing personally owned devices and the contractual security terms imposed on third parties who connect equipment to the network, the class of managerial gap that, in a different setting, let an HVAC vendor become the entry point to a retailer&rsquo;s network.</li>
+  <li><strong>Security awareness training.</strong> The control that addresses the trust-layer attacks of Section II, because no configuration prevents a user from typing a password into an evil twin&rsquo;s captive portal; only a trained user, or a phishing-resistant credential, does.</li>
+  <li><strong>Audit and assessment.</strong> Periodic wireless site surveys and rogue-access-point reviews, which convert the monitoring tools of subsection 4 into an accountable, repeating obligation rather than a one-time install.</li>
+</ul>
+
+<p>The through-line is that a managerial control decides <em>what</em> and <em>who is answerable</em>; the wireless configuration settings in the remaining subsections decide <em>how</em>. An assessment that lists only the technical settings has described half of the control set.</p>
+
+<h4>1. Migrating to WPA3 and Disabling Legacy Fallback</h4>
+<p>Organizations should migrate access point fleets to WPA3-Enterprise or WPA3-Personal (SAE) wherever hardware supports it, and explicitly disable WPA2/WPA (mixed-mode) fallback once client compatibility allows, since many deployments default to a transitional mode that still accepts weaker WPA2 connections and thereby preserves the four-way handshake's offline-dictionary exposure for any client that negotiates down. Where legacy devices force continued WPA2 support, administrators should mandate high-entropy, randomly generated PSKs (minimum 20+ characters, ideally generated rather than human-chosen) specifically to defeat offline dictionary and GPU-accelerated brute-force attacks against captured handshakes.</p>
+
+<h4>2. Enterprise Authentication: 802.1X and RADIUS vs. PSK</h4>
+<p>The single most consequential managerial decision in wireless security is the choice between <span class="annot">WPA2/WPA3-Personal (PSK)<span class="tip"><strong>WPA-Personal Mode</strong>An authentication mode where all clients share one common pre-shared key. Simple to deploy but offers no per-user accountability, if an employee leaves the organization, the entire network password must be rotated and redistributed to every remaining device, or the departed employee retains access indefinitely. <em>Appropriate for small office/home office (SOHO) deployments; inappropriate at enterprise scale.</em></span></span> and <span class="annot">WPA2/WPA3-Enterprise with 802.1X/RADIUS<span class="tip"><strong>802.1X / RADIUS Enterprise Authentication</strong>An authentication architecture where each user or device authenticates individually, typically with a username/password, certificate, or both, against a centralized RADIUS (Remote Authentication Dial-In User Service) server, rather than sharing one network-wide password. Individual credentials can be revoked instantly without affecting any other user, and every connection is logged with per-user identity, enabling forensic accountability that PSK mode cannot provide. <em>802.1X is defined in IEEE 802.1X-2010; RADIUS is defined in RFC 2865. The EAP (Extensible Authentication Protocol, RFC 3748) methods commonly used include EAP-TLS (certificate-based, phishing-resistant) and PEAP-MSCHAPv2 (credential-based).</em></span></span>. Enterprise mode requires each device or user to authenticate individually against a centralized RADIUS server, typically via EAP-TLS (mutual certificate authentication, the strongest option) or PEAP, meaning a compromised or departed employee's credentials can be revoked instantly without requiring a network-wide password rotation, and every association is logged with individual identity for audit and incident-response purposes. PSK-mode's fundamental weakness, a single shared secret with no per-user accountability or granular revocation, makes it structurally unsuitable for any organization beyond small office/home office scale.</p>
+
+<h4>3. Guest Network Segmentation and BYOD Policy</h4>
+<p>Guest and BYOD (Bring Your Own Device) wireless traffic must be logically and, ideally, physically segmented from internal corporate networks using separate <span class="annot">VLANs<span class="tip"><strong>VLAN, Virtual Local Area Network</strong>A method of logically partitioning a single physical network into multiple isolated broadcast domains, so that devices on different VLANs cannot directly communicate without passing through a router or firewall that enforces policy between them. In wireless deployments, guest SSIDs are typically mapped to a VLAN with internet-only access, isolated from internal file shares, printers, and management interfaces. <em>Defined in IEEE 802.1Q. Guest VLAN isolation is a baseline recommendation in NIST SP 800-153.</em></span></span> with firewall policies denying any lateral access into internal resource segments, ensuring that a compromised guest device, or a malicious actor who has legitimately joined the guest network, cannot pivot toward sensitive internal systems. Organizations should also implement clear BYOD policy governing personally owned devices, typically requiring mobile device management (MDM) enrollment, minimum OS patch levels, and disallowing split-tunnel VPN configurations that could bridge a compromised personal device's home network directly into the corporate environment.</p>
+
+<h4>4. WPS Disablement and Rogue AP Detection Programs</h4>
+<p>Given the PIN brute-force and Pixie Dust vulnerabilities described in Section II, organizations and even security-conscious home users should disable WPS entirely at the access point configuration level, since no legitimate deployment scenario justifies the residual risk it introduces to an otherwise properly configured WPA2/WPA3 network. At the enterprise level, organizations should implement formal <span class="annot">wireless site surveys<span class="tip"><strong>Wireless Site Survey</strong>A systematic physical and RF assessment of a facility to map legitimate access point coverage, signal strength, channel utilization, and, critically for security purposes, to establish a baseline inventory of authorized BSSIDs and physical AP locations, against which any newly detected, unauthorized radio can be flagged as a rogue device. <em>Typically performed with tools like Ekahau, NetSpot, or enterprise WIDS/WIPS platforms; informed by guidance in NIST SP 800-153.</em></span></span> and continuous <span class="annot">rogue AP detection<span class="tip"><strong>Rogue Access Point Detection (WIDS/WIPS)</strong>Wireless Intrusion Detection/Prevention Systems that continuously scan RF spectrum for access points not present in an authorized-device inventory, flagging unknown BSSIDs, SSID-spoofing attempts (an authorized SSID broadcast from an unauthorized BSSID), and anomalous deauthentication frame floods indicative of an active evil twin or denial-of-service attack. Enterprise-grade wireless controllers (Cisco, Aruba, Ubiquiti) typically include WIPS functionality that can even automatically contain a detected rogue AP by flooding it with deauth frames on the attacker's own network. <em>NIST SP 800-153 §4 provides formal guidance on rogue AP detection program design.</em></span></span> programs, using dedicated Wireless Intrusion Detection/Prevention Systems (WIDS/WIPS) that continuously scan RF spectrum against an authorized-device baseline, alerting security teams to unrecognized BSSIDs, SSID impersonation attempts, and abnormal deauthentication frame volumes indicative of an active evil twin or jamming campaign in progress.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Wireless defence is three layers, not one setting</span>
+  Defending a wireless deployment is a matter of controls at three distinct layers, and any one alone leaves a gap the others cover. The <em>cryptographic layer</em>: WPA3 with SAE, WPS disabled, and legacy WPA2 fallback disabled wherever client compatibility permits. The <em>authentication and architectural layer</em>: per-user 802.1X with RADIUS in place of a single shared key, and VLAN isolation of guest and personally owned devices from internal systems. The <em>monitoring and operational layer</em>: a wireless site survey that establishes an authorized-BSSID baseline, continuous WIDS/WIPS rogue-access-point detection, and mandatory 802.11w protected management frames. A defence that names only the cryptographic layer, "use a strong password", has answered the easiest third of the problem and left the trust layer untouched, which is exactly where the evil twin operates.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>IEEE Std 802.11-2020: IEEE Standard for Information Technology, Telecommunications and Information Exchange Between Systems, Local and Metropolitan Area Networks, Specific Requirements Part 11: Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY) Specifications.</li><li style='margin-bottom: 12px; text-align: justify;'>IEEE Std 802.11i-2004: Amendment 6: Medium Access Control (MAC) Security Enhancements.</li><li style='margin-bottom: 12px; text-align: justify;'>IEEE Std 802.11w-2009: Amendment 4: Protected Management Frames.</li><li style='margin-bottom: 12px; text-align: justify;'>Vanhoef, M., &amp; Piessens, F. (2017). Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2. Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security (CCS '17).</li><li style='margin-bottom: 12px; text-align: justify;'>Vanhoef, M., &amp; Ronen, E. (2020). Dragonblood: Analyzing the Dragonfly Handshake of WPA3 and EAP-pwd. IEEE Symposium on Security and Privacy (S&amp;P 2020).</li><li style='margin-bottom: 12px; text-align: justify;'>Fluhrer, S., Mantin, I., &amp; Shamir, A. (2001). Weaknesses in the Key Scheduling Algorithm of RC4. Selected Areas in Cryptography (SAC 2001), Lecture Notes in Computer Science, vol. 2259.</li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-153: Guidelines for Securing Wireless Local Area Networks (WLANs) (2012).</li><li style='margin-bottom: 12px; text-align: justify;'>Harkins, D. (2015). RFC 7664: Dragonfly Key Exchange. IETF IRTF CFRG. <a href="https://www.rfc-editor.org/rfc/rfc7664" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc7664</a></li><li style='margin-bottom: 12px; text-align: justify;'>Rigney, C., et al. (2000). RFC 2865: Remote Authentication Dial In User Service (RADIUS). IETF. <a href="https://www.rfc-editor.org/rfc/rfc2865" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc2865</a></li><li style='margin-bottom: 12px; text-align: justify;'>Aboba, B., et al. (2004). RFC 3748: Extensible Authentication Protocol (EAP). IETF. <a href="https://www.rfc-editor.org/rfc/rfc3748" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc3748</a></li><li style='margin-bottom: 12px; text-align: justify;'>Simon, D., Aboba, B., &amp; Hurst, R. (2008). RFC 5216: The EAP-TLS Authentication Protocol. IETF. <a href="https://www.rfc-editor.org/rfc/rfc5216" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc5216</a></li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-153 (2012). Guidelines for Securing Wireless Local Area Networks (WLANs). <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-153.pdf" target="_blank" rel="noopener">nvlpubs.nist.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>Vanhoef, M. (2017). Key Reinstallation Attacks (CVE-2017-13077 through CVE-2017-13088). <a href="https://www.krackattacks.com/" target="_blank" rel="noopener">krackattacks.com</a>; NVD record for CVE-2017-13077 at <a href="https://nvd.nist.gov/vuln/detail/CVE-2017-13077" target="_blank" rel="noopener">nvd.nist.gov</a></li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+
+        <div class="question-block">
+          <div class="question-header">Question 1: Explain the technical mechanism of the KRACK (Key Reinstallation Attack) against WPA2, and why patching required action from virtually every vendor rather than a single company.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+          <div class="solution-content" id="sol-1">
+            <p>KRACK exploits the retransmission logic of the WPA2 four-way handshake as specified in IEEE 802.11i. Because wireless links are lossy, an access point is permitted to retransmit Message 3 of the handshake if it does not receive Message 4 (the client's acknowledgment). By operating as a man-in-the-middle and selectively blocking Message 4, an attacker can force the AP to resend Message 3. Vulnerable client implementations, upon processing this retransmitted message, reinstall an already-in-use Pairwise Transient Key (PTK) and, critically, reset the associated nonce and packet-number counters to their initial values. Because WPA2's CCMP encryption relies on AES in counter mode, functionally a stream cipher construction, reusing a nonce with the same key allows an attacker to recover keystream material through XOR analysis of the resulting ciphertexts, enabling decryption and, in some configurations, forged packet injection.
+
+Patching required near-universal vendor action because the vulnerability existed in the 802.11i specification's handshake state machine itself, not in any single vendor's flawed implementation of an otherwise-correct protocol. Every certified WPA2 device, regardless of manufacturer or operating system, implements this same state machine and was therefore susceptible to the same class of attack, though severity varied by implementation (for example, certain Android/Linux wpa_supplicant versions installed an all-zero key rather than merely reinstalling the correct one, making them especially severe instances tracked separately under CVE-2017-13077 and related identifiers).</p>
+          </div>
+        </div>
+
+        <div class="question-block">
+          <div class="question-header">Question 2: Compare WPA2-Personal's PSK/four-way handshake model to WPA3's SAE (Dragonfly) handshake, specifically addressing offline dictionary attack resistance and forward secrecy.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+          <div class="solution-content" id="sol-2">
+            <p>In WPA2-Personal, the Pairwise Master Key (PMK) is derived deterministically from the network passphrase via PBKDF2, using the SSID as a salt. Because this derivation is a fixed, repeatable function of the password alone, an attacker who passively captures the four-way handshake (specifically the MIC in EAPOL Message 2) can perform an unlimited offline attack: for each candidate passphrase in a wordlist or brute-force space, the attacker recomputes the PMK, derives a candidate PTK using the captured nonces and MAC addresses, and checks whether the resulting MIC matches the captured value, entirely without further interaction with the live access point. Additionally, because the PMK is a static function of the password, if the password is later learned, an attacker who has archived old handshake captures and encrypted traffic could, in principle, derive session keys for those past sessions, meaning WPA2-Personal does not provide forward secrecy for its key-derivation step.
+
+WPA3's SAE (Simultaneous Authentication of Equals) replaces this with a password-authenticated key exchange based on elliptic-curve cryptography. Rather than deriving key material as a direct, repeatable function of the password, both parties use the password to jointly locate a shared secret element on an elliptic curve and exchange ephemeral, randomly generated values as part of the exchange. Because these values are used only once, are discarded after the session, and are required for each password-guessing attempt, an attacker cannot mount an offline dictionary attack from a single captured exchange, every guess requires a fresh, individually rate-limitable interaction with the live AP. Additionally, because SAE's key derivation depends on fresh ephemeral values each session, compromise of the network password at a later date does not permit retroactive decryption of previously captured traffic, providing genuine forward secrecy that WPA2-Personal's PSK model structurally lacks.</p>
+          </div>
+        </div>
+
+        <div class="question-block">
+          <div class="question-header">Question 3: Describe how an evil twin access point attack is executed end-to-end, including the role of deauthentication frames, and explain why strong encryption on the rogue AP does not protect the victim.</div>
+          <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+          <div class="solution-content" id="sol-3">
+            <p>An evil twin attack begins with reconnaissance in which the attacker passively captures beacon frames from a target network to learn its SSID, operating channel, and security configuration. The attacker then configures a rogue access point broadcasting an identical SSID (and often a spoofed BSSID) using tools such as hostapd, positioning it with sufficient transmit power that nearby client devices are likely to prefer its signal. Where passive positioning is insufficient to force a reconnection, the attacker actively transmits forged 802.11 deauthentication management frames, spoofing the source address of the legitimate AP's BSSID. Because pre-WPA3 management frames are transmitted unencrypted and unauthenticated (a gap only closed by mandatory 802.11w Protected Management Frames under WPA3), the victim's device has no cryptographic means of distinguishing a forged deauthentication frame from a legitimate one, and it disconnects and automatically attempts to reassociate with any AP matching its remembered SSID, frequently the attacker's stronger rogue signal. Once associated, the attacker occupies a full adversary-in-the-middle position and may deploy a captive portal that mimics a legitimate login page to harvest credentials, or simply intercept and inspect all unencrypted traffic traversing the connection.
+
+Strong encryption on the rogue AP itself does not protect the victim because Wi-Fi encryption (WPA2/WPA3) secures the radio link between the client and whichever access point it associated with, it says nothing about the identity or trustworthiness of that access point. The victim's traffic is encrypted perfectly, but it is encrypted directly to the attacker, who holds the session keys for that link because they operate the AP the victim connected to. This illustrates that cryptographic-layer defenses (link encryption) and trust-layer defenses (verifying you are actually connecting to the legitimate infrastructure, via mechanisms such as 802.1X mutual certificate authentication or user vigilance) address fundamentally different threat models and must both be implemented.</p>
+          </div>
+        </div>
+
+  </section>
+
+  <section class="review-questions" id="sec-practice">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">1. <span class="ap-code">3.2.A</span> An organisation buys a wireless intrusion prevention system and a fleet of WPA3-capable access points, but leaves each site engineer to configure the radios as they see fit. Within a year, several sites are running WPA2 transitional mode with WPS enabled. Which managerial control was missing?</div>
+      <ul class="mcq">
+        <li>A. A stronger encryption cipher, since WPA3 alone was clearly insufficient.</li>
+        <li>B. A configuration baseline and a change-management process, so that the required settings are defined once and deviations are reviewed rather than left to individual discretion.</li>
+        <li>C. A physical control restricting access to the wiring closets.</li>
+        <li>D. A faster patch-deployment schedule for the access-point firmware.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">2. <span class="ap-code">3.2.B</span> A network engineer must choose an authentication model for a 400-employee company&rsquo;s wireless network. Which factor most strongly favours WPA3-Enterprise with 802.1X over a single WPA3-Personal pre-shared key?</div>
+      <ul class="mcq">
+        <li>A. Enterprise mode uses a stronger cipher than Personal mode.</li>
+        <li>B. Enterprise mode authenticates each user or device individually, so a departing employee&rsquo;s access can be revoked without rotating a secret shared by everyone.</li>
+        <li>C. Personal mode does not support protected management frames.</li>
+        <li>D. Enterprise mode removes the need for a RADIUS server.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">3. <span class="ap-code">3.2.B</span> When WPA3-Enterprise is deployed with EAP-TLS rather than PEAP-MSCHAPv2, what additional protection does the client gain?</div>
+      <ul class="mcq">
+        <li>A. The client presents an X.509 certificate and validates the RADIUS server&rsquo;s certificate, so both ends authenticate and a rogue access point cannot complete the exchange without the server&rsquo;s private key.</li>
+        <li>B. The four-way handshake is eliminated entirely.</li>
+        <li>C. The passphrase is lengthened to 63 characters automatically.</li>
+        <li>D. Management frames become encrypted for the first time.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">4. <span class="ap-code">3.2.B</span> A site is left in WPA2/WPA3 transitional (mixed) mode to support one legacy handheld scanner. What is the security consequence for the other, WPA3-capable clients?</div>
+      <ul class="mcq">
+        <li>A. None; each client negotiates the strongest mutually supported protocol, so WPA3 clients are unaffected.</li>
+        <li>B. A client that can be induced to negotiate WPA2 exposes a four-way handshake to offline dictionary attack, so the network&rsquo;s effective floor is WPA2 for anyone an adversary can downgrade.</li>
+        <li>C. All clients are forced down to WEP.</li>
+        <li>D. Transitional mode disables CCMP, so no client is encrypted.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">5. <span class="ap-code">3.2.B</span> Why does enabling 802.11w Protected Management Frames defeat the deauthentication step of an evil twin campaign, yet not prevent the campaign entirely?</div>
+      <ul class="mcq">
+        <li>A. PMF encrypts the SSID, so the rogue AP cannot clone it.</li>
+        <li>B. PMF authenticates deauthentication and disassociation frames so forged ones are discarded, but an unauthenticated client can still be won by a stronger-signal rogue AP or driven off by physical-layer jamming.</li>
+        <li>C. PMF prevents the client from ever roaming between access points.</li>
+        <li>D. PMF makes the pre-shared key unrecoverable, which stops all evil twin attacks.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">6. <span class="ap-code">3.2.A</span> <span class="ap-code">3.2.B</span> An employee connects to an SSID named identically to the corporate network and enters their password into a captive portal that then shows a generic error. Which combination of controls would have prevented the credential loss?</div>
+      <ul class="mcq">
+        <li>A. A longer pre-shared key and WPS disabled.</li>
+        <li>B. Faster firmware patching and a DDoS scrubbing service.</li>
+        <li>C. EAP-TLS with mutual certificate authentication, so the device would refuse an access point lacking the valid server certificate, backed by user-awareness training as a managerial control.</li>
+        <li>D. A higher-power legitimate access point and channel bonding.</li>
+      </ul>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">7. <span class="ap-code">3.2.A</span> <span class="ap-code">3.2.B</span> <em>Free response.</em> A regional clinic asks you to secure its wireless network. Distinguish the managerial controls from the technical wireless-configuration controls you would put in place, give at least three of each, and explain for two specific technical settings which managerial control decides that the setting must exist. Then explain why an assessment that lists only the technical settings is incomplete.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">8. <span class="ap-code">3.2.B</span> <em>Free response.</em> Explain, at the level of the key material, why a captured WPA2-Personal four-way handshake permits an offline password search while a captured WPA3 SAE exchange does not. Then explain what forward secrecy adds beyond offline-attack resistance, and why WPA2-Personal cannot provide it.</div>
+    </div>
+
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">3.2.A</span>
+      <p class="key-why">The failure is administrative, not technical: capable hardware was bought and then configured inconsistently because no baseline defined the required settings and no change process reviewed deviations. A configuration standard states the mandatory settings once, and change management catches the transitional-mode exception before it spreads. A misreads the situation, WPA3 was available and adequate; it was simply not applied. C names a real control family but not the one that failed here, since the problem was configuration drift rather than physical access. D would help firmware currency but does nothing about engineers choosing weak settings on current firmware.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. B</span><span class="key-lo">3.2.B</span>
+      <p class="key-why">Enterprise mode&rsquo;s decisive advantage at scale is per-user accountability and revocation: each identity authenticates against a central server, so one credential can be withdrawn without disturbing anyone else, and every association is logged to an individual. A is false, both modes use CCMP or GCMP; the cipher is not what differs. C is false, since protected management frames are mandatory in all of WPA3 including Personal. D inverts the architecture: enterprise mode requires a RADIUS server rather than removing the need for one.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. A</span><span class="key-lo">3.2.B</span>
+      <p class="key-why">EAP-TLS is mutual certificate authentication: the client holds and presents an X.509 certificate and, critically, validates the server&rsquo;s certificate before completing the exchange, so a rogue access point without the genuine server private key cannot finish authenticating and the client will not associate. That is the property PEAP-MSCHAPv2 weakens, because it rests on a password that a poorly configured client may hand to an impostor server. B is false, the four-way handshake still derives session keys after EAP completes. C confuses EAP-TLS with passphrase policy. D is false, since protected management frames are governed by WPA3 and 802.11w independently of the EAP method.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. B</span><span class="key-lo">3.2.B</span>
+      <p class="key-why">A network is only as strong as the weakest protocol an adversary can force a client to negotiate. In transitional mode a client that can be downgraded to WPA2 exposes a four-way handshake, which is an offline-crackable verifier, so the effective security floor for any downgradable client is WPA2 regardless of WPA3 capability. A is the comforting but wrong answer: negotiation picks the strongest mutually supported protocol only absent an adversary who manipulates it, and the presence of the WPA2 option is itself the exposure. C and D are fabrications, transitional mode does not involve WEP and does not disable CCMP.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">3.2.B</span>
+      <p class="key-why">Protected management frames apply cryptographic integrity to deauthentication and disassociation frames, so a station with PMF active simply discards the forged frames the deauth step depends on. But PMF authenticates frames; it does not authenticate the access point to an unassociated client, so a rogue AP with a stronger signal and the same SSID can still win the association, and nothing in cryptography stops an adversary from jamming the channel to deny the legitimate network at the physical layer. A is wrong, PMF does not encrypt the SSID, which is broadcast in beacons. C misdescribes PMF, which does not prevent roaming. D confuses PMF with the SAE handshake&rsquo;s offline-attack resistance.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. C</span><span class="key-lo">3.2.A, 3.2.B</span>
+      <p class="key-why">The attack succeeds at the trust layer: the user authenticated to an impostor. EAP-TLS closes the technical half by making the client validate the server&rsquo;s certificate, so a portal on an access point lacking the genuine server key cannot complete the exchange; user-awareness training closes the managerial half, since no configuration stops a person from typing a password into a page on a network their device never truly authenticated. A, B, and D all operate at the cryptographic or availability layer and leave the trust layer, the actual point of failure, untouched; a longer key, faster patching, or a stronger legitimate signal does nothing once the user has associated with the rogue AP and typed the password.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">7. Free response</span><span class="key-lo">3.2.A, 3.2.B</span>
+      <p class="key-why"><strong>Model answer.</strong> Managerial controls: a wireless security policy and configuration baseline mandating WPA3 with protected management frames, WPS prohibited, and guest isolation; a decision to use 802.1X enterprise authentication with individual credentials rather than a shared key, driven by the need to revoke a departing clinician&rsquo;s access and to log associations to individuals for accountability under health-record obligations; a change-management process so exceptions such as a legacy device are recorded and reviewed rather than left permanent; acceptable-use and vendor terms for any third party connecting equipment; security-awareness training against captive-portal credential theft; and periodic site surveys and rogue-AP audits. Technical wireless-configuration controls: WPA3-Enterprise with EAP-TLS on a RADIUS server; protected management frames required; WPS disabled; legacy WPA2 fallback disabled where compatibility allows; a guest SSID mapped to an isolated VLAN with internet-only access; and WIDS/WIPS rogue-AP monitoring. Two specific links: the setting "802.1X with EAP-TLS is enabled" exists because the managerial authentication-model decision chose per-user accountability over a shared key; the setting "guest SSID on an isolated VLAN" exists because the segmentation and acceptable-use policy decided guests must not reach clinical systems. An assessment listing only the technical settings is incomplete because it cannot show who is accountable, whether the settings are required or merely present, or whether they will survive the next configuration change, the managerial controls are what make the technical ones durable and auditable rather than incidental.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) a correct managerial/technical split, with at least three genuine items in each and no technical setting miscategorised as managerial; (ii) two explicit cause links from a managerial decision to a technical setting, not merely two settings restated; (iii) accountability, revocation, or durability named as what the managerial layer adds; (iv) recognition that the trust-layer control (training, EAP-TLS validation) is managerial and technical working together. An answer that treats "use WPA3" as a managerial control, or lists settings with no managerial reasoning, has not met 3.2.A.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">8. Free response</span><span class="key-lo">3.2.B</span>
+      <p class="key-why"><strong>Model answer.</strong> In WPA2-Personal the pairwise master key is a deterministic function of the passphrase and the SSID: PMK = PBKDF2(passphrase, SSID, 4096, 256 bits). The four-way handshake then derives the pairwise transient key from that PMK together with values that are all public, both MAC addresses in the frame headers, the ANonce in message one, the SNonce in message two, and message two carries a message integrity check computed under the derived key. An eavesdropper who captures the handshake therefore holds every input to the derivation except the passphrase, plus a checkable output, which is exactly an offline verifier: for each guess, recompute the PMK, derive the candidate key, recompute the MIC, and compare. No further contact with the access point is needed, so the search runs at GPU speed. WPA3&rsquo;s SAE is a password-authenticated key exchange on an elliptic curve. Each party derives an element from the password and exchanges commitments built from fresh, ephemeral secret scalars; the transcript contains nothing that lets an eavesdropper test a password guess without running a fresh, live exchange against the access point, which can count and rate-limit attempts. The captured exchange is not a verifier, so there is no offline search. Forward secrecy adds a further guarantee: because SAE mixes ephemeral values that are discarded after the session, learning the password later does not let an adversary decrypt traffic captured earlier. WPA2-Personal cannot provide this, because its PMK is a static function of the passphrase alone, recover the passphrase at any later date and every archived handshake and its traffic can be decrypted retroactively.</p>
+      <p class="key-why"><strong>A grader should look for:</strong> (i) the PMK stated as a deterministic function of passphrase and SSID, and the handshake inputs identified as public; (ii) the captured MIC described as a checkable verifier enabling an offline search, with the point that no live interaction is required; (iii) SAE explained as leaving no offline-testable material, so every guess must be online and rate-limitable; (iv) forward secrecy defined as protection of past sessions after later key compromise, tied explicitly to SAE&rsquo;s ephemeral values and to WPA2&rsquo;s static PMK as the reason it lacks the property. Distinguishing offline-attack resistance from forward secrecy is required for full credit.</p>
+    </div>
+
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager">
+  <a class="prev" href="../3.1/notes.html"><span class="pager-label">Previous</span>&larr; 3.1 Network Level Exploits</a>
+  <a class="next" href="../3.3/notes.html"><span class="pager-label">Next</span>3.3 Network Segmentation &rarr;</a>
+</nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>

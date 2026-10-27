@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<!-- 1.5.c SIM -- "Detection Rule Builder" log stream.
+     Single-file, offline, deterministic. No emoji/icons. Theme tokens inlined from THEME.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1.5.c - Detection Rule Builder</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;}
+.wrap{max-width:860px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.log-box{font-family:var(--mono-font);background:#000;color:#00ff00;padding:8px 10px;
+  white-space:pre;line-height:1.4;height:180px;overflow-y:auto;font-size:12px;}
+.log-line-normal{color:#00aa00;}
+.log-line-fail{color:#00ff00;font-weight:bold;}
+.log-line-alert{color:#ffff00;font-weight:bold;}
+.rule-box{font-family:var(--mono-font);background:#000;color:#00ff00;padding:8px 10px;
+  white-space:pre;line-height:1.6;min-height:60px;font-size:12px;margin-top:6px;}
+.ip-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-family:var(--mono-font);font-size:12px;}
+.ip-label{min-width:120px;}
+.count-bar{background:#003300;height:14px;display:inline-block;vertical-align:middle;}
+.count-fill{background:#00ff00;height:14px;display:inline-block;}
+.threshold-mark{display:inline-block;width:2px;background:#ff0000;height:14px;vertical-align:middle;}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+.feedback{font-family:var(--mono-font);margin-top:6px;min-height:18px;font-size:12px;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.section-label{font-size:12px;color:var(--muted);margin:8px 0 2px;font-family:var(--mono-font);}
+.panel{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+  background:var(--win-face);padding:8px;margin-top:8px;}
+.panel-title{font-weight:bold;font-size:12px;margin-bottom:4px;}
+select{font-family:var(--ui-font);font-size:13px;padding:2px 4px;border:2px solid;
+  border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);background:#fff;}
+.theme-linux select{border:1px solid #ccc;border-radius:3px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>1.5.c - Detection Rule Builder</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Step through an authentication log stream event by event. Watch the failure counters
+         build up. When you think an IP should trigger a brute-force detection rule, click
+         <b>Flag IP</b> and choose it. Reach <b id="goal">4</b> correct rule decisions
+         to meet the objective.</p>
+
+      <div class="section-label">Live log stream (step through with Next Event):</div>
+      <div class="log-box" id="logbox"></div>
+
+      <div class="panel">
+        <div class="panel-title">Window failure counters (60-second rolling window, threshold = 5):</div>
+        <div id="counters"></div>
+      </div>
+
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="stepEvent()">Next Event</button>
+        <button class="btn" onclick="runAll()">Run All Events</button>
+        <span style="font-family:var(--mono-font);font-size:12px;">|</span>
+        <span style="font-family:var(--ui-font);font-size:13px;">Flag IP as brute-force:</span>
+        <select id="ipsel"><option value="">-- select IP --</option></select>
+        <button class="btn" onclick="flagIP()">Flag IP</button>
+      </div>
+
+      <div class="section-label">Generated detection rules:</div>
+      <div class="rule-box" id="rulebox">(none yet)</div>
+
+      <div class="feedback" id="fb"></div>
+      <div class="statusbar" id="score">SCORE 0 / 4 | events shown: 0 / 20 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">Failure counter resets for each IP after 60 seconds of no failures. Red mark = threshold (5). Yellow log lines = alert fired.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+/* ---- Fake Network Engine: deterministic scripted log stream ---- */
+/* Log entries: ts, src, event. Deterministic, no randomness. */
+var LOG_STREAM = [
+  {ts:0,   src:"10.0.0.5",   event:"login_fail"},
+  {ts:5,   src:"172.16.1.2", event:"login_ok"},
+  {ts:8,   src:"10.0.0.5",   event:"login_fail"},
+  {ts:12,  src:"192.168.1.9",event:"login_fail"},
+  {ts:17,  src:"10.0.0.5",   event:"login_fail"},
+  {ts:22,  src:"172.16.1.2", event:"login_ok"},
+  {ts:25,  src:"10.0.0.5",   event:"login_fail"},
+  {ts:30,  src:"192.168.1.9",event:"login_fail"},
+  {ts:33,  src:"10.0.0.5",   event:"login_fail"},  /* 5th for 10.0.0.5 -> RULE FIRES */
+  {ts:38,  src:"10.0.0.5",   event:"login_fail"},
+  {ts:45,  src:"192.168.1.9",event:"login_fail"},
+  {ts:50,  src:"172.16.1.2", event:"login_fail"},
+  {ts:80,  src:"192.168.1.9",event:"login_fail"},
+  {ts:90,  src:"192.168.1.9",event:"login_fail"},  /* 5th for 192.168.1.9 in window [12..90]? ts[0..4]={12,30,45,80,90}: 90-12=78 > 59. Best window: ts[2..90]? {30,45,80,90}=4. Try {45,80,90}=3. Try {80,90}=2. Try from 45: {45,80,90}=3. None >= 5 in 60s. Safe host. */
+  {ts:100, src:"203.0.113.7",event:"login_fail"},
+  {ts:101, src:"203.0.113.7",event:"login_fail"},
+  {ts:102, src:"203.0.113.7",event:"login_fail"},
+  {ts:103, src:"203.0.113.7",event:"login_fail"},
+  {ts:104, src:"203.0.113.7",event:"login_fail"},  /* 5th for 203.0.113.7 -> RULE FIRES */
+  {ts:110, src:"172.16.1.2", event:"login_fail"}
+];
+
+/* Pre-compute which IPs actually trigger the rule (ground truth) */
+var THRESHOLD = 5, WINDOW = 59;
+
+function computeRules(events) {
+  var byIP = {};
+  events.forEach(function(e){
+    if(e.event === "login_fail") {
+      if(!byIP[e.src]) byIP[e.src] = [];
+      byIP[e.src].push(e.ts);
+    }
+  });
+  var rules = [];
+  Object.keys(byIP).forEach(function(ip){
+    var ts = byIP[ip].slice().sort(function(a,b){return a-b;});
+    var maxW = maxWindow(ts);
+    if(maxW >= THRESHOLD) rules.push({ip:ip, count:maxW});
+  });
+  rules.sort(function(a,b){ return a.ip < b.ip ? -1 : 1; });
+  return rules;
+}
+
+function maxWindow(ts) {
+  var best = 0, n = ts.length, right = 0;
+  for(var left = 0; left < n; left++) {
+    while(right < n && ts[right] <= ts[left] + WINDOW) right++;
+    if(right - left > best) best = right - left;
+  }
+  return best;
+}
+
+/* Rolling window counter for display: count login_fail for ip within last 60s of current ts */
+function windowCount(ip, upToIdx) {
+  var events = LOG_STREAM.slice(0, upToIdx + 1);
+  var fails = events.filter(function(e){ return e.src === ip && e.event === "login_fail"; });
+  if(!fails.length) return 0;
+  var latestTs = fails[fails.length - 1].ts;
+  return fails.filter(function(e){ return e.ts >= latestTs - WINDOW; }).length;
+}
+
+var currentIdx = -1, score = 0, GOAL = 4, met = false;
+var flaggedIPs = {}; /* ip -> {correct:bool, ruleStr:str} */
+var autoFiredIPs = {}; /* ips auto-detected as rules fire during stepping */
+var knownIPs = {};
+
+/* All IPs in stream */
+LOG_STREAM.forEach(function(e){ knownIPs[e.src] = true; });
+var ALL_IPS = Object.keys(knownIPs).sort();
+
+/* Populate select */
+var sel = document.getElementById('ipsel');
+ALL_IPS.forEach(function(ip){
+  var opt = document.createElement('option');
+  opt.value = ip; opt.textContent = ip;
+  sel.appendChild(opt);
+});
+
+var logbox = document.getElementById('logbox');
+var rulebox = document.getElementById('rulebox');
+var counters = document.getElementById('counters');
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderCounters() {
+  var seen = {};
+  LOG_STREAM.slice(0, currentIdx + 1).forEach(function(e){ seen[e.src] = true; });
+  var html = '';
+  Object.keys(seen).sort().forEach(function(ip){
+    var cnt = windowCount(ip, currentIdx);
+    var pct = Math.min(cnt / THRESHOLD, 1);
+    var barW = 120;
+    var fillW = Math.round(pct * barW);
+    var threshPx = Math.round((THRESHOLD / (THRESHOLD + 2)) * barW);
+    html += '<div class="ip-row"><span class="ip-label">' + esc(ip) + '</span>';
+    html += '<span class="count-bar" style="width:' + barW + 'px;position:relative;">';
+    html += '<span class="count-fill" style="width:' + fillW + 'px;display:inline-block;"></span>';
+    html += '</span>';
+    html += ' <span style="font-family:var(--mono-font);font-size:12px;color:#000">fails:' + cnt + '</span>';
+    if(cnt >= THRESHOLD) html += ' <span style="color:#cc0000;font-weight:bold;font-size:12px;">[THRESHOLD MET]</span>';
+    html += '</div>';
+  });
+  counters.innerHTML = html || '<span style="color:var(--muted);font-size:12px;">No events yet.</span>';
+}
+
+function renderRules() {
+  var rules = Object.keys(flaggedIPs).filter(function(ip){ return flaggedIPs[ip]; });
+  rules.sort();
+  if(!rules.length) { rulebox.textContent = '(none yet)'; return; }
+  rulebox.textContent = rules.map(function(ip){
+    return 'ALERT brute_force src=' + ip + ' count=' + flaggedIPs[ip].count + ' window=60s';
+  }).join('\n');
+}
+
+function stepEvent() {
+  if(currentIdx >= LOG_STREAM.length - 1) {
+    document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">End of log stream. Use "Flag IP" to add rules or reset.</span>';
+    return;
+  }
+  currentIdx++;
+  var e = LOG_STREAM[currentIdx];
+  var ts = e.ts, src = e.src, ev = e.event;
+
+  /* Build log line */
+  var cls = ev === 'login_fail' ? 'log-line-fail' : 'log-line-normal';
+  var wc = windowCount(src, currentIdx);
+  var autoFire = '';
+  if(ev === 'login_fail' && wc >= THRESHOLD && !autoFiredIPs[src]) {
+    autoFiredIPs[src] = {count: wc};
+    cls = 'log-line-alert';
+    autoFire = '  <-- RULE CANDIDATE: ' + src;
+  }
+  var line = document.createElement('div');
+  line.className = cls;
+  line.textContent = 'ts=' + String(ts).padStart(4) + '  src=' + src.padEnd(15) + '  event=' + ev + autoFire;
+  logbox.appendChild(line);
+  logbox.scrollTop = logbox.scrollHeight;
+
+  renderCounters();
+  updateBar();
+}
+
+function runAll() {
+  while(currentIdx < LOG_STREAM.length - 1) stepEvent();
+}
+
+function flagIP() {
+  var ip = document.getElementById('ipsel').value;
+  if(!ip) { document.getElementById('fb').innerHTML = '<span class="bad">Select an IP first.</span>'; return; }
+  if(flaggedIPs[ip] !== undefined) {
+    document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">Already flagged: ' + esc(ip) + '</span>';
+    return;
+  }
+  /* Ground truth: check against events seen so far */
+  var eventsSoFar = LOG_STREAM.slice(0, currentIdx + 1);
+  var groundRules = computeRules(eventsSoFar);
+  var hit = groundRules.filter(function(r){ return r.ip === ip; });
+  if(hit.length) {
+    flaggedIPs[ip] = {count: hit[0].count};
+    score++;
+    if(score >= GOAL) met = true;
+    document.getElementById('fb').innerHTML = '<span class="ok">CORRECT.</span> ' + esc(ip) + ' triggered the brute-force rule (count=' + hit[0].count + ').';
+  } else {
+    flaggedIPs[ip] = false; /* mark as wrongly flagged */
+    document.getElementById('fb').innerHTML = '<span class="bad">NOT QUITE.</span> ' + esc(ip) + ' has not met the threshold in the events shown so far. Check the counter panel.';
+  }
+  renderRules();
+  updateBar();
+}
+
+function updateBar() {
+  document.getElementById('score').innerHTML =
+    'SCORE ' + score + ' / ' + GOAL +
+    ' | events shown: ' + (currentIdx + 1) + ' / ' + LOG_STREAM.length +
+    ' | OBJECTIVE: ' + (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+document.getElementById('goal').textContent = GOAL;
+renderCounters();
+updateBar();
+</script>
+</body>
+</html>

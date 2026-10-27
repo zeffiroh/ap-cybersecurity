@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device hardening, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Device hardening  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.3.a: Device hardening configuration auditor</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.3.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>In a secure enterprise environment, devices must be configured according to strict security baselines before deployment. Over time, administrators or software installers may change settings, resulting in "configuration drift" that increases the device's attack surface.</p>
+<p>Your task is to write a python function <code>solve(data)</code> that takes a target device's actual configuration and audit it against a security baseline. The function must return a list of all check names that the configuration fails, sorted alphabetically.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(data)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A dictionary with keys <code>"baseline"</code> and <code>"configuration"</code>.
+Example:</p>
+<pre><code class="language-json">{
+  &quot;baseline&quot;: {
+    &quot;min_password_length&quot;: 12,
+    &quot;disallowed_services&quot;: [&quot;ftp&quot;, &quot;telnet&quot;],
+    &quot;firewall_enabled&quot;: true,
+    &quot;encryption_enabled&quot;: true,
+    &quot;allowed_accounts&quot;: [&quot;admin&quot;, &quot;operator&quot;]
+  },
+  &quot;configuration&quot;: {
+    &quot;password_length&quot;: 8,
+    &quot;services&quot;: [&quot;ssh&quot;, &quot;ftp&quot;],
+    &quot;firewall_enabled&quot;: false,
+    &quot;encryption_enabled&quot;: true,
+    &quot;accounts&quot;: [&quot;admin&quot;, &quot;guest&quot;, &quot;operator&quot;]
+  }
+}
+</code></pre>
+<h2>Output</h2>
+<p>A list of strings representing the names of the failing checks from the baseline, sorted alphabetically.
+Example output for the input above:</p>
+<pre><code class="language-json">[&quot;allowed_accounts&quot;, &quot;disallowed_services&quot;, &quot;firewall_enabled&quot;, &quot;min_password_length&quot;]
+</code></pre>
+<p><em>(Explanation: password length 8 is less than 12; ftp service is disallowed; firewall is false; guest account is not allowed)</em></p>
+<h2>Constraints</h2>
+<ul>
+<li>If an expected configuration field is missing, default values apply:</li>
+<li><code>password_length</code>: <code>0</code></li>
+<li><code>services</code>: <code>[]</code></li>
+<li><code>firewall_enabled</code>: <code>False</code></li>
+<li><code>encryption_enabled</code>: <code>False</code></li>
+<li><code>accounts</code>: <code>[]</code></li>
+<li>Standard library only.</li>
+<li>Case-sensitive string matching for services and accounts.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(data: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>data</code>)</h3>
+<p>A dictionary with two keys: <code>"baseline"</code> and <code>"configuration"</code>.
+The <code>"baseline"</code> dictionary contains the security requirements:
+- <code>"min_password_length"</code> (int)
+- <code>"disallowed_services"</code> (list of strings)
+- <code>"firewall_enabled"</code> (bool)
+- <code>"encryption_enabled"</code> (bool)
+- <code>"allowed_accounts"</code> (list of strings)</p>
+<p>The <code>"configuration"</code> dictionary contains the target device's actual settings:
+- <code>"password_length"</code> (int, optional - default is <code>0</code> if missing)
+- <code>"services"</code> (list of strings, optional - default is empty if missing)
+- <code>"firewall_enabled"</code> (bool, optional - default is <code>False</code> if missing)
+- <code>"encryption_enabled"</code> (bool, optional - default is <code>False</code> if missing)
+- <code>"accounts"</code> (list of strings, optional - default is empty if missing)</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A list of strings representing the names of the checks from the baseline that failed.
+The possible check names in the output list are:
+- <code>"min_password_length"</code> (fails if configuration password length is less than baseline minimum)
+- <code>"disallowed_services"</code> (fails if any service in the configuration is present in the baseline disallowed list)
+- <code>"firewall_enabled"</code> (fails if baseline requires it but configuration has it set to False)
+- <code>"encryption_enabled"</code> (fails if baseline requires it but configuration has it set to False)
+- <code>"allowed_accounts"</code> (fails if configuration contains any accounts NOT present in the baseline allowed list)</p>
+<p>The output list must be sorted alphabetically. If all checks pass, returns an empty list <code>[]</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Case-sensitivity: comparisons for services and accounts are case-sensitive.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+def solve(data: dict) -&gt; list[str]:
+    """Audit a device's configuration against a security baseline.
+
+    Args:
+        data: A dict with keys "baseline" and "configuration".
+
+    Returns:
+        A list of failing baseline check names, sorted alphabetically.
+    """
+    baseline = data.get("baseline", {})
+    config = data.get("configuration", {})
+
+    failed = []
+
+    # Check 1: min_password_length
+    min_pw = baseline.get("min_password_length", 0)
+    actual_pw = config.get("password_length", 0)
+    if actual_pw &lt; min_pw:
+        failed.append("min_password_length")
+
+    # Check 2: disallowed_services
+    disallowed_srv = set(baseline.get("disallowed_services", []))
+    actual_srv = config.get("services", [])
+    if any(s in disallowed_srv for s in actual_srv):
+        failed.append("disallowed_services")
+
+    # Check 3: firewall_enabled
+    fw_required = baseline.get("firewall_enabled", False)
+    fw_actual = config.get("firewall_enabled", False)
+    if fw_required and not fw_actual:
+        failed.append("firewall_enabled")
+
+    # Check 4: encryption_enabled
+    enc_required = baseline.get("encryption_enabled", False)
+    enc_actual = config.get("encryption_enabled", False)
+    if enc_required and not enc_actual:
+        failed.append("encryption_enabled")
+
+    # Check 5: allowed_accounts
+    allowed_acc = set(baseline.get("allowed_accounts", []))
+    actual_acc = config.get("accounts", [])
+    if any(a not in allowed_acc for a in actual_acc):
+        failed.append("allowed_accounts")
+
+    return sorted(failed)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+import pytest
+
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1():
+    data = {
+        "baseline": {
+            "min_password_length": 12,
+            "disallowed_services": ["ftp", "telnet"],
+            "firewall_enabled": True,
+            "encryption_enabled": True,
+            "allowed_accounts": ["admin", "operator"]
+        },
+        "configuration": {
+            "password_length": 8,
+            "services": ["ssh", "ftp"],
+            "firewall_enabled": False,
+            "encryption_enabled": True,
+            "accounts": ["admin", "guest", "operator"]
+        }
+    }
+    expected = ["allowed_accounts", "disallowed_services", "firewall_enabled", "min_password_length"]
+    assert impl.solve(data) == expected
+
+
+def test_example_2():
+    data = {
+        "baseline": {
+            "min_password_length": 8,
+            "disallowed_services": ["telnet"],
+            "firewall_enabled": True,
+            "encryption_enabled": False,
+            "allowed_accounts": ["admin"]
+        },
+        "configuration": {
+            "password_length": 10,
+            "services": ["ssh", "http"],
+            "firewall_enabled": True,
+            "encryption_enabled": True,
+            "accounts": ["admin"]
+        }
+    }
+    expected = []
+    assert impl.solve(data) == expected
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty():
+    # Empty configurations default to fail checks that are required
+    data = {
+        "baseline": {
+            "min_password_length": 10,
+            "disallowed_services": ["ftp"],
+            "firewall_enabled": True,
+            "encryption_enabled": True,
+            "allowed_accounts": ["admin"]
+        },
+        "configuration": {}
+    }
+    # password_length defaults to 0 (fails)
+    # services defaults to [] (passes - no disallowed service present)
+    # firewall_enabled defaults to False (fails)
+    # encryption_enabled defaults to False (fails)
+    # accounts defaults to [] (passes - no unauthorized accounts present)
+    expected = ["encryption_enabled", "firewall_enabled", "min_password_length"]
+    assert impl.solve(data) == expected
+
+
+def test_all_pass():
+    data = {
+        "baseline": {
+            "min_password_length": 14,
+            "disallowed_services": ["ftp", "telnet", "http", "smb"],
+            "firewall_enabled": True,
+            "encryption_enabled": True,
+            "allowed_accounts": ["root", "deploy"]
+        },
+        "configuration": {
+            "password_length": 14,
+            "services": ["ssh", "https"],
+            "firewall_enabled": True,
+            "encryption_enabled": True,
+            "accounts": ["root"]
+        }
+    }
+    assert impl.solve(data) == []
+
+
+def test_case_sensitivity():
+    data = {
+        "baseline": {
+            "min_password_length": 8,
+            "disallowed_services": ["Telnet"],
+            "firewall_enabled": False,
+            "encryption_enabled": False,
+            "allowed_accounts": ["Admin"]
+        },
+        "configuration": {
+            "password_length": 8,
+            "services": ["telnet"], # disallowed has 'Telnet', case-sensitive means passes
+            "accounts": ["admin"] # allowed has 'Admin', case-sensitive means fails
+        }
+    }
+    assert impl.solve(data) == ["allowed_accounts"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

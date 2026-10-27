@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network monitoring and traffic analysis, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Network monitoring and traffic analysis  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.5.b: Traffic-anomaly detector</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 3.5.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Implement a simplified network traffic-anomaly detector. You are given a per-host <strong>baseline</strong>
+(the normal profile for that host) and a window of <strong>observed flow records</strong>. Flag every host that
+either exceeds its baseline byte-volume threshold or uses a destination port not in its baseline's
+allowed-port set.</p>
+<p>A <strong>baseline</strong> is a dict mapping host IP (str) to a dict with:
+- <code>"max_bytes"</code>, integer, the maximum total outbound bytes this host normally sends in the window
+- <code>"allowed_ports"</code>, list of integers, destination ports this host normally uses</p>
+<p>An <strong>observed flow record</strong> is a dict with:
+- <code>"host"</code>, source host IP string
+- <code>"dst_port"</code>, destination port integer
+- <code>"bytes"</code>, integer, bytes sent in this flow</p>
+<p>A host may appear in multiple flow records within the same window; volumes accumulate.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(baseline, flows)</code> in the code editor (see the Reference section below).</p>
+<ul>
+<li><code>baseline</code>, dict as described above</li>
+<li><code>flows</code>, list of flow record dicts (any order)</li>
+</ul>
+<p>Return a sorted <code>list[str]</code> of host IPs flagged as anomalous. A host is flagged if EITHER:
+1. Its <strong>total</strong> bytes across all its flow records in this window exceeds <code>max_bytes</code>, OR
+2. Any single flow record for that host uses a <code>dst_port</code> not present in <code>allowed_ports</code>.</p>
+<p>A host not present in <code>baseline</code> at all is always flagged (unknown host, no baseline to compare
+against, treated as an anomaly).</p>
+<h2>Examples</h2>
+<pre><code class="language-python">baseline = {
+    &quot;10.0.1.5&quot;: {&quot;max_bytes&quot;: 500_000_000, &quot;allowed_ports&quot;: [445, 139]},
+    &quot;10.0.2.9&quot;: {&quot;max_bytes&quot;: 5_000_000, &quot;allowed_ports&quot;: [80, 443]},
+}
+flows = [
+    {&quot;host&quot;: &quot;10.0.1.5&quot;, &quot;dst_port&quot;: 445, &quot;bytes&quot;: 100_000_000},
+    {&quot;host&quot;: &quot;10.0.1.5&quot;, &quot;dst_port&quot;: 445, &quot;bytes&quot;: 50_000_000},
+    {&quot;host&quot;: &quot;10.0.2.9&quot;, &quot;dst_port&quot;: 4444, &quot;bytes&quot;: 1_000},   # unusual port -&gt; flagged
+]
+solve(baseline, flows) == [&quot;10.0.2.9&quot;]
+</code></pre>
+<pre><code class="language-python">baseline = {&quot;10.0.3.1&quot;: {&quot;max_bytes&quot;: 1_000_000, &quot;allowed_ports&quot;: [443]}}
+flows = [
+    {&quot;host&quot;: &quot;10.0.3.1&quot;, &quot;dst_port&quot;: 443, &quot;bytes&quot;: 900_000},
+    {&quot;host&quot;: &quot;10.0.3.1&quot;, &quot;dst_port&quot;: 443, &quot;bytes&quot;: 900_000},   # total 1.8M &gt; 1M -&gt; flagged
+]
+solve(baseline, flows) == [&quot;10.0.3.1&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>Result is sorted, contains no duplicate host IPs.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(baseline: dict, flows: list[dict]) -&gt; list[str]
+</code></pre>
+<h3>Input</h3>
+<h4><code>baseline</code>, dict mapping host IP (str) -&gt; profile dict</h4>
+<p>Each profile dict has:
+- <code>"max_bytes"</code> (int): maximum normal total outbound bytes for this host in the window
+- <code>"allowed_ports"</code> (list[int]): destination ports normally used by this host</p>
+<h4><code>flows</code>, list of observed flow record dicts (any order, possibly multiple per host)</h4>
+<p>Each flow dict has:
+- <code>"host"</code> (str): source host IP
+- <code>"dst_port"</code> (int): destination port
+- <code>"bytes"</code> (int): bytes sent in this flow</p>
+<h3>Output (<code>result</code>)</h3>
+<p>Sorted <code>list[str]</code> of host IPs flagged as anomalous, no duplicates.</p>
+<h3>Flagging rules</h3>
+<p>A host is flagged if ANY of the following hold:
+1. Host is not a key in <code>baseline</code> (unknown host, no profile to compare against).
+2. The sum of <code>"bytes"</code> across all of that host's flow records exceeds <code>baseline[host]["max_bytes"]</code>.
+3. Any single flow record for that host has a <code>"dst_port"</code> not in <code>baseline[host]["allowed_ports"]</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function; deterministic; no I/O; no network access.</li>
+<li><code>baseline</code> and <code>flows</code> are not mutated by <code>solve</code>.</li>
+<li>Standard library only.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.5.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements a simplified per-host traffic-anomaly detector: flags hosts exceeding a baseline
+byte-volume threshold or using a destination port outside the baseline's allowed set.
+"""
+from typing import Dict, List
+
+
+def solve(baseline: Dict, flows: List[Dict]) -&gt; List[str]:
+    """Flag hosts whose observed traffic deviates from their baseline profile.
+
+    Args:
+        baseline: host IP -&gt; {"max_bytes": int, "allowed_ports": list[int]}
+        flows:    list of {"host": str, "dst_port": int, "bytes": int}
+
+    Returns:
+        Sorted list of anomalous host IPs (no duplicates).
+    """
+    totals: Dict[str, int] = {}
+    port_violation: Dict[str, bool] = {}
+    unknown_hosts = set()
+
+    for flow in flows:
+        host = flow["host"]
+        if host not in baseline:
+            unknown_hosts.add(host)
+            continue
+        totals[host] = totals.get(host, 0) + flow["bytes"]
+        allowed_ports = baseline[host]["allowed_ports"]
+        if flow["dst_port"] not in allowed_ports:
+            port_violation[host] = True
+
+    flagged = set(unknown_hosts)
+    for host, total in totals.items():
+        if total &gt; baseline[host]["max_bytes"]:
+            flagged.add(host)
+    for host in port_violation:
+        flagged.add(host)
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def test_port_anomaly_flags_host():
+    baseline = {
+        "10.0.1.5": {"max_bytes": 500_000_000, "allowed_ports": [445, 139]},
+        "10.0.2.9": {"max_bytes": 5_000_000, "allowed_ports": [80, 443]},
+    }
+    flows = [
+        {"host": "10.0.1.5", "dst_port": 445, "bytes": 100_000_000},
+        {"host": "10.0.1.5", "dst_port": 445, "bytes": 50_000_000},
+        {"host": "10.0.2.9", "dst_port": 4444, "bytes": 1_000},
+    ]
+    assert impl.solve(baseline, flows) == ["10.0.2.9"]
+
+
+def test_volume_anomaly_flags_host():
+    baseline = {"10.0.3.1": {"max_bytes": 1_000_000, "allowed_ports": [443]}}
+    flows = [
+        {"host": "10.0.3.1", "dst_port": 443, "bytes": 900_000},
+        {"host": "10.0.3.1", "dst_port": 443, "bytes": 900_000},
+    ]
+    assert impl.solve(baseline, flows) == ["10.0.3.1"]
+
+
+def test_normal_traffic_not_flagged():
+    baseline = {"10.0.5.5": {"max_bytes": 1_000_000, "allowed_ports": [80, 443]}}
+    flows = [
+        {"host": "10.0.5.5", "dst_port": 443, "bytes": 400_000},
+        {"host": "10.0.5.5", "dst_port": 80, "bytes": 200_000},
+    ]
+    assert impl.solve(baseline, flows) == []
+
+
+def test_unknown_host_flagged():
+    baseline = {"10.0.1.1": {"max_bytes": 1_000_000, "allowed_ports": [80]}}
+    flows = [
+        {"host": "10.0.1.1", "dst_port": 80, "bytes": 100},
+        {"host": "192.168.9.9", "dst_port": 80, "bytes": 100},
+    ]
+    assert impl.solve(baseline, flows) == ["192.168.9.9"]
+
+
+def test_exact_boundary_not_flagged():
+    baseline = {"10.0.6.1": {"max_bytes": 1_000, "allowed_ports": [80]}}
+    flows = [{"host": "10.0.6.1", "dst_port": 80, "bytes": 1_000}]
+    # Exactly at max_bytes is NOT an anomaly (only strictly exceeding is).
+    assert impl.solve(baseline, flows) == []
+
+
+def test_multiple_hosts_mixed_results():
+    baseline = {
+        "a": {"max_bytes": 100, "allowed_ports": [22]},
+        "b": {"max_bytes": 100, "allowed_ports": [22]},
+        "c": {"max_bytes": 100, "allowed_ports": [22]},
+    }
+    flows = [
+        {"host": "a", "dst_port": 22, "bytes": 50},       # ok
+        {"host": "b", "dst_port": 22, "bytes": 150},      # volume anomaly
+        {"host": "c", "dst_port": 9999, "bytes": 10},     # port anomaly
+    ]
+    assert impl.solve(baseline, flows) == ["b", "c"]
+
+
+def test_empty_flows():
+    baseline = {"a": {"max_bytes": 100, "allowed_ports": [22]}}
+    assert impl.solve(baseline, []) == []
+
+
+def test_result_sorted_and_deduplicated():
+    baseline = {"z": {"max_bytes": 10, "allowed_ports": [80]}, "a": {"max_bytes": 10, "allowed_ports": [80]}}
+    flows = [
+        {"host": "z", "dst_port": 999, "bytes": 1},
+        {"host": "z", "dst_port": 999, "bytes": 1},
+        {"host": "a", "dst_port": 999, "bytes": 1},
+    ]
+    assert impl.solve(baseline, flows) == ["a", "z"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

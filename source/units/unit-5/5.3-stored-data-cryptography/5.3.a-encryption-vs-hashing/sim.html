@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.3.a, Encryption vs. hashing, Simulation</title>
+<style>
+:root {
+  --bg: #fff; --fg: #000; --muted: #555;
+  --win-face: #c0c0c0; --win-light: #fff; --win-shadow: #808080; --win-dark: #000;
+  --win-title: #000080; --win-title-fg: #fff;
+  --term-bg: #000; --term-fg: #00ff00; --term-dim: #00aa00;
+  --ui-font: "MS Sans Serif", Tahoma, Geneva, system-ui, sans-serif;
+  --mono-font: "Consolas", "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
+  --tok-kw: #000080; --tok-str: #008000; --tok-num: #aa5500; --tok-com: #808080; --tok-fn: #800080;
+}
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--ui-font); font-size: 14px; }
+.theme-linux {
+  --win-face: #f5f5f5; --win-title: #e0e0e0; --win-title-fg: #000;
+  --tok-kw: #9c36b5; --tok-str: #2f9e44; --tok-num: #1971c2; --tok-com: #868e96; --tok-fn: #e8590c;
+}
+.wrap { max-width: 880px; margin: 16px auto; padding: 0 12px; }
+.window { background: var(--win-face); padding: 2px; border: 2px solid; border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light); }
+.theme-linux .window { border: 1px solid #ccc; }
+.titlebar { background: var(--win-title); color: var(--win-title-fg); font-weight: bold; padding: 2px 4px; display: flex; justify-content: space-between; }
+.titlebar .controls { font-family: var(--mono-font); }
+.body { background: var(--win-face); padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.btn { font-family: var(--ui-font); background: var(--win-face); padding: 3px 12px; cursor: pointer; border: 2px solid; border-color: var(--win-light) var(--win-dark) var(--win-dark) var(--win-light); }
+.btn:active { border-color: var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow); }
+.theme-linux .btn { border: 1px solid #ccc; border-radius: 3px; background: #fff; }
+.terminal { background: var(--term-bg); color: var(--term-fg); font-family: var(--mono-font); padding: 8px 10px; white-space: pre-wrap; line-height: 1.35; min-height: 120px; }
+.terminal .prompt { color: var(--term-dim); }
+.statusbar { font-family: var(--mono-font); background: var(--win-face); padding: 3px 8px; margin-top: 8px; border: 2px solid; border-color: var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow); }
+.scorepanel .ok { color: #008000; font-weight: bold; }
+.scorepanel .bad { color: #aa0000; font-weight: bold; }
+h1 { font-size: 16px; margin: 0 0 4px; }
+.toolbar { margin-bottom: 8px; }
+.container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) {
+  .container { grid-template-columns: 1fr; }
+}
+.panel { background: #fff; border: 2px solid; border-color: var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow); padding: 10px; }
+.panel h2 { font-size: 14px; margin-top: 0; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+.form-group { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-weight: bold; font-size: 12px; }
+.form-group input, .form-group select { padding: 4px; font-family: var(--mono-font); font-size: 12px; border: 1px solid var(--win-shadow); }
+.interactive-output { background: #eee; border: 1px solid #ccc; padding: 6px; font-family: var(--mono-font); font-size: 11px; word-break: break-all; min-height: 40px; margin-top: 8px; }
+.audit-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dotted #ccc; }
+.audit-row .field-info { display: flex; justify-content: space-between; font-size: 12px; }
+.audit-row .field-info .name { font-weight: bold; }
+.audit-row .field-info .req { color: var(--muted); }
+.feedback-box { font-size: 12px; font-weight: bold; margin-top: 4px; }
+.feedback-box.correct { color: #008000; }
+.feedback-box.incorrect { color: #aa0000; }
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>5.3.a, Encryption vs. Hashing Sandbox & Audit</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>Use the Sandbox tool on the left to explore the difference between hashing, encryption, and encoding. Then, audit the database schema on the right by choosing the correct protection control for each field based on its operational requirements.</p>
+
+      <div class="container">
+        <!-- SANDBOX PANEL -->
+        <div class="panel">
+          <h2>1. Cryptographic Sandbox</h2>
+          <div class="form-group">
+            <label for="sandbox-input">Plaintext Input:</label>
+            <input type="text" id="sandbox-input" value="SecretData123" oninput="runSandbox()">
+          </div>
+          <div class="form-group">
+            <label for="sandbox-key">Key / Salt (if applicable):</label>
+            <input type="text" id="sandbox-key" value="mySaltOrKey" oninput="runSandbox()">
+          </div>
+          <div class="form-group">
+            <label for="sandbox-mode">Operation Mode:</label>
+            <select id="sandbox-mode" onchange="runSandbox()">
+              <option value="hash">Cryptographic Hash (SHA-256 + Salt)</option>
+              <option value="encrypt">Symmetric Encryption (Simulated AES-256)</option>
+              <option value="encode">Base64 Encoding (No Key)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Output Result:</label>
+            <div id="sandbox-output" class="interactive-output">Loading...</div>
+          </div>
+          <p style="font-size:11px; color:var(--muted); margin:0;">
+            * Hash is one-way (irreversible).<br>
+            * Encryption is two-way (reversible with key).<br>
+            * Encoding is format-change (reversible without key).
+          </p>
+        </div>
+
+        <!-- AUDIT PANEL -->
+        <div class="panel">
+          <h2>2. Database Schema Audit</h2>
+          <div id="audit-form">
+            <!-- Row 1: user password -->
+            <div class="audit-row" data-field="password">
+              <div class="field-info">
+                <span class="name">users.password_hash</span>
+                <span class="req">Verify only (No recovery)</span>
+              </div>
+              <select class="audit-select" onchange="auditField('password', this.value)">
+                <option value="">-- Select Control --</option>
+                <option value="hash">Salted Hash (SHA-256)</option>
+                <option value="encrypt">Symmetric Encryption (AES)</option>
+                <option value="encode">Base64 Encoding</option>
+              </select>
+              <div class="feedback-box" id="fb-password"></div>
+            </div>
+
+            <!-- Row 2: credit card -->
+            <div class="audit-row" data-field="cc">
+              <div class="field-info">
+                <span class="name">orders.credit_card</span>
+                <span class="req">Must charge cards (Reversible)</span>
+              </div>
+              <select class="audit-select" onchange="auditField('cc', this.value)">
+                <option value="">-- Select Control --</option>
+                <option value="hash">Salted Hash (SHA-256)</option>
+                <option value="encrypt">Symmetric Encryption (AES)</option>
+                <option value="encode">Base64 Encoding</option>
+              </select>
+              <div class="feedback-box" id="fb-cc"></div>
+            </div>
+
+            <!-- Row 3: ssn -->
+            <div class="audit-row" data-field="ssn">
+              <div class="field-info">
+                <span class="name">employees.ssn</span>
+                <span class="req">Tax filing display (Reversible)</span>
+              </div>
+              <select class="audit-select" onchange="auditField('ssn', this.value)">
+                <option value="">-- Select Control --</option>
+                <option value="hash">Salted Hash (SHA-256)</option>
+                <option value="encrypt">Symmetric Encryption (AES)</option>
+                <option value="encode">Base64 Encoding</option>
+              </select>
+              <div class="feedback-box" id="fb-ssn"></div>
+            </div>
+
+            <!-- Row 4: api key -->
+            <div class="audit-row" data-field="token">
+              <div class="field-info">
+                <span class="name">api_tokens.token_hash</span>
+                <span class="req">Verify only (No recovery)</span>
+              </div>
+              <select class="audit-select" onchange="auditField('token', this.value)">
+                <option value="">-- Select Control --</option>
+                <option value="hash">Salted Hash (SHA-256)</option>
+                <option value="encrypt">Symmetric Encryption (AES)</option>
+                <option value="encode">Base64 Encoding</option>
+              </select>
+              <div class="feedback-box" id="fb-token"></div>
+            </div>
+
+            <!-- Row 5: avatar -->
+            <div class="audit-row" data-field="avatar">
+              <div class="field-info">
+                <span class="name">users.avatar_data</span>
+                <span class="req">Fit binary file in JSON API (Format)</span>
+              </div>
+              <select class="audit-select" onchange="auditField('avatar', this.value)">
+                <option value="">-- Select Control --</option>
+                <option value="hash">Salted Hash (SHA-256)</option>
+                <option value="encrypt">Symmetric Encryption (AES)</option>
+                <option value="encode">Base64 Encoding</option>
+              </select>
+              <div class="feedback-box" id="fb-avatar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 &#9474; OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+// Simple fallback hashes and encodings for guaranteed offline deterministic simulation
+function fakeSHA256(text) {
+  let h = 0xcafebabe;
+  for (let i = 0; i < text.length; i++) {
+    h = Math.imul(h ^ text.charCodeAt(i), 2654435761);
+  }
+  const part1 = (h >>> 0).toString(16).padStart(8, '0');
+  let h2 = 0xdeadbeef;
+  for (let i = text.length - 1; i >= 0; i--) {
+    h2 = Math.imul(h2 ^ text.charCodeAt(i), 2246822519);
+  }
+  const part2 = (h2 >>> 0).toString(16).padStart(8, '0');
+  return part1 + part2 + part1 + part2; // 64 chars hex-like
+}
+
+function fakeEncrypt(text, key) {
+  // Simple deterministic XOR-based encryption simulating AES
+  let result = [];
+  let kIndex = 0;
+  for (let i = 0; i < text.length; i++) {
+    let keyChar = key.length > 0 ? key.charCodeAt(kIndex) : 42;
+    result.push((text.charCodeAt(i) ^ keyChar).toString(16).padStart(2, '0'));
+    kIndex = (kIndex + 1) % (key.length || 1);
+  }
+  return "ENC_" + result.join("").toUpperCase();
+}
+
+function fakeEncode(text) {
+  try {
+    return btoa(text);
+  } catch (e) {
+    return "ENCODE_ERROR_NON_ASCII";
+  }
+}
+
+function runSandbox() {
+  const input = document.getElementById('sandbox-input').value;
+  const key = document.getElementById('sandbox-key').value;
+  const mode = document.getElementById('sandbox-mode').value;
+  const out = document.getElementById('sandbox-output');
+
+  if (mode === 'hash') {
+    out.innerText = fakeSHA256(key + input);
+  } else if (mode === 'encrypt') {
+    out.innerText = fakeEncrypt(input, key);
+  } else if (mode === 'encode') {
+    out.innerText = fakeEncode(input);
+  }
+}
+
+// Audit Answers
+const SOLUTIONS = {
+  password: "hash",
+  cc: "encrypt",
+  ssn: "encrypt",
+  token: "hash",
+  avatar: "encode"
+};
+
+let userAnswers = {
+  password: "",
+  cc: "",
+  ssn: "",
+  token: "",
+  avatar: ""
+};
+
+function auditField(field, value) {
+  userAnswers[field] = value;
+  const fb = document.getElementById('fb-' + field);
+  if (value === "") {
+    fb.className = "feedback-box";
+    fb.innerText = "";
+  } else if (value === SOLUTIONS[field]) {
+    fb.className = "feedback-box correct";
+    fb.innerText = "Correct";
+  } else {
+    fb.className = "feedback-box incorrect";
+    fb.innerText = "Incorrect choice. Review requirements.";
+  }
+  checkObjective();
+}
+
+function checkObjective() {
+  let score = 0;
+  for (let k in SOLUTIONS) {
+    if (userAnswers[k] === SOLUTIONS[k]) {
+      score++;
+    }
+  }
+  const met = (score === 5);
+  const el = document.getElementById('score');
+  el.innerHTML = 'SCORE ' + score + ' / 5 │ OBJECTIVE: ' +
+    (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+// Initial sandbox run
+runSandbox();
+</script>
+</body>
+</html>

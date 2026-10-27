@@ -1,0 +1,369 @@
+\chapter{Device Endpoint Vulnerabilities}
+\label{ch:4.1}
+\chaptertopic{Topic 4.1}
+
+\chapterquote{Only amateurs attack machines; professionals target people.}{Bruce Schneier, ``Semantic Attacks: The Third Wave of Network Attacks'' (2000)}
+
+\section{Motivation}
+
+Units 2 and 3 protected space and wire. Unit~4 moves to the endpoint itself -- the laptop, phone,
+camera, or thermostat where data actually lives and computation actually happens. This chapter
+covers three distinct ways an endpoint gets compromised: malicious software running on it, and
+physical tampering with the hardware itself. It also covers the enormous, largely undefended
+category of Internet of Things devices, which fail in both of the first two ways simultaneously,
+at a scale no other device category matches.
+
+\begin{apalignment}{Unit 4: Securing Devices}{Topic 4.1 -- Device Vulnerabilities and Attacks}
+\begin{apobjectives}
+\apobjective{4.1.A}{Analyze Risk}{Recognize the different classes of computing device -- servers,
+workstations and laptops, mobile handsets, network appliances, and embedded/industrial controllers
+with no screen or keyboard -- and account for how each class differs in what it can run, what it
+can be patched with, and how long its vendor will support it.}
+\apobjective{4.1.B}{Analyze Risk}{Work out, from what an incident actually did, which family of
+malicious software was involved: whether the code needed a host file and a human, whether it moved
+between machines unaided, whether it arrived disguised as legitimate software, and whether its
+purpose was extortion, concealment, surveillance, or theft.}
+\apobjective{4.1.C}{Analyze Risk}{Trace the route from a weakness in a device -- a factory
+password, an unneeded service, an unpatched kernel, unsupported firmware -- to the concrete harm
+an adversary can produce with it: data lost, hardware damaged, operations halted, records
+destroyed.}
+\apobjective{4.1.D}{Analyze Risk}{Evaluate the weaknesses present on a fleet of devices and record
+them in a form someone else can act on -- each finding scored for likelihood and impact, ranked
+against the others, and documented where the decision to fix or accept it can later be audited.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Device Classes and the Support Lifecycle}
+
+Not every endpoint is the same kind of target. Five device classes recur across a typical
+organization, and each one differs in what it can run, how it gets patched, and how long its
+vendor keeps patching it at all.
+
+\begin{itemize}
+\item \textbf{Servers} run general-purpose operating systems and patch on a scheduled,
+change-controlled basis -- downtime costs money, so a patch waits for a maintenance window rather
+than shipping the moment a fix exists.
+\item \textbf{Workstations and laptops} run the same kind of general-purpose operating system but
+patch far more aggressively, often automatically, because a compromised end-user machine is
+usually the first hop into the rest of the network.
+\item \textbf{Mobile handsets} run a locked-down operating system controlled by one vendor, which
+pushes security updates directly to the device. That vendor also sets its own support cutoff,
+though: past that date, even a healthy phone stops receiving patches entirely.
+\item \textbf{Network appliances} -- routers, firewalls, switches -- run stripped-down firmware
+built for one function. An administrator updates it rarely, and only by scheduling an outage.
+\item \textbf{Embedded and industrial controllers} have no screen, no keyboard, and often no
+practical way to patch at all. The firmware that shipped with the device may be the only firmware
+it ever runs, across a service life measured in decades rather than years.
+\end{itemize}
+
+The pattern across all five classes is the same: the harder a device is to patch, and the longer
+it stays in service, the longer any given vulnerability in it stays exploitable. An unpatched
+laptop is a bad week. An unpatched industrial controller can be a bad decade.
+
+\section{Malware Types}
+
+\begin{definition}{Malware}
+Malicious software: any program intentionally designed to cause harm, steal data, disrupt
+operations, or give an attacker unauthorized control.
+\end{definition}
+
+Four categories account for the overwhelming majority of real-world device compromises. Each has a
+genuinely different mechanism, which is exactly why classifying an infection correctly matters --
+the right defense is specific to the category, not generic.
+
+A \textbf{virus} attaches its code to a legitimate host file -- an executable, a macro-enabled
+document, a script -- and activates only when a user runs that host file. At that point it
+typically searches for other files to infect, and spreads further whenever an infected file is
+copied or emailed elsewhere. Its defining trait is dependence on a host file \emph{and} direct user
+action to propagate. A \textbf{worm} shares the self-replicating instinct but needs neither: it is
+a self-contained program that actively probes a network and finds vulnerable devices. It copies
+itself across automatically, repeating the process on each new host, with no user interaction
+required anywhere in the chain. The 2003 SQL Slammer worm shows how fast that unaided spread can
+go: it doubled its infected-host count every 8.5 seconds by exploiting a single buffer-overflow
+flaw in Microsoft SQL Server. Within its first ten minutes it reached an estimated 75,000
+vulnerable hosts.\srccite{4.1}{1}
+
+A \textbf{trojan} takes the opposite approach entirely: it does not self-replicate at all, relying
+instead on disguise -- presenting itself as a free game, a pirated application, a ``system
+cleaner'' -- so the user installs it willingly. Once installed, a trojan often opens a back door
+granting an attacker remote control, keystroke logging, or a launch point for further attacks. And
+because the user installed it themselves, tools that look for unauthorized changes may never flag
+the initial infection at all. \textbf{Ransomware} encrypts a victim's files with a key only the
+attacker holds, then demands payment, typically in cryptocurrency, for the decryption key. It
+disproportionately targets hospitals, schools, and municipalities, precisely because they cannot
+afford the downtime that refusing to pay would cost them.
+
+\begin{figure}[h]
+\centering
+\begin{forest}
+for tree={
+  draw=kickstartermaroon, thick, rounded corners, align=center,
+  font=\scriptsize, l sep=14pt, s sep=10pt, minimum height=0.7cm,
+}
+[Malware
+  [Virus\\{\tiny needs host file + user}, fill=kickstartercream]
+  [Worm\\{\tiny self-contained, no user}, fill=kickstartercream]
+  [Trojan\\{\tiny disguise, no self-replication}, fill=kickstartercream
+    [Ransomware\\{\tiny encrypts, demands payment}, fill=kickstartermaroon!15]
+  ]
+]
+\end{forest}
+\caption{The four malware categories divide on two independent questions: does it need a host
+file and user action to spread, and does it rely on disguise rather than self-replication?
+Ransomware is a payload, not a spreading mechanism -- it commonly arrives via a trojan.}
+\label{fig:4.1-malware-tree}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption={Classifying an infection by its behavioral signature}]
+SIGNATURES = {
+    "unusual_network_scanning": "worm",
+    "self_installed_via_deception": "trojan",
+    "host_file_infection": "virus",
+    "files_encrypted_ransom_note": "ransomware",
+}
+
+def classify_malware(signature):
+    """Returns the malware category matching a behavioral signature
+    string, or "unknown" if unrecognized."""
+    return SIGNATURES.get(signature, "unknown")
+\end{lstlisting}
+
+These categories are not mutually exclusive in a real attack -- a worm might carry a trojan
+payload that later downloads ransomware, stacking three mechanisms into one incident. Malware
+enters through an \textbf{infection vector}: a phishing attachment (Chapter~\ref{ch:1.1}), a
+drive-by download, an infected USB drive, or exploitation of an unpatched vulnerability. Because
+the defense is vector-specific, recognizing which vector was used is not academic. No
+attachment-scanning policy stops worm spread; no network segmentation stops a user from installing
+a disguised trojan; only an offline backup neutralizes ransomware's actual leverage, since it
+removes the ``pay or lose everything'' choice entirely.
+
+\begin{misconception}
+\textbf{``Ransomware destroys your files.''} Ransomware typically encrypts files, leaving them
+fully intact but inaccessible without the key -- the attacker can decrypt them if paid, which is
+exactly the leverage a backup breaks. The files are locked, not gone.
+\end{misconception}
+
+\section{Device Tampering}
+
+The most fundamental rule of hardware security is blunt: if an attacker has physical access to
+your device, it is no longer your device. Passwords, firewalls, and network access lists all
+assume the physical chassis itself is secure. Once that assumption fails, almost every
+software-based defense can be bypassed without ever touching the operating system's login prompt.
+
+A \textbf{USB Rubber Ducky} exploits the fact that operating systems automatically trust a
+keyboard the instant one is plugged in. The device is programmed to mimic a USB keyboard rather
+than storage, and once connected it types scripted commands at over 1{,}000 words per
+minute\srccite{4.1}{2} -- opening a terminal, downloading malware, exfiltrating data. None of it
+looks like a file to scan, so antivirus never sees it. A \textbf{hardware keylogger} sits inline
+between the keyboard cable and the computer, intercepting every electrical signal before it ever
+reaches the operating system. That is precisely why no software-based scanner can detect it: the
+interception happens entirely in hardware, one layer below anything software can observe.
+
+\begin{example}[The cold boot attack]
+When a computer powers off, its RAM does not lose its contents instantly -- it degrades over
+several seconds to minutes. An attacker who sprays the memory chips with compressed-air duster held
+upside down -- so it discharges a cold liquid instead of a gas -- can chill them to roughly $-50^\circ$C,
+freezing that decay in place. At that temperature, research on the technique found that cutting
+power for a full minute still let an attacker recover at least 99.9\% of the RAM's
+bits.\srccite{4.1}{3} The attacker then quickly transfers the physical RAM module to another
+machine before it fades, extracting cryptographic keys or passwords that were resident in memory
+moments before. The attack works entirely on physics the operating system has no way to prevent:
+by the time it runs, the OS that would have protected that memory is no longer even executing.
+\end{example}
+
+Physical attacks succeed because operating systems are built for convenience first. They trust a
+newly connected keyboard implicitly, with no administrator privilege required. By default they
+will also boot from whatever storage device is connected -- letting a live Linux USB override the
+installed OS and every protection running inside it. \textbf{Full-disk encryption (FDE)} defeats
+this specific path. Bound to a \textbf{Trusted Platform Module (TPM)} that verifies boot integrity
+before releasing the decryption key, FDE ensures that an attacker who removes the drive or boots
+from external media still cannot read the encrypted contents without the key. BIOS/UEFI password
+protection and disabling external-media boot close the boot-integrity gap directly, while port
+blockers, cable locks, and chassis intrusion switches raise the physical bar for opportunistic
+tampering.
+
+\begin{lstlisting}[language=Python, caption={Detecting physical tampering events in a hardware audit log}]
+TAMPER_EVENTS = {"chassis_open", "unauthorized_usb_keyboard", "unknown_boot_device"}
+
+def flag_tamper_events(log):
+    """log: list of dicts like {"event": str, "timestamp": int}.
+       Returns sorted timestamps of recognized tampering events."""
+    return sorted(e["timestamp"] for e in log if e["event"] in TAMPER_EVENTS)
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``Operating system passwords protect my data if my laptop is stolen.''} A login password
+only guards the intended boot path. An attacker can remove the drive and read it on another
+machine, or boot a Linux USB and browse the filesystem directly, unless the disk's contents are
+themselves encrypted through FDE.
+\end{misconception}
+
+\section{IoT Device Vulnerabilities}
+
+The Internet of Things -- cameras, routers, thermostats, door locks, medical sensors, industrial
+controllers -- numbers in the tens of billions of deployed devices, and collectively they are the
+softest target on the modern network. The reasons recur across nearly every device category, which
+is what makes them worth understanding as a pattern rather than a checklist.
+
+Most IoT devices ship with \textbf{default credentials} -- \texttt{admin}/\texttt{admin},
+\texttt{root}/\texttt{12345}, or nothing at all -- meant only for initial setup. Most owners never
+change them, because a smart light bulb does not present as ``a computer that needs a password.''
+Automated scanners try these well-known lists against every IP address on the internet and succeed
+within seconds wherever the default was never touched. \textbf{Firmware} -- the low-level software
+controlling a device's core operation -- typically has no automatic update mechanism. Many
+manufacturers stop supporting a device (it becomes \textbf{end-of-life}) within a year or two. Any
+undiscovered vulnerability then stays exploitable for the rest of the device's operational life --
+often five to ten years for a security camera or industrial sensor.
+
+Devices frequently expose \textbf{management interfaces} over old, insecure protocols to keep
+setup convenient. Telnet, a plaintext remote-login protocol, is one; UPnP is another, letting a
+device silently punch a hole through a home router's firewall without the owner's knowledge and
+exposing an administrative interface directly to the internet. Their companion mobile apps depend
+on \textbf{cloud APIs} that, if improperly authenticated, let an attacker control or query devices
+belonging to other users entirely. Traffic sent without TLS, meanwhile, is readable by anyone
+sharing the same network segment. Physical accessibility compounds all of this: a doorbell camera
+on an exterior wall or a sensor in a parking garage is reachable by anyone who can touch it. That
+often lets an attacker extract firmware directly from a chip or attach a debug interface,
+bypassing network defenses entirely.
+
+\begin{example}[Mirai and the aggregate risk of scale]
+Any single insecure smart plug looks low-stakes in isolation. The 2016 Mirai botnet showed why
+scale changes that calculus completely. It scanned the internet for IoT devices still using
+factory-default Telnet credentials and logged in automatically wherever it found one. That
+enlisted each device into a network that reached over 600{,}000 compromised devices under central
+control at its peak.\srccite{4.1}{4} Mirai used that aggregate to launch some of the largest
+distributed-denial-of-service attacks ever recorded, including the October 2016 attack on DNS
+provider Dyn that briefly knocked Twitter, Netflix, and other major sites offline. No individual
+device mattered; the aggregate was devastating. That is exactly why security teams increasingly
+worry about \textbf{shadow IoT} -- devices connected to a network that IT never approved or
+secured, silently expanding the attack surface with nobody tracking it.
+\end{example}
+
+\begin{lstlisting}[language=Python, caption={Auditing an IoT device's primary security weakness}]
+def audit_device(device):
+    """device: dict like {"default_credentials": bool, "firmware_current": bool,
+       "telnet_open": bool, "upnp_enabled": bool, "api_authenticated": bool,
+       "traffic_encrypted": bool}.
+       Returns the highest-priority weakness label, in priority order."""
+    if device["default_credentials"]:
+        return "default-credentials"
+    if not device["firmware_current"]:
+        return "outdated-firmware"
+    if device["telnet_open"] or device["upnp_enabled"]:
+        return "exposed-management-interface"
+    if not device["api_authenticated"]:
+        return "unauthenticated-api"
+    if not device["traffic_encrypted"]:
+        return "unencrypted-traffic"
+    return "no-major-weakness"
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``If a device isn't connected to the internet, it's safe.''} A device on a local network
+can still be reached by anything else already on that network -- a compromised laptop, a malicious
+guest device -- and many ``local-only'' devices still phone home to a cloud API regardless. Network
+placement reduces risk; it does not eliminate it.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A hospital patches its laptop fleet automatically within days of every vendor security
+bulletin, but its infusion-pump controllers are still running the firmware they shipped with a
+decade ago. Explain why these two device classes end up with such different exposure windows,
+referencing what each class can run and how (or whether) it gets patched.
+\item A university network shows thousands of new infections within minutes, with no phishing
+email or user download involved in any of them. Identify which malware category this matches and
+explain the specific mechanical property that makes this scale of spread possible without user
+action.
+\item Explain why antivirus software cannot detect a hardware keylogger, tracing the explanation to
+exactly where in the system the interception occurs relative to the operating system.
+\item A stolen laptop has a strong login password but no full-disk encryption. Explain precisely
+how an attacker extracts its data anyway, and identify the single control that would have
+prevented it.
+\item An IoT device has default credentials, outdated firmware, and unencrypted traffic
+simultaneously. Using the priority-ordered audit logic from this chapter, explain which weakness
+should be reported first and why the ordering itself is a meaningful design decision, not arbitrary.
+\item Explain why the Mirai botnet is described as an aggregate risk rather than an individual-device
+risk, and explain what specific IoT weakness it exploited to reach its scale.
+\item Using the malware taxonomy diagram, explain why ``ransomware'' and ``trojan'' are not
+mutually exclusive categories the way ``virus'' and ``worm'' are, and describe a realistic
+infection chain that involves both labels correctly at once.
+\item A security team has a strong attachment-scanning policy and a strong network-segmentation
+policy but no offline backups. Using the vector-specific reasoning from this chapter, explain
+which malware category this fleet remains fully exposed to and why neither existing control
+addresses it.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Workstations and laptops run general-purpose operating systems with vendor-managed, often
+automatic patch delivery, so a newly disclosed vulnerability's exposure window is measured in
+days. Embedded and industrial controllers such as infusion pumps run purpose-built firmware with
+no screen or keyboard, often no practical update mechanism at all, and a service life measured in
+decades rather than years -- so a vulnerability discovered once can stay exploitable for the
+device's entire remaining life. The gap is not about which device matters more; it is about what
+each device class can run, and whether that software can realistically be replaced after the
+device is deployed.
+\answerlabel{4.1.A}
+\item The infection matches a \textbf{worm}. A worm is a self-contained program that actively
+probes a network for vulnerable hosts and copies itself across automatically, with no host file and
+no user action required anywhere in the chain -- which is exactly the mechanical property that lets
+an infection count climb into the thousands within minutes, the same doubling behavior the 2003
+Slammer worm showed.
+\answerlabel{4.1.B}
+\item A hardware keylogger sits inline on the physical cable between the keyboard and the
+computer, intercepting the electrical keystroke signal before it ever reaches the operating system.
+Antivirus software runs as code \emph{within} the operating system, one layer above where the
+interception happens, so it has no vantage point from which the tampering is even visible.
+\answerlabel{4.1.C}
+\item A login password only protects the intended boot path. The attacker can simply remove the
+drive and read it on another machine, or boot the laptop from a live Linux USB and browse the
+filesystem directly. Either path bypasses the login prompt entirely, because the data on disk was
+never encrypted. Full-disk encryption (FDE) is the single control that would have prevented this, since it
+makes the drive's contents unreadable without the key regardless of which machine reads the physical
+disk.
+\answerlabel{4.1.C}
+\item Default credentials should be reported first. The audit logic in this chapter checks it
+first because it is both the easiest weakness to exploit (no skill or exploit code needed, only a
+known username/password pair) and the one automated internet-wide scanners actively search for at
+scale, whereas outdated firmware or unencrypted traffic both require more attacker effort to
+leverage. The ordering reflects likelihood of exploitation, not an arbitrary list position.
+\answerlabel{4.1.D}
+\item Mirai is an aggregate risk because no single insecure smart plug or camera caused meaningful
+harm on its own; the damage came from combining hundreds of thousands of such devices under one
+attacker's control to launch massive distributed denial-of-service attacks. It exploited factory
+default Telnet credentials that device owners never changed, letting Mirai's scanner log in
+automatically at internet scale.
+\answerlabel{4.1.B}
+\item Virus and worm differ on a spreading mechanism -- host-file-and-user versus self-contained --
+so an infection is mechanically one or the other, never both at once. Ransomware and trojan differ
+on a different axis entirely: trojan describes \emph{how a program gets installed} (disguise
+rather than self-replication), while ransomware describes \emph{what the payload does once
+running} (encrypt files and demand payment). A realistic chain: a user downloads a disguised
+``free software cracker'' (a trojan, by installation method) which, once run, encrypts the user's
+files and displays a ransom note (ransomware, by payload behavior) -- both labels correctly
+describe the same single infection because they answer different questions about it.
+\answerlabel{4.1.B}
+\item The fleet remains fully exposed to ransomware. Attachment scanning targets the phishing
+infection vector and network segmentation limits lateral movement after a compromise, but neither
+addresses ransomware's actual leverage, which is the absence of any way to recover encrypted files
+without paying. A well-disguised trojan can still be willingly installed by a user despite
+attachment scanning (if it arrives by a different vector, such as a fake software download), and
+once ransomware executes locally it does not need to move laterally to cause damage -- only offline
+backups remove the ``pay or lose everything'' choice that is ransomware's entire mechanism of
+harm.
+\answerlabel{4.1.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{4.1}{1}David Moore, Vern Paxson, Stuart Staniford, et al., ``The Spread of the
+Sapphire/Slammer Worm,'' CAIDA (Cooperative Association for Internet Data Analysis), 2003.
+\item \srcitem{4.1}{2}Hak5, ``USB Rubber Ducky'' product specifications, shop.hak5.org (accessed
+2026).
+\item \srcitem{4.1}{3}J. Alex Halderman, Seth D. Schoen, Nadia Heninger, et al., ``Lest We
+Remember: Cold-Boot Attacks on Encryption Keys,'' \emph{Communications of the ACM}, vol.\ 52,
+no.\ 5 (May 2009).
+\item \srcitem{4.1}{4}Elie Bursztein, ``Inside Mirai the Infamous IoT Botnet: A Retrospective
+Analysis,'' elie.net, 2017; peak device count corroborated by contemporaneous reporting on the
+October 2016 Dyn DNS attack.
+\end{enumerate}

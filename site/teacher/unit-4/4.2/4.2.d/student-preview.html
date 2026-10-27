@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Least privilege and access control models, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Least privilege and access control models</h1>
+<h1>Coding problem, 4.2.d: Access-request auditor</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.2.B, 4.2.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A security team reviews access requests before granting them. Each request either has a business
+justification attached or it does not; the requester's access may or may not have been reviewed
+recently; and the requested access may be scoped to a temporary time window or be standing
+(permanent). Build the auditor function that applies the least-privilege triage rules to a single
+request and returns the decision.</p>
+<h2>Function contract</h2>
+<p>Implement <code>def solve(request: dict) -&gt; str</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A dict with keys <code>current_role</code> (str), <code>requested_access</code> (str), <code>justification_present</code> (bool),
+<code>time_bound</code> (bool or None), <code>last_reviewed_days_ago</code> (int). Optional keys default as documented
+in the Reference section below (missing <code>justification_present</code> defaults to <code>False</code>; missing <code>time_bound</code>
+defaults to <code>False</code>; missing <code>last_reviewed_days_ago</code> defaults to <code>0</code>).</p>
+<h2>Output</h2>
+<p>One of the strings: <code>"approve"</code>, <code>"deny_no_justification"</code>, <code>"flag_privilege_creep"</code>,
+<code>"approve_time_bound"</code>.</p>
+<h2>Decision rule (apply in this exact order, first match wins)</h2>
+<ol>
+<li>No justification (<code>justification_present</code> is <code>False</code>) → <code>"deny_no_justification"</code>.</li>
+<li>Else, stale review (<code>last_reviewed_days_ago &gt; 365</code>) → <code>"flag_privilege_creep"</code>.</li>
+<li>Else, time-bound request (<code>time_bound</code> is <code>True</code>) → <code>"approve_time_bound"</code>.</li>
+<li>Else → <code>"approve"</code>.</li>
+</ol>
+<p>Rule 1 is checked before rule 2, a request with no justification is denied even if it is also
+years overdue for review or time-bound. The staleness threshold is 365 days, strictly greater
+than (365 itself is still considered current).</p>
+<h2>Examples</h2>
+<pre><code>{&quot;current_role&quot;: &quot;Marketing Intern&quot;, &quot;requested_access&quot;: &quot;prod-db-write&quot;,
+ &quot;justification_present&quot;: False, &quot;time_bound&quot;: False, &quot;last_reviewed_days_ago&quot;: 10}
+    -&gt; &quot;deny_no_justification&quot;
+
+{&quot;current_role&quot;: &quot;HR Analyst&quot;, &quot;requested_access&quot;: &quot;payroll-admin&quot;,
+ &quot;justification_present&quot;: True, &quot;time_bound&quot;: False, &quot;last_reviewed_days_ago&quot;: 800}
+    -&gt; &quot;flag_privilege_creep&quot;
+
+{&quot;current_role&quot;: &quot;On-call Engineer&quot;, &quot;requested_access&quot;: &quot;prod-ssh&quot;,
+ &quot;justification_present&quot;: True, &quot;time_bound&quot;: True, &quot;last_reviewed_days_ago&quot;: 5}
+    -&gt; &quot;approve_time_bound&quot;
+
+{&quot;current_role&quot;: &quot;Analyst&quot;, &quot;requested_access&quot;: &quot;reporting-read&quot;,
+ &quot;justification_present&quot;: True, &quot;time_bound&quot;: False, &quot;last_reviewed_days_ago&quot;: 30}
+    -&gt; &quot;approve&quot;
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Missing optional keys must not raise, use the documented defaults.</li>
+<li>Exactly one label returned (string, not list).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(request: dict) -&gt; str
+</code></pre>
+<h3>Input (<code>request</code>)</h3>
+<p>A dict describing one access request:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>type</th>
+<th>required</th>
+<th>default if missing</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>current_role</code></td>
+<td>str</td>
+<td>no</td>
+<td><code>""</code></td>
+<td>the requester's current job role (informational; not used in the decision below, but always present in well-formed data)</td>
+</tr>
+<tr>
+<td><code>requested_access</code></td>
+<td>str</td>
+<td>no</td>
+<td><code>""</code></td>
+<td>the resource/access level being requested (informational)</td>
+</tr>
+<tr>
+<td><code>justification_present</code></td>
+<td>bool</td>
+<td>yes</td>
+<td><code>False</code></td>
+<td>whether a business justification was submitted with the request</td>
+</tr>
+<tr>
+<td><code>time_bound</code></td>
+<td>bool or None</td>
+<td>no</td>
+<td><code>False</code></td>
+<td>whether the requested access is scoped to a fixed, temporary time window; <code>None</code> is treated the same as <code>False</code></td>
+</tr>
+<tr>
+<td><code>last_reviewed_days_ago</code></td>
+<td>int</td>
+<td>no</td>
+<td><code>0</code></td>
+<td>days since this requester's access was last reviewed/recertified</td>
+</tr>
+</tbody>
+</table>
+<p>Missing optional keys default as shown above. <code>justification_present</code> is required conceptually
+(it drives the first rule) but if the key is absent, treat it as <code>False</code> (fail closed).</p>
+<h3>Output (<code>result</code>)</h3>
+<p>Exactly one string from <code>{"approve", "deny_no_justification", "flag_privilege_creep",
+"approve_time_bound"}</code>.</p>
+<h3>Decision rule (exact priority order, evaluate top to bottom, return on first match)</h3>
+<ol>
+<li>If <code>justification_present</code> is <code>False</code> (or missing) → return <code>"deny_no_justification"</code>.
+   This is checked FIRST and overrides every other condition, including privilege creep.</li>
+<li>Else if <code>last_reviewed_days_ago &gt; 365</code> → return <code>"flag_privilege_creep"</code>.
+   A stale access review (more than 365 days since last review) takes priority over approving,
+   even if the request is time-bound. The threshold is a strict greater-than: exactly <code>365</code> does
+   NOT trigger this rule.</li>
+<li>Else if <code>time_bound</code> is <code>True</code> → return <code>"approve_time_bound"</code>.</li>
+<li>Else → return <code>"approve"</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
+<li>Missing optional keys use the defaults in the table above; do not raise on missing keys.</li>
+<li><code>last_reviewed_days_ago == 365</code> is NOT stale (rule 2 requires strictly greater than 365).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 4.2.d. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Any
+
+
+def solve(request: dict) -&gt; str:
+    """Audit a single access request per the least-privilege priority rules.
+
+    Args:
+        request: dict with keys current_role (str), requested_access (str),
+            justification_present (bool), time_bound (bool or None),
+            last_reviewed_days_ago (int). Optional keys default per the Reference section below.
+
+    Returns:
+        One of: "approve", "deny_no_justification", "flag_privilege_creep",
+        "approve_time_bound".
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_marketing_intern_no_justification():
+    req = {"current_role": "Marketing Intern", "requested_access": "prod-db-write",
+           "justification_present": False, "time_bound": False,
+           "last_reviewed_days_ago": 10}
+    assert impl.solve(req) == "deny_no_justification"
+
+
+def test_example_2_hr_privilege_creep():
+    req = {"current_role": "HR Analyst", "requested_access": "payroll-admin",
+           "justification_present": True, "time_bound": False,
+           "last_reviewed_days_ago": 800}
+    assert impl.solve(req) == "flag_privilege_creep"
+
+
+def test_example_3_oncall_time_bound():
+    req = {"current_role": "On-call Engineer", "requested_access": "prod-ssh",
+           "justification_present": True, "time_bound": True,
+           "last_reviewed_days_ago": 5}
+    assert impl.solve(req) == "approve_time_bound"
+
+
+def test_example_4_plain_approve():
+    req = {"current_role": "Analyst", "requested_access": "reporting-read",
+           "justification_present": True, "time_bound": False,
+           "last_reviewed_days_ago": 30}
+    assert impl.solve(req) == "approve"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_boundary_exactly_365_is_not_stale():
+    req = {"current_role": "Analyst", "requested_access": "reporting-read",
+           "justification_present": True, "time_bound": False,
+           "last_reviewed_days_ago": 365}
+    assert impl.solve(req) == "approve"
+
+
+def test_boundary_366_is_stale():
+    req = {"current_role": "Analyst", "requested_access": "reporting-read",
+           "justification_present": True, "time_bound": False,
+           "last_reviewed_days_ago": 366}
+    assert impl.solve(req) == "flag_privilege_creep"
+
+
+def test_priority_no_justification_beats_privilege_creep():
+    # justification_present False AND last_reviewed_days_ago &gt; 365:
+    # rule 1 is checked first, so deny_no_justification wins.
+    req = {"current_role": "HR Analyst", "requested_access": "payroll-admin",
+           "justification_present": False, "time_bound": False,
+           "last_reviewed_days_ago": 900}
+    assert impl.solve(req) == "deny_no_justification"
+
+
+def test_priority_privilege_creep_beats_time_bound():
+    req = {"current_role": "Contractor", "requested_access": "prod-ssh",
+           "justification_present": True, "time_bound": True,
+           "last_reviewed_days_ago": 400}
+    assert impl.solve(req) == "flag_privilege_creep"
+
+
+def test_missing_justification_key_defaults_false():
+    req = {"current_role": "Intern", "requested_access": "prod-db-write",
+           "time_bound": False, "last_reviewed_days_ago": 10}
+    assert impl.solve(req) == "deny_no_justification"
+
+
+def test_missing_time_bound_and_review_keys_default_to_approve():
+    req = {"current_role": "Analyst", "requested_access": "reporting-read",
+           "justification_present": True}
+    assert impl.solve(req) == "approve"
+
+
+def test_time_bound_none_treated_as_false():
+    req = {"current_role": "Analyst", "requested_access": "reporting-read",
+           "justification_present": True, "time_bound": None,
+           "last_reviewed_days_ago": 5}
+    assert impl.solve(req) == "approve"
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

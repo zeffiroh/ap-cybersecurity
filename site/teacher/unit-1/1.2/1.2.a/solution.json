@@ -1,0 +1,6 @@
+{
+  "atom_id": "1.2.a",
+  "topic_id": "1.2",
+  "title": "Password-attack signs (failed attempts, unusual times, unknown devices)",
+  "solution_py": "\"\"\"Reference solution for 1.2.a. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\nfrom collections import defaultdict\nfrom typing import List, Dict, Any\n\n\ndef solve(events: List[Dict[str, Any]]) -> List[str]:\n    \"\"\"Return sorted, de-duplicated usernames with >=5 failed logins in any 60s window.\"\"\"\n    # Group failure timestamps by user\n    failures: Dict[str, List[int]] = defaultdict(list)\n    for ev in events:\n        if not ev.get(\"ok\", True):\n            failures[ev[\"user\"]].append(ev[\"ts\"])\n\n    flagged = set()\n    for user, timestamps in failures.items():\n        timestamps.sort()\n        # Sliding window of size 5: if ts[i+4] - ts[i] < 60, threshold met\n        for i in range(len(timestamps) - 4):\n            if timestamps[i + 4] - timestamps[i] < 60:\n                flagged.add(user)\n                break  # Already flagged; stop early\n\n    return sorted(flagged)\n"
+}

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credential theft prevention and lateral movement, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Credential theft prevention and lateral movement</h1>
+<h1>Coding problem, 5.2.c: Detect lateral movement in an authentication log</h1>
+<p><strong>Skill:</strong> Mitigate Risk, Detect Attacks · <strong>Maps to:</strong> 5.2.B, 5.2.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the detector a security team's SIEM rule would run over authentication events. Given a list
+of authentication events (account, destination host, timestamp in minutes), flag any account that
+authenticated to <strong>at least <code>threshold</code> distinct hosts</strong> within any rolling <strong><code>window_minutes</code></strong>
+window, a classic lateral-movement signal.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(events: list, threshold: int, window_minutes: int) -&gt; list</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>events</code>: <code>list[dict]</code>, each <code>{"account": str, "host": str, "ts": int}</code> (<code>ts</code> = minutes since
+  start of log, non-negative integer, not necessarily sorted).</li>
+<li><code>threshold</code>: <code>int</code>, minimum number of <strong>distinct</strong> hosts within the window to flag the account.</li>
+<li><code>window_minutes</code>: <code>int</code>, size of the rolling time window, in minutes (inclusive on both ends).</li>
+</ul>
+<h2>Output</h2>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of account names that hit the threshold at any point.</p>
+<h2>Examples</h2>
+<pre><code>events = [
+  {&quot;account&quot;:&quot;mkt_dana&quot;,&quot;host&quot;:&quot;h1&quot;,&quot;ts&quot;:0},
+  {&quot;account&quot;:&quot;mkt_dana&quot;,&quot;host&quot;:&quot;h2&quot;,&quot;ts&quot;:2},
+  {&quot;account&quot;:&quot;mkt_dana&quot;,&quot;host&quot;:&quot;h3&quot;,&quot;ts&quot;:4},
+  {&quot;account&quot;:&quot;svc_backup&quot;,&quot;host&quot;:&quot;h9&quot;,&quot;ts&quot;:0},
+]
+solve(events, threshold=3, window_minutes=5) -&gt; [&quot;mkt_dana&quot;]
+</code></pre>
+<pre><code>events = [
+  {&quot;account&quot;:&quot;alice&quot;,&quot;host&quot;:&quot;h1&quot;,&quot;ts&quot;:0},
+  {&quot;account&quot;:&quot;alice&quot;,&quot;host&quot;:&quot;h2&quot;,&quot;ts&quot;:100},
+]
+solve(events, threshold=2, window_minutes=5) -&gt; []   # too far apart for the window
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>A window <code>[t, t + window_minutes]</code> counts an event if its <code>ts</code> falls within that inclusive range;
+  consider every event's <code>ts</code> as a possible window start.</li>
+<li>Repeated authentications to the SAME host do not add distinct-host count.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list, threshold: int, window_minutes: int) -&gt; list
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>events</code>: <code>list[dict]</code>, each <code>{"account": str, "host": str, "ts": int}</code>. Not necessarily sorted
+  by <code>ts</code>. <code>ts</code> is minutes since the start of the log (non-negative int).</li>
+<li><code>threshold</code>: <code>int</code>, minimum number of distinct hosts within a window to flag the account.</li>
+<li><code>window_minutes</code>: <code>int</code>, inclusive window size in minutes.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>Sorted, de-duplicated <code>list[str]</code> of account names for which some window
+<code>[start, start + window_minutes]</code> (with <code>start</code> equal to some event's <code>ts</code> for that account)
+contains events touching <code>&gt;= threshold</code> distinct hosts.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>The window bounds are inclusive: an event with <code>ts == start + window_minutes</code> counts.</li>
+<li>Repeated events to the same host within a window count once toward distinct-host count.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.2.c. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Dict, List
+
+
+def solve(events: List[Dict[str, object]], threshold: int, window_minutes: int) -&gt; List[str]:
+    """Flag accounts whose authentication events hit &gt;= threshold distinct hosts
+    within some rolling window of `window_minutes`.
+
+    Args:
+        events: list of {"account": str, "host": str, "ts": int}
+        threshold: minimum distinct-host count within the window to flag an account
+        window_minutes: size of the inclusive rolling window, in minutes
+    Returns:
+        sorted, de-duplicated list[str] of flagged account names.
+    """
+    # TODO: group events by account; for each account, for every event's ts as a
+    #       candidate window start, count distinct hosts with ts in [start, start+window_minutes];
+    #       flag the account if any window reaches `threshold`.
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_lateral_movement_flagged():
+    events = [
+        {"account": "mkt_dana", "host": "h1", "ts": 0},
+        {"account": "mkt_dana", "host": "h2", "ts": 2},
+        {"account": "mkt_dana", "host": "h3", "ts": 4},
+        {"account": "svc_backup", "host": "h9", "ts": 0},
+    ]
+    assert impl.solve(events, threshold=3, window_minutes=5) == ["mkt_dana"]
+
+
+def test_too_far_apart_not_flagged():
+    events = [
+        {"account": "alice", "host": "h1", "ts": 0},
+        {"account": "alice", "host": "h2", "ts": 100},
+    ]
+    assert impl.solve(events, threshold=2, window_minutes=5) == []
+
+
+def test_same_host_repeated_not_counted_twice():
+    events = [
+        {"account": "bob", "host": "h1", "ts": 0},
+        {"account": "bob", "host": "h1", "ts": 1},
+        {"account": "bob", "host": "h1", "ts": 2},
+    ]
+    assert impl.solve(events, threshold=2, window_minutes=5) == []
+
+
+def test_multiple_accounts_flagged_sorted():
+    events = [
+        {"account": "zed", "host": "h1", "ts": 0},
+        {"account": "zed", "host": "h2", "ts": 1},
+        {"account": "amy", "host": "h3", "ts": 0},
+        {"account": "amy", "host": "h4", "ts": 1},
+    ]
+    assert impl.solve(events, threshold=2, window_minutes=5) == ["amy", "zed"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_window_boundary_inclusive():
+    events = [
+        {"account": "u", "host": "h1", "ts": 0},
+        {"account": "u", "host": "h2", "ts": 5},
+    ]
+    assert impl.solve(events, threshold=2, window_minutes=5) == ["u"]
+
+
+def test_window_boundary_exclusive_just_outside():
+    events = [
+        {"account": "u", "host": "h1", "ts": 0},
+        {"account": "u", "host": "h2", "ts": 6},
+    ]
+    assert impl.solve(events, threshold=2, window_minutes=5) == []
+
+
+def test_unsorted_input_events():
+    events = [
+        {"account": "u", "host": "h3", "ts": 4},
+        {"account": "u", "host": "h1", "ts": 0},
+        {"account": "u", "host": "h2", "ts": 2},
+    ]
+    assert impl.solve(events, threshold=3, window_minutes=5) == ["u"]
+
+
+def test_empty_events():
+    assert impl.solve([], threshold=1, window_minutes=5) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

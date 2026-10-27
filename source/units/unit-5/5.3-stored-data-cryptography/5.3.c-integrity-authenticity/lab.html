@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.3.c Lab, Integrity, Authenticity, and HMAC</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Integrity, Authenticity, and HMAC</h1>
+  <p class="sub">Forge a message past a plain hash, then watch a secret key stop the same forgery.</p>
+
+  <div class="brief">
+    <p>Every hash and tag below is computed by your browser's real cryptography (<code>SHA-256</code>
+    and <code>HMAC</code> via Web Crypto). You will play the attacker on a channel that protects a bank
+    transfer with a plain hash, rewrite the message, and recompute the hash so the tampering passes. Then
+    you switch the channel to HMAC, which mixes in a secret key you do not have, and discover the same
+    forgery is rejected. That is the line between integrity and authenticity.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="verify"><span>Confirm the original message verifies under plain SHA-256.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Verify</b> with the message unchanged. The recomputed digest matches the one in transit.</details></div></li>
+    <li data-m="forge"><span>In plain-hash mode, change the payee to <code>Mallory</code> and make the check still pass.</span>
+      <div class="hint"><details><summary>Hint</summary>Edit the message, then press <b>Recompute hash (attacker)</b> to overwrite the digest in transit, then Verify. A keyless hash lets anyone do this.</details></div></li>
+    <li data-m="hmac"><span>Switch to HMAC, tamper again, and confirm the forgery is rejected.</span>
+      <div class="hint"><details><summary>Hint</summary>In HMAC mode the attacker button cannot forge a valid tag without the secret key. Verification fails, so the tampering is caught.</details></div></li>
+  </ul>
+
+  <div class="panel">
+    <h3>Protected message (a funds transfer)</h3>
+    <textarea id="msg" rows="3" spellcheck="false">TRANSFER amount=500 to=Jordan from=Acct-4471 memo=rent</textarea>
+    <div class="row">
+      <label class="field" style="margin:0">Channel protection</label>
+      <select id="mode">
+        <option value="hash">Plain SHA-256 hash (integrity only)</option>
+        <option value="hmac">HMAC-SHA-256 with a shared secret key (integrity + authenticity)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel">
+      <h3>What travels on the wire</h3>
+      <p class="note">The receiver gets the message plus this tag, and recomputes its own tag to compare.</p>
+      <label class="field">tag in transit</label>
+      <div class="console" id="transit" style="min-height:46px"></div>
+      <div class="row">
+        <button id="recompute">Recompute hash (attacker)</button>
+        <button class="primary" id="verify">Verify</button>
+      </div>
+      <p class="note" id="keynote"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Receiver's check</h3>
+      <div class="console" id="out"><span class="dim">Press Verify.</span></div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Integrity is not authenticity</h2>
+    <p>A plain hash answers only "does this data match this digest?" Because SHA-256 is public and keyless,
+    an attacker who alters the message can simply recompute the digest, and the receiver's check passes.
+    That gives integrity against accidental corruption, not against a deliberate forger. <b>HMAC</b> folds a
+    secret key into the computation, so a valid tag proves the sender knew the key, which an attacker does
+    not. Tampering changes the message, the recomputed tag no longer matches, and the forgery is caught.
+    This is the integrity-versus-authenticity distinction at the heart of LO 5.3.B and 5.3.C.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>
+(function () {
+  var esc = Lab.esc, hex = Lab.hex, bytes = Lab.bytes;
+  var SECRET = "server-side-key-not-shared-with-clients";
+  var transit = { tag: "", mode: "hash" };
+
+  var missions = new Lab.Missions("5.3.c", document.getElementById("missions"),
+    document.getElementById("progress"), function () {
+      document.getElementById("debrief").classList.add("show");
+    });
+
+  function hmacKey() {
+    return crypto.subtle.importKey("raw", bytes(SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  }
+  function tagFor(msg, mode) {
+    if (mode === "hash") {
+      return crypto.subtle.digest("SHA-256", bytes(msg)).then(hex);
+    }
+    return hmacKey().then(function (k) {
+      return crypto.subtle.sign("HMAC", k, bytes(msg)).then(hex);
+    });
+  }
+
+  function showTransit() {
+    document.getElementById("transit").innerHTML =
+      '<span class="q">' + esc(transit.tag || "(none yet)") + '</span>\n<span class="dim">mode: ' +
+      esc(transit.mode) + '</span>';
+  }
+
+  // Legitimate sender issues the first message + tag.
+  function issue() {
+    var mode = document.getElementById("mode").value;
+    tagFor(document.getElementById("msg").value, mode).then(function (t) {
+      transit.tag = t; transit.mode = mode;
+      showTransit();
+      document.getElementById("keynote").textContent = mode === "hash"
+        ? "Plain hash: the attacker CAN recompute a matching digest."
+        : "HMAC: the attacker does NOT have the secret key.";
+    });
+  }
+  issue();
+  document.getElementById("mode").addEventListener("change", issue);
+
+  // Attacker tries to recompute the tag after editing the message.
+  document.getElementById("recompute").addEventListener("click", function () {
+    var mode = document.getElementById("mode").value;
+    // The attacker can only run a keyless hash; in HMAC mode they lack the key, so they get a wrong tag.
+    var p = (mode === "hash")
+      ? crypto.subtle.digest("SHA-256", bytes(document.getElementById("msg").value)).then(hex)
+      : crypto.subtle.digest("SHA-256", bytes(document.getElementById("msg").value + "::no-key")).then(hex);
+    p.then(function (t) {
+      transit.tag = t;
+      showTransit();
+      document.getElementById("out").innerHTML =
+        '<span class="dim">attacker overwrote the tag in transit. Now press Verify.</span>';
+    });
+  });
+
+  document.getElementById("verify").addEventListener("click", function () {
+    var msg = document.getElementById("msg").value;
+    var mode = document.getElementById("mode").value;
+    tagFor(msg, mode).then(function (good) {
+      var ok = (good === transit.tag);
+      var out = document.getElementById("out");
+      var tampered = /mallory/i.test(msg);
+      out.innerHTML =
+        '<span class="dim">receiver recomputes:</span> <span class="q">' + esc(good) + '</span>\n' +
+        '<span class="dim">tag in transit:   </span> <span class="q">' + esc(transit.tag) + '</span>\n\n' +
+        (ok ? '<span class="ok">VERIFIED, tags match. Message accepted.</span>'
+            : '<span class="err">REJECTED, tags differ. Tampering detected.</span>');
+
+      if (ok && mode === "hash" && !tampered) missions.complete("verify");
+      if (ok && mode === "hash" && tampered) missions.complete("forge");
+      if (!ok && mode === "hmac" && tampered) missions.complete("hmac");
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War driving; protecting yourself (verify SSIDs, avoid open networks, VPN), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>War driving; protecting yourself (verify SSIDs, avoid open networks, VPN)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.3.d: Public Wi-Fi risk flagger</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 1.3.B, 1.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building the risk-assessment routine a network-policy tool runs before letting a device
+connect to a public Wi-Fi network. Given a description of one network and the user's current
+posture, return the <strong>risk flags</strong> that apply, so the user (or an administrator) can make an
+informed decision. This is exactly the three-step personal protocol from the lesson, expressed
+as code: verify the SSID, avoid open networks, always use a VPN.</p>
+<p>The function is pure and deterministic, no network, no I/O.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(network: dict) -&gt; list[str]</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>network</code>, a <code>dict</code> describing one network and the user's posture toward it. Recognized keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"encryption"</code></td>
+<td><code>str</code></td>
+<td>Wi-Fi security type, e.g. <code>"open"</code>, <code>"wpa2"</code>, <code>"wpa3"</code>. Case-insensitive. Missing / <code>None</code> / <code>""</code> is treated as open (worst case).</td>
+</tr>
+<tr>
+<td><code>"verified"</code></td>
+<td><code>bool</code></td>
+<td><code>True</code> if the SSID was confirmed with venue staff / an official source. Missing is treated as <code>False</code>.</td>
+</tr>
+<tr>
+<td><code>"vpn"</code></td>
+<td><code>bool</code></td>
+<td><code>True</code> if a VPN tunnel is active on the device. Missing is treated as <code>False</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-python">{&quot;ssid&quot;: &quot;AirportFreeWifi&quot;, &quot;encryption&quot;: &quot;open&quot;, &quot;verified&quot;: False, &quot;vpn&quot;: False}
+</code></pre>
+<h2>Output</h2>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of the risk flags that apply, drawn from:</p>
+<ul>
+<li><code>"open-network"</code>, the network is open (no Wi-Fi-layer encryption).</li>
+<li><code>"unverified-ssid"</code>, the SSID has not been confirmed with an authoritative source.</li>
+<li><code>"no-vpn"</code>, no VPN is protecting the user's traffic.</li>
+</ul>
+<p>Return <code>[]</code> when none apply (a verified, encrypted network used over a VPN).</p>
+<h2>Examples</h2>
+<pre><code>{&quot;encryption&quot;: &quot;open&quot;, &quot;verified&quot;: False, &quot;vpn&quot;: False}   -&gt; [&quot;no-vpn&quot;, &quot;open-network&quot;, &quot;unverified-ssid&quot;]
+{&quot;encryption&quot;: &quot;wpa2&quot;, &quot;verified&quot;: True,  &quot;vpn&quot;: True}     -&gt; []
+{&quot;encryption&quot;: &quot;wpa2&quot;, &quot;verified&quot;: True,  &quot;vpn&quot;: False}    -&gt; [&quot;no-vpn&quot;]
+{&quot;encryption&quot;: &quot;WPA3&quot;, &quot;verified&quot;: False, &quot;vpn&quot;: True}     -&gt; [&quot;unverified-ssid&quot;]
+{}                                                         -&gt; [&quot;no-vpn&quot;, &quot;open-network&quot;, &quot;unverified-ssid&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Matching of <code>encryption</code> is case-insensitive.</li>
+<li>Output always sorted ascending and de-duplicated.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(network: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>network</code>)</h3>
+<p>A <code>dict</code> describing one Wi-Fi network and the user's posture toward it. Recognized keys
+(any may be absent; extra keys such as <code>"ssid"</code> are ignored):</p>
+<ul>
+<li><code>"encryption"</code>: <code>str</code>, Wi-Fi security type (<code>"open"</code>, <code>"wpa2"</code>, <code>"wpa3"</code>...). Compared
+  case-insensitively. Missing, <code>None</code>, or <code>""</code> counts as <strong>open</strong>.</li>
+<li><code>"verified"</code>: <code>bool</code>, <code>True</code> if the SSID was confirmed with an authoritative source.
+  Missing counts as <code>False</code>.</li>
+<li><code>"vpn"</code>: <code>bool</code>, <code>True</code> if a VPN tunnel is active. Missing counts as <code>False</code>.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> drawn from
+<code>{"no-vpn", "open-network", "unverified-ssid"}</code>. Empty list if no risk applies.</p>
+<h3>Risk rules</h3>
+<ul>
+<li><strong>open-network</strong>, <code>encryption</code>, lowercased, is one of <code>{"open", "none", ""}</code> (or the key is
+  absent / <code>None</code>). Encrypted types (<code>wpa</code>, <code>wpa2</code>, <code>wpa3</code>, anything else non-empty) do not flag.</li>
+<li><strong>unverified-ssid</strong>, <code>verified</code> is not truthy.</li>
+<li><strong>no-vpn</strong>, <code>vpn</code> is not truthy.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>encryption</code> matching is case-insensitive.</li>
+<li>Output always sorted ascending and de-duplicated.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.3.d. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Applies the three-step public-Wi-Fi protocol as risk flags: verify the SSID, avoid open
+networks, always use a VPN. Pure, deterministic, stdlib only."""
+from typing import List
+
+OPEN_VALUES = {"open", "none", ""}
+
+
+def solve(network: dict) -&gt; List[str]:
+    """Return the sorted, de-duplicated risk flags for one network description.
+
+    Flags: "open-network", "unverified-ssid", "no-vpn".
+    see the problem statement above / the Reference section below for the rules.
+    """
+    network = network or {}
+    flags = set()
+
+    encryption = network.get("encryption")
+    if encryption is None or str(encryption).strip().lower() in OPEN_VALUES:
+        flags.add("open-network")
+
+    if not network.get("verified", False):
+        flags.add("unverified-ssid")
+
+    if not network.get("vpn", False):
+        flags.add("no-vpn")
+
+    return sorted(flags)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_worst_case_open_unverified_no_vpn():
+    out = impl.solve({"ssid": "AirportFreeWifi", "encryption": "open",
+                      "verified": False, "vpn": False})
+    assert out == ["no-vpn", "open-network", "unverified-ssid"]
+
+
+def test_fully_protected():
+    assert impl.solve({"encryption": "wpa2", "verified": True, "vpn": True}) == []
+
+
+def test_only_missing_vpn():
+    assert impl.solve({"encryption": "wpa2", "verified": True, "vpn": False}) == ["no-vpn"]
+
+
+def test_encrypted_but_unverified_with_vpn():
+    assert impl.solve({"encryption": "WPA3", "verified": False, "vpn": True}) == ["unverified-ssid"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_empty_dict_is_worst_case():
+    # Missing encryption -&gt; open; missing verified -&gt; False; missing vpn -&gt; False.
+    assert impl.solve({}) == ["no-vpn", "open-network", "unverified-ssid"]
+
+
+def test_encryption_case_insensitive():
+    assert impl.solve({"encryption": "OpEn", "verified": True, "vpn": True}) == ["open-network"]
+
+
+def test_encryption_none_and_empty_count_as_open():
+    assert impl.solve({"encryption": None, "verified": True, "vpn": True}) == ["open-network"]
+    assert impl.solve({"encryption": "", "verified": True, "vpn": True}) == ["open-network"]
+    assert impl.solve({"encryption": "none", "verified": True, "vpn": True}) == ["open-network"]
+
+
+def test_wep_is_not_open_network():
+    # WEP is weak, but it is encrypted -&gt; not the "open-network" flag (only verify/vpn matter here).
+    assert impl.solve({"encryption": "wep", "verified": True, "vpn": True}) == []
+
+
+def test_output_sorted_and_deduplicated():
+    out = impl.solve({"encryption": "open"})  # everything missing -&gt; all three flags
+    assert out == ["no-vpn", "open-network", "unverified-ssid"]
+    assert out == sorted(set(out))
+
+
+def test_extra_keys_ignored():
+    out = impl.solve({"encryption": "wpa2", "verified": True, "vpn": True,
+                      "ssid": "Cafe", "signal": -42, "bssid": "aa:bb:cc"})
+    assert out == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

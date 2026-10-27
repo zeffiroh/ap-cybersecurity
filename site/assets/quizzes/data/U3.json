@@ -1,0 +1,1551 @@
+{
+  "unit_id": "U3",
+  "unit_title": "Securing Networks",
+  "stimulus_sets": [
+    {
+      "id": "U3-S01",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "log_excerpt",
+        "label": "Exhibit A -- SIEM Alert Log: Adams County Hospital Network Operations Center",
+        "context": "A security analyst at Adams County Hospital is reviewing correlated SIEM alerts after nurses on the third floor reported intermittent connection drops to the patient-records system, and the public appointment-booking site became unreachable for patients around the same time.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "log_excerpt",
+          "data": {
+            "log_source": "Adams County Hospital SIEM -- Correlated Alert Feed",
+            "date_range": "Mon, 03 Aug 20XX 02:14 -- 02:47 UTC",
+            "entries": [
+              "02:14:07 [WARN] arp-monitor: Duplicate ARP reply for 10.0.0.1 (default gateway) -- MAC 3c:d9:2b:aa:11:04 now claims ownership; previous MAC 00:1a:2b:3c:4d:5e unresponsive since 02:13:58.",
+              "02:14:09 [WARN] arp-monitor: Duplicate ARP reply for 10.0.0.5 (file-srv-01, patient-records file server) -- MAC 3c:d9:2b:aa:11:04 now claims ownership; previous MAC 00:1a:2b:9f:7c:21 unresponsive since 02:14:01.",
+              "02:14:22 [INFO] netflow: Traffic between subnet 10.10.0.0/24 (3rd-floor nurse workstations) and 10.0.0.5 (file-srv-01) is now traversing host 10.0.0.240 -- an unregistered device, MAC 3c:d9:2b:aa:11:04.",
+              "02:31:55 [WARN] nids: Unusual volume of TCP SYN packets to 203.0.113.10 (public appointment-booking web server) -- 118,000 connection attempts in 60 seconds from 4,300+ distinct source IP addresses across 38 countries.",
+              "02:47:12 [NOTE] soc-analyst (D. Ferris): Booking server CPU at 98%, legitimate patient traffic timing out. Perimeter stateful firewall confirmed operational and correctly tracking TCP session state; source IPs cannot be blocked individually at this volume."
+            ],
+            "@attrs": {
+              "format": "log_excerpt"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S01-Q1",
+          "stimulus_ref": "U3-S01",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.35,
+            "a_param": 0.9,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The 02:14:07 and 02:14:09 entries show that a single MAC address (3c:d9:2b:aa:11:04) has suddenly claimed to be BOTH the default gateway (10.0.0.1) and the file server (10.0.0.5). Which network attack is most likely underway?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "DNS amplification"
+            },
+            {
+              "key": "B",
+              "text": "ARP poisoning"
+            },
+            {
+              "key": "C",
+              "text": "Ping flood"
+            },
+            {
+              "key": "D",
+              "text": "Port scanning"
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "ARP poisoning (ARP spoofing) corrupts the ARP cache of devices on a local network so that an attacker's MAC address is associated with a legitimate IP -- here, both the gateway and the file server. The 02:14:22 NetFlow entry confirms traffic is now routed through an unregistered device (10.0.0.240), which is the classic man-in-the-middle setup ARP poisoning creates.",
+          "distractor_rationale": {
+            "A": "DNS amplification is a volumetric DDoS technique exploiting open DNS resolvers to flood a target; it does not forge Layer 2 address mappings on the local network.",
+            "C": "A ping flood is a denial-of-service attack using ICMP echo requests to overwhelm a target; it does not cause other devices' traffic to be misdirected to an attacker's machine.",
+            "D": "Port scanning is a passive reconnaissance technique used to discover open services; it does not redirect or intercept traffic between two hosts."
+          }
+        },
+        {
+          "id": "U3-S01-Q2",
+          "stimulus_ref": "U3-S01",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.45,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 85,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The 02:14:22 entry confirms that traffic between the 3rd-floor nurse workstations and the patient-records file server (10.0.0.5) is now passing through the unregistered host. Which evaluation of this incident's impact is most accurate?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The impact is minimal because ARP spoofing only affects internet-facing traffic, not internal server communication."
+            },
+            {
+              "key": "B",
+              "text": "The impact is low because any TLS encryption on the file-sharing protocol would fully neutralize the intercepted traffic."
+            },
+            {
+              "key": "C",
+              "text": "The impact is moderate because ARP spoofing is detected and blocked automatically by the perimeter stateful firewall."
+            },
+            {
+              "key": "D",
+              "text": "The impact is high because the attacker can intercept or alter patient records transmitted between the workstations and the file server."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "ARP poisoning operates entirely at Layer 2 on the local network. By poisoning the ARP caches of the workstations and the file server, the attacker positions themselves as a man-in-the-middle for all traffic between those hosts. If that traffic is unencrypted -- or if encryption can be downgraded or stripped -- protected health information (PHI) can be intercepted, altered, or deleted, constituting a high-impact event with HIPAA, patient-safety, and reputational consequences.",
+          "distractor_rationale": {
+            "A": "ARP operates entirely within the local area network at Layer 2 and has no dependency on internet-facing traffic; this choice mischaracterizes how ARP works.",
+            "B": "Even where encryption protects confidentiality, ARP poisoning can still disrupt availability by redirecting or dropping traffic, and can enable downgrade or stripping attacks if encryption is not strictly enforced end to end. Calling the impact \"low\" is not warranted.",
+            "C": "A perimeter stateful firewall filters traffic crossing the internet boundary; it has no visibility into Layer 2 ARP broadcasts on the internal 10.10.0.0/24 segment where this attack occurred."
+          }
+        },
+        {
+          "id": "U3-S01-Q3",
+          "stimulus_ref": "U3-S01",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.65,
+            "a_param": 1.2,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "At 02:31:55, the NIDS logged a flood of SYN packets against the public booking server from more than 4,300 distinct source IPs, and the analyst confirmed the stateful firewall was operating correctly but could not stop the outage. Which evaluation of this second incident's likelihood and mitigation is most accurate?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "IP spoofing has higher likelihood than a volumetric flood here because stateful firewalls do not inspect source addresses."
+            },
+            {
+              "key": "B",
+              "text": "This is a volumetric DDoS with higher residual likelihood than IP-spoofing-based access, because a stateful firewall significantly mitigates spoofed connection attempts but cannot alone stop distributed volumetric flood traffic."
+            },
+            {
+              "key": "C",
+              "text": "Both an IP-spoofing attack and this event carry equal likelihood, because the firewall processes both at the packet level in the same way."
+            },
+            {
+              "key": "D",
+              "text": "This event poses no meaningful risk because the booking server does not store patient medical data directly."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "A stateful firewall tracks TCP connection state and validates the handshake, which substantially reduces the effectiveness of simple IP-spoofing attacks -- spoofed packets cannot complete a legitimate session. Volumetric DDoS, however, can exhaust available bandwidth or connection-tracking capacity regardless of stateful inspection, which is exactly what the log shows: the firewall is 'confirmed operational' yet the outage persists. This makes DDoS the higher residual-likelihood risk for this server.",
+          "distractor_rationale": {
+            "A": "Stateful firewalls do inspect connection state and thereby significantly mitigate simple IP spoofing; this choice inverts the actual defensive effect of stateful inspection.",
+            "C": "Stateful firewalls handle connection-based spoofing and raw volumetric flood traffic very differently; connection tracking protects against spoofed sessions but does not throttle a flood of legitimate-looking SYN packets from thousands of sources.",
+            "D": "Availability of the booking server directly affects patient access to care and appointment scheduling, and booking servers typically log personal and payment information, so a breach or outage carries real risk."
+          }
+        },
+        {
+          "id": "U3-S01-Q4",
+          "stimulus_ref": "U3-S01",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.D",
+              "lo": "LO 3.1.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 1.05,
+            "a_param": 1.35,
+            "c_param": 0.25,
+            "est_response_time_sec": 110,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.8,
+            "exposure_cap": 2
+          },
+          "stem": "The security team must add the ARP poisoning finding to the hospital's network risk register. Which set of information should the entry include to be actionable and auditable?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "A full list of the IP addresses of every device on the 10.10.0.0/24 nurse-workstation segment."
+            },
+            {
+              "key": "B",
+              "text": "A full packet capture demonstrating a proof-of-concept ARP poisoning attack against 10.0.0.5."
+            },
+            {
+              "key": "C",
+              "text": "The likelihood of the attack, its potential impact on patient data confidentiality and availability, and a recommended mitigation such as Dynamic ARP Inspection on the affected switches."
+            },
+            {
+              "key": "D",
+              "text": "The vendor name, model number, and purchase date of every switch on the affected network segment."
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "A risk register entry for this finding should capture the risk description (ARP poisoning via missing Dynamic ARP Inspection), a likelihood rating (high -- freely available tools, no current detection control), an impact rating (high -- PHI interception, HIPAA liability), a risk owner, and a recommended treatment such as enabling Dynamic ARP Inspection and enforcing encryption in transit. These fields make the entry actionable and auditable, consistent with NIST SP 800-30 documentation guidance.",
+          "distractor_rationale": {
+            "A": "IP address lists belong in asset inventory documentation, not the risk register, which records risk-level information rather than network asset enumerations.",
+            "B": "A packet capture is evidence produced during incident response or penetration testing. It is a supporting technical artifact stored separately from the risk register entry itself.",
+            "D": "Switch inventory records belong in asset management systems. Vendor and purchase details provide useful context but are not standard components of a risk register entry."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U3-S02",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "incident_ticket",
+        "label": "Exhibit B -- Field Deployment Ticket: National Guard Emergency Communications Unit",
+        "context": "SPC T. Alvarez of the 214th National Guard Communications Support Company is standing up emergency Wi-Fi at the Riverbend Community Center flood shelter. The ticket below records each configuration step before the shelter opens to residents at 08:00.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "incident_ticket",
+          "data": {
+            "ticket_id": "NG-COMMS-20XX-0417",
+            "unit": "National Guard 214th Communications Support Company",
+            "site": "Riverbend Community Center -- Emergency Shelter (Flood Response)",
+            "technician": "SPC T. Alvarez",
+            "opened": "20XX-09-11 06:20 local",
+            "equipment_note": "Consumer-grade dual-band access point (model: NetGuard AC1900). No RADIUS/802.1X server available; regional IT depot cannot ship 802.1X infrastructure before the 08:00 shelter opening.",
+            "log": [
+              "06:22 -- Powered on AP. Factory defaults active: admin/admin on management interface, WPS enabled, SSID 'NETGEAR-1900' broadcasting, open (no encryption).",
+              "06:24 -- Changed the administrator password on the management interface from the factory default to a 16-character randomly generated string.",
+              "06:31 -- Set wireless security mode to WPA2-Personal, cipher suite CCMP (AES). Generated a strong, random 20-character passphrase (not to be posted publicly).",
+              "06:35 -- Disabled WPS (Wi-Fi Protected Setup) due to known PIN brute-force exposure (Pixie Dust / Reaver attacks).",
+              "06:40 -- Created two VLANs on the AP: VLAN 10 'Shelter-Guest' for resident personal devices, VLAN 20 'NG-Ops' for Guard communications equipment. Enabled client isolation within VLAN 10 and denied VLAN 10 -> VLAN 20 routing.",
+              "06:48 -- Printed and posted an Acceptable Use Policy notice at the shelter entrance and check-in table. Passphrase was NOT included on the notice.",
+              "06:52 -- Enabled SSID broadcast: 'Riverbend-Shelter-WiFi'. Passphrase distributed only to check-in staff for verbal handout to residents on request.",
+              "07:15 -- Note: WPA3-Enterprise was considered per the regional playbook but rejected -- no RADIUS/802.1X infrastructure is available on-site or in transit before the 08:00 opening."
+            ],
+            "@attrs": {
+              "format": "incident_ticket"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S02-Q1",
+          "stimulus_ref": "U3-S02",
+          "topic_refs": [
+            "3.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.2.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.2.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.25,
+            "a_param": 1.0,
+            "c_param": 0.25,
+            "est_response_time_sec": 60,
+            "prerequisite_topics": [
+              "3.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Given the 07:15 note that no RADIUS/802.1X infrastructure is available before the shelter opens, which evaluation of Alvarez's overall wireless configuration (06:24-06:52) is most defensible?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The chosen configuration -- WPA2-Personal with a strong random passphrase, VLAN segmentation, and a posted Acceptable Use Policy -- best balances security and operational feasibility given the infrastructure available."
+            },
+            {
+              "key": "B",
+              "text": "WPA3-Enterprise should have been forced into service anyway, because per-user 802.1X credentials eliminate the shared-key vulnerability regardless of infrastructure constraints."
+            },
+            {
+              "key": "C",
+              "text": "The AP should have been left with its factory-default open network so residents could connect immediately without any technical barrier."
+            },
+            {
+              "key": "D",
+              "text": "The passphrase should have been posted publicly at check-in so all residents could self-serve without staff assistance."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "WPA3-Enterprise is technically stronger, but it requires 802.1X/RADIUS infrastructure that is not available and cannot arrive before opening -- selecting it without that infrastructure means the network either cannot function or silently falls back to a weaker mode. Sound risk management weighs feasibility alongside security: WPA2-Personal with a strong, non-public passphrase, VLAN segmentation isolating residents from Guard equipment, and a posted Acceptable Use Policy constitutes a practical, layered defense appropriate to the constraint.",
+          "distractor_rationale": {
+            "B": "WPA3-Enterprise cannot be deployed without 802.1X/RADIUS infrastructure. Choosing a control that cannot actually be implemented does not reduce risk -- it leaves the network either non-functional or unsecured.",
+            "C": "An open network transmits all resident traffic -- including messages to family and any credentials entered on external sites -- in plaintext, readable by anyone in radio range. This is a strictly worse outcome than the WPA2 configuration chosen.",
+            "D": "Displaying the passphrase publicly recreates a shared, universally known secret. Any attacker in range could capture a handshake and, with the passphrase already known, decrypt traffic from any resident."
+          }
+        },
+        {
+          "id": "U3-S02-Q2",
+          "stimulus_ref": "U3-S02",
+          "topic_refs": [
+            "3.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.2.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 3.2.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.5,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 85,
+            "prerequisite_topics": [
+              "3.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The ticket shows the administrator password was changed at 06:24, before the SSID was enabled at 06:52. If Alvarez had instead enabled SSID broadcast FIRST -- before changing the default admin password -- what security exposure would this sequencing create?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "No meaningful exposure, because SSID broadcast and the administrator interface are unrelated systems."
+            },
+            {
+              "key": "B",
+              "text": "Enabling the SSID first would have prevented the WPA2 passphrase from being applied correctly."
+            },
+            {
+              "key": "C",
+              "text": "The AP would automatically re-enable WPS the moment the SSID becomes visible, regardless of the 06:35 configuration step."
+            },
+            {
+              "key": "D",
+              "text": "Any device in range could discover the network, and an attacker with knowledge of the manufacturer's default admin credentials could reach the management interface and override the AP's settings before hardening was complete."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "Enabling the SSID makes the network discoverable and connectable while the device may still be in an insecure transitional state. If the default admin password (widely known for consumer AP models) has not yet been changed, any nearby device that reaches the management interface can override every subsequent security setting -- passphrase, WPS, VLANs -- during that exposure window. Locking down management access first, as Alvarez did at 06:24, closes this window before the network goes live.",
+          "distractor_rationale": {
+            "A": "The two settings are related through the setup sequence: an SSID that is live and discoverable while the admin interface still carries default credentials is a genuine, well-documented attack window.",
+            "B": "SSID broadcast timing has no bearing on whether a passphrase can be applied; passphrase and SSID visibility are independent configuration items.",
+            "C": "WPS state does not depend on SSID broadcast status; nothing about making a network discoverable re-enables a separately configured setting."
+          }
+        },
+        {
+          "id": "U3-S02-Q3",
+          "stimulus_ref": "U3-S02",
+          "topic_refs": [
+            "3.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.2.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.D",
+              "lo": "LO 3.2.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.7,
+            "a_param": 1.25,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "3.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "At 06:31, Alvarez selected CCMP (AES) as the cipher suite for WPA2-Personal rather than TKIP. Why is this the correct choice?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "TKIP was selected instead, because it uses a 256-bit key, making it cryptographically stronger than CCMP's shorter key."
+            },
+            {
+              "key": "B",
+              "text": "TKIP was selected instead, because it offers the broadest compatibility with legacy devices and legacy compatibility outweighs any cryptographic difference."
+            },
+            {
+              "key": "C",
+              "text": "CCMP (AES) is correct, but only because the shelter has more than 50 concurrently connected devices; on a smaller network TKIP would have been preferable."
+            },
+            {
+              "key": "D",
+              "text": "CCMP (AES) is correct because TKIP has documented cryptographic weaknesses and CCMP provides stronger, standards-compliant encryption; the Wi-Fi Alliance deprecated TKIP in 2009."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "TKIP (Temporal Key Integrity Protocol) was a transitional cipher designed to run WPA-era security on older WEP hardware. It has known weaknesses, including the Beck-Tews attack, and the Wi-Fi Alliance deprecated it in 2009. CCMP uses AES-128 and is the mandatory cipher for WPA2 certification; NIST and the Wi-Fi Alliance recommend CCMP exclusively. TKIP does not use a 256-bit key -- it uses 128-bit RC4-derived keys -- so CCMP is stronger by design, not merely by key length.",
+          "distractor_rationale": {
+            "A": "This is factually incorrect: TKIP uses 128-bit RC4-derived keys with per-packet key mixing, not 256-bit keys. CCMP with AES-128 is stronger regardless of raw key-length comparisons because AES has no comparable known practical attack.",
+            "B": "Known cryptographic vulnerabilities make TKIP unsuitable as a primary cipher regardless of legacy-device concerns. Modern devices universally support CCMP; legacy-only devices should be isolated or replaced rather than justifying a weaker cipher for the whole network.",
+            "C": "Device count has no bearing on cipher selection. AES hardware acceleration is standard on modern access points and client devices, so CCMP is preferred at any network size."
+          }
+        },
+        {
+          "id": "U3-S02-Q4",
+          "stimulus_ref": "U3-S02",
+          "topic_refs": [
+            "3.2"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.2.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.2.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.35,
+            "a_param": 1.05,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "3.2"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The 06:48 posted Acceptable Use Policy and the 06:40 VLAN client-isolation configuration are both risk-management measures, but they belong to different control categories. Which statement correctly classifies them?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Both are technical controls, because both were implemented by the same technician during the same deployment."
+            },
+            {
+              "key": "B",
+              "text": "The posted Acceptable Use Policy is a managerial control that establishes permitted behavior; the VLAN/client-isolation configuration is a technical control that enforces separation in the network itself."
+            },
+            {
+              "key": "C",
+              "text": "The posted Acceptable Use Policy is a technical control because it is printed and displayed on hardware (a sign); the VLAN configuration is a managerial control because it reflects a policy decision."
+            },
+            {
+              "key": "D",
+              "text": "Neither qualifies as a formal control category; only firewall rules and encryption protocols count as controls in a risk-management framework."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "Managerial controls are administrative in nature -- policies, procedures, and governance documents that specify permitted activities, such as the posted AUP. Technical controls are implemented directly in hardware or software to enforce behavior automatically, such as the VLAN segmentation and client isolation Alvarez configured on the AP itself. Distinguishing these categories matters because a managerial control alone cannot be technically enforced, verified, or monitored -- it requires a complementary technical control to be effective.",
+          "distractor_rationale": {
+            "A": "Who implements a control, or when, does not determine its category. A written policy remains an administrative/managerial control even when the same technician who configures the network also posts it.",
+            "C": "The physical medium (paper vs. software configuration) does not determine control category. An AUP is administrative in substance -- it specifies rules for behavior -- regardless of whether it is printed or emailed; a VLAN configuration is technical in substance because it is enforced automatically in the network hardware.",
+            "D": "Managerial, operational, and technical controls are all recognized categories in risk-management frameworks such as NIST SP 800-53; policies and training are standard managerial controls."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U3-S03",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "network_diagram_description",
+        "label": "Exhibit C -- Shipboard Network Topology Reference: LAN Segmentation Overview (Training Extract)",
+        "context": "A network segmentation training extract used aboard a naval submarine describes how the boat's three shipboard LANs are isolated from one another, followed by a watchstander's note about a denied request.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "network_diagram_description",
+          "data": {
+            "document_title": "Shipboard Network Topology Reference -- LAN Segmentation Overview (Training Extract)",
+            "prepared_for": "Damage Control and IT Rating instructional use",
+            "segments": [
+              {
+                "lan": "Weapons Control LAN",
+                "sensitivity": "Critical -- fire control, targeting systems",
+                "connectivity": "Physically isolated switch stack; no routed path to any other shipboard LAN. Maintenance access requires a physical crossover cable installed under two-person authorization and is not installed during normal operations.",
+                "devices": "Fire control consoles, targeting computers, weapons interlocks"
+              },
+              {
+                "lan": "Operations LAN",
+                "sensitivity": "Sensitive -- navigation, official communications, logistics",
+                "connectivity": "Routed through hardware firewall Ops-FW-1. Ops-FW-1 has no permit rule toward the Weapons Control gateway room during normal operations, and denies all traffic toward the Crew Recreation LAN by default.",
+                "devices": "Navigation workstations, official message traffic terminals, logistics tracking"
+              },
+              {
+                "lan": "Crew Recreation LAN",
+                "sensitivity": "Untrusted -- personal devices, morale/welfare internet access when surfaced",
+                "connectivity": "Isolated VLAN with client isolation enabled; routed only to a satellite uplink gateway when the boat is at periscope depth. No route exists to the Operations LAN or Weapons Control LAN under any configuration.",
+                "devices": "Personal tablets, morale/welfare terminals"
+              }
+            ],
+            "technician_note": "ET2 Reyes, 20XX-05-02: A Crew Recreation LAN device requested a direct file transfer to an Operations LAN workstation to share a training video. Request denied per segmentation policy -- no exception process exists for Recreation-to-Operations traffic without a documented, approved use case reviewed by the Information Systems Security Manager (ISSM).",
+            "@attrs": {
+              "format": "network_diagram_description"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S03-Q1",
+          "stimulus_ref": "U3-S03",
+          "topic_refs": [
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.3.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 3.3.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.9,
+            "c_param": 0.25,
+            "est_response_time_sec": 55,
+            "prerequisite_topics": [
+              "3.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "According to the topology reference, which control gives the Weapons Control LAN the strongest isolation from the rest of the ship's network, and why is it more resistant to compromise than a standard VLAN boundary?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Physical isolation requiring a crossover cable installed under two-person authorization, because this boundary cannot be bypassed by a software misconfiguration or a compromised routing device."
+            },
+            {
+              "key": "B",
+              "text": "VLAN tagging with a default-deny inter-VLAN rule, because VLAN tags cannot be forged by any device on the network."
+            },
+            {
+              "key": "C",
+              "text": "Client isolation, because it prevents any two devices on the same LAN from communicating with each other."
+            },
+            {
+              "key": "D",
+              "text": "Firewall logging on Ops-FW-1, because logging automatically blocks any unauthorized traffic it detects."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "The Weapons Control LAN's isolation depends on physical separation -- no cable is even connected during normal operations, and installing one requires two-person authorization. A VLAN boundary is enforced entirely in switch and firewall configuration, which can be misconfigured, socially engineered, or bypassed through techniques like VLAN hopping. A physically absent connection has no configuration state to attack at all, making it the strongest possible boundary.",
+          "distractor_rationale": {
+            "B": "VLAN-hopping techniques (e.g., double-tagging, switch spoofing) exist precisely because VLAN tags and inter-VLAN rules are software-enforced and can, under certain misconfigurations, be circumvented -- unlike an absent physical connection.",
+            "C": "Client isolation restricts communication between devices within the same VLAN or segment; it says nothing about isolation between the Weapons Control LAN and other shipboard LANs, which is a separate, stronger boundary.",
+            "D": "Logging records events for later review; it does not itself block or prevent unauthorized traffic. Blocking is a function of the ACL/firewall rule set, not the logging feature."
+          }
+        },
+        {
+          "id": "U3-S03-Q2",
+          "stimulus_ref": "U3-S03",
+          "topic_refs": [
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 3.3.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.55,
+            "a_param": 1.2,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "3.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "ET2 Reyes denied a Crew Recreation LAN device's request to transfer a file directly to an Operations LAN workstation, citing segmentation policy. Which evaluation of this decision is most defensible?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The denial is overly cautious; since the requesting crew member holds appropriate security clearance, personnel trust should be sufficient to permit the transfer."
+            },
+            {
+              "key": "B",
+              "text": "The denial is unnecessary because the Operations LAN firewall (Ops-FW-1) would have automatically blocked any malware in the file regardless of whether the transfer was permitted."
+            },
+            {
+              "key": "C",
+              "text": "The denial is incorrect because file transfers between any two shipboard LANs should always be permitted as long as both devices are government-owned."
+            },
+            {
+              "key": "D",
+              "text": "The denial correctly enforces segmentation policy: the Recreation LAN is the lowest-trust segment on the boat, and personnel clearance does not establish a technical network path -- only a documented, ISSM-approved exception process can create one."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "The Recreation LAN carries personal devices used for morale/welfare internet access and is explicitly the lowest-trust segment. A crew member's personnel clearance is an administrative and physical-access attribute -- it does not, by itself, create or justify a technical network path between segments of different sensitivity. Allowing ad hoc Recreation-to-Operations transfers would undermine the entire segmentation design; the correct process is a documented exception reviewed by the ISSM, which the note confirms does not exist for this request.",
+          "distractor_rationale": {
+            "A": "Conflating personnel clearance with technical network access is precisely the reasoning error the training extract exists to prevent -- an authorized person's device can still be compromised, and technical segmentation must enforce access regardless of who is using the device.",
+            "B": "Firewalls filter traffic based on rules for source, destination, protocol, and port; a standard firewall rule set does not perform content-level malware scanning of a file transfer by default, and in any case Ops-FW-1 has no permit rule for this path at all -- there is nothing for it to \"catch,\" because the transfer should never traverse the boundary.",
+            "C": "Device ownership (government vs. personal) is unrelated to network segmentation policy. Even two government-owned devices on different-trust segments should not automatically be granted a direct path."
+          }
+        },
+        {
+          "id": "U3-S03-Q3",
+          "stimulus_ref": "U3-S03",
+          "topic_refs": [
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 3.3.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.4,
+            "a_param": 1.0,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "3.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Which statement best describes the primary security benefit that all three shipboard LANs gain from being kept as separate segments rather than one flat network?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Separation reduces the blast radius of a compromise by limiting which devices can directly reach each other, forcing any cross-segment traffic through a controlled routing or physical boundary."
+            },
+            {
+              "key": "B",
+              "text": "Separation eliminates the need for encryption because traffic never leaves its own segment."
+            },
+            {
+              "key": "C",
+              "text": "Separation prevents all insider threats by blocking crew members from accessing any server outside their own workstation."
+            },
+            {
+              "key": "D",
+              "text": "Separation's only benefit is improved network performance from smaller broadcast domains, which is an operational rather than a security advantage."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "A compromised device on one segment cannot directly reach devices on another segment; any attempt must cross a controlled boundary -- Ops-FW-1's ACLs for Operations-to-Recreation traffic, or the physically absent crossover cable for Weapons Control. This containment of lateral movement, reducing the 'blast radius' of any single compromise, is the core security rationale for segmentation, distinct from any performance benefit.",
+          "distractor_rationale": {
+            "B": "Segmentation does not replace encryption. Traffic within a single segment can still be intercepted by another device on that same segment; encryption remains a separate, complementary control.",
+            "C": "Segmentation controls which network paths exist between zones -- it does not block all access to servers within a crew member's own authorized segment, which would prevent legitimate operations entirely.",
+            "D": "Reduced broadcast-domain size is a genuine operational benefit, but it is a performance improvement, not the primary security rationale, which is limiting the reach of a compromised device."
+          }
+        },
+        {
+          "id": "U3-S03-Q4",
+          "stimulus_ref": "U3-S03",
+          "topic_refs": [
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 3.3.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 1.1,
+            "a_param": 1.4,
+            "c_param": 0.25,
+            "est_response_time_sec": 100,
+            "prerequisite_topics": [
+              "3.3"
+            ],
+            "mastery_threshold": 0.8,
+            "exposure_cap": 2
+          },
+          "stem": "A junior systems administrator argues that because the Operations LAN is already separated from the Weapons Control LAN by a physical air gap, adding zero-trust per-session identity verification within the Operations LAN itself would be redundant. Evaluate this argument.",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The argument is correct: the air gap already provides the strongest possible boundary, so any additional verification inside the Operations LAN adds cost without benefit."
+            },
+            {
+              "key": "B",
+              "text": "The argument is incorrect: the air gap and Ops-FW-1's rules create coarse, zone-level boundaries between LANs, but all devices within the Operations LAN itself can still communicate freely with each other -- zero trust adds per-session identity and authorization checks that this zone-level boundary does not provide."
+            },
+            {
+              "key": "C",
+              "text": "The argument is correct, because zero trust is designed only to protect boundaries between LANs of different sensitivity, not communication within a single LAN."
+            },
+            {
+              "key": "D",
+              "text": "The argument is incorrect, but only because zero trust would let the Operations LAN safely connect directly to the Weapons Control LAN without the air gap."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "The air gap and Ops-FW-1 establish macro-segmentation -- broad zone boundaries between LANs. Within the Operations LAN, however, any device can typically communicate with any other device without further challenge once it is on that segment. Zero trust applies 'never trust, always verify' at a finer grain: every individual connection request, even between two devices already inside the same zone, must be authenticated and authorized. The two approaches are complementary, not redundant -- zone boundaries limit which segments can reach each other, while zero trust limits what happens once a device is already inside a segment.",
+          "distractor_rationale": {
+            "A": "This overstates what the air gap accomplishes. It secures the boundary to Weapons Control specifically; it says nothing about trust relationships among devices that are already inside the Operations LAN, which is exactly what zero trust addresses.",
+            "C": "Zero trust architecture (as in NIST SP 800-207) applies per-session verification to any connection, including connections between devices already inside the same network zone -- it is not limited to inter-zone boundaries.",
+            "D": "Zero trust is an identity- and policy-based verification model, not a substitute for a hardware air gap. It would not justify removing or bypassing the Weapons Control LAN's physical isolation, which remains the appropriate control for that critical system."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U3-S04",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "config_diff",
+        "label": "Exhibit D -- Firewall Change Request: Adams County Hospital Firewall B (DMZ-to-Internal-LAN)",
+        "context": "A junior network administrator at Adams County Hospital submitted a firewall change request for Firewall B, the boundary between the DMZ (which hosts the public appointment-booking web server) and the internal LAN (which hosts the patient-records file server). A senior engineer flagged the request for review before deployment.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "config_diff",
+          "data": {
+            "change_request_id": "FW-CR-20XX-0142",
+            "device": "Firewall B (DMZ-to-Internal-LAN boundary)",
+            "requested_by": "N. Whitfield (Junior Network Administrator)",
+            "review_status": "Pending -- flagged for senior engineer review before deployment",
+            "diff": {
+              "before": [
+                "1. Permit TCP 10.10.0.0/24 -> 10.0.0.5 port 445",
+                "2. Deny IP any any"
+              ],
+              "after": [
+                "1. Permit TCP 10.10.0.0/24 -> 10.0.0.5 port 445",
+                "2. Permit TCP 203.0.113.10 -> 10.0.0.5 port 445",
+                "3. Deny IP any any log"
+              ]
+            },
+            "change_justification_submitted": "\"The web team says the appointment-booking server occasionally needs to write scheduling exports to the patient-records file share. Adding a rule so it isn't blocked.\"",
+            "senior_engineer_comment": "Flagged before deployment for review: 203.0.113.10 is the public-facing DMZ web server, not an internal host."
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S04-Q1",
+          "stimulus_ref": "U3-S04",
+          "topic_refs": [
+            "3.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.4.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.4.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.6,
+            "a_param": 1.15,
+            "c_param": 0.25,
+            "est_response_time_sec": 85,
+            "prerequisite_topics": [
+              "3.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Rule 2 in the 'after' configuration permits 203.0.113.10 to reach 10.0.0.5 on port 445 (SMB). Why did the senior engineer flag this specific rule as a critical security concern?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Rule 2 is simply redundant with Rule 1 and wastes a line in the ACL, but poses no additional security risk."
+            },
+            {
+              "key": "B",
+              "text": "Rule 2 permits the DMZ web server to reach the internal patient-records file server over SMB, meaning a compromise of the internet-facing web server would give an attacker a direct, pre-authorized path to systems containing protected health information."
+            },
+            {
+              "key": "C",
+              "text": "Rule 2 is incorrectly written because a web server communicates over TCP 443, not TCP 445, making the rule syntactically invalid."
+            },
+            {
+              "key": "D",
+              "text": "Rule 2 should specify UDP instead of TCP, because SMB file shares communicate using a connectionless protocol."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "203.0.113.10 is the public-facing DMZ web server -- the entire purpose of Firewall B is to prevent DMZ hosts from directly reaching internal LAN resources. Rule 2 creates an explicit, standing permission for that internet-facing server to reach the internal file server over SMB. If the web server is compromised, which is a realistic and common outcome for any internet-facing application, an attacker can immediately pivot to the file server storing PHI with no additional barrier -- nullifying the DMZ's entire security value.",
+          "distractor_rationale": {
+            "A": "Rule 1 permits traffic from the internal workstation subnet (10.10.0.0/24); Rule 2 permits traffic from an entirely different, external-facing host (203.0.113.10). They are not redundant -- Rule 2 introduces a new, dangerous permission that did not exist before.",
+            "C": "TCP 445 is the correct SMB port for file sharing, and the rule is syntactically valid. The flaw is logical -- the wrong host is being permitted -- not syntactic.",
+            "D": "SMB uses TCP, not UDP. The issue with Rule 2 is which host is permitted to connect, not which transport protocol is specified."
+          }
+        },
+        {
+          "id": "U3-S04-Q2",
+          "stimulus_ref": "U3-S04",
+          "topic_refs": [
+            "3.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.4.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.4.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.35,
+            "a_param": 1.05,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "3.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Suppose the senior engineer instead deployed the following corrected rule order on Firewall B: Rule 1: Deny TCP 203.0.113.10 -> 10.0.0.5 port 445; Rule 2: Permit TCP 203.0.113.10 -> 10.0.0.5 port 445; Rule 3: Deny IP any any. When the DMZ web server (203.0.113.10) attempts an SMB connection to the file server (10.0.0.5), what happens?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The connection is permitted by Rule 2 because a more specific explicit permit always overrides an earlier deny rule."
+            },
+            {
+              "key": "B",
+              "text": "The connection is denied by Rule 1, because ACL rules are evaluated top-to-bottom and the first matching rule determines the outcome -- Rule 2 is never reached."
+            },
+            {
+              "key": "C",
+              "text": "The connection is permitted because Rule 3, the catch-all deny, is the final authority and overrides both preceding rules."
+            },
+            {
+              "key": "D",
+              "text": "The connection fails automatically because SMB traffic from a DMZ host is blocked by default on all enterprise firewalls, regardless of the ACL configuration."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "ACL rules are evaluated strictly top-to-bottom, and evaluation stops at the first matching rule. Rule 1 matches the packet (source 203.0.113.10, destination 10.0.0.5, TCP port 445) and denies it; Rule 2 is never evaluated for that packet. Rule specificity does not override rule position in standard ACL processing -- this is why rule ORDER, not just rule content, is critical when reviewing a firewall change.",
+          "distractor_rationale": {
+            "A": "Standard ACL processing does not rank rules by specificity; the action taken is determined strictly by the first rule in list order that matches the packet.",
+            "C": "Rules are evaluated top-to-bottom and stop at the first match; Rule 3 is reached only by packets that did not match Rules 1 or 2, so it cannot retroactively override an earlier match.",
+            "D": "There is no protocol-level default block for SMB on enterprise firewalls; the ACL rules explicitly and exclusively define what is permitted or denied."
+          }
+        },
+        {
+          "id": "U3-S04-Q3",
+          "stimulus_ref": "U3-S04",
+          "topic_refs": [
+            "3.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.4.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.4.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.15,
+            "a_param": 0.85,
+            "c_param": 0.25,
+            "est_response_time_sec": 60,
+            "prerequisite_topics": [
+              "3.4"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Rule 3 in the 'after' configuration is written as \"Deny IP any any log\" rather than relying on the firewall's implicit deny for unmatched traffic. Why does adding this explicit, logged rule matter?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "It makes rule evaluation faster by giving the firewall a defined terminal condition that stops processing earlier."
+            },
+            {
+              "key": "B",
+              "text": "It records a timestamped audit trail of every blocked packet -- including source/destination IP, port, and matched rule -- which supports HIPAA-aligned auditing and incident investigation that the silent implicit deny would not provide."
+            },
+            {
+              "key": "C",
+              "text": "It prevents the firewall from forwarding any traffic until at least one permit rule has matched first."
+            },
+            {
+              "key": "D",
+              "text": "It functions as an administrative kill-switch, letting engineers instantly disable all previously permitted traffic by toggling this one line."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "An implicit deny blocks unmatched traffic but generates no log entry -- blocked traffic becomes invisible for auditing. An explicit \"Deny IP any any log\" rule records every blocked packet's metadata, creating an audit trail that auditors and incident responders can review, consistent with NIST SP 800-41 guidance on firewall logging and with HIPAA's audit-control expectations for systems handling PHI.",
+          "distractor_rationale": {
+            "A": "ACL evaluation is strictly sequential regardless of whether the terminal deny is explicit or implicit; the explicit rule does not change processing speed.",
+            "C": "No such prerequisite exists in standard ACL processing; permit rules function independently of where or whether a final deny rule is written.",
+            "D": "Rules are evaluated top-to-bottom and stop at the first match; a final deny rule only applies to packets that reach it and cannot retroactively cancel an earlier permit match higher in the list."
+          }
+        },
+        {
+          "id": "U3-S04-Q4",
+          "stimulus_ref": "U3-S04",
+          "topic_refs": [
+            "3.4"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.4.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.C",
+              "lo": "LO 3.4.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 1.15,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 105,
+            "prerequisite_topics": [
+              "3.4"
+            ],
+            "mastery_threshold": 0.8,
+            "exposure_cap": 2
+          },
+          "stem": "Considering the purpose of a dual-firewall DMZ architecture, which response by the security team most appropriately addresses Whitfield's underlying business need (the web team's scheduling-export requirement) without recreating the risk in Rule 2?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Reject the direct DMZ-to-file-server SMB rule and instead require the export process to go through an authorized, narrowly scoped intermediary -- such as a scheduled, application-layer transfer service reviewed and approved through change management -- rather than an open path from the internet-facing host into the internal LAN."
+            },
+            {
+              "key": "B",
+              "text": "Approve Rule 2 as submitted, since the web team's stated need is a legitimate business justification for the exception."
+            },
+            {
+              "key": "C",
+              "text": "Remove Firewall B entirely, since it is clearly creating friction for legitimate business workflows between the DMZ and internal LAN."
+            },
+            {
+              "key": "D",
+              "text": "Grant the web server unrestricted access to the entire 10.0.0.0/24 internal subnet so future similar requests do not require additional change requests."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "The correct response preserves the security value of the DMZ boundary while still solving the legitimate business problem: route the specific, limited data need through a reviewed, narrowly scoped mechanism -- not a standing, direct SMB path from an internet-facing host into the internal network. This reflects the core lesson that Firewall B exists specifically to prevent a compromised DMZ server from reaching PHI systems, and that business justification alone does not outweigh the architectural risk of collapsing that boundary.",
+          "distractor_rationale": {
+            "B": "A stated business need does not, by itself, justify opening a direct path from an internet-facing host into a network segment containing PHI; the request should be redesigned to meet the need without that exposure.",
+            "C": "Removing Firewall B eliminates the second layer of defense-in-depth entirely, exposing the file server to any compromise of the DMZ web server -- disproportionate to the goal of enabling one export workflow.",
+            "D": "Unrestricted access from the web server to the entire internal subnet is a far broader violation of least privilege than the original single-rule request and would dramatically expand the attack surface if the web server were compromised."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U3-S05",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "log_excerpt",
+        "label": "Exhibit E -- NIDS/DNS Query Log: Riverbend Shelter Network (NG-Ops VLAN)",
+        "context": "Continuing from the Riverbend shelter deployment in Exhibit B, a NIDS sensor on the satellite uplink flags unusual DNS activity from a device on the NG-Ops VLAN two days after the shelter opened.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "log_excerpt",
+          "data": {
+            "log_source": "NIDS Sensor NG-04 -- Riverbend Shelter Satellite Uplink",
+            "date": "20XX-09-13",
+            "entries": [
+              "[03:52:01] SRC=10.20.4.63 DST=10.20.4.1 PROTO=UDP/53 QUERY=q8t1z.reliefdata-sync.net",
+              "[03:52:02] SRC=10.20.4.63 DST=10.20.4.1 PROTO=UDP/53 QUERY=m4k9p.reliefdata-sync.net",
+              "[03:52:03] SRC=10.20.4.63 DST=10.20.4.1 PROTO=UDP/53 QUERY=x7w2r.reliefdata-sync.net",
+              "[03:52:04] SRC=10.20.4.63 DST=10.20.4.1 PROTO=UDP/53 QUERY=b1n5v.reliefdata-sync.net",
+              "[03:52:05] SRC=10.20.4.63 DST=10.20.4.1 PROTO=UDP/53 QUERY=j3h8d.reliefdata-sync.net",
+              "[03:57:06] [ALERT] siem-correlation: 300+ unique-subdomain DNS queries to reliefdata-sync.net from single host 10.20.4.63 (NG-Ops VLAN laptop) in 5 minutes; alert fired only after the correlation window closed."
+            ],
+            "@attrs": {
+              "format": "log_excerpt"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S05-Q1",
+          "stimulus_ref": "U3-S05",
+          "topic_refs": [
+            "3.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.5.E"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.D",
+              "lo": "LO 3.5.E",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.5,
+            "a_param": 1.1,
+            "c_param": 0.25,
+            "est_response_time_sec": 75,
+            "prerequisite_topics": [
+              "3.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The queries from 10.20.4.63 each resolve a unique, high-entropy subdomain (e.g., q8t1z, m4k9p) of the same parent domain, one per second. What does this pattern most likely represent?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Normal nightly software update checks, which typically query the same well-known vendor domain repeatedly."
+            },
+            {
+              "key": "B",
+              "text": "A routine DNS zone transfer between the shelter's internal resolver and an external authoritative server."
+            },
+            {
+              "key": "C",
+              "text": "A misconfigured recursive DNS resolver producing spurious but harmless repeated queries for the same record."
+            },
+            {
+              "key": "D",
+              "text": "DNS tunneling or command-and-control (C2) beaconing, in which the attacker encodes data or commands in randomized subdomain labels to avoid inspection of the DNS payload."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "High-frequency outbound DNS queries to unique, high-entropy subdomains of a single parent domain is the defining fingerprint of DNS tunneling or C2 beaconing: the attacker encodes data or command identifiers in the subdomain label, which the attacker's authoritative DNS server for that domain decodes. This avoids traditional payload inspection because the traffic is 'just DNS.'",
+          "distractor_rationale": {
+            "A": "Legitimate update checks query the same known vendor domain repeatedly rather than generating a new unique random subdomain for every single query.",
+            "B": "A zone transfer (AXFR/IXFR) is a bulk record-synchronization operation between DNS servers using TCP, not a stream of individual UDP queries for randomized subdomains from an end-user laptop.",
+            "C": "A misconfigured resolver typically retries the same domain record; it does not generate a distinct, high-entropy subdomain string for each query."
+          }
+        },
+        {
+          "id": "U3-S05-Q2",
+          "stimulus_ref": "U3-S05",
+          "topic_refs": [
+            "3.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.5.D"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.C",
+              "lo": "LO 3.5.D",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.85,
+            "a_param": 1.3,
+            "c_param": 0.25,
+            "est_response_time_sec": 95,
+            "prerequisite_topics": [
+              "3.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "The SIEM alert fired at 03:57:06 -- five minutes after the queries began -- because it required a correlation window to accumulate enough events. Which detective control would most likely have surfaced this activity earlier, and why?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Endpoint antivirus software on 10.20.4.63, because it directly inspects the content of DNS query strings for malicious patterns."
+            },
+            {
+              "key": "B",
+              "text": "A NIDS rule set specifically monitoring DNS query rate and subdomain entropy, because it can flag the pattern within the first several queries rather than waiting for a longer correlation window to close."
+            },
+            {
+              "key": "C",
+              "text": "MAC address filtering on the access point, because it would have blocked 10.20.4.63 from joining the network before it could send any DNS queries."
+            },
+            {
+              "key": "D",
+              "text": "A weekly manual review of firewall configuration change logs, because configuration reviews are the primary way misuse is detected on shelter networks."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "A NIDS with rules specifically tuned to DNS query frequency and subdomain entropy evaluates each query as it passes the sensor, rather than waiting to accumulate a batch of events for cross-source correlation the way a SIEM does. Such a rule set could raise an alert after the first handful of high-entropy queries -- well before the SIEM's five-minute correlation window closed -- giving responders a meaningfully earlier warning.",
+          "distractor_rationale": {
+            "A": "Antivirus software inspects files and processes on the endpoint; it does not inspect network-layer DNS query content, and it would not by itself flag a pattern occurring in outbound traffic.",
+            "C": "MAC filtering is an access control applied at initial network join, not an ongoing detective control; a device already legitimately connected (as 10.20.4.63 was) would not be affected by it, and MAC addresses are trivially spoofable in any case.",
+            "D": "A weekly manual configuration review operates on a far longer timescale than this incident and would not surface real-time traffic patterns like a live DNS query stream."
+          }
+        },
+        {
+          "id": "U3-S05-Q3",
+          "stimulus_ref": "U3-S05",
+          "topic_refs": [
+            "3.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.5.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.C",
+              "lo": "LO 3.5.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.4,
+            "a_param": 0.95,
+            "c_param": 0.25,
+            "est_response_time_sec": 65,
+            "prerequisite_topics": [
+              "3.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Suppose NIDS Sensor NG-04 only performs signature-based detection using a database of previously known attack patterns. Why might it fail to raise any alert on the queries to reliefdata-sync.net, a domain not previously associated with any known threat?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Signature-based detection cannot identify traffic that does not match an existing rule for a known attack pattern; a newly registered or previously unseen malicious domain has no corresponding signature yet."
+            },
+            {
+              "key": "B",
+              "text": "Signature-based detection only inspects traffic on TCP ports, so UDP/53 DNS queries fall outside its scope entirely."
+            },
+            {
+              "key": "C",
+              "text": "Signature-based detection requires specialized hardware acceleration that consumer-grade shelter equipment does not have, so it cannot process DNS traffic at all."
+            },
+            {
+              "key": "D",
+              "text": "Signature-based detection is functionally identical to anomaly-based detection, so this distinction would make no difference to whether the alert fires."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "Signature-based detection compares traffic against a database of known attack patterns; it is effective and produces few false positives for previously catalogued threats, but it is blind to genuinely novel indicators -- including a domain that has never before been flagged as malicious. Anomaly-based detection, by contrast, would flag this traffic purely on its statistical deviation from normal DNS behavior (query rate, subdomain randomness), without needing any prior signature for reliefdata-sync.net specifically.",
+          "distractor_rationale": {
+            "B": "Signature-based NIDS products commonly inspect UDP traffic, including DNS on port 53; protocol is not the limiting factor here.",
+            "C": "Signature matching is a software/rule-database function; it does not require specialized hardware to operate on a consumer-grade deployment, though very high-throughput environments may benefit from acceleration.",
+            "D": "The two are meaningfully different: signature-based detection matches known patterns, while anomaly-based detection flags statistical deviation from an established baseline regardless of whether a signature exists -- the distinction is exactly why one might catch this traffic and the other might not."
+          }
+        },
+        {
+          "id": "U3-S05-Q4",
+          "stimulus_ref": "U3-S05",
+          "topic_refs": [
+            "3.5"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.5.C"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "3.C",
+              "lo": "LO 3.5.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.2,
+            "a_param": 1.0,
+            "c_param": 0.25,
+            "est_response_time_sec": 70,
+            "prerequisite_topics": [
+              "3.5"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Beyond fixing the detection gap for this specific incident, which combination of tools would best give the Riverbend shelter network ongoing visibility into both external attacks against the satellite uplink AND misuse originating from devices already inside the shelter, like 10.20.4.63?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Endpoint antivirus installed on each shelter laptop only, since the compromised device is what generated the malicious traffic."
+            },
+            {
+              "key": "B",
+              "text": "A NIDS for real-time traffic monitoring at the uplink combined with a SIEM for log aggregation and cross-device correlation, so that both individual suspicious events and cross-host patterns can be surfaced."
+            },
+            {
+              "key": "C",
+              "text": "A perimeter firewall with logging disabled, to reduce alert volume for the small on-site team."
+            },
+            {
+              "key": "D",
+              "text": "MAC address filtering alone, to restrict which devices may join the network in the first place."
+            }
+          ],
+          "answer_key": "B",
+          "explanation": "A NIDS placed at the satellite uplink provides real-time inspection of inbound and outbound traffic, flagging both external attacks and suspicious internal behavior like the DNS pattern seen here. A SIEM aggregates logs from the NIDS, the access point, and other network devices to correlate events across sources that neither tool would surface independently -- covering both the external and internal threat surfaces the shelter network faces.",
+          "distractor_rationale": {
+            "A": "Antivirus covers only endpoint malware behavior; it does not monitor network traffic for attack patterns and would not have flagged the DNS query stream itself.",
+            "C": "Disabling firewall logging removes the event data needed for any detection or forensic analysis, directly undermining visibility rather than improving it.",
+            "D": "MAC filtering is a preventive access control, not a detection control; once a device is legitimately on the network -- as 10.20.4.63 already was -- it provides no ongoing visibility into that device's behavior."
+          }
+        }
+      ]
+    },
+    {
+      "id": "U3-S06",
+      "difficulty_range": "1-3",
+      "stimulus": {
+        "type": "composite_watchlog",
+        "label": "Exhibit F -- Composite: Damage Control Watch Log and Firewall Alert, Submarine Operations LAN",
+        "context": "During a routine watch aboard the same submarine described in Exhibit C, the IT watchstanders detect and respond to an ARP anomaly on the Operations LAN. Their internal chat log and the Ops-FW-1 firewall log were both preserved for the after-action report.",
+        "provenance": "Fictional. All organizations, names, and events are invented for assessment purposes only.",
+        "artifact": {
+          "format": "composite",
+          "data": {
+            "component": [
+              {
+                "id": "F1",
+                "type": "watch_chat_log",
+                "platform": "Shipboard IT Watch Log (internal only)",
+                "messages": [
+                  "0247 ET2 REYES: ARP monitor is throwing warnings on Ops LAN -- MAC ending :9F now answering ARP requests for both the Ops gateway and the nav-workstation subnet.",
+                  "0248 IT1 OKAFOR: Copy. That's consistent with ARP poisoning. Confirm it hasn't crossed toward Weapons Control.",
+                  "0251 ET2 REYES: Confirmed -- Ops-FW-1 logs show 6 denied attempts from the Ops LAN toward the Weapons Control gateway room in the last 3 minutes. Nothing got through.",
+                  "0252 IT1 OKAFOR: Good. The hardware crossover isn't even installed right now, so there's no path regardless. Isolate the offending host on Ops LAN and pull it for imaging."
+                ],
+                "@attrs": {
+                  "type": "watch_chat_log"
+                }
+              },
+              {
+                "id": "F2",
+                "type": "firewall_log",
+                "device": "Ops-FW-1",
+                "entries": [
+                  "02:48:14 DENY TCP 10.30.2.0/24 -> 10.40.0.0/24 (Weapons Control gateway room) -- no matching permit rule",
+                  "02:49:02 DENY TCP 10.30.2.0/24 -> 10.40.0.0/24 -- no matching permit rule",
+                  "02:50:47 DENY TCP 10.30.2.0/24 -> 10.40.0.0/24 -- no matching permit rule"
+                ],
+                "@attrs": {
+                  "type": "firewall_log"
+                }
+              }
+            ],
+            "@attrs": {
+              "format": "composite"
+            }
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "U3-S06-Q1",
+          "stimulus_ref": "U3-S06",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.A"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.A",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": -0.3,
+            "a_param": 0.9,
+            "c_param": 0.25,
+            "est_response_time_sec": 50,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "ET2 Reyes reports that a single MAC address is now answering ARP requests for both the Ops LAN gateway and the nav-workstation subnet. Which attack does this describe?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "Port scanning"
+            },
+            {
+              "key": "B",
+              "text": "DNS amplification"
+            },
+            {
+              "key": "C",
+              "text": "ARP poisoning"
+            },
+            {
+              "key": "D",
+              "text": "A ping flood"
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "A single MAC address falsely claiming to be multiple legitimate IP destinations -- here, the gateway and part of the nav-workstation subnet -- on a local network is the defining behavior of ARP poisoning (ARP spoofing). The attacker corrupts nearby devices' ARP caches so traffic intended for those legitimate addresses is instead sent to the attacker's machine.",
+          "distractor_rationale": {
+            "A": "Port scanning is passive reconnaissance to discover open services; it does not forge Layer 2 address mappings or redirect traffic.",
+            "B": "DNS amplification is a volumetric technique that abuses open DNS resolvers to flood a target; it has nothing to do with ARP cache entries.",
+            "D": "A ping flood overwhelms a target with ICMP echo requests; it does not cause another host's traffic to be redirected to an attacker's MAC address."
+          }
+        },
+        {
+          "id": "U3-S06-Q2",
+          "stimulus_ref": "U3-S06",
+          "topic_refs": [
+            "3.1"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.55,
+            "a_param": 1.2,
+            "c_param": 0.25,
+            "est_response_time_sec": 90,
+            "prerequisite_topics": [
+              "3.1"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "IT1 Okafor's first concern is whether the ARP poisoning reached the Weapons Control LAN. Independent of whether it did, what is the correct impact evaluation of the ARP poisoning occurring on the Operations LAN itself, among devices such as the nav workstations?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The impact is high, because the attacker is positioned as a man-in-the-middle for traffic among Operations LAN devices and can intercept or alter navigation, communications, or logistics data traversing that segment."
+            },
+            {
+              "key": "B",
+              "text": "The impact is negligible because the Operations LAN carries only navigation and logistics data, not weapons data."
+            },
+            {
+              "key": "C",
+              "text": "The impact is entirely eliminated once the offending host is isolated, because impact is only measured after remediation is complete."
+            },
+            {
+              "key": "D",
+              "text": "The impact cannot be assessed until the attacker's ultimate objective is known, since impact depends entirely on intent rather than technical capability."
+            }
+          ],
+          "answer_key": "A",
+          "explanation": "Regardless of whether the poisoning ever reaches Weapons Control, a successful ARP poisoning attack on the Operations LAN itself already gives the attacker a man-in-the-middle position over navigation, official-communications, and logistics traffic on that segment -- data whose interception or manipulation has real operational consequence. Impact is evaluated based on what the attacker's demonstrated technical position enables, not solely on the most catastrophic possible destination.",
+          "distractor_rationale": {
+            "B": "Navigation and logistics data are themselves operationally sensitive; interception or manipulation of navigation traffic specifically carries serious safety implications independent of any connection to weapons systems.",
+            "C": "Impact describes the potential harm from a successful exploit; it is assessed based on what access was achieved during the incident, not retroactively erased once the immediate threat is contained.",
+            "D": "Risk impact evaluation is based on the technical access and data exposure an attack achieves, which can be assessed directly from the log evidence -- it does not require first determining the attacker's subjective intent."
+          }
+        },
+        {
+          "id": "U3-S06-Q3",
+          "stimulus_ref": "U3-S06",
+          "topic_refs": [
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "2.A",
+              "lo": "LO 3.3.B",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 0.45,
+            "a_param": 1.05,
+            "c_param": 0.25,
+            "est_response_time_sec": 80,
+            "prerequisite_topics": [
+              "3.3"
+            ],
+            "mastery_threshold": 0.75,
+            "exposure_cap": 3
+          },
+          "stem": "Exhibit F2 shows Ops-FW-1 denying six connection attempts from the Ops LAN toward the Weapons Control gateway room, and Okafor notes the hardware crossover cable is not even installed. Together, what do these two facts demonstrate about the ship's segmentation design?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "They demonstrate that Ops-FW-1 alone is sufficient, and the physical air gap to Weapons Control is an unnecessary redundant control."
+            },
+            {
+              "key": "B",
+              "text": "They demonstrate that Weapons Control LAN devices are directly reachable from Ops LAN whenever maintenance is scheduled."
+            },
+            {
+              "key": "C",
+              "text": "They demonstrate that the ARP poisoning attack has already been fully remediated across the entire ship's network."
+            },
+            {
+              "key": "D",
+              "text": "They demonstrate layered containment working as intended: even if the compromised host attempted to reach the Weapons Control LAN, it was blocked first by Ops-FW-1's ACL and would have found no physical path even if the ACL had failed."
+            }
+          ],
+          "answer_key": "D",
+          "explanation": "The denied-connection entries show a compromised Ops LAN host attempting to reach the Weapons Control gateway room and being stopped at the firewall boundary -- one layer of defense functioning correctly. Okafor's note that the physical crossover cable is not installed reveals a second, independent layer: even a firewall misconfiguration or bypass would still have encountered no physical path to Weapons Control. This is defense-in-depth: multiple independent controls, each capable of stopping the same threat.",
+          "distractor_rationale": {
+            "A": "The scenario shows the opposite conclusion: having both the firewall ACL and the physical air gap means a single point of failure in either control does not result in compromise. Layered controls are not redundant waste -- they are the substance of defense-in-depth.",
+            "B": "The connectivity note states the opposite: the crossover cable required to reach Weapons Control is not installed during normal operations, meaning no direct path exists absent a deliberate, authorized maintenance action.",
+            "C": "The denied firewall entries show only that lateral movement toward Weapons Control was blocked; the compromised host on Ops LAN itself still requires isolation and imaging, as Okafor directs -- remediation of the underlying compromise is not yet complete."
+          }
+        },
+        {
+          "id": "U3-S06-Q4",
+          "stimulus_ref": "U3-S06",
+          "topic_refs": [
+            "3.1",
+            "3.3"
+          ],
+          "lo_refs": [
+            "LO",
+            "3.1.C",
+            "LO",
+            "3.3.B"
+          ],
+          "skill_vector": {
+            "primary": {
+              "skill": "1.C",
+              "lo": "LO 3.1.C",
+              "weight": "1.0"
+            }
+          },
+          "adaptive_meta": {
+            "b_param": 1.2,
+            "a_param": 1.45,
+            "c_param": 0.25,
+            "est_response_time_sec": 110,
+            "prerequisite_topics": [
+              "3.1",
+              "3.3"
+            ],
+            "mastery_threshold": 0.8,
+            "exposure_cap": 2
+          },
+          "stem": "Considering both the ARP poisoning technique documented in F1 and the ship's segmentation design documented in Exhibit C and F2, which overall risk evaluation of this incident is most complete?",
+          "choices": [
+            {
+              "key": "A",
+              "text": "The overall risk is low, because the six denied attempts prove that ARP poisoning poses no realistic threat to any shipboard LAN."
+            },
+            {
+              "key": "B",
+              "text": "The overall risk is identical across all three LANs, because a compound attack's risk level does not vary based on which network segment it originates in."
+            },
+            {
+              "key": "C",
+              "text": "The overall risk from this incident to the Operations LAN itself remains high -- ARP poisoning succeeded there and could still expose or alter navigation and logistics traffic -- while the segmentation design (firewall ACL plus physical air gap) substantially reduced the incremental risk of the attack cascading into the Weapons Control LAN."
+            },
+            {
+              "key": "D",
+              "text": "The overall risk cannot be evaluated until it is confirmed whether the attacker's device was owned by a crew member or an external party."
+            }
+          ],
+          "answer_key": "C",
+          "explanation": "A complete risk evaluation must treat the two findings separately rather than collapsing them into one verdict. On the Operations LAN, the attack succeeded technically -- the poisoning was live and positioned the attacker to intercept or alter traffic there, which is a high-impact finding on its own. Separately, the segmentation architecture (Ops-FW-1's default-deny ACL toward Weapons Control, reinforced by the absent physical crossover) demonstrably reduced the incremental risk of that same compromise escalating into the ship's most critical system. Both statements are true and complementary; neither alone captures the full picture.",
+          "distractor_rationale": {
+            "A": "The denied attempts show that escalation toward Weapons Control was blocked -- they say nothing about whether the ARP poisoning itself succeeded and caused impact on the Operations LAN, which the chat log confirms it did.",
+            "B": "Segmentation design exists specifically to make risk vary by segment; a compromise on the lowest-criticality segment with strong boundary controls to more critical segments does not carry the same overall risk as the same compromise occurring with no such boundary.",
+            "D": "The attacker's affiliation may matter for attribution and follow-up investigation, but it does not change the technical risk evaluation, which is based on what access and impact were achieved and what controls limited escalation -- both of which are already evident from the log evidence."
+          }
+        }
+      ]
+    }
+  ]
+}

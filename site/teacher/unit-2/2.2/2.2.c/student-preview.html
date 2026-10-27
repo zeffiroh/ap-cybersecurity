@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device theft and tampering, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Device theft and tampering</h1>
+<h1>Coding problem, 2.2.c: Device theft/tampering incident triage</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 2.2.B, 2.2.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>The IT security team receives reports whenever a device is reported stolen or found to show signs
+of tampering. Each report needs to be triaged into a risk level so the team knows what needs an
+immediate incident response versus what can be logged and monitored.</p>
+<p>Your task is to write a function <code>solve(data)</code> that takes a list of incident reports and returns a
+dictionary mapping each incident's <code>id</code> to a risk level: <code>"LOW"</code>, <code>"MEDIUM"</code>, or <code>"HIGH"</code>.</p>
+<h3>Rules, by incident <code>type</code></h3>
+<p><strong><code>type == "theft"</code></strong> (a device was physically taken):
+1. <code>"HIGH"</code> if the device was <strong>not</strong> encrypted (<code>encrypted</code> is <code>False</code>), an unencrypted stolen
+   device exposes its data with no cryptographic barrier.
+2. <code>"MEDIUM"</code> if the device <strong>was</strong> encrypted, but <code>contains_sensitive_data</code> is <code>True</code> <strong>and</strong>
+   <code>hours_since_check</code> is greater than <code>48</code>, encryption protects the data, but a long detection
+   delay on a sensitive device still raises risk (e.g., the device may have been unlocked and
+   in active use when taken).
+3. <code>"LOW"</code> otherwise.</p>
+<p><strong><code>type == "tampering"</code></strong> (a device was found to show signs of covert alteration):
+1. <code>"HIGH"</code> if the tamper-evident seal was <strong>not</strong> intact (<code>seal_intact</code> is <code>False</code>), physical
+   evidence the enclosure was opened.
+2. <code>"MEDIUM"</code> if the seal <strong>was</strong> intact but <code>hours_since_check</code> is greater than <code>48</code>, a long
+   window since the last inventory check means tampering that does not require opening the
+   enclosure (e.g., a rogue USB implant) could have gone unnoticed even with an intact seal.
+3. <code>"LOW"</code> otherwise.</p>
+<p>Any other <code>type</code> value should be treated as <code>"LOW"</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(data: list[dict]) -&gt; dict[str, str]</code> in the code editor.</p>
+<h2>Input</h2>
+<p>A list of dictionaries, each representing one incident report:</p>
+<pre><code class="language-python">[
+    {
+        &quot;id&quot;: &quot;inc-1&quot;,
+        &quot;type&quot;: &quot;theft&quot;,
+        &quot;encrypted&quot;: False,
+        &quot;seal_intact&quot;: True,
+        &quot;contains_sensitive_data&quot;: True,
+        &quot;hours_since_check&quot;: 10,
+    },
+    {
+        &quot;id&quot;: &quot;inc-2&quot;,
+        &quot;type&quot;: &quot;tampering&quot;,
+        &quot;encrypted&quot;: True,
+        &quot;seal_intact&quot;: False,
+        &quot;contains_sensitive_data&quot;: False,
+        &quot;hours_since_check&quot;: 5,
+    },
+]
+</code></pre>
+<p>Every report includes all five fields (<code>type</code>, <code>encrypted</code>, <code>seal_intact</code>,
+<code>contains_sensitive_data</code>, <code>hours_since_check</code>), even if a field is not relevant to that report's
+<code>type</code> (e.g., <code>seal_intact</code> is present but ignored for <code>type == "theft"</code>).</p>
+<h2>Output</h2>
+<p>A dictionary mapping each incident's <code>"id"</code> to its risk level string:</p>
+<pre><code class="language-python">{
+    &quot;inc-1&quot;: &quot;HIGH&quot;,
+    &quot;inc-2&quot;: &quot;HIGH&quot;,
+}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li><code>type</code> is <code>"theft"</code> or <code>"tampering"</code> (or, in hidden tests, possibly another string that must
+  default to <code>"LOW"</code>).</li>
+<li><code>encrypted</code>, <code>seal_intact</code>, <code>contains_sensitive_data</code> are booleans.</li>
+<li><code>hours_since_check</code> is a non-negative number (int or float).</li>
+<li>Pure function, deterministic, standard library only.</li>
+</ul>
+<h2>How to run</h2>
+<pre><code class="language-bash">Your code passes when every test below shows a checkmark (some are hidden until you run them).
+</code></pre>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(data: list[dict]) -&gt; dict[str, str]
+</code></pre>
+<h3>Input (<code>data</code>)</h3>
+<p>A list of dictionaries representing device incident reports. Each dictionary contains:
+- <code>id</code> (str): Unique identifier for the incident.
+- <code>type</code> (str): <code>"theft"</code> or <code>"tampering"</code> (other values default to <code>"LOW"</code>).
+- <code>encrypted</code> (bool): Whether the device's storage was encrypted.
+- <code>seal_intact</code> (bool): Whether the tamper-evident seal was intact when discovered.
+- <code>contains_sensitive_data</code> (bool): Whether the device held sensitive data.
+- <code>hours_since_check</code> (float/int): Hours since the device was last verified present/unaltered.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A dictionary where keys are the <code>id</code> of each incident from the input and values are the risk
+level: <code>"LOW"</code>, <code>"MEDIUM"</code>, or <code>"HIGH"</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Rules by <code>type</code> (see the problem statement above for full detail):</li>
+<li><code>theft</code>: not <code>encrypted</code> -&gt; <code>HIGH</code>; <code>encrypted</code> and <code>contains_sensitive_data</code> and
+     <code>hours_since_check &gt; 48</code> -&gt; <code>MEDIUM</code>; else <code>LOW</code>.</li>
+<li><code>tampering</code>: not <code>seal_intact</code> -&gt; <code>HIGH</code>; <code>seal_intact</code> and <code>hours_since_check &gt; 48</code> -&gt;
+     <code>MEDIUM</code>; else <code>LOW</code>.</li>
+<li>any other <code>type</code> -&gt; <code>LOW</code>.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 2.2.c. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Any
+
+
+def solve(data: list[dict]) -&gt; dict[str, str]:
+    """Triage device theft/tampering incident reports into risk levels.
+
+    Args:
+        data: A list of dicts, each with keys id, type, encrypted, seal_intact,
+            contains_sensitive_data, hours_since_check.
+    Returns:
+        A dictionary mapping incident ids to "LOW" | "MEDIUM" | "HIGH".
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _mk(id_, type_, encrypted, seal_intact, sensitive, hours):
+    return {
+        "id": id_,
+        "type": type_,
+        "encrypted": encrypted,
+        "seal_intact": seal_intact,
+        "contains_sensitive_data": sensitive,
+        "hours_since_check": hours,
+    }
+
+
+# ---- visible cases -------------------------------------------------------
+def test_theft_unencrypted_is_high():
+    data = [_mk("i1", "theft", False, True, False, 1)]
+    assert impl.solve(data) == {"i1": "HIGH"}
+
+
+def test_theft_encrypted_sensitive_long_delay_is_medium():
+    data = [_mk("i1", "theft", True, True, True, 50)]
+    assert impl.solve(data) == {"i1": "MEDIUM"}
+
+
+def test_theft_encrypted_sensitive_short_delay_is_low():
+    data = [_mk("i1", "theft", True, True, True, 10)]
+    assert impl.solve(data) == {"i1": "LOW"}
+
+
+def test_theft_encrypted_not_sensitive_is_low():
+    data = [_mk("i1", "theft", True, True, False, 100)]
+    assert impl.solve(data) == {"i1": "LOW"}
+
+
+def test_tampering_seal_broken_is_high():
+    data = [_mk("i1", "tampering", True, False, False, 1)]
+    assert impl.solve(data) == {"i1": "HIGH"}
+
+
+def test_tampering_seal_intact_long_delay_is_medium():
+    data = [_mk("i1", "tampering", True, True, False, 72)]
+    assert impl.solve(data) == {"i1": "MEDIUM"}
+
+
+def test_tampering_seal_intact_short_delay_is_low():
+    data = [_mk("i1", "tampering", True, True, False, 5)]
+    assert impl.solve(data) == {"i1": "LOW"}
+
+
+def test_unknown_type_is_low():
+    data = [_mk("i1", "lost", False, False, True, 1000)]
+    assert impl.solve(data) == {"i1": "LOW"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty():
+    assert impl.solve([]) == {}
+
+
+def test_boundary_48_hours_is_not_yet_escalated():
+    # hours_since_check == 48 is NOT &gt; 48, so should stay LOW/at baseline.
+    data = [
+        _mk("theft48", "theft", True, True, True, 48),
+        _mk("tamper48", "tampering", True, True, False, 48),
+    ]
+    assert impl.solve(data) == {"theft48": "LOW", "tamper48": "LOW"}
+
+
+def test_multiple_mixed():
+    data = [
+        _mk("a", "theft", False, True, True, 1),
+        _mk("b", "theft", True, True, True, 60),
+        _mk("c", "tampering", True, False, False, 1),
+        _mk("d", "tampering", True, True, False, 60),
+        _mk("e", "theft", True, False, False, 1),
+    ]
+    expected = {
+        "a": "HIGH",
+        "b": "MEDIUM",
+        "c": "HIGH",
+        "d": "MEDIUM",
+        "e": "LOW",
+    }
+    assert impl.solve(data) == expected
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

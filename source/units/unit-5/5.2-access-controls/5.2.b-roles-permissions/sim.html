@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<!-- 5.2.b SIM, role-assignment audit. Single-file, offline, deterministic.
+     No emoji/icons. Theme tokens inline from assets/theme/theme.css (THEME.md). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.2.b, Roles, permissions, and least privilege, Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:3px 6px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active,.btn.sel{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{font-weight:bold;background:#d8d8ff;}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.theme-linux .btn.sel{background:#dbe7ff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:10px 12px;white-space:pre-wrap;line-height:1.4;min-height:110px;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:10px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 6px;}
+.toolbar{margin-bottom:8px;}
+.legend{font-size:12px;color:var(--muted);margin-top:8px;}
+table{border-collapse:collapse;font-family:var(--mono-font);font-size:12px;margin-top:8px;}
+td,th{border:1px solid var(--muted);padding:3px 8px;text-align:left;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar"><button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button></div>
+  <div class="window">
+    <div class="titlebar"><span>5.2.b, Role Assignment Auditor</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>For each employee, decide whether their assigned roles grant any permission BEYOND what
+         their job function requires (a least-privilege violation). Reach <b id="goal">4</b>
+         correct to meet the objective.</p>
+
+      <table>
+        <tr><th>role</th><th>grants</th></tr>
+        <tr><td>support</td><td>read_ticket, write_ticket_reply</td></tr>
+        <tr><td>billing</td><td>read_invoice, issue_refund</td></tr>
+        <tr><td>admin</td><td>delete_user, read_ticket, read_invoice</td></tr>
+      </table>
+
+      <div class="terminal" id="emp" style="margin-top:8px"><span class="prompt">employee&gt; </span>...</div>
+
+      <div style="margin-top:8px">
+        <button class="btn" id="predYes" onclick="predict(true)">VIOLATION (excess permissions)</button>
+        <button class="btn" id="predNo" onclick="predict(false)">CLEAN (matches job function)</button>
+        <button class="btn" onclick="submit()">Submit</button>
+        <button class="btn" onclick="next()">Next employee</button>
+      </div>
+
+      <div class="terminal" id="fb" style="min-height:40px;margin-top:8px"></div>
+
+      <div class="statusbar" id="score">SCORE 0 / 4 | employee 1 of 5 | OBJECTIVE: <span class="bad">not yet met</span></div>
+      <div class="legend">No network. Deterministic synthetic roster and role table shown above.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+
+var ROLES = {
+  support: ["read_ticket", "write_ticket_reply"],
+  billing: ["read_invoice", "issue_refund"],
+  admin: ["delete_user", "read_ticket", "read_invoice"]
+};
+
+function excessOf(assignedRoles, required){
+  var granted = new Set();
+  assignedRoles.forEach(function(r){ (ROLES[r]||[]).forEach(function(p){ granted.add(p); }); });
+  var req = new Set(required);
+  var excess = [];
+  granted.forEach(function(p){ if(!req.has(p)) excess.push(p); });
+  return excess.sort();
+}
+
+/* ---- Deterministic employee roster ---- */
+var ROSTER = [
+  { name:"dana", roles:["support","billing"], required:["read_ticket","write_ticket_reply"] },
+  { name:"sam",  roles:["support"], required:["read_ticket","write_ticket_reply"] },
+  { name:"pat",  roles:["billing"], required:["read_invoice"] },
+  { name:"lee",  roles:["admin"], required:["read_ticket"] },
+  { name:"kai",  roles:["support","admin"], required:["read_ticket","write_ticket_reply","delete_user","read_invoice"] }
+];
+
+var idx=0, score=0, GOAL=4, met=false, chosen=null, answered=false;
+
+function render(){
+  var e=ROSTER[idx];
+  document.getElementById('emp').innerHTML =
+    '<span class="prompt">employee&gt; </span>'+e.name+
+    '\nassigned roles: '+e.roles.join(", ")+
+    '\njob requires: '+e.required.join(", ");
+  chosen=null; answered=false;
+  document.getElementById('predYes').classList.remove('sel');
+  document.getElementById('predNo').classList.remove('sel');
+  document.getElementById('fb').textContent='';
+  updateBar();
+}
+function predict(yes){
+  chosen=yes;
+  document.getElementById('predYes').classList.toggle('sel', yes===true);
+  document.getElementById('predNo').classList.toggle('sel', yes===false);
+}
+function submit(){
+  if(answered) return;
+  if(chosen===null){
+    document.getElementById('fb').innerHTML='<span class="bad">Choose VIOLATION or CLEAN first.</span>';
+    return;
+  }
+  answered=true;
+  var e=ROSTER[idx];
+  var excess=excessOf(e.roles, e.required);
+  var isViolation = excess.length>0;
+  var ok = chosen===isViolation;
+  var fb=document.getElementById('fb');
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(isViolation?('excess: '+excess.join(", ")):'no excess permissions'); }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> '+(isViolation?('excess: '+excess.join(", ")):'no excess permissions'); }
+  if(score>=GOAL) met=true;
+  updateBar();
+}
+function next(){ idx=(idx+1)%ROSTER.length; render(); }
+function updateBar(){
+  document.getElementById('score').innerHTML =
+    'SCORE '+score+' / '+GOAL+' | employee '+(idx+1)+' of '+ROSTER.length+' | OBJECTIVE: '+
+    (met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');
+}
+document.getElementById('goal').textContent=GOAL;
+render();
+</script>
+</body>
+</html>

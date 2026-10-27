@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Environmental controls (HVAC, fire suppression, power), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Environmental controls (HVAC, fire suppression, power)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.3.d: Facility control-compliance checker</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 2.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are auditing environmental controls across a facility's zones (rooms) for Crestfield
+Analytics. Each zone has a room type and a set of installed controls (UPS presence, HVAC
+redundancy level, fire suppression type, and floor-level leak sensor presence). The facility's
+control policy specifies, per room type, the minimum controls required. Given a list of zones
+and the policy, identify every zone that is <strong>non-compliant</strong>, missing one or more controls
+required for its room type.</p>
+<p>This mirrors real facility audits: a server room without a UPS or with water-sprinkler
+suppression is a serious finding, while a general office is held to a much lighter standard.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(zones, policy)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>zones</code>: <code>list[dict]</code>, each dict has:</li>
+<li><code>"name"</code>: <code>str</code>, zone identifier, e.g. <code>"server-room-a"</code></li>
+<li><code>"room_type"</code>: <code>str</code>, key into <code>policy</code>, e.g. <code>"server"</code>, <code>"closet"</code>, <code>"office"</code></li>
+<li><code>"has_ups"</code>: <code>bool</code></li>
+<li><code>"hvac_redundancy"</code>: <code>int</code>, number of <em>extra</em> HVAC units beyond the minimum needed (0 means no redundancy, a single unit)</li>
+<li><code>"suppression"</code>: <code>str</code>, one of <code>"water"</code>, <code>"clean_agent"</code>, <code>"none"</code></li>
+<li><code>"has_leak_sensor"</code>: <code>bool</code></li>
+<li><code>policy</code>: <code>dict[str, dict]</code>, maps a <code>room_type</code> string to a requirements dict, which may
+  contain any subset of these keys (a missing key means that control is not required for that
+  room type):</li>
+<li><code>"require_ups"</code>: <code>bool</code>, if <code>True</code>, zone must have <code>has_ups == True</code></li>
+<li><code>"min_hvac_redundancy"</code>: <code>int</code>, zone's <code>hvac_redundancy</code> must be <code>&gt;=</code> this value</li>
+<li><code>"allowed_suppression"</code>: <code>list[str]</code>, zone's <code>suppression</code> must be in this list</li>
+<li><code>"require_leak_sensor"</code>: <code>bool</code>, if <code>True</code>, zone must have <code>has_leak_sensor == True</code></li>
+<li>A zone whose <code>room_type</code> is not a key in <code>policy</code> has <strong>no requirements</strong> and is always compliant.</li>
+</ul>
+<h2>Output</h2>
+<p>A <strong>sorted list of unique zone name strings</strong> that fail at least one applicable requirement.
+Empty list if every zone is compliant.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">policy = {
+    &quot;server&quot;: {
+        &quot;require_ups&quot;: True,
+        &quot;min_hvac_redundancy&quot;: 1,
+        &quot;allowed_suppression&quot;: [&quot;clean_agent&quot;],
+        &quot;require_leak_sensor&quot;: True,
+    },
+    &quot;office&quot;: {
+        &quot;allowed_suppression&quot;: [&quot;water&quot;, &quot;clean_agent&quot;],
+    },
+}
+
+zones = [
+    {&quot;name&quot;: &quot;server-room-a&quot;, &quot;room_type&quot;: &quot;server&quot;, &quot;has_ups&quot;: True,
+     &quot;hvac_redundancy&quot;: 1, &quot;suppression&quot;: &quot;clean_agent&quot;, &quot;has_leak_sensor&quot;: True},
+    {&quot;name&quot;: &quot;server-room-b&quot;, &quot;room_type&quot;: &quot;server&quot;, &quot;has_ups&quot;: False,
+     &quot;hvac_redundancy&quot;: 1, &quot;suppression&quot;: &quot;clean_agent&quot;, &quot;has_leak_sensor&quot;: True},
+    {&quot;name&quot;: &quot;office-1&quot;, &quot;room_type&quot;: &quot;office&quot;, &quot;has_ups&quot;: False,
+     &quot;hvac_redundancy&quot;: 0, &quot;suppression&quot;: &quot;water&quot;, &quot;has_leak_sensor&quot;: False},
+]
+
+solve(zones, policy)  -&gt;  [&quot;server-room-b&quot;]
+# server-room-a meets every requirement for &quot;server&quot;.
+# server-room-b fails require_ups (has_ups is False).
+# office-1 has no UPS/HVAC/leak-sensor requirements for &quot;office&quot;, and water is an allowed
+#   suppression type for office, so it is compliant.
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>A room type not present in <code>policy</code> has no requirements (always compliant).</li>
+<li>A zone is non-compliant if it fails ANY applicable requirement key present in its room type's
+  policy entry.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(zones: list[dict], policy: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>zones</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"name"</code>: <code>str</code>, zone identifier
+- <code>"room_type"</code>: <code>str</code>, key into <code>policy</code>
+- <code>"has_ups"</code>: <code>bool</code>
+- <code>"hvac_redundancy"</code>: <code>int</code>, count of extra HVAC units beyond the single minimum (0 = no redundancy)
+- <code>"suppression"</code>: <code>str</code>, one of <code>"water"</code>, <code>"clean_agent"</code>, <code>"none"</code>
+- <code>"has_leak_sensor"</code>: <code>bool</code></p>
+<h3>Input (<code>policy</code>)</h3>
+<p><code>dict[str, dict]</code> mapping <code>room_type</code> -&gt; a requirements dict with any subset of:
+- <code>"require_ups"</code>: <code>bool</code>
+- <code>"min_hvac_redundancy"</code>: <code>int</code>
+- <code>"allowed_suppression"</code>: <code>list[str]</code>
+- <code>"require_leak_sensor"</code>: <code>bool</code></p>
+<p>A room type absent from <code>policy</code> has no requirements.
+A requirement key absent from a room type's entry is not enforced for that room type.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of zone name strings that fail one or more applicable
+requirements. Empty list if every zone is compliant.</p>
+<h3>Compliance rules</h3>
+<ul>
+<li><code>require_ups: True</code> -&gt; zone fails if <code>has_ups</code> is not <code>True</code>.</li>
+<li><code>min_hvac_redundancy: N</code> -&gt; zone fails if <code>hvac_redundancy &lt; N</code>.</li>
+<li><code>allowed_suppression: [...]</code> -&gt; zone fails if <code>suppression</code> is not in the list.</li>
+<li><code>require_leak_sensor: True</code> -&gt; zone fails if <code>has_leak_sensor</code> is not <code>True</code>.</li>
+<li>A zone fails (is non-compliant) if it fails ANY one applicable rule.</li>
+<li>A zone whose <code>room_type</code> has no entry in <code>policy</code> is always compliant.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Zones may be given in any order.</li>
+<li>Output always sorted ascending and de-duplicated.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.3.d. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict, Any
+
+
+def solve(zones: List[Dict[str, Any]], policy: Dict[str, Dict[str, Any]]) -&gt; List[str]:
+    """Return sorted list of zone names that are non-compliant with their room type's policy.
+
+    A zone is non-compliant if it fails any applicable requirement key present in the
+    policy entry for its room_type:
+      - require_ups (bool): zone.has_ups must be True
+      - min_hvac_redundancy (int): zone.hvac_redundancy must be &gt;= this value
+      - allowed_suppression (list[str]): zone.suppression must be in this list
+      - require_leak_sensor (bool): zone.has_leak_sensor must be True
+    A room_type absent from policy has no requirements (always compliant).
+    """
+    non_compliant = set()
+
+    for zone in zones:
+        rules = policy.get(zone["room_type"])
+        if not rules:
+            continue
+
+        if rules.get("require_ups") and not zone.get("has_ups", False):
+            non_compliant.add(zone["name"])
+            continue
+
+        min_hvac = rules.get("min_hvac_redundancy")
+        if min_hvac is not None and zone.get("hvac_redundancy", 0) &lt; min_hvac:
+            non_compliant.add(zone["name"])
+            continue
+
+        allowed = rules.get("allowed_suppression")
+        if allowed is not None and zone.get("suppression", "none") not in allowed:
+            non_compliant.add(zone["name"])
+            continue
+
+        if rules.get("require_leak_sensor") and not zone.get("has_leak_sensor", False):
+            non_compliant.add(zone["name"])
+            continue
+
+    return sorted(non_compliant)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---------------------------------------------------------------------------
+# Shared fixtures — seeded, deterministic policy and zone data
+# ---------------------------------------------------------------------------
+POLICY = {
+    "server": {
+        "require_ups": True,
+        "min_hvac_redundancy": 1,
+        "allowed_suppression": ["clean_agent"],
+        "require_leak_sensor": True,
+    },
+    "closet": {
+        "require_ups": True,
+        "allowed_suppression": ["clean_agent", "none"],
+    },
+    "office": {
+        "allowed_suppression": ["water", "clean_agent"],
+    },
+}
+
+
+def _zone(name, room_type, has_ups, hvac_redundancy, suppression, has_leak_sensor):
+    return {
+        "name": name,
+        "room_type": room_type,
+        "has_ups": has_ups,
+        "hvac_redundancy": hvac_redundancy,
+        "suppression": suppression,
+        "has_leak_sensor": has_leak_sensor,
+    }
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_fully_compliant_server_room():
+    zones = [_zone("server-room-a", "server", True, 1, "clean_agent", True)]
+    assert impl.solve(zones, POLICY) == []
+
+
+def test_server_room_missing_ups():
+    zones = [_zone("server-room-b", "server", False, 1, "clean_agent", True)]
+    assert impl.solve(zones, POLICY) == ["server-room-b"]
+
+
+def test_server_room_water_suppression_noncompliant():
+    zones = [_zone("server-room-c", "server", True, 1, "water", True)]
+    assert impl.solve(zones, POLICY) == ["server-room-c"]
+
+
+def test_server_room_no_hvac_redundancy():
+    zones = [_zone("server-room-d", "server", True, 0, "clean_agent", True)]
+    assert impl.solve(zones, POLICY) == ["server-room-d"]
+
+
+def test_server_room_missing_leak_sensor():
+    zones = [_zone("server-room-e", "server", True, 1, "clean_agent", False)]
+    assert impl.solve(zones, POLICY) == ["server-room-e"]
+
+
+def test_office_water_suppression_is_compliant():
+    zones = [_zone("office-1", "office", False, 0, "water", False)]
+    assert impl.solve(zones, POLICY) == []
+
+
+def test_office_no_suppression_is_noncompliant():
+    zones = [_zone("office-2", "office", False, 0, "none", False)]
+    assert impl.solve(zones, POLICY) == ["office-2"]
+
+
+def test_unknown_room_type_always_compliant():
+    zones = [_zone("lobby-1", "lobby", False, 0, "none", False)]
+    assert impl.solve(zones, POLICY) == []
+
+
+def test_empty_zones():
+    assert impl.solve([], POLICY) == []
+
+
+def test_multiple_zones_mixed_compliance():
+    zones = [
+        _zone("server-room-a", "server", True, 1, "clean_agent", True),
+        _zone("server-room-b", "server", False, 1, "clean_agent", True),
+        _zone("closet-1", "closet", True, 0, "clean_agent", False),
+        _zone("closet-2", "closet", False, 0, "none", False),
+        _zone("office-1", "office", False, 0, "water", False),
+    ]
+    result = impl.solve(zones, POLICY)
+    assert result == ["closet-2", "server-room-b"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_closet_water_suppression_noncompliant():
+    """closet policy only allows clean_agent or none, not water."""
+    zones = [_zone("closet-3", "closet", True, 0, "water", False)]
+    assert impl.solve(zones, POLICY) == ["closet-3"]
+
+
+def test_hvac_redundancy_exact_boundary():
+    """hvac_redundancy exactly equal to min_hvac_redundancy is compliant."""
+    zones = [_zone("server-room-f", "server", True, 1, "clean_agent", True)]
+    assert impl.solve(zones, POLICY) == []
+
+
+def test_hvac_redundancy_above_minimum_is_compliant():
+    zones = [_zone("server-room-g", "server", True, 3, "clean_agent", True)]
+    assert impl.solve(zones, POLICY) == []
+
+
+def test_multiple_failures_zone_reported_once():
+    """A zone failing multiple rules still appears only once in the output."""
+    zones = [_zone("server-room-h", "server", False, 0, "water", False)]
+    assert impl.solve(zones, POLICY) == ["server-room-h"]
+
+
+def test_output_sorted_and_deduplicated_order():
+    zones = [
+        _zone("z-server-3", "server", False, 0, "water", False),
+        _zone("a-server-1", "server", False, 0, "water", False),
+        _zone("m-server-2", "server", False, 0, "water", False),
+    ]
+    result = impl.solve(zones, POLICY)
+    assert result == sorted(result)
+    assert result == ["a-server-1", "m-server-2", "z-server-3"]
+
+
+def test_empty_policy_means_no_zone_ever_fails():
+    zones = [_zone("server-room-z", "server", False, 0, "water", False)]
+    assert impl.solve(zones, {}) == []
+
+
+def test_room_type_entry_with_no_keys_always_compliant():
+    """A room_type present in policy but with an empty requirements dict has no requirements."""
+    policy = {"vault": {}}
+    zones = [_zone("vault-1", "vault", False, 0, "none", False)]
+    assert impl.solve(zones, policy) == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,352 @@
+\chapter{Symmetric Hashing and Key Storage}
+\label{ch:5.3}
+\chaptertopic{Topic 5.3}
+
+\chapterquote{The system must not require secrecy, and it must be able to fall into the hands of the enemy without inconvenience.}{Auguste Kerckhoffs, \emph{La Cryptographie Militaire} (1883)}
+
+\section{Motivation}
+
+Chapters~\ref{ch:5.1} and~\ref{ch:5.2} were about who is allowed to touch data. This chapter is
+about protecting the data itself, cryptographically, regardless of who eventually reaches it. Three
+questions organize it. When should stored data be reversible (encryption) versus permanently
+one-way (hashing)? How does symmetric encryption actually work, and how are its keys kept safe over
+their whole lifetime? And how do you prove not just that data is unaltered, but that it genuinely
+came from whoever claims to have sent it?
+
+\begin{apalignment}{Unit 5: Securing Applications and Data}{Topic 5.3 -- Protecting Stored Data with Cryptography}
+\begin{apobjectives}
+\apobjective{5.3.A}{Mitigate Risk}{Decide whether data should be stored encrypted (recoverable) or hashed (one-way) based on whether the original value must ever be retrieved, and manage a symmetric key safely across its lifecycle -- generation, storage, and rotation -- so no single compromised secret exposes the underlying data.}
+\apobjective{5.3.B}{Mitigate Risk}{Use a symmetric algorithm to encrypt and recover data, handling correctly the parts that surround the cipher itself -- where the key comes from, how the initialization vector is generated, and how the ciphertext is authenticated so that tampering is detected rather than silently decrypted.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Encryption versus Hashing}
+
+Both tools turn readable input into an unreadable-looking blob of bytes, and both are indispensable
+-- but they solve opposite problems, and using the wrong one is a common, costly mistake.
+
+\begin{definition}{Encryption}
+A reversible transformation of plaintext into ciphertext using a key; given the correct key, the
+ciphertext decrypts back to the exact original plaintext.
+\end{definition}
+
+\begin{definition}{Hash function}
+A one-way function that maps an input of any size to a fixed-size \textbf{digest}, with no
+algorithm capable of reversing the process -- given only a digest, the original input cannot be
+recovered, only guessed.
+\end{definition}
+
+The question that separates them is simple: do you ever need to get the original back? A payroll
+file must be readable whenever payroll actually runs, so it is stored encrypted. A login password
+never needs to be recovered at all -- the site only needs to know whether a submitted password
+matches what was registered -- so it is stored hashed. At login, the input is hashed and the two
+digests are compared; the original password is never reconstructed anywhere in the process. If
+a site stored passwords encrypted instead, a database breach combined with key compromise would
+expose every user's password in plaintext at once. Hashing removes that single point of failure
+entirely -- there is no key to steal that would undo it.
+
+Hash functions rely on the \textbf{avalanche effect}: two inputs differing by a single character
+produce completely unrelated digests, which is what makes a hash useful for detecting even the
+smallest tampering. But a naive hash of a common password produces the same digest every time it is
+hashed anywhere. That is exactly what \textbf{rainbow tables} -- enormous precomputed
+password-to-hash lookup tables -- exploit to crack common passwords instantly. A \textbf{salt}, a
+random value appended before hashing and stored alongside the digest, defeats this: even two users
+who chose the identical password end up with different digests, because their salts differ.
+
+\begin{lstlisting}[language=Python, caption={Salted password hashing and verification}]
+import hashlib, secrets
+
+def hash_password(password, salt=None):
+    """Returns (salt_hex, digest_hex). Generates a fresh salt if none given."""
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.sha256((salt + password).encode()).hexdigest()
+    return salt, digest
+
+def verify_password(password, salt, expected_digest):
+    _, digest = hash_password(password, salt)
+    return secrets.compare_digest(digest, expected_digest)
+\end{lstlisting}
+
+The SHA-2 family (SHA-256, SHA-512) is today's standard for general-purpose hashing. MD5 and SHA-1
+are deprecated for any security use because both have documented \textbf{collision} weaknesses --
+two genuinely different inputs producing the identical digest.\srccite{5.3}{1} That collision
+weakness undermines the entire integrity guarantee a hash is meant to provide. For passwords specifically, purpose-built slow
+algorithms (bcrypt, scrypt, Argon2) are preferred over a fast general-purpose hash like SHA-256
+alone, because their deliberate computational cost makes brute-force guessing expensive even on
+modern hardware.
+
+\begin{misconception}
+\textbf{``Encoding (Base64) is a form of encryption.''} Encoding is a lossless, keyless format
+change, trivially reversed by anyone -- it provides zero confidentiality and should never be
+mistaken for either encryption or hashing.
+\end{misconception}
+
+\section{Symmetric Encryption and Key Management}
+
+\begin{definition}{Symmetric encryption}
+A cryptographic system in which a single secret key performs both encryption and decryption; the
+same key must therefore be kept secret from anyone who should not read the protected data.
+\end{definition}
+
+\textbf{AES (Advanced Encryption Standard)}, established by NIST in 2001, is the modern industry
+standard, supporting 128-, 192-, and 256-bit keys, all currently considered secure against
+brute-force attack.\srccite{5.3}{2} It replaced DES specifically because DES's 56-bit key had become
+brute-forceable with modern hardware. AES is a \textbf{block cipher}: it encrypts fixed-size 128-bit blocks.
+Real data is almost always larger than one block, so a \textbf{mode of operation} defines how
+blocks chain together -- and that choice matters enormously for security.
+
+\begin{example}[Why ECB mode leaks the exact shape of your data]
+\textbf{Electronic Codebook (ECB)} mode encrypts each block independently with the same key --
+which means two identical plaintext blocks always produce identical ciphertext blocks. Encrypt a
+bitmap image in ECB mode and the image's outline remains clearly visible in the ciphertext. Large
+uniform regions of the source image become large uniform regions of ciphertext, in exactly the
+same shape. ECB should never be used for multi-block data regardless of how strong the underlying
+cipher is.
+\end{example}
+
+\textbf{Cipher Block Chaining (CBC)} fixes this by XORing each plaintext block with the previous
+ciphertext block before encrypting it, seeded by a random, non-secret \textbf{Initialization Vector
+(IV)} for the first block. The IV must be unique for every encryption -- reusing one with
+the same key lets an attacker detect whether two messages start with identical data. \textbf{GCM
+(Galois/Counter Mode)} goes further: it turns the block cipher into a stream cipher and is an
+\textbf{Authenticated Encryption with Associated Data (AEAD)} mode. That means it provides
+confidentiality \emph{and} integrity verification together through an authentication tag: if an
+attacker tampers with the ciphertext at all, decryption fails outright rather than silently
+producing corrupted plaintext.
+
+A cryptographic system is only as secure as how it manages its keys across their whole lifecycle.
+\textbf{Generation} must use a \textbf{CSPRNG} (Cryptographically Secure Pseudo-Random Number
+Generator). An ordinary language's built-in \texttt{random} module uses a predictable algorithm
+and must never generate a real key; Python's \texttt{secrets} module or an OS entropy source like
+\texttt{/dev/urandom} is the correct choice. \textbf{Storage} must never mean hardcoding a key in
+source code or a plaintext configuration file, since either leaks the moment version control is
+compromised. Dedicated \textbf{secrets managers} or \textbf{Hardware Security Modules (HSMs)} are the
+correct alternative -- both perform cryptographic operations internally, so a key never leaves the
+hardware in plaintext.
+
+\begin{lstlisting}[language=Python, caption={Envelope encryption: wrapping a data key with a key-encryption key}]
+def wrap_dek(dek_bytes, kek_bytes):
+    """Simplified XOR-based key wrapping for illustration.
+    dek_bytes, kek_bytes: equal-length bytes objects."""
+    return bytes(a ^ b for a, b in zip(dek_bytes, kek_bytes))
+
+def unwrap_dek(wrapped_dek, kek_bytes):
+    return wrap_dek(wrapped_dek, kek_bytes)
+\end{lstlisting}
+
+Large systems manage many keys through \textbf{envelope encryption}: a \textbf{Data Encryption Key
+(DEK)} encrypts the actual data, and a \textbf{Key Encryption Key (KEK)} encrypts (wraps) that DEK
+in turn. The wrapped DEK sits next to the encrypted data itself, while the KEK stays securely inside
+an HSM or secrets manager. To decrypt, the system sends the wrapped DEK to be unwrapped by the
+KEK, retrieves the plaintext DEK, and only then decrypts the actual data. Keys are \textbf{rotated}
+on a schedule to limit how much data any single compromised key would expose. When a key is
+finally retired, it is securely destroyed -- \textbf{cryptographic erasure} -- so that without it,
+the ciphertext it protected becomes permanently unrecoverable by design.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=3.1cm, minimum height=0.9cm, align=center, font=\scriptsize},
+]
+\node[box, fill=kickstartermaroon!25] (kek) at (0,1.6) {KEK\\stays inside HSM /\\secrets manager};
+\node[box, fill=kickstartercream] (dek) at (0,0) {DEK\\(wrapped by KEK)};
+\node[box] (data) at (4.4,0) {Encrypted data\\(encrypted by DEK)};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (kek) -- (dek) node[midway, right, font=\tiny] {wraps};
+\draw[-{Latex[length=2mm]}] (dek) -- (data) node[midway, above, font=\tiny] {encrypts};
+\node[font=\scriptsize\sffamily, gray, align=center] at (0,-1.1) {wrapped DEK sits next to the\\encrypted data it protects};
+\end{tikzpicture}
+\caption{Envelope encryption: the KEK never leaves the HSM, and only the much smaller DEK needs to
+be unwrapped to decrypt the actual data -- rotating the KEK never requires re-encrypting the data
+itself, only re-wrapping the DEK.}
+\label{fig:5.3-envelope}
+\end{figure}
+
+\begin{example}[LastPass, 2022: When the Key Management Story Falls Apart]
+Attackers breached the password manager LastPass in two stages between August and October 2022,
+fully disclosed only in stages through December 2022. It became a widely cited case study in what
+happens when key-management assumptions do not hold up end to end.\srccite{5.3}{3} In the first stage,
+attackers compromised a software engineer's corporate laptop and used it to steal source code and
+technical secrets. In the second stage, using information from the first, attackers targeted a
+senior DevOps engineer, ultimately capturing credentials that gave access to cloud storage backups
+containing customer vault data. Those vaults were encrypted, meant to be readable only by each
+customer, using a key derived from that customer's own master password -- which LastPass itself
+never stored. For most customers, that design held: without the master password, the stolen vaults
+were not directly readable. But LastPass's own later disclosure revealed two compounding
+weaknesses. Some vaults had been created years earlier under a much lower password-based
+key-derivation iteration count than the company's current standard. Older accounts had not always
+been migrated forward, leaving them meaningfully cheaper for an attacker to brute-force offline.
+And within each vault, some fields -- website URLs among them -- had historically been stored
+unencrypted for functional reasons, exposing which sites a customer had accounts on even without
+cracking anything. The lesson generalizes past this one company. Envelope encryption and strong
+algorithms only deliver the protection this chapter describes when every parameter in the chain is
+actually current for every record -- not just the ones created after a policy improved. That chain
+includes the key-derivation iteration count, which fields are actually encrypted, and whether older
+data was ever upgraded to current standards. A cryptographic design can be correct on paper and
+still fail in exactly the records an organization forgot to re-encrypt.
+\end{example}
+
+\begin{misconception}
+\textbf{``AES-ECB is secure because AES is strong.''} Even with a maximally strong cipher, ECB
+mode encrypts identical plaintext blocks into identical ciphertext blocks, exposing data patterns
+regardless of how unbreakable the underlying AES computation itself is.
+\end{misconception}
+
+\section{Integrity and Authenticity}
+
+A plain hash lets you detect whether data changed by accident -- a bad disk sector, a dropped byte
+in transit -- but it does nothing against an intelligent attacker. Hash functions are public
+and keyless: anyone, including the attacker, can compute SHA-256 over any input they choose. An
+attacker who intercepts a message and its hash, edits the message, and recomputes the hash over the
+tampered content produces a digest that matches perfectly. The check passes cleanly, because the
+attacker computed it correctly over content they altered.
+
+\begin{definition}{MAC (Message Authentication Code)}
+A keyed hash that proves both \textbf{integrity} (the data was not altered) and
+\textbf{authenticity} (the data genuinely came from whoever holds the shared secret key). A plain
+hash, by contrast, can only ever demonstrate the first property -- and only over a channel an
+attacker cannot also tamper with.
+\end{definition}
+
+The obvious first attempt at building one, \texttt{H(key || message)}, has a real vulnerability in
+any hash built on the Merkle-Damgard construction, which includes MD5, SHA-1, and SHA-256. These
+functions expose their entire internal state as the output digest. That means an attacker who
+knows \texttt{H(key || message)} can compute a valid hash for \texttt{key || message || padding ||
+attacker\_data} without ever learning the key -- a \textbf{length-extension attack}. The digest
+already tells the attacker exactly what internal state the function was in after processing the
+original input, letting them resume hashing from there.
+
+\begin{definition}{HMAC}
+The NIST FIPS 198-1 standardized keyed-hash construction,\srccite{5.3}{4}
+$\mathrm{HMAC}(K, m) = H\big((K \oplus \mathrm{opad}) \,\|\, H((K \oplus \mathrm{ipad}) \,\|\, m)\big)$,
+which nests the hash function twice around two independently derived keyed prefixes so that no
+exposed intermediate state is ever available to extend.
+\end{definition}
+
+Because the final output is a hash \emph{of} a hash, with the key folded in on both passes, an
+attacker who only ever sees the final tag has no usable internal state to extend. They cannot
+produce a valid tag for any message without the key itself. The nesting is what makes HMAC provably
+resistant to length extension, even while built directly on a vulnerable Merkle-Damgard hash like
+SHA-256.
+
+\begin{lstlisting}[language=Python, caption={Building and verifying an HMAC tag by hand}]
+import hashlib
+
+def hmac_sha256(key, message, block_size=64):
+    key = key if len(key) <= block_size else hashlib.sha256(key).digest()
+    key = key.ljust(block_size, b"\x00")
+    ipad = bytes(b ^ 0x36 for b in key)
+    opad = bytes(b ^ 0x5c for b in key)
+    inner = hashlib.sha256(ipad + message).digest()
+    return hashlib.sha256(opad + inner).hexdigest()
+
+def verify_hmac(key, message, tag):
+    import hmac as hmac_lib
+    return hmac_lib.compare_digest(hmac_sha256(key, message), tag)
+\end{lstlisting}
+
+HMAC shows up constantly in practice. In API request signing, a client and server share a secret,
+and every request carries a tag over its contents so the server can reject anything tampered with
+or forged. In webhook verification, a SaaS platform signs a payload with HMAC-SHA256 so the
+receiving server can confirm the request really came from that platform. And JWT tokens using the
+\texttt{HS256} algorithm have a server-side secret sign the header and payload, so tampering with
+a token's own claims is detectable. In every case, HMAC answers the same question: did this data
+arrive unmodified, from someone who actually holds the shared secret? That is a question a plain
+hash structurally cannot answer, once an attacker is capable of rewriting both the message and its
+accompanying digest.
+
+\begin{misconception}
+\textbf{``A matching hash proves the message wasn't tampered with.''} Only if the attacker could
+not also recompute the hash after tampering. A plain, keyless hash gives no such guarantee the
+moment an attacker can rewrite both the message and its accompanying digest together.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A company needs to run payroll, which requires reading employee salary figures, and also
+needs to verify user login passwords. Explain which cryptographic control belongs to each task and
+justify the choice using the ``do you need the original back'' test from this chapter.
+\item Explain why encrypting a bitmap image in ECB mode leaves the image's outline visible in the
+ciphertext, and identify the specific property of ECB mode responsible for this leak.
+\item An organization hardcodes an AES key directly in its application source code, committed to a
+private Git repository. Explain why this is considered unsafe key storage even though the
+repository is private, and describe the correct alternative.
+\item An attacker intercepts a message and its SHA-256 hash, edits the message, and recomputes a
+matching hash over the tampered content. Explain why the recipient's integrity check passes despite
+the tampering, and explain what HMAC adds that would have caught it.
+\item Explain why \texttt{H(key || message)} is vulnerable to a length-extension attack on
+SHA-256, and explain specifically how HMAC's double-nested construction closes that gap.
+\item In the LastPass breach, most customer vaults remained unreadable to the attackers because
+the decryption key was derived from a master password LastPass never stored. Explain why older
+vaults created under a lower key-derivation iteration count were still meaningfully more exposed
+than newer ones, even though both used the identical envelope-encryption design in principle.
+\item Using the envelope-encryption diagram, explain why an organization can rotate its KEK on a
+regular schedule without re-encrypting its entire dataset of stored files. Identify exactly
+which artifact actually changes when a KEK rotation happens.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Payroll requires the original salary figures to be recoverable whenever payroll actually
+runs, so it is stored encrypted -- the ``do you need the original back'' answer is yes. Login
+passwords never need to be recovered; the system only needs to confirm a submitted password matches
+what was registered, so passwords are stored hashed. The original is never reconstructed
+anywhere in the verification process.
+\answerlabel{5.3.A}
+\item ECB mode encrypts each fixed-size block independently under the same key, so two identical
+plaintext blocks always produce identical ciphertext blocks. Large uniform regions of a bitmap
+image consist of many identical or near-identical blocks, which map to identical ciphertext blocks
+in exactly the same arrangement, so the image's outline survives encryption intact. The specific
+property responsible is ECB's lack of chaining or randomization between blocks.
+\answerlabel{5.3.B}
+\item A private repository is not a secrecy boundary that survives normal operations: any developer
+with repository access, any CI system that clones it, and anyone who obtains a compromised
+credential or a leaked clone can read the key. The key also remains exposed in the repository's full
+history even after later removal. The correct alternative is a dedicated secrets manager or
+Hardware Security Module, which stores the key outside source control. In the HSM case, it also
+performs cryptographic operations internally, so the key never leaves the hardware in plaintext at
+all.
+\answerlabel{5.3.A}
+\item The check passes because SHA-256 is a public, keyless function: the attacker can compute a
+correct hash over any content they choose, including their own tampered message. The recomputed
+hash matches the tampered content perfectly. HMAC adds a shared secret key folded into the
+computation itself, so an attacker without that key cannot produce a valid tag for their tampered
+message, even though they can still compute an ordinary SHA-256 hash of it.
+\answerlabel{5.3.B}
+\item \texttt{H(key || message)} is vulnerable because Merkle-Damgard hash functions expose their
+entire internal state as the output digest. An attacker who knows \texttt{H(key || message)}
+already knows exactly what internal state the function was in after processing the original input.
+They can resume hashing from there, computing a valid hash over \texttt{key || message || padding ||
+attacker\_data} without ever learning the key. HMAC closes this by nesting the hash function twice
+around two independently keyed prefixes, so the final tag is a hash of a hash with the key mixed in
+on both passes. An attacker who sees only the final tag has no exposed intermediate state usable
+as a starting point for extension.
+\answerlabel{5.3.B}
+\item A key-derivation function's iteration count directly controls how computationally expensive
+each single guess is for an attacker performing offline brute-force against the master password.
+That is the same deliberate-slowness principle bcrypt and Argon2 apply to password hashing more
+generally. A vault created under a much lower iteration count requires far less computation per
+guess, so the identical envelope-encryption design and identical algorithm still yield a
+dramatically cheaper attack surface for older vaults. The design's security depends on a tunable
+parameter that was never uniformly current across every account, not on the algorithm choice alone.
+\answerlabel{5.3.A}
+\item Because the KEK only wraps the (much smaller) DEK rather than touching the actual data
+directly, rotating the KEK requires only unwrapping every existing DEK with the old KEK and
+re-wrapping it with the new one. That is a small, fast operation compared to re-encrypting the
+underlying files themselves, which can be arbitrarily large and numerous. The artifact that
+actually changes during a KEK rotation is the wrapped DEK stored alongside each piece of encrypted
+data. The encrypted data itself, and the DEK's own plaintext value, never need to be touched at
+all.
+\answerlabel{5.3.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{5.3}{1}National Institute of Standards and Technology, ``NIST Transitioning Away
+from SHA-1 for All Applications,'' NIST Computer Security Resource Center, December 15, 2022.
+\item \srcitem{5.3}{2}National Institute of Standards and Technology, Federal Information Processing
+Standards Publication 197, \emph{Advanced Encryption Standard (AES)}, November 26, 2001.
+\item \srcitem{5.3}{3}LastPass, ``Security Incident Update \& Recommended Actions,'' The LastPass
+Blog, March 1, 2023 (final incident report, consolidating the August--December 2022 disclosures).
+\item \srcitem{5.3}{4}National Institute of Standards and Technology, Federal Information Processing
+Standards Publication 198-1, \emph{The Keyed-Hash Message Authentication Code (HMAC)}, July 16,
+2008.
+\end{enumerate}

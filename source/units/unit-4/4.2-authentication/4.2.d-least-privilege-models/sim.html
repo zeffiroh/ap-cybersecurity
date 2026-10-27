@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.2.d, Least privilege and access control models, Simulation</title>
+<style>
+:root{
+  --bg:#fff;--fg:#000;--muted:#555;
+  --win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;
+  --win-title:#000080;--win-title-fg:#fff;
+  --term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;
+  --ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000;
+  --tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c;}
+.wrap{max-width:880px;margin:16px auto;padding:0 12px;}
+.window{background:var(--win-face);padding:2px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.theme-linux .window{border:1px solid #ccc;}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+  padding:2px 4px;display:flex;justify-content:space-between;}
+.titlebar .controls{font-family:var(--mono-font);}
+.body{background:var(--bg);padding:12px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 16px;cursor:pointer;margin:4px;
+  border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff;}
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+  padding:12px;white-space:pre-wrap;line-height:1.4;min-height:180px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.theme-linux .terminal{border:1px solid #ccc;}
+.terminal .prompt{color:var(--term-dim);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;
+  border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.scorepanel .ok{color:#008000;font-weight:bold;}.scorepanel .bad{color:#aa0000;font-weight:bold;}
+h1{font-size:16px;margin:0 0 8px;}
+.toolbar{margin-bottom:8px;}
+.controls-area{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>4.2.d, Access request auditor</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Access Request Auditor Simulation</h1>
+      <p>Review the queued access requests in the audit terminal. Classify each as APPROVE, DENY, FLAG-PRIVILEGE-CREEP, or APPROVE-JIT (just-in-time). Achieve a perfect score of 5 / 5 to complete the drill.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">auditor@access-review:~$ </span>Loading access requests...</div>
+
+      <div class="controls-area" id="controls">
+        <button class="btn" onclick="FNE.act('approve')">Approve</button>
+        <button class="btn" onclick="FNE.act('deny')">Deny</button>
+        <button class="btn" onclick="FNE.act('flag')">Flag Privilege Creep</button>
+        <button class="btn" onclick="FNE.act('jit')">Approve (JIT)</button>
+      </div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 5 │ OBJECTIVE: not yet met</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  if(document.body.classList.contains('theme-win')){
+    document.body.classList.remove('theme-win');
+    document.body.classList.add('theme-linux');
+  } else {
+    document.body.classList.remove('theme-linux');
+    document.body.classList.add('theme-win');
+  }
+}
+
+var FNE = (function(){
+  var score = 0, MAX = 5, met = false;
+  var currentIndex = 0;
+
+  var requests = [
+    {
+      report: "REQUEST #1: Marketing intern requests write access to the production customer database. Justification field: 'might be useful later.' No specific task cited.",
+      category: "deny",
+      explain: "No concrete justification for the requested access, and the access far exceeds the role's job function, deny per least privilege."
+    },
+    {
+      report: "REQUEST #2: HR employee transferred to Facilities 2 years ago but still holds active administrator access to the payroll system from their old role. Last access review: 730 days ago.",
+      category: "flag",
+      explain: "Access left over from a prior role that was never revoked, and the last review is far past the 365-day threshold, this is privilege creep."
+    },
+    {
+      report: "REQUEST #3: On-call engineer requests elevated production SSH access for a 4-hour incident response window. Justification: active outage ticket #4471. Access will auto-expire after 4 hours.",
+      category: "jit",
+      explain: "Justified, time-bound, and scoped to the incident window, this is exactly what just-in-time access is for. Approve as time-bound."
+    },
+    {
+      report: "REQUEST #4: Database analyst requests read-only access to the quarterly sales report table. Justification: scheduled Q3 reporting task. Standing (non-expiring) access. Last access review: 40 days ago.",
+      category: "approve",
+      explain: "Justified, reasonably scoped to the job function, and access reviews are current, a standard approval."
+    },
+    {
+      report: "REQUEST #5: Contractor requests standing admin access to the entire file server 'to save time re-requesting later.' No justification tied to a current task.",
+      category: "deny",
+      explain: "Broad standing access requested purely for convenience with no task-specific justification, deny per least privilege."
+    }
+  ];
+
+  function render(){
+    var el = document.getElementById('stage');
+    if(currentIndex < requests.length) {
+      el.innerHTML = '<span class="prompt">auditor@access-review:~$ </span><strong>[ACCESS REQUEST #' + (currentIndex + 1) + ']</strong>\n\n' + requests[currentIndex].report;
+    } else {
+      if(score === MAX) {
+        met = true;
+        el.innerHTML = '<span class="prompt">auditor@access-review:~$ </span><strong>AUDIT COMPLETE</strong>\n\nAll requests triaged. Perfect score achieved. Objective Met.';
+      } else {
+        el.innerHTML = '<span class="prompt">auditor@access-review:~$ </span><strong>AUDIT COMPLETE</strong>\n\nScore: ' + score + '/' + MAX + '. You must achieve 5/5. Press "Restart" to retry.';
+        document.getElementById('controls').innerHTML = '<button class="btn" onclick="FNE.restart()">Restart</button>';
+      }
+    }
+    setScore();
+  }
+
+  function setScore(){
+    var el = document.getElementById('score');
+    el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
+      (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+  }
+
+  function controlsHtml(){
+    return '<button class="btn" onclick="FNE.act(\'approve\')">Approve</button>' +
+      '<button class="btn" onclick="FNE.act(\'deny\')">Deny</button>' +
+      '<button class="btn" onclick="FNE.act(\'flag\')">Flag Privilege Creep</button>' +
+      '<button class="btn" onclick="FNE.act(\'jit\')">Approve (JIT)</button>';
+  }
+
+  function act(category){
+    if (currentIndex >= requests.length) return;
+
+    var current = requests[currentIndex];
+    var isCorrect = (category === current.category);
+    if(isCorrect) {
+      score++;
+    }
+
+    var el = document.getElementById('stage');
+    el.innerHTML = '<span class="prompt">auditor@access-review:~$ </span>' +
+      (isCorrect ? '<strong>CORRECT!</strong>' : '<strong>INCORRECT.</strong>') + '\n\n' +
+      current.explain + '\n\nPress "Next" to continue.';
+
+    document.getElementById('controls').innerHTML = '<button class="btn" onclick="FNE.next()">Next</button>';
+  }
+
+  function next(){
+    currentIndex++;
+    if (currentIndex < requests.length) {
+      document.getElementById('controls').innerHTML = controlsHtml();
+    }
+    render();
+  }
+
+  function restart(){
+    score = 0;
+    currentIndex = 0;
+    met = false;
+    document.getElementById('controls').innerHTML = controlsHtml();
+    render();
+  }
+
+  setTimeout(render, 10);
+
+  return { act:act, next:next, restart:restart };
+})();
+</script>
+</body>
+</html>

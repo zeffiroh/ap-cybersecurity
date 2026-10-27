@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.1.c, Man-in-the-middle and ARP spoofing, Simulation</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#000000; --muted:#555555; --rule:#000000;
+  --win-face:#c0c0c0; --win-light:#ffffff; --win-shadow:#808080; --win-dark:#000000;
+  --win-title:#000080; --win-title-fg:#ffffff; --win-title-inactive:#7f7f7f;
+  --lin-panel:#f5f5f5; --lin-border:#cccccc; --lin-accent:#3465a4;
+  --term-bg:#000000; --term-fg:#00ff00; --term-dim:#00aa00; --term-cursor:#00ff00;
+  --ui-font:"MS Sans Serif", Tahoma, Geneva, system-ui, sans-serif;
+  --mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;
+  --tok-kw:#000080; --tok-str:#008000; --tok-num:#aa5500; --tok-com:#808080; --tok-fn:#800080; --tok-op:var(--fg);
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px;}
+*{box-sizing:border-box;}
+code,pre,.mono{font-family:var(--mono-font);}
+hr{border:none;border-top:1px solid var(--rule);}
+
+.theme-win .window{background:var(--win-face);padding:2px;}
+.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+        box-shadow:inset 1px 1px 0 0 var(--win-light), inset -1px -1px 0 0 var(--win-shadow);}
+.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
+        box-shadow:inset 1px 1px 0 0 var(--win-dark);}
+.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;
+          padding:2px 4px;display:flex;justify-content:space-between;align-items:center;}
+.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px;}
+.window-body{background:var(--bg);color:var(--fg);padding:10px;}
+.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;
+     border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);
+     outline:none;}
+.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
+.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark);}
+.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px;}
+
+.theme-linux{ --win-face:var(--lin-panel); }
+.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0;}
+.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none;}
+.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600;}
+.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px;}
+.theme-linux .btn:active{background:#ececec;}
+.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent);}
+.theme-linux{ --tok-kw:#9c36b5; --tok-str:#2f9e44; --tok-num:#1971c2; --tok-com:#868e96; --tok-fn:#e8590c; }
+
+.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);
+          padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px;}
+.terminal .prompt{color:var(--term-dim);}
+.scorepanel{font-family:var(--mono-font);}
+.scorepanel .ok{color:#008000;} .theme-linux .scorepanel .ok{color:#2f9e44;}
+.scorepanel .bad{color:#aa0000;}
+
+.wrap{max-width:920px;margin:16px auto;padding:0 12px;}
+.toolbar{margin-bottom:8px;}
+.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;}
+.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold;}
+table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px;}
+th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left;}
+th{background:var(--win-face);}
+</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>3.1.c, ARP Table Watch Console</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>You are watching ARP replies observed on a LAN segment for a single target IP address. The
+      <b>first</b> reply seen for an IP establishes its "trusted" MAC binding. Decide whether the
+      LAST reply shown is <b>LEGIT</b> (same MAC as the trusted binding, a normal refresh) or
+      <b>SPOOFED</b> (a different MAC now claims an IP that was already bound to another MAC, the
+      signature of ARP spoofing). Reach 6 correct calls to meet the objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">arpwatch&gt; </span>Loading event...</div>
+
+      <div class="choice-btns">
+        <button class="btn choice" data-v="LEGIT" onclick="chooseVerdict(this)">LEGIT</button>
+        <button class="btn choice" data-v="SPOOFED" onclick="chooseVerdict(this)">SPOOFED</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Event</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 6 &#9474; Event 1 of 8 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){
+  document.body.classList.toggle('theme-win');
+  document.body.classList.toggle('theme-linux');
+}
+
+/* Deterministic synthetic ARP-watch log. Each event shows the sequence of ARP replies seen so far
+   for one target IP (in order), and the student judges the LAST reply in that sequence.
+   Rule: the first reply for an IP establishes the trusted MAC. Any later reply with a
+   DIFFERENT MAC for the same IP is SPOOFED. A later reply with the SAME MAC as trusted is LEGIT. */
+var EVENTS = [
+  {
+    ip: "192.168.1.1", seq: [
+      {mac:"aa:11:22:33:44:01", t:0},
+      {mac:"aa:11:22:33:44:01", t:30}
+    ],
+    verdict: "LEGIT",
+    explain: "Both replies for 192.168.1.1 claim the same MAC (aa:...01), this is a routine ARP cache refresh, not a change of binding."
+  },
+  {
+    ip: "192.168.1.1", seq: [
+      {mac:"aa:11:22:33:44:01", t:0},
+      {mac:"de:ad:be:ef:00:99", t:15}
+    ],
+    verdict: "SPOOFED",
+    explain: "192.168.1.1 was first bound to aa:...01. A different MAC (de:ad:be:ef:00:99) now claims the same IP only 15 seconds later, a classic gratuitous-ARP spoofing signature, likely targeting the gateway."
+  },
+  {
+    ip: "192.168.1.50", seq: [
+      {mac:"11:22:33:44:55:66", t:0}
+    ],
+    verdict: "LEGIT",
+    explain: "Only one reply has ever been seen for this IP, it establishes the trusted binding; there is nothing to compare it against yet, so it is not spoofing."
+  },
+  {
+    ip: "192.168.1.10", seq: [
+      {mac:"bb:22:33:44:55:02", t:0},
+      {mac:"bb:22:33:44:55:02", t:60},
+      {mac:"66:77:88:99:aa:bb", t:65}
+    ],
+    verdict: "SPOOFED",
+    explain: "The first two replies confirm the trusted binding (bb:...02). The third reply, only 5 seconds later, claims the SAME IP with a completely different MAC, the binding just changed unexpectedly, which is the spoofing signature."
+  },
+  {
+    ip: "192.168.1.75", seq: [
+      {mac:"cc:33:44:55:66:07", t:0},
+      {mac:"cc:33:44:55:66:07", t:120},
+      {mac:"cc:33:44:55:66:07", t:240}
+    ],
+    verdict: "LEGIT",
+    explain: "All three replies agree on the same MAC across multiple refreshes, a stable, consistent binding."
+  },
+  {
+    ip: "192.168.1.1", seq: [
+      {mac:"aa:11:22:33:44:01", t:0},
+      {mac:"aa:11:22:33:44:01", t:20},
+      {mac:"aa:11:22:33:44:01", t:40},
+      {mac:"de:ad:be:ef:00:99", t:41}
+    ],
+    verdict: "SPOOFED",
+    explain: "Three stable refreshes establish high confidence in the trusted binding (aa:...01) before a different MAC suddenly claims the gateway's IP one second later, a textbook ARP spoofing attempt against the default gateway."
+  },
+  {
+    ip: "192.168.1.88", seq: [
+      {mac:"ff:00:11:22:33:44", t:0},
+      {mac:"ff:00:11:22:33:44", t:5},
+      {mac:"ff:00:11:22:33:44", t:10}
+    ],
+    verdict: "LEGIT",
+    explain: "Frequent refreshes with the same MAC each time are normal ARP cache behavior, not spoofing."
+  },
+  {
+    ip: "192.168.1.20", seq: [
+      {mac:"12:34:56:78:9a:bc", t:0},
+      {mac:"98:76:54:32:10:ff", t:3}
+    ],
+    verdict: "SPOOFED",
+    explain: "A different MAC claims 192.168.1.20 only 3 seconds after the trusted binding was established, too fast and too different to be a legitimate device replacement (e.g. NIC swap), which would typically be preceded by the old MAC going silent for longer."
+  }
+];
+
+var idx = 0, score = 0, GOAL = 6, met = false, submitted = false, selected = null;
+
+function renderSeq(ev){
+  var html = '<table><tr><th>target ip</th><td colspan="2">'+ev.ip+'</td></tr>';
+  html += '<tr><th>t (sec)</th><th>mac in reply</th><th>note</th></tr>';
+  ev.seq.forEach(function(s, i){
+    var note = i === 0 ? 'establishes trusted binding' : (i === ev.seq.length-1 ? 'JUDGE THIS ONE' : '');
+    html += '<tr><td>'+s.t+'</td><td>'+s.mac+'</td><td>'+note+'</td></tr>';
+  });
+  html += '</table>';
+  return html;
+}
+
+function renderRecord(){
+  var e = EVENTS[idx];
+  var stage = document.getElementById('stage');
+  stage.innerHTML = '<span class="prompt">EVT-' + (idx+1) + ' arpwatch&gt; </span>\n' + renderSeq(e);
+  selected = null;
+  submitted = false;
+  document.querySelectorAll('.choice').forEach(function(x){ x.classList.remove('sel'); });
+  document.getElementById('feedback').innerHTML = '';
+  updateStatus();
+}
+
+function chooseVerdict(btn){
+  if (submitted) return;
+  document.querySelectorAll('.choice').forEach(function(x){ x.classList.remove('sel'); });
+  btn.classList.add('sel');
+  selected = btn.getAttribute('data-v');
+}
+
+function submitChoice(){
+  if (submitted || !selected) return;
+  submitted = true;
+  var e = EVENTS[idx];
+  var isCorrect = selected === e.verdict;
+  var fb = document.getElementById('feedback');
+  if (isCorrect){
+    score++;
+    fb.innerHTML = '<span class="ok">CORRECT.</span> ' + e.explain;
+  } else {
+    fb.innerHTML = '<span class="bad">INCORRECT.</span> Correct verdict: ' + e.verdict + '. ' + e.explain;
+  }
+  if (score >= GOAL) met = true;
+  updateStatus();
+}
+
+function nextRecord(){
+  idx = (idx + 1) % EVENTS.length;
+  renderRecord();
+}
+
+function updateStatus(){
+  var el = document.getElementById('score');
+  el.innerHTML = 'SCORE ' + score + ' / ' + GOAL + ' &#9474; Event ' + (idx+1) + ' of ' + EVENTS.length +
+    ' &#9474; OBJECTIVE: ' + (met ? '<span class="ok">MET</span>' : '<span class="bad">not yet met</span>');
+}
+
+renderRecord();
+</script>
+</body>
+</html>

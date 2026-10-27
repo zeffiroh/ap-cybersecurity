@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data breaches and their impact, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Data breaches and their impact</h1>
+<h1>Coding problem, 5.1.d: Score data breach severity</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 5.1.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the severity scorer a security team's intake triage tool would run on each incoming breach
+report. Given the categories of data exposed, the number of records affected, and how many days
+it took to detect the breach, compute a total severity score and a label.</p>
+<h2>Scoring rubric</h2>
+<p>Start at <code>score = 0</code>.</p>
+<p><strong>Data category points</strong> (sum over all categories present in the report, each counted once):
+- <code>"pii"</code> (personally identifiable information): +40
+- <code>"financial"</code>: +40
+- <code>"health"</code>: +40
+- <code>"auth_plaintext"</code> (plaintext passwords/secrets): +40
+- <code>"auth_hashed"</code> (hashed/salted passwords): +15
+- <code>"email"</code>: +10
+- <code>"public"</code>: +0</p>
+<p><strong>Scale points</strong> (based on <code>record_count</code>):
+- <code>&lt; 100</code>: +0
+- <code>100</code>-<code>9,999</code>: +10
+- <code>10,000</code>-<code>999,999</code>: +20
+- <code>&gt;= 1,000,000</code>: +30</p>
+<p><strong>Detection-speed points</strong> (based on <code>days_to_detect</code>):
+- <code>&lt;= 1</code>: +0
+- <code>2</code>-<code>30</code>: +10
+- <code>&gt; 30</code>: +20</p>
+<h2>Label thresholds (applied to the total score)</h2>
+<ul>
+<li><code>score &gt;= 80</code> -&gt; <code>"critical"</code></li>
+<li><code>score &gt;= 50</code> -&gt; <code>"high"</code></li>
+<li><code>score &gt;= 20</code> -&gt; <code>"medium"</code></li>
+<li>else -&gt; <code>"low"</code></li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(report: dict) -&gt; dict</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>report</code>: <code>{"categories": list[str], "record_count": int, "days_to_detect": int}</code></p>
+<h2>Output</h2>
+<p><code>{"score": int, "label": str}</code></p>
+<h2>Examples</h2>
+<pre><code>{&quot;categories&quot;: [&quot;public&quot;], &quot;record_count&quot;: 50, &quot;days_to_detect&quot;: 1}
+    -&gt; {&quot;score&quot;: 0, &quot;label&quot;: &quot;low&quot;}
+
+{&quot;categories&quot;: [&quot;pii&quot;, &quot;auth_plaintext&quot;], &quot;record_count&quot;: 500000, &quot;days_to_detect&quot;: 45}
+    -&gt; {&quot;score&quot;: 40 + 40 + 20 + 20, &quot;label&quot;: &quot;critical&quot;}   # = 120
+
+{&quot;categories&quot;: [&quot;email&quot;], &quot;record_count&quot;: 200, &quot;days_to_detect&quot;: 5}
+    -&gt; {&quot;score&quot;: 10 + 10 + 10, &quot;label&quot;: &quot;medium&quot;}          # = 30
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Multiple categories are additive; unknown category strings contribute 0 points.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(report: dict) -&gt; dict
+</code></pre>
+<h3>Input (<code>report</code>)</h3>
+<p><code>{"categories": list[str], "record_count": int, "days_to_detect": int}</code></p>
+<ul>
+<li><code>categories</code>: zero or more of <code>{"pii", "financial", "health", "auth_plaintext", "auth_hashed",
+  "email", "public"}</code>. Unknown strings are ignored (contribute 0 points).</li>
+<li><code>record_count</code>: non-negative int.</li>
+<li><code>days_to_detect</code>: non-negative int.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>{"score": int, "label": str}</code> where <code>label</code> is one of <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>, <code>"critical"</code>.</p>
+<h3>Rubric</h3>
+<ul>
+<li>Category points (sum, each category counted once): pii=40, financial=40, health=40,
+  auth_plaintext=40, auth_hashed=15, email=10, public=0, unknown=0.</li>
+<li>Scale points: <code>&lt;100</code>-&gt;0, <code>100-9999</code>-&gt;10, <code>10000-999999</code>-&gt;20, <code>&gt;=1000000</code>-&gt;30.</li>
+<li>Detection points: <code>&lt;=1</code>-&gt;0, <code>2-30</code>-&gt;10, <code>&gt;30</code>-&gt;20.</li>
+<li>Label thresholds on total score: <code>&gt;=80</code>-&gt;critical, <code>&gt;=50</code>-&gt;high, <code>&gt;=20</code>-&gt;medium, else low.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Categories with duplicates in the input list are only counted once.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.1.d. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Dict, List
+
+
+def solve(report: Dict[str, object]) -&gt; Dict[str, object]:
+    """Score a data breach report's severity.
+
+    Args:
+        report: {"categories": list[str], "record_count": int, "days_to_detect": int}
+    Returns:
+        {"score": int, "label": str} where label is one of
+        "low", "medium", "high", "critical" per the rubric in the problem statement above.
+    """
+    # TODO: sum data-category points + scale points + detection-speed points,
+    #       then map the total to a label per the thresholds in the problem statement above.
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_low_public_small():
+    report = {"categories": ["public"], "record_count": 50, "days_to_detect": 1}
+    assert impl.solve(report) == {"score": 0, "label": "low"}
+
+
+def test_critical_pii_plaintext_large_slow():
+    report = {"categories": ["pii", "auth_plaintext"], "record_count": 500000, "days_to_detect": 45}
+    assert impl.solve(report) == {"score": 120, "label": "critical"}
+
+
+def test_medium_email_small_moderate():
+    report = {"categories": ["email"], "record_count": 200, "days_to_detect": 5}
+    assert impl.solve(report) == {"score": 30, "label": "medium"}
+
+
+def test_hashed_auth_only():
+    report = {"categories": ["auth_hashed"], "record_count": 50, "days_to_detect": 1}
+    assert impl.solve(report) == {"score": 15, "label": "low"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_high_financial_million_records_fast_detect():
+    report = {"categories": ["financial"], "record_count": 2_000_000, "days_to_detect": 1}
+    assert impl.solve(report) == {"score": 70, "label": "high"}
+
+
+def test_multiple_categories_additive():
+    report = {"categories": ["pii", "financial", "health"], "record_count": 50, "days_to_detect": 1}
+    assert impl.solve(report) == {"score": 120, "label": "critical"}
+
+
+def test_unknown_category_contributes_zero():
+    report = {"categories": ["mystery_category"], "record_count": 50, "days_to_detect": 1}
+    assert impl.solve(report) == {"score": 0, "label": "low"}
+
+
+def test_empty_report():
+    report = {"categories": [], "record_count": 0, "days_to_detect": 0}
+    assert impl.solve(report) == {"score": 0, "label": "low"}
+
+
+def test_boundary_record_count_10000():
+    report = {"categories": [], "record_count": 10000, "days_to_detect": 0}
+    assert impl.solve(report) == {"score": 20, "label": "medium"}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

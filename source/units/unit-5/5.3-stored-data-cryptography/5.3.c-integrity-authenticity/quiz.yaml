@@ -1,0 +1,57 @@
+# Canonical item bank for atom 5.3.c (single source of truth).
+# Used by the skill quiz page and the topic's practice questions.
+atom: 5.3.c
+title: Integrity and authenticity (HMAC)
+lo:
+- 5.3.B
+- 5.3.C
+items:
+- id: q1
+  type: mcq
+  prompt: An attacker intercepts a message and its plain SHA-256 hash in transit. They change the message and recompute the hash over the new content before forwarding both to the recipient. What happens when the recipient checks integrity?
+  options:
+  - The check passes cleanly, because the attacker can compute a correct hash over any message they choose
+  - The check fails, because SHA-256 detects tampering automatically
+  - The check fails, because hash functions require a secret key to compute
+  - The recipient cannot compute a hash at all without the original message
+  answer: 0
+  points: 1
+  explain: Plain hash functions are public and keyless. An attacker can recompute a valid hash over their tampered message, so the recipient's check passes even though the message was altered. A plain hash proves the data matches its digest, not who produced that pairing.
+- id: q2
+  type: mcq
+  prompt: What is the key structural weakness that makes naive `H(key || message)` vulnerable to a length-extension attack on a Merkle-Damgard hash like SHA-256?
+  options:
+  - The digest exposes the hash function's internal state, letting an attacker resume hashing and append attacker-chosen data without knowing the key
+  - The hash function is too slow to compute over long messages
+  - SHA-256 always produces the same digest for every input
+  - Concatenating the key and message causes a buffer overflow
+  answer: 0
+  points: 1
+  explain: Merkle-Damgard hashes output their exact internal state as the digest. Given H(key||message), an attacker can resume hashing from that state to compute a valid hash for key||message||padding||attacker_data, without ever learning the key.
+- id: q3
+  type: multi
+  prompt: Select ALL statements that correctly describe HMAC.
+  options:
+  - HMAC nests the hash function twice, folding the key into both an inner and outer keyed input
+  - HMAC is standardized in NIST FIPS 198-1
+  - HMAC is provably resistant to length-extension attacks even when built on SHA-256
+  - HMAC encrypts the message so only the key holder can read its contents
+  answer:
+  - 0
+  - 1
+  - 2
+  points: 3
+  explain: HMAC(key, message) = H((key XOR opad) || H((key XOR ipad) || message)), a double nesting with two independently-derived keyed prefixes, standardized in FIPS 198-1, which defeats length-extension attacks. HMAC does not provide confidentiality; it produces a verification tag only, the message itself is not hidden.
+- id: q4
+  type: short
+  prompt: 'Give the one-word term for the property that a plain hash provides (data was not altered) but does NOT prove on its own: that data really came from a specific, key-holding sender.'
+  accept:
+  - authenticity
+  - authentication
+  points: 1
+  explain: Integrity means the data was not altered. Authenticity means it really came from who it claims to, which requires a secret the attacker does not have, hence HMAC's keyed construction.
+- id: q5
+  type: code
+  prompt: Implement the FIPS 198-1 HMAC-SHA256 construction (ipad/opad nesting) plus a verify() helper in problem/ (graded automatically).
+  grader: problem
+  points: 3

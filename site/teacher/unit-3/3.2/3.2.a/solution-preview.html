@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wi-Fi basics and wireless security protocols (WPA2/WPA3), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Wi-Fi basics and wireless security protocols (WPA2/WPA3)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.2.a: Wi-Fi configuration security evaluator</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.2.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building an automated Wi-Fi configuration checker for Crestfield Analytics, mirroring what
+enterprise wireless assessment tools do. Given a dictionary describing one access point's
+configuration, return the sorted list of security gap codes that configuration has, based on the
+criteria from the lesson (protocol strength, PSK password length, guest network isolation, admin
+interface password strength, and firmware currency).</p>
+<h2>Function contract</h2>
+<p>Implement <code>evaluate_wifi_config(cfg)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>cfg</code>: <code>dict</code> with:</li>
+<li><code>"protocol"</code>: <code>str</code>, one of <code>"WPA3"</code>, <code>"WPA2-AES"</code>, <code>"WPA2-TKIP"</code>, <code>"WEP"</code>, <code>"OPEN"</code></li>
+<li><code>"mode"</code>: <code>str</code>, <code>"personal"</code> or <code>"enterprise"</code></li>
+<li><code>"psk_length"</code>: <code>int</code>, length of the pre-shared key/password (only meaningful when
+    <code>mode == "personal"</code>)</li>
+<li><code>"guest_network_isolated"</code>: <code>bool</code>, whether guest devices are on a separate, isolated SSID/VLAN</li>
+<li><code>"admin_password_strong"</code>: <code>bool</code>, whether the AP's management interface has a strong unique
+    password</li>
+<li><code>"firmware_current"</code>: <code>bool</code>, whether the AP is running current (patched) firmware</li>
+</ul>
+<h2>Output</h2>
+<p>A sorted <code>list[str]</code> of gap codes present in the configuration (empty list if there are no gaps).
+Possible gap codes:
+- <code>"insecure_protocol"</code>, protocol is <code>"WEP"</code>, <code>"WPA2-TKIP"</code>, or <code>"OPEN"</code>
+- <code>"weak_psk"</code>, <code>mode == "personal"</code> and <code>psk_length &lt; 20</code>
+- <code>"no_guest_isolation"</code>, <code>guest_network_isolated</code> is <code>False</code>
+- <code>"weak_admin_password"</code>, <code>admin_password_strong</code> is <code>False</code>
+- <code>"outdated_firmware"</code>, <code>firmware_current</code> is <code>False</code></p>
+<h2>Examples</h2>
+<pre><code class="language-python">cfg = {
+    &quot;protocol&quot;: &quot;WPA2-TKIP&quot;, &quot;mode&quot;: &quot;personal&quot;, &quot;psk_length&quot;: 12,
+    &quot;guest_network_isolated&quot;: True, &quot;admin_password_strong&quot;: True, &quot;firmware_current&quot;: True,
+}
+evaluate_wifi_config(cfg)
+# -&gt; [&quot;insecure_protocol&quot;, &quot;weak_psk&quot;]
+
+cfg2 = {
+    &quot;protocol&quot;: &quot;WPA3&quot;, &quot;mode&quot;: &quot;enterprise&quot;, &quot;psk_length&quot;: 0,
+    &quot;guest_network_isolated&quot;: True, &quot;admin_password_strong&quot;: True, &quot;firmware_current&quot;: True,
+}
+evaluate_wifi_config(cfg2)
+# -&gt; []
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li><code>psk_length</code> is only checked when <code>mode == "personal"</code>; ignore it entirely for <code>"enterprise"</code>
+  mode (enterprise mode uses per-user 802.1X credentials, not a shared PSK).</li>
+<li>Gap codes in the output list must be sorted alphabetically and contain no duplicates.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def evaluate_wifi_config(cfg: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>cfg</code>)</h3>
+<p><code>dict</code> with:
+- <code>"protocol"</code>: <code>str</code>, one of <code>"WPA3"</code>, <code>"WPA2-AES"</code>, <code>"WPA2-TKIP"</code>, <code>"WEP"</code>, <code>"OPEN"</code>
+- <code>"mode"</code>: <code>str</code>, <code>"personal"</code> or <code>"enterprise"</code>
+- <code>"psk_length"</code>: <code>int</code>, PSK/password length (meaningful only when <code>mode == "personal"</code>)
+- <code>"guest_network_isolated"</code>: <code>bool</code>
+- <code>"admin_password_strong"</code>: <code>bool</code>
+- <code>"firmware_current"</code>: <code>bool</code></p>
+<h3>Output (<code>result</code>)</h3>
+<p>A sorted <code>list[str]</code> (no duplicates) of gap codes:
+- <code>"insecure_protocol"</code>, <code>protocol</code> in <code>{"WEP", "WPA2-TKIP", "OPEN"}</code>
+- <code>"weak_psk"</code>, <code>mode == "personal"</code> and <code>psk_length &lt; 20</code>
+- <code>"no_guest_isolation"</code>, <code>guest_network_isolated is False</code>
+- <code>"weak_admin_password"</code>, <code>admin_password_strong is False</code>
+- <code>"outdated_firmware"</code>, <code>firmware_current is False</code></p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>psk_length</code> is ignored (never triggers <code>"weak_psk"</code>) when <code>mode == "enterprise"</code>.</li>
+<li>Output is sorted alphabetically with no duplicates; empty list if no gaps apply.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.2.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict, List
+
+_INSECURE_PROTOCOLS = {"WEP", "WPA2-TKIP", "OPEN"}
+
+
+def evaluate_wifi_config(cfg: Dict) -&gt; List[str]:
+    """Return the sorted list of security gap codes in a Wi-Fi AP configuration.
+
+    Rules (see the Reference section below):
+      - insecure_protocol: protocol in {WEP, WPA2-TKIP, OPEN}
+      - weak_psk: mode == "personal" and psk_length &lt; 20 (ignored for enterprise mode)
+      - no_guest_isolation: guest_network_isolated is False
+      - weak_admin_password: admin_password_strong is False
+      - outdated_firmware: firmware_current is False
+    """
+    gaps = []
+
+    if cfg["protocol"] in _INSECURE_PROTOCOLS:
+        gaps.append("insecure_protocol")
+
+    if cfg["mode"] == "personal" and cfg["psk_length"] &lt; 20:
+        gaps.append("weak_psk")
+
+    if not cfg["guest_network_isolated"]:
+        gaps.append("no_guest_isolation")
+
+    if not cfg["admin_password_strong"]:
+        gaps.append("weak_admin_password")
+
+    if not cfg["firmware_current"]:
+        gaps.append("outdated_firmware")
+
+    return sorted(gaps)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _cfg(protocol="WPA3", mode="personal", psk_length=24, guest=True, admin=True, fw=True):
+    return {
+        "protocol": protocol,
+        "mode": mode,
+        "psk_length": psk_length,
+        "guest_network_isolated": guest,
+        "admin_password_strong": admin,
+        "firmware_current": fw,
+    }
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_perfect_config_no_gaps():
+    assert impl.evaluate_wifi_config(_cfg()) == []
+
+
+def test_tkip_and_weak_psk():
+    cfg = _cfg(protocol="WPA2-TKIP", psk_length=12)
+    assert impl.evaluate_wifi_config(cfg) == ["insecure_protocol", "weak_psk"]
+
+
+def test_wep_flagged():
+    cfg = _cfg(protocol="WEP")
+    assert impl.evaluate_wifi_config(cfg) == ["insecure_protocol"]
+
+
+def test_open_flagged():
+    cfg = _cfg(protocol="OPEN")
+    assert impl.evaluate_wifi_config(cfg) == ["insecure_protocol"]
+
+
+def test_wpa2_aes_acceptable():
+    cfg = _cfg(protocol="WPA2-AES", psk_length=20)
+    assert impl.evaluate_wifi_config(cfg) == []
+
+
+def test_no_guest_isolation_flagged():
+    cfg = _cfg(guest=False)
+    assert impl.evaluate_wifi_config(cfg) == ["no_guest_isolation"]
+
+
+def test_weak_admin_password_flagged():
+    cfg = _cfg(admin=False)
+    assert impl.evaluate_wifi_config(cfg) == ["weak_admin_password"]
+
+
+def test_outdated_firmware_flagged():
+    cfg = _cfg(fw=False)
+    assert impl.evaluate_wifi_config(cfg) == ["outdated_firmware"]
+
+
+def test_all_gaps_sorted():
+    cfg = _cfg(protocol="WEP", psk_length=5, guest=False, admin=False, fw=False)
+    assert impl.evaluate_wifi_config(cfg) == [
+        "insecure_protocol",
+        "no_guest_isolation",
+        "outdated_firmware",
+        "weak_admin_password",
+        "weak_psk",
+    ]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_enterprise_mode_ignores_psk_length():
+    """Enterprise mode uses per-user 802.1X creds; psk_length must never trigger weak_psk."""
+    cfg = _cfg(mode="enterprise", psk_length=1)
+    assert impl.evaluate_wifi_config(cfg) == []
+
+
+def test_psk_length_boundary_19_is_weak():
+    cfg = _cfg(psk_length=19)
+    assert impl.evaluate_wifi_config(cfg) == ["weak_psk"]
+
+
+def test_psk_length_boundary_20_is_ok():
+    cfg = _cfg(psk_length=20)
+    assert impl.evaluate_wifi_config(cfg) == []
+
+
+def test_wpa3_enterprise_perfect():
+    cfg = _cfg(protocol="WPA3", mode="enterprise", psk_length=0)
+    assert impl.evaluate_wifi_config(cfg) == []
+
+
+def test_wpa2_tkip_enterprise_still_flags_protocol_only():
+    cfg = _cfg(protocol="WPA2-TKIP", mode="enterprise", psk_length=0)
+    assert impl.evaluate_wifi_config(cfg) == ["insecure_protocol"]
+
+
+def test_no_duplicate_gap_codes():
+    cfg = _cfg(protocol="OPEN", psk_length=0, guest=False, admin=False, fw=False)
+    result = impl.evaluate_wifi_config(cfg)
+    assert len(result) == len(set(result))
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

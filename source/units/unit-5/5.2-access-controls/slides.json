@@ -1,0 +1,2193 @@
+{
+ "subunit_id": "5.2",
+ "subunit_title": "Linux Permission Controls",
+ "unit": "5",
+ "unit_title": "Unit 5: Securing Applications and Data",
+ "learning_objectives": [],
+ "slides": [
+  {
+   "index": "5.2.1.a.1",
+   "parent_n": 1,
+   "title": "Every Multi-User OS Needs an Answer",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "inode",
+    "filesystem",
+    "foundations",
+    "access-control"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Traces to Dennis Ritchie and Ken Thompson's Unix (1969), specifically the Sixth Edition Unix filesystem of 1975. View inode metadata with `stat filename`.</p><p><b>Misconception:</b> Students think permissions are an app-layer add-on. They are enforced by the kernel at the filesystem layer, beneath every application.</p><p><b>Analogy:</b> An inode is a library card catalog entry, it tells you who owns the book and where to find it on the shelf, but is not the book itself.</p><p><b>Exam tip:</b> Be ready to state that Linux permission checks happen in the kernel during every file access, not in the application.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>The core question:</b> which subjects may perform which operations on which objects?",
+    "<b>Linux answers at the filesystem layer:</b> permission enforcement is baked into the filesystem itself, not bolted on",
+    "<b>The inode:</b> every file/directory is represented by an inode storing owner, group, permission bits, timestamps, and data-block pointers",
+    "<b>Why it matters for app security:</b> nearly every privilege escalation, exfiltration, or persistence technique depends on a permission misconfiguration somewhere",
+    "<b>Stable for decades:</b> the model has remained structurally unchanged since early Unix"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.1",
+   "parent_n": 1,
+   "title": "Every Multi-User OS Needs an Answer",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "inode",
+    "filesystem",
+    "foundations",
+    "access-control"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Traces to Dennis Ritchie and Ken Thompson's Unix (1969), specifically the Sixth Edition Unix filesystem of 1975. View inode metadata with `stat filename`.</p><p><b>Misconception:</b> Students think permissions are an app-layer add-on. They are enforced by the kernel at the filesystem layer, beneath every application.</p><p><b>Analogy:</b> An inode is a library card catalog entry, it tells you who owns the book and where to find it on the shelf, but is not the book itself.</p><p><b>Exam tip:</b> Be ready to state that Linux permission checks happen in the kernel during every file access, not in the application.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Every multi-user operating system must answer a deceptively simple question: which subjects are allowed to perform which operations on which objects? On Linux systems, that question is answered primarily at the filesystem layer through a permission model that has remained structurally unchanged since the earliest versions of Unix.</p>",
+    "<p>Every file and directory is represented internally by an inode, a data structure storing all metadata about a file except its name and content: owner, group, permission bits, size, timestamps, and pointers to the disk blocks holding the data. Among those fields is a compact 16-bit permission field governing read, write, and execute access.</p>",
+    "<p>This model is foundational to application security because nearly every privilege escalation, data exfiltration, or persistence technique on a Linux host ultimately depends on a permission misconfiguration somewhere in the filesystem.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.2",
+   "parent_n": 2,
+   "title": "Three Classes, Three Bits: The rwx Model",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "owner",
+    "group",
+    "other",
+    "rwx",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> UID 0 is always root regardless of account name. `/etc/passwd` maps UIDs to usernames; `/etc/group` defines group membership.</p><p><b>Misconception:</b> Students think deleting a file requires write permission on the file itself. It actually requires write permission on the parent directory.</p><p><b>Analogy:</b> Three doors (owner/group/other), each with its own lock combination of read/write/execute.</p><p><b>Exam tip:</b> Directory write permission governs deletion of files inside it, this directory-level rule is a frequent exam trap, tied later to the sticky bit.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Owner (user):</b> the account associated with the file, stored as a numeric UID in the inode",
+    "<b>Group:</b> a named collection of accounts, stored as a numeric GID",
+    "<b>Other (world):</b> everyone who is neither the owner nor a group member, the most dangerous class to overprovision",
+    "<b>Three bits per class:</b> read (r), write (w), execute (x), nine bits total describe a file's full permission state",
+    "<b>Displayed as a string:</b> e.g. <code>rwxr-xr--</code> from <code>ls -l</code>"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.2",
+   "parent_n": 2,
+   "title": "Three Classes, Three Bits: The rwx Model",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "owner",
+    "group",
+    "other",
+    "rwx",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> UID 0 is always root regardless of account name. `/etc/passwd` maps UIDs to usernames; `/etc/group` defines group membership.</p><p><b>Misconception:</b> Students think deleting a file requires write permission on the file itself. It actually requires write permission on the parent directory.</p><p><b>Analogy:</b> Three doors (owner/group/other), each with its own lock combination of read/write/execute.</p><p><b>Exam tip:</b> Directory write permission governs deletion of files inside it, this directory-level rule is a frequent exam trap, tied later to the sticky bit.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The Linux permission model divides every file's potential accessors into exactly three classes: the owner, the group, and other (\"everybody else\"). For each class the system tracks three independent bits: read, write, and execute.</p>",
+    "<p>For a regular file, read allows opening/viewing contents, write allows modifying or truncating, and execute allows running it as a program. For a directory, read allows listing contained names, write allows creating/deleting/renaming entries within it, and execute (\"search\"/\"traverse\") allows cd-ing into it or accessing known filenames inside even without read.</p>",
+    "<p>Because there are three classes and three bits per class, the entire permission state fits in nine bits, traditionally displayed as a string such as <code>rwxr-xr--</code>.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.3",
+   "parent_n": 3,
+   "title": "Reading the Permission String Correctly",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "ls-l",
+    "permission-string",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly from the ebook's Professor's Note on reading permission strings.</p><p><b>Misconception:</b> Counting the type character as part of owner's bits, producing an off-by-one misread of every subsequent triad.</p><p><b>Analogy:</b> Like reading a phone number, drop the country code first, then read the remaining digits in fixed-size groups.</p><p><b>Exam tip:</b> Practice decoding several `ls -l` strings until it is automatic; the exam will present raw strings and expect fast, correct triad splitting.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Four chunks:</b> leading type character, then three triads of owner/group/other",
+    "<b>Type character:</b> <code>-</code> regular file, <code>d</code> directory, <code>l</code> symbolic link",
+    "<b>Common mistake:</b> miscounting the type character as part of the owner's permissions",
+    "<b>Worked example:</b> <code>-rwxr-xr--</code> = owner rwx, group r-x, other r--",
+    "<b>Always subtract one character first, then count triads of three</b>"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.3",
+   "parent_n": 3,
+   "title": "Reading the Permission String Correctly",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "ls-l",
+    "permission-string",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly from the ebook's Professor's Note on reading permission strings.</p><p><b>Misconception:</b> Counting the type character as part of owner's bits, producing an off-by-one misread of every subsequent triad.</p><p><b>Analogy:</b> Like reading a phone number, drop the country code first, then read the remaining digits in fixed-size groups.</p><p><b>Exam tip:</b> Practice decoding several `ls -l` strings until it is automatic; the exam will present raw strings and expect fast, correct triad splitting.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>When you run <code>ls -l</code> and see something like <code>-rwxr-xr--</code>, break it into four chunks: the leading character is the file type (<code>-</code> for regular file, <code>d</code> for directory, <code>l</code> for symbolic link), then three groups of three characters each, owner, group, other.</p>",
+    "<p>So <code>rwxr-xr--</code> means the owner can read/write/execute, the group can read/execute, and everyone else can only read. Students almost always miscount the leading type character as part of the owner's permissions, it is not.</p>",
+    "<p>This decoding skill is a prerequisite for every later topic in this chapter: octal arithmetic, special bits, and ACL auditing all start from being able to read this string correctly and quickly.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.4",
+   "parent_n": 4,
+   "title": "Why This Is Coarse: The Case for ACLs",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "acl",
+    "limitations",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Standardized as POSIX.1e (IEEE 1003.1e, withdrawn 1997 but implemented broadly by Linux, Solaris, BSD).</p><p><b>Misconception:</b> Students think an ACL replaces the base permission bits. It supplements them; both are checked.</p><p><b>Analogy:</b> The base rwx model is a building's three master keys; an ACL is a set of individually cut keys handed to specific extra people, layered on top of the master-key system, not instead of it.</p><p><b>Exam tip:</b> If a scenario needs a permission the base model cannot express, name ACLs, and remember the base bits still apply underneath.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Limitation 1:</b> cannot grant write to exactly two named users while excluding the rest of the group",
+    "<b>Limitation 2:</b> cannot express default permissions that automatically apply to new files created by different users",
+    "<b>The gap-filler:</b> POSIX ACLs layer finer-grained rules on top without replacing the base model",
+    "<b>Critical detail:</b> ACLs are additive, base rwx bits are always present and always evaluated, even on a file that also carries an ACL",
+    "<b>Preview:</b> ACL mechanics (getfacl/setfacl) covered in depth in Section II"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.4",
+   "parent_n": 4,
+   "title": "Why This Is Coarse: The Case for ACLs",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "acl",
+    "limitations",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Standardized as POSIX.1e (IEEE 1003.1e, withdrawn 1997 but implemented broadly by Linux, Solaris, BSD).</p><p><b>Misconception:</b> Students think an ACL replaces the base permission bits. It supplements them; both are checked.</p><p><b>Analogy:</b> The base rwx model is a building's three master keys; an ACL is a set of individually cut keys handed to specific extra people, layered on top of the master-key system, not instead of it.</p><p><b>Exam tip:</b> If a scenario needs a permission the base model cannot express, name ACLs, and remember the base bits still apply underneath.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The tripartite rwx model is intentionally coarse. It cannot express \"grant write access to exactly these two users but not the rest of the group,\" nor can it express default permissions that automatically apply to new files created inside a directory by different users.</p>",
+    "<p>These limitations motivated the later development of POSIX ACLs, which layer finer-grained rules on top of the base model without replacing it. It is important to internalize that ACLs are additive, the base rwx bits are always present and always evaluated as part of the access decision, even on a file that also carries an ACL.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.5",
+   "parent_n": 5,
+   "title": "Least Privilege: The Academic Anchor",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "least-privilege",
+    "attack-surface",
+    "saltzer-schroeder",
+    "nist-800-53"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Saltzer & Schroeder (1975), \"The Protection of Information in Computer Systems,\" Proceedings of the IEEE. NIST SP 800-53 control AC-6.</p><p><b>Misconception:</b> Students treat least privilege as an abstract policy statement. On Linux it is a concrete, enforceable filesystem configuration decision.</p><p><b>Analogy:</b> Giving a hotel housekeeper a master key to every room instead of just the rooms assigned that day, any lost key now compromises the whole hotel.</p><p><b>Exam tip:</b> Connect least privilege directly to filesystem permission decisions and process identity, not just abstract policy language.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Principle of least privilege:</b> every subject gets only the minimum permissions necessary, nothing more",
+    "<b>On Linux, implemented via:</b> filesystem permissions plus the identity of the account running a process",
+    "<b>Real consequence:</b> running a production web server as root, or leaving a config dir world-writable, enlarges the entire host's attack surface",
+    "<b>Formalized academically:</b> Saltzer & Schroeder (1975); codified in NIST SP 800-53 AC-6",
+    "<b>Inheritance rule:</b> a compromised process inherits exactly the permissions of the account that runs it"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.5",
+   "parent_n": 5,
+   "title": "Least Privilege: The Academic Anchor",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "least-privilege",
+    "attack-surface",
+    "saltzer-schroeder",
+    "nist-800-53"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Saltzer & Schroeder (1975), \"The Protection of Information in Computer Systems,\" Proceedings of the IEEE. NIST SP 800-53 control AC-6.</p><p><b>Misconception:</b> Students treat least privilege as an abstract policy statement. On Linux it is a concrete, enforceable filesystem configuration decision.</p><p><b>Analogy:</b> Giving a hotel housekeeper a master key to every room instead of just the rooms assigned that day, any lost key now compromises the whole hotel.</p><p><b>Exam tip:</b> Connect least privilege directly to filesystem permission decisions and process identity, not just abstract policy language.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The principle of least privilege, one of the oldest and most rigorously validated concepts in computer security engineering, is, on a Linux host, implemented almost entirely through filesystem permissions and the identity of the user account under which a process executes.</p>",
+    "<p>When a system administrator runs a production web server as the root superuser instead of a dedicated unprivileged service account, or leaves a configuration directory world-writable for developer convenience, they are not making a stylistic choice; they are directly enlarging the attack surface of the entire host, because any process that is compromised, a vulnerable PHP script, a malicious npm package, a misconfigured cron job, inherits exactly the permissions of the account that runs it.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.6",
+   "parent_n": 6,
+   "title": "Still Relevant in the Cloud-Native Era",
+   "slide_type": "concept",
+   "difficulty": "intermediate",
+   "tags": [
+    "containers",
+    "docker",
+    "kubernetes",
+    "cloud",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly from the ebook's Real-World Context callout, connecting this topic forward to container case studies in Section III.</p><p><b>Misconception:</b> 'Containers are isolated, so filesystem permissions inside don't matter.' Namespace-shared UID 0 can defeat that isolation, as Section III's case study shows.</p><p><b>Analogy:</b> A shipping container still obeys the physics of the truck carrying it, the container abstraction rides on top of the same underlying rules.</p><p><b>Exam tip:</b> Expect a scenario question linking container root to host UID 0, this bridges directly into Section III.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Containers build on top, not around:</b> Docker/Kubernetes run on top of the Unix permission model, they did not replace it",
+    "<b>Shared UID space:</b> a container 'root' user is frequently the same UID 0 as the host's root unless namespace remapping is configured",
+    "<b>Cloud storage too:</b> AWS EFS and Google Filestore still enforce rwx bits underneath their web consoles",
+    "<b>Takeaway:</b> raw Linux permission knowledge is the substrate modern cloud-native security tooling is built on",
+    "<b>Not legacy knowledge:</b> still directly tested by real-world container misconfiguration incidents (Section III)"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.6",
+   "parent_n": 6,
+   "title": "Still Relevant in the Cloud-Native Era",
+   "slide_type": "concept",
+   "difficulty": "intermediate",
+   "tags": [
+    "containers",
+    "docker",
+    "kubernetes",
+    "cloud",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly from the ebook's Real-World Context callout, connecting this topic forward to container case studies in Section III.</p><p><b>Misconception:</b> 'Containers are isolated, so filesystem permissions inside don't matter.' Namespace-shared UID 0 can defeat that isolation, as Section III's case study shows.</p><p><b>Analogy:</b> A shipping container still obeys the physics of the truck carrying it, the container abstraction rides on top of the same underlying rules.</p><p><b>Exam tip:</b> Expect a scenario question linking container root to host UID 0, this bridges directly into Section III.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Container platforms like Docker and Kubernetes did not replace the Unix permission model, they run on top of it. A container \"root\" user is frequently the same UID 0 as the host's root unless user namespace remapping is explicitly configured.</p>",
+    "<p>Cloud file storage services (AWS EFS, Google Filestore) that mount as Linux filesystems still enforce rwx bits underneath their web consoles. Understanding raw Linux permissions is not legacy knowledge; it is the substrate that modern cloud-native security tooling is built on top of.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.7",
+   "parent_n": 7,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before moving into hands-on command syntax.</p><p><b>Misconception:</b> Treating these terms as independent trivia rather than one coherent access-control model.</p><p><b>Analogy:</b> This is the map before the road trip, Section II is where you start driving.</p><p><b>Exam tip:</b> Be able to define each term in one sentence without notes before proceeding.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Inode:</b> metadata structure storing owner, group, permission bits, timestamps, data-block pointers",
+    "<b>Owner / Group / Other:</b> the three permission classes tracked per file",
+    "<b>read / write / execute:</b> the three independent bits per class (files vs. directories behave differently)",
+    "<b>POSIX ACL:</b> additive extension granting arbitrary extra named-user/group entries beyond the base triad",
+    "<b>Principle of least privilege:</b> grant only the minimum permission necessary, the organizing goal of this entire topic"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.1.a.7",
+   "parent_n": 7,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before moving into hands-on command syntax.</p><p><b>Misconception:</b> Treating these terms as independent trivia rather than one coherent access-control model.</p><p><b>Analogy:</b> This is the map before the road trip, Section II is where you start driving.</p><p><b>Exam tip:</b> Be able to define each term in one sentence without notes before proceeding.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section I established the vocabulary and mental model for everything that follows: files are represented by inodes; permission is divided into owner/group/other classes; each class carries independent read/write/execute bits with distinct meaning for files versus directories; the base model is intentionally coarse and extended by POSIX ACLs; and the principle of least privilege is the governing design goal that all of these mechanisms exist to serve.</p>",
+    "<p>Section II now turns to the concrete tools, chmod, chown, octal notation, special bits, and ACL commands, used to actually configure this model on a running system.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.1",
+   "parent_n": 8,
+   "title": "Two Notations, One Command: chmod",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "chmod",
+    "octal",
+    "symbolic",
+    "mechanics"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> POSIX.1-2017 §chmod; on Linux implemented in GNU coreutils; underlying syscall is chmod(2)/fchmodat(2).</p><p><b>Misconception:</b> Students think any user with write access can chmod a file. Only the owner (or root) can, regardless of write permission.</p><p><b>Analogy:</b> Only the person who owns a locker (or the building superintendent) can change its lock combination, a guest with borrowed access cannot.</p><p><b>Exam tip:</b> Know both notations cold; the exam tests conversion in both directions.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>chmod:</b> \"change mode\", the utility that modifies a file's permission bits, POSIX.1-2017 standard",
+    "<b>Only owner or root</b> may invoke chmod on a given file",
+    "<b>Octal notation:</b> numeric weights summed per class (read=4, write=2, execute=1)",
+    "<b>Symbolic notation:</b> targeted deltas using u/g/o/a class specifiers with +/-/= operators",
+    "<b>Both accepted by chmod</b>, every security-conscious admin must be fluent in both"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.1",
+   "parent_n": 8,
+   "title": "Two Notations, One Command: chmod",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "chmod",
+    "octal",
+    "symbolic",
+    "mechanics"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> POSIX.1-2017 §chmod; on Linux implemented in GNU coreutils; underlying syscall is chmod(2)/fchmodat(2).</p><p><b>Misconception:</b> Students think any user with write access can chmod a file. Only the owner (or root) can, regardless of write permission.</p><p><b>Analogy:</b> Only the person who owns a locker (or the building superintendent) can change its lock combination, a guest with borrowed access cannot.</p><p><b>Exam tip:</b> Know both notations cold; the exam tests conversion in both directions.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The nine permission bits are most commonly manipulated using two complementary notations: octal notation and symbolic notation. Both notations are accepted by the chmod (\"change mode\") command, and every security-conscious systems administrator must be fluent in both.</p>",
+    "<p>Only the file's owner or a superuser may invoke chmod on a given file, an unprivileged non-owner cannot change a file's mode even if they could otherwise access it.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.2",
+   "parent_n": 9,
+   "title": "Octal Arithmetic: r=4, w=2, x=1",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "octal",
+    "arithmetic",
+    "mechanism"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A file must allow the owner full control, the group to read the file but not modify or run it, and must not be exposed to any other account. What is the correct chmod value?",
+    "options": [
+     "750",
+     "640",
+     "664",
+     "600"
+    ],
+    "answer": 1,
+    "explanation": "640 is correct: owner=rw- (4+2=6), group=r-- (4), other=--- (0). Note the owner does NOT need execute here since the scenario only specifies full control over data, not execution; the ebook's worked exam trap uses exactly this pattern. 750 wrongly gives group execute, 664 wrongly gives other read access, 600 wrongly denies the group entirely."
+   },
+   "speaker_notes": "<p><b>Context:</b> Memorize the weights cold: read=4, write=2, execute=1, every combination 0-7 is a unique sum.</p><p><b>Misconception:</b> Students add weights incorrectly when a bit is absent, a missing bit contributes 0, not a placeholder value.</p><p><b>Analogy:</b> Like binary place values (1,2,4) read out as a single digit per class, each bit is independently on or off.</p><p><b>Exam tip:</b> A classic exam trap: 'owner needs full control, group needs read-only, other needs nothing' → <code>chmod 640</code>. Practice converting rapidly in both directions.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Weights:</b> read=4, write=2, execute=1, summed per class",
+    "<b>Worked example:</b> <code>rwxr-xr-x</code> = owner 4+2+1=7, group 4+0+1=5, other 4+0+1=5 → <code>755</code>",
+    "<b>Every combination 0-7 is unique:</b> 0=none, 1=x, 2=w, 3=wx, 4=r, 5=rx, 6=rw, 7=rwx",
+    "<b>Common patterns:</b> 755 for executables, 644 for config files, 600 for private keys",
+    "<b>Verification:</b> always confirm with <code>ls -l</code> after a chmod"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.2",
+   "parent_n": 9,
+   "title": "Octal Arithmetic: r=4, w=2, x=1",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "octal",
+    "arithmetic",
+    "mechanism"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A file must allow the owner full control, the group to read the file but not modify or run it, and must not be exposed to any other account. What is the correct chmod value?",
+    "options": [
+     "750",
+     "640",
+     "664",
+     "600"
+    ],
+    "answer": 1,
+    "explanation": "640 is correct: owner=rw- (4+2=6), group=r-- (4), other=--- (0). Note the owner does NOT need execute here since the scenario only specifies full control over data, not execution; the ebook's worked exam trap uses exactly this pattern. 750 wrongly gives group execute, 664 wrongly gives other read access, 600 wrongly denies the group entirely."
+   },
+   "speaker_notes": "<p><b>Context:</b> Memorize the weights cold: read=4, write=2, execute=1, every combination 0-7 is a unique sum.</p><p><b>Misconception:</b> Students add weights incorrectly when a bit is absent, a missing bit contributes 0, not a placeholder value.</p><p><b>Analogy:</b> Like binary place values (1,2,4) read out as a single digit per class, each bit is independently on or off.</p><p><b>Exam tip:</b> A classic exam trap: 'owner needs full control, group needs read-only, other needs nothing' → <code>chmod 640</code>. Practice converting rapidly in both directions.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Octal notation assigns numeric weights to each permission: read is worth 4, write is worth 2, execute is worth 1. Summing the applicable weights for each of the three classes (owner, group, other) produces a three-digit number that fully describes the file's mode.</p>",
+    "<p>A permission of <code>rwxr-xr-x</code>, for example, is computed as owner = 4+2+1 = 7, group = 4+0+1 = 5, other = 4+0+1 = 5, yielding <code>chmod 755</code>, a typical mode for an executable script or binary. <code>644</code> is typical for a plain configuration file (owner read+write, everyone else read-only), and <code>600</code> is typical for a private SSH key (owner read+write, nobody else anything).</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.2",
+   "parent_n": 9,
+   "title": "Octal Arithmetic: r=4, w=2, x=1",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "octal",
+    "arithmetic",
+    "mechanism"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "A file must allow the owner full control, the group to read the file but not modify or run it, and must not be exposed to any other account. What is the correct chmod value?",
+    "options": [
+     "750",
+     "640",
+     "664",
+     "600"
+    ],
+    "answer": 1,
+    "explanation": "640 is correct: owner=rw- (4+2=6), group=r-- (4), other=--- (0). Note the owner does NOT need execute here since the scenario only specifies full control over data, not execution; the ebook's worked exam trap uses exactly this pattern. 750 wrongly gives group execute, 664 wrongly gives other read access, 600 wrongly denies the group entirely."
+   },
+   "speaker_notes": "<p><b>Context:</b> Memorize the weights cold: read=4, write=2, execute=1, every combination 0-7 is a unique sum.</p><p><b>Misconception:</b> Students add weights incorrectly when a bit is absent, a missing bit contributes 0, not a placeholder value.</p><p><b>Analogy:</b> Like binary place values (1,2,4) read out as a single digit per class, each bit is independently on or off.</p><p><b>Exam tip:</b> A classic exam trap: 'owner needs full control, group needs read-only, other needs nothing' → <code>chmod 640</code>. Practice converting rapidly in both directions.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Grant the owner full control, group and other read+execute only\n# Typical mode for an executable script or binary\nchmod 755 /usr/local/bin/deploy.sh\n\n# Grant the owner read+write, group and other read-only\n# Typical mode for a plain configuration or data file\nchmod 644 /etc/myapp/app.conf\n\n# Grant the owner full control, deny group and other entirely\n# Typical mode for a private SSH key or credential file\nchmod 600 ~/.ssh/id_ed25519\n\n# Verify the resulting mode\nls -l /usr/local/bin/deploy.sh\n# -rwxr-xr-x 1 root root 812 Jul  9 09:14 /usr/local/bin/deploy.sh",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.2.a.3",
+   "parent_n": 10,
+   "title": "Symbolic Notation: Targeted Deltas",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "symbolic",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Defined in POSIX.1-2017 for the chmod utility.</p><p><b>Misconception:</b> Students use lowercase x in a recursive chmod and accidentally make every data file executable. Capital X avoids this.</p><p><b>Analogy:</b> Symbolic mode is like editing a document with tracked changes (add/remove specific edits) versus octal's 'retype the whole paragraph' approach.</p><p><b>Exam tip:</b> Recognize <code>g+rX,o+rX</code> recursive patterns as the safe way to open read access on a web tree without breaking scripts or exposing data files as executable.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Class specifiers:</b> u (user/owner), g (group), o (other), a (all)",
+    "<b>Operators:</b> + (add), - (remove), = (set exactly)",
+    "<b>Use case:</b> automated deployment scripts wanting an idempotent change without knowing the prior mode",
+    "<b>Capital X:</b> applies execute only to directories/files that already have execute for someone, safe for recursive operations",
+    "<b>Full removal:</b> <code>chmod o= path</code> strips all 'other' permissions"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.3",
+   "parent_n": 10,
+   "title": "Symbolic Notation: Targeted Deltas",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "symbolic",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Defined in POSIX.1-2017 for the chmod utility.</p><p><b>Misconception:</b> Students use lowercase x in a recursive chmod and accidentally make every data file executable. Capital X avoids this.</p><p><b>Analogy:</b> Symbolic mode is like editing a document with tracked changes (add/remove specific edits) versus octal's 'retype the whole paragraph' approach.</p><p><b>Exam tip:</b> Recognize <code>g+rX,o+rX</code> recursive patterns as the safe way to open read access on a web tree without breaking scripts or exposing data files as executable.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Symbolic notation, by contrast, applies targeted deltas rather than restating the full mode. The syntax combines a class specifier (u, g, o, or a for all), an operator (+ to add, - to remove, = to set exactly), and one or more permission letters. Symbolic mode is especially useful in automated deployment scripts where you want to guarantee an idempotent state change without needing to know or preserve the file's prior mode.</p>",
+    "<p>A useful detail: capital X applies execute only to directories and files that already have execute for someone, it will not make plain data files unexpectedly executable during a recursive operation, unlike lowercase x.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.3",
+   "parent_n": 10,
+   "title": "Symbolic Notation: Targeted Deltas",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chmod",
+    "symbolic",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Defined in POSIX.1-2017 for the chmod utility.</p><p><b>Misconception:</b> Students use lowercase x in a recursive chmod and accidentally make every data file executable. Capital X avoids this.</p><p><b>Analogy:</b> Symbolic mode is like editing a document with tracked changes (add/remove specific edits) versus octal's 'retype the whole paragraph' approach.</p><p><b>Exam tip:</b> Recognize <code>g+rX,o+rX</code> recursive patterns as the safe way to open read access on a web tree without breaking scripts or exposing data files as executable.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Add execute permission for the owner only, leaving group/other untouched\nchmod u+x install.sh\n\n# Remove write permission from the group, and set other to read-only exactly\nchmod g-w,o=r /etc/nginx/nginx.conf\n\n# Recursively grant read+execute to group and other on a directory tree\nchmod -R g+rX,o+rX /var/www/html\n# Note: capital X applies execute only to directories and files that\n# already have execute for someone -- it will not make plain data files\n# unexpectedly executable during a recursive operation.\n\n# Remove all permissions from other on a sensitive directory\nchmod o= /etc/myapp/secrets",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.2.a.4",
+   "parent_n": 11,
+   "title": "chown and chgrp: Ownership Is a Separate Axis",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chown",
+    "chgrp",
+    "ownership",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> POSIX.1-2017 §chown/§chgrp; underlying syscall for chown is chown(2).</p><p><b>Misconception:</b> Students assume chgrp requires root like chown does. It does not, as long as the user is a member of the target group and owns the file.</p><p><b>Analogy:</b> chown is like transferring a car's title (only a notarized authority can do it); chgrp is like adding a household member as an authorized driver (you can do that yourself).</p><p><b>Exam tip:</b> Know that ownership (chown/chgrp) and permission bits (chmod) are independent, orthogonal controls that are typically applied together during deployment.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>chown:</b> reassigns the user (and optionally group) that owns a file, root-only on standard configurations",
+    "<b>chgrp:</b> reassigns only the group; an ordinary user CAN chgrp a file they own to any group they belong to",
+    "<b>Why root-only for chown:</b> prevents ordinary users from giving away files to dodge disk quota accounting",
+    "<b>Frequently paired with chmod</b> during deployment to hand runtime files to a service account",
+    "<b>Syntax:</b> <code>chown newuser:newgroup filename</code>"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.4",
+   "parent_n": 11,
+   "title": "chown and chgrp: Ownership Is a Separate Axis",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chown",
+    "chgrp",
+    "ownership",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> POSIX.1-2017 §chown/§chgrp; underlying syscall for chown is chown(2).</p><p><b>Misconception:</b> Students assume chgrp requires root like chown does. It does not, as long as the user is a member of the target group and owns the file.</p><p><b>Analogy:</b> chown is like transferring a car's title (only a notarized authority can do it); chgrp is like adding a household member as an authorized driver (you can do that yourself).</p><p><b>Exam tip:</b> Know that ownership (chown/chgrp) and permission bits (chmod) are independent, orthogonal controls that are typically applied together during deployment.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Ownership itself is a separate axis from permission bits, and is modified with chown and chgrp. These utilities are frequently paired with chmod during application deployment to ensure that a service account, rather than the deploying administrator's personal account, ends up as the effective owner of runtime files.</p>",
+    "<p>Only the superuser can transfer ownership of a file to a different user on standard Linux configurations, because allowing ordinary users to give away files could be abused to circumvent disk quota accounting. Unlike full ownership transfer, an ordinary user may chgrp a file they own to any group they themselves belong to, without needing root privileges.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.a.4",
+   "parent_n": 11,
+   "title": "chown and chgrp: Ownership Is a Separate Axis",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "chown",
+    "chgrp",
+    "ownership",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> POSIX.1-2017 §chown/§chgrp; underlying syscall for chown is chown(2).</p><p><b>Misconception:</b> Students assume chgrp requires root like chown does. It does not, as long as the user is a member of the target group and owns the file.</p><p><b>Analogy:</b> chown is like transferring a car's title (only a notarized authority can do it); chgrp is like adding a household member as an authorized driver (you can do that yourself).</p><p><b>Exam tip:</b> Know that ownership (chown/chgrp) and permission bits (chmod) are independent, orthogonal controls that are typically applied together during deployment.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Transfer ownership of the web root to the unprivileged www-data service account\nsudo chown -R www-data:www-data /var/www/html\n\n# Change only the group of a shared log directory to \"loggers\"\nsudo chgrp -R loggers /var/log/myapp\n\n# Combine ownership transfer with a permission reset in one deployment step\nsudo chown deploy:deploy /opt/myapp/release && sudo chmod 750 /opt/myapp/release",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.2.b.1",
+   "parent_n": 12,
+   "title": "Special Bits: setuid, setgid, Sticky",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "special-bits",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Octal values: setuid=4000, setgid=2000, sticky=1000. Displayed respectively as 's' (owner x position), 's' (group x position), 't' (other x position).</p><p><b>Misconception:</b> Students think write permission on a directory alone lets any user delete files inside freely. Without the sticky bit that IS true, which is exactly why /tmp needs it despite being world-writable.</p><p><b>Analogy:</b> setuid is a borrowed VIP badge that always grants the badge-owner's access level no matter who is wearing it; the sticky bit is a rule that only the person who dropped an item in a shared bin may remove it.</p><p><b>Exam tip:</b> Know all three special bits' octal values and displayed symbol positions, this is a frequent direct-recall question.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Fourth octal digit:</b> written to the left of the standard three, e.g. <code>chmod 4755</code>",
+    "<b>setuid (4000):</b> executable runs with the owner's effective privileges regardless of who launches it, displayed as 's' replacing owner's x",
+    "<b>setgid (2000) on executable:</b> same idea but for the group",
+    "<b>setgid on directory:</b> new files/subdirs inherit the parent directory's group automatically, standard technique for shared collaborative directories",
+    "<b>Sticky bit (1000):</b> on a directory, restricts deletion/renaming to the file owner, directory owner, or root, displayed as 't'"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.1",
+   "parent_n": 12,
+   "title": "Special Bits: setuid, setgid, Sticky",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "special-bits",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Octal values: setuid=4000, setgid=2000, sticky=1000. Displayed respectively as 's' (owner x position), 's' (group x position), 't' (other x position).</p><p><b>Misconception:</b> Students think write permission on a directory alone lets any user delete files inside freely. Without the sticky bit that IS true, which is exactly why /tmp needs it despite being world-writable.</p><p><b>Analogy:</b> setuid is a borrowed VIP badge that always grants the badge-owner's access level no matter who is wearing it; the sticky bit is a rule that only the person who dropped an item in a shared bin may remove it.</p><p><b>Exam tip:</b> Know all three special bits' octal values and displayed symbol positions, this is a frequent direct-recall question.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Beyond the base nine bits, Linux defines three special permission bits occupying a fourth octal digit conventionally written to the left of the standard three. setuid, when set on an executable file, causes the program to run with the effective privileges of the file's owner rather than the privileges of the user who launched it, regardless of who launches it. The classic example is /usr/bin/passwd.</p>",
+    "<p>setgid on an executable functions like setuid but for the group. On a directory, setgid has an entirely different and extremely useful effect: any new file or subdirectory created inside it automatically inherits the parent directory's group, rather than the creating user's primary group, the standard technique for maintaining consistent group ownership on shared collaborative directories.</p>",
+    "<p>The sticky bit, when set on a directory, restricts deletion and renaming of files within that directory so that only the file's owner (or the directory's owner, or root) may remove or rename it, even if other users have write permission on the directory itself.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.1",
+   "parent_n": 12,
+   "title": "Special Bits: setuid, setgid, Sticky",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "special-bits",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Octal values: setuid=4000, setgid=2000, sticky=1000. Displayed respectively as 's' (owner x position), 's' (group x position), 't' (other x position).</p><p><b>Misconception:</b> Students think write permission on a directory alone lets any user delete files inside freely. Without the sticky bit that IS true, which is exactly why /tmp needs it despite being world-writable.</p><p><b>Analogy:</b> setuid is a borrowed VIP badge that always grants the badge-owner's access level no matter who is wearing it; the sticky bit is a rule that only the person who dropped an item in a shared bin may remove it.</p><p><b>Exam tip:</b> Know all three special bits' octal values and displayed symbol positions, this is a frequent direct-recall question.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "special_bits_overview",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.2",
+   "parent_n": 13,
+   "title": "Setting and Auditing Special Bits",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "audit",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The find command's -xdev flag prevents it from crossing into other mounted filesystems (like /proc or network mounts), keeping the audit scoped and fast.</p><p><b>Misconception:</b> Students forget that /tmp needs BOTH world-writable AND sticky, dropping either breaks its intended function.</p><p><b>Analogy:</b> The audit command is a metal detector sweep of the whole building specifically for one dangerous item class (setuid/setgid binaries).</p><p><b>Exam tip:</b> Memorize the find syntax pattern conceptually: search filesystem-wide for -perm -4000 or -perm -2000.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Set via chmod:</b> fourth digit prefix, e.g. <code>chmod 4755</code> for setuid",
+    "<b>Common patterns:</b> <code>chmod 2775</code> for a setgid shared project dir, <code>chmod 1777</code> for a sticky world-writable scratch dir",
+    "<b>Auditing command:</b> <code>find / -xdev \\( -perm -4000 -o -perm -2000 \\) -type f</code> to sweep for setuid/setgid binaries",
+    "<b>Routine hardening task:</b> reviewing that audit output is a baseline, not optional, control",
+    "<b>/tmp's real mode:</b> <code>drwxrwxrwt</code>, world-writable AND sticky, the canonical example"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.2",
+   "parent_n": 13,
+   "title": "Setting and Auditing Special Bits",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "audit",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The find command's -xdev flag prevents it from crossing into other mounted filesystems (like /proc or network mounts), keeping the audit scoped and fast.</p><p><b>Misconception:</b> Students forget that /tmp needs BOTH world-writable AND sticky, dropping either breaks its intended function.</p><p><b>Analogy:</b> The audit command is a metal detector sweep of the whole building specifically for one dangerous item class (setuid/setgid binaries).</p><p><b>Exam tip:</b> Memorize the find syntax pattern conceptually: search filesystem-wide for -perm -4000 or -perm -2000.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This applied example shows the three special bits set in practice, plus the audit command used to find them across a system. Setting the setuid bit on a privileged utility uses a fourth octal digit of 4; setting setgid on a shared collaborative directory (paired with chgrp) uses a fourth digit of 2; setting the sticky bit on a world-writable scratch directory like /tmp uses a fourth digit of 1.</p>",
+    "<p>Auditing a filesystem for dangerous setuid/setgid binaries is a routine hardening and incident-response task, typically run with a single find command that searches for either permission mode across the entire filesystem.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.2",
+   "parent_n": 13,
+   "title": "Setting and Auditing Special Bits",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "setuid",
+    "setgid",
+    "sticky-bit",
+    "audit",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The find command's -xdev flag prevents it from crossing into other mounted filesystems (like /proc or network mounts), keeping the audit scoped and fast.</p><p><b>Misconception:</b> Students forget that /tmp needs BOTH world-writable AND sticky, dropping either breaks its intended function.</p><p><b>Analogy:</b> The audit command is a metal detector sweep of the whole building specifically for one dangerous item class (setuid/setgid binaries).</p><p><b>Exam tip:</b> Memorize the find syntax pattern conceptually: search filesystem-wide for -perm -4000 or -perm -2000.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Set the setuid bit on a privileged utility (fourth octal digit = 4)\nsudo chmod 4755 /usr/bin/some-privileged-tool\nls -l /usr/bin/some-privileged-tool\n# -rwsr-xr-x 1 root root 34216 Jul  9 09:20 /usr/bin/some-privileged-tool\n\n# Set setgid on a shared collaborative directory so new files inherit its group\nsudo chmod 2775 /srv/shared/project\nsudo chgrp devteam /srv/shared/project\n\n# Set the sticky bit on a world-writable scratch directory (like /tmp)\nsudo chmod 1777 /srv/scratch\nls -ld /srv/scratch\n# drwxrwxrwt 12 root root 4096 Jul  9 09:22 /srv/scratch\n\n# Audit a filesystem for dangerous setuid/setgid binaries -- a routine\n# hardening and incident-response task\nfind / -xdev \\( -perm -4000 -o -perm -2000 \\) -type f -exec ls -l {} \\; 2>/dev/null",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.2.b.3",
+   "parent_n": 14,
+   "title": "Critical Concept: setuid Root Binaries Are Privilege Escalation Gold",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "setuid",
+    "privilege-escalation",
+    "gtfobins",
+    "critical-concept"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "Why is a setuid binary owned by root considered a high-value privilege escalation target?",
+    "options": [
+     "It always contains a known software bug",
+     "It runs with root's effective privileges no matter which unprivileged user invokes it, so an exploitable flaw in it grants root access",
+     "It bypasses network firewalls",
+     "It disables ASLR for the invoking process"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: setuid causes execution with the file owner's (root's) effective privileges regardless of invoker, so if the binary can be manipulated (symlink race, argument injection, shell escape), an unprivileged user gains root. Option A is false, many setuid binaries are safe by design. Options C and D describe unrelated mechanisms."
+   },
+   "speaker_notes": "<p><b>Context:</b> GTFOBins (gtfobins.github.io) is a real, actively maintained catalog of exploitable behaviors in common Unix binaries, many involving setuid.</p><p><b>Misconception:</b> Students think setuid itself is a bug. It is a deliberate, necessary feature (e.g. passwd), the danger is an EXPLOITABLE setuid root binary, not the mechanism's mere existence.</p><p><b>Analogy:</b> A master key left in a lock that anyone can turn if they find the right trick, the key's existence is intentional, but an unguarded exploitable trick turns it into a full building compromise.</p><p><b>Exam tip:</b> Be ready to explain WHY a setuid root binary is dangerous (privilege inheritance regardless of invoker) and name the mitigation (minimize + audit).</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Any setuid binary owned by root</b> effectively runs with full root privileges no matter which unprivileged user invokes it",
+    "<b>Exploitation paths:</b> symlink race, unsanitized argument, or shell escape from within the program",
+    "<b>Result:</b> attacker escalates from an ordinary account straight to root",
+    "<b>Real tooling:</b> GTFOBins catalogs 'living off the land' privilege escalation through legitimately installed setuid binaries",
+    "<b>Baseline control, not optional:</b> auditing <code>find / -perm -4000</code> output on every hardened host"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.b.3",
+   "parent_n": 14,
+   "title": "Critical Concept: setuid Root Binaries Are Privilege Escalation Gold",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "setuid",
+    "privilege-escalation",
+    "gtfobins",
+    "critical-concept"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "Why is a setuid binary owned by root considered a high-value privilege escalation target?",
+    "options": [
+     "It always contains a known software bug",
+     "It runs with root's effective privileges no matter which unprivileged user invokes it, so an exploitable flaw in it grants root access",
+     "It bypasses network firewalls",
+     "It disables ASLR for the invoking process"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: setuid causes execution with the file owner's (root's) effective privileges regardless of invoker, so if the binary can be manipulated (symlink race, argument injection, shell escape), an unprivileged user gains root. Option A is false, many setuid binaries are safe by design. Options C and D describe unrelated mechanisms."
+   },
+   "speaker_notes": "<p><b>Context:</b> GTFOBins (gtfobins.github.io) is a real, actively maintained catalog of exploitable behaviors in common Unix binaries, many involving setuid.</p><p><b>Misconception:</b> Students think setuid itself is a bug. It is a deliberate, necessary feature (e.g. passwd), the danger is an EXPLOITABLE setuid root binary, not the mechanism's mere existence.</p><p><b>Analogy:</b> A master key left in a lock that anyone can turn if they find the right trick, the key's existence is intentional, but an unguarded exploitable trick turns it into a full building compromise.</p><p><b>Exam tip:</b> Be ready to explain WHY a setuid root binary is dangerous (privilege inheritance regardless of invoker) and name the mitigation (minimize + audit).</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Any setuid binary owned by root effectively runs with full root privileges no matter which unprivileged user invokes it. If such a binary can be tricked into reading or writing an attacker-chosen file, through a symlink race, an unsanitized argument, or a shell escape from within the program, the attacker has escalated from an ordinary account straight to root.</p>",
+    "<p>This is precisely the mechanism exploited by tools such as GTFOBins to catalog \"living off the land\" privilege escalation paths through legitimately installed setuid binaries. Auditing find / -perm -4000 output on every hardened host is not optional; it is a baseline control.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.1",
+   "parent_n": 15,
+   "title": "POSIX ACLs: Closing the Granularity Gap",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "acl",
+    "getfacl",
+    "setfacl",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Part of the acl package (libacl) on Linux, implementing the withdrawn POSIX.1e draft standard.</p><p><b>Misconception:</b> Students think ACLs replace rwx checking. Both are evaluated; ACLs add named-user/group entries on top of the base classes.</p><p><b>Analogy:</b> ACLs are like adding named exceptions to a general building policy, 'everyone in Sales may not enter the server room, except Alice, who may look but not touch.'</p><p><b>Exam tip:</b> Know getfacl reads, setfacl writes, a simple but frequently tested pairing.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>The gap:</b> base rwx cannot express 'grant read-only to exactly one additional user, alice, on an otherwise restricted file'",
+    "<b>getfacl:</b> displays the full ACL, base entries plus named-user/group entries plus the effective rights mask",
+    "<b>setfacl:</b> adds, modifies, or removes ACL entries; can set a default ACL for automatic inheritance on new files",
+    "<b>Requires:</b> filesystem mounted with the acl option (default on most modern ext4/XFS mounts)",
+    "<b>Storage:</b> ACL entries live as extended attributes on the inode, alongside but separate from the base rwx bits"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.1",
+   "parent_n": 15,
+   "title": "POSIX ACLs: Closing the Granularity Gap",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "acl",
+    "getfacl",
+    "setfacl",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Part of the acl package (libacl) on Linux, implementing the withdrawn POSIX.1e draft standard.</p><p><b>Misconception:</b> Students think ACLs replace rwx checking. Both are evaluated; ACLs add named-user/group entries on top of the base classes.</p><p><b>Analogy:</b> ACLs are like adding named exceptions to a general building policy, 'everyone in Sales may not enter the server room, except Alice, who may look but not touch.'</p><p><b>Exam tip:</b> Know getfacl reads, setfacl writes, a simple but frequently tested pairing.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The base rwx model, even augmented with special bits, still cannot express arbitrarily granular permission grants, for example, \"grant read-only access to exactly one additional user, alice, on a file otherwise restricted to the owner.\" This is the precise gap that POSIX ACLs close.</p>",
+    "<p>ACLs are inspected using getfacl and modified using setfacl. A default ACL can also be set on a directory so that new files created within it automatically inherit specific ACL entries, the ACL analogue of the setgid bit's inheritance behavior, but far more flexible.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.1",
+   "parent_n": 15,
+   "title": "POSIX ACLs: Closing the Granularity Gap",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "acl",
+    "getfacl",
+    "setfacl",
+    "mechanism"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Part of the acl package (libacl) on Linux, implementing the withdrawn POSIX.1e draft standard.</p><p><b>Misconception:</b> Students think ACLs replace rwx checking. Both are evaluated; ACLs add named-user/group entries on top of the base classes.</p><p><b>Analogy:</b> ACLs are like adding named exceptions to a general building policy, 'everyone in Sales may not enter the server room, except Alice, who may look but not touch.'</p><p><b>Exam tip:</b> Know getfacl reads, setfacl writes, a simple but frequently tested pairing.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# View the current ACL on a file\ngetfacl /srv/shared/report.csv\n# file: srv/shared/report.csv\n# owner: bob\n# group: finance\n# user::rw-\n# group::r--\n# other::---\n\n# Grant read-only access to a single additional user, alice,\n# without changing the base owner/group/other bits\nsetfacl -m u:alice:r-- /srv/shared/report.csv\n\n# Grant read+write to a specific group, auditors, on a directory,\n# and set a default ACL so new files inherit the same entry\nsetfacl -m g:auditors:rwx /srv/shared/reports\nsetfacl -d -m g:auditors:rwx /srv/shared/reports\n\n# Remove a specific ACL entry\nsetfacl -x u:alice /srv/shared/report.csv\n\n# Strip all extended ACL entries and revert to the base rwx bits only\nsetfacl -b /srv/shared/report.csv",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.2.c.2",
+   "parent_n": 16,
+   "title": "Evaluation Order and the Telltale Plus Sign",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "acl",
+    "evaluation-order",
+    "audit",
+    "deep-question"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This evaluation order and the '+' indicator are exactly what a security auditor checks first when reviewing sensitive files.</p><p><b>Misconception:</b> Assuming a file with mode 600 (owner-only) is airtight without checking for a trailing '+' that could indicate a broader ACL grant.</p><p><b>Analogy:</b> A locked front door (base mode) that looks secure, but there's also a side door with a spare key given to someone else (the ACL), you have to check both to know the real access picture.</p><p><b>Exam tip:</b> If a scenario shows a permission string ending in '+', immediately flag that getfacl must be run to see the full access picture before drawing conclusions.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Kernel evaluation order:</b> owner rwx first, then named-user ACL entries, then group + named-group ACL entries (subject to the mask), then other",
+    "<b>The tell:</b> a trailing <code>+</code> after the permission string in <code>ls -l</code> output signals an ACL is present",
+    "<b>Auditor trap:</b> a seemingly restrictive base mode can conceal a permissive ACL grant layered on top",
+    "<b>Practical rule:</b> never trust a base mode alone on a file showing the <code>+</code>, always run getfacl to see the full picture",
+    "<b>Effective rights mask:</b> caps the maximum permission any ACL entry can actually grant, even if the entry itself requests more"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.2",
+   "parent_n": 16,
+   "title": "Evaluation Order and the Telltale Plus Sign",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "acl",
+    "evaluation-order",
+    "audit",
+    "deep-question"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This evaluation order and the '+' indicator are exactly what a security auditor checks first when reviewing sensitive files.</p><p><b>Misconception:</b> Assuming a file with mode 600 (owner-only) is airtight without checking for a trailing '+' that could indicate a broader ACL grant.</p><p><b>Analogy:</b> A locked front door (base mode) that looks secure, but there's also a side door with a spare key given to someone else (the ACL), you have to check both to know the real access picture.</p><p><b>Exam tip:</b> If a scenario shows a permission string ending in '+', immediately flag that getfacl must be run to see the full access picture before drawing conclusions.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>When both a base permission mode and an ACL exist on the same file, the kernel evaluates access in a defined order: the file owner's rwx bits are always checked first, named-user ACL entries are checked next, then the owning group and any named-group ACL entries (subject to the ACL mask), and finally the \"other\" bits.</p>",
+    "<p>A file's ls -l listing signals the presence of an ACL with a trailing + character after the permission string (for example, <code>-rw-rw-r--+</code>), which is a detail security auditors must not overlook, since a seemingly restrictive base mode can conceal a permissive ACL grant layered on top.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.3",
+   "parent_n": 17,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "mechanics"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint bridging pure mechanics into applied incident case studies.</p><p><b>Misconception:</b> Treating these as isolated command-line tricks rather than the concrete implementation of the least-privilege principle from Section I.</p><p><b>Analogy:</b> Section I was the map, Section II was learning to drive; Section III is the first real road trip with real hazards.</p><p><b>Exam tip:</b> Be able to name, for any given scenario, which single command (chmod/chown/chgrp/setfacl) would fix it.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>chmod/chown/chgrp:</b> the three commands that configure mode, owner, and group respectively",
+    "<b>Octal vs. symbolic notation:</b> full-restate numeric weights vs. targeted +/-/= deltas",
+    "<b>setuid/setgid/sticky:</b> the fourth-digit special bits altering execution identity or deletion rules",
+    "<b>getfacl/setfacl:</b> the tools for reading and writing POSIX ACL entries beyond the base triad",
+    "<b>The '+' indicator:</b> the ls -l signal that an ACL is layered on top of the base mode"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.2.c.3",
+   "parent_n": 17,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "mechanics"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint bridging pure mechanics into applied incident case studies.</p><p><b>Misconception:</b> Treating these as isolated command-line tricks rather than the concrete implementation of the least-privilege principle from Section I.</p><p><b>Analogy:</b> Section I was the map, Section II was learning to drive; Section III is the first real road trip with real hazards.</p><p><b>Exam tip:</b> Be able to name, for any given scenario, which single command (chmod/chown/chgrp/setfacl) would fix it.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section II moved from concept to mechanics: chmod (octal and symbolic), chown/chgrp for ownership, the three special bits (setuid, setgid, sticky) for execution-identity and deletion-restriction edge cases, and POSIX ACLs (getfacl/setfacl) for granularity the base model cannot express, all evaluated by the kernel in a defined order, visible as a trailing '+' when an ACL is present.</p>",
+    "<p>Section III now applies this technical vocabulary to two real-world incident patterns: world-writable cron directories and root-privileged containers.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.1",
+   "parent_n": 18,
+   "title": "Case Study: World-Writable Cron Directories",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "cron",
+    "case-study",
+    "world-writable",
+    "privilege-escalation"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> cron reads schedule files and executes commands at scheduled times, often as root when configured in /etc/cron.d/ or /etc/crontab for maintenance tasks.</p><p><b>Misconception:</b> Students think this requires sophisticated exploitation. It is purely a filesystem permission failure, no exotic techniques needed.</p><p><b>Analogy:</b> Leaving a spare house key under the doormat 'just for today' while the locksmith finishes the real lock, and never picking it back up.</p><p><b>Exam tip:</b> Treat any 777 or 666 found on a production host as an open incident-response finding, exactly as the ebook's Professor's Note states.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Recurring finding:</b> documented repeatedly in pentest reports and tools like LinPEAS and linux-exploit-suggester",
+    "<b>The setup:</b> an admin creates a maintenance script referenced by a root-owned crontab entry",
+    "<b>The shortcut:</b> <code>chmod 777</code> run 'temporarily' during setup to avoid troubleshooting permission errors",
+    "<b>The forgotten step:</b> the tightening-back-down step is frequently never done",
+    "<b>No exotic exploit needed:</b> pure filesystem permission failure, no memory corruption or zero-day required"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.1",
+   "parent_n": 18,
+   "title": "Case Study: World-Writable Cron Directories",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "cron",
+    "case-study",
+    "world-writable",
+    "privilege-escalation"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> cron reads schedule files and executes commands at scheduled times, often as root when configured in /etc/cron.d/ or /etc/crontab for maintenance tasks.</p><p><b>Misconception:</b> Students think this requires sophisticated exploitation. It is purely a filesystem permission failure, no exotic techniques needed.</p><p><b>Analogy:</b> Leaving a spare house key under the doormat 'just for today' while the locksmith finishes the real lock, and never picking it back up.</p><p><b>Exam tip:</b> Treat any 777 or 666 found on a production host as an open incident-response finding, exactly as the ebook's Professor's Note states.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>A recurring class of real-world Linux privilege escalation findings, documented repeatedly in penetration testing reports and in automated privilege-escalation enumeration tools such as LinPEAS and linux-exploit-suggester, involves scripts referenced by cron jobs that are misconfigured with overly permissive filesystem permissions.</p>",
+    "<p>In a representative incident pattern, a system administrator creates a maintenance script and places it in a directory referenced by a root-owned crontab entry. During initial setup, to avoid troubleshooting permission errors, the administrator runs chmod 777 on the script or its containing directory \"temporarily,\" intending to tighten it later. That tightening step is frequently forgotten.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.2",
+   "parent_n": 19,
+   "title": "The Escalation Mechanics: How the Attack Actually Runs",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "cron",
+    "privilege-escalation",
+    "mechanism",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is a textbook example of the Section I principle in action: a broken filesystem permission directly enlarges the attack surface of the whole host.</p><p><b>Misconception:</b> Confusing this with a setuid escalation. The privilege here comes from WHO invokes the script (root's cron daemon), not from a setuid bit on the script itself.</p><p><b>Analogy:</b> Slipping a forged instruction into a manager's daily to-do list, the manager (root/cron) will faithfully carry out whatever is written there next time they check it.</p><p><b>Exam tip:</b> Be able to trace the causal chain: world-writable script → attacker edits it → cron (running as root) executes edited content → root-level payload runs.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Inheritance, not setuid:</b> the script executes with root's privileges because cron invokes it, not because of any setuid bit",
+    "<b>The write:</b> any local user who can write to the world-writable script can append/replace its contents with arbitrary commands",
+    "<b>Payloads:</b> adding the attacker's account to sudoers, or spawning a setuid root shell",
+    "<b>Timing:</b> the next cron firing (often within minutes) executes the injected payload with full root privileges",
+    "<b>Rated severity:</b> one of the most commonly identified 'quick win' privilege escalation paths in professional pentest engagements"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.2",
+   "parent_n": 19,
+   "title": "The Escalation Mechanics: How the Attack Actually Runs",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "cron",
+    "privilege-escalation",
+    "mechanism",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is a textbook example of the Section I principle in action: a broken filesystem permission directly enlarges the attack surface of the whole host.</p><p><b>Misconception:</b> Confusing this with a setuid escalation. The privilege here comes from WHO invokes the script (root's cron daemon), not from a setuid bit on the script itself.</p><p><b>Analogy:</b> Slipping a forged instruction into a manager's daily to-do list, the manager (root/cron) will faithfully carry out whatever is written there next time they check it.</p><p><b>Exam tip:</b> Be able to trace the causal chain: world-writable script → attacker edits it → cron (running as root) executes edited content → root-level payload runs.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Because the script executes with root's privileges (inherited from the crontab entry that references it, not from any setuid bit), any local unprivileged user who can write to that script, permitted because the directory or file is world-writable, can simply append or replace the script's contents with arbitrary commands, such as adding their own account to the sudoers file or spawning a root-owned shell with the setuid bit set.</p>",
+    "<p>The next time cron fires the job, typically within minutes, the attacker's injected payload executes with full root privileges. This attack requires no exploitation of memory corruption, no exotic zero-day, and no network access beyond an initial low-privilege local foothold, it is a pure filesystem permission failure, and it remains one of the single most commonly identified \"quick win\" privilege escalation paths in professional penetration testing engagements against Linux hosts to this day.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.2",
+   "parent_n": 19,
+   "title": "The Escalation Mechanics: How the Attack Actually Runs",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "cron",
+    "privilege-escalation",
+    "mechanism",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is a textbook example of the Section I principle in action: a broken filesystem permission directly enlarges the attack surface of the whole host.</p><p><b>Misconception:</b> Confusing this with a setuid escalation. The privilege here comes from WHO invokes the script (root's cron daemon), not from a setuid bit on the script itself.</p><p><b>Analogy:</b> Slipping a forged instruction into a manager's daily to-do list, the manager (root/cron) will faithfully carry out whatever is written there next time they check it.</p><p><b>Exam tip:</b> Be able to trace the causal chain: world-writable script → attacker edits it → cron (running as root) executes edited content → root-level payload runs.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "cron_privesc_chain",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.3",
+   "parent_n": 20,
+   "title": "Professor's Note: 'Temporary' chmod 777 Is Never Temporary",
+   "slide_type": "deep_question",
+   "difficulty": "standard",
+   "tags": [
+    "chmod-777",
+    "case-study",
+    "hardening-mindset"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly quoting the ebook's Professor's Note, a heavily emphasized exam-relevant framing.</p><p><b>Misconception:</b> Dismissing 777 findings as harmless legacy cruft rather than active risk requiring remediation.</p><p><b>Analogy:</b> A construction crew's 'temporary' scaffolding left up for years after the building is finished, nobody circled back to remove it.</p><p><b>Exam tip:</b> If a scenario mentions a 'temporary' broad permission grant, expect the correct answer to flag it as an ongoing risk requiring audit and remediation, not a one-time acceptable tradeoff.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Universal habit:</b> every experienced admin has run chmod 777 at some point to unblock a rushed deployment",
+    "<b>The real failure:</b> not reaching for the broad permission during debugging, it's never returning to narrow it back down",
+    "<b>Treat as an open finding:</b> any 777/666 in production should be an incident-response item until proven otherwise",
+    "<b>Why automated auditing exists:</b> because humans reliably forget to revert emergency permission changes",
+    "<b>Connects forward:</b> Section IV's routine filesystem auditing exists specifically to catch this drift"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.a.3",
+   "parent_n": 20,
+   "title": "Professor's Note: 'Temporary' chmod 777 Is Never Temporary",
+   "slide_type": "deep_question",
+   "difficulty": "standard",
+   "tags": [
+    "chmod-777",
+    "case-study",
+    "hardening-mindset"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Directly quoting the ebook's Professor's Note, a heavily emphasized exam-relevant framing.</p><p><b>Misconception:</b> Dismissing 777 findings as harmless legacy cruft rather than active risk requiring remediation.</p><p><b>Analogy:</b> A construction crew's 'temporary' scaffolding left up for years after the building is finished, nobody circled back to remove it.</p><p><b>Exam tip:</b> If a scenario mentions a 'temporary' broad permission grant, expect the correct answer to flag it as an ongoing risk requiring audit and remediation, not a one-time acceptable tradeoff.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Every experienced Linux administrator has, at some point, run chmod 777 to unblock themselves during a rushed deployment. The failure is not in reaching for the broad permission during debugging, it is in never returning to narrow it back down.</p>",
+    "<p>Treat any 777 or 666 permission you find on a production host as an open incident-response finding until proven otherwise, not a stylistic preference. Automated configuration auditing exists precisely because humans reliably forget to revert emergency permission changes.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.1",
+   "parent_n": 21,
+   "title": "Case Study: Containers Running as Root",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "containers",
+    "docker",
+    "bind-mount",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Docker released 2013; OCI standardized image/runtime formats 2015-2017. Bind mounts: `docker run -v /host/path:/container/path`.</p><p><b>Misconception:</b> 'Containers are isolated, so what happens inside stays inside.' Isolation is enforced by namespaces/cgroups sharing the host kernel, a shared UID space plus a bind mount defeats that isolation for filesystem access.</p><p><b>Analogy:</b> A see-through vault door labeled 'isolated' that happens to use the exact same master key as the building's front door, the label promises separation the mechanism doesn't actually provide.</p><p><b>Exam tip:</b> Connect this directly back to Section I's 'still relevant in the cloud era' concept, this case study is that concept's concrete failure mode.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>The old problem, new instance:</b> containerization reintroduces the root-privilege problem in a new form",
+    "<b>Default UID 0:</b> Docker containers run as UID 0 by default unless explicitly configured otherwise",
+    "<b>Shared UID namespace:</b> container UID 0 is the SAME numeric ID as the host's actual root, absent dedicated remapping",
+    "<b>Bind mounts:</b> mounting a host directory into a container makes it the literal same inode, not a copy",
+    "<b>The exposure:</b> a compromised container process with a bind mount is root with respect to that host path's permission checks"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.1",
+   "parent_n": 21,
+   "title": "Case Study: Containers Running as Root",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "containers",
+    "docker",
+    "bind-mount",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Docker released 2013; OCI standardized image/runtime formats 2015-2017. Bind mounts: `docker run -v /host/path:/container/path`.</p><p><b>Misconception:</b> 'Containers are isolated, so what happens inside stays inside.' Isolation is enforced by namespaces/cgroups sharing the host kernel, a shared UID space plus a bind mount defeats that isolation for filesystem access.</p><p><b>Analogy:</b> A see-through vault door labeled 'isolated' that happens to use the exact same master key as the building's front door, the label promises separation the mechanism doesn't actually provide.</p><p><b>Exam tip:</b> Connect this directly back to Section I's 'still relevant in the cloud era' concept, this case study is that concept's concrete failure mode.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The rise of containerization introduced a new instance of an old permission problem. By default, unless explicitly configured otherwise, processes inside a Docker container run as UID 0, the same numeric root UID used by the host operating system's actual superuser account, because Linux user IDs are a single global namespace shared between the host and any container that does not use dedicated UID remapping.</p>",
+    "<p>If an operator mounts a host directory into a container as a bind mount and that container's main process is compromised, for instance, through a vulnerable web application dependency, the attacker's shell inside the container is running as root with respect to that bind-mounted host directory's permission checks, even though the container is nominally \"isolated.\"</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.2",
+   "parent_n": 22,
+   "title": "Not a Linux Flaw, A Design Decision Failure",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "containers",
+    "cve",
+    "least-privilege",
+    "deep-question"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "A security team discovers that a Docker container running a web application was compromised, and the attacker was able to overwrite the host's SSH authorized_keys file. Explain how this was possible given that the container was assumed to be 'isolated,' and identify whether this represents a flaw in the Linux permission model itself.",
+    "prompt": "Address: (a) the role of shared UID 0 namespace; (b) the role of the bind mount; (c) whether this is a Linux permission flaw or a configuration failure, and why.",
+    "explanation": "Full-credit response: (a) Docker containers run as UID 0 by default, which is the same numeric root UID as the host unless user namespace remapping is configured, so the container process is root with respect to any filesystem the kernel lets root touch. (b) A bind mount makes a host directory directly accessible inside the container as the same underlying inode, not a copy, so writes from inside the container are immediately real writes to the host filesystem. (c) This is NOT a flaw in the Linux permission model, the kernel correctly enforced that UID 0 can write to the mounted path, exactly as rwx/ownership rules specify. The actual failure was the configuration decision to run the container as root with an unnecessarily broad, writable bind mount; the fix is running as a non-root UID (Dockerfile USER directive or --user flag) and using read-only (:ro) mounts wherever write access is not genuinely required."
+   },
+   "speaker_notes": "<p><b>Context:</b> Modern container tooling supports explicit unprivileged UID (USER directive, --user flag) and read-only bind mounts specifically to reintroduce least privilege at the container layer.</p><p><b>Misconception:</b> Blaming 'Linux permissions' for the incident. The kernel did exactly what the (misconfigured) UID and mount told it to do, the fault is in configuration choice, not the enforcement mechanism.</p><p><b>Analogy:</b> A perfectly functioning alarm system that was simply never armed, the hardware isn't broken, someone chose not to use it correctly.</p><p><b>Exam tip:</b> If asked 'is this a Linux permission flaw or a configuration failure,' the correct framing is almost always configuration/design failure, with permissions enforced correctly underneath.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Documented pattern:</b> multiple CVEs against container runtimes/orchestration tooling show variations of this pattern",
+    "<b>Attack targets:</b> SSH authorized_keys files, systemd unit files, or parts of the host root filesystem via overly broad mounts",
+    "<b>The key insight:</b> this is NOT a flaw in Linux permissions, they are enforced exactly as designed",
+    "<b>Real failure:</b> the decision to run the containerized process as UID 0 with unnecessary write access to host paths",
+    "<b>Modern remediation:</b> USER directive in Dockerfile, or --user at runtime, and read-only (:ro) bind mounts"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.2",
+   "parent_n": 22,
+   "title": "Not a Linux Flaw, A Design Decision Failure",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "containers",
+    "cve",
+    "least-privilege",
+    "deep-question"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "A security team discovers that a Docker container running a web application was compromised, and the attacker was able to overwrite the host's SSH authorized_keys file. Explain how this was possible given that the container was assumed to be 'isolated,' and identify whether this represents a flaw in the Linux permission model itself.",
+    "prompt": "Address: (a) the role of shared UID 0 namespace; (b) the role of the bind mount; (c) whether this is a Linux permission flaw or a configuration failure, and why.",
+    "explanation": "Full-credit response: (a) Docker containers run as UID 0 by default, which is the same numeric root UID as the host unless user namespace remapping is configured, so the container process is root with respect to any filesystem the kernel lets root touch. (b) A bind mount makes a host directory directly accessible inside the container as the same underlying inode, not a copy, so writes from inside the container are immediately real writes to the host filesystem. (c) This is NOT a flaw in the Linux permission model, the kernel correctly enforced that UID 0 can write to the mounted path, exactly as rwx/ownership rules specify. The actual failure was the configuration decision to run the container as root with an unnecessarily broad, writable bind mount; the fix is running as a non-root UID (Dockerfile USER directive or --user flag) and using read-only (:ro) mounts wherever write access is not genuinely required."
+   },
+   "speaker_notes": "<p><b>Context:</b> Modern container tooling supports explicit unprivileged UID (USER directive, --user flag) and read-only bind mounts specifically to reintroduce least privilege at the container layer.</p><p><b>Misconception:</b> Blaming 'Linux permissions' for the incident. The kernel did exactly what the (misconfigured) UID and mount told it to do, the fault is in configuration choice, not the enforcement mechanism.</p><p><b>Analogy:</b> A perfectly functioning alarm system that was simply never armed, the hardware isn't broken, someone chose not to use it correctly.</p><p><b>Exam tip:</b> If asked 'is this a Linux permission flaw or a configuration failure,' the correct framing is almost always configuration/design failure, with permissions enforced correctly underneath.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Multiple publicly documented incidents and vulnerability disclosures (including numerous CVEs against container runtimes and orchestration tooling) have demonstrated variations of this pattern: an attacker who achieves code execution inside a root-privileged container with an insufficiently scoped bind mount can write directly to sensitive host paths, achieving full host compromise from what was assumed to be a sandboxed application environment.</p>",
+    "<p>This is not a flaw in Linux permissions themselves; it is a demonstration that the rwx and ownership model is being correctly enforced exactly as designed, and that the actual security failure was the decision to run the containerized process as UID 0 with unnecessary write access to host paths in the first place. A container boundary is not a substitute for correct Linux permission hygiene, it is an additional layer that still depends on correct permission hygiene underneath it.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.3",
+   "parent_n": 23,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before the hardening/defense section.</p><p><b>Misconception:</b> Treating cron privesc and container escape as two unrelated topics to memorize separately rather than the same least-privilege failure in two contexts.</p><p><b>Analogy:</b> Two different buildings, robbed the same way, an unlocked side door left open 'temporarily.'</p><p><b>Exam tip:</b> Be ready to name the shared root cause across both case studies if asked to compare them.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Cron privilege escalation:</b> world-writable script + root-owned crontab = local-to-root escalation with no exploit needed",
+    "<b>Container UID 0:</b> shared host/container UID namespace means container root can equal host root",
+    "<b>Bind mount:</b> makes host and container share the literal same inode, writes are real, immediate, and mutual",
+    "<b>Common thread:</b> both incidents are permission misconfigurations, not flaws in the underlying enforcement mechanism",
+    "<b>Both trace back to Section I:</b> a failure to apply the principle of least privilege to the account/UID actually running the process"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.3.b.3",
+   "parent_n": 23,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "case-study"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before the hardening/defense section.</p><p><b>Misconception:</b> Treating cron privesc and container escape as two unrelated topics to memorize separately rather than the same least-privilege failure in two contexts.</p><p><b>Analogy:</b> Two different buildings, robbed the same way, an unlocked side door left open 'temporarily.'</p><p><b>Exam tip:</b> Be ready to name the shared root cause across both case studies if asked to compare them.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section III examined two real-world incident patterns, world-writable cron scripts and root-privileged containers with bind mounts, that on the surface look unrelated but share an identical root cause: a process was allowed to run with more privilege (or the same UID) than it needed, and a filesystem write path was left more permissive than necessary.</p>",
+    "<p>In both cases, the underlying Linux permission enforcement worked exactly as designed; the failure was human configuration choice, not the kernel's access-control logic. Section IV now turns to the layered hardening practices, service accounts, routine auditing, ACLs, and CIS Benchmarks, that systematically prevent both patterns.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.a.1",
+   "parent_n": 24,
+   "title": "Layer 1: Dedicated Service Accounts",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "service-account",
+    "least-privilege",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Common examples: www-data (Debian/Ubuntu), nginx, mysql, postgres. Creating one: `useradd -r -s /usr/sbin/nologin svc_myapp`.</p><p><b>Misconception:</b> Students think a service account only needs restricted permissions on OTHER files, forgetting it should also lack write access to its OWN config/executable files.</p><p><b>Analogy:</b> Giving a store clerk a register key but not a key to the safe or the ability to change the store's own locks.</p><p><b>Exam tip:</b> This is the direct application of Section I's least-privilege principle, expect it as the first step in any 'how would you remediate' scenario.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Rule:</b> every long-running network-facing service should execute as a dedicated unprivileged service account",
+    "<b>No login shell:</b> service accounts are typically configured with /usr/sbin/nologin and no password",
+    "<b>Blast radius limit:</b> a compromised unprivileged process can, at worst, tamper with files that account owns",
+    "<b>Contrast:</b> the same compromise against a process running as root grants unrestricted control of the entire host",
+    "<b>Extra layer:</b> config directories owned by a separate admin account and mounted read-only to the service account"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.a.1",
+   "parent_n": 24,
+   "title": "Layer 1: Dedicated Service Accounts",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "service-account",
+    "least-privilege",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Common examples: www-data (Debian/Ubuntu), nginx, mysql, postgres. Creating one: `useradd -r -s /usr/sbin/nologin svc_myapp`.</p><p><b>Misconception:</b> Students think a service account only needs restricted permissions on OTHER files, forgetting it should also lack write access to its OWN config/executable files.</p><p><b>Analogy:</b> Giving a store clerk a register key but not a key to the safe or the ability to change the store's own locks.</p><p><b>Exam tip:</b> This is the direct application of Section I's least-privilege principle, expect it as the first step in any 'how would you remediate' scenario.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Every long-running network-facing service, a web server, database daemon, or application runtime, should execute as a dedicated unprivileged service account that owns only the files it strictly requires and holds no write access to its own configuration or executable files.</p>",
+    "<p>A compromised web application process running as an unprivileged account can, at worst, tamper with the files that account owns; the same compromise against a process running as root grants the attacker unrestricted control of the entire host. Standard hardening guidance additionally recommends that configuration directories be owned by a separate administrative account (or root) and mounted read-only to the service account, so that even a fully compromised application process cannot rewrite its own startup configuration to achieve persistence.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.a.2",
+   "parent_n": 25,
+   "title": "Deploying a Service Account End-to-End",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "service-account",
+    "deployment",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The 750/640 pattern recurs throughout Section II and IV as the standard 'least privilege' directory/file mode pair.</p><p><b>Misconception:</b> Configuring permissions correctly but never verifying the actual running process identity, configuration drift or a forgotten systemd User= directive can silently leave the service running as root anyway.</p><p><b>Analogy:</b> Installing a good lock (permissions) but never checking whether the door was actually closed and the lock actually engaged (runtime verification).</p><p><b>Exam tip:</b> Note the sticky bit reappearing here on the uploads directory, special bits and base hardening patterns combine in real deployments, not just in isolated examples.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Step 1:</b> create the account with useradd -r -s /usr/sbin/nologin",
+    "<b>Step 2:</b> web root owned by root:svc_myapp, directories 750, files 640, readable/executable but not writable by the service",
+    "<b>Step 3:</b> a narrowly scoped, sticky-bit-protected uploads directory as the ONE path the service can write to",
+    "<b>Step 4:</b> verify the running process actually uses the intended account with ps",
+    "<b>Pattern recognition:</b> 750/640 is the recurring 'least privilege' directory/file pattern across this whole topic"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.a.2",
+   "parent_n": 25,
+   "title": "Deploying a Service Account End-to-End",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "service-account",
+    "deployment",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The 750/640 pattern recurs throughout Section II and IV as the standard 'least privilege' directory/file mode pair.</p><p><b>Misconception:</b> Configuring permissions correctly but never verifying the actual running process identity, configuration drift or a forgotten systemd User= directive can silently leave the service running as root anyway.</p><p><b>Analogy:</b> Installing a good lock (permissions) but never checking whether the door was actually closed and the lock actually engaged (runtime verification).</p><p><b>Exam tip:</b> Note the sticky bit reappearing here on the uploads directory, special bits and base hardening patterns combine in real deployments, not just in isolated examples.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This applied example walks through creating a dedicated, non-interactive service account for an application, then locking the web root down so the service account can read and execute but never write to its own code or configuration, with one narrowly scoped, sticky-bit-protected upload directory as the sole exception.</p>",
+    "<p>The final verification step, checking that the actual running process uses the intended unprivileged account rather than root, closes the loop between configuration intent and runtime reality.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.a.2",
+   "parent_n": 25,
+   "title": "Deploying a Service Account End-to-End",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "service-account",
+    "deployment",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> The 750/640 pattern recurs throughout Section II and IV as the standard 'least privilege' directory/file mode pair.</p><p><b>Misconception:</b> Configuring permissions correctly but never verifying the actual running process identity, configuration drift or a forgotten systemd User= directive can silently leave the service running as root anyway.</p><p><b>Analogy:</b> Installing a good lock (permissions) but never checking whether the door was actually closed and the lock actually engaged (runtime verification).</p><p><b>Exam tip:</b> Note the sticky bit reappearing here on the uploads directory, special bits and base hardening patterns combine in real deployments, not just in isolated examples.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Create a dedicated, non-interactive service account for an application\nsudo useradd -r -s /usr/sbin/nologin svc_myapp\n\n# Web root: readable and executable by the service account, not writable\nsudo chown -R root:svc_myapp /var/www/myapp\nsudo find /var/www/myapp -type d -exec chmod 750 {} \\;\nsudo find /var/www/myapp -type f -exec chmod 640 {} \\;\n\n# Uploads directory: the one path the service account IS allowed to write to,\n# scoped narrowly and with the sticky bit to prevent cross-user file tampering\nsudo mkdir -p /var/www/myapp/uploads\nsudo chown svc_myapp:svc_myapp /var/www/myapp/uploads\nsudo chmod 1770 /var/www/myapp/uploads\n\n# Confirm the service process itself runs as the unprivileged account, not root\nps -eo user,pid,cmd | grep myapp-server",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.4.b.1",
+   "parent_n": 26,
+   "title": "Layer 2: Routine Filesystem Auditing",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "auditing",
+    "find",
+    "sticky-bit",
+    "hardening"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "During a routine audit, a security engineer finds a directory with mode 777 that does NOT have the sticky bit set, and multiple unrelated users have files inside it. What is the specific risk this configuration creates?",
+    "options": [
+     "The directory cannot be read by any user",
+     "Any user with access to the directory can delete or rename files belonging to other users, since directory write permission alone governs deletion",
+     "The directory's files will automatically inherit setuid permissions",
+     "Files in the directory cannot be executed by anyone"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: without the sticky bit, deletion/renaming within a writable directory is governed solely by write permission on the DIRECTORY, not ownership of the individual file, so any user with directory write access can delete or rename other users' files. This is exactly why /tmp requires both world-writable AND sticky (mode 1777). Options A, C, and D describe unrelated or fabricated effects."
+   },
+   "speaker_notes": "<p><b>Context:</b> This directly operationalizes the Section III lesson that 'temporary' chmod 777 changes are reliably forgotten, the audit is the systematic catch mechanism.</p><p><b>Misconception:</b> Treating a one-time audit as sufficient. The whole premise is that drift is CONTINUOUS, so auditing must be recurring/automated, not a single pass.</p><p><b>Analogy:</b> A building fire-code inspection isn't done once at construction, it recurs annually because things drift out of compliance over time.</p><p><b>Exam tip:</b> Memorize the four audit categories conceptually: world-writable files, world-writable+no-sticky directories, setuid/setgid binaries, orphaned ownership.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Why:</b> permission misconfigurations accumulate silently, debugging shortcuts, incomplete scripts, forgotten temp grants",
+    "<b>Audit 1:</b> world-writable files outside expected scratch/temp locations",
+    "<b>Audit 2:</b> world-writable directories missing the sticky bit, a red flag on any shared directory",
+    "<b>Audit 3:</b> every setuid/setgid binary system-wide for manual review",
+    "<b>Audit 4:</b> files with no valid owner (orphaned UID), often left behind after account deletion"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.b.1",
+   "parent_n": 26,
+   "title": "Layer 2: Routine Filesystem Auditing",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "auditing",
+    "find",
+    "sticky-bit",
+    "hardening"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "During a routine audit, a security engineer finds a directory with mode 777 that does NOT have the sticky bit set, and multiple unrelated users have files inside it. What is the specific risk this configuration creates?",
+    "options": [
+     "The directory cannot be read by any user",
+     "Any user with access to the directory can delete or rename files belonging to other users, since directory write permission alone governs deletion",
+     "The directory's files will automatically inherit setuid permissions",
+     "Files in the directory cannot be executed by anyone"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: without the sticky bit, deletion/renaming within a writable directory is governed solely by write permission on the DIRECTORY, not ownership of the individual file, so any user with directory write access can delete or rename other users' files. This is exactly why /tmp requires both world-writable AND sticky (mode 1777). Options A, C, and D describe unrelated or fabricated effects."
+   },
+   "speaker_notes": "<p><b>Context:</b> This directly operationalizes the Section III lesson that 'temporary' chmod 777 changes are reliably forgotten, the audit is the systematic catch mechanism.</p><p><b>Misconception:</b> Treating a one-time audit as sufficient. The whole premise is that drift is CONTINUOUS, so auditing must be recurring/automated, not a single pass.</p><p><b>Analogy:</b> A building fire-code inspection isn't done once at construction, it recurs annually because things drift out of compliance over time.</p><p><b>Exam tip:</b> Memorize the four audit categories conceptually: world-writable files, world-writable+no-sticky directories, setuid/setgid binaries, orphaned ownership.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Because permission misconfigurations tend to accumulate silently over time, through emergency debugging shortcuts, incomplete deployment scripts, or forgotten temporary grants, organizations should implement recurring automated audits that specifically flag world-writable files, unexpected setuid/setgid binaries, and files with orphaned or unexpected ownership.</p>",
+    "<p>Four find-based sweeps form the core of this practice: world-writable files outside expected scratch locations, world-writable directories missing the sticky bit, all setuid/setgid binaries for manual review, and orphaned-ownership files left behind after account deletion.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.b.1",
+   "parent_n": 26,
+   "title": "Layer 2: Routine Filesystem Auditing",
+   "slide_type": "mechanism",
+   "difficulty": "standard",
+   "tags": [
+    "auditing",
+    "find",
+    "sticky-bit",
+    "hardening"
+   ],
+   "quiz": {
+    "type": "MCQ",
+    "question": "During a routine audit, a security engineer finds a directory with mode 777 that does NOT have the sticky bit set, and multiple unrelated users have files inside it. What is the specific risk this configuration creates?",
+    "options": [
+     "The directory cannot be read by any user",
+     "Any user with access to the directory can delete or rename files belonging to other users, since directory write permission alone governs deletion",
+     "The directory's files will automatically inherit setuid permissions",
+     "Files in the directory cannot be executed by anyone"
+    ],
+    "answer": 1,
+    "explanation": "Option B is correct: without the sticky bit, deletion/renaming within a writable directory is governed solely by write permission on the DIRECTORY, not ownership of the individual file, so any user with directory write access can delete or rename other users' files. This is exactly why /tmp requires both world-writable AND sticky (mode 1777). Options A, C, and D describe unrelated or fabricated effects."
+   },
+   "speaker_notes": "<p><b>Context:</b> This directly operationalizes the Section III lesson that 'temporary' chmod 777 changes are reliably forgotten, the audit is the systematic catch mechanism.</p><p><b>Misconception:</b> Treating a one-time audit as sufficient. The whole premise is that drift is CONTINUOUS, so auditing must be recurring/automated, not a single pass.</p><p><b>Analogy:</b> A building fire-code inspection isn't done once at construction, it recurs annually because things drift out of compliance over time.</p><p><b>Exam tip:</b> Memorize the four audit categories conceptually: world-writable files, world-writable+no-sticky directories, setuid/setgid binaries, orphaned ownership.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "content": "# Find world-writable files outside of expected scratch/temp locations\nfind / -xdev -type f -perm -0002 -not -path \"/tmp/*\" -not -path \"/var/tmp/*\"\n\n# Find world-writable directories missing the sticky bit (deletion is NOT\n# restricted to file owners -- a red flag on any shared directory)\nfind / -xdev -type d -perm -0002 ! -perm -1000\n\n# Find every setuid/setgid binary system-wide for manual review\nfind / -xdev \\( -perm -4000 -o -perm -2000 \\) -type f 2>/dev/null\n\n# Find files with no valid owner (orphaned UID, often left behind\n# after an account was deleted without reassigning its files)\nfind / -xdev -nouser -o -nogroup 2>/dev/null",
+    "mode": "static"
+   }
+  },
+  {
+   "index": "5.2.4.c.1",
+   "parent_n": 27,
+   "title": "Layer 3: ACLs and CIS Benchmarks for Granular Cases",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "acl",
+    "cis-benchmark",
+    "hardening",
+    "shadow",
+    "passwd"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Published and updated by the Center for Internet Security (cisecurity.org); automated tools OpenSCAP and Lynis check compliance against CIS Benchmark controls directly.</p><p><b>Misconception:</b> Students think 'more open' is always simpler and safer to reason about than an ACL. In practice a documented ACL exception is more auditable and precise than a broadened base permission.</p><p><b>Analogy:</b> Building a specific, labeled side entrance for the delivery team (ACL) instead of just leaving the main door unlocked for everyone (broadened base permission).</p><p><b>Exam tip:</b> Know the /etc/shadow (root-only) vs. /etc/passwd (world-readable, never world-writable) contrast, a classic exam scenario pairing.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Deliberate ACL use:</b> when the base model can't cleanly express a needed pattern, use ACLs deliberately and document them",
+    "<b>Anti-pattern:</b> broadening base 'other' permissions as a workaround instead of using a properly scoped ACL",
+    "<b>CIS Benchmarks:</b> consensus-developed, vendor-neutral hardening guides from the Center for Internet Security",
+    "<b>Concrete example:</b> /etc/shadow must never be readable by any account other than root",
+    "<b>Contrast example:</b> /etc/passwd stays world-readable but never world-writable, legacy utilities depend on reading it"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.c.1",
+   "parent_n": 27,
+   "title": "Layer 3: ACLs and CIS Benchmarks for Granular Cases",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "acl",
+    "cis-benchmark",
+    "hardening",
+    "shadow",
+    "passwd"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Published and updated by the Center for Internet Security (cisecurity.org); automated tools OpenSCAP and Lynis check compliance against CIS Benchmark controls directly.</p><p><b>Misconception:</b> Students think 'more open' is always simpler and safer to reason about than an ACL. In practice a documented ACL exception is more auditable and precise than a broadened base permission.</p><p><b>Analogy:</b> Building a specific, labeled side entrance for the delivery team (ACL) instead of just leaving the main door unlocked for everyone (broadened base permission).</p><p><b>Exam tip:</b> Know the /etc/shadow (root-only) vs. /etc/passwd (world-readable, never world-writable) contrast, a classic exam scenario pairing.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>When the base owner/group/other model cannot cleanly express a required access pattern, such as a shared audit directory readable by a compliance team but writable only by the application itself, POSIX ACLs should be used deliberately and documented, rather than resorting to broadening the base \"other\" permissions as a workaround.</p>",
+    "<p>Organizations aligning with the CIS Benchmarks apply standardized, auditable permission baselines to critical system files, for example, mandating that /etc/shadow (which stores hashed user passwords) never be readable by any account other than root, and that /etc/passwd remain world-readable but never world-writable, since many legacy utilities depend on being able to read it for username lookups.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.c.2",
+   "parent_n": 28,
+   "title": "Exam Focus: Layered Filesystem Defense",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-focus",
+    "layered-defense",
+    "synthesis",
+    "hardening"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "Using the five-layer filesystem defense model, diagnose which layer(s) failed in the Section III cron privilege-escalation case study, and specify the exact remediation for each failed layer.",
+    "prompt": "Address: which of the 5 layers (identity, base permissions, special bits, ACL, audit) failed, and what specific command or practice fixes each.",
+    "explanation": "Full-credit response: Layer 2 (base permissions) failed directly, the script/directory was left at chmod 777 instead of a least-privilege mode; remediation is chmod 700 or 750 restricted to the admin account that needs to edit it. Layer 5 (continuous audit) also failed, a routine `find / -perm -0002` sweep would have caught the world-writable file before exploitation; remediation is scheduling this audit to run automatically (e.g., via its own properly-permissioned cron job). Layer 1 (identity) is not directly implicated since the script correctly needed to run as root for its maintenance function, but Layer 1 reasoning still applies in spirit: only the specific script needed root, not a whole broadly-writable directory. Layers 3 and 4 (special bits, ACL) were not the primary failure here, though a sticky bit on the containing directory could have added defense in depth."
+   },
+   "speaker_notes": "<p><b>Context:</b> This five-layer hierarchy is the ebook's own Exam Focus callout, verbatim, treat it as the canonical answer template for FRQ-style hardening questions.</p><p><b>Misconception:</b> Naming only one control (e.g. 'they should use chmod') when the exam wants the full layered reasoning across identity, base, special bits, ACL, and audit.</p><p><b>Analogy:</b> A bank vault has a guard (identity), a locked door (base permissions), a time-lock (special bits), a visitor exception list (ACL), and security camera review (audit), all five, not just one.</p><p><b>Exam tip:</b> When asked to diagnose the cron or container case studies from Section III, map the failure explicitly onto one or more of these five layers.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Layer 1, Identity:</b> dedicated unprivileged service accounts, never root, for every daemon",
+    "<b>Layer 2, Base permissions:</b> least-privilege rwx bits (typically 750/640 patterns), verified not left at 777",
+    "<b>Layer 3, Special bits:</b> setgid for shared collaborative inheritance, sticky for shared writable dirs, setuid audited and minimized",
+    "<b>Layer 4, Granular control:</b> POSIX ACLs for exceptions the base model cannot express",
+    "<b>Layer 5, Continuous audit:</b> automated scans (CIS Benchmark tooling, find -perm sweeps) to catch drift over time"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.c.2",
+   "parent_n": 28,
+   "title": "Exam Focus: Layered Filesystem Defense",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-focus",
+    "layered-defense",
+    "synthesis",
+    "hardening"
+   ],
+   "quiz": {
+    "type": "FRQ",
+    "question": "Using the five-layer filesystem defense model, diagnose which layer(s) failed in the Section III cron privilege-escalation case study, and specify the exact remediation for each failed layer.",
+    "prompt": "Address: which of the 5 layers (identity, base permissions, special bits, ACL, audit) failed, and what specific command or practice fixes each.",
+    "explanation": "Full-credit response: Layer 2 (base permissions) failed directly, the script/directory was left at chmod 777 instead of a least-privilege mode; remediation is chmod 700 or 750 restricted to the admin account that needs to edit it. Layer 5 (continuous audit) also failed, a routine `find / -perm -0002` sweep would have caught the world-writable file before exploitation; remediation is scheduling this audit to run automatically (e.g., via its own properly-permissioned cron job). Layer 1 (identity) is not directly implicated since the script correctly needed to run as root for its maintenance function, but Layer 1 reasoning still applies in spirit: only the specific script needed root, not a whole broadly-writable directory. Layers 3 and 4 (special bits, ACL) were not the primary failure here, though a sticky bit on the containing directory could have added defense in depth."
+   },
+   "speaker_notes": "<p><b>Context:</b> This five-layer hierarchy is the ebook's own Exam Focus callout, verbatim, treat it as the canonical answer template for FRQ-style hardening questions.</p><p><b>Misconception:</b> Naming only one control (e.g. 'they should use chmod') when the exam wants the full layered reasoning across identity, base, special bits, ACL, and audit.</p><p><b>Analogy:</b> A bank vault has a guard (identity), a locked door (base permissions), a time-lock (special bits), a visitor exception list (ACL), and security camera review (audit), all five, not just one.</p><p><b>Exam tip:</b> When asked to diagnose the cron or container case studies from Section III, map the failure explicitly onto one or more of these five layers.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>When the exam asks \"how should you secure a Linux application's filesystem footprint?\", answer in layers, not with a single command. The hierarchy is: (1) Identity, dedicated unprivileged service accounts, never root, for every daemon; (2) Base permissions, least-privilege rwx bits (typically 750/640 patterns) set correctly at deployment and verified, not left at 777; (3) Special bits, setgid for shared collaborative inheritance, sticky bit for shared writable directories, setuid audited and minimized; (4) Granular control, POSIX ACLs for exceptions the base model cannot express; (5) Continuous audit, automated scans (CIS Benchmark tooling, find -perm sweeps) to catch drift over time.</p>",
+    "<p>Expect scenario questions that require naming which specific layer failed in a described incident, rather than a generic 'they didn't secure it' answer.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.c.3",
+   "parent_n": 29,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before the final detection/synthesis section.</p><p><b>Misconception:</b> Viewing hardening as a checklist to complete once rather than a continuous discipline (as the ebook explicitly states in its opening line of Section IV).</p><p><b>Analogy:</b> Section IV built the full toolbox; Section V is where all the tools get used together on one worked scenario.</p><p><b>Exam tip:</b> Be able to recite the five-layer model from memory without prompting.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Service account:</b> dedicated unprivileged, non-interactive account for a specific daemon",
+    "<b>750/640 pattern:</b> the recurring least-privilege mode pair for service-owned directories/files",
+    "<b>Routine auditing:</b> recurring find-based sweeps for world-writable files, missing sticky bits, setuid/setgid binaries, orphaned owners",
+    "<b>CIS Benchmarks:</b> vendor-neutral, auditable configuration baselines (e.g. /etc/shadow root-only)",
+    "<b>Five-layer defense model:</b> identity, base permissions, special bits, ACL, continuous audit"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.4.c.3",
+   "parent_n": 29,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A consolidation checkpoint before the final detection/synthesis section.</p><p><b>Misconception:</b> Viewing hardening as a checklist to complete once rather than a continuous discipline (as the ebook explicitly states in its opening line of Section IV).</p><p><b>Analogy:</b> Section IV built the full toolbox; Section V is where all the tools get used together on one worked scenario.</p><p><b>Exam tip:</b> Be able to recite the five-layer model from memory without prompting.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section IV assembled the full hardening toolkit: dedicated service accounts implementing least privilege at the identity layer, the 750/640 base-permission pattern, routine automated auditing to catch permission drift before it becomes an incident, and POSIX ACLs plus CIS Benchmarks for granular, documented exceptions to the base model, synthesized into the five-layer defense hierarchy that is the canonical answer template for hardening questions.</p>",
+    "<p>Section V closes the topic with detection practices, a synthesized attack-chain view, and an exam-readiness checklist.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.a.1",
+   "parent_n": 30,
+   "title": "Detecting Exploitation of Permission Misconfigurations",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "detection",
+    "fim",
+    "aide",
+    "tripwire",
+    "monitoring"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> AIDE (Advanced Intrusion Detection Environment) and Tripwire are widely deployed open-source/commercial FIM tools that specifically watch permission and hash drift.</p><p><b>Misconception:</b> Thinking hardening alone is sufficient. Detection exists because hardening can be incomplete, misconfigured, or bypassed by an insider, defense in depth applies here too.</p><p><b>Analogy:</b> Hardening locks the doors; detection is the alarm system that notices if a door gets unlocked anyway.</p><p><b>Exam tip:</b> Be ready to distinguish a hardening control (chmod, service accounts) from a detection control (FIM alert, audit log review), a recurring exam distinction pattern across this whole course.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Log signal:</b> unexpected chmod/chown activity on sensitive paths, especially outside change windows",
+    "<b>Cron-specific signal:</b> unexpected modification timestamps on scripts referenced by root-owned crontabs",
+    "<b>Container-specific signal:</b> a container process detected writing to unexpected host-mounted paths",
+    "<b>File integrity monitoring (FIM):</b> tools like AIDE or Tripwire baseline permission/ownership state and alert on drift",
+    "<b>Complementary to prevention:</b> detection catches misconfigurations that slipped past initial hardening review"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.a.1",
+   "parent_n": 30,
+   "title": "Detecting Exploitation of Permission Misconfigurations",
+   "slide_type": "concept",
+   "difficulty": "standard",
+   "tags": [
+    "detection",
+    "fim",
+    "aide",
+    "tripwire",
+    "monitoring"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> AIDE (Advanced Intrusion Detection Environment) and Tripwire are widely deployed open-source/commercial FIM tools that specifically watch permission and hash drift.</p><p><b>Misconception:</b> Thinking hardening alone is sufficient. Detection exists because hardening can be incomplete, misconfigured, or bypassed by an insider, defense in depth applies here too.</p><p><b>Analogy:</b> Hardening locks the doors; detection is the alarm system that notices if a door gets unlocked anyway.</p><p><b>Exam tip:</b> Be ready to distinguish a hardening control (chmod, service accounts) from a detection control (FIM alert, audit log review), a recurring exam distinction pattern across this whole course.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Detection complements the preventive hardening controls in Section IV by catching misconfigurations or active exploitation that slips past initial review. Unexpected chmod or chown activity on sensitive paths, particularly outside scheduled change windows, is a strong signal worth alerting on.</p>",
+    "<p>For the cron case study specifically, unexpected modification timestamps on scripts referenced by root-owned crontabs are a direct indicator of the exact attack pattern described in Section III. For the container case study, a container process writing to unexpected host-mounted paths signals a bind-mount misuse in progress. File integrity monitoring tools such as AIDE or Tripwire baseline the expected permission and ownership state of critical files and alert whenever that baseline drifts.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.a.2",
+   "parent_n": 31,
+   "title": "Live Demo: Simulating a Permission Audit Sweep",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "audit",
+    "demo",
+    "detection",
+    "octal"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> We simulate a filesystem with a Python list so it runs in the browser via Pyodide without real filesystem access. The logic mirrors the real find -perm sweeps from Section IV.</p><p><b>Misconception:</b> Students think audit tooling uses some exotic technique. It is the same octal-digit arithmetic from Section II, just automated and run at scale.</p><p><b>Analogy:</b> The demo is a flight simulator for the audit sweep, safe to run, but the underlying decision logic is identical to a real find command.</p><p><b>Exam tip:</b> Be able to explain, in plain language, what each octal digit position and value means when reading a simulated or real audit finding.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Goal:</b> model the Section IV audit logic in a runnable form to internalize the pattern-matching logic",
+    "<b>Simulated filesystem:</b> a small in-memory list of file records stands in for a real filesystem tree",
+    "<b>Check 1:</b> flag any record whose mode is world-writable (last digit includes write) without the sticky bit",
+    "<b>Check 2:</b> flag any record carrying a setuid or setgid special-bit prefix for manual review",
+    "<b>Takeaway:</b> the same octal-arithmetic logic from Section II drives real audit tooling"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.a.2",
+   "parent_n": 31,
+   "title": "Live Demo: Simulating a Permission Audit Sweep",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "audit",
+    "demo",
+    "detection",
+    "octal"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> We simulate a filesystem with a Python list so it runs in the browser via Pyodide without real filesystem access. The logic mirrors the real find -perm sweeps from Section IV.</p><p><b>Misconception:</b> Students think audit tooling uses some exotic technique. It is the same octal-digit arithmetic from Section II, just automated and run at scale.</p><p><b>Analogy:</b> The demo is a flight simulator for the audit sweep, safe to run, but the underlying decision logic is identical to a real find command.</p><p><b>Exam tip:</b> Be able to explain, in plain language, what each octal digit position and value means when reading a simulated or real audit finding.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>This runnable demo models the logic behind the Section IV audit sweeps using a small in-memory list of simulated file records, each carrying a path and an octal mode string, rather than scanning a real filesystem. The goal is to make the audit's decision logic concrete and traceable.</p>",
+    "<p>Run the code and read the printed findings. The world-writable check inspects whether the last octal digit includes the write bit (2 or 3 or 6 or 7) and whether the sticky bit (leading 1) is absent. The setuid/setgid check inspects whether the mode carries a leading 4 or 2. This is the same octal arithmetic introduced in Section II, now applied as an automated decision rule.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.a.2",
+   "parent_n": 31,
+   "title": "Live Demo: Simulating a Permission Audit Sweep",
+   "slide_type": "application",
+   "difficulty": "standard",
+   "tags": [
+    "audit",
+    "demo",
+    "detection",
+    "octal"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> We simulate a filesystem with a Python list so it runs in the browser via Pyodide without real filesystem access. The logic mirrors the real find -perm sweeps from Section IV.</p><p><b>Misconception:</b> Students think audit tooling uses some exotic technique. It is the same octal-digit arithmetic from Section II, just automated and run at scale.</p><p><b>Analogy:</b> The demo is a flight simulator for the audit sweep, safe to run, but the underlying decision logic is identical to a real find command.</p><p><b>Exam tip:</b> Be able to explain, in plain language, what each octal digit position and value means when reading a simulated or real audit finding.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "python",
+    "content": "# Toy model of a permission audit sweep (runs in Pyodide)\nfiles = [\n    {\"path\": \"/tmp\", \"mode\": \"1777\"},                 # world-writable + sticky: OK\n    {\"path\": \"/srv/scratch2\", \"mode\": \"0777\"},         # world-writable, NO sticky: FLAG\n    {\"path\": \"/usr/bin/passwd\", \"mode\": \"4755\"},       # setuid root: FLAG for review\n    {\"path\": \"/etc/myapp/app.conf\", \"mode\": \"0644\"},   # normal config file: OK\n    {\"path\": \"/srv/shared/project\", \"mode\": \"2775\"},   # setgid shared dir: FLAG for review (expected)\n]\n\ndef audit(files):\n    findings = []\n    for f in files:\n        mode = f[\"mode\"].zfill(4)\n        special, owner, group, other = mode[0], mode[1], mode[2], mode[3]\n        world_writable = int(other) in (2, 3, 6, 7)\n        has_sticky = special in (\"1\", \"3\", \"5\", \"7\")\n        has_setuid = special in (\"4\", \"5\", \"6\", \"7\")\n        has_setgid = special in (\"2\", \"3\", \"6\", \"7\")\n        if world_writable and not has_sticky:\n            findings.append(f\"FLAG world-writable no-sticky: {f['path']} ({f['mode']})\")\n        if has_setuid or has_setgid:\n            findings.append(f\"REVIEW special bit present: {f['path']} ({f['mode']})\")\n    return findings\n\nfor line in audit(files):\n    print(line)",
+    "mode": "pyodide"
+   }
+  },
+  {
+   "index": "5.2.5.b.1",
+   "parent_n": 32,
+   "title": "Synthesis: The Permission Misconfiguration Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "cron",
+    "containers",
+    "setuid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This kill-chain framing mirrors the classic cyber kill chain concept taught elsewhere in the AP Cybersecurity curriculum, specialized here to filesystem permission misconfigurations.</p><p><b>Misconception:</b> Treating each case study (cron, container, setuid) as structurally different. All three instantiate the identical five-step pattern with different specific mechanisms at steps 1 and 4.</p><p><b>Analogy:</b> Three different burglaries (a window left unlocked, a spare key under the mat, a borrowed master key) that all follow the identical five-act structure: opportunity created, opportunity persists unnoticed, opportunity discovered, opportunity leveraged, and the actual theft/escalation.</p><p><b>Exam tip:</b> When given ANY Linux permission incident scenario, map it onto these five steps explicitly, this is a strong, transferable free-response structure.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Step 1, Introduction:</b> an overly broad permission is granted, often 'temporarily' during setup or debugging",
+    "<b>Step 2, Persistence of the gap:</b> the broad grant is never reverted; no audit catches it",
+    "<b>Step 3, Discovery:</b> an attacker (or pentest tool like LinPEAS) enumerates the filesystem and finds the misconfiguration",
+    "<b>Step 4, Leverage:</b> the attacker writes to the over-permissioned path (a cron script, a bind-mounted host directory, a setuid binary)",
+    "<b>Step 5, Escalation/Impact:</b> a privileged process (root's cron, a root container process) executes the attacker's change, or a setuid binary hands over root"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.b.1",
+   "parent_n": 32,
+   "title": "Synthesis: The Permission Misconfiguration Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "cron",
+    "containers",
+    "setuid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This kill-chain framing mirrors the classic cyber kill chain concept taught elsewhere in the AP Cybersecurity curriculum, specialized here to filesystem permission misconfigurations.</p><p><b>Misconception:</b> Treating each case study (cron, container, setuid) as structurally different. All three instantiate the identical five-step pattern with different specific mechanisms at steps 1 and 4.</p><p><b>Analogy:</b> Three different burglaries (a window left unlocked, a spare key under the mat, a borrowed master key) that all follow the identical five-act structure: opportunity created, opportunity persists unnoticed, opportunity discovered, opportunity leveraged, and the actual theft/escalation.</p><p><b>Exam tip:</b> When given ANY Linux permission incident scenario, map it onto these five steps explicitly, this is a strong, transferable free-response structure.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Every incident pattern examined in this topic, the cron case study and the container case study, follows the same five-step kill chain, and recognizing this shared structure is more valuable than memorizing each incident as a separate story.</p>",
+    "<p>Step 1: an overly broad permission is introduced, typically as a shortcut during setup, debugging, or default configuration (chmod 777, default UID 0 in a container). Step 2: that gap persists because no routine audit catches it, this is the human/process failure Section IV's auditing layer exists to close. Step 3: an attacker, whether a human pentester or automated tooling like LinPEAS, discovers the misconfiguration through enumeration. Step 4: the attacker leverages the writable path, editing a cron script, writing through a bind mount, or invoking an exploitable setuid binary. Step 5: a privileged execution context (root's cron daemon, a root-UID container process, or the setuid binary's owner privilege) carries out the attacker's payload, completing the escalation.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.b.1",
+   "parent_n": 32,
+   "title": "Synthesis: The Permission Misconfiguration Kill Chain",
+   "slide_type": "deep_question",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis",
+    "cron",
+    "containers",
+    "setuid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This kill-chain framing mirrors the classic cyber kill chain concept taught elsewhere in the AP Cybersecurity curriculum, specialized here to filesystem permission misconfigurations.</p><p><b>Misconception:</b> Treating each case study (cron, container, setuid) as structurally different. All three instantiate the identical five-step pattern with different specific mechanisms at steps 1 and 4.</p><p><b>Analogy:</b> Three different burglaries (a window left unlocked, a spare key under the mat, a borrowed master key) that all follow the identical five-act structure: opportunity created, opportunity persists unnoticed, opportunity discovered, opportunity leveraged, and the actual theft/escalation.</p><p><b>Exam tip:</b> When given ANY Linux permission incident scenario, map it onto these five steps explicitly, this is a strong, transferable free-response structure.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "permission_killchain",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.b.2",
+   "parent_n": 33,
+   "title": "Interrupting the Kill Chain: Where Each Layer Breaks It",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "defense-in-depth",
+    "synthesis",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This slide operationalizes defense in depth: no single layer needs to be perfect if multiple layers each independently reduce the chance the full kill chain completes.</p><p><b>Misconception:</b> Believing a single strong control (e.g. 'we audit weekly') is sufficient on its own. Layered defense assumes any one control can fail or be incomplete.</p><p><b>Analogy:</b> A series of nets under a tightrope walker, no single net needs to be perfect if there are several, because a fall through one still gets caught by the next.</p><p><b>Exam tip:</b> Given a described breach, identify which kill-chain step succeeded that a specific hardening control should have interrupted, this is a very likely FRQ pattern.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Breaks Step 1:</b> proper least-privilege configuration from the start (750/640 patterns, dedicated service accounts, USER directive)",
+    "<b>Breaks Step 2:</b> routine automated auditing (find -perm sweeps, CIS Benchmark scans) catches the drift before an attacker finds it",
+    "<b>Breaks Step 3:</b> reduces attack surface generally, but discovery is hard to fully prevent, assume adversaries will enumerate",
+    "<b>Breaks Step 4:</b> ACLs and narrowly scoped writable paths (sticky-bit-protected uploads dirs) limit what leverage is even possible",
+    "<b>Breaks Step 5:</b> FIM/detection tooling (AIDE, Tripwire) and setuid minimization reduce the odds a privileged context ever executes the payload"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.b.2",
+   "parent_n": 33,
+   "title": "Interrupting the Kill Chain: Where Each Layer Breaks It",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "defense-in-depth",
+    "synthesis",
+    "application"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This slide operationalizes defense in depth: no single layer needs to be perfect if multiple layers each independently reduce the chance the full kill chain completes.</p><p><b>Misconception:</b> Believing a single strong control (e.g. 'we audit weekly') is sufficient on its own. Layered defense assumes any one control can fail or be incomplete.</p><p><b>Analogy:</b> A series of nets under a tightrope walker, no single net needs to be perfect if there are several, because a fall through one still gets caught by the next.</p><p><b>Exam tip:</b> Given a described breach, identify which kill-chain step succeeded that a specific hardening control should have interrupted, this is a very likely FRQ pattern.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Each layer of the Section IV hardening model maps onto a specific point where the kill chain can be interrupted, reinforcing why layered defense in depth matters more than any single control. Preventing Step 1 (introduction of the broad grant) is the cheapest intervention, correct configuration from the start via service accounts and least-privilege modes.</p>",
+    "<p>Preventing Step 2 (persistence) is the job of routine auditing. Step 3 (discovery) is difficult to prevent outright since a determined attacker with local access will eventually enumerate the filesystem, so defenders should assume it will happen. Step 4 (leverage) is blocked by scoping writable paths as narrowly as possible, using ACLs for genuine exceptions rather than broad grants. Step 5 (escalation) is the last line of defense, FIM tooling and minimized setuid attack surface reduce the chance that a privileged context ever actually executes the attacker's payload.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.1",
+   "parent_n": 34,
+   "title": "Section V Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "detection"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Final consolidation checkpoint before the topic-level synthesis and exam-readiness checklist.</p><p><b>Misconception:</b> Treating detection as an afterthought bolted onto prevention rather than an equally necessary, continuously running layer.</p><p><b>Analogy:</b> The whole topic has been building one instrument, and this is the final tuning check before the exam-readiness performance.</p><p><b>Exam tip:</b> Practice re-deriving the five-step kill chain from memory and mapping any new scenario onto it.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>File integrity monitoring (FIM):</b> tooling (AIDE, Tripwire) that baselines and alerts on permission/ownership drift",
+    "<b>Kill chain:</b> the five-step pattern, introduction, persistence, discovery, leverage, escalation, shared by every case study in this topic",
+    "<b>Layered interruption:</b> each Section IV hardening control maps to breaking one specific kill-chain step",
+    "<b>Detection vs. prevention (recap):</b> hardening blocks the exploit; FIM/auditing observes and alerts on drift or attempts",
+    "<b>Everything in this topic reduces to one goal:</b> keep the filesystem's actual permission state matched to least-privilege intent, continuously"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.1",
+   "parent_n": 34,
+   "title": "Section V Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "summary",
+    "detection"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Final consolidation checkpoint before the topic-level synthesis and exam-readiness checklist.</p><p><b>Misconception:</b> Treating detection as an afterthought bolted onto prevention rather than an equally necessary, continuously running layer.</p><p><b>Analogy:</b> The whole topic has been building one instrument, and this is the final tuning check before the exam-readiness performance.</p><p><b>Exam tip:</b> Practice re-deriving the five-step kill chain from memory and mapping any new scenario onto it.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Section V closed the loop between prevention and detection: FIM tooling watches for the exact drift that Section III's case studies showed accumulates silently, and the five-step kill chain provides a single reusable framework for analyzing any Linux permission incident, mapping each hardening control from Section IV onto the specific step it interrupts.</p>",
+    "<p>The topic's single organizing idea, restated: Linux filesystem security is the continuous discipline of keeping actual permission state matched to least-privilege intent, because every gap between the two is exactly the opportunity an attacker's kill chain exploits.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.2",
+   "parent_n": 35,
+   "title": "Topic 5.2 Key Takeaways",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "summary",
+    "key-takeaways",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A synthesis slide to consolidate before assessment, echoing 5.1's closing structure.</p><p><b>Misconception:</b> Treating this topic as a list of unrelated commands (chmod, chown, setfacl) rather than one coherent least-privilege enforcement system.</p><p><b>Analogy:</b> One organizing key (least privilege, continuously enforced) unlocks every mechanism in this topic, the same way Topic 5.1's code/data boundary unified SQLi, XSS, and buffer overflow.</p><p><b>Exam tip:</b> If unsure on a specific question, fall back to naming which of the five hardening layers is implicated and what least-privilege gap it addresses.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>One model, nine bits:</b> owner/group/other × read/write/execute is the foundation everything else extends",
+    "<b>Two notations:</b> octal (weighted sum) and symbolic (targeted delta) both configure the same underlying bits via chmod",
+    "<b>Special bits solve edge cases:</b> setuid/setgid for identity inheritance, sticky bit for shared-directory deletion control",
+    "<b>ACLs close the granularity gap</b> the base triad cannot express, additively, never replacing the base bits",
+    "<b>Every real incident is a least-privilege failure:</b> cron privesc and container root compromise are the same misconfiguration pattern in different clothes"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.2",
+   "parent_n": 35,
+   "title": "Topic 5.2 Key Takeaways",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "summary",
+    "key-takeaways",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> A synthesis slide to consolidate before assessment, echoing 5.1's closing structure.</p><p><b>Misconception:</b> Treating this topic as a list of unrelated commands (chmod, chown, setfacl) rather than one coherent least-privilege enforcement system.</p><p><b>Analogy:</b> One organizing key (least privilege, continuously enforced) unlocks every mechanism in this topic, the same way Topic 5.1's code/data boundary unified SQLi, XSS, and buffer overflow.</p><p><b>Exam tip:</b> If unsure on a specific question, fall back to naming which of the five hardening layers is implicated and what least-privilege gap it addresses.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Topic 5.2 rests on a single organizing idea: Linux filesystem security is the continuous discipline of keeping actual permission state matched to least-privilege intent. The nine-bit owner/group/other model, configured via chmod's octal and symbolic notations, is the foundation; special bits (setuid, setgid, sticky) and POSIX ACLs extend it to handle identity-inheritance and fine-grained edge cases the base model cannot express.</p>",
+    "<p>The two anchor case studies, world-writable cron scripts and root-privileged containers with bind mounts, demonstrate that the Linux kernel enforces permissions exactly as configured; real incidents trace back to human configuration decisions, not flaws in the enforcement mechanism itself. The five-layer hardening model (identity, base permissions, special bits, ACLs, continuous audit) and the five-step kill chain (introduction, persistence, discovery, leverage, escalation) together provide a complete, reusable framework for both designing secure filesystem configurations and diagnosing incidents when that discipline lapses.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.3",
+   "parent_n": 36,
+   "title": "Exam-Readiness Checklist",
+   "slide_type": "practice",
+   "difficulty": "foundational",
+   "tags": [
+    "exam-prep",
+    "checklist",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This checklist mirrors the exact structure of the topic's five sections, ensuring nothing from foundations through synthesis is left unreviewed.</p><p><b>Misconception:</b> Studying commands in isolation without practicing the synthesis-level diagnostic skill, the AP exam rewards applied reasoning over rote command recall.</p><p><b>Analogy:</b> A pilot's pre-flight checklist, covering every system methodically before the real test, rather than trusting memory alone.</p><p><b>Exam tip:</b> Time yourself converting five random rwx strings to octal and back in under two minutes each, fluency here saves time on every other question in this topic.</p>",
+   "beat": 1,
+   "bullets": [
+    "<b>Can you decode any <code>ls -l</code> permission string</b> into owner/group/other triads, including the type character and trailing '+' for ACLs?",
+    "<b>Can you convert fluently</b> between rwx symbols and octal digits in both directions, including the fourth special-bit digit?",
+    "<b>Can you name the effect and octal value</b> of setuid, setgid (on file vs. directory), and the sticky bit from memory?",
+    "<b>Can you distinguish</b> chmod vs. chown vs. chgrp vs. setfacl, and know which requires root?",
+    "<b>Can you diagnose a scenario</b> using the five-layer hardening model AND map an incident onto the five-step kill chain?"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "5.2.5.c.3",
+   "parent_n": 36,
+   "title": "Exam-Readiness Checklist",
+   "slide_type": "practice",
+   "difficulty": "foundational",
+   "tags": [
+    "exam-prep",
+    "checklist",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This checklist mirrors the exact structure of the topic's five sections, ensuring nothing from foundations through synthesis is left unreviewed.</p><p><b>Misconception:</b> Studying commands in isolation without practicing the synthesis-level diagnostic skill, the AP exam rewards applied reasoning over rote command recall.</p><p><b>Analogy:</b> A pilot's pre-flight checklist, covering every system methodically before the real test, rather than trusting memory alone.</p><p><b>Exam tip:</b> Time yourself converting five random rwx strings to octal and back in under two minutes each, fluency here saves time on every other question in this topic.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Before moving on, verify fluency across all five sections of this topic. Decoding: given any raw <code>ls -l</code> string, can you correctly split off the type character, read the three triads, and notice a trailing '+' signaling an ACL? Arithmetic: can you convert an octal mode to rwx symbols and back, including a fourth-digit special bit, without hesitation?</p>",
+    "<p>Special bits: can you state the octal value, display symbol, and practical effect of setuid, setgid (both on executables and on directories), and the sticky bit? Commands: can you correctly choose between chmod, chown, chgrp, and setfacl for a given task, and identify which require root privileges?</p>",
+    "<p>Synthesis: given a novel incident description, can you apply the five-layer hardening model to identify which layer failed, and map the incident onto the five-step permission-misconfiguration kill chain to explain how it progressed from misconfiguration to compromise?</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  }
+ ],
+ "classroom": {
+  "cover": {
+   "summary": "What decides how hard a given file should be to reach: its classification, the state it is in at the moment (at rest, in transit, or in use), the managerial controls that govern who may touch it, the access control model the organization has chosen, and the Linux commands that put that model into effect on disk.",
+   "footer": "4 learning objectives  ·  College Board AP Cybersecurity Course Framework",
+   "notes": "Cover slide for Topic 5.2: Protecting Applications and Data: Managerial Controls and Access Controls. What decides how hard a given file should be to reach: its classification, the state it is in at the moment (at rest, in transit, or in use), the managerial controls that govern who may touch it, the access control model the organization has chosen, and the Linux commands that put that model into effect on disk."
+  },
+  "objectives": {
+   "items": [
+    {
+     "code": "5.2.A",
+     "skill": "Mitigate Risk",
+     "text": "Explain how a data item&rsquo;s classification, and the state it currently occupies &mdash; at rest, in transit, or in use &mdash; determine which protections apply to it and how strong they must be."
+    },
+    {
+     "code": "5.2.B",
+     "skill": "Mitigate Risk",
+     "text": "Identify the managerial controls that govern application and data security: policy, classification schemes, ownership, least privilege and separation of duties, access reviews, and retention rules."
+    },
+    {
+     "code": "5.2.C",
+     "skill": "Mitigate Risk",
+     "text": "Choose an access control model &mdash; discretionary, mandatory, role-based, or attribute-based &mdash; that fits the applications and data being protected."
+    },
+    {
+     "code": "5.2.D",
+     "skill": "Mitigate Risk",
+     "text": "Configure access control settings on a Linux system, including ownership, permission modes, special bits, and POSIX access control lists."
+    }
+   ],
+   "footer": "Objectives paraphrased from the AP Cybersecurity Course Framework (College Board, AP Career Kickstart).",
+   "notes": "Read each learning objective aloud and connect it to the exam skill category before starting the topic."
+  },
+  "concept_maps": [
+   {
+    "title": "The Three States of Data Security",
+    "shapes_xml": [
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"6\" name=\"Rounded Rectangle 5\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"457200\" y=\"1950000\"/><a:ext cx=\"3612533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 14000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"7\" name=\"TextBox 6\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"497200\" y=\"1950000\"/><a:ext cx=\"3532533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"ctr\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1250\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>Data at Rest (Storage)</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"8\" name=\"Rounded Rectangle 7\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"457200\" y=\"2410000\"/><a:ext cx=\"3612533\" cy=\"2900000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 5000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"12700\"><a:solidFill><a:srgbClr val=\"DCDCD8\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"9\" name=\"TextBox 8\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"587200\" y=\"2510000\"/><a:ext cx=\"3372533\" cy=\"2700000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Full Disk Encryption (FDE)</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  File System Access Control Lists</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Encrypted Database Tables</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  FIM Baselines</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"10\" name=\"Rounded Rectangle 9\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"4289733\" y=\"1950000\"/><a:ext cx=\"3612533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 14000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"6E141F\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"11\" name=\"TextBox 10\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"4329733\" y=\"1950000\"/><a:ext cx=\"3532533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"ctr\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1250\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>Data in Transit (Network)</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"12\" name=\"Rounded Rectangle 11\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"4289733\" y=\"2410000\"/><a:ext cx=\"3612533\" cy=\"2900000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 5000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"12700\"><a:solidFill><a:srgbClr val=\"DCDCD8\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"13\" name=\"TextBox 12\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"4419733\" y=\"2510000\"/><a:ext cx=\"3372533\" cy=\"2700000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Transport Layer Security (TLS)</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Secure VPN Tunneling</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  IPsec Network Encapsulation</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Secure Protocol Auditing</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"14\" name=\"Rounded Rectangle 13\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"8122266\" y=\"1950000\"/><a:ext cx=\"3612533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 14000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"D7263D\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"15\" name=\"TextBox 14\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"8162266\" y=\"1950000\"/><a:ext cx=\"3532533\" cy=\"430000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"ctr\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1250\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>Data in Use (Processing)</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"16\" name=\"Rounded Rectangle 15\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"8122266\" y=\"2410000\"/><a:ext cx=\"3612533\" cy=\"2900000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 5000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"12700\"><a:solidFill><a:srgbClr val=\"DCDCD8\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"17\" name=\"TextBox 16\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"8252266\" y=\"2510000\"/><a:ext cx=\"3372533\" cy=\"2700000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Confidential Computing Architecture</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Hardware-enforced Secure Enclaves</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Process Memory Isolation</a:t></a:r></a:p><a:p><a:pPr algn=\"l\"><a:spcAft><a:spcPts val=\"600\"/></a:spcAft></a:pPr><a:r><a:rPr sz=\"1050\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>•  Encrypted Cache Processing</a:t></a:r></a:p></p:txBody></p:sp>"
+    ],
+    "notes": ""
+   }
+  ],
+  "big_idea": {
+   "text": "The principle of least privilege is a hotel key card that opens only your room and the gym — never the master key that happens to open every door on every floor, 'just in case' someone needs it.",
+   "closing": "Hold onto this picture — we'll come back to it as the mechanics get more technical.",
+   "notes": "Big-idea framing for Topic 5.2. Open with this analogy before the mechanics: \"The principle of least privilege is a hotel key card that opens only your room and the gym — never the master key that happens to open every door on every floor, 'just in case' someone needs it.\" Ask students for their own version of the analogy before moving on."
+  }
+ }
+}

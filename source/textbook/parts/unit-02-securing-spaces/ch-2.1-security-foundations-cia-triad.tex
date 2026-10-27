@@ -1,0 +1,432 @@
+\chapter{Security Foundations CIA Triad}
+\label{ch:2.1}
+\chaptertopic{Topic 2.1}
+
+\chapterquote{Distrust and caution are the parents of security.}{Benjamin Franklin, \emph{Poor Richard's Almanack} (1758)}
+
+\section{Motivation}
+
+Unit 1 walked through a series of specific attacks -- social engineering, credential guessing,
+wireless interception, AI-augmented deception. This chapter steps back and asks a more basic
+question: what, exactly, is a security goal trying to protect, and how do you decide which risks
+deserve your limited attention? Every security decision, no matter how specific, traces back to
+three questions: is this being kept from people who shouldn't see it, has it been changed
+without authorization, and can the people who need it actually reach it? Answering those
+questions well also takes a shared vocabulary for deciding whether a given risk is worth acting on
+at all. This chapter builds both:
+the CIA triad as the vocabulary for \emph{what} is at stake, threat-actor categories as the
+vocabulary for \emph{who} is attacking, and risk scoring as the vocabulary for \emph{how much} to
+care.
+
+\begin{apalignment}{Unit 2: Securing Spaces}{Topic 2.1 -- Cyber Foundations}
+\begin{apobjectives}
+\apobjective{2.1.A}{Analyze Risk}{Identify which of the three CIA-triad pillars -- confidentiality, integrity, or availability -- a given incident violates, including incidents that violate more than one.}
+\apobjective{2.1.B}{Analyze Risk}{Distinguish the categories of adversary an organization may face, by the resources they command, the outcome they are pursuing, and the level of exposure they are willing to accept.}
+\apobjective{2.1.C}{Analyze Risk}{Set out the stages an intrusion moves through, from the survey of a target to the actions the adversary came to perform, and explain why interrupting any one stage frustrates the whole sequence.}
+\apobjective{2.1.D}{Analyze Risk}{Describe how an organization conducts a risk assessment: inventory the assets, identify the threats and weaknesses that bear on them, and estimate how likely a loss is and how large it would be.}
+\apobjective{2.1.E}{Mitigate Risk}{Identify the responses available once a risk is understood -- reducing it, moving its financial consequence elsewhere, abandoning the activity that creates it, or accepting it as a recorded decision.}
+\apobjective{2.1.F}{Mitigate Risk}{Sort security controls both by what they do in the timeline of an incident and by the means through which they are implemented.}
+\apobjective{2.1.G}{Mitigate Risk}{Account for why layered, independent defenses are required rather than a single strong one, given that every individual control has a known failure mode.}
+\end{apobjectives}
+\end{apalignment}
+
+\section{The CIA Triad}
+
+\begin{definition}{CIA triad}
+The three foundational security properties an organization protects: \textbf{Confidentiality},
+\textbf{Integrity}, and \textbf{Availability}, formalized in NIST's core security publications as
+the entry point for all risk analysis.
+\end{definition}
+
+\textbf{Confidentiality} is the property that information is accessible only to those authorized
+to have it. Its threat is unauthorized disclosure -- an intercepted unencrypted login, a
+misconfigured cloud bucket exposing customer records. Its controls are correspondingly
+about restricting reach: \textbf{encryption} (transforming data so it is unreadable without a
+key), \textbf{access control} (authenticating identity and limiting what each account can touch),
+and classification policies that label data by sensitivity so handling rules apply automatically.
+When confidentiality fails, data has been exposed, sometimes for months before anyone notices.
+
+\textbf{Integrity} is the property that information and systems have not been altered without
+authorization. Its threat is quiet modification -- a financial record changed, a software update
+replaced with malware. Its signature control is the \textbf{cryptographic hash}: a
+fixed-length fingerprint of data such that changing even one input bit changes the output
+completely. A published software hash lets you verify what you downloaded matches what the
+publisher released; a mismatch means tampering or corruption. Audit logs and version control
+serve the same goal by creating an immutable record of who changed what, so tampering can be
+detected and reversed. Integrity failures are insidious precisely because the system keeps
+running -- it just quietly produces wrong answers.
+
+\textbf{Availability} is the property that systems and data are reachable by authorized users when
+needed. Its threats are denial in one form or another -- ransomware encrypting files until
+payment, a distributed denial-of-service (\textbf{DDoS}) attack flooding a server until it
+crashes, plain hardware failure. Its controls are about \textbf{redundancy}: backup
+servers, mirrored data centers, and DDoS-mitigation traffic filtering. Disaster-recovery plans add
+two more numbers to the mix: a Recovery Time Objective (how fast systems must come back) and a
+Recovery Point Objective (how much data loss is tolerable). An e-commerce site down for a day
+loses revenue and trust just as surely as a stolen customer list would.
+
+\begin{example}[The triad in conflict]
+The three pillars do not simply cooperate -- they routinely trade off against each other. Strong
+encryption protects confidentiality, but adds computational overhead and key-management
+complexity. If a key is lost or the decryption system fails, the data becomes unreachable -- an
+availability failure created while solving a confidentiality problem. Strict access control
+protects confidentiality just as directly, but can mean an emergency-room doctor cannot quickly
+pull up a patient's drug allergies. That is a life-threatening availability failure, caused by a
+confidentiality control working exactly as designed. Reasoning through exactly this kind of
+tradeoff, for a specific context, is what the AP framework calls the Analyze Risk skill.
+\end{example}
+
+A useful habit when reading about any real incident is to ask which pillar or pillars were
+violated. The 2017 WannaCry ransomware worm primarily hit \textbf{availability} -- it encrypted
+files and demanded payment, locking hospitals out of patient records, without needing to read any
+of the data it encrypted. A phishing campaign harvesting passwords targets
+\textbf{confidentiality}. An attacker quietly editing a database entry to redirect payments hits
+\textbf{integrity}. Many real incidents chain all three: breach confidentiality to steal
+credentials, then use them to compromise integrity by modifying records. The final step is often
+an availability attack -- crashing logging systems to cover tracks -- used purely to protect the
+earlier two.
+
+\begin{lstlisting}[language=Python, caption={Classifying which CIA pillars an incident violates}]
+CONFIDENTIALITY_WORDS = {"leaked", "exposed", "stolen", "intercepted", "disclosed"}
+INTEGRITY_WORDS = {"modified", "altered", "tampered", "corrupted", "falsified"}
+AVAILABILITY_WORDS = {"encrypted", "ransom", "offline", "ddos", "crashed", "unavailable"}
+
+def classify_incident(description):
+    """Returns a sorted list of CIA pillars ("confidentiality", "integrity",
+    "availability") whose keyword set appears in `description`."""
+    words = set(description.lower().split())
+    pillars = []
+    if words & CONFIDENTIALITY_WORDS:
+        pillars.append("confidentiality")
+    if words & INTEGRITY_WORDS:
+        pillars.append("integrity")
+    if words & AVAILABILITY_WORDS:
+        pillars.append("availability")
+    return sorted(pillars)
+\end{lstlisting}
+
+\begin{misconception}
+\textbf{``Security is mainly about keeping things secret.''} Confidentiality is only one of three
+pillars; attacks on integrity or availability routinely cause equal or greater harm without
+exposing a single record.
+\end{misconception}
+
+\section{Threat Actors and Motivation}
+
+Knowing \emph{what} is at stake is only half of risk analysis. The other half is knowing
+\emph{who} is likely attacking it, because a defense tuned for one actor type can be nearly
+useless against another.
+
+\begin{example}[Three tickets, three attackers]
+A university security team arrives Monday to three incidents at once. The registrar's database
+is encrypted with a ransom note attached. An anonymous forum post contains thousands of leaked
+student records. And the athletics department website has been replaced with a political banner.
+Three attacks in one morning, and three entirely different attackers behind them -- treating all
+three the same would waste the response to each.
+\end{example}
+
+Security practitioners sort attackers into five recurring categories. \textbf{Nation-state actors}
+are government-sponsored or -directed, pursuing geopolitical goals -- espionage, sabotage,
+intelligence gathering -- with large budgets, skilled operators, and patience measured in years.
+They are rarely prosecuted and rarely stop absent a diplomatic shift. \textbf{Cybercriminals} are
+motivated purely by money, most visibly through ransomware -- software that encrypts a victim's
+files and demands payment for the key -- often rented as ransomware-as-a-service from specialized
+developers. Hospitals, universities, and municipalities are frequent targets precisely because
+downtime is catastrophic for them, and because they are statistically more likely to pay.
+\textbf{Hacktivists} combine hacking with activism, wanting embarrassment or amplification rather
+than money -- a website defacement costs the target almost nothing technically but generates
+outsized press. Because publicity \emph{is} the goal, hacktivist attacks tend to be loud and
+openly attributed: the opposite of nation-state stealth.
+
+\begin{definition}{Insider threat}
+A threat originating from someone who already holds legitimate access to an organization's
+systems. It spans three subtypes: malicious insiders (intentional theft or sabotage), disgruntled
+employees (impulsive action after termination or a bad review), and negligent insiders (accidental
+harm such as a misdirected email, a reused weak password, or an unvetted USB drive).
+\end{definition}
+
+Insider threats are uniquely hard to stop because the actor already has the credentials and
+physical access every outside attacker has to fight for. Technical perimeter controls do nothing
+against someone already inside the perimeter. Least-privilege access, user-activity monitoring,
+and a rigorous off-boarding checklist are the controls that actually apply. \textbf{Script
+kiddies} sit at the opposite end of sophistication -- low-skill attackers running public tools
+they do not understand, motivated by curiosity or peer notoriety, scanning broadly for whatever
+responds rather than targeting anyone specifically. They are the most common attacker by sheer
+volume, and the easiest to stop: patching and closing unnecessary services eliminates most
+of what they can do.
+
+\begin{definition}{Advanced Persistent Threat (APT)}
+A campaign \emph{style}, not a distinct actor type: a long-running, stealthy, high-capability
+intrusion in which an attacker gains an initial foothold and then moves quietly through a network
+for months or years, exfiltrating data while actively avoiding detection. It is almost always
+nation-state-sponsored or nation-state-adjacent.
+\end{definition}
+
+Motivation predicts the highest-leverage defense, and mismatching the two wastes budget. Network
+segmentation and anomaly detection answer a nation-state or APT threat. Offline backups, email
+filtering, and MFA answer a cybercriminal's ransomware. A web application firewall and CMS
+credential hygiene answer a hacktivist's defacement. Least privilege and access logging answer an
+insider. Routine patching answers a script kiddie. None of these substitute for each other --
+an organization facing all five actor types, as most do, needs all five defenses simultaneously.
+
+\begin{misconception}
+\textbf{``APT always means nation-state.''} APT describes the campaign's style -- advanced and
+persistent -- not who is funding it. Well-resourced criminal groups can and do run APT-style
+campaigns without any government sponsorship.
+\end{misconception}
+
+\begin{definition}{Cyber Kill Chain}
+A model published by Hutchins, Cloppert, and Amin at Lockheed Martin in 2011\srccite{2.1}{1} that
+breaks an intrusion into seven sequential, dependent stages: reconnaissance, weaponization,
+delivery, exploitation, installation, command and control, and actions on objectives.
+\end{definition}
+
+The kill chain's usefulness rests on one structural claim: because each stage depends on the one
+before it, interrupting the adversary at \emph{any single stage} denies them everything that would
+have followed. A defender does not need to catch every step -- only one. The same dependency
+structure holds for a purely physical intrusion, which is exactly why this unit keeps returning to
+layered defense. An intruder targeting a building moves through the identical seven stages.
+Reconnaissance means watching shift changes and photographing a staff badge. Weaponization means
+cloning the badge and assembling a contractor pretext. Delivery means arriving at a loading dock
+inside a normal delivery window. Exploitation means tailgating through a badged door. Installation
+means concealing a rogue network device in a wiring closet. Command and control means that device
+dialing out over a cellular link to bypass the firewall. And actions on objectives means copying
+data from an unattended console. A staffed dock with booked deliveries, a mantrap admitting one
+person at a time, and a locked, contact-alarmed wiring closet are candidate interruption points at
+three different stages. Any one of the three, on its own, ends the intrusion.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  stage/.style={draw=kickstartermaroon, thick, rounded corners, minimum width=1.55cm, minimum height=1.3cm, align=center, font=\scriptsize, fill=kickstartercream},
+  node distance=0.15cm
+]
+\node[stage] (s1) at (0,0) {Recon-\\naissance};
+\node[stage] (s2) at (1.7,0) {Weapon-\\ization};
+\node[stage] (s3) at (3.4,0) {Delivery};
+\node[stage] (s4) at (5.1,0) {Exploit-\\ation};
+\node[stage] (s5) at (6.8,0) {Install-\\ation};
+\node[stage] (s6) at (8.5,0) {Command\\\& Control};
+\node[stage] (s7) at (10.2,0) {Actions on\\Objectives};
+\foreach \a/\b in {s1/s2, s2/s3, s3/s4, s4/s5, s5/s6, s6/s7}
+  \draw[-{Latex[length=2mm]}, kickstartermaroon] (\a) -- (\b);
+\node[font=\scriptsize\sffamily, gray, align=center] at (5.1,-1.2)
+  {interrupting \textbf{any one} stage denies the attacker every stage that would have followed};
+\end{tikzpicture}
+\caption{The Cyber Kill Chain: seven sequential, dependent stages. Because each stage depends on
+the one before it, a defender needs to reliably interrupt only one to end the intrusion.}
+\label{fig:2.1-kill-chain}
+\end{figure}
+
+MITRE ATT\&CK is a complementary catalog rather than a competing model. Instead of a linear
+sequence, it organizes observed adversary behavior into \emph{tactics} -- the objective at a given
+moment, such as Initial Access or Persistence. Beneath each tactic sit the specific
+\emph{techniques} used to pursue it, along with documented detections and mitigations. An
+adversary in ATT\&CK may revisit a tactic, skip one entirely, or pursue two at once -- closer to
+how real intrusions unfold than the kill chain's strict ordering. The kill chain is the better tool
+for arguing that layered controls work at all. ATT\&CK is the better working reference once you
+need to know what one specific technique looks like in a log or on a badge reader.
+
+\section{The Language of Risk}
+
+Once you can name what is threatened and by whom, the remaining question is how much any given
+risk deserves your attention -- because no organization can defend against everything equally.
+
+\begin{definition}{Risk}
+The probability that a threat will exploit a vulnerability and cause harm to an asset. A
+\textbf{threat} is the potential negative event itself (a hard drive failing, a database leak). A
+\textbf{vulnerability} is the weakness that makes it possible (an outdated OS, a server room in a
+flood-prone basement). Their combination realized is a security incident.
+\end{definition}
+
+NIST SP 800-30 formalizes the vocabulary used to quantify risk. \textbf{Asset value} ($V$) is the
+monetary or strategic worth of what is being protected. \textbf{Likelihood} ($L$) is the
+probability of the threat occurring, scored 1 (very low) to 5 (very high). \textbf{Impact} ($I$) is
+the severity of the damage if it does occur, scored 1 (negligible) to 5 (catastrophic). These
+combine into a single number:
+\[
+\text{Risk Score} = L \times I,
+\]
+ranging from 1 to 25, which lets an organization rank many risks against each other on one scale
+rather than arguing about each in isolation.
+
+A computed score then resolves into one of four canonical treatments. \textbf{Mitigate} reduces
+likelihood or impact through a control -- a fire-suppression system reduces impact, regular
+vulnerability scanning reduces likelihood -- and is the right call whenever a cost-effective
+control exists for a high-scoring risk. \textbf{Accept} takes no action, appropriate when a risk
+score is low or mitigation costs exceed the asset's value. A company might accept that its
+low-traffic marketing blog could go down for an hour, since the blog carries no transactional
+value. \textbf{Transfer} shifts the financial burden to a third party -- cyber insurance, or a
+cloud host's SLA that pays out during downtime -- fitting high-impact risks too expensive to
+mitigate fully but insurable. \textbf{Avoid} eliminates the risk by changing the underlying
+activity entirely. A retailer that stops storing customer card numbers and routes payments through
+a third-party processor has not mitigated the risk of a card-database breach -- it has removed the
+database.
+
+\begin{lstlisting}[language=Python, caption={Recommending a risk treatment from likelihood, impact, and cost}]
+def recommend_treatment(likelihood, impact, mitigation_cost, asset_value):
+    """likelihood, impact: ints 1-5. mitigation_cost, asset_value: numbers.
+       Returns one of "Mitigate", "Accept", "Transfer", "Avoid"."""
+    risk_score = likelihood * impact
+    if risk_score <= 4:
+        return "Accept"
+    if mitigation_cost > asset_value:
+        return "Transfer" if impact >= 4 else "Avoid"
+    return "Mitigate"
+\end{lstlisting}
+
+The comparison that ultimately decides between these four is always the same shape: weigh the
+cost of a control against the asset's value and the risk score together. Spending \$20{,}000 to
+protect a \$10{,}000 database is mathematically irrational, regardless of how the risk score reads
+in isolation. Risk language exists to make that comparison explicit rather than left to
+intuition.
+
+\subsection{Sorting the Controls Themselves}
+
+Mitigation is a category of treatment, not a single action -- and once mitigation is the chosen
+path, a control still needs to be classified two more ways: when in an incident's timeline it
+acts, and what kind of mechanism it is.
+
+By \textbf{timeline}, a control is \textbf{preventive} if it stops an incident before it starts (a
+locked door, input validation, MFA), \textbf{detective} if it identifies an incident already in
+progress or already completed (an intrusion-detection alert, a smoke detector, an audit log
+review), or \textbf{corrective} if it limits damage or restores normal operation after the fact (a
+backup restore, an incident-response runbook, a patch rolled out after a vulnerability is
+exploited). By \textbf{means}, a control is \textbf{technical} if it is enforced by a system
+(encryption, a firewall rule, a badge reader), \textbf{administrative} if it is enforced by a
+policy or a process (a background-check requirement, a mandatory security-awareness training,
+separation-of-duties in an approval workflow), or \textbf{physical} if it acts on the physical
+world directly (a fence, a security guard, a locked server-room door).
+
+The two axes are independent, so the same control can occupy exactly one cell of a $3\times3$
+grid. A badge reader is technical and preventive. A security guard reviewing camera footage after
+an incident is physical and detective. A mandatory two-person sign-off before a wire transfer is
+administrative and preventive. Naming both axes for a proposed control is what keeps a security
+plan from silently duplicating coverage in one cell -- three preventive technical controls -- while
+leaving another cell -- any detective administrative control -- completely empty.
+
+\begin{misconception}
+\textbf{``We must eliminate all risk.''} This is not achievable, and attempting it is itself a
+cost. Security has a price, and every organization operates with some accepted level of residual
+risk -- its risk appetite -- in order to function at all.
+\end{misconception}
+
+\section*{Review Questions}
+\begin{reviewquestions}
+\item An attacker steals a database of customer emails and, separately, silently edits shipping
+addresses in an order-processing system to redirect packages. Identify which CIA pillar each
+action violates and explain why they require different remediation steps.
+\item Explain why a strict access-control policy, which strengthens confidentiality, can create an
+availability failure in an emergency-medicine context, and describe how a security architect might
+balance the two.
+\item A university discovers a complete, cleanly organized set of student records posted publicly.
+Explain why the completeness and cleanliness of the leak points toward an insider threat rather
+than an external attacker, and name two controls that specifically address insider risk.
+\item A risk is scored at likelihood 2, impact 5. Using the risk-score formula and the four
+treatment categories from this chapter, explain which treatment is most appropriate and what
+additional information (beyond the score itself) would change that recommendation.
+\item Explain the difference between a threat, a vulnerability, and a risk using a concrete
+example, and explain why conflating "risk" with "threat" leads to poor prioritization decisions.
+\item A physical intrusion is stopped at the loading dock because deliveries must be pre-booked
+and verified, before the intruder ever reaches a badged door. Using the Cyber Kill Chain's
+structural claim about dependent stages, explain why this single control is sufficient even
+though the building still has no mantrap and an unlocked wiring closet.
+\item MITRE ATT\&CK is described as a better working reference than the Cyber Kill Chain for
+identifying what a specific logged event represents, even though the Kill Chain is the better tool
+for justifying layered defense in the first place. Explain why.
+\item Classify each control by both timeline (preventive, detective, or corrective) and means
+(technical, administrative, or physical): (a) a fire-suppression system, (b) a mandatory
+background check before hiring, (c) reviewing badge-access logs the morning after a break-in.
+Then explain what it would mean for a security plan if every proposed control landed in the same
+cell of the grid.
+\end{reviewquestions}
+
+\begin{answerkey}
+\item The theft of the email database is a confidentiality failure: information reached parties
+never authorized to see it. The remediation is disclosure notification, credential resets for
+affected customers, and an audit of how the data was exposed. The silent edit to shipping addresses
+is an integrity failure: authorized data was altered without authorization. The remediation is
+restoring from a trusted backup, auditing who had write access, and adding change-detection
+controls such as hashing or versioning on order records. The two failures require different
+remediation. Confidentiality damage cannot be undone once data is copied -- the response is
+entirely forward-looking. Integrity damage, by contrast, can often be reversed once detected, but
+only if a trustworthy prior state exists to restore from.
+\answerlabel{2.1.A}
+\item Strict access control strengthens confidentiality by narrowing who can reach a patient
+record. But in an emergency-medicine context, that same narrowing can block a treating clinician
+from information needed within seconds -- an availability failure caused by the confidentiality
+control working exactly as designed. A security architect balances the two with
+context-aware controls rather than a single static policy. Break-glass access grants an
+on-call clinician immediate access while logging the override for mandatory after-the-fact review.
+Role-based access stays scoped tightly in ordinary circumstances but expands under a documented
+emergency procedure. Monitoring treats every break-glass event as an audit item rather
+than a routine action.
+\answerlabel{2.1.G}
+\item A large, external, opportunistic leak is typically noisy, partial, and littered with
+extraction artifacts. That is because an external attacker is working through whatever access they
+managed to obtain, exfiltrating in the shape that access allowed. A complete, cleanly organized
+dataset instead looks like a direct, authorized export -- the kind only someone with legitimate,
+well-formed access to the underlying system could produce with minimal effort, which points toward
+an insider. Two controls specifically address insider risk. Least-privilege access ensures no
+single account, insider or not, can export the entire dataset in one legitimate query.
+User-activity monitoring and data-loss-prevention alerting on unusually large exports flags
+the action itself, rather than relying on detecting external intrusion.
+\answerlabel{2.1.B}
+\item Risk score $= L \times I = 2 \times 5 = 10$, a moderate-to-high score driven entirely by
+impact rather than frequency. Given a rare-but-catastrophic profile, mitigation is often
+appropriate if an effective, reasonably priced control exists -- an impact-5 event is by definition
+one an organization cannot absorb casually. But transfer is equally defensible if impact is high
+enough that even a well-mitigated residual loss is worth insuring, and mitigation is not
+cost-effective. The score alone cannot decide between mitigate, transfer, or avoid: what is missing
+is the mitigation cost against asset value, the availability of insurance for this specific
+risk, and whether the underlying activity can be eliminated (avoidance) without sacrificing a
+function the organization actually needs.
+\answerlabel{2.1.E}
+\item A threat is the potential negative event itself -- a fire, a stolen credential, a flood. A
+vulnerability is the specific weakness that would let that event cause harm -- an unsuppressed
+server room, a password with no expiration policy, a basement data center. Risk is the probability
+that the threat exploits that vulnerability, combined with the resulting harm; it is only
+meaningful as a combination of the two. Conflating "risk" with "threat" leads an organization to
+react to whatever threat is most recently in the news (chasing the threat) rather than to where a
+real vulnerability and a real asset intersect. That routinely misallocates a security budget toward
+exotic, unlikely threats, while an ordinary, exploitable weakness with no threat attached at the
+moment goes unpatched until a threat does show up.
+\answerlabel{2.1.D}
+\item The kill chain's stages are dependent: weaponization requires reconnaissance to have
+succeeded, delivery requires a weapon, exploitation requires successful delivery, and so on
+through every later stage. Stopping the intruder at delivery -- the loading dock -- denies them
+every stage that would have followed, including exploitation, installation, and actions on
+objectives. That holds regardless of whether those later stages would themselves have been easy or
+hard to execute. A missing mantrap or an unlocked wiring closet are real weaknesses, but they are
+weaknesses in stages the intruder never reaches, so they impose no cost on this particular
+attempt.
+\answerlabel{2.1.C}
+\item The kill chain enforces a strict linear order that real intrusions do not always follow --
+an adversary may skip a stage, revisit one, or pursue two objectives at once. So mapping one
+specific logged event (an unusual outbound connection, a suspicious registry change) onto a rigid
+seven-stage sequence can be awkward or ambiguous. ATT\&CK instead catalogs tactics and, beneath
+each, the specific documented techniques adversaries use to pursue them, along with known
+detections and mitigations. That makes it the more direct reference when the question is "what
+does this one observed behavior mean," rather than "why does interrupting any single stage work."
+\answerlabel{2.1.C}
+\item (a) A fire-suppression system is technical and corrective -- it is enforced by a system, and
+it acts after ignition has already occurred, to limit damage rather than to prevent it. (b) A
+mandatory background check is administrative and preventive -- it is a policy requirement, applied
+before the hire, meant to stop a bad outcome from ever starting. (c) Reviewing badge-access logs
+the morning after a break-in is administrative and detective -- it is a process, not a system
+enforcing anything automatically, and it identifies what already happened rather than preventing
+or repairing it. If every proposed control landed in the same cell, the security plan would be
+lopsided in a specific, predictable way: strong on paper wherever that one cell's strengths lie,
+and silently unguarded everywhere else -- for example, an organization with only preventive
+technical controls has nothing in place to detect a control that has already failed, and nothing
+to recover with once one does.
+\answerlabel{2.1.F}
+\end{answerkey}
+
+\section*{Sources}
+\begin{enumerate}[label=\lbrack\arabic*\rbrack, leftmargin=2.2em]
+\item \srcitem{2.1}{1}Eric M. Hutchins, Michael J. Cloppert, and Rohan M. Amin, ``Intelligence-Driven
+Computer Network Defense Informed by Analysis of Adversary Campaigns and Intrusion Kill Chains,''
+Lockheed Martin Corporation, \emph{Leading Issues in Information Warfare \& Security Research},
+2011.
+\end{enumerate}

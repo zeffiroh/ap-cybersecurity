@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alarm systems, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Alarm systems  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 2.4.b: Alarm event classifier</h1>
+<p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 2.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are building the triage logic for an alarm control panel at Crestfield Analytics. Given a
+timestamp-ordered stream of sensor events (one per zone trip), classify each event using the
+arm-state, exit-delay, and cross-zone verification rules taught in the lesson:</p>
+<ul>
+<li><strong>SUPPRESSED</strong>, the system was <code>"DISARMED"</code> when the event occurred (does not apply to panic
+  buttons, see below).</li>
+<li><strong>FALSE_ALARM</strong>, the event's sensor is <code>"contact"</code> or <code>"glass_break"</code>, the system was armed,
+  and the event happened less than <code>exit_delay_sec</code> seconds after the zone was armed (still inside
+  the exit-delay grace period).</li>
+<li><strong>LOCAL_ONLY</strong>, a real trip (armed, past the exit delay) that has no corroborating trip in a
+  <em>different</em> zone within <code>verify_window_sec</code> seconds. Only the local siren sounds.</li>
+<li><strong>DISPATCH</strong>, either (a) the sensor is <code>"panic"</code> (a panic/duress button always dispatches,
+  regardless of arm state or timing), or (b) a real trip that has a corroborating real trip in a
+  different zone within <code>verify_window_sec</code> seconds (cross-zone verification).</li>
+</ul>
+<h2>Function contract</h2>
+<p>Implement <code>solve(events, exit_delay_sec=45, verify_window_sec=120)</code> in the code editor (see
+the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>events</code>: <code>list[dict]</code>, each with:</li>
+<li><code>"ts"</code>: <code>int</code>, Unix timestamp (seconds) the event occurred</li>
+<li><code>"zone"</code>: <code>str</code>, zone/door identifier, e.g. <code>"front-door"</code></li>
+<li><code>"sensor"</code>: <code>str</code>, one of <code>"contact"</code>, <code>"glass_break"</code>, <code>"panic"</code></li>
+<li><code>"arm_state"</code>: <code>str</code>, one of <code>"DISARMED"</code>, <code>"ARMED_AWAY"</code>, <code>"ARMED_STAY"</code></li>
+<li><code>"since_armed_sec"</code>: <code>int</code>, seconds elapsed between arming and this event (ignored for
+    <code>"panic"</code> and when <code>arm_state == "DISARMED"</code>)</li>
+<li><code>exit_delay_sec</code>: <code>int</code>, default <code>45</code>, grace period after arming.</li>
+<li><code>verify_window_sec</code>: <code>int</code>, default <code>120</code>, max gap (in <code>ts</code>) between two different-zone real
+  trips for cross-zone verification to apply.</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>list[str]</code> of classifications, <strong>one per input event, in the same order as the input</strong>. Each
+entry is one of <code>"SUPPRESSED"</code>, <code>"FALSE_ALARM"</code>, <code>"LOCAL_ONLY"</code>, <code>"DISPATCH"</code>.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">events = [
+    {&quot;ts&quot;: 1000, &quot;zone&quot;: &quot;front-door&quot;, &quot;sensor&quot;: &quot;contact&quot;,
+     &quot;arm_state&quot;: &quot;ARMED_AWAY&quot;, &quot;since_armed_sec&quot;: 10},
+]
+solve(events)  -&gt;  [&quot;FALSE_ALARM&quot;]
+
+events2 = [
+    {&quot;ts&quot;: 1000, &quot;zone&quot;: &quot;z1&quot;, &quot;sensor&quot;: &quot;panic&quot;,
+     &quot;arm_state&quot;: &quot;DISARMED&quot;, &quot;since_armed_sec&quot;: 0},
+]
+solve(events2)  -&gt;  [&quot;DISPATCH&quot;]
+
+events3 = [
+    {&quot;ts&quot;: 1000, &quot;zone&quot;: &quot;z1&quot;, &quot;sensor&quot;: &quot;contact&quot;,
+     &quot;arm_state&quot;: &quot;ARMED_AWAY&quot;, &quot;since_armed_sec&quot;: 300},
+    {&quot;ts&quot;: 1050, &quot;zone&quot;: &quot;z2&quot;, &quot;sensor&quot;: &quot;glass_break&quot;,
+     &quot;arm_state&quot;: &quot;ARMED_AWAY&quot;, &quot;since_armed_sec&quot;: 305},
+]
+solve(events3)  -&gt;  [&quot;DISPATCH&quot;, &quot;DISPATCH&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Events may be given in any timestamp order in the list; the output order must match the
+  <strong>input</strong> order (do not re-sort the output).</li>
+<li>Cross-zone verification: two real trips (armed, past exit delay) in <strong>different</strong> zones with
+  <code>abs(ts_a - ts_b) &lt;= verify_window_sec</code> corroborate each other. A real trip may be corroborated
+  by more than one other zone; any single qualifying pair is enough to promote it to <code>DISPATCH</code>.
+  Same-zone repeats never corroborate each other.</li>
+<li><code>since_armed_sec &gt;= exit_delay_sec</code> counts as past the exit delay (boundary is inclusive on the
+  "past delay" side, i.e. exactly <code>exit_delay_sec</code> is a real trip, not a false alarm).</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(events: list[dict], exit_delay_sec: int = 45, verify_window_sec: int = 120) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>events</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"ts"</code>: <code>int</code>, Unix timestamp in seconds
+- <code>"zone"</code>: <code>str</code>, zone/door identifier
+- <code>"sensor"</code>: <code>str</code>, one of <code>"contact"</code>, <code>"glass_break"</code>, <code>"panic"</code>
+- <code>"arm_state"</code>: <code>str</code>, one of <code>"DISARMED"</code>, <code>"ARMED_AWAY"</code>, <code>"ARMED_STAY"</code>
+- <code>"since_armed_sec"</code>: <code>int</code>, seconds since the zone was armed when this event occurred (only
+  meaningful when <code>arm_state != "DISARMED"</code> and <code>sensor != "panic"</code>)</p>
+<h3>Input (other parameters)</h3>
+<ul>
+<li><code>exit_delay_sec</code>: <code>int</code>, default <code>45</code>, an armed contact/glass_break trip with
+  <code>since_armed_sec &lt; exit_delay_sec</code> is a false alarm.</li>
+<li><code>verify_window_sec</code>: <code>int</code>, default <code>120</code>, max <code>ts</code> gap between two different-zone real trips
+  for cross-zone verification.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>list[str]</code> the same length as <code>events</code>, in the <strong>same order as the input</strong>, where each element
+is one of <code>"SUPPRESSED"</code>, <code>"FALSE_ALARM"</code>, <code>"LOCAL_ONLY"</code>, <code>"DISPATCH"</code>.</p>
+<h3>Classification rules</h3>
+<ol>
+<li><strong>Panic override:</strong> if <code>sensor == "panic"</code>, classification is always <code>"DISPATCH"</code>, regardless
+   of <code>arm_state</code> or <code>since_armed_sec</code>.</li>
+<li><strong>Suppressed:</strong> else if <code>arm_state == "DISARMED"</code>, classification is <code>"SUPPRESSED"</code>.</li>
+<li><strong>False alarm:</strong> else if <code>since_armed_sec &lt; exit_delay_sec</code>, classification is <code>"FALSE_ALARM"</code>.</li>
+<li><strong>Real trip, verification:</strong> otherwise the event is a "real trip" candidate. A real trip is
+   promoted to <code>"DISPATCH"</code> if there exists at least one other real-trip event (per rules 1-4,
+   excluding panic events) in a <strong>different</strong> <code>zone</code> with <code>abs(ts_i - ts_j) &lt;= verify_window_sec</code>.
+   Otherwise it is <code>"LOCAL_ONLY"</code>.</li>
+</ol>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Output order matches input order exactly (do not sort by timestamp for output).</li>
+<li>Same-zone events never corroborate each other for cross-zone verification.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 2.4.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import List, Dict
+
+
+def solve(events: List[Dict], exit_delay_sec: int = 45, verify_window_sec: int = 120) -&gt; List[str]:
+    """Classify each alarm event as SUPPRESSED, FALSE_ALARM, LOCAL_ONLY, or DISPATCH.
+
+    Rules (see the Reference section below):
+      1. sensor == "panic"          -&gt; DISPATCH (always, overrides everything else)
+      2. arm_state == "DISARMED"    -&gt; SUPPRESSED
+      3. since_armed_sec &lt; exit_delay_sec -&gt; FALSE_ALARM
+      4. otherwise a "real trip": DISPATCH if another real trip in a DIFFERENT zone
+         occurs within verify_window_sec seconds, else LOCAL_ONLY.
+    """
+    n = len(events)
+    base = [None] * n  # per-index: "PANIC", "SUPPRESSED", "FALSE_ALARM", or "REAL"
+
+    for i, e in enumerate(events):
+        if e["sensor"] == "panic":
+            base[i] = "PANIC"
+        elif e["arm_state"] == "DISARMED":
+            base[i] = "SUPPRESSED"
+        elif e["since_armed_sec"] &lt; exit_delay_sec:
+            base[i] = "FALSE_ALARM"
+        else:
+            base[i] = "REAL"
+
+    real_indices = [i for i in range(n) if base[i] == "REAL"]
+
+    result = [""] * n
+    for i, e in enumerate(events):
+        if base[i] == "PANIC":
+            result[i] = "DISPATCH"
+        elif base[i] == "SUPPRESSED":
+            result[i] = "SUPPRESSED"
+        elif base[i] == "FALSE_ALARM":
+            result[i] = "FALSE_ALARM"
+        else:
+            corroborated = False
+            for j in real_indices:
+                if j == i:
+                    continue
+                if events[j]["zone"] == e["zone"]:
+                    continue
+                if abs(events[j]["ts"] - e["ts"]) &lt;= verify_window_sec:
+                    corroborated = True
+                    break
+            result[i] = "DISPATCH" if corroborated else "LOCAL_ONLY"
+
+    return result
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+BASE = 1_700_000_000
+
+
+def _e(ts, zone, sensor, arm_state, since_armed_sec):
+    return {
+        "ts": ts,
+        "zone": zone,
+        "sensor": sensor,
+        "arm_state": arm_state,
+        "since_armed_sec": since_armed_sec,
+    }
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_false_alarm_inside_exit_delay():
+    """Contact trip 10s after arming, well inside default 45s exit delay."""
+    events = [_e(BASE, "front-door", "contact", "ARMED_AWAY", 10)]
+    assert impl.solve(events) == ["FALSE_ALARM"]
+
+
+def test_suppressed_when_disarmed():
+    """Contact trip while disarmed is SUPPRESSED."""
+    events = [_e(BASE, "back-window", "contact", "DISARMED", 0)]
+    assert impl.solve(events) == ["SUPPRESSED"]
+
+
+def test_panic_dispatch_even_disarmed():
+    """Panic button always DISPATCH, even when arm_state is DISARMED."""
+    events = [_e(BASE, "reception", "panic", "DISARMED", 0)]
+    assert impl.solve(events) == ["DISPATCH"]
+
+
+def test_real_trip_no_corroboration_local_only():
+    """A real trip alone in the batch, past exit delay, with no other zone -&gt; LOCAL_ONLY."""
+    events = [_e(BASE, "garage", "glass_break", "ARMED_AWAY", 900)]
+    assert impl.solve(events) == ["LOCAL_ONLY"]
+
+
+def test_cross_zone_verification_dispatch():
+    """Two real trips in different zones within verify_window_sec -&gt; both DISPATCH."""
+    events = [
+        _e(BASE, "z1", "contact", "ARMED_AWAY", 300),
+        _e(BASE + 50, "z2", "glass_break", "ARMED_AWAY", 305),
+    ]
+    assert impl.solve(events) == ["DISPATCH", "DISPATCH"]
+
+
+def test_same_zone_repeats_do_not_corroborate():
+    """Two real trips in the SAME zone within the window do not verify each other."""
+    events = [
+        _e(BASE, "z1", "contact", "ARMED_AWAY", 300),
+        _e(BASE + 50, "z1", "contact", "ARMED_AWAY", 305),
+    ]
+    assert impl.solve(events) == ["LOCAL_ONLY", "LOCAL_ONLY"]
+
+
+def test_empty_events():
+    """Empty stream returns empty list."""
+    assert impl.solve([]) == []
+
+
+def test_mixed_batch_order_preserved():
+    """Output order matches input order, not chronological or classification order."""
+    events = [
+        _e(BASE + 1000, "z9", "glass_break", "ARMED_AWAY", 900),   # LOCAL_ONLY (alone)
+        _e(BASE, "front-door", "contact", "ARMED_AWAY", 5),        # FALSE_ALARM
+        _e(BASE + 2000, "vault", "panic", "ARMED_STAY", 0),        # DISPATCH
+    ]
+    assert impl.solve(events) == ["LOCAL_ONLY", "FALSE_ALARM", "DISPATCH"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_boundary_exit_delay_below_is_false_alarm():
+    """44s (one below default 45s exit_delay_sec) is still FALSE_ALARM."""
+    events = [_e(BASE, "lobby", "contact", "ARMED_AWAY", 44)]
+    assert impl.solve(events) == ["FALSE_ALARM"]
+
+
+def test_boundary_exit_delay_at_threshold_is_real():
+    """Exactly 45s (== exit_delay_sec) counts as past the exit delay -&gt; real trip -&gt; LOCAL_ONLY alone."""
+    events = [_e(BASE, "server-room", "contact", "ARMED_AWAY", 45)]
+    assert impl.solve(events) == ["LOCAL_ONLY"]
+
+
+def test_boundary_verify_window_exactly_at_limit():
+    """Gap of exactly verify_window_sec (120s default) between different zones still verifies."""
+    events = [
+        _e(BASE, "a1", "contact", "ARMED_AWAY", 200),
+        _e(BASE + 120, "a2", "contact", "ARMED_AWAY", 200),
+    ]
+    assert impl.solve(events) == ["DISPATCH", "DISPATCH"]
+
+
+def test_boundary_verify_window_one_second_beyond():
+    """Gap of verify_window_sec + 1 does NOT verify; both LOCAL_ONLY."""
+    events = [
+        _e(BASE, "b1", "contact", "ARMED_AWAY", 200),
+        _e(BASE + 121, "b2", "contact", "ARMED_AWAY", 200),
+    ]
+    assert impl.solve(events) == ["LOCAL_ONLY", "LOCAL_ONLY"]
+
+
+def test_armed_stay_treated_same_as_armed_away():
+    """ARMED_STAY follows the same exit-delay / real-trip logic as ARMED_AWAY."""
+    events = [_e(BASE, "side-door", "contact", "ARMED_STAY", 10)]
+    assert impl.solve(events) == ["FALSE_ALARM"]
+
+
+def test_custom_exit_delay_and_verify_window_params():
+    """Custom exit_delay_sec / verify_window_sec parameters are respected."""
+    events = [_e(BASE, "z1", "contact", "ARMED_AWAY", 20)]
+    # with exit_delay_sec=15, 20s since armed is now a real trip (alone -&gt; LOCAL_ONLY)
+    assert impl.solve(events, exit_delay_sec=15) == ["LOCAL_ONLY"]
+    # with default exit_delay_sec=45, 20s is still inside grace period
+    assert impl.solve(events) == ["FALSE_ALARM"]
+
+    events2 = [
+        _e(BASE, "c1", "contact", "ARMED_AWAY", 300),
+        _e(BASE + 100, "c2", "contact", "ARMED_AWAY", 300),
+    ]
+    # default verify_window_sec=120 -&gt; corroborates
+    assert impl.solve(events2) == ["DISPATCH", "DISPATCH"]
+    # tighter verify_window_sec=50 -&gt; does not corroborate
+    assert impl.solve(events2, verify_window_sec=50) == ["LOCAL_ONLY", "LOCAL_ONLY"]
+
+
+def test_panic_ignores_since_armed_and_does_not_need_corroboration():
+    """A panic button trip alone in the batch, mid-exit-delay, still DISPATCHes."""
+    events = [_e(BASE, "vault", "panic", "ARMED_AWAY", 2)]
+    assert impl.solve(events) == ["DISPATCH"]
+
+
+def test_three_zone_batch_one_isolated():
+    """Two zones corroborate each other; a third isolated zone stays LOCAL_ONLY."""
+    events = [
+        _e(BASE, "x1", "contact", "ARMED_AWAY", 300),
+        _e(BASE + 10, "x2", "glass_break", "ARMED_AWAY", 300),
+        _e(BASE + 10000, "x3", "contact", "ARMED_AWAY", 300),
+    ]
+    assert impl.solve(events) == ["DISPATCH", "DISPATCH", "LOCAL_ONLY"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

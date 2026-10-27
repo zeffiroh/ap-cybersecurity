@@ -1,0 +1,6 @@
+{
+  "atom_id": "1.2.c",
+  "topic_id": "1.2",
+  "title": "Strengthening authentication: length/complexity, randomness, MFA",
+  "solution_py": "\"\"\"Reference solution for 1.2.c. MUST pass 100% of the tests.\nAlso the default 'blackbox' implementation students can swap out (see the hidden grading tests).\"\"\"\nimport hmac\nimport hashlib\n\n\ndef solve(secret: str, code: str, t: int) -> bool:\n    \"\"\"Verify a 6-digit TOTP code against the shared secret at Unix timestamp t.\n\n    Args:\n        secret: even-length hex string encoding the shared key (e.g. \"0a1b2c3d\").\n        code:   6-character zero-padded decimal string (e.g. \"007342\").\n        t:      current Unix timestamp (int, seconds since epoch).\n    Returns:\n        True if code matches TOTP(secret, t // 30); False otherwise.\n    \"\"\"\n    key = bytes.fromhex(secret)\n    step = t // 30\n    msg = step.to_bytes(8, byteorder='big')\n    digest = hmac.new(key, msg, hashlib.sha1).digest()\n\n    # RFC 4226 dynamic truncation\n    offset = digest[19] & 0x0f\n    p = (((digest[offset] & 0x7f) << 24)\n         | (digest[offset + 1] << 16)\n         | (digest[offset + 2] << 8)\n         | digest[offset + 3])\n\n    otp = p % 1_000_000\n    expected = str(otp).zfill(6)\n    return code == expected\n"
+}

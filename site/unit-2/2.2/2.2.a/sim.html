@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.2.a, Unauthorized physical access (tailgating, piggybacking, lock bypass), Simulation</title>
+<style>:root{--bg:#ffffff;--fg:#000000;--muted:#555555;--rule:#000000;--win-face:#c0c0c0;--win-light:#ffffff;--win-shadow:#808080;--win-dark:#000000;--win-title:#000080;--win-title-fg:#ffffff;--win-title-inactive:#7f7f7f;--lin-panel:#f5f5f5;--lin-border:#cccccc;--lin-accent:#3465a4;--term-bg:#000000;--term-fg:#00ff00;--term-dim:#00aa00;--term-cursor:#00ff00;--ui-font:"MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;--mono-font:"Consolas","Lucida Console","DejaVu Sans Mono","Courier New",monospace;--tok-kw:#000080;--tok-str:#008000;--tok-num:#aa5500;--tok-com:#808080;--tok-fn:#800080;--tok-op:var(--fg)}html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--ui-font);font-size:14px}*{box-sizing:border-box}code,pre,.mono{font-family:var(--mono-font)}hr{border:none;border-top:1px solid var(--rule)}.theme-win .window{background:var(--win-face);padding:2px}.raised{border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);box-shadow:inset 1px 1px 0 0 var(--win-light),inset -1px -1px 0 0 var(--win-shadow)}.sunken{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.titlebar{background:var(--win-title);color:var(--win-title-fg);font-weight:bold;padding:2px 4px;display:flex;justify-content:space-between;align-items:center}.titlebar .controls{font-family:var(--mono-font);letter-spacing:1px}.window-body{background:var(--bg);color:var(--fg);padding:10px}.btn{font-family:var(--ui-font);background:var(--win-face);padding:3px 12px;cursor:pointer;border:2px solid;border-color:var(--win-light) var(--win-dark) var(--win-dark) var(--win-light);outline:none}.btn:active{border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow)}.btn.sel{background:#a0a0a0;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);box-shadow:inset 1px 1px 0 0 var(--win-dark)}.statusbar{font-family:var(--mono-font);background:var(--win-face);padding:2px 6px;margin-top:6px}.theme-linux{--win-face:var(--lin-panel)}.theme-linux .window{background:var(--lin-panel);border:1px solid var(--lin-border);padding:0}.theme-linux .raised,.theme-linux .sunken{border:1px solid var(--lin-border);box-shadow:none}.theme-linux .titlebar{background:var(--lin-panel);color:var(--fg);border-bottom:1px solid var(--lin-border);font-weight:600}.theme-linux .btn{background:#fff;border:1px solid var(--lin-border);border-radius:3px}.theme-linux .btn:active{background:#ececec}.theme-linux .btn.sel{background:var(--lin-accent);color:#fff;border-color:var(--lin-accent)}.theme-linux{--tok-kw:#9c36b5;--tok-str:#2f9e44;--tok-num:#1971c2;--tok-com:#868e96;--tok-fn:#e8590c}.terminal{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono-font);padding:8px 10px;white-space:pre-wrap;line-height:1.35;min-height:160px}.terminal .prompt{color:var(--term-dim)}.scorepanel{font-family:var(--mono-font)}.scorepanel .ok{color:#008000}.theme-linux .scorepanel .ok{color:#2f9e44}.scorepanel .bad{color:#aa0000}.wrap{max-width:900px;margin:16px auto;padding:0 12px}.toolbar{margin-bottom:8px}.choice-btns{margin:12px 0;display:flex;gap:10px;flex-wrap:wrap}.feedback{min-height:40px;margin-top:8px;font-family:var(--mono-font);font-weight:bold}table{border-collapse:collapse;width:100%;margin-top:6px;font-family:var(--mono-font);font-size:13px}th,td{border:1px solid var(--rule);padding:3px 6px;text-align:left}th{background:var(--win-face)}</style>
+</head>
+<body class="theme-win">
+<div class="wrap">
+  <div class="toolbar">
+    <button class="btn" onclick="toggleTheme()">Toggle theme (Win 95 / Linux)</button>
+  </div>
+
+  <div class="window raised">
+    <div class="titlebar"><span>2.2.a, Badge Access Log Analyzer</span><span class="controls">[_][^][X]</span></div>
+    <div class="window-body">
+      <h1>Objective</h1>
+      <p>You are reviewing the server-room badge log. For each door event batch, decide whether it is
+      <b>CLEAN</b> (a single authorized entry) or <b>FLAG</b> (evidence of tailgating / piggybacking / an
+      impossible-speed badge reuse). Click your verdict, then Submit. Reach 5 correct verdicts to meet the objective.</p>
+
+      <div id="stage" class="terminal"><span class="prompt">badge-log&gt; </span>Loading records...</div>
+
+      <div class="choice-btns">
+        <button class="btn choice" data-v="CLEAN" onclick="chooseVerdict(this)">CLEAN</button>
+        <button class="btn choice" data-v="FLAG" onclick="chooseVerdict(this)">FLAG</button>
+      </div>
+
+      <div>
+        <button class="btn" onclick="submitChoice()">Submit</button>
+        <button class="btn" onclick="nextRecord()">Next Batch</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="statusbar scorepanel raised" id="score">SCORE 0 / 5 &#9474; Batch 1 of 7 &#9474; OBJECTIVE: <span class="bad">not yet met</span></div>
+    </div>
+  </div>
+</div>
+
+<script>function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
+var BATCHES=[{id:"BATCH-01",rows:[{ts:"08:03:41",badge:"B-0231",door:"D1",result:"GRANTED"}],verdict:"CLEAN",explain:"One badge, one swipe, one door. No indication a second person passed through."},{id:"BATCH-02",rows:[{ts:"08:04:11",badge:"B-0117",door:"D1",result:"GRANTED"},{ts:"08:04:13",badge:"B-0117",door:"D2",result:"GRANTED"}],verdict:"FLAG",explain:"Same badge grants entry at two different doors 2 seconds apart, physically impossible for one person. Consistent with a badge being passed back to a second person (piggybacking) or a cloned credential."},{id:"BATCH-03",rows:[{ts:"09:12:02",badge:"B-0450",door:"D1",result:"GRANTED"},{ts:"09:12:03",badge:"CAM-D1",door:"D1",result:"2_PERSONS_DETECTED"}],verdict:"FLAG",explain:"Only one badge swipe was logged at D1, but the door camera sensor detected two people crossing the threshold, classic tailgating signature."},{id:"BATCH-04",rows:[{ts:"10:44:50",badge:"B-0812",door:"D2",result:"GRANTED"},{ts:"10:44:51",badge:"CAM-D2",door:"D2",result:"1_PERSON_DETECTED"}],verdict:"CLEAN",explain:"Badge swipe and camera sensor agree: exactly one person, one door. Matches expected behavior."},{id:"BATCH-05",rows:[{ts:"13:20:00",badge:"B-0902",door:"D1",result:"GRANTED"},{ts:"13:20:04",badge:"B-0902",door:"D2",result:"GRANTED"}],verdict:"CLEAN",explain:"4 seconds between adjacent, connected doors is plausible for one person walking the corridor. No sensor conflict, no impossible-speed gap (below is only flagged under 2s for adjacent doors in this policy)."},{id:"BATCH-06",rows:[{ts:"15:02:19",badge:"B-0055",door:"D1",result:"DENIED"},{ts:"15:02:21",badge:"B-0055",door:"D1",result:"GRANTED"},{ts:"15:02:22",badge:"CAM-D1",door:"D1",result:"2_PERSONS_DETECTED"}],verdict:"FLAG",explain:"After an initial denial, the badge is granted and the camera immediately detects two people, a strong tailgating pattern where a legitimate badge holder let an unverified second person follow right behind."},{id:"BATCH-07",rows:[{ts:"17:30:00",badge:"B-0777",door:"D2",result:"GRANTED"},{ts:"17:30:01",badge:"CAM-D2",door:"D2",result:"1_PERSON_DETECTED"}],verdict:"CLEAN",explain:"Single grant, single detection. No red flags."}];var idx=0,score=0,GOAL=5,met=false,submitted=false,selected=null;function renderTable(rows){var html='<table><tr><th>time</th><th>badge/sensor</th><th>door</th><th>result</th></tr>';rows.forEach(function(r){html+='<tr><td>'+r.ts+'</td><td>'+r.badge+'</td><td>'+r.door+'</td><td>'+r.result+'</td></tr>';});html+='</table>';return html;}
+function renderRecord(){var b=BATCHES[idx];var stage=document.getElementById('stage');stage.innerHTML='<span class="prompt">'+b.id+' badge-log&gt; </span>\n'+renderTable(b.rows);selected=null;submitted=false;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});document.getElementById('feedback').innerHTML='';updateStatus();}
+function chooseVerdict(btn){if(submitted)return;document.querySelectorAll('.choice').forEach(function(x){x.classList.remove('sel');});btn.classList.add('sel');selected=btn.getAttribute('data-v');}
+function submitChoice(){if(submitted||!selected)return;submitted=true;var b=BATCHES[idx];var isCorrect=selected===b.verdict;var fb=document.getElementById('feedback');if(isCorrect){score++;fb.innerHTML='<span class="ok">CORRECT.</span> '+b.explain;}else{fb.innerHTML='<span class="bad">INCORRECT.</span> Correct verdict: '+b.verdict+'. '+b.explain;}
+if(score>=GOAL)met=true;updateStatus();}
+function nextRecord(){idx=(idx+1)%BATCHES.length;renderRecord();}
+function updateStatus(){var el=document.getElementById('score');el.innerHTML='SCORE '+score+' / '+GOAL+' &#9474; Batch '+(idx+1)+' of '+BATCHES.length+' &#9474; OBJECTIVE: '+(met?'<span class="ok">MET</span>':'<span class="bad">not yet met</span>');}
+renderRecord();</script>
+</body>
+</html>

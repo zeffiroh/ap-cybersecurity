@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email, text, and social media attacks, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Email, text, and social media attacks  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 1.1.c: Phishing indicator extractor</h1>
+<p><strong>Skill:</strong> Analyze Risk, Detect Attacks · <strong>Maps to:</strong> 1.1.A, 1.1.C · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the indicator extractor a security-awareness tool would use to screen incoming messages
+across channels. Given a message dict with channel, sender, text, and link fields, return
+the sorted list of phishing indicator labels that the message triggers.</p>
+<p>A message may trigger zero, one, or several indicators. The result is the sorted, de-duplicated
+list of triggered label strings.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(message: dict) -&gt; list[str]</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A dict with the following keys (all strings):
+- <code>"channel"</code>, one of <code>"email"</code>, <code>"sms"</code>, <code>"dm"</code> (social media direct message)
+- <code>"sender"</code>, the sender address, phone number, or handle
+- <code>"text"</code>, the message body text
+- <code>"link"</code>, a URL or empty string</p>
+<h2>Output</h2>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> drawn from the five indicator labels:
+- <code>"lookalike-domain"</code>, sender contains a mangled brand domain
+- <code>"urgent-money-request"</code>, text requests an urgent financial transaction
+- <code>"credential-request"</code>, text requests credentials or account verification
+- <code>"mismatched-sender"</code>, text claims a brand the sender address does not belong to
+- <code>"shortened-link"</code>, link uses a URL shortener or bare IP address</p>
+<p>See the Reference section below for the precise indicator rule sets.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">{
+  &quot;channel&quot;: &quot;email&quot;,
+  &quot;sender&quot;: &quot;security@paypa1.com&quot;,
+  &quot;text&quot;: &quot;Verify your PayPal account now.&quot;,
+  &quot;link&quot;: &quot;&quot;
+}
+-&gt; [&quot;credential-request&quot;, &quot;lookalike-domain&quot;, &quot;mismatched-sender&quot;]
+
+{
+  &quot;channel&quot;: &quot;sms&quot;,
+  &quot;sender&quot;: &quot;+1-555-0192&quot;,
+  &quot;text&quot;: &quot;Reminder: dentist at 2pm tomorrow. Reply YES.&quot;,
+  &quot;link&quot;: &quot;&quot;
+}
+-&gt; []
+
+{
+  &quot;channel&quot;: &quot;email&quot;,
+  &quot;sender&quot;: &quot;ceo@corp-executive.net&quot;,
+  &quot;text&quot;: &quot;Wire $50k today, do not loop in finance, keep this confidential.&quot;,
+  &quot;link&quot;: &quot;&quot;
+}
+-&gt; [&quot;urgent-money-request&quot;]
+
+{
+  &quot;channel&quot;: &quot;dm&quot;,
+  &quot;sender&quot;: &quot;@IT_support99&quot;,
+  &quot;text&quot;: &quot;Your account expires tonight, verify here.&quot;,
+  &quot;link&quot;: &quot;http://192.168.1.1/login&quot;
+}
+-&gt; [&quot;credential-request&quot;, &quot;shortened-link&quot;]
+
+{
+  &quot;channel&quot;: &quot;sms&quot;,
+  &quot;sender&quot;: &quot;NETFLIX&quot;,
+  &quot;text&quot;: &quot;Your Netflix payment failed. Update your payment at netflix.com/billing&quot;,
+  &quot;link&quot;: &quot;https://bit.ly/3xAmPle&quot;
+}
+-&gt; [&quot;credential-request&quot;, &quot;shortened-link&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(message: dict) -&gt; list[str]
+</code></pre>
+<h3>Input (<code>message</code>)</h3>
+<p>A dict with the following keys (all strings):
+- <code>"channel"</code>, one of <code>"email"</code>, <code>"sms"</code>, <code>"dm"</code> (social-media direct message)
+- <code>"sender"</code>, the sender address, phone number, or handle (may be empty string)
+- <code>"text"</code>, the message body text (may be empty string)
+- <code>"link"</code>, a URL or empty string (the primary link extracted from the message)</p>
+<p>All keys are always present. Values are strings; none are None.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> drawn from the indicator set below.
+Empty list if no indicator fires.</p>
+<h3>Indicator rules (applied in order; case-insensitive where stated)</h3>
+<h4><code>"lookalike-domain"</code></h4>
+<p>Fires when the sender field contains a domain (anything after <code>@</code> for email, or a
+hostname-like string for other channels) where a character has been substituted with a
+visually similar ASCII character or a digit, compared against a reference brand list.
+Concretely: the sender (lowercased) matches the pattern <code>.*@?&lt;mangled&gt;.*</code> where <code>&lt;mangled&gt;</code>
+is any of the following strings (applied via substring match on the lowercased sender):</p>
+<pre><code>paypa1, paypa1.com, pay-pal, paypall,
+amaz0n, amazzon, amazon-security,
+g00gle, go0gle, googIe,
+micros0ft, microsooft, micosoft,
+app1e, appIe, app-le,
+netfl1x, netf1ix,
+secure-login, account-secure, account-update, login-secure,
+verify-account, update-billing
+</code></pre>
+<h4><code>"urgent-money-request"</code></h4>
+<p>Fires when the text field (lowercased) contains any of:</p>
+<pre><code>wire transfer, wire $, send money, transfer funds, pay now,
+gift card, buy gift cards, purchase gift cards, send gift card,
+urgent payment, immediate payment, send funds, money transfer
+</code></pre>
+<h4><code>"credential-request"</code></h4>
+<p>Fires when the text field (lowercased) contains any of:</p>
+<pre><code>verify your account, confirm your password, enter your password,
+reset your password, update your payment, enter your credit card,
+provide your ssn, confirm your identity, verify your identity,
+enter your login, sign in to verify, log in to verify,
+confirm your email, verify your email, account verification required
+</code></pre>
+<h4><code>"mismatched-sender"</code></h4>
+<p>Fires when BOTH of the following are true:
+1. The text field (lowercased) contains a brand name from the reference list:
+   <code>paypal, amazon, google, microsoft, apple, netflix, facebook, instagram, twitter,
+   linkedin, irs, social security, bank of america, wells fargo, chase, citibank</code>
+2. The sender (lowercased) does NOT contain the corresponding keyword from that same list.
+   (i.e. the text claims to be from brand X but the sender address/handle does not include
+   any substring that matches any name in the brand list that the text contains)
+   More precisely: extract all brand names mentioned in the text; the sender must contain
+   at least one of those brand names; if it contains none, fire this indicator.</p>
+<h4><code>"shortened-link"</code></h4>
+<p>Fires when the link field is non-empty and the link (lowercased) contains any of the
+following known shortener hostnames, OR matches the pattern of a bare IP address URL:</p>
+<pre><code>bit.ly, tinyurl.com, t.co, goo.gl, ow.ly, is.gd, buff.ly,
+short.io, rb.gy, cutt.ly, tiny.cc
+</code></pre>
+<p>Also fires if the link matches the pattern <code>https?://\d+\.\d+\.\d+\.\d+</code> (bare IP address).</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Matching is case-insensitive (use <code>.lower()</code> on all inputs before matching).</li>
+<li>Output always sorted ascending (alphabetical) and de-duplicated.</li>
+<li>Keys <code>channel</code>, <code>sender</code>, <code>text</code>, <code>link</code> are always present; values are strings.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 1.1.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+import re
+from typing import List
+
+# --- indicator data -----------------------------------------------------------
+
+_LOOKALIKE_FRAGMENTS = [
+    "paypa1", "pay-pal", "paypall",
+    "amaz0n", "amazzon", "amazon-security",
+    "g00gle", "go0gle", "googie",
+    "micros0ft", "microsooft", "micosoft",
+    "app1e", "appie", "app-le",
+    "netfl1x", "netf1ix",
+    "secure-login", "account-secure", "account-update", "login-secure",
+    "verify-account", "update-billing",
+]
+
+_MONEY_PHRASES = [
+    "wire transfer", "wire $", "send money", "transfer funds", "pay now",
+    "gift card", "buy gift cards", "purchase gift cards", "send gift card",
+    "urgent payment", "immediate payment", "send funds", "money transfer",
+]
+
+_CRED_PHRASES = [
+    "verify your account", "confirm your password", "enter your password",
+    "reset your password", "update your payment", "enter your credit card",
+    "provide your ssn", "confirm your identity", "verify your identity",
+    "enter your login", "sign in to verify", "log in to verify",
+    "confirm your email", "verify your email", "account verification required",
+]
+
+_BRANDS = [
+    "paypal", "amazon", "google", "microsoft", "apple", "netflix",
+    "facebook", "instagram", "twitter", "linkedin", "irs",
+    "social security", "bank of america", "wells fargo", "chase", "citibank",
+]
+
+_SHORTENER_HOSTS = [
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd",
+    "buff.ly", "short.io", "rb.gy", "cutt.ly", "tiny.cc",
+]
+
+_IP_URL_RE = re.compile(r"https?://\d+\.\d+\.\d+\.\d+")
+
+
+# --- indicator checks ---------------------------------------------------------
+
+def _check_lookalike(sender_low: str) -&gt; bool:
+    return any(frag in sender_low for frag in _LOOKALIKE_FRAGMENTS)
+
+
+def _check_urgent_money(text_low: str) -&gt; bool:
+    return any(phrase in text_low for phrase in _MONEY_PHRASES)
+
+
+def _check_credential(text_low: str) -&gt; bool:
+    return any(phrase in text_low for phrase in _CRED_PHRASES)
+
+
+def _check_mismatched_sender(sender_low: str, text_low: str) -&gt; bool:
+    brands_in_text = [b for b in _BRANDS if b in text_low]
+    if not brands_in_text:
+        return False
+    # sender must contain at least one of those brand names
+    return not any(b in sender_low for b in brands_in_text)
+
+
+def _check_shortened_link(link_low: str) -&gt; bool:
+    if not link_low:
+        return False
+    if any(host in link_low for host in _SHORTENER_HOSTS):
+        return True
+    if _IP_URL_RE.search(link_low):
+        return True
+    return False
+
+
+# --- public entry point -------------------------------------------------------
+
+def solve(message: dict) -&gt; List[str]:
+    """Return sorted, de-duplicated phishing indicator labels for `message`.
+
+    Args:
+        message: dict with keys channel, sender, text, link (all strings).
+    Returns:
+        Sorted list of triggered indicator label strings (may be empty).
+    """
+    sender_low = (message.get("sender") or "").lower()
+    text_low = (message.get("text") or "").lower()
+    link_low = (message.get("link") or "").lower()
+
+    found = set()
+    if _check_lookalike(sender_low):
+        found.add("lookalike-domain")
+    if _check_urgent_money(text_low):
+        found.add("urgent-money-request")
+    if _check_credential(text_low):
+        found.add("credential-request")
+    if _check_mismatched_sender(sender_low, text_low):
+        found.add("mismatched-sender")
+    if _check_shortened_link(link_low):
+        found.add("shortened-link")
+    return sorted(found)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -----------------------------------------------------------
+
+def test_lookalike_domain_email():
+    msg = {
+        "channel": "email",
+        "sender": "support@paypa1.com",
+        "text": "Please log in to review your account.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "lookalike-domain" in result
+
+
+def test_urgent_money_request_wire():
+    msg = {
+        "channel": "email",
+        "sender": "ceo@corp-executive.net",
+        "text": "Wire $50,000 today. Do not loop in finance. Keep this confidential.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert result == ["urgent-money-request"]
+
+
+def test_credential_request_verify():
+    msg = {
+        "channel": "sms",
+        "sender": "ALERTS",
+        "text": "Your account has been locked. Verify your account to restore access.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "credential-request" in result
+
+
+def test_shortened_link_bitly():
+    msg = {
+        "channel": "dm",
+        "sender": "@helpdesk_official",
+        "text": "Click here to claim your reward.",
+        "link": "https://bit.ly/3xAmPle",
+    }
+    result = impl.solve(msg)
+    assert "shortened-link" in result
+
+
+def test_no_indicators_legit():
+    msg = {
+        "channel": "sms",
+        "sender": "+1-555-0192",
+        "text": "Reminder: dentist appointment at 2pm tomorrow. Reply YES to confirm.",
+        "link": "",
+    }
+    assert impl.solve(msg) == []
+
+
+def test_multiple_indicators():
+    # lookalike-domain + credential-request + mismatched-sender
+    msg = {
+        "channel": "email",
+        "sender": "security@paypa1.com",
+        "text": "Verify your account to keep your PayPal access active.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "lookalike-domain" in result
+    assert "credential-request" in result
+    # result must be sorted
+    assert result == sorted(result)
+
+
+# ---- hidden / edge cases -----------------------------------------------------
+
+def test_ip_address_link():
+    msg = {
+        "channel": "email",
+        "sender": "noreply@example.com",
+        "text": "Click to verify your identity.",
+        "link": "http://192.168.10.5/login",
+    }
+    result = impl.solve(msg)
+    assert "shortened-link" in result
+    assert "credential-request" in result
+
+
+def test_mismatched_sender_fires():
+    # Text claims to be Netflix but sender has no netflix in it
+    msg = {
+        "channel": "email",
+        "sender": "billing@stream-updates.net",
+        "text": "Your Netflix subscription has been suspended.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "mismatched-sender" in result
+
+
+def test_mismatched_sender_does_not_fire_when_match():
+    # Sender legitimately contains the brand name
+    msg = {
+        "channel": "email",
+        "sender": "no-reply@netflix.com",
+        "text": "Your Netflix payment is due.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "mismatched-sender" not in result
+
+
+def test_gift_card_scam():
+    msg = {
+        "channel": "email",
+        "sender": "boss@company.org",
+        "text": "Can you buy gift cards for me? I need them urgently.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "urgent-money-request" in result
+
+
+def test_empty_message():
+    msg = {
+        "channel": "email",
+        "sender": "",
+        "text": "",
+        "link": "",
+    }
+    assert impl.solve(msg) == []
+
+
+def test_output_sorted_and_deduped():
+    msg = {
+        "channel": "sms",
+        "sender": "amaz0n-security",
+        "text": "Verify your Amazon account. Wire $100 to confirm.",
+        "link": "https://tinyurl.com/abc123",
+    }
+    result = impl.solve(msg)
+    # No duplicates
+    assert len(result) == len(set(result))
+    # Sorted ascending
+    assert result == sorted(result)
+    # Must include at least these
+    assert "lookalike-domain" in result
+    assert "urgent-money-request" in result
+    assert "shortened-link" in result
+
+
+def test_case_insensitive_text():
+    msg = {
+        "channel": "email",
+        "sender": "alerts@bank.com",
+        "text": "VERIFY YOUR ACCOUNT to avoid suspension.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "credential-request" in result
+
+
+def test_tinyurl_shortener():
+    msg = {
+        "channel": "dm",
+        "sender": "@random_user",
+        "text": "Check out this deal.",
+        "link": "https://tinyurl.com/deal99",
+    }
+    result = impl.solve(msg)
+    assert "shortened-link" in result
+
+
+def test_no_false_positive_on_brand_in_sender():
+    # Sender is paypal.com — mismatched-sender should NOT fire
+    msg = {
+        "channel": "email",
+        "sender": "service@paypal.com",
+        "text": "Your PayPal transaction was completed.",
+        "link": "",
+    }
+    result = impl.solve(msg)
+    assert "mismatched-sender" not in result
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

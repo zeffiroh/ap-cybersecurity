@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.1.b Lab, Cross-Site Scripting and the Encoding + CSP Fix</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, Cross-Site Scripting and the Encoding + CSP Fix</h1>
+  <p class="sub">Land a real script injection, then watch output encoding and a CSP turn it into inert text.</p>
+
+  <div class="brief">
+    <p>This is a mock comment board. Whatever you post is sent back and rendered in the preview on the
+    right, which runs in a <b>sandboxed, isolated frame</b> so nothing can touch the real page. The frame
+    holds a pretend victim session cookie, <code>SESSION=ab12cd34</code>, exactly the kind of secret a real
+    XSS payload steals. In <b>Vulnerable</b> mode the server pastes your comment straight into the HTML. In
+    <b>Defended</b> mode it HTML-encodes your comment and adds a Content-Security-Policy. First exfiltrate
+    the cookie two different ways, then turn on the defenses and confirm both payloads become harmless text.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="script"><span>Steal the session cookie with a classic <code>&lt;script&gt;</code> payload.</span>
+      <div class="hint"><details><summary>Hint</summary>Post <code>&lt;script&gt;parent.postMessage('xss:'+document.cookie,'*')&lt;/script&gt;</code>. The server drops it into the page unescaped, so the browser runs it and the cookie is sent back to the attacker (you).</details></div></li>
+    <li data-m="noscript"><span>Steal it again <b>without</b> a <code>&lt;script&gt;</code> tag, to show filters that only block "script" are not enough.</span>
+      <div class="hint"><details><summary>Hint</summary>An event handler needs no script tag: <code>&lt;img src=x onerror="parent.postMessage('xss:'+document.cookie,'*')"&gt;</code>. The broken image fires <code>onerror</code>, which runs your code.</details></div></li>
+    <li data-m="defended"><span>Switch to <b>Defended</b> mode, resend both payloads, and confirm the cookie never leaks.</span>
+      <div class="hint"><details><summary>Hint</summary>Encoding turns <code>&lt;</code> into <code>&amp;lt;</code> so the browser shows the payload as text instead of running it, and the CSP blocks inline script as a second layer. Watch the "server output" panel: your tags are now visible characters, not live HTML.</details></div></li>
+  </ul>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Post a comment</h3>
+      <label class="field" for="inp">Your comment</label>
+      <textarea id="inp" rows="3" spellcheck="false">Nice article!</textarea>
+
+      <label class="field" style="margin-top:8px">Server mode</label>
+      <select id="mode">
+        <option value="vuln">Vulnerable, raw input pasted into the page</option>
+        <option value="safe">Defended, HTML-encoded output + Content-Security-Policy</option>
+      </select>
+
+      <div class="row">
+        <button class="primary" id="post">Post comment</button>
+        <button id="reset" title="Clear mission progress for this lab">Reset missions</button>
+      </div>
+
+      <h3 style="margin-top:16px">HTML the server emits</h3>
+      <div class="console" id="emitted"><span class="dim">Post a comment to see the page the server builds.</span></div>
+
+      <h3 style="margin-top:14px">Attacker's listener</h3>
+      <div class="console" id="catch" style="min-height:56px"><span class="dim">Nothing captured yet. A successful XSS sends the cookie here.</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Victim's browser (sandboxed preview)</h3>
+      <p class="note">Logged in as <code>jordan</code>. Cookie in this page: <code>SESSION=ab12cd34</code>.</p>
+      <iframe id="frame" title="rendered comment board" style="width:100%;height:280px;border:1px solid var(--rule);background:#fff"></iframe>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Why the fix works</h2>
+    <p>XSS is a failure to separate <i>data</i> from <i>code</i>. In vulnerable mode your comment was pasted
+    into the HTML stream, so <code>&lt;script&gt;</code> and an <code>&lt;img onerror&gt;</code> handler both
+    became live instructions that ran with the victim's session and read the cookie. The root defense, named
+    in LO 5.1.B, is <b>output encoding</b>: converting <code>&lt; &gt; &amp; " '</code> to their HTML entities
+    so untrusted input can only ever render as text. A <b>Content-Security-Policy</b> that forbids inline
+    script is a second layer, and marking the cookie <code>HttpOnly</code> keeps script from reading it even
+    if one slips through. Notice the second payload needed no <code>&lt;script&gt;</code> tag at all, which is
+    why a denylist that just blocks the word "script" fails and encoding every output is the real fix. This
+    is the data-versus-code weakness of LO 5.1.A and its defense in 5.1.B.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>
+(function () {
+  var esc = Lab.esc;
+  var COOKIE = "SESSION=ab12cd34";
+  var leaked = { got: false };
+
+  var missions = new Lab.Missions("5.1.b", document.getElementById("missions"),
+    document.getElementById("progress"), function () {
+      document.getElementById("debrief").classList.add("show");
+    });
+  document.getElementById("reset").addEventListener("click", function () {
+    missions.reset ? missions.reset() : 0;
+    document.getElementById("debrief").classList.remove("show");
+  });
+
+  // The attacker's drop point: a successful payload posts the stolen cookie here.
+  window.addEventListener("message", function (ev) {
+    var d = String(ev.data || "");
+    if (d.indexOf("xss:") !== 0) return;
+    var stolen = d.slice(4);
+    leaked.got = true;
+    document.getElementById("catch").innerHTML =
+      '<span class="err">cookie exfiltrated by injected code:</span>\n<span class="q">' + esc(stolen) + '</span>';
+    if (/script/i.test(leaked.lastPayload) && /<script/i.test(leaked.lastPayload)) missions.complete("script");
+    if (!/<script/i.test(leaked.lastPayload)) missions.complete("noscript");
+  });
+
+  function buildPage(comment, mode) {
+    // Fake server. Vulnerable: raw concatenation. Defended: HTML-encode + CSP meta.
+    var body, csp = "";
+    if (mode === "safe") {
+      csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">\n';
+      body = esc(comment);
+    } else {
+      body = comment;
+    }
+    return '<!doctype html><html><head><meta charset="utf-8">\n' + csp +
+      '<style>body{font-family:Georgia,serif;margin:10px;color:#111}.c{border-top:1px solid #ccc;padding:6px 0}</style>' +
+      '</head><body>' +
+      '<script>document.cookie="' + COOKIE + '";<\/script>' +
+      '<h3>Comments</h3>' +
+      '<div class="c">jordan: thanks for posting</div>' +
+      '<div class="c">' + body + '</div>' +
+      '</body></html>';
+  }
+
+  function post() {
+    var comment = document.getElementById("inp").value;
+    var mode = document.getElementById("mode").value;
+    leaked.lastPayload = comment;
+    leaked.got = false;
+
+    var page = buildPage(comment, mode);
+    document.getElementById("emitted").innerHTML =
+      '<span class="dim">mode: ' + esc(mode === "safe" ? "Defended (encoded + CSP)" : "Vulnerable (raw)") +
+      '</span>\n\n' + '<span class="q">' + esc('<div class="c">' + (mode === "safe" ? esc(comment) : comment) + '</div>') + '</span>';
+
+    var frame = document.getElementById("frame");
+    // Vulnerable mode runs scripts in a same-origin srcdoc frame so document.cookie is readable
+    // (the realistic XSS target). Defended mode is fully locked down: no scripts at all.
+    frame.setAttribute("sandbox", mode === "safe" ? "" : "allow-scripts allow-same-origin");
+    frame.srcdoc = page;
+
+    if (mode === "safe") {
+      // Give any (blocked) script a moment; if nothing arrives, the defense held.
+      setTimeout(function () {
+        if (!leaked.got && (/<script|onerror|onload/i.test(comment))) {
+          document.getElementById("catch").innerHTML =
+            '<span class="ok">defense held: payload rendered as text, no cookie leaked.</span>';
+          missions.complete("defended");
+        }
+      }, 400);
+    }
+  }
+
+  document.getElementById("post").addEventListener("click", post);
+  document.getElementById("mode").addEventListener("change", function () {
+    document.getElementById("catch").innerHTML = '<span class="dim">Nothing captured yet. A successful XSS sends the cookie here.</span>';
+  });
+})();
+</script>
+</body>
+</html>

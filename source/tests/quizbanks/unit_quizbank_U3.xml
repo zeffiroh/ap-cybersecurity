@@ -1,0 +1,1301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AP Cybersecurity, Unit 3 Adaptive Quiz Bank
+  Unit: Securing Networks | Topics: 3.1–3.5
+  32 questions across 8 stimulus sets | calibrated="false"
+  Skills assessed: 1.A  1.C  1.D  2.A  3.A  3.B
+  Fictional universe: Meridian Health, ClearPath Financial, Xtensr Labs
+-->
+<unit_quizbank unit_id="U3" unit_title="Securing Networks" version="1.0" calibrated="false">
+
+<!-- ═══ S01, WiFi Network Diagram (Rogue AP / Evil Twin) ═══════════════════
+     Topics: 3.1, 3.3  |  Skills: 1.A 1.C 3.A 3.A+1.D
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S01" difficulty_range="1-3">
+  <stimulus>
+    <type>wifi_network_diagram</type>
+    <label>Exhibit A, Network Topology: Meridian Health Clinic</label>
+    <context>A security auditor reviewing Meridian Health Clinic's network has flagged an anomalous wireless access point. The following diagram was produced from a wireless site survey and the clinic's IT documentation. The clinic has not changed its wireless infrastructure in 18 months.</context>
+    <artifact format="composite">
+      <component id="A1" type="ascii_diagram">
+        <label>Network Topology, Meridian Health Clinic</label>
+        <diagram><![CDATA[
+  INTERNET
+      |
+  [ISP ROUTER, 203.0.113.1]
+      |
+  [FIREWALL, 10.0.0.1]  ← No IDS/IPS; stateful only
+      |
+  [CORE SWITCH, unmanaged; VLAN 1 only (flat network)]
+      |          |            |           |
+  [AP-MAIN   [WS-NURSE   [WS-ADMIN   [PRINTER
+   SSID:       10.0.1.10]  10.0.1.11]  10.0.1.20]
+   MeridianHC
+   ch:6
+   MAC:AA:BB:CC:11:22:33]
+      |
+  [AP-ROGUE ← NOT IN INVENTORY
+   SSID: MeridianHC  (identical)
+   ch:6  signal: +14 dBm stronger
+   MAC:  DE:AD:BE:EF:00:01
+   IP:   10.0.1.99 (DHCP, no reservation)
+   connected clients: WS-NURSE, 2 unknown devices]
+        ]]></diagram>
+        <legend>All devices on VLAN 1 (10.0.1.0/24). No network segmentation between clinical workstations, guest devices, and the internet gateway. Rogue AP discovered via wireless site survey on 2024-03-11.</legend>
+      </component>
+      <component id="A2" type="log_file">
+        <log_type>DHCP Lease Log, Core Switch (excerpt)</log_type>
+        <entries>
+DATE        TIME      IP           MAC                HOSTNAME
+----------- --------- ------------ ------------------ ------------------
+2024-03-09  08:14:22  10.0.1.99    DE:AD:BE:EF:00:01  unknown
+2024-03-09  08:14:31  10.0.1.10    00:1A:2B:CC:DD:EE  WS-NURSE   (reassigned)
+2024-03-09  08:15:02  10.0.1.44    F0:F0:F0:11:22:33  unknown-mobile-1
+2024-03-09  08:15:04  10.0.1.45    F0:F0:F0:44:55:66  unknown-mobile-2
+        </entries>
+        <note>WS-NURSE was previously associated with AP-MAIN (MAC AA:BB:CC:11:22:33). After 08:14, DHCP shows WS-NURSE reassigned via DE:AD:BE:EF:00:01 (rogue AP).</note>
+      </component>
+    </artifact>
+    <provenance>Fictional. All network details, IPs, and MAC addresses are invented. IPs use RFC 5737 / RFC 1918 ranges.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S01-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S01</stimulus_ref>
+        <topic_refs>3.3</topic_refs><lo_refs>LO 3.3.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.3.A" weight="1.0"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.42</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>3.3</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>AP-ROGUE broadcasts the identical SSID "MeridianHC" at a stronger signal than the legitimate AP-MAIN. Based on the diagram, which wireless attack technique does this represent?</stem>
+      <choices>
+        <choice key="A">WPA2 brute-force attack against the clinic's wireless passphrase.</choice>
+        <choice key="B">Evil twin attack, a rogue access point impersonating a legitimate network to intercept client traffic.</choice>
+        <choice key="C">Deauthentication flood attack targeting individual client devices.</choice>
+        <choice key="D">Bluejacking, unauthorized Bluetooth device pairing with clinic equipment.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>An evil twin attack deploys a rogue access point broadcasting the same SSID as a legitimate network, typically at a higher signal strength to force clients to associate with it. The DHCP log in A2 confirms WS-NURSE reassociated from the legitimate AP-MAIN (AA:BB:CC:11:22:33) to AP-ROGUE (DE:AD:BE:EF:00:01) after the rogue AP appeared, the defining outcome of an evil twin attack.</explanation>
+      <distractor_rationale>
+        <choice key="A">WPA2 brute-force attacks attempt to crack the pre-shared key offline from captured handshakes. The scenario shows a rogue AP already connected to clients, this is active impersonation, not passive credential cracking.</choice>
+        <choice key="C">A deauthentication flood sends forged 802.11 management frames to disconnect clients, often used as a precursor to an evil twin. The exhibit does not describe deauth frames, the rogue AP's stronger signal alone is sufficient to attract client association.</choice>
+        <choice key="D">Bluejacking uses Bluetooth, not WiFi. AP-ROGUE operates on channel 6 (WiFi 2.4GHz), not Bluetooth frequencies.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S01-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S01</stimulus_ref>
+        <topic_refs>3.1 3.3</topic_refs><lo_refs>LO 3.1.A LO 3.3.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.3.B" weight="0.72"/>
+        <secondary skill="3.A" lo="LO 3.1.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.48</b_param><a_param>1.15</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>85</est_response_time_sec>
+        <prerequisite_topics>3.1 3.3</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The network diagram shows all devices, clinical workstations, the rogue AP, and two unknown mobile devices, on the same flat VLAN 1 (10.0.1.0/24). Why does this flat network architecture significantly amplify the impact of the evil twin attack beyond simple traffic interception?</stem>
+      <choices>
+        <choice key="A">A flat network prevents the firewall from filtering malicious traffic, making the rogue AP invisible to the firewall's stateful inspection.</choice>
+        <choice key="B">Flat networks disable WPA2 encryption on all associated access points, making all wireless traffic readable without a MITM attack.</choice>
+        <choice key="C">A flat network forces all wireless traffic through the rogue AP because there is no routing between VLANs to direct traffic to the legitimate AP.</choice>
+        <choice key="D">Because all devices share the same broadcast domain with no segmentation, the attacker operating AP-ROGUE can directly reach clinical workstations, the printer, and any other device on the network, enabling lateral movement to any connected system, not just traffic interception from associated clients.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>On a flat network with a single broadcast domain, any device that joins the network, including two unknown mobile devices via AP-ROGUE, can communicate directly with every other device without crossing a router or firewall. This means the attacker's foothold via the rogue AP gives them direct network-layer access to WS-NURSE, WS-ADMIN, and the printer. Proper VLAN segmentation would limit the blast radius: guest devices and clinical workstations would be on separate segments with inter-VLAN routing controlled by firewall policy.</explanation>
+      <distractor_rationale>
+        <choice key="A">Firewall visibility is about traffic passing through the firewall (typically between internal and external networks). The rogue AP and its clients are on the internal network, east-west traffic within VLAN 1 never crosses the perimeter firewall at all, flat or not.</choice>
+        <choice key="B">WPA2 encryption is configured per-access-point, not determined by VLAN topology. Flat networks do not modify encryption settings on legitimate or rogue APs.</choice>
+        <choice key="C">Traffic routing between access points is determined by client association (signal strength, 802.11 management frames), not by VLAN configuration. The flat network does not force routing through the rogue AP, the stronger signal does.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S01-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S01</stimulus_ref>
+        <topic_refs>3.3</topic_refs><lo_refs>LO 3.3.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.3.C" weight="0.68"/>
+        <secondary skill="1.C" lo="LO 3.3.B" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.78</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>95</est_response_time_sec>
+        <prerequisite_topics>3.3</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The DHCP log in A2 shows AP-ROGUE (DE:AD:BE:EF:00:01) received a valid DHCP lease from the clinic's unmanaged core switch. Evaluating the network security posture, which control, if configured on the switch, would have prevented the rogue AP from obtaining a valid IP address and offering DHCP services to clients?</stem>
+      <choices>
+        <choice key="A">Port security limiting each switch port to one MAC address, preventing any new device from obtaining connectivity without physical switch reconfiguration.</choice>
+        <choice key="B">DHCP snooping configured on the switch to designate only the legitimate DHCP server port as trusted, blocking DHCP OFFER and ACK packets from any other port.</choice>
+        <choice key="C">WPA3 encryption on AP-MAIN, which would prevent AP-ROGUE from broadcasting on the same SSID without the private key.</choice>
+        <choice key="D">A static IP assignment for AP-MAIN so that the DHCP server reserves its address and cannot assign it to another device.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>DHCP snooping distinguishes trusted (legitimate DHCP server) ports from untrusted ports on a switch. When enabled, only packets from trusted ports are allowed to carry DHCP server messages (OFFER, ACK, NAK). If AP-ROGUE attempts to offer DHCP leases to clients it attracts, those DHCP responses are dropped by the switch because AP-ROGUE's port is untrusted. Combined with dynamic ARP inspection (DAI), DHCP snooping closes the IP assignment vector for rogue DHCP servers and ARP poisoners.</explanation>
+      <distractor_rationale>
+        <choice key="A">Port security limits MAC addresses per port (preventing new devices from connecting without a MAC allowlist), but an unmanaged switch cannot enforce port security, the exhibit explicitly states the core switch is unmanaged. Additionally, port security would block the rogue AP's connectivity entirely, not specifically its DHCP service.</choice>
+        <choice key="C">WPA3 improves encryption and key exchange but does not prevent another device from broadcasting the same SSID. SSID names are public and unprotected, any device can broadcast any SSID regardless of what encryption AP-MAIN uses.</choice>
+        <choice key="D">A static IP for AP-MAIN only ensures AP-MAIN always has the same IP. It does not prevent AP-ROGUE from obtaining a different IP from DHCP or from running its own DHCP service for clients it attracts.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S01-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S01</stimulus_ref>
+        <topic_refs>3.1 3.3</topic_refs><lo_refs>LO 3.1.A LO 3.3.B LO 3.3.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.3.C" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 3.3.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.38</b_param><a_param>1.55</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>158</est_response_time_sec>
+        <prerequisite_topics>3.1 3.3</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The auditor must present a remediation roadmap addressing: (1) the immediate rogue AP threat; (2) the flat network architecture that amplifies it; (3) the absence of rogue AP detection; and (4) the unmanaged switch that cannot enforce any access controls. Which roadmap most completely closes all four gaps?</stem>
+      <choices>
+        <choice key="A">Disable wireless entirely at the clinic and require all workstations to use wired Ethernet connections.</choice>
+        <choice key="B">Move AP-MAIN to a dedicated VLAN, increase its signal strength to outcompete the rogue AP, and instruct staff to manually select AP-MAIN when connecting their devices.</choice>
+        <choice key="C">Immediately disable AP-ROGUE and change the wireless passphrase; replace the unmanaged switch with a managed switch and configure VLANs to segment clinical, guest, and administrative traffic; deploy a Wireless Intrusion Prevention System (WIPS) to detect and alert on rogue APs in real time; and configure 802.1X port-based network access control so only authenticated devices can join any network segment.</choice>
+        <choice key="D">Deploy WPA3-Enterprise on AP-MAIN and require all clients to install a certificate before connecting, which will prevent clients from associating with the rogue AP.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>Each element of B maps to one of the four gaps: (1) disabling AP-ROGUE and changing the passphrase addresses the immediate threat; (2) replacing the unmanaged switch with a managed one and configuring VLANs removes the flat-network amplification; (3) a WIPS provides continuous real-time detection of any future rogue APs rather than discovering them only via periodic site surveys; (4) 802.1X enforces device authentication before network access, so even if a future rogue AP attracts clients, those clients cannot reach protected network segments without valid credentials. This is a layered, systematic response to all four root causes.</explanation>
+      <distractor_rationale>
+        <choice key="A">Eliminating wireless is operationally impractical for a clinical environment where nurses and physicians use mobile devices at bedsides. It also does not address the flat network architecture, which would still expose wired devices to threats from any compromised connected device.</choice>
+        <choice key="B">Increasing AP-MAIN signal strength creates an RF arms race that does not address the underlying vulnerability, a sufficiently powerful rogue AP will always win signal strength competition in proximity. Manual SSID selection is not a reliable control: clients remember previously connected networks and reconnect automatically based on signal strength, not user action.</choice>
+        <choice key="D">WPA3-Enterprise with mutual certificate authentication is a strong control for preventing unauthorized clients from joining AP-MAIN, but it does not prevent clients from associating with AP-ROGUE (which does not require certificate authentication). A client not enforcing EAP-TLS server certificate validation will still join the rogue AP. WIPS detection and network segmentation are still required.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- ═══ S02, Firewall Rule Table (Misconfigured) ══════════════════════════
+     Topics: 3.4  |  Skills: 1.A 3.B 3.A 3.A+1.D
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S02" difficulty_range="1-3">
+  <stimulus>
+    <type>firewall_rule_table</type>
+    <label>Exhibit B, Perimeter Firewall ACL: ClearPath Financial</label>
+    <context>A penetration tester has been given read access to ClearPath Financial's perimeter firewall configuration as part of a network security assessment. The following rule table was exported from the firewall management console. Rules are evaluated top-to-bottom; the first match wins.</context>
+    <artifact format="log_file">
+      <log_type>Firewall ACL, ClearPath Financial Perimeter Firewall (edge-fw-01)</log_type>
+      <entries>
+RULE  PRIORITY  ACTION  SRC           DST           PROTO  PORT   NOTES
+----- --------- ------- ------------- ------------- ------ ------ ----------------
+1     10        PERMIT  any           10.0.5.0/24   TCP    443    HTTPS inbound
+2     20        PERMIT  any           10.0.5.0/24   TCP    80     HTTP inbound (redirect)
+3     30        PERMIT  any           10.0.1.0/24   TCP    22     SSH inbound (ANY src)
+4     40        PERMIT  any           10.0.1.0/24   TCP    3389   RDP inbound (ANY src)
+5     50        PERMIT  any           10.0.2.100    TCP    3306   MySQL inbound (ANY src)
+6     60        PERMIT  10.0.0.0/8    any           ANY    ANY    Internal outbound
+7     70        DENY    any           any           ANY    ANY    Implicit deny
+      </entries>
+      <note>
+Subnet map:
+  10.0.5.0/24, DMZ (public web servers)
+  10.0.1.0/24, Internal workstation network
+  10.0.2.0/24, Database server network
+  10.0.2.100, Primary MySQL database server (patient and financial records)
+      </note>
+    </artifact>
+    <provenance>Fictional. All IP ranges and rule details are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S02-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S02</stimulus_ref>
+        <topic_refs>3.4</topic_refs><lo_refs>LO 3.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.4.A" weight="1.0"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.30</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Which single firewall rule in Exhibit B represents the most severe security misconfiguration?</stem>
+      <choices>
+        <choice key="A">Rule 5, permitting MySQL (port 3306) inbound from any source directly to the database server holding patient and financial records.</choice>
+        <choice key="B">Rule 3, permitting SSH (port 22) inbound from any source to the internal workstation network.</choice>
+        <choice key="C">Rule 1, permitting HTTPS (port 443) from any source to the DMZ.</choice>
+        <choice key="D">Rule 7, the implicit deny at the bottom of the rule table.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Rule 5 exposes the primary MySQL database server (10.0.2.100), holding patient and financial records, directly to the internet on port 3306 from any source. Database servers should never be directly reachable from the internet; they belong in a protected internal subnet accessible only from the application tier. An attacker who can reach port 3306 can attempt credential attacks, exploit database software vulnerabilities, and exfiltrate or destroy records directly without needing to compromise any intermediate system.</explanation>
+      <distractor_rationale>
+        <choice key="B">Rule 3 is a serious misconfiguration (SSH from any source to internal workstations), but SSH attacks require valid credentials or a vulnerability in the SSH daemon. Rule 5 exposes a database directly, which has a higher potential impact because databases hold the highest-value data assets.</choice>
+        <choice key="C">Permitting HTTPS to the DMZ web servers is correct and expected, it is the intended traffic for public-facing web services. This rule has no misconfiguration.</choice>
+        <choice key="D">The implicit deny at the bottom is not a misconfiguration, it is the correct default behavior. All traffic not explicitly permitted should be denied. Removing this rule would be the misconfiguration.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S02-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S02</stimulus_ref>
+        <topic_refs>3.4</topic_refs><lo_refs>LO 3.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.4.B" weight="0.72"/>
+        <secondary skill="1.A" lo="LO 3.4.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.45</b_param><a_param>1.12</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>85</est_response_time_sec>
+        <prerequisite_topics>3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Rule 4 permits RDP (port 3389) inbound from any source to the internal workstation network (10.0.1.0/24). Analyzing what an attacker with internet access could do using only this rule, which attack sequence is most directly enabled?</stem>
+      <choices>
+        <choice key="A">The attacker can intercept encrypted RDP sessions and read their contents using a passive network tap.</choice>
+        <choice key="B">The attacker can use the open RDP port to launch a DDoS reflection attack using ClearPath Financial's workstations as amplifiers.</choice>
+        <choice key="C">The attacker can use RDP to access only the DMZ web servers, since RDP traffic is routed through the DMZ by Rule 1.</choice>
+        <choice key="D">The attacker can attempt brute-force or credential-stuffing attacks against RDP on any workstation in 10.0.1.0/24, and if successful, gain a full interactive desktop session on that machine, directly inside the internal network with no further firewall hops required.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>RDP (Remote Desktop Protocol) provides a full interactive graphical session to a Windows machine. With Rule 4 permitting RDP from any source to the internal workstation subnet, an attacker can directly attempt authentication against any workstation at 10.0.1.1–10.0.1.254. Successful authentication (via stolen credentials, brute force, or credential stuffing from a breach list) gives the attacker a live desktop session inside the internal network, bypassing the perimeter entirely without exploiting any vulnerability, just using a legitimately open port.</explanation>
+      <distractor_rationale>
+        <choice key="A">RDP uses TLS encryption for the session, but the security concern is not passive interception, it is that the port is open from the internet, enabling active authentication attacks. Passive interception of an encrypted session yields no readable data.</choice>
+        <choice key="B">DDoS reflection attacks use UDP protocols (DNS, NTP, memcached) where the source address is spoofed. RDP is TCP-based and connection-oriented, it is not a reflection amplification vector. The risk from open RDP is unauthorized interactive access, not traffic amplification.</choice>
+        <choice key="C">Rule 1 permits HTTPS to the DMZ web servers. RDP (port 3389) via Rule 4 routes to the internal workstation network (10.0.1.0/24), not the DMZ (10.0.5.0/24). These are separate subnets and separate rules.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S02-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S02</stimulus_ref>
+        <topic_refs>3.4</topic_refs><lo_refs>LO 3.4.A LO 3.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.4.A" weight="0.68"/>
+        <secondary skill="3.B" lo="LO 3.4.B" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.80</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>98</est_response_time_sec>
+        <prerequisite_topics>3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Evaluating the complete rule table, Rule 6 permits all internal traffic (10.0.0.0/8) outbound to any destination on any protocol. Considering that the database server 10.0.2.100 falls within this range, what critical risk does Rule 6 create in the context of a compromised internal host?</stem>
+      <choices>
+        <choice key="A">Rule 6 means internal hosts can access the internet, which is a productivity concern but not a security risk since outbound traffic is inherently safer than inbound.</choice>
+        <choice key="B">Rule 6 creates a risk only if combined with Rule 5, because the database server needs both inbound and outbound access to be exploitable.</choice>
+        <choice key="C">Rule 6 only applies to the internal workstation network and does not include the database subnet (10.0.2.0/24), so the database server cannot make outbound connections.</choice>
+        <choice key="D">If any internal host (including the database server at 10.0.2.100) is compromised, Rule 6 allows the attacker to make unrestricted outbound connections, enabling data exfiltration, command-and-control (C2) beaconing, and lateral movement to external attacker infrastructure without any egress filtering.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>10.0.0.0/8 (a /8 supernet) encompasses the entire 10.x.x.x private range, including both the workstation subnet (10.0.1.0/24) and the database subnet (10.0.2.0/24). Rule 6 with no destination or protocol restrictions means any compromised internal host, including the database server, can initiate unrestricted outbound connections. This enables exfiltration of data to attacker-controlled servers, C2 beaconing, and exploitation of cloud-hosted attack infrastructure. Proper egress filtering would restrict database servers to only the ports and destinations needed for their function (e.g., replication to a specific backup server).</explanation>
+      <distractor_rationale>
+        <choice key="A">Outbound traffic is not inherently safer. Unrestricted outbound connections are the primary enabler of data exfiltration, C2 communication, and malware updates, all of which are outbound. Egress filtering is a documented best practice (NIST, CIS Controls) precisely because outbound traffic carries significant security risk.</choice>
+        <choice key="B">Rule 5 and Rule 6 create independent risks. An attacker who reaches the database via the external MySQL port (Rule 5) benefits from Rule 6 for exfiltration, but Rule 6 is independently dangerous for any compromised internal host regardless of Rule 5.</choice>
+        <choice key="C">10.0.2.0/24 (database subnet) is contained within 10.0.0.0/8. A /8 supernet covers all addresses from 10.0.0.0 to 10.255.255.255. Rule 6 explicitly includes the database server subnet.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S02-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S02</stimulus_ref>
+        <topic_refs>3.4</topic_refs><lo_refs>LO 3.4.A LO 3.4.B LO 3.4.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.4.C" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 3.4.A" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.42</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>3.4</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The penetration tester must document a corrected rule table addressing all three critical misconfigurations (Rules 3, 4, and 5) and the unrestricted egress (Rule 6). Which corrected rule set is most operationally appropriate while eliminating the identified risks?</stem>
+      <choices>
+        <choice key="A">Delete Rules 3, 4, and 5 entirely. Change Rule 6 to permit only HTTP/HTTPS outbound from workstations. Leave implicit deny unchanged.</choice>
+        <choice key="B">Replace Rule 3 with SSH permitted only from a named bastion host IP (e.g., 10.0.9.10) to internal hosts. Replace Rule 4 by removing internet-facing RDP entirely and requiring VPN for remote desktop access. Replace Rule 5 by restricting MySQL to be reachable only from the application server subnet (10.0.5.0/24) and blocking all external access. Replace Rule 6 with explicit per-subnet egress rules: workstations permit HTTP/HTTPS/DNS outbound; database server permits only replication traffic to a specific backup server.</choice>
+        <choice key="C">Add a new Rule 0 that permits traffic only from trusted geographic IP ranges (geo-blocking), which will effectively block most unauthorized access to Rules 3, 4, and 5.</choice>
+        <choice key="D">Replace Rules 3, 4, and 5 with rules requiring a VPN client certificate, and keep Rule 6 unchanged since outbound traffic does not carry meaningful risk.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>B applies the principle of least privilege to each misconfigured rule: SSH is restricted to a bastion host (eliminating internet-wide exposure while preserving legitimate administrative access); RDP is moved behind VPN (which requires prior authentication before the RDP service is even reachable); MySQL is restricted to the application tier only (preventing direct external database access while allowing the web application to query it); and egress is broken into per-subnet explicit rules (preventing a compromised database server from making arbitrary outbound connections). Each correction preserves the legitimate use case while removing the attack surface.</explanation>
+      <distractor_rationale>
+        <choice key="A">Deleting Rules 3, 4, and 5 eliminates the attack surface but also breaks legitimate operations, system administrators still need SSH access, and the application servers still need to query the database. A corrected rule set must preserve legitimate operational access while restricting unauthorized access.</choice>
+        <choice key="C">Geographic IP blocking is a weak compensating control that is trivially bypassed using VPS instances or proxies in permitted geographic regions. It does not fix the underlying rule design (least-privilege source restriction) and creates a false sense of security for services that should not be externally accessible at all.</choice>
+        <choice key="D">VPN client certificates would improve authentication for Rules 3 and 4 if implemented as a VPN gateway (not a direct rule change on the firewall). However, leaving Rule 6 (unrestricted egress) unchanged ignores a documented critical risk. VPN certificates also do not address Rule 5 (MySQL directly exposed) without restructuring the rule entirely.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- ═══ S03, Packet Capture Summary (ARP Poisoning / MITM) ════════════════
+     Topics: 3.2, 3.5  |  Skills: 1.A 1.C 3.B 3.B+2.A
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S03" difficulty_range="1-3">
+  <stimulus>
+    <type>packet_capture</type>
+    <label>Exhibit C, Wireshark Capture Summary: ClearPath Financial Internal Network</label>
+    <context>ClearPath Financial's SOC analyst received an automated alert from the network monitoring system at 14:32 flagging anomalous ARP traffic on the internal network segment 10.0.1.0/24. The following is a filtered excerpt from the Wireshark capture collected at the core switch mirror port.</context>
+    <artifact format="log_file">
+      <log_type>Wireshark Packet Capture, Filtered View (ARP + HTTP credentials)</log_type>
+      <host>Capture point: Core Switch mirror port | Segment: 10.0.1.0/24</host>
+      <entries>
+NO.   TIME      SRC_IP       DST_IP       PROTOCOL  INFO
+----- --------- ------------ ------------ --------- -----------------------------------------
+1     14:29:01, —            ARP       Who has 10.0.1.1? Tell 10.0.1.44
+2     14:29:01  10.0.1.1, ARP       10.0.1.1 is at AA:BB:CC:DD:EE:01  [legitimate GW]
+3     14:32:14  10.0.1.44, ARP       10.0.1.1 is at DE:AD:BE:EF:AA:BB  [GRATUITOUS, unsolicited]
+4     14:32:15  10.0.1.44, ARP       10.0.1.1 is at DE:AD:BE:EF:AA:BB  [GRATUITOUS, repeated]
+5     14:32:16  10.0.1.44, ARP       10.0.1.1 is at DE:AD:BE:EF:AA:BB  [GRATUITOUS, repeated]
+6     14:32:20  10.0.1.10    10.0.1.1     HTTP      POST /banking/login  [Host: clearpath-internal.net]
+7     14:32:20  10.0.1.44    10.0.1.10    TCP       [FORWARDING, relay from attacker to real GW]
+---   ---       ---          ---          ---       --- CAPTURED HTTP PAYLOAD (packet 6) ---
+      Form data: username=j.reyes&amp;password=ClearPath2024!
+      </entries>
+      <note>
+MAC table at time of capture:
+  AA:BB:CC:DD:EE:01 = 10.0.1.1 (legitimate default gateway, confirmed via router console)
+  DE:AD:BE:EF:AA:BB = 10.0.1.44 (attacker host, not in device inventory)
+ARP cache on WS-10 (10.0.1.10) at 14:32:22:
+  10.0.1.1 → DE:AD:BE:EF:AA:BB  ← POISONED (should be AA:BB:CC:DD:EE:01)
+      </note>
+    </artifact>
+    <provenance>Fictional. All IPs, MACs, and credentials are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S03-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S03</stimulus_ref>
+        <topic_refs>3.2</topic_refs><lo_refs>LO 3.2.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.2.A" weight="1.0"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.35</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>50</est_response_time_sec>
+        <prerequisite_topics>3.2</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Packets 3–5 in Exhibit C show 10.0.1.44 broadcasting unsolicited ARP replies claiming "10.0.1.1 is at DE:AD:BE:EF:AA:BB." Based on the capture, which attack is being conducted?</stem>
+      <choices>
+        <choice key="A">ARP poisoning (ARP spoofing), the attacker is broadcasting false ARP replies to corrupt the ARP caches of devices on the local segment, causing traffic intended for the gateway to be sent to the attacker instead.</choice>
+        <choice key="B">DNS spoofing, the attacker is redirecting domain name lookups to malicious IP addresses.</choice>
+        <choice key="C">IP spoofing, the attacker is forging the source IP address in packets sent to the gateway.</choice>
+        <choice key="D">MAC flooding, the attacker is sending large volumes of frames to overflow the switch MAC table and force it into hub mode.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Gratuitous ARP replies are unsolicited ARP packets sent to update (or poison) the ARP caches of other devices without a prior ARP request. Packets 3–5 show 10.0.1.44 repeatedly claiming the gateway's IP (10.0.1.1) maps to its own MAC (DE:AD:BE:EF:AA:BB). The note confirms WS-10's ARP cache now maps 10.0.1.1 to the attacker's MAC, meaning all traffic WS-10 sends to the gateway will be received by the attacker first, who then forwards it (packet 7), establishing a man-in-the-middle position.</explanation>
+      <distractor_rationale>
+        <choice key="B">DNS spoofing corrupts DNS resolution responses, mapping domain names to attacker-controlled IPs. No DNS packets appear in this capture, the attack operates at Layer 2 using ARP, not at Layer 7 using DNS.</choice>
+        <choice key="C">IP spoofing forges the source IP field in IP packets. ARP poisoning operates below the IP layer (Layer 2/Ethernet) and involves MAC address mapping, not IP address forgery in IP headers.</choice>
+        <choice key="D">MAC flooding sends thousands of random MAC addresses to overflow a switch's CAM table, forcing all traffic to be broadcast to all ports (converting the switch to hub behavior). The capture shows targeted, repeated gratuitous ARPs for a specific IP, a precision MITM technique, not a flooding attack.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S03-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S03</stimulus_ref>
+        <topic_refs>3.2</topic_refs><lo_refs>LO 3.2.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.2.A" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 3.2.B" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.50</b_param><a_param>1.15</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>3.2</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The capture shows a plaintext HTTP POST to /banking/login (packet 6) with credentials visible in the payload. Packet 7 shows the attacker forwarding the traffic to the real gateway. Explain why the victim (WS-10 at 10.0.1.10) would not immediately notice that their credentials were intercepted.</stem>
+      <choices>
+        <choice key="A">WS-10 cannot see ARP traffic because ARP operates on a different network layer than the operating system's network stack.</choice>
+        <choice key="B">The attacker's MAC address is visible in ARP replies, which WS-10's operating system automatically checks and flags as suspicious.</choice>
+        <choice key="C">WS-10's HTTP client encrypts form data before transmission, so the attacker can see the packet but cannot read the credentials.</choice>
+        <choice key="D">Because the attacker forwards the intercepted traffic to the real gateway (relay), the login proceeds normally from WS-10's perspective, the session appears to work, giving no indication that a third party captured the credentials in transit.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>The defining characteristic of a relay MITM attack is transparency to both endpoints. By forwarding traffic to the real gateway after inspecting it, the attacker ensures that WS-10's login succeeds, the session behaves normally, and no error messages or connection failures alert the user. From WS-10's perspective, the login worked exactly as expected, unaware that the credentials traversed a third host. This is what distinguishes a relay MITM from a simple intercept-and-block attack, which would produce obvious connection errors.</explanation>
+      <distractor_rationale>
+        <choice key="A">Operating systems do process ARP traffic, the ARP cache is maintained by the OS network stack. The victim's OS received and processed the poisoned ARP replies (as shown in the ARP cache note). The victim does not notice because there is no automatic validation of ARP replies.</choice>
+        <choice key="B">ARP does not expose attacker MAC addresses in a way that operating systems flag automatically. Standard ARP implementations accept replies without verifying the sender's authorization. No OS-level alert is generated by receiving gratuitous ARP replies from an unknown MAC.</choice>
+        <choice key="C">The capture explicitly shows the HTTP payload in plaintext: "username=j.reyes&amp;password=ClearPath2024!" HTTP (not HTTPS) provides no transport encryption. The "HTTP" protocol label in the capture confirms this is unencrypted.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S03-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S03</stimulus_ref>
+        <topic_refs>3.2 3.5</topic_refs><lo_refs>LO 3.2.B LO 3.5.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.5.A" weight="0.68"/>
+        <secondary skill="1.C" lo="LO 3.2.A" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.82</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>3.2 3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The automated alert fired at 14:32, the same time as packets 3–5. Analyzing the full capture timeline (packets 1–7), at which point did the attacker's MITM position become complete and active data capture begin?</stem>
+      <choices>
+        <choice key="A">After packet 5, when the repeated gratuitous ARPs had poisoned WS-10's ARP cache (confirmed by the cache note showing 10.0.1.1 mapped to DE:AD:BE:EF:AA:BB), from that point, any traffic from WS-10 to 10.0.1.1 would route through the attacker first.</choice>
+        <choice key="B">Packet 6, when WS-10 sent the HTTP POST, because only at that moment did the attacker have data worth capturing.</choice>
+        <choice key="C">Packet 1, when 10.0.1.44 sent the initial ARP request for the gateway IP.</choice>
+        <choice key="D">Packet 7, when the attacker forwarded the captured traffic, because forwarding proves the attacker had read the packet.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>The MITM position becomes active the moment the victim's ARP cache is poisoned, not when a specific valuable packet appears. The ARP cache note confirms that by 14:32:22, WS-10's cache maps the gateway IP to the attacker's MAC. From that point forward, every IP packet WS-10 sends to 10.0.1.1 (the gateway), including DNS queries, authentication tokens, and all web traffic, passes through the attacker before reaching the real gateway. The HTTP login in packet 6 is simply the first high-value data captured in an already-established MITM channel.</explanation>
+      <distractor_rationale>
+        <choice key="B">The value of captured data does not determine when the MITM position is established. The attacker intercepts all traffic (not just login credentials) from the moment of cache poisoning, packet 6 is simply a notable capture within an already-active MITM session.</choice>
+        <choice key="C">Packet 1 is a legitimate ARP request from 10.0.1.44 asking for the gateway MAC, a normal network operation. The attack begins with packets 3–5 (gratuitous ARP replies), not with the initial request.</choice>
+        <choice key="D">Forwarding (packet 7) is the relay action that makes the attack transparent. The attacker captured the data at packet 6, before forwarding it. Forwarding occurs after capture, not as the moment of capture.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S03-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S03</stimulus_ref>
+        <topic_refs>3.2 3.5</topic_refs><lo_refs>LO 3.2.B LO 3.5.A LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.5.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 3.2.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.40</b_param><a_param>1.55</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>160</est_response_time_sec>
+        <prerequisite_topics>3.2 3.5</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The attack succeeded because of three converging conditions: (1) no Dynamic ARP Inspection (DAI) on the switch; (2) the login page used HTTP rather than HTTPS; (3) the automated alert fired but required human review before action. Which layered remediation strategy addresses all three root causes?</stem>
+      <choices>
+        <choice key="A">Enable HTTPS on the banking login page, which will encrypt credentials so even if ARP poisoning occurs, the captured data is unreadable.</choice>
+        <choice key="B">Enable Dynamic ARP Inspection (DAI) on the managed switch, binding IP-to-MAC mappings from the DHCP snooping table and rejecting gratuitous ARPs that contradict it; enforce HTTPS with HSTS on all internal applications so credentials are encrypted in transit even over a poisoned path; and configure the IDS to automatically isolate the offending port when gratuitous ARP floods are detected, reducing response time from minutes to seconds.</choice>
+        <choice key="C">Deploy a network-based IDS to capture all ARP traffic and generate alerts, and train the SOC team to respond to ARP alerts within 5 minutes.</choice>
+        <choice key="D">Segment the network into smaller VLANs so ARP poisoning is contained to individual segments, and require all remote access through a VPN.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>B closes all three root causes with direct, proportionate controls: (1) DAI validates ARP replies against the DHCP snooping binding table, dropping gratuitous ARPs that contradict known IP-to-MAC mappings, preventing cache poisoning before the MITM position is established; (2) HTTPS with HSTS ensures that even if an attacker intercepts traffic (from a future ARP attack or other MITM vector), credentials are encrypted in transit and cannot be read in plaintext from the packet payload; (3) automated IDS port isolation acts in seconds versus the minutes required for a human-reviewed alert, closing the window during which the attacker operates after the alert fires. Each control independently addresses one failure; together they create defense in depth.</explanation>
+      <distractor_rationale>
+        <choice key="A">HTTPS alone reduces credential exposure but does not prevent the ARP poisoning attack from establishing a MITM position. An attacker who can intercept HTTPS traffic may still perform SSL stripping (downgrading to HTTP) if HSTS is not enforced, or may inspect encrypted metadata (domains, timing). The root cause of the ARP poisoning (no DAI) and the slow alert response remain unaddressed.</choice>
+        <choice key="C">An IDS that generates alerts without automated response still leaves the same human-review gap that failed in this incident. Better trained humans still require time to review and act, the attack captured credentials within seconds of poisoning the cache. Detection without automated response is insufficient for sub-minute attacks.</choice>
+        <choice key="D">VLAN segmentation limits the blast radius of ARP poisoning (attacks cannot cross VLAN boundaries) and is a good architectural control, but it does not prevent ARP poisoning within a segment. If WS-10 and the attacker share a VLAN, the attack proceeds identically. VPN for remote access does not address local-network ARP attacks.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- ═══ S04, Network Topology (VLAN Segmentation Failure) ════════════════
+     Topics: 3.3, 3.4  |  Skills: 1.A 1.C 3.A 3.A+1.D
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S04" difficulty_range="1-3">
+  <stimulus>
+    <type>network_topology_diagram</type>
+    <label>Exhibit D, Network Architecture Diagram: Xtensr Labs HQ</label>
+    <context>Xtensr Labs hired a network security consultant to review their HQ network after a guest was found attempting to access internal file shares from the lobby WiFi. The consultant produced the following diagram from network documentation and a live scan.</context>
+    <artifact format="ascii_diagram">
+      <diagram><![CDATA[
+  INTERNET
+      |
+  [EDGE ROUTER, 203.0.113.1]
+      |
+  [PERIMETER FIREWALL, 10.0.0.1]
+  Rules: permit any→any:80,443; permit internal→any:any; deny all
+      |
+  [CORE SWITCH, managed, VLAN 1 only (untagged)]
+      |        |           |           |          |
+  [AP-CORP  [AP-GUEST  [WS-DEV-01  [DB-SERVER  [HR-SERVER
+   VLAN 1    VLAN 1     10.0.1.30   10.0.2.10   10.0.3.20]
+   corp      guest      VLAN 1]     VLAN 1]     VLAN 1]
+   clients]  clients]
+
+  OBSERVED TRAFFIC (live scan):
+  guest-laptop-01 (10.0.1.55) → DB-SERVER (10.0.2.10):5432  TCP SYN
+  guest-laptop-01 (10.0.1.55) → HR-SERVER (10.0.3.20):445   TCP SYN
+  guest-laptop-01 (10.0.1.55) → WS-DEV-01 (10.0.1.30):22   TCP SYN
+      ]]></diagram>
+      <legend>All devices shown on VLAN 1 despite separate documentation IP ranges. Switch has VLAN capability but VLANs are not configured. Firewall permits all internal traffic (10.0.0.0/8) outbound without restriction.</legend>
+    </artifact>
+    <provenance>Fictional. All IP addresses and device names are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S04-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S04</stimulus_ref>
+        <topic_refs>3.3 3.4</topic_refs><lo_refs>LO 3.3.B LO 3.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.4.A" weight="0.80"/>
+        <secondary skill="1.C" lo="LO 3.3.B" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.32</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>3.3 3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The observed traffic shows a guest laptop (10.0.1.55) sending TCP SYN packets to the database server, HR server, and a developer workstation. Based on the network diagram, which fundamental network security architecture failure enabled this?</stem>
+      <choices>
+        <choice key="A">The perimeter firewall is not blocking inbound traffic from the internet to guest devices.</choice>
+        <choice key="B">The absence of VLAN segmentation means all devices, corporate workstations, guest WiFi clients, database servers, and HR servers, share a single broadcast domain, allowing a guest device to directly address any other device with no access control enforced between them.</choice>
+        <choice key="C">The edge router does not perform NAT, allowing guest devices to use internal IP addresses.</choice>
+        <choice key="D">AP-GUEST is using the same wireless channel as AP-CORP, creating interference that allows cross-network communication.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>When all devices share VLAN 1 (a single broadcast domain), every device can send Ethernet frames directly to any other device without crossing a router or firewall. The perimeter firewall only inspects traffic passing between the internal network and the internet, it has no visibility into east-west traffic within VLAN 1. The database server, HR server, and developer workstations are reachable by any device on VLAN 1, including the guest laptop that joined via AP-GUEST. VLAN segmentation with inter-VLAN routing controlled by the firewall would place guest devices in a separate segment, blocking direct access to internal servers.</explanation>
+      <distractor_rationale>
+        <choice key="A">The observed traffic is internal east-west (guest laptop to internal servers). The perimeter firewall governs north-south traffic (internet to internal). The guest laptop is already inside the network, perimeter rules do not apply to its lateral movement.</choice>
+        <choice key="C">NAT translates between private and public addresses and is a perimeter function. The observed scan is internal-to-internal traffic on RFC 1918 addresses, NAT has no role in whether a guest device can reach an internal server within the same private network.</choice>
+        <choice key="D">Wireless channel interference affects signal quality and throughput but does not create a security boundary between networks. Channel overlap is a performance concern, not a mechanism for cross-network communication.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S04-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S04</stimulus_ref>
+        <topic_refs>3.3 3.4</topic_refs><lo_refs>LO 3.3.B LO 3.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.3.B" weight="0.70"/>
+        <secondary skill="3.A" lo="LO 3.4.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.48</b_param><a_param>1.12</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>82</est_response_time_sec>
+        <prerequisite_topics>3.3 3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The switch has VLAN capability but VLANs are not configured. If Xtensr Labs had configured three VLANs, VLAN 10 (corporate), VLAN 20 (servers), VLAN 30 (guest), with the firewall as the inter-VLAN router, explain why the guest laptop's TCP SYN packets to the database server would fail.</stem>
+      <choices>
+        <choice key="A">The SYN packets would fail because VLAN 30 uses a different encryption key than VLAN 20, making the packets unreadable to the database server.</choice>
+        <choice key="B">The guest laptop (VLAN 30) cannot directly address the database server (VLAN 20) at the Ethernet layer, traffic must be routed by the firewall, which would apply access control rules denying guest traffic to the server VLANs before the SYN packet reaches the database server.</choice>
+        <choice key="C">VLANs block all TCP traffic by default, so SYN packets would be silently dropped by the switch regardless of firewall rules.</choice>
+        <choice key="D">The database server would receive the SYN packet but reject it because VLAN tagging changes the source IP address of guest traffic to an unrecognized range.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>VLANs create separate Layer 2 broadcast domains. A frame from VLAN 30 cannot directly reach a device in VLAN 20 at the Ethernet layer, it must be routed. When the firewall is the inter-VLAN router (router-on-a-stick or Layer 3 switch), all traffic crossing VLANs passes through the firewall's policy engine. A rule denying guest (VLAN 30) traffic to the server VLAN (VLAN 20) would drop the TCP SYN before it ever reaches the database server's NIC. The firewall becomes the enforcement point for all east-west inter-VLAN communication.</explanation>
+      <distractor_rationale>
+        <choice key="A">VLANs are a Layer 2 logical segmentation mechanism, they do not involve encryption. VLAN tags (802.1Q) are metadata for switch port assignment, not cryptographic keys. Encryption between VLANs would be a separate control (MACsec or IPSEC).</choice>
+        <choice key="C">VLANs do not block traffic by default. Within a VLAN, all devices can communicate freely. Inter-VLAN routing is controlled by the router/firewall policies, not by the VLAN mechanism itself.</choice>
+        <choice key="D">VLAN tags are stripped at the ingress/egress points (the switch removes the 802.1Q tag before delivering frames to end hosts). The database server receives a standard Ethernet frame with the guest laptop's real source IP, VLANs do not modify IP addresses. Firewall policy, not IP address recognition, is the enforcement mechanism.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S04-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S04</stimulus_ref>
+        <topic_refs>3.3 3.4</topic_refs><lo_refs>LO 3.3.C LO 3.4.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.4.A" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 3.3.C" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>98</est_response_time_sec>
+        <prerequisite_topics>3.3 3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The live scan shows the guest laptop probing port 5432 (PostgreSQL), port 445 (SMB/Windows shares), and port 22 (SSH). Evaluating the severity of each probe in the context of Xtensr Labs' network, which probe represents the highest potential organizational impact if the connection succeeds?</stem>
+      <choices>
+        <choice key="A">Port 22 (SSH to WS-DEV-01), because SSH provides command-line access to a developer workstation, which may contain source code.</choice>
+        <choice key="B">Port 5432 (PostgreSQL to DB-SERVER), because direct database access potentially exposes the full dataset of all company records in a single connection, and database protocols allow bulk data extraction, schema enumeration, and, if credentials are weak or default, direct modification or deletion of records.</choice>
+        <choice key="C">Port 445 (SMB to HR-SERVER), because SMB file share access could expose employee PII, salary information, and HR records to an unauthorized guest.</choice>
+        <choice key="D">All three probes carry identical risk since they all represent unauthorized access to internal systems.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>A successful connection to the PostgreSQL database server represents the highest potential impact for several reasons: databases typically hold the organization's complete structured dataset (all customer records, financial data, operational data); database protocols support bulk extraction (SELECT * FROM), modification (UPDATE/DELETE), and in some configurations, command execution (PostgreSQL's COPY TO/FROM PROGRAM); and a single successful database connection can compromise data for all users and all systems simultaneously. By contrast, SSH to a developer workstation or SMB to an HR server expose the data and access of specific users or departments, not the entire organizational dataset.</explanation>
+      <distractor_rationale>
+        <choice key="A">SSH to a developer workstation provides interactive access and may expose source code and credentials, but the scope is limited to what that specific workstation contains. A compromised workstation requires further lateral movement to reach the database; a compromised database connection provides direct access to the primary data store.</choice>
+        <choice key="C">SMB file share access to HR-SERVER is serious (employee PII, salary data), but HR servers typically hold structured documents for a specific employee population. The database server may hold far larger datasets across all business functions, customer records, financial transactions, operational data, making its exposure scope larger.</choice>
+        <choice key="D">While all three represent unauthorized access, risk analysis must distinguish between different potential impacts. Treating all unauthorized access as identical risk prevents accurate prioritization of remediation efforts. Impact analysis (data volume, sensitivity, modification capability) differentiates the risks meaningfully.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S04-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S04</stimulus_ref>
+        <topic_refs>3.3 3.4</topic_refs><lo_refs>LO 3.3.C LO 3.4.A LO 3.4.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.4.C" weight="0.55"/>
+        <secondary skill="1.D" lo="LO 3.3.C" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.44</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>164</est_response_time_sec>
+        <prerequisite_topics>3.3 3.4</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The consultant must deliver a network redesign that: (1) isolates guest WiFi from all internal resources; (2) protects server-tier assets from both guests and corporate workstations; (3) allows the existing managed switch and firewall to enforce the new segmentation without new hardware; and (4) maintains internet access for guest devices. Which redesign satisfies all four constraints?</stem>
+      <choices>
+        <choice key="A">Configure three VLANs on the managed switch (VLAN 10: corporate workstations; VLAN 20: servers; VLAN 30: guest) with 802.1Q trunking to the firewall; configure inter-VLAN routing on the firewall with rules permitting corporate workstations to reach servers on required ports only, and guest (VLAN 30) to reach only the internet gateway (not any internal VLANs); enable DHCP snooping per VLAN; configure AP-GUEST to tag traffic as VLAN 30.</choice>
+        <choice key="B">Create a separate physical network for guests using a second ISP connection and a dedicated router, with no connection to the existing internal network.</choice>
+        <choice key="C">Enable WPA3 on AP-GUEST and issue unique passwords to each guest, which will prevent guests from communicating with devices that have different passwords.</choice>
+        <choice key="D">Place a second firewall between the guest WiFi and the internal network, keeping the existing flat topology but adding a firewall hop between AP-GUEST and the rest of the network.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>B satisfies all four constraints using existing hardware: (1) VLAN 30 (guest) is isolated from VLAN 10 and VLAN 20 at Layer 2, no direct Ethernet communication is possible between guests and internal devices; (2) VLAN 20 (servers) has its own segment, with the firewall enforcing which source VLANs can reach which server ports, corporate workstations can access servers on approved ports, guests cannot reach server VLANs at all; (3) the managed switch handles VLAN assignment and 802.1Q trunking to the firewall, which handles inter-VLAN routing, no new hardware is required; (4) the guest VLAN firewall rule permits outbound internet access (to 203.0.113.0/24 and beyond) while blocking any inter-VLAN paths to internal resources.</explanation>
+      <distractor_rationale>
+        <choice key="B">A physically separate network requires additional hardware (second router, second ISP circuit, separate switch) and violates constraint (3). It also provides no benefit over a properly configured VLAN design that achieves the same isolation without additional hardware cost.</choice>
+        <choice key="C">WPA3 encryption and per-user passwords authenticate access to the wireless network but do not segment Layer 2 communication once a client is associated. All authenticated clients on the same SSID and VLAN can still communicate directly with each other and with all other VLAN 1 devices, the flat-network problem is unchanged by wireless authentication improvements.</choice>
+        <choice key="D">A second firewall between AP-GUEST and the internal network partially addresses isolation but maintains the flat internal topology, corporate workstations and servers remain on the same segment with no access control between them. Additionally, adding a second firewall introduces hardware cost and the existing flat topology between corporate and server VLANs remains unsecured.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- ═══ S05, IDS Alert Log (Port Scan → Exploitation) ════════════════════
+     Topics: 3.5, 3.4  |  Skills: 1.A 3.B 3.A 3.B+2.A
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S05" difficulty_range="1-3">
+  <stimulus>
+    <type>ids_alert_log</type>
+    <label>Exhibit E, IDS Alert Log and Netflow Excerpt: ClearPath Financial</label>
+    <context>ClearPath Financial's SOC analyst is reviewing overnight IDS alerts and netflow data from the perimeter. The following log covers a 35-minute window on a Tuesday night. The analyst is the sole on-call responder and typically takes 8–12 minutes to acknowledge an alert.</context>
+    <artifact format="composite">
+      <component id="E1" type="log_file">
+        <log_type>Snort IDS Alert Log, ClearPath Financial Perimeter</log_type>
+        <entries>
+DATE         TIME      RULE_ID    PRIORITY  SRC            DST             ALERT
+------------ --------- ---------- --------- -------------- --------------- ----------------------------------------
+2024-03-12   22:47:03  SID:1917   HIGH      203.0.113.45   10.0.1.0/24     SCAN: SYN port scan (1247 ports in 18s)
+2024-03-12   22:47:21  SID:1918   HIGH      203.0.113.45   10.0.1.0/24     SCAN: OS fingerprint probe (TTL/window)
+2024-03-12   22:52:08  SID:2301   CRITICAL  203.0.113.45   10.0.1.44:3389  EXPLOIT: MS-RDP brute force attempt
+2024-03-12   22:52:44  SID:2301   CRITICAL  203.0.113.45   10.0.1.44:3389  EXPLOIT: MS-RDP brute force (150 attempts)
+2024-03-12   22:58:19  SID:2401   CRITICAL  203.0.113.45   10.0.1.44:3389  AUTH: RDP session established (SUCCESS)
+2024-03-12   23:03:11  SID:3001   HIGH      10.0.1.44      10.0.2.10:5432  LATERAL: Internal host connecting to DB
+2024-03-12   23:15:44  SID:3102   CRITICAL  10.0.1.44      203.0.113.99    EXFIL: Large outbound transfer (2.3 GB)
+        </entries>
+      </component>
+      <component id="E2" type="log_file">
+        <log_type>Netflow Summary, 22:45 to 23:20</log_type>
+        <entries>
+WINDOW    SRC            DST             BYTES_OUT   BYTES_IN   PROTO
+--------- -------------- --------------- ----------- ---------- -----
+22:45-52  203.0.113.45   10.0.1.44:3389  14.2 KB     8.1 KB     TCP
+22:52-58  203.0.113.45   10.0.1.44:3389  890 KB      120 KB     TCP   (brute force)
+22:58-03  203.0.113.45   10.0.1.44:3389  4.1 MB      12.3 MB    TCP   (active session)
+23:03-15  10.0.1.44      10.0.2.10       1.2 MB      890 MB     TCP   (DB query dump)
+23:15-20  10.0.1.44      203.0.113.99    2.3 GB      12 KB      TCP   (exfiltration)
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All IPs, alert IDs, and data volumes are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S05-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S05</stimulus_ref>
+        <topic_refs>3.5</topic_refs><lo_refs>LO 3.5.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.5.A" weight="0.80"/>
+        <secondary skill="3.B" lo="LO 3.5.B" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.28</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The first two IDS alerts (22:47:03 and 22:47:21) show SID:1917 "SYN port scan" and SID:1918 "OS fingerprint probe." In the context of the attack chain visible in the full log, what reconnaissance purpose do these two alerts serve for the attacker?</stem>
+      <choices>
+        <choice key="A">The port scan and OS fingerprint are the attacker's final actions, they indicate the attack was a passive surveillance operation with no further exploitation intent.</choice>
+        <choice key="B">The port scan is a decoy designed to distract the SOC from the real attack, which began at 22:47 on a different subnet not visible in this log.</choice>
+        <choice key="C">Port scans and OS fingerprinting are standard ISP network management tools that are triggered automatically for quality-of-service monitoring, these alerts are false positives.</choice>
+        <choice key="D">The port scan identifies which ports are open on the target subnet, while the OS fingerprint reveals the operating system version, together providing the attacker with the specific attack surface and vulnerability profile needed to select and execute a targeted exploit (in this case, the RDP brute force beginning 5 minutes later).</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Port scanning and OS fingerprinting are the reconnaissance phase of the attack kill chain. SID:1917 (1247 ports in 18 seconds) reveals which ports are open, in this case identifying port 3389 (RDP) as reachable on 10.0.1.44. SID:1918 identifies the OS type and likely version, helping the attacker select the most effective attack tool. The 5-minute gap between the scan (22:47) and the first brute force attempt (22:52) is consistent with the attacker processing scan results and configuring their attack tool before executing. The log shows a direct causal chain: scan → fingerprint → targeted RDP brute force.</explanation>
+      <distractor_rationale>
+        <choice key="A">The log explicitly shows exploitation beginning 5 minutes after the scan, the subsequent CRITICAL alerts rule out a passive surveillance-only scenario. The reconnaissance phase was a precursor to active exploitation.</choice>
+        <choice key="B">While decoy scans exist as a technique, attributing any anomaly to a decoy without evidence is not sound security analysis. The log shows a coherent attack chain from the same source IP (203.0.113.45) across all events, consistent with a single coordinated attacker, not a decoy-and-shadow operation.</choice>
+        <choice key="C">ISP network management tools do not scan end-customer internal subnets (10.0.1.0/24) from external IP addresses (203.0.113.45). The source IP is external; the destination is an internal subnet. This is an external actor scanning internal resources, not ISP infrastructure management.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S05-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S05</stimulus_ref>
+        <topic_refs>3.5 3.4</topic_refs><lo_refs>LO 3.5.B LO 3.4.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.5.B" weight="0.70"/>
+        <secondary skill="1.A" lo="LO 3.5.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.52</b_param><a_param>1.15</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>3.5 3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The first HIGH alert fired at 22:47:03. The analyst takes 8–12 minutes to acknowledge alerts. The RDP session was successfully established at 22:58:19, 11 minutes and 16 seconds after the first alert. Analyzing the timeline, what does this gap reveal about ClearPath Financial's detection-to-response posture?</stem>
+      <choices>
+        <choice key="A">The 11-minute gap is within industry standard, most security teams respond to non-critical alerts within 15 minutes, and the scan was rated HIGH, not CRITICAL.</choice>
+        <choice key="B">The 11-minute human response time is longer than the 11m16s it took the attacker to complete reconnaissance, brute-force 150 RDP attempts, and establish an authenticated session, meaning the attacker achieved their primary objective before a human could review the first alert, let alone block the source IP.</choice>
+        <choice key="C">The gap reveals the IDS alert classification system is incorrect, the port scan should have been rated CRITICAL so it would reach the analyst faster.</choice>
+        <choice key="D">The 11-minute gap is irrelevant because the attacker would have succeeded regardless of response time, since RDP brute force cannot be prevented by alert acknowledgment.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The attacker completed the entire reconnaissance-to-access phase in 11 minutes and 16 seconds. With a typical human acknowledgment time of 8–12 minutes, even an optimistic 8-minute response would only reach the analyst at approximately 22:55, after the brute force was already underway (22:52) and only 3 minutes before the successful session. An automated response (blocking 203.0.113.45 after the port scan alert at 22:47) would have interrupted the attack chain at the reconnaissance phase, before a single brute force attempt was made. This demonstrates the fundamental limitation of human-reviewed alerting for sub-15-minute attack chains.</explanation>
+      <distractor_rationale>
+        <choice key="A">An 11-minute response window is not "within industry standard" when the attack completes in that same window. Security standards (NIST IR) distinguish between detection time and response time, for HIGH/CRITICAL alerts on perimeter systems, automated blocking within seconds is achievable and appropriate for clear attack signatures like port scans from external IPs.</choice>
+        <choice key="C">Re-classifying alerts does not change response time if a human must still review and act. The root issue is automated response capability, not alert severity labeling, a CRITICAL label that still requires 8–12 minutes of human review provides no practical improvement for a sub-15-minute attack.</choice>
+        <choice key="D">RDP brute force can absolutely be mitigated by alert-driven automated response: blocking the source IP after the scan alert would prevent the brute force attempts from reaching the target at all. Automated firewall rule injection in response to IDS alerts (IPS mode) is a standard capability that directly addresses this attack pattern.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S05-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S05</stimulus_ref>
+        <topic_refs>3.5 3.4</topic_refs><lo_refs>LO 3.5.B LO 3.4.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.5.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 3.4.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>3.5 3.4</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The netflow data shows 890 MB of data flowing from the database server (10.0.2.10) to the attacker-controlled workstation (10.0.1.44) between 23:03 and 23:15, followed by 2.3 GB of outbound transfer to 203.0.113.99 between 23:15 and 23:20. Evaluating what these two data flows reveal about the attack sequence, which conclusion is most accurate?</stem>
+      <choices>
+        <choice key="A">The 890 MB inbound to the compromised workstation represents a bulk database dump (staging): the attacker queried and pulled the database contents to 10.0.1.44 first, then exfiltrated the staged data outbound to 203.0.113.99 in the 2.3 GB transfer, a two-stage exfiltration technique that uses an internal compromised host as a staging point to bypass direct database-to-internet data loss controls.</choice>
+        <choice key="B">The 890 MB flow is normal database replication traffic; only the 2.3 GB outbound transfer to the external IP represents attacker activity.</choice>
+        <choice key="C">Both flows are part of a DDoS amplification attack using the database server as a reflector, and no actual data was exfiltrated.</choice>
+        <choice key="D">The 890 MB represents the attacker uploading malware to the database server, and the 2.3 GB represents the database server's automated backup routine.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>The two-stage flow is the defining signature of a "land-and-stage" exfiltration technique. Stage 1: the attacker's RDP session on 10.0.1.44 opens a database connection to 10.0.2.10 and dumps the contents (890 MB inbound to the staging host). Stage 2: the attacker transfers the staged data from 10.0.1.44 outbound to their C2 server (203.0.113.99) in a 2.3 GB compressed archive over 5 minutes. This technique exploits the fact that DLP rules may only inspect direct database-to-external transfers, routing through a compromised internal workstation avoids database-level egress monitoring. The IDS correctly identified both phases (SID:3001 and SID:3102).</explanation>
+      <distractor_rationale>
+        <choice key="B">Database replication traffic follows predictable schedules, uses specific replication protocols, and flows to known replication partners, not to a workstation that became the attacker's RDP session 5 minutes earlier. The correlation of SID:3001 (LATERAL: internal host connecting to DB) with the timing eliminates the replication explanation.</choice>
+        <choice key="C">DDoS amplification uses UDP protocols (DNS, NTP) where the victim sends large responses to spoofed source addresses. The flows show TCP (database protocol and file transfer protocol), not UDP reflection traffic. Additionally, 890 MB inbound to a workstation followed by 2.3 GB outbound to an external IP is inconsistent with DDoS amplification behavior.</choice>
+        <choice key="D">The directional flow of 890 MB is from the database server to the workstation (not from the workstation to the database server), ruling out malware upload to the database. Automated backup routines are scheduled, documented, and flow to known backup destinations, not to 203.0.113.99, which is not listed as a backup target.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S05-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S05</stimulus_ref>
+        <topic_refs>3.4 3.5</topic_refs><lo_refs>LO 3.4.C LO 3.5.A LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.5.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 3.4.C" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.48</b_param><a_param>1.60</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>168</est_response_time_sec>
+        <prerequisite_topics>3.4 3.5</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The full attack killed chain across Exhibit E spans: reconnaissance (22:47) → brute force (22:52) → initial access (22:58) → lateral movement to DB (23:03) → staging (23:03–23:15) → exfiltration (23:15–23:20). Identify the earliest point in this chain where an automated control could have broken the chain entirely, and specify the exact control.</stem>
+      <choices>
+        <choice key="A">At 22:58 (RDP success): Implement account lockout after 10 failed authentication attempts, preventing the 150-attempt brute force from succeeding.</choice>
+        <choice key="B">At 22:47 (port scan): Configure the IDS/IPS in inline blocking mode to automatically insert a deny-all rule for 203.0.113.45 on the perimeter firewall upon detecting SID:1917 (external SYN scan of internal subnet), this would block all subsequent connection attempts from that IP before the brute force begins.</choice>
+        <choice key="C">At 23:15 (exfiltration): Configure data loss prevention (DLP) rules to block outbound transfers over 1 GB to unknown external IPs, preventing the 2.3 GB exfiltration.</choice>
+        <choice key="D">At 23:03 (lateral movement): Deploy a host-based firewall on all workstations that blocks internal connections to database port 5432, preventing the lateral DB connection.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The earliest automated intervention point is at 22:47:03, the port scan alert (SID:1917). An IPS configured in inline blocking mode can automatically inject a deny rule for 203.0.113.45 at the perimeter firewall within milliseconds of the alert firing. This terminates the attack chain before the OS fingerprint (22:47:21), before the brute force (22:52), and before any authenticated access, blocking all subsequent stages simultaneously. Every other answer addresses a later stage that could only occur because the port scan was not blocked: account lockout (A) requires the brute force to already be underway; DLP (C) requires the exfiltration to already be in progress; host firewall rules (D) require lateral movement to already be occurring.</explanation>
+      <distractor_rationale>
+        <choice key="A">Account lockout after 10 failed attempts is a strong authentication control, but it operates later in the kill chain (after the brute force begins at 22:52) and only affects the RDP service specifically. The attacker could pivot to a different open port or use a lower-and-slower credential attack to evade lockout thresholds. Blocking the source IP at 22:47 prevents all subsequent attack vectors from that IP, not just RDP.</choice>
+        <choice key="C">DLP at exfiltration time (23:15) allows the attacker to retain a live RDP session, lateral database access, and 890 MB of already-staged data, the breach has fully succeeded. Preventing exfiltration limits data loss but does not remediate the compromised workstation or the stolen database dump already on the attacker's staging host (10.0.1.44).</choice>
+        <choice key="D">A host-based firewall blocking port 5432 from workstations to the database is a valid micro-segmentation control that would prevent the lateral movement step, but only after the attacker already has a live RDP session on a compromised workstation. Blocking lateral movement does not evict the attacker from the initial foothold, and the attacker could pivot to other internal services (SMB, SSH, other databases) from the same compromised workstation.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- ═══ S06, ARP Table + Switch Config (DAI / DHCP Snooping) ══════════════
+     Topics: 3.2, 3.5  |  Skills: 3.B 1.C 3.A 3.A+1.D
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S06" difficulty_range="1-3">
+  <stimulus>
+    <type>arp_table_plus_switch_config</type>
+    <label>Exhibit F, ARP Table and Switch Configuration: Xtensr Labs</label>
+    <context>Xtensr Labs' network administrator is investigating intermittent connectivity issues and credential theft reports on the internal network. The administrator pulled the ARP table from a workstation and the running configuration of the core switch for review.</context>
+    <artifact format="composite">
+      <component id="F1" type="log_file">
+        <log_type>ARP Cache, WS-DEV-02 (10.0.1.31) at 2024-03-13 10:22 UTC</log_type>
+        <entries>
+IP ADDRESS    MAC ADDRESS         INTERFACE  AGE(min)  TYPE
+------------- ------------------- ---------- --------- --------
+10.0.1.1      DE:AD:BE:EF:AA:BB   eth0       2         dynamic  ← expected: AA:BB:CC:DD:EE:01
+10.0.1.10     00:1A:2B:CC:DD:EE   eth0       5         dynamic
+10.0.1.30     00:1A:2B:FF:EE:DD   eth0       3         dynamic
+10.0.1.99     DE:AD:BE:EF:00:01   eth0       2         dynamic
+        </entries>
+        <note>Gateway MAC confirmed via router console: 10.0.1.1 should resolve to AA:BB:CC:DD:EE:01. Current cache shows DE:AD:BE:EF:AA:BB, a different, unrecognized device. This is the same anomalous MAC observed in the earlier ARP poisoning incident.</note>
+      </component>
+      <component id="F2" type="log_file">
+        <log_type>Core Switch Running Config, Security-Relevant Sections (SW-CORE-01)</log_type>
+        <entries>
+ip dhcp snooping                          ! DHCP snooping is GLOBALLY enabled
+! (but no per-VLAN binding table active)
+!
+no ip arp inspection vlan 1               ! Dynamic ARP Inspection DISABLED on VLAN 1
+!
+interface GigabitEthernet0/1              ! Uplink to firewall
+ switchport mode trunk
+ ip dhcp snooping trust                  ! Trusted DHCP port (correct)
+!
+interface GigabitEthernet0/2             ! Access port, workstations
+ switchport mode access
+ switchport access vlan 1
+ ! no port-security configured
+ ! no ip dhcp snooping limit rate
+ ! no storm-control configured
+!
+spanning-tree portfast bpduguard default  ! PortFast with BPDU guard (correct)
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All configuration details and IP/MAC addresses are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S06-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S06</stimulus_ref>
+        <topic_refs>3.2</topic_refs><lo_refs>LO 3.2.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.2.A" weight="0.78"/>
+        <secondary skill="1.A" lo="LO 3.2.A" weight="0.22"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.22</b_param><a_param>0.95</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>58</est_response_time_sec>
+        <prerequisite_topics>3.2</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The ARP cache in F1 shows the gateway IP (10.0.1.1) mapped to MAC DE:AD:BE:EF:AA:BB, but the router console confirms the legitimate gateway MAC is AA:BB:CC:DD:EE:01. What does this discrepancy confirm about the current state of WS-DEV-02's network path?</stem>
+      <choices>
+        <choice key="A">The discrepancy indicates the gateway router recently had its NIC replaced, changing its MAC address, this is a normal hardware maintenance event.</choice>
+        <choice key="B">The discrepancy means WS-DEV-02 cannot reach the gateway and is operating in isolation from the network.</choice>
+        <choice key="C">WS-DEV-02's ARP cache has been poisoned, traffic it sends to the gateway IP will actually be delivered to DE:AD:BE:EF:AA:BB (an unrecognized device), placing WS-DEV-02 in a man-in-the-middle attack scenario where a third party intercepts its traffic before forwarding it to the real gateway.</choice>
+        <choice key="D">The ARP cache is stale and will automatically correct itself within 20 minutes through the normal ARP timeout cycle.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>An ARP cache entry mapping a legitimate IP to an attacker-controlled MAC is the direct consequence of an ARP poisoning attack. The administrator confirmed via the router console that the correct gateway MAC is AA:BB:CC:DD:EE:01, not the DE:AD:BE:EF:AA:BB currently in WS-DEV-02's cache. All traffic WS-DEV-02 sends to 10.0.1.1 (default gateway) is currently being delivered to the attacker's device first. This condition persists until the ARP cache entry times out and is refreshed, or is manually cleared, during which time all outbound traffic from WS-DEV-02 is intercepted.</explanation>
+      <distractor_rationale>
+        <choice key="A">Gateway NIC replacements are scheduled maintenance events that appear in change management records. The gateway MAC change would also affect all devices simultaneously, not just WS-DEV-02. The note explicitly states the anomalous MAC matches a previous ARP poisoning incident, ruling out routine hardware maintenance.</choice>
+        <choice key="B">ARP cache poisoning with a relay MITM does not disrupt connectivity, the attacker forwards traffic to the real gateway. WS-DEV-02 continues to reach the internet successfully (from its perspective), which is why ARP poisoning is often undetected by users.</choice>
+        <choice key="D">While ARP cache entries do time out (typically 20 minutes on most OSes), the attacker continues sending gratuitous ARP replies to refresh the poisoned entry before it expires. The timeout cycle is not a remediation, it is a race condition the attacker wins by sending ARPs faster than the cache expires.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S06-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S06</stimulus_ref>
+        <topic_refs>3.2 3.5</topic_refs><lo_refs>LO 3.2.B LO 3.5.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.2.B" weight="0.70"/>
+        <secondary skill="3.A" lo="LO 3.5.A" weight="0.30"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.52</b_param><a_param>1.15</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>3.2 3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The switch config in F2 shows "no ip arp inspection vlan 1", meaning Dynamic ARP Inspection (DAI) is disabled. Explain what DAI would do if enabled, and why the current configuration fails to prevent the observed ARP poisoning.</stem>
+      <choices>
+        <choice key="A">DAI validates ARP packets against a trusted IP-to-MAC binding table (built from DHCP snooping leases or static entries). When enabled, ARP replies claiming the gateway IP maps to an unexpected MAC would be dropped by the switch before reaching any device, preventing cache poisoning at the switch level. Without DAI, the switch forwards all ARP packets without validation, allowing the attacker to freely poison caches.</choice>
+        <choice key="B">DAI would encrypt all ARP traffic on VLAN 1, making it unreadable to the attacker even if gratuitous ARPs are sent.</choice>
+        <choice key="C">DAI would block all ARP traffic from untrusted ports, preventing devices on access ports from resolving any IP addresses and causing network outages.</choice>
+        <choice key="D">DAI monitors ARP traffic and logs anomalies to the SIEM, providing visibility into ARP poisoning attempts but not blocking them.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Dynamic ARP Inspection uses the DHCP snooping binding table (IP-to-MAC-to-port mappings built from DHCP exchanges) as a reference. When DAI is enabled on a VLAN, the switch intercepts all ARP packets on access (untrusted) ports and validates them: the claimed IP-MAC pair must match the binding table. A gratuitous ARP claiming 10.0.1.1 maps to DE:AD:BE:EF:AA:BB would be rejected because the binding table records that 10.0.1.1 is mapped to AA:BB:CC:DD:EE:01 (the legitimate gateway). The switch drops the malicious ARP reply silently, and the attacker's poisoning attempts fail. The current configuration explicitly disables this validation with "no ip arp inspection vlan 1."</explanation>
+      <distractor_rationale>
+        <choice key="B">DAI does not encrypt ARP traffic, ARP is a Layer 2 protocol with no encryption capability. DAI validates the IP-to-MAC binding in ARP packets against a trusted table and drops non-matching packets. Encryption and validation are different security mechanisms.</choice>
+        <choice key="C">DAI does not block all ARP traffic from access ports, it allows ARP packets that match the binding table. Legitimate devices that received their IP via DHCP have entries in the snooping table and can resolve ARP normally. Only forged ARP packets (with incorrect IP-to-MAC mappings) are dropped.</choice>
+        <choice key="D">DAI operates in blocking mode by default, it drops invalid ARP packets rather than just logging them. A logging-only mode (ARP inspection logging) is available separately but is not the default or primary function of DAI. The key value of DAI is active prevention, not passive monitoring.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S06-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S06</stimulus_ref>
+        <topic_refs>3.2 3.5</topic_refs><lo_refs>LO 3.2.B LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.5.B" weight="0.65"/>
+        <secondary skill="3.B" lo="LO 3.2.B" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>100</est_response_time_sec>
+        <prerequisite_topics>3.2 3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The switch config also shows no storm-control, no port-security, and no DHCP snooping rate limiting on access ports. Evaluating this configuration against the ARP poisoning attack visible in F1, which additional attack vector does the absence of storm-control on access ports enable that DAI alone would not prevent?</stem>
+      <choices>
+        <choice key="A">Without storm-control, the switch's spanning tree protocol becomes unstable, causing network topology changes that the attacker can exploit for persistent access.</choice>
+        <choice key="B">Without storm-control, an attacker can use the access port to launch a VLAN hopping attack, allowing traffic to cross between VLANs without authorization.</choice>
+        <choice key="C">Without storm-control, ARP poisoning succeeds faster because the switch forwards ARP packets at line rate to all ports simultaneously.</choice>
+        <choice key="D">Without storm-control, an attacker can launch a MAC flooding attack, sending thousands of frames with random MAC addresses to overflow the switch's CAM table, forcing it to flood all traffic to all ports (effectively converting it into a hub and enabling passive interception of all traffic without ARP poisoning).</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Storm-control limits the rate of broadcast, multicast, and unknown unicast traffic on a port. Without storm-control, an attacker can flood the switch's CAM table with fabricated MAC addresses, a CAM table overflow attack. When the table overflows, the switch can no longer make forwarding decisions based on MAC addresses and falls back to broadcasting all frames to all ports (fail-open behavior), similar to a hub. In this state, the attacker can passively capture all traffic on the segment without the active ARP manipulation required for ARP poisoning, a complementary attack that DAI does not address because no ARP packets are involved.</explanation>
+      <distractor_rationale>
+        <choice key="A">Spanning tree stability is addressed by BPDU guard (which the config correctly enables). Storm-control and spanning tree stability are separate concerns, storm-control does not affect spanning tree topology calculations.</choice>
+        <choice key="B">VLAN hopping exploits switch port configuration vulnerabilities (double-tagging or DTP negotiation), not the absence of storm-control. VLAN hopping prevention requires disabling DTP and restricting trunk port negotiation, which are separate configuration controls.</choice>
+        <choice key="C">Storm-control limits traffic rate on ports, its absence does not specifically accelerate ARP poisoning success. ARP poisoning success depends on the timing of gratuitous ARPs relative to the cache refresh cycle, not on storm-control configuration.</choice>
+        <choice key="D">This is the correct answer, MAC flooding/CAM overflow is the attack enabled by absent storm-control that operates independently of ARP and is not mitigated by DAI.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S06-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S06</stimulus_ref>
+        <topic_refs>3.2 3.5</topic_refs><lo_refs>LO 3.2.B LO 3.5.A LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.5.A" weight="0.53"/>
+        <secondary skill="1.D" lo="LO 3.2.B" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.44</b_param><a_param>1.58</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>162</est_response_time_sec>
+        <prerequisite_topics>3.2 3.5</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The administrator must document a complete switch hardening configuration addressing: (1) ARP poisoning prevention; (2) rogue DHCP server prevention; (3) CAM table overflow protection; and (4) unauthorized device connection. Which configuration set addresses all four?</stem>
+      <choices>
+        <choice key="A">Enable port-security with a maximum of 2 MAC addresses per port. This prevents both ARP poisoning and CAM flooding by limiting which devices can connect.</choice>
+        <choice key="B">Enable WPA3 on all access points connected to the switch, which will encrypt all traffic and prevent the attacker from injecting ARP packets.</choice>
+        <choice key="C">Enable "ip arp inspection vlan 1" with rate-limiting (DAI) to validate ARP packets against the DHCP snooping binding table; ensure DHCP snooping is active per-VLAN with untrusted ports rate-limited to prevent rogue DHCP server flooding; configure "storm-control broadcast level 20" on all access ports to limit broadcast traffic and prevent CAM flooding; and configure 802.1X port-based authentication on access ports so only devices with valid credentials can join the network.</choice>
+        <choice key="D">Configure static ARP entries for all known devices on every workstation, eliminating dynamic ARP resolution and making ARP poisoning impossible.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>B maps each control to one of the four gaps: (1) DAI ("ip arp inspection vlan 1") validates ARP packets against the DHCP snooping binding table, dropping poisoned replies; (2) DHCP snooping per-VLAN with rate limiting on untrusted ports blocks rogue DHCP servers from responding to client requests; (3) storm-control at 20% broadcast threshold limits broadcast traffic volume, preventing CAM table overflow while allowing normal ARP and DHCP broadcasts; (4) 802.1X requires device authentication before the switch grants network access, preventing unauthorized devices from joining the network at all, if an attacker cannot connect a device to an access port, none of the other attacks are possible. Together these controls create layered switch-level security.</explanation>
+      <distractor_rationale>
+        <choice key="A">Port-security limits MAC addresses per port and can reduce CAM flooding impact, but it does not prevent ARP poisoning (an authorized device can still send malicious ARP packets), does not prevent rogue DHCP servers from the authorized port, and does not enforce device authentication, it only limits address count, not validates ARP content or device identity.</choice>
+        <choice key="B">WPA3 applies to wireless access points, not to switch port security. The switch configuration governs wired port behavior. Wireless encryption does not prevent a device that has already joined the wired network from sending malicious ARP packets on VLAN 1.</choice>
+        <choice key="D">Static ARP entries on workstations prevent ARP poisoning on those specific hosts but require manual configuration and maintenance across every device on the network, operationally impractical for large environments. They also do not address rogue DHCP servers, CAM flooding, or unauthorized device connections. Switch-level controls (DAI, DHCP snooping) enforce ARP validation centrally without per-device configuration.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+<!-- ═══ S07, ISP Abuse Notification + Netflow (Botnet / C2) ══════════════
+     Topics: 3.3, 3.5  |  Skills: 1.A 1.C 3.A 1.C+3.A
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S07" difficulty_range="1-3">
+  <stimulus>
+    <type>isp_abuse_email_plus_netflow</type>
+    <label>Exhibit G, ISP Abuse Notification and Internal Netflow: Xtensr Labs</label>
+    <context>Xtensr Labs' IT Director received the following email from their ISP on a Monday morning. The IT team pulled internal netflow logs to investigate. No outbound traffic policy changes had been made in the preceding 30 days.</context>
+    <artifact format="composite">
+      <component id="G1" type="email">
+        <from>abuse@clearnet-isp.net</from>
+        <to>it-director@xtensr-tech.com</to>
+        <date>Mon, 18 Mar 20XX 06:42:11 -0500</date>
+        <subject>ABUSE NOTICE: Your IP block is sourcing attack traffic, action required within 24h</subject>
+        <body>
+Dear Xtensr Labs Network Administrator,
+
+We have received complaints and observed automated detection indicating that one or
+more hosts within your assigned IP block (203.0.114.0/28) are actively participating
+in a distributed denial-of-service (DDoS) attack against a third-party target.
+
+Specifically, high-volume UDP traffic (approx. 2.1 Gbps sustained) is originating
+from your block toward 198.51.100.77, a media hosting service.
+
+This traffic has been observed continuously since approximately 03:14 UTC on
+Sunday, 17 Mar 20XX. Our upstream carrier will null-route your entire /28 block
+in 24 hours if traffic is not mitigated.
+
+Please investigate and respond to this ticket (REF: ABUSE-2024-0318-1147) within
+24 hours.
+
+— ClearNet ISP Abuse Team
+        </body>
+      </component>
+      <component id="G2" type="log_file">
+        <log_type>Internal Netflow Export, Xtensr Labs Edge Router (egress, 24h)</log_type>
+        <entries>
+PERIOD       SRC_HOST         DST_IP           PROTO  PORT  GBPS   FLAGS
+------------ ---------------- ---------------- ------ ----- ------ --------
+Sun 02:00-03 (normal)          various          MIXED  var   0.04, Sun 03:14-06 10.0.4.22        198.51.100.77    UDP    80    2.1    FLOOD
+Sun 06:00-12 10.0.4.22        198.51.100.77    UDP    80    2.1    FLOOD
+Sun 12:00-18 10.0.4.22        198.51.100.77    UDP    80    2.1    FLOOD
+Sun 18:00-24 10.0.4.22        198.51.100.77    UDP    80    2.1    FLOOD
+Mon 00:00-06 10.0.4.22        198.51.100.77    UDP    80    2.1    FLOOD
+        </entries>
+        <note>
+10.0.4.22 = internal device: hostname XLAB-WORKSTATION-07 (Windows 10, unmanaged BYOD)
+Device was not in patch management system. Last seen in endpoint inventory: 6 months ago.
+Antivirus: unknown (not enrolled in EPP platform).
+        </note>
+      </component>
+    </artifact>
+    <provenance>Fictional. IPs use RFC 5737 (203.0.113.0/24) and RFC 5737 documentation ranges. All events are invented.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S07-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S07</stimulus_ref>
+        <topic_refs>3.5</topic_refs><lo_refs>LO 3.5.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.5.A" weight="1.0"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.30</b_param><a_param>0.90</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>52</est_response_time_sec>
+        <prerequisite_topics>3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The ISP abuse notification states that Xtensr Labs' IP block is sourcing 2.1 Gbps of UDP flood traffic toward a third-party target. The netflow confirms this traffic originates from 10.0.4.22 (an unmanaged Windows 10 workstation). What does this scenario most likely indicate about XLAB-WORKSTATION-07?</stem>
+      <choices>
+        <choice key="A">XLAB-WORKSTATION-07 is being used by an Xtensr Labs employee to deliberately attack the media hosting service as an insider threat.</choice>
+        <choice key="B">XLAB-WORKSTATION-07 is experiencing a network misconfiguration that causes it to forward all incoming UDP traffic to an external IP address.</choice>
+        <choice key="C">XLAB-WORKSTATION-07 has been compromised by malware that enrolled it as a bot in a botnet, with a remote command-and-control (C2) operator directing it to participate in a DDoS attack against the third-party target.</choice>
+        <choice key="D">The ISP abuse notice is a phishing email, and no actual attack traffic is originating from Xtensr Labs' network.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>The combination of indicators, a device not enrolled in patch management or the endpoint protection platform, unmanaged BYOD status, 24-hour sustained attack traffic beginning at 03:14 (while the workstation was likely unattended), and 2.1 Gbps of outbound UDP flood, is consistent with a botnet infection. Botnet malware (a "bot" or "zombie") receives instructions from a C2 server to generate attack traffic toward a target IP at a specified rate. The device owner is typically unaware. The sustained, constant traffic rate (2.1 Gbps across all time windows) indicates automated, not human-driven, traffic generation.</explanation>
+      <distractor_rationale>
+        <choice key="A">A deliberate insider attack would require the employee to maintain 2.1 Gbps of UDP flood continuously over 27+ hours including overnight and weekend hours, operationally implausible for a human attacker. Botnet traffic is generated autonomously by malware without ongoing human involvement.</choice>
+        <choice key="B">A forwarding misconfiguration would be visible in the routing table and would forward all protocols, not specifically UDP floods to a single destination. A misconfiguration also would not produce the constant 2.1 Gbps rate across all time windows.</choice>
+        <choice key="D">The ISP abuse email can be verified by the netflow data (G2), which is internal to Xtensr Labs and independently confirms 2.1 Gbps of UDP traffic from 10.0.4.22 to 198.51.100.77. The internal netflow cannot be spoofed by an external phishing email, confirming the traffic is real.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S07-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S07</stimulus_ref>
+        <topic_refs>3.5</topic_refs><lo_refs>LO 3.5.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.5.A" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 3.5.B" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.50</b_param><a_param>1.12</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>85</est_response_time_sec>
+        <prerequisite_topics>3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The note in G2 states XLAB-WORKSTATION-07 was "not in patch management" and had "unknown" antivirus status. Explain how the absence of these two controls specifically enabled the botnet compromise visible in the netflow data.</stem>
+      <choices>
+        <choice key="A">Patch management and antivirus are optional for BYOD devices because employees are personally responsible for the security of their own hardware.</choice>
+        <choice key="B">The absence of these controls is irrelevant because botnet malware exploits zero-day vulnerabilities that patching and antivirus cannot address.</choice>
+        <choice key="C">Patch management prevents phishing attacks, and antivirus prevents network traffic, together they would have blocked the DDoS traffic at the network layer before it reached the ISP.</choice>
+        <choice key="D">Without patch management, known software vulnerabilities remain unpatched on the device, providing an attack entry point for botnet malware to exploit. Without antivirus/EPP enrollment, no behavioral or signature detection runs on the device to flag, quarantine, or alert on malware installation and command-and-control communication, allowing the bot to operate continuously for 27+ hours without generating any local detection event.</choice>
+      </choices>
+      <answer key="D"/>
+      <explanation>Patch management closes known vulnerability windows, most botnet infections exploit documented CVEs in browsers, OS components, or productivity software that have available patches. An unpatched device running software with known exploits is significantly easier to compromise than a fully patched one. Endpoint protection (antivirus/EDR) provides both signature detection (matching known malware hashes) and behavioral detection (flagging unusual network traffic patterns, such as 2.1 Gbps of UDP to a single external IP). Without either control, the malware had an easier path to installation and operated undetected for over a day.</explanation>
+      <distractor_rationale>
+        <choice key="A">BYOD devices that connect to the corporate network present the same security risks as corporate-managed devices. Corporate network security policies typically require all connected devices, including BYOD, to meet minimum security standards. Externalizing security responsibility to employees does not reduce organizational risk from a compromised endpoint.</choice>
+        <choice key="B">Most botnet infections use commodity exploit kits targeting known, patched vulnerabilities, not zero-days, which are expensive and reserved for targeted attacks. Dismissing patching and AV as ineffective against botnets is factually inaccurate. The BYOD device being six months out of inventory also suggests it may have missed many patch cycles, not just zero-day protections.</choice>
+        <choice key="C">Patch management addresses software vulnerabilities, not phishing specifically. Antivirus operates on the endpoint, not at the network layer, it cannot block network traffic at the ISP boundary. The conflation of endpoint controls with network-layer controls reflects a misunderstanding of each control's scope.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S07-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S07</stimulus_ref>
+        <topic_refs>3.3 3.5</topic_refs><lo_refs>LO 3.5.B LO 3.3.C</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.A" lo="LO 3.5.B" weight="0.65"/>
+        <secondary skill="1.C" lo="LO 3.3.C" weight="0.35"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.82</b_param><a_param>1.28</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>98</est_response_time_sec>
+        <prerequisite_topics>3.3 3.5</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The ISP will null-route Xtensr Labs' entire /28 IP block within 24 hours. The IT team needs to stop the attack traffic immediately and then investigate the compromised device. Evaluating the response options, which action should be taken first?</stem>
+      <choices>
+        <choice key="A">Immediately isolate XLAB-WORKSTATION-07 from the network (disconnect the network port on the switch or remove its IP from DHCP) to stop the outbound DDoS traffic, then preserve the device image for forensic analysis before beginning investigation, stopping the active harm before analyzing its cause.</choice>
+        <choice key="B">Email the ISP to request a 72-hour extension while the investigation is conducted, since 24 hours is insufficient time to properly analyze a compromised device.</choice>
+        <choice key="C">Run a full antivirus scan on XLAB-WORKSTATION-07 to identify and remove the malware before taking any other action, so the investigation and remediation can be completed simultaneously.</choice>
+        <choice key="D">Reimage XLAB-WORKSTATION-07 immediately to eliminate the malware, then report to the ISP that the issue has been resolved.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>Incident response prioritization follows a "stop the bleeding" principle: isolate the compromised device first to immediately stop the attack traffic (addressing the 24-hour ISP deadline), then preserve evidence before any remediation actions destroy forensic artifacts. Network isolation (switch port shutdown or DHCP removal) stops the DDoS traffic within seconds without touching the device's file system or memory, preserving the malware's state for investigation. Running antivirus (C) or reimaging (D) before isolation allows the attack to continue during the analysis period and may also destroy forensic evidence of how the compromise occurred and who the C2 server is.</explanation>
+      <distractor_rationale>
+        <choice key="B">Requesting an extension does not stop the attack traffic, which continues to harm the third-party target and jeopardizes Xtensr Labs' internet connectivity. The ISP's 24-hour window is for mitigation, not investigation completion. Isolation is achievable within minutes.</choice>
+        <choice key="C">Running antivirus while the device is still network-connected allows the DDoS traffic to continue during the scan (which may take 30–60 minutes). Antivirus scans also modify timestamps and may quarantine/delete malware artifacts needed for forensic analysis of the attack's origin, persistence mechanism, and C2 infrastructure.</choice>
+        <choice key="D">Reimaging immediately eliminates all forensic evidence, the malware sample, C2 server addresses, persistence mechanisms, infection vector, and lateral movement artifacts. Reimaging before forensic imaging destroys evidence needed to understand the scope of compromise, identify other affected devices, and potentially support law enforcement or insurance claims.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S07-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S07</stimulus_ref>
+        <topic_refs>3.3 3.5</topic_refs><lo_refs>LO 3.3.C LO 3.5.A LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.5.A" weight="0.53"/>
+        <secondary skill="3.A" lo="LO 3.3.C" weight="0.47"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.40</b_param><a_param>1.55</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>158</est_response_time_sec>
+        <prerequisite_topics>3.3 3.5</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The device note states XLAB-WORKSTATION-07 is "unmanaged BYOD" last seen in inventory six months ago. Xtensr Labs currently has no BYOD policy, no endpoint management enrollment requirement, and no network access control. Evaluating the systemic vulnerabilities this incident reveals, which policy and technical control combination most completely prevents a similar BYOD botnet infection from occurring in the future?</stem>
+      <choices>
+        <choice key="A">Prohibit all BYOD devices from the corporate network, require all employees to use only company-issued equipment, and install antivirus on all company devices.</choice>
+        <choice key="B">Increase the frequency of the device inventory scan from every six months to monthly, and send automatic email reminders to employees whose devices fall out of compliance.</choice>
+        <choice key="C">Implement 802.1X Network Access Control requiring all connecting devices to present a valid certificate or pass a posture check (confirming patch level and active EPP enrollment) before receiving network access; establish a formal BYOD policy requiring device registration and minimum security standards; segment BYOD devices into a dedicated VLAN with internet-only access (no access to internal servers); and deploy egress filtering blocking outbound UDP floods above a defined rate threshold.</choice>
+        <choice key="D">Deploy a network-based antivirus gateway that scans all outbound traffic for malware signatures before it reaches the ISP, which will detect and block C2 communication and DDoS traffic automatically.</choice>
+      </choices>
+      <answer key="C"/>
+      <explanation>B addresses the systemic gaps at four levels: (1) 802.1X NAC with posture assessment prevents unpatched, unprotected devices from connecting to the corporate network entirely, the BYOD device would have failed the patch level and EPP checks and been denied network access before the infection could propagate; (2) a formal BYOD policy creates the organizational framework and employee accountability structure for device security requirements; (3) BYOD VLAN segmentation with internet-only access limits the blast radius, even a compromised BYOD device cannot reach internal servers, limiting DDoS participation to external targets (which egress filtering also limits); (4) egress rate filtering caps outbound UDP from any single host, limiting a compromised device's DDoS contribution even if it passes NAC.</explanation>
+      <distractor_rationale>
+        <choice key="A">A blanket BYOD prohibition is operationally restrictive and enforcement-challenging in practice. It also does not address company-issued devices that may become infected through the same vulnerability vectors. The incident's root cause is lack of patching and AV enforcement, not BYOD as a category. A managed BYOD program with proper controls is more practical than a prohibition.</choice>
+        <choice key="B">Monthly inventory scans improve visibility but do not enforce security standards. A device that appears in inventory monthly can still be unpatched and unprotected. Passive monitoring without enforcement does not prevent a repeat infection, it only reduces the time before the next unmanaged device is discovered (from 6 months to 1 month), not the likelihood of infection.</choice>
+        <choice key="D">A network-based antivirus gateway that scans traffic at line rate (sufficient to inspect 2.1 Gbps of UDP) is extremely expensive and operationally complex. More importantly, botnet C2 communication is increasingly TLS-encrypted and behaviorally varied, signature-based scanning misses novel malware. Egress rate filtering is more practical and effective for DDoS prevention; endpoint protection handles malware detection.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+<!-- ═══ S08, SSL Stripping / Certificate Inspection (HTTPS MITM) ══════════
+     Topics: 3.1, 3.2  |  Skills: 1.A 1.C 3.B 3.B+2.A
+     ═══════════════════════════════════════════════════════════════════════ -->
+<stimulus_set id="U3-S08" difficulty_range="1-3">
+  <stimulus>
+    <type>cert_inspection_plus_browser</type>
+    <label>Exhibit H, Browser Security Panel and Network Observation: ClearPath Financial</label>
+    <context>A ClearPath Financial employee reports that when they visit the internal banking portal (normally https://banking.clearpath-internal.net), the browser shows the site as "Not Secure" today despite working normally yesterday. The network team captured the session and compared the browser's reported connection details with yesterday's baseline.</context>
+    <artifact format="composite">
+      <component id="H1" type="cert_inspection">
+        <tool>Browser Developer Tools, Security Tab</tool>
+        <url>http://banking.clearpath-internal.net/login</url>
+        <protocol>HTTP (not HTTPS, connection is NOT encrypted)</protocol>
+        <certificate>NONE, no TLS certificate negotiated</certificate>
+        <domain_owner>N/A</domain_owner>
+        <warnings>
+⚠ Connection is NOT SECURE, credentials sent in plaintext
+⚠ URL shows HTTP despite typing https:// in the address bar
+⚠ No padlock icon, browser downgraded to HTTP
+        </warnings>
+      </component>
+      <component id="H2" type="log_file">
+        <log_type>Network Capture, Employee Workstation (WS-ACCT-03) vs Baseline</log_type>
+        <entries>
+BASELINE (yesterday, normal):
+  WS-ACCT-03 → banking.clearpath-internal.net:443  TLS ClientHello
+  banking.clearpath-internal.net → WS-ACCT-03      TLS ServerHello + Certificate (valid)
+  WS-ACCT-03 ↔ banking.clearpath-internal.net      TLS 1.3 encrypted session
+
+TODAY (anomalous):
+  WS-ACCT-03 → 10.0.1.44:443    TLS ClientHello     ← traffic goes to unexpected host
+  10.0.1.44  → WS-ACCT-03       HTTP 302 redirect to http://banking.clearpath-internal.net
+  WS-ACCT-03 → 10.0.1.44:80     HTTP GET /login     ← unencrypted
+  Form POST intercepted at 10.0.1.44, credentials in plaintext
+
+ARP cache on WS-ACCT-03:
+  banking.clearpath-internal.net → resolved to 10.0.1.44 via poisoned DNS cache
+        </entries>
+      </component>
+    </artifact>
+    <provenance>Fictional. All network details and domain names are invented for assessment purposes.</provenance>
+  </stimulus>
+  <items>
+
+    <question id="U3-S08-Q1">
+      <meta><unit>U3</unit><stimulus_ref>U3-S08</stimulus_ref>
+        <topic_refs>3.1</topic_refs><lo_refs>LO 3.1.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.A" lo="LO 3.1.A" weight="0.80"/>
+        <secondary skill="3.B" lo="LO 3.1.B" weight="0.20"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>-0.25</b_param><a_param>0.92</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>55</est_response_time_sec>
+        <prerequisite_topics>3.1</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>Component H2 shows today's traffic being redirected to 10.0.1.44, which responds with an HTTP 302 redirect downgrading the HTTPS connection to HTTP. Based on this behavior and the browser panel in H1, which attack technique is being used?</stem>
+      <choices>
+        <choice key="A">SSL stripping, the attacker intercepts the initial HTTPS request and redirects the client to an unencrypted HTTP version of the site, causing credentials to be transmitted in plaintext.</choice>
+        <choice key="B">Certificate pinning bypass, the attacker replaced the server's TLS certificate with a self-signed one.</choice>
+        <choice key="C">DNS hijacking only, the attacker changed the DNS record for the banking portal to point to a phishing site.</choice>
+        <choice key="D">A TLS version downgrade attack forcing the connection to use SSLv2, which has known vulnerabilities.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>SSL stripping is a MITM attack where the attacker sits between the client and server, intercepts the initial HTTPS request, and responds with an HTTP 302 redirect to the HTTP version of the site. The client then communicates over unencrypted HTTP while the attacker optionally maintains an HTTPS connection to the real server, the client never establishes TLS and sends credentials in plaintext. Component H2 shows exactly this sequence: TLS ClientHello to 10.0.1.44, which responds with HTTP 302 redirect, followed by unencrypted HTTP login with credentials interceptable in plaintext.</explanation>
+      <distractor_rationale>
+        <choice key="B">Certificate pinning bypass would still involve TLS negotiation, the browser would show a certificate (albeit untrusted). The browser panel in H1 shows NO certificate negotiated at all, the connection is plain HTTP. SSL stripping eliminates the TLS handshake entirely rather than substituting a fraudulent certificate.</choice>
+        <choice key="C">DNS hijacking alone redirects traffic to an attacker-controlled IP but does not inherently perform SSL stripping. The exhibit shows DNS cache poisoning (H2 note) as the mechanism that routes traffic to 10.0.1.44, but the SSL stripping is the subsequent HTTPS→HTTP downgrade performed by 10.0.1.44 itself. DNS poisoning is the enabling vector; SSL stripping is the attack.</choice>
+        <choice key="D">A TLS version downgrade attack forces use of a weaker TLS version (e.g., TLS 1.0 or SSLv3) but still maintains an encrypted TLS connection, the browser would show a padlock with a security warning. H1 shows no TLS at all, the connection is plain HTTP, which is the characteristic outcome of SSL stripping, not a version downgrade.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S08-Q2">
+      <meta><unit>U3</unit><stimulus_ref>U3-S08</stimulus_ref>
+        <topic_refs>3.1 3.2</topic_refs><lo_refs>LO 3.1.A LO 3.2.A</lo_refs></meta>
+      <skill_vector>
+        <primary skill="1.C" lo="LO 3.1.A" weight="0.72"/>
+        <secondary skill="3.B" lo="LO 3.2.A" weight="0.28"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.52</b_param><a_param>1.15</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>88</est_response_time_sec>
+        <prerequisite_topics>3.1 3.2</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The ARP cache note in H2 shows the banking portal domain resolved to 10.0.1.44 via a "poisoned DNS cache." Explain the attack chain combining DNS cache poisoning with SSL stripping, specifically, why both components are necessary for this attack to succeed against an HTTPS-only site.</stem>
+      <choices>
+        <choice key="A">DNS poisoning is needed to intercept traffic, and SSL stripping is needed to decrypt the TLS certificate, without both, the attacker cannot read the certificate's private key.</choice>
+        <choice key="B">DNS poisoning redirects the victim's traffic to the attacker's host (10.0.1.44) instead of the real banking server, without this, the attacker has no MITM position. SSL stripping then downgrades the connection from HTTPS to HTTP at the attacker's host, without this, even with the redirected traffic, the victim's browser would show a certificate error for the real site's certificate (which the attacker does not possess), alerting the user. Together, DNS poisoning provides interception and SSL stripping eliminates the certificate error that would expose the attack.</choice>
+        <choice key="C">DNS poisoning changes the banking portal's IP address in the public DNS system globally, and SSL stripping prevents other users on the internet from reaching the real site, both are needed to create a complete denial of service.</choice>
+        <choice key="D">DNS poisoning redirects traffic to a phishing site, and SSL stripping is a secondary attack to prevent the phishing site's certificate from being verified, together they are used only in targeted spear-phishing campaigns, not MITM attacks.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The two-component attack solves two problems independently: (1) The attacker needs to intercept traffic that is legitimately addressed to banking.clearpath-internal.net. DNS cache poisoning substitutes 10.0.1.44 for the real server IP, so WS-ACCT-03's traffic routes to the attacker instead. Without DNS poisoning, the traffic reaches the real server and the attacker has no MITM position. (2) Once the attacker receives the HTTPS connection, they cannot present a valid TLS certificate for banking.clearpath-internal.net (they do not possess the private key). Without SSL stripping, the browser would show a certificate error, alerting the user. SSL stripping avoids this by redirecting to HTTP before any certificate negotiation occurs, the user sees "Not Secure" rather than a certificate error, which is a softer warning that many users dismiss or ignore.</explanation>
+      <distractor_rationale>
+        <choice key="A">SSL stripping does not decrypt TLS certificates or require access to private keys. It prevents TLS from being established at all by redirecting the client to HTTP before any certificate exchange occurs. Certificate private key compromise is a separate and much harder attack.</choice>
+        <choice key="C">DNS cache poisoning in this exhibit is local to WS-ACCT-03's DNS cache, it affects only that specific workstation, not the public DNS system. SSL stripping is an active MITM technique, not a denial-of-service mechanism.</choice>
+        <choice key="D">SSL stripping is a real-time MITM technique used in network attacks, not specifically a phishing defense mechanism. It is used here precisely in a MITM context to avoid certificate errors when the attacker cannot present the legitimate certificate for the target domain.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S08-Q3">
+      <meta><unit>U3</unit><stimulus_ref>U3-S08</stimulus_ref>
+        <topic_refs>3.1 3.2</topic_refs><lo_refs>LO 3.1.B LO 3.2.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.2.B" weight="0.68"/>
+        <secondary skill="1.C" lo="LO 3.1.A" weight="0.32"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>0.85</b_param><a_param>1.30</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>102</est_response_time_sec>
+        <prerequisite_topics>3.1 3.2</prerequisite_topics>
+        <mastery_threshold>0.75</mastery_threshold><exposure_cap>3</exposure_cap>
+      </adaptive_meta>
+      <stem>The employee stated "the browser showed the site as Not Secure." Browser security experts recommend that users treat "Not Secure" warnings as an immediate stop signal for any credential entry. Analyzing the exhibit, which specific browser indicator, if correctly interpreted by the employee, would have been the earliest warning of the MITM before the form was submitted?</stem>
+      <choices>
+        <choice key="A">The page layout looked identical to the normal banking portal, which is suspicious because phishing sites usually look different.</choice>
+        <choice key="B">The URL bar showing "http://" (not "https://") and the absence of the padlock icon when the employee typed https:// and expected an encrypted connection, these are visible before any form fields are filled in, providing a pre-submission warning that the connection is unencrypted and potentially compromised.</choice>
+        <choice key="C">The form's submit button was labeled "Log In" instead of "Sign In," which is a subtle phishing indicator detectable by a trained user.</choice>
+        <choice key="D">The browser displayed the correct favicon (site icon) for the banking portal, which proves the page is genuine and the "Not Secure" warning is a false positive.</choice>
+      </choices>
+      <answer key="B"/>
+      <explanation>The URL bar and padlock icon (or its absence) are the browser's primary security indicators, visible before any interaction with the page content. When a user types https:// and the resulting page shows http:// in the URL bar with no padlock, this is the definitive visual indicator that TLS was not established, occurring at page load, before the form is rendered, before any credentials are entered. H1 confirms this: the URL shows HTTP and the browser explicitly warns "No padlock icon, browser downgraded to HTTP." This indicator is always present and requires no page inspection skills to notice, only the habit of verifying the protocol indicator before entering credentials.</explanation>
+      <distractor_rationale>
+        <choice key="A">Page layout similarity is not a reliable security indicator, SSL stripping attacks serve the actual content from the real server (often via a relay), making the page visually identical to the legitimate site. Phishing sites also increasingly use cloned page designs. Visual similarity cannot confirm or deny legitimacy.</choice>
+        <choice key="C">Button label variation is not a documented security indicator and is easily matched by an attacker who clones the page precisely. Relying on minor text variations requires the user to memorize exact page wording, not a scalable security practice.</choice>
+        <choice key="D">Favicons are embedded in page HTML and are served by whoever controls the connection, in this case, the attacker's relay at 10.0.1.44, which can serve the real favicon by fetching it from the legitimate server. Favicons provide zero authentication value and cannot confirm page legitimacy.</choice>
+      </distractor_rationale>
+    </question>
+
+    <question id="U3-S08-Q4">
+      <meta><unit>U3</unit><stimulus_ref>U3-S08</stimulus_ref>
+        <topic_refs>3.1 3.2</topic_refs><lo_refs>LO 3.1.B LO 3.2.B LO 3.5.B</lo_refs></meta>
+      <skill_vector>
+        <primary skill="3.B" lo="LO 3.5.B" weight="0.55"/>
+        <secondary skill="2.A" lo="LO 3.1.B" weight="0.45"/>
+      </skill_vector>
+      <adaptive_meta>
+        <b_param>1.48</b_param><a_param>1.62</a_param><c_param>0.25</c_param>
+        <est_response_time_sec>168</est_response_time_sec>
+        <prerequisite_topics>3.1 3.2</prerequisite_topics>
+        <mastery_threshold>0.80</mastery_threshold><exposure_cap>2</exposure_cap>
+      </adaptive_meta>
+      <stem>The attack chain required three enabling conditions: (1) DNS cache was poisonable (no DNSSEC); (2) the banking portal accepted HTTP connections (no HTTPS-only enforcement); (3) the browser did not enforce HTTPS (no HSTS preload for the domain). Which server-side and network-side control combination makes SSL stripping attacks against this banking portal impossible, regardless of whether the client's DNS cache is poisoned?</stem>
+      <choices>
+        <choice key="A">Implement HTTP Strict Transport Security (HSTS) with a long max-age and "includeSubDomains" on the banking portal server, and submit the domain to browser HSTS preload lists, once the browser has stored the HSTS policy, it will refuse to load any HTTP version of the domain and will not follow HTTP redirects, making SSL stripping impossible even if DNS is poisoned and the attacker redirects traffic to their host.</choice>
+        <choice key="B">Require employees to manually type https:// before every login and train them to verify the padlock before entering credentials.</choice>
+        <choice key="C">Deploy a web application firewall (WAF) in front of the banking portal that blocks all HTTP connections from external sources, forcing users to connect via HTTPS.</choice>
+        <choice key="D">Issue TLS client certificates to all employees so the banking portal only accepts authenticated certificate-bearing connections, preventing the attacker from impersonating the portal.</choice>
+      </choices>
+      <answer key="A"/>
+      <explanation>HSTS (HTTP Strict Transport Security) is the specific countermeasure for SSL stripping. When a browser receives an HSTS header from banking.clearpath-internal.net, it stores a rule that all future connections to that domain must use HTTPS, the browser refuses to load HTTP and refuses to follow HTTP redirects for that domain, regardless of what an intermediate host (10.0.1.44) instructs. Even if DNS poisoning redirects to the attacker's IP, the browser's HSTS policy prevents it from accepting the HTTP 302 redirect. HSTS preloading extends this to browsers that have never visited the domain by including the domain in a built-in browser list. This makes SSL stripping impossible without also compromising the browser itself.</explanation>
+      <distractor_rationale>
+        <choice key="B">User training to manually type https:// does not prevent SSL stripping because the attack intercepts the HTTPS connection after the browser initiates it and redirects to HTTP before TLS is negotiated. H2 shows the browser sent a TLS ClientHello (correctly attempting HTTPS) and the attacker converted it to HTTP, the user's typing behavior was already correct. HSTS enforces the policy at the browser level without relying on user action.</choice>
+        <choice key="C">A WAF blocking HTTP from external sources only applies to traffic that reaches the WAF. In this attack, the traffic never reaches the real server, it is redirected to 10.0.1.44 by DNS poisoning. The WAF has no visibility into the attacker's relay and cannot enforce HTTPS on connections that bypass the real server entirely.</choice>
+        <choice key="D">TLS client certificates authenticate the client to the server, they would prevent unauthorized clients from accessing the real banking portal. However, in this attack, the attacker intercepts the connection before it reaches the real server. Client certificates do not prevent SSL stripping because the TLS handshake with the real server is replaced by the attacker's HTTP redirect before any certificate exchange. HSTS prevents the HTTP redirect from being accepted by the client browser.</choice>
+      </distractor_rationale>
+    </question>
+
+  </items>
+</stimulus_set>
+
+</unit_quizbank>

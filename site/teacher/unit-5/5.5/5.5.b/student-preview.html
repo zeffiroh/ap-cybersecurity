@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secure coding practices, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Secure coding practices</h1>
+<h1>Coding problem, 5.5.b: Secure-coding configuration auditor</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.5.A, 5.5.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build a lightweight policy-as-code auditor: given an application's configuration, flag every
+secure-coding practice it violates, exactly the checks a code reviewer or CI gate would run.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(config: dict) -&gt; list</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>config</code>: <code>dict</code> of settings. Any key may be missing.</p>
+<h2>Output</h2>
+<p>Sorted <code>list[str]</code> of violated rule names.</p>
+<h2>Rule set</h2>
+<table>
+<thead>
+<tr>
+<th>condition</th>
+<th>violation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>debug_mode is True</code></td>
+<td><code>"debug-mode-enabled"</code></td>
+</tr>
+<tr>
+<td><code>db_query_style == "concatenated"</code></td>
+<td><code>"non-parameterized-query"</code></td>
+</tr>
+<tr>
+<td><code>secrets_in_code is True</code></td>
+<td><code>"hardcoded-secret"</code></td>
+</tr>
+<tr>
+<td><code>error_verbosity == "verbose"</code></td>
+<td><code>"verbose-error-messages"</code></td>
+</tr>
+<tr>
+<td><code>dependencies_pinned is False</code></td>
+<td><code>"unpinned-dependencies"</code></td>
+</tr>
+<tr>
+<td><code>runs_as == "root"</code></td>
+<td><code>"excessive-privilege"</code></td>
+</tr>
+<tr>
+<td><code>code_review_required is False</code></td>
+<td><code>"no-code-review"</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Examples</h2>
+<pre><code>{&quot;debug_mode&quot;: True}                         -&gt;  [&quot;debug-mode-enabled&quot;]
+{&quot;db_query_style&quot;: &quot;parameterized&quot;}          -&gt;  []
+{&quot;runs_as&quot;: &quot;root&quot;, &quot;secrets_in_code&quot;: True} -&gt;  [&quot;excessive-privilege&quot;, &quot;hardcoded-secret&quot;]
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>A missing key never triggers a violation.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(config: dict) -&gt; list
+</code></pre>
+<h3>Input (<code>config</code>)</h3>
+<p><code>dict</code> of application settings. Any key may be missing (missing keys never trigger a violation).
+Recognized keys:
+- <code>"debug_mode"</code>: <code>bool</code>
+- <code>"db_query_style"</code>: <code>str</code> (<code>"parameterized"</code> or <code>"concatenated"</code>)
+- <code>"secrets_in_code"</code>: <code>bool</code>
+- <code>"error_verbosity"</code>: <code>str</code> (<code>"generic"</code> or <code>"verbose"</code>)
+- <code>"dependencies_pinned"</code>: <code>bool</code>
+- <code>"runs_as"</code>: <code>str</code> (e.g. <code>"app_user"</code> or <code>"root"</code>)
+- <code>"code_review_required"</code>: <code>bool</code></p>
+<h3>Output (<code>result</code>)</h3>
+<p>Sorted <code>list[str]</code> of violated rule names. Only rules that fail appear.</p>
+<h3>Rule set</h3>
+<table>
+<thead>
+<tr>
+<th>condition</th>
+<th>violation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>debug_mode is True</code></td>
+<td><code>"debug-mode-enabled"</code></td>
+</tr>
+<tr>
+<td><code>db_query_style == "concatenated"</code></td>
+<td><code>"non-parameterized-query"</code></td>
+</tr>
+<tr>
+<td><code>secrets_in_code is True</code></td>
+<td><code>"hardcoded-secret"</code></td>
+</tr>
+<tr>
+<td><code>error_verbosity == "verbose"</code></td>
+<td><code>"verbose-error-messages"</code></td>
+</tr>
+<tr>
+<td><code>dependencies_pinned is False</code></td>
+<td><code>"unpinned-dependencies"</code></td>
+</tr>
+<tr>
+<td><code>runs_as == "root"</code></td>
+<td><code>"excessive-privilege"</code></td>
+</tr>
+<tr>
+<td><code>code_review_required is False</code></td>
+<td><code>"no-code-review"</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>A missing key never counts as a violation (only an explicit disqualifying value does).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 5.5.b. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Dict, List
+
+
+def solve(config: Dict[str, object]) -&gt; List[str]:
+    """Audit an application configuration against the secure-coding rule set.
+
+    Args:
+        config: dict of settings, e.g. {"debug_mode": bool, "db_query_style": str,
+            "secrets_in_code": bool, "error_verbosity": str, "dependencies_pinned": bool,
+            "runs_as": str, "code_review_required": bool}. Any key may be missing.
+    Returns:
+        sorted list[str] of violated rule names. See the Reference section below for the exact rule set.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_all_secure_no_violations():
+    config = {
+        "debug_mode": False,
+        "db_query_style": "parameterized",
+        "secrets_in_code": False,
+        "error_verbosity": "generic",
+        "dependencies_pinned": True,
+        "runs_as": "app_user",
+        "code_review_required": True,
+    }
+    assert impl.solve(config) == []
+
+
+def test_debug_mode_flagged():
+    config = {"debug_mode": True}
+    assert impl.solve(config) == ["debug-mode-enabled"]
+
+
+def test_concatenated_query_flagged():
+    config = {"db_query_style": "concatenated"}
+    assert impl.solve(config) == ["non-parameterized-query"]
+
+
+def test_hardcoded_secret_flagged():
+    config = {"secrets_in_code": True}
+    assert impl.solve(config) == ["hardcoded-secret"]
+
+
+def test_multiple_violations_sorted():
+    config = {
+        "debug_mode": True,
+        "runs_as": "root",
+        "secrets_in_code": True,
+    }
+    assert impl.solve(config) == ["debug-mode-enabled", "excessive-privilege", "hardcoded-secret"]
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_verbose_errors_flagged():
+    config = {"error_verbosity": "verbose"}
+    assert impl.solve(config) == ["verbose-error-messages"]
+
+
+def test_unpinned_dependencies_flagged():
+    config = {"dependencies_pinned": False}
+    assert impl.solve(config) == ["unpinned-dependencies"]
+
+
+def test_no_code_review_flagged():
+    config = {"code_review_required": False}
+    assert impl.solve(config) == ["no-code-review"]
+
+
+def test_missing_keys_treated_as_not_violating():
+    assert impl.solve({}) == []
+
+
+def test_all_violations_at_once():
+    config = {
+        "debug_mode": True,
+        "db_query_style": "concatenated",
+        "secrets_in_code": True,
+        "error_verbosity": "verbose",
+        "dependencies_pinned": False,
+        "runs_as": "root",
+        "code_review_required": False,
+    }
+    assert impl.solve(config) == [
+        "debug-mode-enabled",
+        "excessive-privilege",
+        "hardcoded-secret",
+        "no-code-review",
+        "non-parameterized-query",
+        "unpinned-dependencies",
+        "verbose-error-messages",
+    ]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.5.a Lab, IDS Detection: Signatures, Anomalies, and False Positives</title>
+<link rel="stylesheet" href="../../../assets/labs/lab.css">
+</head>
+<body>
+<div class="lab">
+  <h1>Lab, IDS Detection: Signatures, Anomalies, and False Positives</h1>
+  <p class="sub">Catch attacks two ways, and feel the trade-off every analyst lives with.</p>
+
+  <div class="brief">
+    <p>An intrusion detection system watches traffic a firewall has already allowed and asks: does
+    this look like an attack? You will run a real detector over a captured stream of ~160 events.
+    First you write a <b>signature</b> that matches a known-bad payload, and watch a disguised
+    variant of the same attack slip straight past it. Then you switch to an <b>anomaly</b> rule and
+    tune a threshold, reading a live confusion matrix (TP, FP, TN, FN) that shows how a looser rule
+    catches more attacks but buries the analyst in false alarms.</p>
+  </div>
+
+  <p class="progress-line" id="progress">MISSIONS 0 / 3</p>
+  <ul class="missions" id="missions">
+    <li data-m="sig"><span>Write a signature that catches the known SQL-injection payload, then see the stealth variant evade it.</span>
+      <div class="hint"><details><summary>Hint</summary>In signature mode, type <code>UNION SELECT</code>. It flags the three obvious attack events, but the obfuscated <code>UNION/**/SELECT</code> events are counted as misses (false negatives). Signatures only catch what they already know.</details></div></li>
+    <li data-m="catch"><span>Switch to the anomaly rule and lower the threshold until the port scan is caught, then keep lowering it until a benign host gets flagged too (a false positive).</span>
+      <div class="hint"><details><summary>Hint</summary>The scanner touches far more distinct ports than any normal host. Lower "more than N distinct ports" below the scanner's port count and all its events light up as true positives. Keep going: at some point a busy but legitimate host crosses the line as well.</details></div></li>
+    <li data-m="tune"><span>Tune the threshold so the whole port scan is caught with <b>zero</b> false positives.</span>
+      <div class="hint"><details><summary>Hint</summary>Set the threshold just above the busiest legitimate host (a monitoring server). Too low and that benign host becomes a false positive; too high and the scan is missed. There is a window that catches the scan cleanly.</details></div></li>
+  </ul>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Detector</h3>
+      <label class="field" for="method">Detection method</label>
+      <select id="method">
+        <option value="sig">Signature, match a payload string</option>
+        <option value="anom">Anomaly, distinct destination ports per source</option>
+      </select>
+
+      <div id="sigctl">
+        <label class="field" for="sig">Signature (case-insensitive substring of the payload)</label>
+        <input type="text" id="sig" placeholder="e.g. UNION SELECT" spellcheck="false">
+      </div>
+
+      <div id="anomctl" style="display:none">
+        <label class="field" for="thresh">Flag any source with MORE THAN this many distinct destination ports</label>
+        <div class="row">
+          <input type="range" id="thresh" min="2" max="60" value="60" style="flex:1">
+          <input type="number" id="threshnum" min="2" max="60" value="60" style="width:80px">
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="run">Run detector</button>
+        <button id="reset" title="Clear mission progress for this lab">Reset missions</button>
+      </div>
+      <p class="note" id="callout"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Results vs. ground truth</h3>
+      <p class="note">The capture holds <span id="natk">?</span> real attack events among <span id="ntot">?</span> total.</p>
+      <table class="data" id="cm">
+        <thead><tr><th></th><th>sensor: attack</th><th>sensor: benign</th></tr></thead>
+        <tbody>
+          <tr><th>actually attack</th><td id="tp" class="ok">TP 0</td><td id="fn" class="bad">FN 0</td></tr>
+          <tr><th>actually benign</th><td id="fp" class="bad">FP 0</td><td id="tn">TN 0</td></tr>
+        </tbody>
+      </table>
+      <div class="console" id="metrics" style="min-height:70px"><span class="dim">Run the detector to score it.</span></div>
+    </div>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h2 style="margin-top:0">Two detectors, two blind spots</h2>
+    <p>A <b>signature</b> is fast and precise, but it only matches patterns someone has already written
+    down. The attacker changed <code>UNION SELECT</code> to <code>UNION/**/SELECT</code> and the exact-match
+    rule went blind, a false negative, which is why signature databases must be updated constantly and still
+    miss zero-days. An <b>anomaly</b> rule needs no prior knowledge of the payload: a host touching dozens of
+    ports stands out as a port scan whatever it carries. But its threshold is a dial between recall and false
+    positives, set it too low and an ordinary busy server (the monitoring host) becomes a false alarm, and a
+    flood of false positives is how real alerts get missed (alert fatigue). Neither method caught everything
+    here: the anomaly rule never saw the SQL-injection payloads, and the signature never saw the scan. That is
+    why defenders run both, the IDS/IPS, signature-vs-anomaly, and TP/FP/TN/FN trade-off at the center of
+    LO 3.5.A.</p>
+  </div>
+</div>
+
+<script src="../../../assets/labs/lab.js"></script>
+<script>
+(function () {
+  var esc = Lab.esc;
+  var missions = new Lab.Missions("3.5.a", document.getElementById("missions"),
+    document.getElementById("progress"), function () {
+      document.getElementById("debrief").classList.add("show");
+    });
+  document.getElementById("reset").addEventListener("click", function () {
+    missions.reset();
+    document.getElementById("debrief").classList.remove("show");
+  });
+
+  // deterministic PRNG
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var rnd = mulberry32(90377);
+  function pick(list) { return list[Math.floor(rnd() * list.length)]; }
+  function between(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
+
+  var COMMON = [80, 443, 53, 22, 25, 110, 143, 993, 587, 123];
+  var BENIGN_PAYLOADS = [
+    "GET /index.html", "GET /style.css", "POST /api/login", "DNS A example.com",
+    "GET /images/logo.png", "POST /cart/add", "GET /health", "NTP sync",
+    "GET /favicon.ico", "POST /api/search q=shoes", "SMTP MAIL FROM", "GET /docs/readme"
+  ];
+  var SIG_PAYLOAD = "POST /search q=' UNION SELECT password FROM users --";
+  var STEALTH_PAYLOAD = "POST /search q=' UNION/**/SELECT password FROM users --";
+
+  // --- build the capture with honest ground-truth labels --------------------
+  var events = [];
+  function add(src, dport, bytes, payload, attack, kind) {
+    events.push({ src: src, dport: dport, bytes: bytes, payload: payload, attack: !!attack, kind: kind || "benign" });
+  }
+
+  // 1) benign background: ~40 hosts, each 1-4 common ports
+  for (var h = 0; h < 40; h++) {
+    var src = "10.0." + between(1, 6) + "." + between(10, 240);
+    var n = between(1, 4);
+    for (var e = 0; e < n; e++) add(src, pick(COMMON), between(200, 4000), pick(BENIGN_PAYLOADS), false);
+  }
+  // 2) a busy-but-benign monitoring host: 12 distinct ports (the false-positive trap)
+  var MON = "10.0.9.9";
+  var monPorts = [80, 443, 53, 22, 25, 161, 162, 8080, 9090, 3000, 5601, 9200];
+  monPorts.forEach(function (p) { add(MON, p, between(300, 2500), "GET /metrics", false); });
+  // 3) the port scanner: 45 distinct high ports (the anomaly target)
+  var SCAN = "203.0.113.66";
+  var scanPorts = {};
+  while (Object.keys(scanPorts).length < 45) scanPorts[between(1024, 65000)] = 1;
+  Object.keys(scanPorts).forEach(function (p) { add(SCAN, +p, between(40, 120), "SYN", true, "portscan"); });
+  // 4) known-bad payload signature attack: 3 events
+  var SIGSRC = "198.51.100.7";
+  for (var s = 0; s < 3; s++) add(SIGSRC, 443, between(300, 900), SIG_PAYLOAD, true, "sig");
+  // 5) stealth variant that evades a naive signature: 2 events
+  var STSRC = "198.51.100.8";
+  for (var t2 = 0; t2 < 2; t2++) add(STSRC, 443, between(300, 900), STEALTH_PAYLOAD, true, "stealth");
+
+  // shuffle deterministically
+  for (var i = events.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var tmp = events[i]; events[i] = events[j]; events[j] = tmp; }
+
+  var TOTAL_ATTACK = events.filter(function (e) { return e.attack; }).length;
+  var SCAN_EVENTS = events.filter(function (e) { return e.kind === "portscan"; }).length;
+  document.getElementById("natk").textContent = TOTAL_ATTACK;
+  document.getElementById("ntot").textContent = events.length;
+
+  // distinct destination ports per source
+  var portsBySrc = {};
+  events.forEach(function (e) {
+    (portsBySrc[e.src] = portsBySrc[e.src] || {})[e.dport] = 1;
+  });
+  function distinctPorts(src) { return Object.keys(portsBySrc[src]).length; }
+
+  // --- detectors ------------------------------------------------------------
+  function predictSignature(ev, sig) {
+    if (!sig) return false;
+    return ev.payload.toLowerCase().indexOf(sig.toLowerCase()) !== -1;
+  }
+  function predictAnomaly(ev, n) {
+    return distinctPorts(ev.src) > n;
+  }
+
+  function score(predict) {
+    var tp = 0, fp = 0, tn = 0, fn = 0;
+    events.forEach(function (ev) {
+      var p = predict(ev);
+      if (ev.attack && p) tp++;
+      else if (ev.attack && !p) fn++;
+      else if (!ev.attack && p) fp++;
+      else tn++;
+    });
+    return { tp: tp, fp: fp, tn: tn, fn: fn };
+  }
+
+  function render(cm, extra) {
+    document.getElementById("tp").textContent = "TP " + cm.tp;
+    document.getElementById("fn").textContent = "FN " + cm.fn;
+    document.getElementById("fp").textContent = "FP " + cm.fp;
+    document.getElementById("tn").textContent = "TN " + cm.tn;
+    var prec = cm.tp + cm.fp ? cm.tp / (cm.tp + cm.fp) : 0;
+    var rec = cm.tp + cm.fn ? cm.tp / (cm.tp + cm.fn) : 0;
+    document.getElementById("metrics").innerHTML =
+      'precision = TP/(TP+FP) = ' + (cm.tp + cm.fp ? (prec * 100).toFixed(0) + "%" : "n/a") + '\n' +
+      'recall    = TP/(TP+FN) = ' + (cm.tp + cm.fn ? (rec * 100).toFixed(0) + "%" : "n/a") + '\n' +
+      (extra || "");
+  }
+
+  function syncThresh(from) {
+    var r = document.getElementById("thresh"), nmb = document.getElementById("threshnum");
+    if (from === "range") nmb.value = r.value; else r.value = nmb.value;
+  }
+  document.getElementById("thresh").addEventListener("input", function () { syncThresh("range"); });
+  document.getElementById("threshnum").addEventListener("input", function () { syncThresh("num"); });
+
+  function switchMethod() {
+    var m = document.getElementById("method").value;
+    document.getElementById("sigctl").style.display = m === "sig" ? "" : "none";
+    document.getElementById("anomctl").style.display = m === "anom" ? "" : "none";
+    document.getElementById("callout").textContent = "";
+  }
+  document.getElementById("method").addEventListener("change", switchMethod);
+
+  var sawFP = false;  // "tune" only counts after the student has hit the false-positive trap
+  function run() {
+    var m =document.getElementById("method").value;
+    var callout = document.getElementById("callout");
+    if (m === "sig") {
+      var sig = document.getElementById("sig").value.trim();
+      var cm = score(function (ev) { return predictSignature(ev, sig); });
+      var plainHit = events.filter(function (e) { return e.kind === "sig" && predictSignature(e, sig); }).length;
+      var plainTotal = events.filter(function (e) { return e.kind === "sig"; }).length;
+      var stealthMissed = events.filter(function (e) { return e.kind === "stealth" && !predictSignature(e, sig); }).length;
+      render(cm, 'signature matched the known attack: ' + plainHit + '/' + plainTotal +
+        ' · stealth variants evaded: ' + stealthMissed);
+      callout.innerHTML = sig
+        ? (stealthMissed > 0
+            ? '<b>' + stealthMissed + ' disguised attack event(s) slipped past this signature.</b> A signature only catches the exact pattern it was given.'
+            : '')
+        : "Type a signature string and run the detector.";
+      if (sig && plainHit === plainTotal && plainTotal > 0) missions.complete("sig");
+    } else {
+      var n = +document.getElementById("threshnum").value;
+      var cm2 = score(function (ev) { return predictAnomaly(ev, n); });
+      var scanCaught = events.filter(function (e) { return e.kind === "portscan" && predictAnomaly(e, n); }).length;
+      render(cm2, 'port-scan events caught: ' + scanCaught + '/' + SCAN_EVENTS +
+        ' · false positives (benign flagged): ' + cm2.fp);
+      callout.innerHTML = cm2.fp > 0
+        ? '<b>' + cm2.fp + ' benign event(s) were flagged as attacks.</b> A threshold this low floods the analyst with false alarms.'
+        : (scanCaught === SCAN_EVENTS ? 'Clean: the whole scan is caught with no false positives.' : '');
+      if (scanCaught === SCAN_EVENTS && cm2.fp > 0) { sawFP = true; missions.complete("catch"); }
+      if (sawFP && scanCaught === SCAN_EVENTS && cm2.fp === 0 && SCAN_EVENTS > 0) missions.complete("tune");
+    }
+  }
+
+  document.getElementById("run").addEventListener("click", run);
+  switchMethod();
+})();
+</script>
+</body>
+</html>

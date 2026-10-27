@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firewall types (stateful vs. stateless), Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Firewall types (stateful vs. stateless)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 3.4.a: Stateless vs. stateful packet classifier</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You will implement two firewall decision functions that together illustrate the core difference
+between stateless and stateful packet filtering.</p>
+<p>A <strong>packet</strong> is a dict with these string keys:
+- <code>"src"</code>, source IP string (e.g. <code>"203.0.113.10"</code>)
+- <code>"dst"</code>, destination IP string
+- <code>"sport"</code>, source port integer
+- <code>"dport"</code>, destination port integer
+- <code>"proto"</code>, protocol string, one of <code>"tcp"</code> / <code>"udp"</code> / <code>"icmp"</code>
+- <code>"flags"</code>, TCP flag string: one of <code>"SYN"</code>, <code>"SYN-ACK"</code>, <code>"ACK"</code>, <code>"RST"</code>, <code>"FIN"</code>, <code>"DATA"</code>
+  (non-TCP packets use <code>""</code>)</p>
+<p>A <strong>rule</strong> is a dict with:
+- <code>"action"</code>, <code>"allow"</code> or <code>"drop"</code>
+- <code>"proto"</code>, protocol to match (<code>"tcp"</code>, <code>"udp"</code>, <code>"icmp"</code>, or <code>"any"</code>)
+- <code>"dport"</code>, destination port to match (integer) or <code>0</code> meaning any port</p>
+<p>Rules are evaluated top-to-bottom; the first match decides.  If no rule matches, the implicit
+verdict is <code>"drop"</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(rules, packets, mode)</code> in the code editor (see the Reference section below).</p>
+<ul>
+<li><code>rules</code>, list of rule dicts (ordered, first-match)</li>
+<li><code>packets</code>, list of packet dicts (process in order)</li>
+<li><code>mode</code>, string: <code>"stateless"</code> or <code>"stateful"</code></li>
+</ul>
+<p>Return a <code>list[str]</code> of verdicts (<code>"allow"</code> or <code>"drop"</code>), one per packet, in order.</p>
+<h2>Stateless mode</h2>
+<p>For each packet, walk the rule list. A rule matches when:
+1. <code>rule["proto"]</code> is <code>"any"</code> OR equals <code>packet["proto"]</code>
+2. <code>rule["dport"]</code> is <code>0</code> OR equals <code>packet["dport"]</code></p>
+<p>Return the matched rule's action, or <code>"drop"</code> if nothing matches.</p>
+<h2>Stateful mode</h2>
+<p>Same rule matching applies, but also maintain an in-memory connection-tracking table (a dict).
+The table key is <code>(src, dst, sport, dport, proto)</code> (tuple of the five fields above).</p>
+<p>Additional stateful logic for TCP packets only:
+- <strong>SYN</strong>: if the packet passes rules, add <code>(src, dst, sport, dport, "tcp")</code> to the table with
+  state <code>"SYN_SENT"</code>. Verdict = <code>"allow"</code>.
+- <strong>SYN-ACK</strong>: look up the <em>reverse</em> key <code>(dst, src, dport, sport, "tcp")</code> in the table (the
+  original SYN entry). If found, update its state to <code>"ESTABLISHED"</code>. Verdict = <code>"allow"</code>.
+  If the reverse key is not in the table, verdict = <code>"drop"</code>.
+- <strong>ACK / DATA</strong>: if the packet's key OR its reverse is in the table with state <code>"ESTABLISHED"</code>,
+  verdict = <code>"allow"</code>. Otherwise verdict = <code>"drop"</code> (no established session for this endpoint
+  pair, a stateful firewall drops it even though a static rule might otherwise permit the port).
+- <strong>RST / FIN</strong>: if the key or reverse is in the table, remove the entry. Verdict = <code>"allow"</code>.
+  Otherwise <code>"drop"</code>.</p>
+<p>Non-TCP packets (UDP, ICMP) are decided by rule matching only (no state tracking).</p>
+<p>The table starts empty at the beginning of each <code>solve()</code> call.</p>
+<h2>Input</h2>
+<pre><code class="language-python">rules = [
+    {&quot;action&quot;: &quot;allow&quot;, &quot;proto&quot;: &quot;tcp&quot;, &quot;dport&quot;: 443},
+    {&quot;action&quot;: &quot;allow&quot;, &quot;proto&quot;: &quot;tcp&quot;, &quot;dport&quot;: 80},
+    {&quot;action&quot;: &quot;drop&quot;,  &quot;proto&quot;: &quot;any&quot;, &quot;dport&quot;: 0},
+]
+packets = [
+    {&quot;src&quot;: &quot;203.0.113.10&quot;, &quot;dst&quot;: &quot;10.0.0.5&quot;, &quot;sport&quot;: 55001, &quot;dport&quot;: 443, &quot;proto&quot;: &quot;tcp&quot;, &quot;flags&quot;: &quot;SYN&quot;},
+    {&quot;src&quot;: &quot;10.0.0.5&quot;,     &quot;dst&quot;: &quot;203.0.113.10&quot;, &quot;sport&quot;: 443, &quot;dport&quot;: 55001, &quot;proto&quot;: &quot;tcp&quot;, &quot;flags&quot;: &quot;SYN-ACK&quot;},
+    {&quot;src&quot;: &quot;198.51.100.7&quot;, &quot;dst&quot;: &quot;10.0.0.5&quot;, &quot;sport&quot;: 44000, &quot;dport&quot;: 443, &quot;proto&quot;: &quot;tcp&quot;, &quot;flags&quot;: &quot;ACK&quot;},
+]
+</code></pre>
+<h2>Output</h2>
+<pre><code>stateless: [&quot;allow&quot;, &quot;drop&quot;, &quot;allow&quot;]   # SYN-ACK (dport 55001) matches no rule
+stateful:  [&quot;allow&quot;, &quot;allow&quot;, &quot;drop&quot;]   # third packet: ACK with no prior SYN
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>The connection table is local to each <code>solve()</code> call (not persisted between calls).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(rules: list[dict], packets: list[dict], mode: str) -&gt; list[str]
+</code></pre>
+<h3>Input</h3>
+<h4><code>rules</code>, list of rule dicts, evaluated top-to-bottom (first match wins)</h4>
+<p>Each rule dict has:
+- <code>"action"</code> (str): <code>"allow"</code> or <code>"drop"</code>
+- <code>"proto"</code> (str): <code>"tcp"</code>, <code>"udp"</code>, <code>"icmp"</code>, or <code>"any"</code>
+- <code>"dport"</code> (int): destination port to match, or <code>0</code> meaning any port</p>
+<h4><code>packets</code>, list of packet dicts, processed in order</h4>
+<p>Each packet dict has:
+- <code>"src"</code> (str): source IP address
+- <code>"dst"</code> (str): destination IP address
+- <code>"sport"</code> (int): source port
+- <code>"dport"</code> (int): destination port
+- <code>"proto"</code> (str): <code>"tcp"</code>, <code>"udp"</code>, or <code>"icmp"</code>
+- <code>"flags"</code> (str): TCP flag, one of <code>"SYN"</code>, <code>"SYN-ACK"</code>, <code>"ACK"</code>, <code>"RST"</code>, <code>"FIN"</code>, <code>"DATA"</code>,
+  or <code>""</code> for non-TCP</p>
+<h4><code>mode</code>, <code>"stateless"</code> or <code>"stateful"</code></h4>
+<h3>Output (<code>result</code>)</h3>
+<p><code>list[str]</code> of verdicts, one per packet, each <code>"allow"</code> or <code>"drop"</code>, in the same order as
+<code>packets</code>.</p>
+<h3>Rule matching (both modes)</h3>
+<p>A rule matches a packet when BOTH conditions hold:
+1. <code>rule["proto"] == "any"</code> OR <code>rule["proto"] == packet["proto"]</code>
+2. <code>rule["dport"] == 0</code> OR <code>rule["dport"] == packet["dport"]</code>
+Implicit default if no rule matches: <code>"drop"</code>.</p>
+<h3>Stateful TCP tracking (stateful mode only)</h3>
+<ul>
+<li>Connection table key: <code>(src, dst, sport, dport, proto)</code>, all five fields.</li>
+<li><strong>SYN</strong>: passes rules -&gt; add key with state <code>"SYN_SENT"</code> -&gt; <code>"allow"</code>.</li>
+<li><strong>SYN-ACK</strong>: reverse key <code>(dst, src, dport, sport, proto)</code> in table -&gt; update to
+  <code>"ESTABLISHED"</code> -&gt; <code>"allow"</code>. Reverse key not found -&gt; <code>"drop"</code>.</li>
+<li><strong>ACK / DATA</strong>: key or reverse in table with state <code>"ESTABLISHED"</code> -&gt; <code>"allow"</code>.
+  Otherwise -&gt; <code>"drop"</code> (no established session for this endpoint pair).</li>
+<li><strong>RST / FIN</strong>: key or reverse in table -&gt; remove entry -&gt; <code>"allow"</code>. Not found -&gt; <code>"drop"</code>.</li>
+<li>Non-TCP packets (UDP, ICMP): rule matching only; no state tracking.</li>
+</ul>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function; deterministic; no I/O; no network access.</li>
+<li>Connection table is initialized empty at the start of each <code>solve()</code> call.</li>
+<li>Standard library only.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 3.4.a. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
+
+Implements a stateless and stateful packet classifier demonstrating the core difference
+between the two firewall inspection models.
+"""
+from typing import List, Dict, Any
+
+
+def _match_rules(rules: List[Dict], packet: Dict) -&gt; str:
+    """Apply rule list top-to-bottom; return first matched action, or 'drop'."""
+    for rule in rules:
+        proto_ok = rule["proto"] == "any" or rule["proto"] == packet["proto"]
+        dport_ok = rule["dport"] == 0 or rule["dport"] == packet["dport"]
+        if proto_ok and dport_ok:
+            return rule["action"]
+    return "drop"
+
+
+def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
+    """Classify each packet as 'allow' or 'drop' using the given rule set.
+
+    Args:
+        rules:   Ordered list of rule dicts (action, proto, dport).
+        packets: List of packet dicts (src, dst, sport, dport, proto, flags).
+        mode:    'stateless' or 'stateful'.
+
+    Returns:
+        List of 'allow' / 'drop' verdicts, one per packet.
+    """
+    if mode == "stateless":
+        return [_match_rules(rules, pkt) for pkt in packets]
+
+    # Stateful mode: maintain a connection-tracking table.
+    # Key: (src, dst, sport, dport, proto)  Value: state string
+    table: Dict[tuple, str] = {}
+    verdicts: List[str] = []
+
+    for pkt in packets:
+        proto = pkt["proto"]
+        flags = pkt.get("flags", "")
+        key = (pkt["src"], pkt["dst"], pkt["sport"], pkt["dport"], proto)
+        rev = (pkt["dst"], pkt["src"], pkt["dport"], pkt["sport"], proto)
+
+        if proto != "tcp":
+            # Non-TCP: rule matching only.
+            verdicts.append(_match_rules(rules, pkt))
+            continue
+
+        if flags == "SYN":
+            rule_verdict = _match_rules(rules, pkt)
+            if rule_verdict == "allow":
+                table[key] = "SYN_SENT"
+                verdicts.append("allow")
+            else:
+                verdicts.append("drop")
+
+        elif flags == "SYN-ACK":
+            if rev in table:
+                table[rev] = "ESTABLISHED"
+                verdicts.append("allow")
+            else:
+                verdicts.append("drop")
+
+        elif flags in ("ACK", "DATA"):
+            if table.get(key) == "ESTABLISHED" or table.get(rev) == "ESTABLISHED":
+                verdicts.append("allow")
+            else:
+                # No established session for this exact endpoint pair: a stateful
+                # firewall drops it even if a static rule would otherwise permit
+                # the port, because it cannot verify the packet belongs to a real
+                # connection.
+                verdicts.append("drop")
+
+        elif flags in ("RST", "FIN"):
+            if key in table or rev in table:
+                table.pop(key, None)
+                table.pop(rev, None)
+                verdicts.append("allow")
+            else:
+                verdicts.append("drop")
+
+        else:
+            # Unknown flag: rule matching.
+            verdicts.append(_match_rules(rules, pkt))
+
+    return verdicts
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def test_example_stateless():
+    rules = [
+        {"action": "allow", "proto": "tcp", "dport": 443},
+        {"action": "allow", "proto": "tcp", "dport": 80},
+        {"action": "drop", "proto": "any", "dport": 0},
+    ]
+    packets = [
+        {"src": "203.0.113.10", "dst": "10.0.0.5", "sport": 55001, "dport": 443, "proto": "tcp", "flags": "SYN"},
+        {"src": "10.0.0.5", "dst": "203.0.113.10", "sport": 443, "dport": 55001, "proto": "tcp", "flags": "SYN-ACK"},
+        {"src": "198.51.100.7", "dst": "10.0.0.5", "sport": 44000, "dport": 443, "proto": "tcp", "flags": "ACK"},
+    ]
+    # Stateless mode judges each packet by header fields alone (no memory of prior
+    # packets), so the SYN-ACK (dport 55001, matches no rule) is dropped even though
+    # it is legitimate return traffic; the SYN and rogue ACK both match dport 443.
+    assert impl.solve(rules, packets, "stateless") == ["allow", "drop", "allow"]
+
+
+def test_example_stateful():
+    rules = [
+        {"action": "allow", "proto": "tcp", "dport": 443},
+        {"action": "allow", "proto": "tcp", "dport": 80},
+        {"action": "drop", "proto": "any", "dport": 0},
+    ]
+    # Handshake packet 1: Client -&gt; Server SYN (Allowed by rule dport 443)
+    # Handshake packet 2: Server -&gt; Client SYN-ACK (Allowed because reverse connection exists)
+    # Handshake packet 3: Rogue client -&gt; Server ACK (Dropped because no prior SYN)
+    packets = [
+        {"src": "203.0.113.10", "dst": "10.0.0.5", "sport": 55001, "dport": 443, "proto": "tcp", "flags": "SYN"},
+        {"src": "10.0.0.5", "dst": "203.0.113.10", "sport": 443, "dport": 55001, "proto": "tcp", "flags": "SYN-ACK"},
+        {"src": "198.51.100.7", "dst": "10.0.0.5", "sport": 44000, "dport": 443, "proto": "tcp", "flags": "ACK"},
+    ]
+    assert impl.solve(rules, packets, "stateful") == ["allow", "allow", "drop"]
+
+
+def test_stateful_handshake_flow():
+    rules = [
+        {"action": "allow", "proto": "tcp", "dport": 80},
+        {"action": "drop", "proto": "any", "dport": 0}
+    ]
+    packets = [
+        # 1. SYN to port 80 (Allowed by rule)
+        {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "SYN"},
+        # 2. SYN-ACK back (Allowed by state)
+        {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "SYN-ACK"},
+        # 3. ACK to port 80 (Allowed by state)
+        {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "ACK"},
+        # 4. DATA from server (Allowed by state)
+        {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "DATA"},
+        # 5. FIN from client (Allowed, closes state)
+        {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "FIN"},
+        # 6. Subsequent DATA from server (Dropped because connection was torn down)
+        {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "DATA"}
+    ]
+    assert impl.solve(rules, packets, "stateful") == ["allow", "allow", "allow", "allow", "allow", "drop"]
+
+
+def test_non_tcp_stateful():
+    rules = [
+        {"action": "allow", "proto": "udp", "dport": 53},
+        {"action": "drop", "proto": "any", "dport": 0}
+    ]
+    packets = [
+        # UDP matches rule (allow)
+        {"src": "10.0.0.2", "dst": "8.8.8.8", "sport": 12345, "dport": 53, "proto": "udp", "flags": ""},
+        # UDP does not match rule (drop)
+        {"src": "10.0.0.2", "dst": "8.8.8.8", "sport": 12345, "dport": 54, "proto": "udp", "flags": ""}
+    ]
+    assert impl.solve(rules, packets, "stateful") == ["allow", "drop"]
+
+
+def test_empty():
+    assert impl.solve([], [], "stateless") == []
+    assert impl.solve([], [], "stateful") == []
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

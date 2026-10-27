@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security guards and layered defense-in-depth, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Security guards and layered defense-in-depth</h1>
+<h1>Coding problem, 2.3.c: Defense-in-depth scorer</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 2.3.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>You are auditing the physical security posture of fictional facilities for Novara Data Center. Each
+facility supplies a list of security <strong>layers</strong> currently in place. Each layer belongs to exactly
+one <strong>control category</strong>: <code>"perimeter"</code>, <code>"personnel"</code>, <code>"electronic"</code>, <code>"barrier"</code>, or
+<code>"monitoring"</code> (see atom.md, these are the five categories a sound defense-in-depth plan should
+draw from). A facility's <strong>depth score</strong> is the number of <em>distinct</em> categories represented among
+its layers, not the total number of layers. Two guards on patrol (both <code>"personnel"</code>) only count
+once toward depth, because they do not close a new gap the way a different category would.</p>
+<p>Implement <code>solve(layers)</code> that audits one facility's layer list and returns a report:</p>
+<ul>
+<li><code>depth_score</code>, count of distinct valid categories present.</li>
+<li><code>categories_present</code>, sorted list of the distinct valid category names present.</li>
+<li><code>redundant_categories</code>, dict mapping each category that has <em>more than one</em> layer to the count
+  of <em>extra</em> layers beyond the first (e.g. 3 personnel layers -&gt; <code>{"personnel": 2}</code>). Categories
+  with only one layer are omitted.</li>
+<li><code>recommendation</code>, one of <code>"STRONG"</code>, <code>"ADEQUATE"</code>, <code>"WEAK"</code>, based on <code>depth_score</code>:</li>
+<li><code>depth_score &gt;= 5</code> -&gt; <code>"STRONG"</code></li>
+<li><code>3 &lt;= depth_score &lt;= 4</code> -&gt; <code>"ADEQUATE"</code></li>
+<li><code>depth_score &lt;= 2</code> -&gt; <code>"WEAK"</code></li>
+</ul>
+<p>Unknown/invalid category strings (anything other than the five listed above) must be ignored
+entirely, they do not count toward <code>depth_score</code>, do not appear in <code>categories_present</code>, and do
+not count toward <code>redundant_categories</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(layers)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>layers</code>: <code>list[dict]</code>, each dict has:</li>
+<li><code>"name"</code>: <code>str</code>, free-text description, e.g. <code>"lobby reception guard"</code></li>
+<li><code>"category"</code>: <code>str</code>, one of <code>"perimeter"</code>, <code>"personnel"</code>, <code>"electronic"</code>, <code>"barrier"</code>,
+    <code>"monitoring"</code> (or an invalid string, which must be ignored per above)</li>
+</ul>
+<h2>Output</h2>
+<p>A <code>dict</code> with keys <code>"depth_score"</code> (<code>int</code>), <code>"categories_present"</code> (<code>list[str]</code>, sorted ascending),
+<code>"redundant_categories"</code> (<code>dict[str, int]</code>), and <code>"recommendation"</code> (<code>str</code>).</p>
+<h2>Examples</h2>
+<pre><code class="language-python">layers = [
+    {&quot;name&quot;: &quot;chain-link fence + lighting&quot;, &quot;category&quot;: &quot;perimeter&quot;},
+    {&quot;name&quot;: &quot;badge reader on server room&quot;, &quot;category&quot;: &quot;electronic&quot;},
+    {&quot;name&quot;: &quot;lobby reception guard&quot;, &quot;category&quot;: &quot;personnel&quot;},
+]
+solve(layers)
+# -&gt;
+# {
+#   &quot;depth_score&quot;: 3,
+#   &quot;categories_present&quot;: [&quot;electronic&quot;, &quot;perimeter&quot;, &quot;personnel&quot;],
+#   &quot;redundant_categories&quot;: {},
+#   &quot;recommendation&quot;: &quot;ADEQUATE&quot;,
+# }
+
+layers2 = [
+    {&quot;name&quot;: &quot;lobby guard&quot;, &quot;category&quot;: &quot;personnel&quot;},
+    {&quot;name&quot;: &quot;roving night patrol&quot;, &quot;category&quot;: &quot;personnel&quot;},
+    {&quot;name&quot;: &quot;badge reader&quot;, &quot;category&quot;: &quot;electronic&quot;},
+]
+solve(layers2)
+# -&gt;
+# {
+#   &quot;depth_score&quot;: 2,
+#   &quot;categories_present&quot;: [&quot;electronic&quot;, &quot;personnel&quot;],
+#   &quot;redundant_categories&quot;: {&quot;personnel&quot;: 1},
+#   &quot;recommendation&quot;: &quot;WEAK&quot;,
+# }
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Empty <code>layers</code> list -&gt; <code>depth_score</code> 0, empty list/dict outputs, <code>"WEAK"</code> recommendation.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(layers: list[dict]) -&gt; dict
+</code></pre>
+<h3>Input (<code>layers</code>)</h3>
+<p><code>list[dict]</code> where each dict has:
+- <code>"name"</code>: <code>str</code>, free-text label for the layer (not used in scoring logic, informational only)
+- <code>"category"</code>: <code>str</code>, one of the five valid categories <code>"perimeter"</code>, <code>"personnel"</code>,
+  <code>"electronic"</code>, <code>"barrier"</code>, <code>"monitoring"</code>, or an invalid string that must be ignored.</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A <code>dict</code> with exactly these keys:
+- <code>"depth_score"</code>: <code>int</code>, number of distinct valid categories present.
+- <code>"categories_present"</code>: <code>list[str]</code>, sorted ascending, distinct valid categories present.
+- <code>"redundant_categories"</code>: <code>dict[str, int]</code>, for each valid category with more than one layer,
+  the count of layers <em>beyond the first</em> in that category. Categories with exactly one layer are
+  not included. Categories with zero layers are not included.
+- <code>"recommendation"</code>: <code>str</code>, <code>"STRONG"</code> if <code>depth_score &gt;= 5</code>, <code>"ADEQUATE"</code> if <code>depth_score</code> is 3
+  or 4, <code>"WEAK"</code> if <code>depth_score</code> is 0, 1, or 2.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li><code>layers</code> may be given in any order; category counts are order-independent.</li>
+<li>Invalid category strings (not one of the five valid categories) are ignored completely: they do
+  not affect <code>depth_score</code>, <code>categories_present</code>, or <code>redundant_categories</code>.</li>
+<li><code>categories_present</code> is always sorted ascending (alphabetical).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 2.3.c. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import Dict, List
+
+VALID_CATEGORIES = {"perimeter", "personnel", "electronic", "barrier", "monitoring"}
+
+
+def solve(layers: List[Dict]) -&gt; Dict:
+    """Audit a facility's layer list and return a defense-in-depth report.
+
+    Args:
+        layers: list of dicts with keys 'name' (str) and 'category' (str). 'category'
+            should be one of VALID_CATEGORIES; anything else must be ignored.
+    Returns:
+        dict with keys 'depth_score' (int), 'categories_present' (sorted list[str]),
+        'redundant_categories' (dict[str, int]), and 'recommendation' (str: STRONG /
+        ADEQUATE / WEAK). See the problem statement above and the Reference section below for exact rules and thresholds.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() — see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _layer(name, category):
+    return {"name": name, "category": category}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_three_distinct_categories_adequate():
+    layers = [
+        _layer("chain-link fence + lighting", "perimeter"),
+        _layer("badge reader on server room", "electronic"),
+        _layer("lobby reception guard", "personnel"),
+    ]
+    result = impl.solve(layers)
+    assert result == {
+        "depth_score": 3,
+        "categories_present": ["electronic", "perimeter", "personnel"],
+        "redundant_categories": {},
+        "recommendation": "ADEQUATE",
+    }
+
+
+def test_redundant_personnel_weak():
+    layers = [
+        _layer("lobby guard", "personnel"),
+        _layer("roving night patrol", "personnel"),
+        _layer("badge reader", "electronic"),
+    ]
+    result = impl.solve(layers)
+    assert result == {
+        "depth_score": 2,
+        "categories_present": ["electronic", "personnel"],
+        "redundant_categories": {"personnel": 1},
+        "recommendation": "WEAK",
+    }
+
+
+def test_all_five_categories_strong():
+    layers = [
+        _layer("perimeter fence", "perimeter"),
+        _layer("lobby guard", "personnel"),
+        _layer("badge reader", "electronic"),
+        _layer("mantrap", "barrier"),
+        _layer("cctv feed", "monitoring"),
+    ]
+    result = impl.solve(layers)
+    assert result["depth_score"] == 5
+    assert result["categories_present"] == [
+        "barrier", "electronic", "monitoring", "perimeter", "personnel",
+    ]
+    assert result["redundant_categories"] == {}
+    assert result["recommendation"] == "STRONG"
+
+
+def test_empty_layers():
+    result = impl.solve([])
+    assert result == {
+        "depth_score": 0,
+        "categories_present": [],
+        "redundant_categories": {},
+        "recommendation": "WEAK",
+    }
+
+
+def test_single_category_weak():
+    layers = [_layer("badge reader", "electronic")]
+    result = impl.solve(layers)
+    assert result["depth_score"] == 1
+    assert result["categories_present"] == ["electronic"]
+    assert result["redundant_categories"] == {}
+    assert result["recommendation"] == "WEAK"
+
+
+def test_invalid_category_ignored():
+    layers = [
+        _layer("badge reader", "electronic"),
+        _layer("lobby guard", "personnel"),
+        _layer("guard dog", "canine"),  # invalid category, must be ignored
+    ]
+    result = impl.solve(layers)
+    assert result["depth_score"] == 2
+    assert result["categories_present"] == ["electronic", "personnel"]
+    assert "canine" not in result["categories_present"]
+    assert result["recommendation"] == "WEAK"
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_four_categories_adequate_boundary():
+    layers = [
+        _layer("fence", "perimeter"),
+        _layer("guard", "personnel"),
+        _layer("badge reader", "electronic"),
+        _layer("mantrap", "barrier"),
+    ]
+    result = impl.solve(layers)
+    assert result["depth_score"] == 4
+    assert result["recommendation"] == "ADEQUATE"
+
+
+def test_two_categories_multiple_redundancies():
+    layers = [
+        _layer("guard A", "personnel"),
+        _layer("guard B", "personnel"),
+        _layer("guard C", "personnel"),
+        _layer("cctv 1", "monitoring"),
+        _layer("cctv 2", "monitoring"),
+    ]
+    result = impl.solve(layers)
+    assert result["depth_score"] == 2
+    assert result["categories_present"] == ["monitoring", "personnel"]
+    assert result["redundant_categories"] == {"personnel": 2, "monitoring": 1}
+    assert result["recommendation"] == "WEAK"
+
+
+def test_only_invalid_categories_is_weak_empty():
+    layers = [_layer("unicorn detector", "magic"), _layer("weather vane", "meteorology")]
+    result = impl.solve(layers)
+    assert result == {
+        "depth_score": 0,
+        "categories_present": [],
+        "redundant_categories": {},
+        "recommendation": "WEAK",
+    }
+
+
+def test_categories_present_sorted_regardless_of_input_order():
+    layers = [
+        _layer("cctv", "monitoring"),
+        _layer("fence", "perimeter"),
+        _layer("mantrap", "barrier"),
+    ]
+    result = impl.solve(layers)
+    assert result["categories_present"] == ["barrier", "monitoring", "perimeter"]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

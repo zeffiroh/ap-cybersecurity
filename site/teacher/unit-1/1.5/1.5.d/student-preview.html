@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faster, more accurate threat detection and response, Student</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Faster, more accurate threat detection and response</h1>
+<h1>Coding problem, 1.5.d: Compute SOC incident-response metrics</h1>
+<p><strong>Skill:</strong> Detect Attacks, Collaborate · <strong>Maps to:</strong> 1.5.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>A SOC dashboard needs two key metrics to measure how well AI-assisted response is performing:</p>
+<ol>
+<li><strong>MTTR</strong> (Mean Time to Respond): the average seconds from detection to resolution,
+   computed across all incidents in the dataset.</li>
+<li><strong>auto_resolved</strong>: the count of incidents that were closed automatically by an AI playbook
+   (no human analyst required).</li>
+</ol>
+<p>Implement <code>solve(incidents)</code> that reads a list of incident records and returns both metrics.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(incidents: list[dict]) -&gt; dict</code> in the code editor
+(see the Reference section below).</p>
+<h2>Input</h2>
+<p><code>incidents</code> -- a list of dicts, each with:
+- <code>id</code> (str): unique incident identifier
+- <code>detected_at</code> (int): Unix timestamp (seconds) when detected
+- <code>resolved_at</code> (int): Unix timestamp (seconds) when resolved; always &gt; detected_at
+- <code>severity</code> (str): one of <code>"critical"</code>, <code>"high"</code>, <code>"medium"</code>, <code>"low"</code>
+- <code>auto</code> (bool): True if auto-resolved, False if human-resolved</p>
+<h2>Output</h2>
+<p>A dict with exactly two keys:
+- <code>"mttr"</code> (float): mean response time in seconds across all incidents
+- <code>"auto_resolved"</code> (int): count of incidents where <code>auto == True</code></p>
+<p>Formula:
+  <code>mttr = sum(resolved_at - detected_at for each incident) / len(incidents)</code></p>
+<p>Return <code>{"mttr": 0.0, "auto_resolved": 0}</code> for empty input.</p>
+<h2>Examples</h2>
+<pre><code class="language-python">incidents = [
+    {&quot;id&quot;: &quot;INC-001&quot;, &quot;detected_at&quot;: 1000, &quot;resolved_at&quot;: 1120, &quot;severity&quot;: &quot;critical&quot;, &quot;auto&quot;: False},
+    {&quot;id&quot;: &quot;INC-002&quot;, &quot;detected_at&quot;: 2000, &quot;resolved_at&quot;: 2080, &quot;severity&quot;: &quot;high&quot;,     &quot;auto&quot;: True},
+]
+# response times: 120s, 80s -&gt; mean = 100.0; auto_resolved = 1
+solve(incidents) -&gt; {&quot;mttr&quot;: 100.0, &quot;auto_resolved&quot;: 1}
+
+solve([]) -&gt; {&quot;mttr&quot;: 0.0, &quot;auto_resolved&quot;: 0}
+
+incidents = [
+    {&quot;id&quot;: &quot;INC-003&quot;, &quot;detected_at&quot;: 0, &quot;resolved_at&quot;: 300, &quot;severity&quot;: &quot;low&quot;, &quot;auto&quot;: True},
+]
+solve(incidents) -&gt; {&quot;mttr&quot;: 300.0, &quot;auto_resolved&quot;: 1}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(incidents: list[dict]) -&gt; dict
+</code></pre>
+<h3>Input (<code>incidents</code>)</h3>
+<p>A list of incident dicts. Each dict has exactly these keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>str</td>
+<td>Unique incident identifier string (e.g. <code>"INC-001"</code>)</td>
+</tr>
+<tr>
+<td><code>detected_at</code></td>
+<td>int</td>
+<td>Unix timestamp (seconds) when the incident was detected</td>
+</tr>
+<tr>
+<td><code>resolved_at</code></td>
+<td>int</td>
+<td>Unix timestamp (seconds) when the incident was resolved; always &gt; detected_at</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td>str</td>
+<td>One of <code>"critical"</code>, <code>"high"</code>, <code>"medium"</code>, <code>"low"</code></td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>bool</td>
+<td><code>True</code> if the incident was resolved automatically; <code>False</code> if human-resolved</td>
+</tr>
+</tbody>
+</table>
+<p>Example single entry:</p>
+<pre><code class="language-python">{&quot;id&quot;: &quot;INC-001&quot;, &quot;detected_at&quot;: 1000, &quot;resolved_at&quot;: 1120, &quot;severity&quot;: &quot;critical&quot;, &quot;auto&quot;: False}
+</code></pre>
+<h3>Output (<code>result</code>)</h3>
+<p>A dict with exactly two keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"mttr"</code></td>
+<td>float</td>
+<td>Mean time to respond in seconds, averaged across ALL incidents.</td>
+</tr>
+<tr>
+<td><code>"auto_resolved"</code></td>
+<td>int</td>
+<td>Count of incidents where <code>auto == True</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>mttr</code> is computed as:
+  <code>sum(resolved_at - detected_at for each incident) / len(incidents)</code></p>
+<p>If <code>incidents</code> is empty, return <code>{"mttr": 0.0, "auto_resolved": 0}</code>.</p>
+<p>The <code>mttr</code> value is a Python <code>float</code> (may be a whole number like <code>120.0</code>).
+The <code>auto_resolved</code> value is a Python <code>int</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li><code>incidents</code> is a list (may be empty).</li>
+<li><code>resolved_at &gt; detected_at</code> always; all timestamps are non-negative integers.</li>
+<li><code>severity</code> is always one of the four valid strings; implementations need not validate it.</li>
+<li>No incident has a negative response time.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Your implementation
+"""Starter code for 1.5.d. Student completes the TODO.
+This file intentionally FAILS the tests until implemented."""
+from typing import List, Dict, Any
+
+
+def solve(incidents: List[Dict[str, Any]]) -&gt; Dict[str, Any]:
+    """Compute MTTR and auto-resolved count for a list of SOC incidents.
+
+    Args:
+        incidents: list of dicts with keys:
+            id (str), detected_at (int), resolved_at (int),
+            severity (str), auto (bool).
+    Returns:
+        {"mttr": float, "auto_resolved": int}
+        mttr = mean(resolved_at - detected_at) across all incidents.
+        auto_resolved = count of incidents where auto is True.
+        Return {"mttr": 0.0, "auto_resolved": 0} for empty input.
+    """
+    # TODO: implement per the problem statement above
+    raise NotImplementedError("implement solve() -- see the problem statement above")
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+def _inc(id_, detected, resolved, severity="high", auto=False):
+    return {"id": id_, "detected_at": detected, "resolved_at": resolved,
+            "severity": severity, "auto": auto}
+
+
+# ---- visible cases -------------------------------------------------------
+
+def test_empty_input():
+    result = impl.solve([])
+    assert result == {"mttr": 0.0, "auto_resolved": 0}
+
+
+def test_single_incident_manual():
+    result = impl.solve([_inc("INC-001", 1000, 1120, "critical", False)])
+    assert result["mttr"] == 120.0
+    assert result["auto_resolved"] == 0
+
+
+def test_single_incident_auto():
+    result = impl.solve([_inc("INC-002", 2000, 2060, "low", True)])
+    assert result["mttr"] == 60.0
+    assert result["auto_resolved"] == 1
+
+
+def test_two_incidents_mean():
+    incidents = [
+        _inc("INC-003", 1000, 1120, "critical", False),  # 120s
+        _inc("INC-004", 2000, 2080, "high", True),       # 80s
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 100.0
+    assert result["auto_resolved"] == 1
+
+
+def test_all_auto_resolved():
+    incidents = [
+        _inc("INC-005", 0, 30, "low", True),
+        _inc("INC-006", 0, 60, "medium", True),
+        _inc("INC-007", 0, 90, "high", True),
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 60.0
+    assert result["auto_resolved"] == 3
+
+
+# ---- hidden / edge cases -------------------------------------------------
+
+def test_no_auto_resolved():
+    incidents = [
+        _inc("INC-010", 100, 700, "critical", False),  # 600s
+        _inc("INC-011", 200, 500, "high", False),       # 300s
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 450.0
+    assert result["auto_resolved"] == 0
+
+
+def test_mttr_is_float():
+    result = impl.solve([_inc("INC-020", 0, 100, "medium", False)])
+    assert isinstance(result["mttr"], float)
+
+
+def test_auto_resolved_is_int():
+    result = impl.solve([_inc("INC-021", 0, 50, "low", True)])
+    assert isinstance(result["auto_resolved"], int)
+
+
+def test_result_has_exactly_two_keys():
+    result = impl.solve([_inc("INC-030", 0, 200)])
+    assert set(result.keys()) == {"mttr", "auto_resolved"}
+
+
+def test_non_integer_mean():
+    # 3 incidents with response times 10, 20, 30 -&gt; mean = 20.0 (exact)
+    incidents = [
+        _inc("A", 0, 10),
+        _inc("B", 0, 20),
+        _inc("C", 0, 30),
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 20.0
+
+
+def test_fractional_mean():
+    # 2 incidents: 10s and 11s -&gt; mean = 10.5
+    incidents = [
+        _inc("X", 1000, 1010),
+        _inc("Y", 2000, 2011),
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 10.5
+
+
+def test_large_dataset():
+    # 100 incidents, all 300s response time, 50 auto -&gt; mttr=300.0, auto=50
+    incidents = [_inc(f"INC-{i}", i * 1000, i * 1000 + 300, "high", i % 2 == 0)
+                 for i in range(100)]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 300.0
+    assert result["auto_resolved"] == 50
+
+
+def test_mixed_severities_all_auto():
+    incidents = [
+        _inc("M1", 0, 45, "low", True),
+        _inc("M2", 0, 45, "medium", True),
+        _inc("M3", 0, 45, "high", True),
+        _inc("M4", 0, 45, "critical", False),
+    ]
+    result = impl.solve(incidents)
+    assert result["mttr"] == 45.0
+    assert result["auto_resolved"] == 3
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

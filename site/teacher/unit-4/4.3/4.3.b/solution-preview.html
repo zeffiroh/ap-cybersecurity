@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Antivirus and endpoint protection, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>Antivirus and endpoint protection  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 4.3.b: Endpoint Detection Engine</h1>
+<p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.3.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Endpoint Protection Platforms (EPP) use a mixture of signature detection (known hashes) and behavioral heuristics (actions taken by the process, such as excessive file updates or network socket connections) to identify and suspend threats.</p>
+<p>You are tasked with writing a process-auditing rule engine <code>solve(data)</code>. The engine evaluates a list of running processes against:
+1. A database of known malicious file hashes (signatures).
+2. Max thresholds on process behavior: <code>max_file_modifications</code> and <code>max_network_connections</code>.</p>
+<p>The function must return a list of PIDs of all processes that violate any of these rules.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(data)</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<p>A dictionary containing security signatures, behavioral thresholds, and a list of active processes:</p>
+<pre><code class="language-json">{
+  &quot;signatures&quot;: [&quot;d41d8cd98f00b204e9800998ecf8427e&quot;, &quot;098f6bcd4621d373cade4e832627b4f6&quot;],
+  &quot;behavioral_rules&quot;: {
+    &quot;max_file_modifications&quot;: 10,
+    &quot;max_network_connections&quot;: 5
+  },
+  &quot;processes&quot;: [
+    {
+      &quot;pid&quot;: 101,
+      &quot;name&quot;: &quot;backup_agent.exe&quot;,
+      &quot;hash&quot;: &quot;81dc9bdb52d04dc20036dbd8313ed055&quot;,
+      &quot;file_modifications&quot;: 8,
+      &quot;network_connections&quot;: 2
+    },
+    {
+      &quot;pid&quot;: 102,
+      &quot;name&quot;: &quot;ransomware.exe&quot;,
+      &quot;hash&quot;: &quot;d41d8cd98f00b204e9800998ecf8427e&quot;,
+      &quot;file_modifications&quot;: 2,
+      &quot;network_connections&quot;: 0
+    },
+    {
+      &quot;pid&quot;: 103,
+      &quot;name&quot;: &quot;spam_sender.exe&quot;,
+      &quot;hash&quot;: &quot;1f10c9aa0090ff91e90ff8a8bc8a9bcf&quot;,
+      &quot;file_modifications&quot;: 1,
+      &quot;network_connections&quot;: 12
+    }
+  ]
+}
+</code></pre>
+<h2>Output</h2>
+<p>A list of integers representing the PIDs of flagged processes, sorted in ascending order.
+For the example input above:</p>
+<pre><code class="language-json">[102, 103]
+</code></pre>
+<p><em>(Explanation: PID 102 matches a known signature; PID 103 exceeds the network connections threshold)</em></p>
+<h2>Constraints</h2>
+<ul>
+<li>Signature matching is case-insensitive (e.g., <code>"A1B2"</code> matches <code>"a1b2"</code>).</li>
+<li>Behavioral violations occur when a metric is <em>strictly greater</em> than the threshold (i.e. <code>file_modifications &gt; max_file_modifications</code>).</li>
+<li>Standard library only.</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(data: dict) -&gt; list[int]
+</code></pre>
+<h3>Input (<code>data</code>)</h3>
+<p>A dictionary containing:
+- <code>"signatures"</code>: list of strings (MD5 hashes of known malware)
+- <code>"behavioral_rules"</code>: dict with keys:
+  - <code>"max_file_modifications"</code> (int)
+  - <code>"max_network_connections"</code> (int)
+- <code>"processes"</code>: list of dicts, where each dict has:
+  - <code>"pid"</code> (int)
+  - <code>"name"</code> (string)
+  - <code>"hash"</code> (string)
+  - <code>"file_modifications"</code> (int)
+  - <code>"network_connections"</code> (int)</p>
+<h3>Output (<code>result</code>)</h3>
+<p>A list of integers representing the PIDs of flagged processes.
+A process is flagged if:
+1. Its hash is in the <code>"signatures"</code> list.
+2. Its <code>"file_modifications"</code> is strictly greater than <code>"max_file_modifications"</code>.
+3. Its <code>"network_connections"</code> is strictly greater than <code>"max_network_connections"</code>.</p>
+<p>The output list of PIDs must be sorted in ascending order. If no processes are flagged, returns <code>[]</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network.</li>
+<li>Standard library only.</li>
+<li>Case-insensitivity: MD5 hash comparisons should be case-insensitive (e.g., <code>"A1B2"</code> matches <code>"a1b2"</code>).</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 4.3.b. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+
+
+def solve(data: dict) -&gt; list:
+    """Flag processes that match a known-malware signature or exceed behavioral thresholds.
+
+    Args:
+        data: dict with keys "signatures" (list[str]), "behavioral_rules" (dict with
+            "max_file_modifications" and "max_network_connections"), and "processes"
+            (list of dicts with pid, name, hash, file_modifications, network_connections).
+
+    Returns:
+        Sorted list of PIDs (int) for every process that matches a signature or
+        exceeds a behavioral threshold.
+    """
+    signatures = {s.lower() for s in data.get("signatures", [])}
+    rules = data.get("behavioral_rules", {})
+    max_files = rules.get("max_file_modifications", 0)
+    max_net = rules.get("max_network_connections", 0)
+
+    flagged = set()
+    for proc in data.get("processes", []):
+        pid = proc["pid"]
+        if proc.get("hash", "").lower() in signatures:
+            flagged.add(pid)
+            continue
+        if proc.get("file_modifications", 0) &gt; max_files:
+            flagged.add(pid)
+            continue
+        if proc.get("network_connections", 0) &gt; max_net:
+            flagged.add(pid)
+            continue
+
+    return sorted(flagged)
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_example_1_prompt_scenario():
+    data = {
+        "signatures": ["d41d8cd98f00b204e9800998ecf8427e", "098f6bcd4621d373cade4e832627b4f6"],
+        "behavioral_rules": {"max_file_modifications": 10, "max_network_connections": 5},
+        "processes": [
+            {"pid": 101, "name": "backup_agent.exe", "hash": "81dc9bdb52d04dc20036dbd8313ed055",
+             "file_modifications": 8, "network_connections": 2},
+            {"pid": 102, "name": "ransomware.exe", "hash": "d41d8cd98f00b204e9800998ecf8427e",
+             "file_modifications": 2, "network_connections": 0},
+            {"pid": 103, "name": "spam_sender.exe", "hash": "1f10c9aa0090ff91e90ff8a8bc8a9bcf",
+             "file_modifications": 1, "network_connections": 12},
+        ],
+    }
+    assert impl.solve(data) == [102, 103]
+
+
+def test_example_2_no_flags():
+    data = {
+        "signatures": ["aaaa"],
+        "behavioral_rules": {"max_file_modifications": 10, "max_network_connections": 5},
+        "processes": [
+            {"pid": 1, "name": "clean.exe", "hash": "bbbb",
+             "file_modifications": 3, "network_connections": 1},
+        ],
+    }
+    assert impl.solve(data) == []
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_edge_empty_process_list():
+    data = {
+        "signatures": ["aaaa"],
+        "behavioral_rules": {"max_file_modifications": 10, "max_network_connections": 5},
+        "processes": [],
+    }
+    assert impl.solve(data) == []
+
+
+def test_signature_case_insensitive():
+    data = {
+        "signatures": ["A1B2C3"],
+        "behavioral_rules": {"max_file_modifications": 100, "max_network_connections": 100},
+        "processes": [
+            {"pid": 5, "name": "evil.exe", "hash": "a1b2c3",
+             "file_modifications": 0, "network_connections": 0},
+        ],
+    }
+    assert impl.solve(data) == [5]
+
+
+def test_boundary_thresholds_not_exceeded_when_equal():
+    data = {
+        "signatures": [],
+        "behavioral_rules": {"max_file_modifications": 10, "max_network_connections": 5},
+        "processes": [
+            {"pid": 7, "name": "borderline.exe", "hash": "zzzz",
+             "file_modifications": 10, "network_connections": 5},
+        ],
+    }
+    assert impl.solve(data) == []
+
+
+def test_boundary_thresholds_exceeded_by_one():
+    data = {
+        "signatures": [],
+        "behavioral_rules": {"max_file_modifications": 10, "max_network_connections": 5},
+        "processes": [
+            {"pid": 8, "name": "over.exe", "hash": "zzzz",
+             "file_modifications": 11, "network_connections": 0},
+            {"pid": 9, "name": "over2.exe", "hash": "zzzz",
+             "file_modifications": 0, "network_connections": 6},
+        ],
+    }
+    assert impl.solve(data) == [8, 9]
+
+
+def test_result_sorted_ascending_regardless_of_input_order():
+    data = {
+        "signatures": ["hash1", "hash2", "hash3"],
+        "behavioral_rules": {"max_file_modifications": 999, "max_network_connections": 999},
+        "processes": [
+            {"pid": 30, "name": "c.exe", "hash": "hash3",
+             "file_modifications": 0, "network_connections": 0},
+            {"pid": 10, "name": "a.exe", "hash": "hash1",
+             "file_modifications": 0, "network_connections": 0},
+            {"pid": 20, "name": "b.exe", "hash": "hash2",
+             "file_modifications": 0, "network_connections": 0},
+        ],
+    }
+    assert impl.solve(data) == [10, 20, 30]
+
+
+def test_multiple_reasons_same_pid_counted_once():
+    data = {
+        "signatures": ["deadbeef"],
+        "behavioral_rules": {"max_file_modifications": 1, "max_network_connections": 1},
+        "processes": [
+            {"pid": 42, "name": "multi.exe", "hash": "deadbeef",
+             "file_modifications": 50, "network_connections": 50},
+        ],
+    }
+    assert impl.solve(data) == [42]
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

