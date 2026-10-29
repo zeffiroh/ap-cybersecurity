@@ -102,7 +102,9 @@ The codes are never written to the (public) workflow log.
 payments into `payments` (the last 60 days each time, so refunds are picked up; `--all` re-reads
 everything). A captured payment from the course's payment page (`PAGE_ID` in the script) unlocks the
 email typed in its "Email you sign in to the course with" field (`via = 'razorpay'`, `ref` = payment id);
-a full refund revokes it. After paying, the unlock page waits and opens once that row exists. The page
+a full refund revokes it. Each run also copies the page's price (the amount field's minimum, or its
+fixed amount) into `settings.min_amount`: the course's payment and unlock pages show it, and while it is
+above 0 "Continue without paying" is refused. So the price is set only on Razorpay. After paying, the unlock page waits and opens once that row exists. The page
 `ledger/` shows money in, by month and by method, and how people got in. It opens only with a private
 link, `…/ledger/#<key>`: make one with `python db/ledger_key.py "who it's for" [key]`, cut it off with
 `delete from ledger_keys where note = '…'`. The monthly codes email also carries the earnings so far.

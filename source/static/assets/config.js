@@ -21,7 +21,6 @@ window.APCYBER_PAYWALL = {
   payUrl: "pay/",
 
   pay: {
-    minAmount: "",       // e.g. "Rs 99". Blank: any amount, and a "Continue without paying" button
     // Each method is a store link. Only Razorpay payments are checked and unlock by themselves.
     // Blank ones are hidden; with none filled in, the payment page says "Free for now".
     methods: [

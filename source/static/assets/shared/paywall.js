@@ -77,6 +77,19 @@
     });
   }
 
+  function price() {
+    return neon().then(function (N) {
+      return N.rpc("api_pay_info", {}, { attempts: 2 });
+    }).then(function (res) {
+      if (!res || !res.ok) throw new Error("no price");
+      return { min: Math.max(0, Number(res.minAmount) || 0), free: !!res.free };
+    });
+  }
+
+  function rupees(paise) {
+    return "Rs " + (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  }
+
   function glob(p) {
     return new RegExp("^" + p.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
       .replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\u0000/g, ".*") + "$");
@@ -108,7 +121,7 @@
 
   global.Paywall = {
     root: root, email: email, isUnlocked: isUnlocked, unlock: unlock, lookup: lookup, signIn: signIn,
-    neon: neon, payUrl: payUrl, EMAIL_RE: EMAIL_RE
+    neon: neon, payUrl: payUrl, price: price, rupees: rupees, EMAIL_RE: EMAIL_RE
   };
   if (!P.enabled || !root) return;
 
@@ -160,7 +173,7 @@
       '<img src="' + root + 'assets/theme/icon.svg" alt="">' +
       '<h2 id="pw-title">Part of the full course</h2>' +
       "<p>Unlock once and your account keeps every topic, lecture, quiz, lab, unit test, the book and the capstone " +
-      "for good. Pay what you want, or use a code.</p>" +
+      "for good. One payment, or a code.</p>" +
       '<a class="pw-btn" href="' + unlockUrl() + '">Unlock the course</a>' +
       '<div class="pw-links"><a href="' + unlockUrl("code=1") + '">I have a code</a>' +
       '<a href="' + root + 'unit-1/1.1/index.html">Try Topic 1.1 free</a></div>' +
@@ -193,7 +206,7 @@
 
   function ribbon() {
     try { if (sessionStorage.getItem("pw-ribbon-off")) return; } catch (e) {}
-    var b = bar('<span>This part is free. The rest of the course is pay what you want.</span>' +
+    var b = bar('<span>This part is free. The rest of the course unlocks with one payment.</span>' +
       '<a href="' + unlockUrl() + '">Unlock the full course &rarr;</a>', "pw-ribbon");
     b.querySelector(".pw-x").addEventListener("click", function () {
       b.remove();

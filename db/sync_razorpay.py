@@ -76,8 +76,17 @@ def notes(p, orders):
     return n
 
 
+def page_min():
+    for it in get(f"payment_pages/{PAGE_ID}").get("payment_page_items") or []:
+        if it.get("mandatory", True):
+            return int((it.get("item") or {}).get("amount") or it.get("min_amount") or 0)
+    return 0
+
+
 def main():
     with psycopg.connect(url()) as db:
+        db.execute("insert into settings (key, value) values ('min_amount', %s) "
+                   "on conflict (key) do update set value = excluded.value", (str(page_min()),))
         empty = db.execute("select not exists (select 1 from payments where id <> '_sync')").fetchone()[0]
         since = EARLIEST if empty or "--all" in sys.argv else int(time.time()) - 60 * 86400
         orders, rows, unlocks = {}, [], []

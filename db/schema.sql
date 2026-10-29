@@ -98,6 +98,7 @@ create table if not exists settings (
   value text not null
 );
 insert into settings (key, value) values ('free_unlock', 'on') on conflict (key) do nothing;
+insert into settings (key, value) values ('min_amount', '0') on conflict (key) do nothing;
 
 -- Codes to give away. Each unlocks up to uses_left accounts; see db/README.md.
 create table if not exists unlock_codes (
@@ -259,7 +260,8 @@ begin
   if exists (select 1 from unlocks where email = e and not revoked) then
     return jsonb_build_object('ok', true);
   end if;
-  if coalesce((select value from settings where key = 'free_unlock'), 'on') <> 'on' then
+  if coalesce((select value from settings where key = 'free_unlock'), 'on') <> 'on'
+     or coalesce((select value from settings where key = 'min_amount'), '0') <> '0' then
     return jsonb_build_object('ok', false, 'error', 'The course is no longer free. Please pay to unlock it.');
   end if;
   insert into unlocks (email, via) values (e, 'free');
@@ -518,6 +520,14 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     select 1 from unlocks where email = lower(trim(coalesce(p_email, ''))) and not revoked))
 $$;
 
+create or replace function api_pay_info()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('ok', true,
+    'minAmount', coalesce((select value::bigint from settings where key = 'min_amount' and value ~ '^[0-9]+$'), 0),
+    'free', coalesce((select value from settings where key = 'free_unlock'), 'on') = 'on'
+            and coalesce((select value from settings where key = 'min_amount'), '0') = '0')
+$$;
+
 -- The ledger page: money in, by month and by method, recent payments and how
 -- people got in. Answers only to a key from ledger_keys.
 create or replace function api_ledger(p_key text)
@@ -573,5 +583,5 @@ grant execute on function
   api_ad_metrics(), api_engine_sessions(), api_track(jsonb),
   api_student_progress(text), api_class_progress(),
   api_unlock(jsonb), api_unlock_status(text), api_redeem_code(text, text),
-  api_ledger(text)
+  api_ledger(text), api_pay_info()
   to anonymous, authenticated;

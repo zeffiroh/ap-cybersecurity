@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pay What You Want · AP Cybersecurity</title>
-<meta name="description" content="Support the AP Cybersecurity course: pay what you want, any way you like.">
+<title>Payment · AP Cybersecurity</title>
+<meta name="description" content="Unlock or support the AP Cybersecurity course, any way you like.">
 <!-- The payment page. Whoever opens it passes ?return=<address>; when the payer is done it sends them
      there. The methods come from APCYBER_PAYWALL.pay in assets/config.js. -->
 <style>
@@ -38,7 +38,7 @@
 <body>
 <main>
   <img class="mark" src="../assets/theme/icon.svg" alt="">
-  <h1 id="title">Pay what you want</h1>
+  <h1 id="title">Unlock the course</h1>
   <p class="lede" id="lede"></p>
 
   <div class="methods" id="methods"></div>
@@ -69,16 +69,26 @@
     if (q.get("return") && r.origin === location.origin) ret = r.href;
   } catch (e) { /* keep the default */ }
 
-  var min = (P.minAmount || "").trim();
+  var ONCE = " It's a one-time payment: your account keeps the full course for good.";
   if (donating) {
     $("title").textContent = "Support the course";
     $("lede").textContent = "Any amount, any way you like. Thank you for keeping it going.";
     $("done-note").textContent = "Thank you. When you're done, head back to where you were.";
     $("paid").textContent = "Back to the course";
   } else {
-    $("lede").textContent = (min ? "From " + min + ", any way you like." : "Any amount, any way you like.") +
-      " It's a one-time payment: your account keeps the full course for good.";
-    $("free").hidden = !!min;
+    $("title").textContent = "Unlock the course";
+    $("lede").textContent = "Any way you like." + ONCE;
+    if (window.Paywall) window.Paywall.price().then(function (p) {
+      if (!shown) return;
+      if (p.min) {
+        $("title").textContent = window.Paywall.rupees(p.min) + " for the full course";
+        $("lede").textContent = "From " + window.Paywall.rupees(p.min) + ", any way you like." + ONCE;
+      } else {
+        $("title").textContent = "Pay what you want";
+        $("lede").textContent = "Any amount, any way you like." + ONCE;
+      }
+      $("free").hidden = !p.free;
+    }, function () {});
   }
   $("paid").href = ret;
   $("free").href = ret.replace(/([?&])paid=1\b/, "$1free=1");

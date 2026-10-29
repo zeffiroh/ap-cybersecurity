@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Unlock the Course · AP Cybersecurity</title>
-<meta name="description" content="Unlock the full AP Cybersecurity course once, for good: pay what you want or use a code.">
+<meta name="description" content="Unlock the full AP Cybersecurity course once, for good: one payment or a code.">
 <style>
   :root { --ink: #111; --muted: #444; --faint: #777; --line: #d4d4d4; }
   * { box-sizing: border-box; }
@@ -73,9 +73,9 @@
     <p class="msg" id="account-msg" role="status"></p>
 
     <div id="ways">
-      <h2 class="gap">2 · Pay what you want</h2>
+      <h2 class="gap" id="pay-title">2 · Pay once</h2>
       <a class="btn" id="pay" href="../pay/">Go to the payment page</a>
-      <p class="hint">Any amount. Type this same email on the payment page: the course opens for it as soon as
+      <p class="hint"><span id="pay-amount"></span>Type this same email on the payment page: the course opens for it as soon as
         the payment is confirmed, usually within 5 to 15 minutes.</p>
 
       <h2 class="gap">Or use a code</h2>
@@ -106,7 +106,6 @@
   "use strict";
   var W = window.Paywall;
   var S = window.APCYBER_SUPPORT || {};
-  var minAmount = ((((window.APCYBER_PAYWALL || {}).pay || {}).minAmount) || "").trim();
   var PENDING = "apcyber_unlock_pending";    // { next, ts }: where to go after the payment page
   var WAIT_MINUTES = 45;
   var q = new URLSearchParams(location.search);
@@ -206,7 +205,7 @@
       $("email").focus();
     });
     if (W.isUnlocked(who)) return done("Unlocked", "The full course is open for " + who + ".");
-    if (q.has("free") && !minAmount) return free(who);
+    if (q.has("free")) return free(who);
     if (paid) return wait(who);
     $("account-msg").textContent = "Checking your account…";
     W.lookup(who).then(function (yes) {
@@ -222,6 +221,11 @@
     W.signIn(v);
     paint();
   });
+
+  W.price().then(function (p) {
+    $("pay-title").textContent = p.min ? "2 · Pay " + W.rupees(p.min) : "2 · Pay what you want";
+    $("pay-amount").textContent = p.min ? W.rupees(p.min) + " or more, once. " : "Any amount. ";
+  }, function () {});
 
   $("pay").href = W.payUrl(new URL("?paid=1", location.href.split(/[?#]/)[0]).href);
   $("pay").addEventListener("click", function () {
