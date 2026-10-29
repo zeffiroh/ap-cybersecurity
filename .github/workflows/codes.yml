@@ -1,0 +1,33 @@
+# Makes one-use course unlock codes on the 1st of every month and emails them (db/make_codes.py).
+# Needs repository secrets DATABASE_URL, SMTP_USER, SMTP_PASSWORD and MAIL_TO (see db/README.md).
+# Run it by hand from the Actions tab for an extra batch.
+name: Unlock codes
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: How many codes
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  codes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "psycopg[binary]==3.2.3"
+      - run: python db/make_codes.py "$COUNT"
+        env:
+          COUNT: ${{ github.event.inputs.count || '10' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}

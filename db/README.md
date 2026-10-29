@@ -4,7 +4,8 @@ The course is a static site. Its only backend is one free Neon Postgres
 project, reached straight from the browser through Neon's Data API. This
 replaces the old Google Apps Script gradebook and the Flask engine server.
 
-What it stores: graded submissions (practice, quizzes, coding problems,
+What it stores: course unlocks, give-away codes and Razorpay payments (for the
+ledger), graded submissions (practice, quizzes, coding problems,
 capstone stages, exit tickets, portal atom quizzes), instructor grades,
 adaptive-test and CW/HW sessions, and anonymous per-unit view counts.
 
@@ -66,3 +67,59 @@ passwords.
   A class's worth of rows is a tiny fraction of the free storage. The
   database sleeps when idle, so the first request after a quiet spell takes a
   second or two; the site retries automatically.
+
+## Unlocking the course
+
+Access belongs to an account (the sign-in email) and lasts for good. Run these
+in the SQL Editor, or from the command line with `python db/sql.py "<sql>"` (it reads
+`NEON_DATABASE_URL` from `.env`; `python db/sql.py db/schema.sql` runs the whole schema).
+
+- **Give away a code:** each code unlocks up to `uses_left` accounts. Make
+  codes long enough not to guess.
+
+  ```sql
+  insert into unlock_codes (code, uses_left, note) values ('SPRING-CLASS-7Q4K', 30, 'Ms Rao, period 2');
+  select * from unlock_codes;                        -- uses left on each
+  update unlock_codes set uses_left = 0 where code = 'SPRING-CLASS-7Q4K';   -- stop a code
+  ```
+
+- **Unlock one account by hand:**
+  `insert into unlocks (email, via) values ('student@school.org', 'manual');`
+- **Who has unlocked, and how:** `select * from unlocks order by created_at desc;`
+- **Take an unlock back:** `update unlocks set revoked = true where email = 'student@school.org';`
+  A browser that already opened the course for that account stays open.
+
+### Monthly codes by email
+
+`.github/workflows/codes.yml` runs `db/make_codes.py` on the 1st of every month: it makes 10 one-use
+codes (`CYBER-XXXX-XXXX-XXXX`), stores them in `unlock_codes` and emails them, with a CSV for printing
+scratch cards. For an extra batch, open *Actions → Unlock codes → Run workflow* and choose how many.
+The codes are never written to the (public) workflow log.
+
+### Payments, unlocks and the ledger
+
+`.github/workflows/ledger.yml` runs `db/sync_razorpay.py` about every 5 minutes: it copies Razorpay
+payments into `payments` (the last 60 days each time, so refunds are picked up; `--all` re-reads
+everything). A captured payment from the course's payment page (`PAGE_ID` in the script) unlocks the
+email typed in its "Email you sign in to the course with" field (`via = 'razorpay'`, `ref` = payment id);
+a full refund revokes it. After paying, the unlock page waits and opens once that row exists. The page
+`ledger/` shows money in, by month and by method, and how people got in. It opens only with a private
+link, `…/ledger/#<key>`: make one with `python db/ledger_key.py "who it's for" [key]`, cut it off with
+`delete from ledger_keys where note = '…'`. The monthly codes email also carries the earnings so far.
+Locally, `RAZORPAY_KEY_FILE=<csv with key_id,key_secret> python db/sync_razorpay.py` syncs by hand.
+
+### Secrets
+
+Both workflows read repository secrets (*Settings → Secrets and variables → Actions*, or
+`gh secret set NAME` from the command line):
+
+| Secret | Value |
+|---|---|
+| `DATABASE_URL` | Neon console → *Connect* → the connection string with the password (`postgresql://...sslmode=require`) |
+| `SMTP_USER` | the Gmail address that sends the codes email |
+| `SMTP_PASSWORD` | a Gmail app password for it (Google Account → Security → 2-Step Verification → App passwords) |
+| `MAIL_TO` | where the codes go |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay dashboard → *Account & Settings* → *API keys* |
+
+GitHub pauses scheduled workflows in a repository with no commits for 60 days; pushing anything, or
+re-enabling them on the Actions tab, starts them again.

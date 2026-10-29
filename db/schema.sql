@@ -75,14 +75,81 @@ create table if not exists activity (
 );
 create index if not exists activity_email_last on activity (email, last_ts desc);
 
+-- Course unlocks: an account (email) that has one keeps the course for good.
+-- via is 'razorpay' (a captured payment from the course's payment page, added
+-- by db/sync_razorpay.py; ref is the payment id, revoked on a full refund),
+-- 'free' (the payment page's "Continue without paying"), 'code' (ref is the
+-- code) or 'manual'. Grant one by hand with an insert; set revoked = true to
+-- take one back.
+create table if not exists unlocks (
+  id         bigserial primary key,
+  email      text not null,
+  via        text not null default '',
+  ref        text not null default '',
+  revoked    boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists unlocks_email on unlocks (email);
+
+-- Switches the owner flips from the SQL editor or db/sql.py. free_unlock: 'on'
+-- while the course is pay-what-you-want from 0, 'off' once it has a minimum.
+create table if not exists settings (
+  key   text primary key,
+  value text not null
+);
+insert into settings (key, value) values ('free_unlock', 'on') on conflict (key) do nothing;
+
+-- Codes to give away. Each unlocks up to uses_left accounts; see db/README.md.
+create table if not exists unlock_codes (
+  code       text primary key,          -- upper case
+  uses_left  integer not null default 1,
+  note       text not null default '',
+  created_at timestamptz not null default now()
+);
+
+-- Money in, copied from Razorpay every few minutes by db/sync_razorpay.py.
+-- Amounts are in paise; fee already includes its tax; notes holds the payment
+-- page's form fields except the phone number. The row '_sync' only records
+-- when the last sync ran. Visitors never read this table:
+-- the ledger page gets totals through api_ledger, which needs a ledger key.
+create table if not exists payments (
+  id              text primary key,
+  provider        text not null default 'razorpay',
+  status          text not null,
+  amount          bigint not null default 0,
+  amount_refunded bigint not null default 0,
+  fee             bigint not null default 0,
+  tax             bigint not null default 0,
+  currency        text not null default 'INR',
+  method          text not null default '',
+  email           text not null default '',
+  description     text not null default '',
+  created_at      timestamptz not null,
+  synced_at       timestamptz not null default now()
+);
+alter table payments add column if not exists notes jsonb not null default '{}'::jsonb;
+
+-- Private links to the ledger page (db/ledger_key.py). Only a hash is kept.
+create table if not exists ledger_keys (
+  hash       text primary key,
+  note       text not null default '',
+  created_at timestamptz not null default now()
+);
+
 alter table submissions     enable row level security;
 alter table page_views      enable row level security;
 alter table engine_sessions enable row level security;
 alter table activity        enable row level security;
+alter table unlocks         enable row level security;
+alter table unlock_codes    enable row level security;
+alter table payments        enable row level security;
+alter table ledger_keys     enable row level security;
+alter table settings        enable row level security;
 
 -- The Neon Console grants new public tables to `authenticated` by default;
 -- take that back so a signed-in token is no stronger than an anonymous one.
-revoke all on submissions, page_views, engine_sessions, activity from public, anonymous, authenticated;
+revoke all on submissions, page_views, engine_sessions, activity, unlocks, unlock_codes, payments, ledger_keys, settings
+  from public, anonymous, authenticated;
 
 -- ---------------------------------------------------------------- helpers --
 
@@ -176,6 +243,49 @@ begin
   insert into page_views (day, unit_id, views)
   values ((now() at time zone 'UTC')::date, p_unit, 1)
   on conflict (day, unit_id) do update set views = page_views.views + 1;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- "Continue without paying" on the payment page: { email }. Paid unlocks come
+-- only from db/sync_razorpay.py, which checks each payment with Razorpay.
+create or replace function api_unlock(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p->>'email', '')));
+begin
+  if e !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' or length(e) > 200 then
+    return jsonb_build_object('ok', false, 'error', 'bad email');
+  end if;
+  if exists (select 1 from unlocks where email = e and not revoked) then
+    return jsonb_build_object('ok', true);
+  end if;
+  if coalesce((select value from settings where key = 'free_unlock'), 'on') <> 'on' then
+    return jsonb_build_object('ok', false, 'error', 'The course is no longer free. Please pay to unlock it.');
+  end if;
+  insert into unlocks (email, via) values (e, 'free');
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Redeem a give-away code for an account. An account that already has the
+-- course keeps it without using up the code.
+create or replace function api_redeem_code(p_email text, p_code text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+  c text := upper(trim(coalesce(p_code, '')));
+begin
+  if e !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' or length(e) > 200 then
+    return jsonb_build_object('ok', false, 'error', 'Sign in first.');
+  end if;
+  if exists (select 1 from unlocks where email = e and not revoked) then
+    return jsonb_build_object('ok', true);
+  end if;
+  update unlock_codes set uses_left = uses_left - 1
+   where code = left(c, 64) and uses_left > 0;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'That code isn''t valid or has been used up.');
+  end if;
+  insert into unlocks (email, via, ref) values (e, 'code', left(c, 64));
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -401,6 +511,52 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'generatedAt', _iso(now()))
 $$;
 
+-- Whether an email has a standing unlock, for another device or browser.
+create or replace function api_unlock_status(p_email text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('ok', true, 'unlocked', exists (
+    select 1 from unlocks where email = lower(trim(coalesce(p_email, ''))) and not revoked))
+$$;
+
+-- The ledger page: money in, by month and by method, recent payments and how
+-- people got in. Answers only to a key from ledger_keys.
+create or replace function api_ledger(p_key text)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if not exists (select 1 from ledger_keys
+                  where hash = encode(sha256(convert_to(coalesce(p_key, ''), 'UTF8')), 'hex')) then
+    return jsonb_build_object('ok', false);
+  end if;
+  return (
+    with paid as (
+      select *, to_char(created_at at time zone 'Asia/Kolkata', 'YYYY-MM') as month
+        from payments where status in ('captured', 'refunded'))
+    select jsonb_build_object(
+      'ok', true,
+      'totals', (select jsonb_build_object(
+          'payments', count(*), 'gross', coalesce(sum(amount), 0),
+          'refunded', coalesce(sum(amount_refunded), 0), 'fees', coalesce(sum(fee), 0),
+          'net', coalesce(sum(amount - amount_refunded - fee), 0)) from paid),
+      'months', coalesce((select jsonb_agg(jsonb_build_object(
+          'month', month, 'payments', n, 'gross', gross, 'net', net) order by month desc)
+        from (select month, count(*) n, sum(amount) gross, sum(amount - amount_refunded - fee) net
+                from paid group by month) m), '[]'::jsonb),
+      'methods', coalesce((select jsonb_agg(jsonb_build_object(
+          'method', method, 'payments', n, 'net', net) order by net desc)
+        from (select method, count(*) n, sum(amount - amount_refunded - fee) net
+                from paid group by method) m), '[]'::jsonb),
+      'recent', coalesce((select jsonb_agg(jsonb_build_object(
+          'id', id, 'at', _iso(created_at), 'status', status, 'amount', amount,
+          'refunded', amount_refunded, 'method', method, 'email', email,
+          'message', (select value from jsonb_each_text(notes) where key ilike '%message%' limit 1))
+          order by created_at desc)
+        from (select * from payments where id <> '_sync' order by created_at desc limit 50) r), '[]'::jsonb),
+      'unlocks', coalesce((select jsonb_object_agg(via, n)
+        from (select via, count(*) n from unlocks where not revoked group by via) u), '{}'::jsonb),
+      'syncedAt', (select _iso(max(synced_at)) from payments),
+      'generatedAt', _iso(now())));
+end $$;
+
 -- Every engine session, newest first, for the tutor dashboard.
 create or replace function api_engine_sessions()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
@@ -415,5 +571,7 @@ grant execute on function
   api_submit(jsonb), api_grade_submission(jsonb), api_page_view(text),
   api_save_engine_session(jsonb), api_student_report(text), api_class_report(),
   api_ad_metrics(), api_engine_sessions(), api_track(jsonb),
-  api_student_progress(text), api_class_progress()
+  api_student_progress(text), api_class_progress(),
+  api_unlock(jsonb), api_unlock_status(text), api_redeem_code(text, text),
+  api_ledger(text)
   to anonymous, authenticated;

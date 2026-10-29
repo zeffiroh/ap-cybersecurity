@@ -1,15 +1,17 @@
 """What the published site gets: scripts, styles and pages without comments. Vendored libraries keep theirs
-(licences); SVG figures keep the build stamp the book step reads."""
+(licences); SVG figures keep the build stamp the book step reads. Every page outside assets/ loads the paywall."""
 import re
 
 import rcssmin
 import rjsmin
 
-from .paths import ASSETS
+from .paths import ASSETS, SHARED, SITE
+from .util import rel
 
 VENDOR = (ASSETS / "vendor").resolve()
 BLOCK = re.compile(r"(<script\b[^>]*>)(.*?)(</script>)|(<style\b[^>]*>)(.*?)(</style>)|(<textarea\b[^>]*>.*?</textarea>)",
                    re.S | re.I)
+HEAD = re.compile(r"<head\b[^>]*>(\s*<meta charset[^>]*>)?", re.I)
 
 
 def js(text):
@@ -36,6 +38,18 @@ def html(text):
     return "".join(out)
 
 
+def gate(path, text):
+    """The paywall first thing in <head>, so a locked page never shows. assets/config.js lists the free pages."""
+    path = path.resolve()
+    m = HEAD.search(text)
+    if not m or SITE not in path.parents or ASSETS in path.parents or "paywall.js" in text:
+        return text
+    d = path.parent
+    tags = (f'\n<script src="{rel(d, ASSETS / "config.js")}"></script>'
+            f'\n<script src="{rel(d, SHARED / "paywall.js")}"></script>')
+    return text[:m.end()] + tags + text[m.end():]
+
+
 def clean(path, text):
     """Text as it is published at `path`."""
     if VENDOR in path.resolve().parents:
@@ -46,5 +60,5 @@ def clean(path, text):
     if suffix == ".css":
         return css(text) + "\n"
     if suffix == ".html":
-        return html(text)
+        return gate(path, html(text))
     return text

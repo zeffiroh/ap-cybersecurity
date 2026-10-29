@@ -1,0 +1,32 @@
+# Copies Razorpay payments into the database and unlocks the course for everyone who paid
+# (db/sync_razorpay.py). GitHub runs it about every 5 minutes, sometimes later when it is busy.
+# Needs repository secrets DATABASE_URL, RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.
+name: Ledger sync
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "psycopg[binary]==3.2.3"
+      - run: python db/sync_razorpay.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}

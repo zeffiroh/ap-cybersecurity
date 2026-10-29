@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="../assets/config.js"></script>
+<script src="../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Ledger · AP Cybersecurity</title>
+<style>:root{--ink:#111;--muted:#444;--faint:#777;--line:#d4d4d4;--soft:#f5f5f5}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font-family:"Times New Roman",Times,Georgia,serif;line-height:1.45}main{max-width:960px;margin:0 auto;padding:32px 16px 56px}header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:24px}h1{font-size:28px;margin:0}.when{font-size:14px;color:var(--muted)}h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:32px 0 10px}.hero{border:1px solid #000;box-shadow:6px 6px 0 rgba(0,0,0,.15);padding:20px 22px}.hero .label{font-size:15px;color:var(--muted)}.hero .value{font-size:44px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}.tile{border:1px solid var(--line);padding:12px 14px}.tile .label{font-size:13.5px;color:var(--muted)}.tile .value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:15px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;border-bottom-color:#000}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}#recent td:last-child{white-space:normal;min-width:220px}tr.dim td{color:var(--faint)}.empty{color:var(--muted);padding:10px 0}.msg{border:1px dashed var(--faint);padding:22px;text-align:center;color:var(--muted);margin-top:40px}.note{font-size:13.5px;color:var(--faint);margin-top:28px}[hidden]{display:none!important}</style>
+<script src="../assets/shared/neon.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Ledger</h1>
+    <span class="when" id="when"></span>
+  </header>
+
+  <p class="msg" id="msg">Loading…</p>
+
+  <div id="book" hidden>
+    <section class="hero">
+      <div class="label">Earned in total, after fees and refunds</div>
+      <div class="value" id="net"></div>
+    </section>
+    <div class="tiles" id="tiles"></div>
+
+    <h2>By month</h2>
+    <div class="scroll"><table id="months"></table></div>
+
+    <h2>By payment method</h2>
+    <div class="scroll"><table id="methods"></table></div>
+
+    <h2>Latest payments</h2>
+    <div class="scroll"><table id="recent"></table></div>
+
+    <p class="note">Razorpay payments, copied into the database about every 5 minutes. Failed and unfinished
+      payments are listed but not counted. Fees include GST.</p>
+  </div>
+</main>
+
+<script>(function(){"use strict";var $=function(id){return document.getElementById(id);};var key=location.hash.slice(1);try{key=decodeURIComponent(key);}catch(e){}
+var inr=new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR"});var money=function(paise){return inr.format((Number(paise)||0)/100);};var day=function(iso){return iso?new Date(iso).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"";};function fail(text){$("msg").textContent=text;$("msg").hidden=false;$("book").hidden=true;}
+function table(el,head,rows,empty){if(!rows.length){el.outerHTML='<p class="empty">'+empty+"</p>";return;}
+var h="<thead><tr>"+head.map(function(c){return'<th class="'+(c.num?"num":"")+'">'+c.label+"</th>";}).join("")+"</tr></thead><tbody>";rows.forEach(function(r){h+="<tr"+(r.dim?' class="dim"':"")+">"+r.cells.map(function(v,i){var td=document.createElement("td");td.textContent=v;if(head[i].num)td.className="num";return td.outerHTML;}).join("")+"</tr>";});el.innerHTML=h+"</tbody>";}
+function show(d){var t=d.totals,u=d.unlocks||{};$("net").textContent=money(t.net);$("when").textContent=d.syncedAt?"Last synced "+day(d.syncedAt):"Not synced yet";[["Payments",t.payments],["Gross",money(t.gross)],["Fees",money(t.fees)],["Refunded",money(t.refunded)],["Unlocked by paying",u.razorpay||0],["Unlocked free",u.free||0],["Unlocked by code",u.code||0],["Unlocked by you",u.manual||0]].forEach(function(p){var tile=document.createElement("div");tile.className="tile";tile.innerHTML='<div class="label"></div><div class="value"></div>';tile.firstChild.textContent=p[0];tile.lastChild.textContent=p[1];$("tiles").appendChild(tile);});table($("months"),[{label:"Month"},{label:"Payments",num:true},{label:"Gross",num:true},{label:"Earned",num:true}],d.months.map(function(m){var label=new Date(m.month+"-01T00:00:00").toLocaleString("en-IN",{month:"long",year:"numeric"});return{cells:[label,m.payments,money(m.gross),money(m.net)]};}),"No payments yet.");table($("methods"),[{label:"Method"},{label:"Payments",num:true},{label:"Earned",num:true}],d.methods.map(function(m){return{cells:[m.method||"other",m.payments,money(m.net)]};}),"No payments yet.");table($("recent"),[{label:"When"},{label:"Amount",num:true},{label:"Status"},{label:"Method"},{label:"Email"},{label:"Message"}],d.recent.map(function(p){var status=p.refunded>0?(p.refunded>=p.amount?"refunded":"part refunded"):p.status;return{dim:!/^(captured|refunded)$/.test(p.status),cells:[day(p.at),money(p.amount),status,p.method,p.email,p.message||""]};}),"No payments yet.");$("msg").hidden=true;$("book").hidden=false;}
+window.addEventListener("hashchange",function(){location.reload();});if(!key)return fail("This page opens only with your private ledger link.");if(!window.Neon||!Neon.isConfigured())return fail("The course database isn't set up.");Neon.rpc("api_ledger",{p_key:key}).then(function(d){if(!d||!d.ok)return fail("This ledger link isn't valid any more.");show(d);},function(){fail("Couldn't reach the database. Check your connection and reload.");});})();</script>
+</body>
+</html>
