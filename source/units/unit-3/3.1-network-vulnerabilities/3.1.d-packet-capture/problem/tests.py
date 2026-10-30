@@ -1,9 +1,3 @@
-"""Test suite for 3.1.d — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -25,8 +19,6 @@ impl = _load(_TARGET)
 def _p(port, payload):
     return {"port": port, "payload": payload}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_http_login_leak():
     packets = [_p(80, "POST /login HTTP/1.1\r\n\r\nuser=alice&password=Pass123!")]
@@ -76,10 +68,7 @@ def test_mixed_batch_order_preserved():
     assert impl.solve(packets) == ["LEAK", "SAFE", "LEAK"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_case_sensitivity_lowercase_pass_not_matched():
-    """Lowercase 'pass ' (not the exact 'PASS ' indicator) should NOT trigger a leak."""
     packets = [_p(21, "this text says pass phrase but not the exact marker")]
     assert impl.solve(packets) == ["SAFE"]
 

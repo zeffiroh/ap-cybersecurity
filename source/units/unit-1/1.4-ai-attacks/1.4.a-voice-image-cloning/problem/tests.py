@@ -1,9 +1,3 @@
-"""Test suite for 1.4.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_no_shared_secret_suspect():
     assert impl.solve({"no_shared_secret": True}) == "suspect"
 
@@ -52,18 +45,14 @@ def test_empty_ok():
 
 
 def test_single_money_ok():
-    # urgent money alone (no second signal) is NOT enough under rules 3 or 6
     assert impl.solve({"urgent_money_request": True}) == "ok"
 
 
 def test_audio_only_ok():
-    # audio artifact alone does not trigger without money request
     assert impl.solve({"audio_artifact": True}) == "ok"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_missing_keys_treated_false():
-    # caller_id_spoofed True but unverified_channel absent -> rule 4 does not fire
     assert impl.solve({"caller_id_spoofed": True}) == "ok"
 
 
@@ -76,7 +65,6 @@ def test_all_false_ok():
 
 
 def test_rule1_takes_priority():
-    # even if other signals are also set, rule 1 should still fire first
     assert impl.solve({
         "no_shared_secret": True,
         "audio_artifact": True,

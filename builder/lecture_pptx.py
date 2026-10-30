@@ -1,13 +1,3 @@
-"""
-Write a lecture deck as PowerPoint (used by lectures.py).
-
-One PowerPoint slide per browser-deck slide, so slide numbers match across the two formats.
-Blocks go where the browser deck draws them (positions measured in Chromium, scaled to the
-slide); without a browser they are stacked by estimated height. Theme and layouts come from
-templates/lecture.pptx. A list/steps/flow block with `smartart=<Layout>` becomes real SmartArt
-built from templates/smartart/<Layout>/ (layout, style and colour definitions), with the
-block's items as its text.
-"""
 import copy
 import html
 import json
@@ -31,16 +21,13 @@ SMARTART = TEMPLATES / "smartart"
 RED, RED_DEEP, RED_SOFT = RGBColor(0xB3, 0x00, 0x1B), RGBColor(0x8A, 0x00, 0x15), RGBColor(0xFB, 0xEC, 0xEE)
 INK, GREY, LINE, CODE_BG = RGBColor(0x20, 0x1C, 0x1A), RGBColor(0x6E, 0x66, 0x60), RGBColor(0xE7, 0xE1, 0xDA), RGBColor(0x1E, 0x1E, 0x1E)
 
-# Content area under the title (EMU) on the template's "Title and Content" layout.
 X0, Y0, W0, H0 = 280556, 1330000, 11596254, 4950000
 BODY_PT, SMALL_PT, CODE_PT = 12, 10, 9
 
-# ------------------------------------------------------------ inline text --
 INLINE = re.compile(r"(<b>.*?</b>|<strong>.*?</strong>|<i>.*?</i>|<em>.*?</em>|<code>.*?</code>|<a [^>]*>.*?</a>)", re.S)
 
 
 def text_runs(par, h, size=BODY_PT, color=INK, bold=False, italic=False, font=None):
-    """Add inline-HTML text (b / i / code / a, as produced by the deck renderer) to a paragraph."""
     for tok in INLINE.split(h or ""):
         if not tok:
             continue
@@ -63,7 +50,6 @@ def text_runs(par, h, size=BODY_PT, color=INK, bold=False, italic=False, font=No
 
 
 def md_inline(s):
-    """Markdown inline (as in list items) -> the same inline HTML the deck renderer makes."""
     t = html.escape(s or "", quote=False)
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
     t = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", t)
@@ -117,7 +103,7 @@ def textbox(slide, rect, fill=None, line=None, inset=60000):
     bodyPr = tf._txBody.find(qn("a:bodyPr"))
     for el in list(bodyPr):
         bodyPr.remove(el)
-    etree.SubElement(bodyPr, qn("a:normAutofit"))            # PowerPoint shrinks text that does not fit
+    etree.SubElement(bodyPr, qn("a:normAutofit"))
     return shp, tf
 
 
@@ -125,11 +111,10 @@ def first_par(tf):
     return tf.paragraphs[0] if not tf.paragraphs[0].runs and len(tf.paragraphs) == 1 else tf.add_paragraph()
 
 
-# ----------------------------------------------------------------- blocks --
 def put_block(slide, b, rect, ctx):
     t = b["type"]
     if b.get("smartart") and (SMARTART / b["smartart"]).exists():
-        return put_smartart(slide, b, rect, ctx)               # PowerPoint lays the diagram out inside rect
+        return put_smartart(slide, b, rect, ctx)
     if t in ("text", "callout", "pullquote"):
         fill = RED_SOFT if t == "callout" else None
         _, tf = textbox(slide, rect, fill=fill, inset=90000 if fill else 30000)
@@ -247,7 +232,6 @@ def put_block(slide, b, rect, ctx):
 
 
 def est(b):
-    """Relative height of a block when no browser measurement is available."""
     t = b["type"]
     if t == "image":
         return 6.0
@@ -278,13 +262,11 @@ def stack(slide, blocks, rect, ctx):
         y += bh + gap
 
 
-# --------------------------------------------------------------- SmartArt --
 DGM = "http://schemas.openxmlformats.org/drawingml/2006/diagram"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 RT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"
 CT = "application/vnd.openxmlformats-officedocument.drawingml."
-# How many text levels each layout shows, and whether the block heading is its centre node.
 SMARTART_SHAPE = {"RadialCluster": (2, True), "radial6": (1, True), "HexagonCluster": (1, False),
                   "CircleProcess": (1, False), "VaryingWidthList": (1, False), "process2": (1, False),
                   "process5": (1, False), "vList5": (2, False), "chevron2": (2, False),
@@ -292,8 +274,6 @@ SMARTART_SHAPE = {"RadialCluster": (2, True), "radial6": (1, True), "HexagonClus
 
 
 def smartart_tree(b):
-    """Block items -> [(runs, children)], runs = [(text, bold)]. "**Lead:** rest" items become a node
-    with a child (two-level layouts) or one node with a bold lead (one-level layouts)."""
     layout = b["smartart"]
     depth, rooted = SMARTART_SHAPE.get(layout, (1, False))
     items = b.get("items") or b.get("steps") or []
@@ -317,7 +297,6 @@ def smartart_tree(b):
 
 
 def smartart_data(tree, prset):
-    # Model ids derived from the content, so rebuilding an unchanged deck gives an identical file.
     seed, counter = json.dumps([tree, prset], sort_keys=True, default=str), iter(range(1 << 30))
     gid = lambda: "{" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"{seed}#{next(counter)}")).upper() + "}"
     E = lambda tag, **kw: etree.Element(f"{{{DGM}}}{tag}", **kw)
@@ -392,7 +371,6 @@ def put_smartart(slide, b, rect, ctx):
     slide.shapes._spTree.append(gf)
 
 
-# ------------------------------------------------------------------ deck --
 def notes_text(h):
     h = re.sub(r"</p>\s*<p>", "\n\n", h or "")
     h = re.sub(r"<li>", "\n• ", h)
@@ -404,9 +382,6 @@ def layout_named(prs, name):
 
 
 def build(pages, deck, layouts, image_path, out_path):
-    """pages: the browser deck's pages (dicts with title/unit/blocks/notes/cover);
-    layouts: per page, measured block rects in browser px ({"body": [w, h], "blocks": [[x, y, w, h], ...]})
-    or None to stack blocks by estimate."""
     prs = Presentation(str(TEMPLATES / "lecture.pptx"))
     ctx = {"image_path": image_path, "n_diagrams": 0}
     for page, lay in zip(pages, layouts):
@@ -416,8 +391,6 @@ def build(pages, deck, layouts, image_path, out_path):
             _, tf = textbox(s, (655315, 1553437, 10515600, 420000), inset=0)
             text_runs(first_par(tf), html.escape(str(page.get("unit") or deck.get("kicker", "")).upper()),
                       size=14, bold=True, color=RED)
-            # The title layout has artwork below the title, so the cover keeps to its subtitle line
-            # (the browser deck's cover also shows the overview chips and callout).
             sub = next((b for b in page["blocks"] if b["type"] == "text"), None)
             if sub:
                 _, tf = textbox(s, (655315, 3450000, 6200000, 700000), inset=0)
@@ -426,7 +399,7 @@ def build(pages, deck, layouts, image_path, out_path):
             s = prs.slides.add_slide(layout_named(prs, "Title and Content"))
             s.shapes.title.text = re.sub(r"<[^>]+>", "", page["title"])
             for ph in list(s.placeholders):
-                if ph.placeholder_format.idx == 1:                 # we place our own shapes in the body area
+                if ph.placeholder_format.idx == 1:
                     ph._element.getparent().remove(ph._element)
             if lay and len(lay["blocks"]) == len(page["blocks"]):
                 bw, bh = lay["body"]

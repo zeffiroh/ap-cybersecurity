@@ -1,9 +1,3 @@
-"""Test suite for 3.1.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -25,8 +19,6 @@ impl = _load(_TARGET)
 def _r(ts, ip, mac):
     return {"ts": ts, "ip": ip, "mac": mac}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_no_spoof_same_mac_refresh():
     replies = [
@@ -74,10 +66,7 @@ def test_empty_replies():
     assert impl.solve([]) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_replies_out_of_ts_order_in_list():
-    """List order is not sorted by ts; the 'ts' field, not position, determines trust."""
     replies = [
         _r(50, "10.0.0.5", "attacker-mac"),
         _r(10, "10.0.0.5", "trusted-mac"),
@@ -86,7 +75,6 @@ def test_replies_out_of_ts_order_in_list():
 
 
 def test_three_replies_same_mac_after_first_change():
-    """Once flagged (differs from trusted), further same-mac repeats don't un-flag it."""
     replies = [
         _r(0, "10.0.0.9", "trusted"),
         _r(5, "10.0.0.9", "attacker"),
@@ -107,8 +95,8 @@ def test_large_mixed_batch():
         ip = f"10.0.1.{i}"
         replies.append(_r(0, ip, "m0"))
         if i % 2 == 0:
-            replies.append(_r(10, ip, "m1"))  # different -> spoofed
+            replies.append(_r(10, ip, "m1"))
             expected.append(ip)
         else:
-            replies.append(_r(10, ip, "m0"))  # same -> not spoofed
+            replies.append(_r(10, ip, "m0"))
     assert impl.solve(replies) == sorted(expected)

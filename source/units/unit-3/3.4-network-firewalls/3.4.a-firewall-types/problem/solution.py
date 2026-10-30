@@ -1,14 +1,7 @@
-"""Reference solution for 3.4.a. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml).
-
-Implements a stateless and stateful packet classifier demonstrating the core difference
-between the two firewall inspection models.
-"""
 from typing import List, Dict, Any
 
 
 def _match_rules(rules: List[Dict], packet: Dict) -> str:
-    """Apply rule list top-to-bottom; return first matched action, or 'drop'."""
     for rule in rules:
         proto_ok = rule["proto"] == "any" or rule["proto"] == packet["proto"]
         dport_ok = rule["dport"] == 0 or rule["dport"] == packet["dport"]
@@ -18,21 +11,9 @@ def _match_rules(rules: List[Dict], packet: Dict) -> str:
 
 
 def solve(rules: List[Dict], packets: List[Dict], mode: str) -> List[str]:
-    """Classify each packet as 'allow' or 'drop' using the given rule set.
-
-    Args:
-        rules:   Ordered list of rule dicts (action, proto, dport).
-        packets: List of packet dicts (src, dst, sport, dport, proto, flags).
-        mode:    'stateless' or 'stateful'.
-
-    Returns:
-        List of 'allow' / 'drop' verdicts, one per packet.
-    """
     if mode == "stateless":
         return [_match_rules(rules, pkt) for pkt in packets]
 
-    # Stateful mode: maintain a connection-tracking table.
-    # Key: (src, dst, sport, dport, proto)  Value: state string
     table: Dict[tuple, str] = {}
     verdicts: List[str] = []
 
@@ -43,7 +24,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -> List[str]:
         rev = (pkt["dst"], pkt["src"], pkt["dport"], pkt["sport"], proto)
 
         if proto != "tcp":
-            # Non-TCP: rule matching only.
             verdicts.append(_match_rules(rules, pkt))
             continue
 
@@ -66,10 +46,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -> List[str]:
             if table.get(key) == "ESTABLISHED" or table.get(rev) == "ESTABLISHED":
                 verdicts.append("allow")
             else:
-                # No established session for this exact endpoint pair: a stateful
-                # firewall drops it even if a static rule would otherwise permit
-                # the port, because it cannot verify the packet belongs to a real
-                # connection.
                 verdicts.append("drop")
 
         elif flags in ("RST", "FIN"):
@@ -81,7 +57,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -> List[str]:
                 verdicts.append("drop")
 
         else:
-            # Unknown flag: rule matching.
             verdicts.append(_match_rules(rules, pkt))
 
     return verdicts

@@ -89,17 +89,10 @@ Empty list if no entries match.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 3.5.a. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
 from typing import List, Dict, Any
 
 
 def solve(logs: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -&gt; List[str]:
-    """Return sorted list of log entry IDs that match at least one IDS signature rule.
-
-    A log entry matches a rule when its dst_port equals the rule's port AND
-    the rule's keyword appears (case-insensitive) in the entry's payload.
-    """
     matched = set()
     for entry in logs:
         port = entry["dst_port"]
@@ -107,14 +100,13 @@ def solve(logs: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -&gt; List[st
         for rule in rules:
             if rule["port"] == port and rule["keyword"].lower() in payload_lower:
                 matched.add(entry["id"])
-                break  # one match is enough; avoid duplicates
+                break
     return sorted(matched)
 </div>
 <div class="nb-cell nb-md"><h2>Self-check tests</h2>
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---- shared fixtures ---------------------------------------------------------
 RULES_BASIC = [
     {"port": 80,  "keyword": "etc/passwd"},
     {"port": 22,  "keyword": "libssh"},
@@ -131,7 +123,6 @@ LOGS_BASIC = [
 ]
 
 
-# ---- visible cases -----------------------------------------------------------
 def test_path_traversal_match():
     result = impl.solve(LOGS_BASIC, RULES_BASIC)
     assert "pkt-001" in result, "pkt-001 matches port=80 + keyword='etc/passwd'"
@@ -144,7 +135,6 @@ def test_benign_port_no_match():
 
 
 def test_sql_case_insensitive():
-    # "SELECT" (uppercase) must match keyword "select " (lowercase)
     result = impl.solve(LOGS_BASIC, RULES_BASIC)
     assert "pkt-005" in result, "SQL SELECT should match keyword 'select ' case-insensitively"
 
@@ -160,7 +150,6 @@ def test_result_sorted():
     assert result == sorted(result), "Output must be sorted ascending"
 
 
-# ---- hidden / edge cases -----------------------------------------------------
 def test_empty_logs():
     assert impl.solve([], RULES_BASIC) == []
 
@@ -180,7 +169,6 @@ def test_no_payload_match():
 
 
 def test_multiple_rules_same_entry_deduplicated():
-    # pkt-A matches two rules; should appear only once
     logs = [{"id": "pkt-A", "dst_port": 80, "payload": "etc/passwd and script alert"}]
     rules = [
         {"port": 80, "keyword": "etc/passwd"},
@@ -191,7 +179,6 @@ def test_multiple_rules_same_entry_deduplicated():
 
 
 def test_port_must_match():
-    # keyword present but wrong port — should not match
     logs = [{"id": "z-001", "dst_port": 443, "payload": "etc/passwd in body"}]
     rules = [{"port": 80, "keyword": "etc/passwd"}]
     assert impl.solve(logs, rules) == []

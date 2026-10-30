@@ -101,7 +101,6 @@
     document.getElementById("debrief").classList.remove("show");
   });
 
-  // deterministic PRNG
   function mulberry32(a) {
     return function () {
       a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -123,35 +122,28 @@
   var SIG_PAYLOAD = "POST /search q=' UNION SELECT password FROM users --";
   var STEALTH_PAYLOAD = "POST /search q=' UNION/**/SELECT password FROM users --";
 
-  // --- build the capture with honest ground-truth labels --------------------
   var events = [];
   function add(src, dport, bytes, payload, attack, kind) {
     events.push({ src: src, dport: dport, bytes: bytes, payload: payload, attack: !!attack, kind: kind || "benign" });
   }
 
-  // 1) benign background: ~40 hosts, each 1-4 common ports
   for (var h = 0; h < 40; h++) {
     var src = "10.0." + between(1, 6) + "." + between(10, 240);
     var n = between(1, 4);
     for (var e = 0; e < n; e++) add(src, pick(COMMON), between(200, 4000), pick(BENIGN_PAYLOADS), false);
   }
-  // 2) a busy-but-benign monitoring host: 12 distinct ports (the false-positive trap)
   var MON = "10.0.9.9";
   var monPorts = [80, 443, 53, 22, 25, 161, 162, 8080, 9090, 3000, 5601, 9200];
   monPorts.forEach(function (p) { add(MON, p, between(300, 2500), "GET /metrics", false); });
-  // 3) the port scanner: 45 distinct high ports (the anomaly target)
   var SCAN = "203.0.113.66";
   var scanPorts = {};
   while (Object.keys(scanPorts).length < 45) scanPorts[between(1024, 65000)] = 1;
   Object.keys(scanPorts).forEach(function (p) { add(SCAN, +p, between(40, 120), "SYN", true, "portscan"); });
-  // 4) known-bad payload signature attack: 3 events
   var SIGSRC = "198.51.100.7";
   for (var s = 0; s < 3; s++) add(SIGSRC, 443, between(300, 900), SIG_PAYLOAD, true, "sig");
-  // 5) stealth variant that evades a naive signature: 2 events
   var STSRC = "198.51.100.8";
   for (var t2 = 0; t2 < 2; t2++) add(STSRC, 443, between(300, 900), STEALTH_PAYLOAD, true, "stealth");
 
-  // shuffle deterministically
   for (var i = events.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var tmp = events[i]; events[i] = events[j]; events[j] = tmp; }
 
   var TOTAL_ATTACK = events.filter(function (e) { return e.attack; }).length;
@@ -159,14 +151,12 @@
   document.getElementById("natk").textContent = TOTAL_ATTACK;
   document.getElementById("ntot").textContent = events.length;
 
-  // distinct destination ports per source
   var portsBySrc = {};
   events.forEach(function (e) {
     (portsBySrc[e.src] = portsBySrc[e.src] || {})[e.dport] = 1;
   });
   function distinctPorts(src) { return Object.keys(portsBySrc[src]).length; }
 
-  // --- detectors ------------------------------------------------------------
   function predictSignature(ev, sig) {
     if (!sig) return false;
     return ev.payload.toLowerCase().indexOf(sig.toLowerCase()) !== -1;
@@ -215,7 +205,7 @@
   }
   document.getElementById("method").addEventListener("change", switchMethod);
 
-  var sawFP = false;  // "tune" only counts after the student has hit the false-positive trap
+  var sawFP = false;
   function run() {
     var m =document.getElementById("method").value;
     var callout = document.getElementById("callout");

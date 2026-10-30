@@ -1,7 +1,6 @@
 from typing import List, Dict, Any
 
 def solve(data: List[Dict[str, Any]]) -> Dict[str, List[str]]:
-    """Classifies a list of security incidents into CIA pillars based on keywords."""
     res = {}
     conf_kws = ["leak", "expose", "disclose", "intercept", "steal", "stole", "read", "password", "credential"]
     integ_kws = ["modify", "alter", "change", "corrupt", "tamper", "edit", "forge", "spoof"]

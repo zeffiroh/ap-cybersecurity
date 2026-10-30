@@ -1,5 +1,3 @@
-/* Flashcard Player (shared across all topics) */
-
 const FlashcardPlayer = (() => {
   let cards = [];
   let order = [];

@@ -1,9 +1,3 @@
-"""Test suite for 2.3.d — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -21,9 +15,6 @@ def _load(path):
 
 impl = _load(_TARGET)
 
-# ---------------------------------------------------------------------------
-# Shared fixtures — seeded, deterministic policy and zone data
-# ---------------------------------------------------------------------------
 POLICY = {
     "server": {
         "require_ups": True,
@@ -51,8 +42,6 @@ def _zone(name, room_type, has_ups, hvac_redundancy, suppression, has_leak_senso
         "has_leak_sensor": has_leak_sensor,
     }
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_fully_compliant_server_room():
     zones = [_zone("server-room-a", "server", True, 1, "clean_agent", True)]
@@ -110,16 +99,12 @@ def test_multiple_zones_mixed_compliance():
     assert result == ["closet-2", "server-room-b"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_closet_water_suppression_noncompliant():
-    """closet policy only allows clean_agent or none, not water."""
     zones = [_zone("closet-3", "closet", True, 0, "water", False)]
     assert impl.solve(zones, POLICY) == ["closet-3"]
 
 
 def test_hvac_redundancy_exact_boundary():
-    """hvac_redundancy exactly equal to min_hvac_redundancy is compliant."""
     zones = [_zone("server-room-f", "server", True, 1, "clean_agent", True)]
     assert impl.solve(zones, POLICY) == []
 
@@ -130,7 +115,6 @@ def test_hvac_redundancy_above_minimum_is_compliant():
 
 
 def test_multiple_failures_zone_reported_once():
-    """A zone failing multiple rules still appears only once in the output."""
     zones = [_zone("server-room-h", "server", False, 0, "water", False)]
     assert impl.solve(zones, POLICY) == ["server-room-h"]
 
@@ -152,7 +136,6 @@ def test_empty_policy_means_no_zone_ever_fails():
 
 
 def test_room_type_entry_with_no_keys_always_compliant():
-    """A room_type present in policy but with an empty requirements dict has no requirements."""
     policy = {"vault": {}}
     zones = [_zone("vault-1", "vault", False, 0, "none", False)]
     assert impl.solve(zones, policy) == []

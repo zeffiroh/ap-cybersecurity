@@ -1,7 +1,3 @@
-"""Reference solution for 2.2.b. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
-
-
 def _power_severity(value: float) -> str:
     if value == 0 or value < 90 or value > 110:
         return "CRITICAL"
@@ -52,8 +48,6 @@ def solve(data: list[dict]) -> dict[str, str]:
         else:
             severities[rid] = "NORMAL"
 
-    # Combined-signal escalation: per room, if a temperature reading and a humidity
-    # reading are both at least WARNING, escalate both to CRITICAL.
     rooms: dict[str, dict[str, list[str]]] = {}
     for reading in data:
         room = reading["room"]

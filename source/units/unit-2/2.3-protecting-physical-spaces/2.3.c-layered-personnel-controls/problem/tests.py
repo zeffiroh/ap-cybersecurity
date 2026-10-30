@@ -1,9 +1,3 @@
-"""Test suite for 2.3.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -25,8 +19,6 @@ impl = _load(_TARGET)
 def _layer(name, category):
     return {"name": name, "category": category}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_three_distinct_categories_adequate():
     layers = [
@@ -98,7 +90,7 @@ def test_invalid_category_ignored():
     layers = [
         _layer("badge reader", "electronic"),
         _layer("lobby guard", "personnel"),
-        _layer("guard dog", "canine"),  # invalid category, must be ignored
+        _layer("guard dog", "canine"),
     ]
     result = impl.solve(layers)
     assert result["depth_score"] == 2
@@ -106,8 +98,6 @@ def test_invalid_category_ignored():
     assert "canine" not in result["categories_present"]
     assert result["recommendation"] == "WEAK"
 
-
-# ---- hidden / edge cases -------------------------------------------------
 
 def test_four_categories_adequate_boundary():
     layers = [

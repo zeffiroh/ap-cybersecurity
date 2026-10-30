@@ -1,5 +1,3 @@
-"""The course's own pages: home, units, topics, progress, calendar, saved results, downloads,
-the course map the progress scripts read, and the teacher pages (hub and one page per topic)."""
 import json
 from pathlib import Path
 
@@ -16,7 +14,6 @@ def seen_attr(item):
 
 
 def links(page_dir, items):
-    """[(label, path, query[, seen key])] -> a row of link buttons, skipping files that do not exist."""
     out = [f'<a href="{rel(page_dir, it[1], it[2])}"{seen_attr(it)}>{esc(it[0])}</a>'
            for it in items if it[1] and Path(it[1]).exists()]
     return f'<div class="aa-links">{"".join(out)}</div>'
@@ -49,7 +46,6 @@ def atom_row(page_dir, a):
             f'<a href="{r(N.lesson_page(a))}">{esc(a["title"])}</a></span>{links(page_dir, ls)}</li>')
 
 
-# ------------------------------------------------------------------ student --
 def home():
     path = SITE / "index.html"
     d = path.parent
@@ -101,7 +97,6 @@ def topic_page(tid):
 
 
 def course_map():
-    """assets/theme/course-map.js: units, topics, skills and their pages (paths from the site root)."""
     root = lambda p: Path(p).relative_to(SITE).as_posix()
     data = {"units": [{"n": u["num"], "title": u["title"], "href": root(unit_dir(u["num"]) / "index.html"),
                        "topics": u["topics"]} for u in C.units()],
@@ -185,8 +180,7 @@ def downloads_page():
     emit(path, N.shell(path, "", "<h1>Downloads</h1>\n" + "\n".join(sections)))
 
 
-# ------------------------------------------------------------------ teacher --
-TOOLS = [  # (label, path) of the teacher-side tools
+TOOLS = [
     ("Class progress (mastery by student)", TEACHER / "progress.html"),
     ("Class dashboard (quiz and assignment scores)", TEACHER / "class-report.html"),
     ("Adaptive test dashboard", TEACHER / "tests.html"),
@@ -210,7 +204,6 @@ def class_progress_page():
 
 
 def teacher_topic_page(tid):
-    """Everything for teaching one topic."""
     path = teacher_topic(tid) / "index.html"
     d = path.parent
     t = C.topic(tid)
@@ -270,4 +263,4 @@ def run():
             teacher_topic_page(tid)
     class_progress_page()
     teacher_hub()
-    home()                  # last: its link row shows only pages that exist
+    home()

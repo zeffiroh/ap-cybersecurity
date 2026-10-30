@@ -1,9 +1,3 @@
-"""Test suite for 4.3.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1_emergency_exploited_internet_facing():
     vulns = [{"id": "V1", "cvss": 9.1, "exploited_in_wild": True,
               "internet_facing": True, "end_of_life": False}]
@@ -41,7 +34,6 @@ def test_example_3_routine_low_severity():
     assert impl.solve(vulns) == [{"id": "V3", "urgency": "routine"}]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty_list():
     assert impl.solve([]) == []
 

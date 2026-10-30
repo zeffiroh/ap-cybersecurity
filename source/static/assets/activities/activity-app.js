@@ -1,4 +1,3 @@
-/* interactive behavior for student activity posters */
 (function () {
   "use strict";
 
@@ -10,7 +9,7 @@
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
   function lsSet(key, val) {
-    try { localStorage.setItem(key, val); } catch (e) { /* no-op */ }
+    try { localStorage.setItem(key, val); } catch (e) {  }
   }
 
   function setupChecklist(poster) {
@@ -115,11 +114,9 @@
     var itemId = poster.dataset.atomId + ".exit";
     var localKey = "apcyber_exit_" + poster.dataset.topicId + "_" + poster.dataset.atomId;
 
-    // Best-effort local memory of a pending submission, so the certificate
-    // still shows "submitted" on reload even before the backend is deployed.
     var cachedRaw = lsGet(localKey);
     if (cachedRaw) {
-      try { renderExitState(poster, JSON.parse(cachedRaw)); } catch (e) { /* ignore */ }
+      try { renderExitState(poster, JSON.parse(cachedRaw)); } catch (e) {  }
     }
 
     var email = Identity.getEmail();

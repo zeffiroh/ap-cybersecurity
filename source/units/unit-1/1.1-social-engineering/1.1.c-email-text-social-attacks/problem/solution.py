@@ -1,9 +1,6 @@
-"""Reference solution for 1.1.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 import re
 from typing import List
 
-# --- indicator data -----------------------------------------------------------
 
 _LOOKALIKE_FRAGMENTS = [
     "paypa1", "pay-pal", "paypall",
@@ -44,8 +41,6 @@ _SHORTENER_HOSTS = [
 _IP_URL_RE = re.compile(r"https?://\d+\.\d+\.\d+\.\d+")
 
 
-# --- indicator checks ---------------------------------------------------------
-
 def _check_lookalike(sender_low: str) -> bool:
     return any(frag in sender_low for frag in _LOOKALIKE_FRAGMENTS)
 
@@ -62,7 +57,6 @@ def _check_mismatched_sender(sender_low: str, text_low: str) -> bool:
     brands_in_text = [b for b in _BRANDS if b in text_low]
     if not brands_in_text:
         return False
-    # sender must contain at least one of those brand names
     return not any(b in sender_low for b in brands_in_text)
 
 
@@ -76,16 +70,7 @@ def _check_shortened_link(link_low: str) -> bool:
     return False
 
 
-# --- public entry point -------------------------------------------------------
-
 def solve(message: dict) -> List[str]:
-    """Return sorted, de-duplicated phishing indicator labels for `message`.
-
-    Args:
-        message: dict with keys channel, sender, text, link (all strings).
-    Returns:
-        Sorted list of triggered indicator label strings (may be empty).
-    """
     sender_low = (message.get("sender") or "").lower()
     text_low = (message.get("text") or "").lower()
     link_low = (message.get("link") or "").lower()

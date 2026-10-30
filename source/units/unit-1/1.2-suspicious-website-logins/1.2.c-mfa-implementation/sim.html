@@ -1,6 +1,4 @@
 <!DOCTYPE html>
-<!-- 1.2.c SIM -- "MFA Enrollment and TOTP Login". Single-file, offline, deterministic. No emoji/icons.
-     Theme tokens inline from assets/theme/theme.css (THEME.md). Fake-network engine = TOTP simulator. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -85,13 +83,7 @@ h1{font-size:16px;margin:0 0 4px;}
 <script>
 function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
 
-/* ---- Deterministic TOTP implementation (mirrors the Python solution exactly) ----
-   Uses a seeded LCG to produce synthetic "SHA1 HMAC" values.
-   This is a teaching simulation -- not cryptographically secure. */
-
-// Deterministic synthetic HMAC: produces a reproducible 20-byte array given a hex key and step
 function syntheticHMAC(hexKey, step) {
-  // LCG seed from key bytes XOR'd with step
   var keyBytes = [];
   for (var i = 0; i < hexKey.length; i += 2) {
     keyBytes.push(parseInt(hexKey.substr(i, 2), 16));
@@ -101,7 +93,6 @@ function syntheticHMAC(hexKey, step) {
     seed = ((seed * 31 + keyBytes[j]) ^ (step >> (j % 4) * 8)) & 0xffffffff;
   }
   seed = (seed ^ step ^ 0xdeadbeef) >>> 0;
-  // Generate 20 deterministic bytes
   var bytes = [];
   for (var k = 0; k < 20; k++) {
     seed = (((seed * 1103515245) >>> 0) + 12345) >>> 0;
@@ -120,17 +111,6 @@ function computeTOTP(hexKey, t) {
                 digest[offset+3]) % 1000000;
   return ('000000' + code).slice(-6);
 }
-
-/* ---- Scenario set (deterministic, no real crypto needed) ---- */
-// Each scenario: user submits a code; student must decide CORRECT vs WRONG vs EXPIRED
-// We give them the scenario context and ask them to enter what the code would be,
-// then verify against the simulator.
-
-// Format: {desc, hexKey, t, type}
-// type: "correct" = submit the right code for t
-//       "wrong"   = submit a wrong code (student gets feedback explaining why it fails)
-//       "expired" = code was for t-60 (previous 2 steps ago, still ask student to type in)
-// The sim reveals the expected code in the terminal after submission.
 
 var SCENARIOS = [
   { id: 1,
@@ -228,12 +208,11 @@ function checkScenario(i) {
       ? 'Correct. The server computed TOTP(' + sc.hexKey + ', step=' + Math.floor(sc.t/30) + ') = ' + correct + ' and it matched.'
       : 'Incorrect. Expected: ' + correct + '. Got: ' + (entered || '(empty)') + '. Check your computation.';
   } else if (sc.mode === 'expired-test') {
-    // Student enters code for t; then we tell them it FAILS at t2 (different step)
     var step1 = Math.floor(sc.t / 30);
     var step2 = Math.floor(sc.t2 / 30);
     var correct2 = computeTOTP(sc.hexKey, sc.t2);
     if (entered === correct) {
-      ok = true; // They computed the original code correctly
+      ok = true;
       explanation = 'Correct code for step ' + step1 + ' is ' + correct + '. ' +
         'At t=' + sc.t2 + ' (step ' + step2 + ') the server computes ' + correct2 +
         '. Steps differ, so the OLD code is REJECTED. TOTP expiry enforced.';
@@ -265,7 +244,6 @@ function checkScenario(i) {
     ? '<span style="color:#008000;font-weight:bold">CORRECT.</span> ' + explanation
     : '<span style="color:#aa0000;font-weight:bold">NOT QUITE.</span> ' + explanation;
 
-  // Update terminal
   var lines = [];
   lines.push('<span class="prompt">totp-server&gt; </span>verify(key=' + sc.hexKey + ', t=' + sc.t + ')');
   lines.push('  step        : ' + Math.floor(sc.t/30));

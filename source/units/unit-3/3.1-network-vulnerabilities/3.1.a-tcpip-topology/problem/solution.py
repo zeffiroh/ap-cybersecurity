@@ -2,9 +2,6 @@ import ipaddress
 from typing import Any
 
 def solve(data: Any) -> list[int]:
-    """
-    Identifies spoofed packets where the source IP is outside the expected subnet.
-    """
     if not isinstance(data, list):
         return []
     
@@ -22,7 +19,6 @@ def solve(data: Any) -> list[int]:
             if ip not in net:
                 suspicious.append(idx)
         except ValueError:
-            # Treat invalid IP/subnet as suspicious
             suspicious.append(idx)
             
     return sorted(suspicious)

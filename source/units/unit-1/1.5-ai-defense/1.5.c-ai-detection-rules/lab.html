@@ -84,7 +84,6 @@
       document.getElementById("debrief").classList.add("show");
     });
 
-  // ---- deterministic event stream -------------------------------------
   function mulberry32(a) {
     return function () {
       a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -102,14 +101,12 @@
 
   var N = 10000, ATTACKS = 8;
   var attackIdx = {};
-  // spread the 8 attack indices deterministically across the stream
   for (var k = 0; k < ATTACKS; k++) attackIdx[Math.floor((k + 0.5) * N / ATTACKS) + (k * 137 % 53)] = true;
 
   var USERS = ["mara", "devin", "priya", "sam", "lena", "arun", "noa", "ivo", "ted", "ula"];
   var events = [];
   for (var i = 0; i < N; i++) {
     var atk = !!attackIdx[i];
-    // benign traffic scores low with a tail; attacks score high with overlap
     var score = clip(atk ? gauss(78, 8) : gauss(30, 11));
     events.push({ user: USERS[i % USERS.length] + (i % 997), score: score, attack: atk });
   }
@@ -162,7 +159,6 @@
     }
     document.getElementById("out").innerHTML = outlines.join("\n");
 
-    // top 12 alerts by score
     var top = events.filter(function (e) { return e.score >= thr; })
       .sort(function (a, b) { return b.score - a.score; }).slice(0, 12);
     document.querySelector("#queue tbody").innerHTML = top.map(function (e, j) {
@@ -170,7 +166,6 @@
         + (e.attack ? "ok'>REAL ATTACK" : "bad'>false alarm") + "</td></tr>";
     }).join("") || "<tr><td colspan='4' class='dim'>no alerts at this threshold</td></tr>";
 
-    // missions
     if (acc >= 0.98 && prec <= 0.2 && alerts > 0) missions.complete("paradox");
     if (prec >= 0.5 && rec < 1) missions.complete("tradeoff");
     if (auto && m.fp < 5 && m.tp >= 4) missions.complete("autoblock");

@@ -1,10 +1,3 @@
-"""Test suite for 5.1.b, the blackbox acceptance contract.
-
-The SAME tests grade any implementation, loaded via the IMPL env var:
-  - solution.py  (output-encoded, must be green)
-  - starter.py   (raw concatenation, must be red: payloads reach the output as markup)
-The injection cases are the point: they pass only when user input is HTML-encoded.
-"""
 import html
 import importlib.util
 import os
@@ -24,7 +17,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- ordinary content is shown normally, template stays intact -----------
 def test_plain_comment_renders():
     out = impl.render_comment("jordan", "Nice, clear write-up")
     assert "jordan" in out
@@ -37,7 +29,6 @@ def test_structural_tags_present():
     assert "<b>" in out and "</b>" in out and "</div>" in out
 
 
-# ---- injection must be encoded, not reflected as markup (only encoding passes) ----
 def test_script_payload_encoded():
     out = impl.render_comment("jordan", "<script>steal()</script>")
     assert "<script>" not in out
@@ -63,7 +54,6 @@ def test_quotes_and_ampersand_encoded():
     assert "&amp;" in out
 
 
-# ---- the user value is encoded exactly as html.escape(..., quote=True) ----
 def test_user_value_encoded_exactly():
     payload = '"><svg/onload=steal()>&\''
     out = impl.render_comment("jordan", payload)

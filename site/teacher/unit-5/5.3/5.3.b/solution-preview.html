@@ -130,40 +130,30 @@ def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 5.3.b. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
-
-
 def wrap_key(dek: bytes, kek: bytes) -&gt; bytes:
-    """Wrap a DEK with a KEK using a repeating-XOR keystream (toy envelope encryption)."""
     if not kek:
         raise ValueError("kek must be non-empty")
     return bytes(b ^ kek[i % len(kek)] for i, b in enumerate(dek))
 
 
 def unwrap_key(wrapped: bytes, kek: bytes) -&gt; bytes:
-    """Inverse of wrap_key(): XOR is its own inverse."""
     return wrap_key(wrapped, kek)
 
 
 def looks_like_csprng(key_bytes: bytes) -&gt; bool:
-    """Heuristically flag whether key_bytes could plausibly have come from a CSPRNG."""
     n = len(key_bytes)
     if n &lt; 8:
         return False
 
-    # All bytes identical.
     if len(set(key_bytes)) == 1:
         return False
 
-    # Short repeating pattern that tiles the whole input.
     for period in range(1, n // 2 + 1):
         pattern = key_bytes[:period]
         tiled = (pattern * (n // period + 1))[:n]
         if tiled == key_bytes:
             return False
 
-    # Constant-step arithmetic sequence (mod 256).
     step = (key_bytes[1] - key_bytes[0]) % 256
     is_arithmetic = all(
         (key_bytes[i] - key_bytes[i - 1]) % 256 == step for i in range(1, n)
@@ -175,7 +165,6 @@ def looks_like_csprng(key_bytes: bytes) -&gt; bool:
 
 
 def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool:
-    """True if any two blocks in ciphertext_blocks are identical (ECB pattern leak)."""
     seen = set()
     for block in ciphertext_blocks:
         if block in seen:
@@ -187,7 +176,6 @@ def detect_ecb_leakage(ciphertext_blocks: list) -&gt; bool:
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---- wrap_key / unwrap_key -----------------------------------------------
 def test_wrap_key_basic_xor():
     dek = b"\x01\x02\x03\x04"
     kek = b"\xff\x00"
@@ -212,7 +200,6 @@ def test_wrap_key_kek_shorter_than_dek_repeats():
     assert impl.wrap_key(dek, kek) == b"\x01\x02\x01\x02"
 
 
-# ---- looks_like_csprng -----------------------------------------------------
 def test_repeated_byte_is_weak():
     assert impl.looks_like_csprng(bytes([5] * 16)) is False
 
@@ -237,7 +224,6 @@ def test_another_plausible_csprng_output():
     assert impl.looks_like_csprng(bytes([0x9F, 0x02, 0x77, 0xC1, 0x3A, 0x5E, 0x00, 0xE4, 0x6B])) is True
 
 
-# ---- detect_ecb_leakage -----------------------------------------------------
 def test_duplicate_blocks_flagged():
     blocks = [b"AAAAAAAA", b"BBBBBBBB", b"AAAAAAAA"]
     assert impl.detect_ecb_leakage(blocks) is True

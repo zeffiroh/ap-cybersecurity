@@ -1,6 +1,3 @@
-"""Reference solution for 4.4.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
-
 WEIGHTS = {
     "known_malicious_hash": 6,
     "av_disabled": 5,
@@ -13,14 +10,6 @@ WEIGHTS = {
 
 
 def solve(iocs: list) -> str:
-    """Sum the weights of unique observed IOCs and classify a compromise verdict.
-
-    Args:
-        iocs: list of str IOC type identifiers observed on one device.
-
-    Returns:
-        "clean" (score < 4), "suspicious" (4 <= score < 8), or "compromised" (score >= 8).
-    """
     unique_iocs = set(iocs)
     score = sum(WEIGHTS.get(ioc, 0) for ioc in unique_iocs)
 

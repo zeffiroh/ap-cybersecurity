@@ -1,9 +1,3 @@
-"""Test suite for 1.5.d -- the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -27,8 +21,6 @@ def _inc(id_, detected, resolved, severity="high", auto=False):
             "severity": severity, "auto": auto}
 
 
-# ---- visible cases -------------------------------------------------------
-
 def test_empty_input():
     result = impl.solve([])
     assert result == {"mttr": 0.0, "auto_resolved": 0}
@@ -48,8 +40,8 @@ def test_single_incident_auto():
 
 def test_two_incidents_mean():
     incidents = [
-        _inc("INC-003", 1000, 1120, "critical", False),  # 120s
-        _inc("INC-004", 2000, 2080, "high", True),       # 80s
+        _inc("INC-003", 1000, 1120, "critical", False),
+        _inc("INC-004", 2000, 2080, "high", True),
     ]
     result = impl.solve(incidents)
     assert result["mttr"] == 100.0
@@ -67,12 +59,10 @@ def test_all_auto_resolved():
     assert result["auto_resolved"] == 3
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_no_auto_resolved():
     incidents = [
-        _inc("INC-010", 100, 700, "critical", False),  # 600s
-        _inc("INC-011", 200, 500, "high", False),       # 300s
+        _inc("INC-010", 100, 700, "critical", False),
+        _inc("INC-011", 200, 500, "high", False),
     ]
     result = impl.solve(incidents)
     assert result["mttr"] == 450.0
@@ -95,7 +85,6 @@ def test_result_has_exactly_two_keys():
 
 
 def test_non_integer_mean():
-    # 3 incidents with response times 10, 20, 30 -> mean = 20.0 (exact)
     incidents = [
         _inc("A", 0, 10),
         _inc("B", 0, 20),
@@ -106,7 +95,6 @@ def test_non_integer_mean():
 
 
 def test_fractional_mean():
-    # 2 incidents: 10s and 11s -> mean = 10.5
     incidents = [
         _inc("X", 1000, 1010),
         _inc("Y", 2000, 2011),
@@ -116,7 +104,6 @@ def test_fractional_mean():
 
 
 def test_large_dataset():
-    # 100 incidents, all 300s response time, 50 auto -> mttr=300.0, auto=50
     incidents = [_inc(f"INC-{i}", i * 1000, i * 1000 + 300, "high", i % 2 == 0)
                  for i in range(100)]
     result = impl.solve(incidents)

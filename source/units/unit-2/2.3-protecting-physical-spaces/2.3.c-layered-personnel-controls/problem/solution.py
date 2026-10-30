@@ -1,19 +1,9 @@
-"""Reference solution for 2.3.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import Dict, List
 
 VALID_CATEGORIES = {"perimeter", "personnel", "electronic", "barrier", "monitoring"}
 
 
 def solve(layers: List[Dict]) -> Dict:
-    """Audit a facility's layer list and return a defense-in-depth report.
-
-    depth_score = number of distinct valid categories present.
-    categories_present = sorted list of those categories.
-    redundant_categories = {category: extra_count} for categories with >1 layer.
-    recommendation = STRONG (depth>=5) / ADEQUATE (3-4) / WEAK (<=2).
-    Invalid category strings are ignored entirely.
-    """
     counts: Dict[str, int] = {}
     for layer in layers:
         category = layer.get("category")

@@ -1,11 +1,8 @@
-/* Paywall: every page outside APCYBER_PAYWALL.free shows an unlock block until the signed-in account
-   has unlocked the course. Unlocked accounts get an occasional donate banner instead.
-   The build loads this first thing in <head> of every page, so locked content never flashes. */
 (function (global) {
   "use strict";
 
-  var KEY = "apcyber_unlocks";                // { email: { via, ref, ts } }, every account unlocked here
-  var EMAIL_KEY = "apcyber_student_email";    // the gradebook sign-in (progress.js, identity.js)
+  var KEY = "apcyber_unlocks";
+  var EMAIL_KEY = "apcyber_student_email";
   var DONATE_KEY = "apcyber_donate_next";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
   var P = global.APCYBER_PAYWALL || {};
@@ -17,7 +14,7 @@
   }
 
   function set(k, v) {
-    try { localStorage.setItem(k, v); } catch (e) { /* storage blocked: lasts until the page closes */ }
+    try { localStorage.setItem(k, v); } catch (e) {  }
   }
 
   function unlocks() {
@@ -39,7 +36,6 @@
     global.dispatchEvent(new Event("aayat-identity-set"));
   }
 
-  /* Unlock `addr` for good on this browser and sign it in. */
   function unlock(addr, via, ref) {
     var all = unlocks();
     all[addr] = { via: via || "", ref: ref || "", ts: new Date().toISOString() };
@@ -66,7 +62,6 @@
     });
   }
 
-  /* Whether `addr` has unlocked on any device; unlocks this browser too when it has. */
   function lookup(addr) {
     if (isUnlocked(addr)) return Promise.resolve(true);
     return neon().then(function (N) {
@@ -95,7 +90,6 @@
       .replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\u0000/g, ".*") + "$");
   }
 
-  /* This page's path from the site root, e.g. "unit-2/2.1/notes.html"; null when outside the site. */
   function pagePath() {
     var here = location.href.split(/[?#]/)[0];
     if (!root || here.indexOf(root) !== 0) return null;
@@ -111,7 +105,6 @@
     return root + "unlock/?" + (extra ? extra + "&" : "") + "next=" + encodeURIComponent(hereRel());
   }
 
-  /* The payment page, told where to send the payer when done. */
   function payUrl(ret, extra) {
     var u = new URL(P.payUrl || "pay/", root);
     if (extra) u.search += (u.search ? "&" : "") + extra;
@@ -128,7 +121,7 @@
   var path = pagePath();
   var free = path === null || (P.free || []).some(function (f) { return glob(f).test(path); });
   var quiet = /^(unlock|pay|buy|ledger)\//.test(path || "");
-  var framed = global.self !== global.top;           // teacher previews: the outer page shows the bars
+  var framed = global.self !== global.top;
 
   var css = document.createElement("style");
   css.textContent =
@@ -214,7 +207,6 @@
     });
   }
 
-  /* Wikipedia-style: now and then, ask an unlocked account to give (again). */
   function donate() {
     var every = days(P.donateEveryDays);
     var canPay = (P.payUrl && P.payUrl !== "pay/") ||
@@ -233,7 +225,6 @@
     b.querySelector(".pw-x").addEventListener("click", snooze);
   }
 
-  /* Lock or open the page for whoever is signed in now. */
   function apply() {
     var open = isUnlocked(), html = document.documentElement;
     html.classList.toggle("pw-locked", !free && !open);
@@ -249,7 +240,7 @@
 
   function check() {
     var who = email();
-    if (who && !isUnlocked(who)) lookup(who).catch(function () { /* offline or no database: stay locked */ });
+    if (who && !isUnlocked(who)) lookup(who).catch(function () {  });
   }
 
   document.documentElement.classList.toggle("pw-locked", !free && !isUnlocked());

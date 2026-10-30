@@ -1,8 +1,3 @@
-"""Store artwork for the textbook, drawn algorithmically: a flow field of data streams over a faint hex dump,
-with a small network of nodes, in the book's print colours. Same seed, same pictures.
-
-    python branding/make_art.py
-"""
 import math
 import random
 from pathlib import Path
@@ -30,7 +25,6 @@ def font(name, px):
 
 
 def field(x, y, w, h, k):
-    """Flow direction at (x, y): a few layered sine waves, so streams curl but never cross chaotically."""
     u, v = x / w, y / h
     return (math.sin(u * 3.1 + k[0]) * math.cos(v * 2.3 + k[1]) * 1.6
             + math.sin((u + v) * 5.7 + k[2]) * 0.5
@@ -38,7 +32,6 @@ def field(x, y, w, h, k):
 
 
 def background(w, h):
-    """Diagonal maroon gradient, darker toward the lower right."""
     n = 64
     img = Image.new("RGB", (n, n))
     px = img.load()
@@ -50,7 +43,6 @@ def background(w, h):
 
 
 def hexdump(d, w, h, rnd):
-    """Faint columns of hex bytes, like a packet capture behind glass."""
     f = font(MONO, 13 * SS)
     step_x, step_y = 30 * SS, 19 * SS
     for y in range(0, h, step_y):
@@ -80,7 +72,6 @@ def streams(d, w, h, rnd, n):
 
 
 def network(d, w, h, rnd, n, box):
-    """Nodes inside box joined to their two nearest neighbours: a small network map."""
     x0, y0, x1, y1 = box
     nodes = [(rnd.uniform(x0, x1), rnd.uniform(y0, y1)) for _ in range(n)]
     for i, (ax, ay) in enumerate(nodes):
@@ -95,7 +86,6 @@ def network(d, w, h, rnd, n, box):
 
 
 def shade(img, box, strength=200, horizontal=True):
-    """Darken behind the text so it reads on any part of the art."""
     w, h = img.size
     mask = Image.new("L", (w, h), 0)
     md = ImageDraw.Draw(mask)
@@ -121,7 +111,6 @@ def wrap(d, text, f, max_w):
 
 
 def text_block(d, x, y, max_w, scale, lines, align="left"):
-    """lines: (text, font file, size, colour, gap after). Wraps each to max_w; returns the bottom y."""
     for text, ff, size, col, gap in lines:
         f = font(ff, size * scale * SS)
         for ln in wrap(d, text, f, max_w):
@@ -155,7 +144,6 @@ def save(img, name, w, h):
 
 
 def landscape(name, w, h, seed_offset=0, label="TEXTBOOK \u00b7 PDF + ONLINE"):
-    """Text on the left, network on the right: Gumroad cover, social/share banner."""
     img = art(w, h, seed_offset, int(w * h / 900), (0.6, 0.15, 0.95, 0.85), 16)
     W, H = img.size
     img = shade(img, (0, 0, int(W * 0.56), H), 225)
@@ -173,7 +161,6 @@ def landscape(name, w, h, seed_offset=0, label="TEXTBOOK \u00b7 PDF + ONLINE"):
 
 
 def square(name, w, seed_offset=0):
-    """Gumroad thumbnail, Razorpay page logo: title only, so it reads when small."""
     img = art(w, w, seed_offset, int(w * w / 700), (0.12, 0.08, 0.88, 0.5), 12)
     W, H = img.size
     img = shade(img, (0, int(H * 0.55), W, H), 225)
@@ -190,7 +177,6 @@ def square(name, w, seed_offset=0):
 
 
 def portrait(name, w, h, seed_offset=0):
-    """Ebook cover (1:1.6): Google Play Books, Pothi, Payhip, Kindle."""
     img = art(w, h, seed_offset, int(w * h / 2600), (0.1, 0.6, 0.9, 0.8), 18)
     W, H = img.size
     img = shade(img, (0, 0, W, int(H * 0.54)), 225)

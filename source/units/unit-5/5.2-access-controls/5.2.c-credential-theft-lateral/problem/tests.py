@@ -1,9 +1,3 @@
-"""Test suite for 5.2.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_lateral_movement_flagged():
     events = [
         {"account": "mkt_dana", "host": "h1", "ts": 0},
@@ -60,7 +53,6 @@ def test_multiple_accounts_flagged_sorted():
     assert impl.solve(events, threshold=2, window_minutes=5) == ["amy", "zed"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_window_boundary_inclusive():
     events = [
         {"account": "u", "host": "h1", "ts": 0},

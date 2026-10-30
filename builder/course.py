@@ -1,5 +1,3 @@
-"""The course map: units, topics and skills ("atoms"), read from source/course.json, source/atoms.json
-and the folders under source/units/."""
 import json
 import re
 from functools import lru_cache
@@ -22,7 +20,6 @@ def _course():
 
 @lru_cache(None)
 def units():
-    """[{num, title, topics: [tid]}] in order."""
     c = _course()
     out = []
     for n, title in sorted(c["units"].items(), key=lambda kv: int(kv[0])):
@@ -42,7 +39,6 @@ def order():
 
 @lru_cache(None)
 def topic(tid):
-    """{unit, title, los, src (source folder)}."""
     t = dict(_course()["topics"][tid])
     hits = sorted((UNITS_SRC / f"unit-{t['unit']}").glob(f"{tid}-*"))
     t["src"] = hits[0]
@@ -51,7 +47,6 @@ def topic(tid):
 
 @lru_cache(None)
 def atoms():
-    """{tid: [{id, title, unit, lo, skills, points, src}]} in id order."""
     out = {}
     for a in json.loads((SRC / "atoms.json").read_text(encoding="utf-8")):
         tid = a["id"].rsplit(".", 1)[0]

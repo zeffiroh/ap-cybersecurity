@@ -1,9 +1,3 @@
-"""Test suite for 5.3.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- wrap_key / unwrap_key -----------------------------------------------
 def test_wrap_key_basic_xor():
     dek = b"\x01\x02\x03\x04"
     kek = b"\xff\x00"
@@ -47,7 +40,6 @@ def test_wrap_key_kek_shorter_than_dek_repeats():
     assert impl.wrap_key(dek, kek) == b"\x01\x02\x01\x02"
 
 
-# ---- looks_like_csprng -----------------------------------------------------
 def test_repeated_byte_is_weak():
     assert impl.looks_like_csprng(bytes([5] * 16)) is False
 
@@ -72,7 +64,6 @@ def test_another_plausible_csprng_output():
     assert impl.looks_like_csprng(bytes([0x9F, 0x02, 0x77, 0xC1, 0x3A, 0x5E, 0x00, 0xE4, 0x6B])) is True
 
 
-# ---- detect_ecb_leakage -----------------------------------------------------
 def test_duplicate_blocks_flagged():
     blocks = [b"AAAAAAAA", b"BBBBBBBB", b"AAAAAAAA"]
     assert impl.detect_ecb_leakage(blocks) is True

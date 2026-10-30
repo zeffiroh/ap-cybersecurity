@@ -107,7 +107,6 @@ USERS = [
 ]
 
 
-# ---- legitimate logins still work ---------------------------------------
 def test_valid_admin():
     assert impl.authenticate(USERS, "admin", "S3cr3t-Admin-Pw") == "administrator"
 
@@ -124,7 +123,6 @@ def test_unknown_user_rejected():
     assert impl.authenticate(USERS, "nobody", "whatever") is None
 
 
-# ---- injection must NOT authenticate (only parameterization passes these) ----
 def test_comment_truncation_blocked():
     assert impl.authenticate(USERS, "admin'--", "anything") is None
 
@@ -141,12 +139,10 @@ def test_union_blocked():
     assert impl.authenticate(USERS, "' UNION SELECT role FROM users--", "x") is None
 
 
-# ---- a password field carrying an injection is also treated as data ----
 def test_injection_in_password_blocked():
     assert impl.authenticate(USERS, "admin", "' OR '1'='1") is None
 
 
-# ---- a legitimate but unusual username with a quote is handled literally ----
 def test_literal_quote_username():
     users = USERS + [("o'brien", "staff", "pw-123")]
     assert impl.authenticate(users, "o'brien", "pw-123") == "staff"

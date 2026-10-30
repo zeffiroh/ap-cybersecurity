@@ -1,5 +1,3 @@
-"""Reference solution for 3.2.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import Dict, List
 
 _LAYER_MAP = {
@@ -26,10 +24,6 @@ _LAYER_MAP = {
 
 
 def classify_layer(controls: List[Dict]) -> List[str]:
-    """Assign each control to its defense-in-depth layer based on 'category'.
-
-    See interface.md for the full category -> layer mapping.
-    """
     result = []
     for c in controls:
         category = c["category"]

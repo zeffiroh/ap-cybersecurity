@@ -1,4 +1,3 @@
-/* The student's Progress page: course, unit and topic mastery, skill squares, recent activity. */
 (function (global) {
   "use strict";
 

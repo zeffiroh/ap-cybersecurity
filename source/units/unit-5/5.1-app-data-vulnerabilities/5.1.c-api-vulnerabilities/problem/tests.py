@@ -1,9 +1,3 @@
-"""Test suite for 5.1.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_owner_allowed():
     req = {"user_id": "u1", "role": "user", "object_id": "482"}
     own = {"482": "u1"}
@@ -47,7 +40,6 @@ def test_not_found():
     assert impl.solve(req, own) == {"allowed": False, "reason": "not_found"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_owner_priority_over_admin_role():
     req = {"user_id": "u1", "role": "admin", "object_id": "482"}
     own = {"482": "u1"}

@@ -1,8 +1,5 @@
-"""Reference solution for 5.6.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import List
 
-# Known indicators per attack category (case-insensitive exact match against evidence tags).
 _CATEGORY_INDICATORS = {
     "brute-force": {
         "multiple_401_responses",
@@ -32,12 +29,6 @@ _CATEGORY_INDICATORS = {
 
 
 def solve(indicators: List[str]) -> str:
-    """Classify an evidence bundle by scoring each category's matching indicator count.
-
-    Returns the category name with the highest score. Ties are broken by choosing the
-    alphabetically first category among the tied leaders. If no indicator matches any
-    known category, returns "unknown".
-    """
     evidence = set(indicators)
     scores = {
         category: len(evidence & known_indicators)

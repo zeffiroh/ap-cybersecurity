@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the course site: everything in source/ -> site/.
+USAGE = """Build the course site: everything in source/ -> site/.
 
     python build.py                    build what changed
     python build.py --check            report what would change, write nothing
@@ -20,7 +20,7 @@ import traceback
 
 from builder import util
 
-STEPS = [  # name, what it builds
+STEPS = [
     ("static", "hand-made files, notes, images, sims, flashcard data, capstone world"),
     ("tests", "adaptive unit tests and CW/HW quizzes"),
     ("materials", "topic quizzes, flashcards, assignments, coding problems, activities, SimLab, skill pages"),
@@ -60,7 +60,7 @@ def step(name, args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=USAGE, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--only")
     ap.add_argument("--skip", default="")

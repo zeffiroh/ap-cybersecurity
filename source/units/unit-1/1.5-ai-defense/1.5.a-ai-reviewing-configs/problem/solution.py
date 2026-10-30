@@ -1,9 +1,5 @@
-"""Reference solution for 1.5.a. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import List
 
-# Rule set: each entry is (tag, list_of_trigger_substrings).
-# A line triggers the tag if ANY trigger substring matches (case-insensitive).
 RULES = [
     ("insecure:PermitRootLogin",      ["permitrootlogin yes"]),
     ("insecure:PasswordAuthentication", ["passwordauthentication yes"]),
@@ -15,7 +11,6 @@ RULES = [
 
 
 def solve(config_lines: List[str]) -> List[str]:
-    """Return sorted, de-duplicated security finding tags for insecure config directives."""
     findings = set()
     for raw in config_lines:
         line = raw.strip()

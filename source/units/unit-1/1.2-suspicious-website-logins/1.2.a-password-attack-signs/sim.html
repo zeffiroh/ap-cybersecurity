@@ -1,7 +1,4 @@
 <!DOCTYPE html>
-<!-- 1.2.a SIM, "Login Monitor". Single-file, offline, deterministic. No emoji/icons.
-     Theme tokens inlined from assets/theme/theme.css (THEME.md). Fake-network engine
-     replays a scripted authentication log; student flags the brute-force account. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -94,14 +91,6 @@ function toggleTheme(){
   document.body.classList.toggle('theme-linux');
 }
 
-/* ---- Fake Network Engine: scripted deterministic auth-log replays ---- */
-
-/* Each scenario defines the log events and the answer (which user is under attack).
-   Events: {dt: seconds-offset, user, ok, ip, note}
-   The sim plays them back one at a time using a timer, so the log scrolls like a live feed.
-   The student can flag at any time; early (before attacker succeeds) = correct.
-   GOAL: correctly identify the attacker's target account in 4 of 4 scenarios. */
-
 var SCENARIOS = [
   {
     label: "Scenario 1 of 4",
@@ -188,7 +177,6 @@ function appendLine(ev){
   var cls = ev.ok ? "ok-line" : "fail-line";
   var line = document.createElement("span");
   line.className = cls;
-  // Highlight attacker success distinctly
   if(ev.note && ev.note.indexOf("ATTACKER") !== -1){
     line.className = "bright";
   }
@@ -208,13 +196,11 @@ function startScenario(){
   document.getElementById("user-sel").value = "";
   updateBar();
 
-  // Header line
   var hdr = document.createElement("span");
   hdr.className = "dim";
   hdr.textContent = "-- " + sc.label + " -- watching auth.log --\n";
   log.appendChild(hdr);
 
-  // Play events one at a time using the time deltas
   playNext();
 }
 
@@ -223,7 +209,6 @@ function playNext(){
   var sc = SCENARIOS[idx];
   if(eventIdx >= sc.events.length){ scenarioDone = true; onScenarioEnd(); return; }
   var ev = sc.events[eventIdx];
-  // Delay between events: use delta from previous event (capped for playability)
   var delay = 900;
   if(eventIdx > 0){
     var prev = sc.events[eventIdx - 1];
@@ -232,7 +217,6 @@ function playNext(){
   timer = setTimeout(function(){
     appendLine(ev);
     eventIdx++;
-    // Check if this was the attacker success event
     if(ev.note && ev.note.indexOf("ATTACKER") !== -1){
       scenarioDone = true;
       onScenarioEnd();
@@ -244,7 +228,6 @@ function playNext(){
 
 function onScenarioEnd(){
   if(!answered){
-    // Student did not flag in time
     var fb = document.getElementById("fb");
     fb.innerHTML = '<span class="bad">TIME UP.</span> The attacker succeeded. The target was: <b>' +
       esc(SCENARIOS[idx].answer) + '</b>. Click "Next scenario" to continue.';
@@ -271,7 +254,6 @@ function flagAccount(){
       'The correct answer was <b>' + esc(sc.answer) + '</b>. ' +
       'Look for 5+ FAIL events from an unknown device. Click "Next scenario".';
   }
-  // Continue showing remaining log events in background for learning
   if(!scenarioDone) playNext();
   updateBar();
 }

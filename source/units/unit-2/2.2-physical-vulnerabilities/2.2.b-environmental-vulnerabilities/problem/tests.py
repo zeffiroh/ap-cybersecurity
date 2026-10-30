@@ -1,9 +1,3 @@
-"""Test suite for 2.2.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_power_levels():
     data = [
         {"id": "p1", "room": "a", "type": "power", "value": 0},
@@ -41,7 +34,6 @@ def test_power_levels():
 
 
 def test_temperature_and_humidity_no_escalation():
-    # Only temperature elevated in room b, humidity stays NORMAL -> no escalation.
     data = [
         {"id": "t1", "room": "b", "type": "temperature", "value": 28},
         {"id": "h1", "room": "b", "type": "humidity", "value": 50},
@@ -65,8 +57,6 @@ def test_smoke_and_water():
 
 
 def test_combined_escalation():
-    # Room d: temperature WARNING + humidity WARNING -> both escalate to CRITICAL.
-    # Power reading in same room is unaffected.
     data = [
         {"id": "t1", "room": "d", "type": "temperature", "value": 29},
         {"id": "h1", "room": "d", "type": "humidity", "value": 65},
@@ -83,7 +73,6 @@ def test_accept():
     assert impl.solve(data) == {"t1": "NORMAL", "h1": "NORMAL"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     assert impl.solve([]) == {}
 
@@ -94,8 +83,6 @@ def test_multiple_rooms_independent():
         {"id": "h1", "room": "room2", "type": "humidity", "value": 75},
         {"id": "t2", "room": "room2", "type": "temperature", "value": 20},
     ]
-    # room1: only temperature elevated (already CRITICAL, no escalation needed to check)
-    # room2: humidity CRITICAL but temperature NORMAL -> no escalation of temperature
     assert impl.solve(data) == {"t1": "CRITICAL", "h1": "CRITICAL", "t2": "NORMAL"}
 
 

@@ -1,9 +1,3 @@
-"""Test suite for 1.1.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -21,8 +15,6 @@ def _load(path):
 
 impl = _load(_TARGET)
 
-
-# ---- visible cases -----------------------------------------------------------
 
 def test_lookalike_domain_email():
     msg = {
@@ -79,7 +71,6 @@ def test_no_indicators_legit():
 
 
 def test_multiple_indicators():
-    # lookalike-domain + credential-request + mismatched-sender
     msg = {
         "channel": "email",
         "sender": "security@paypa1.com",
@@ -89,11 +80,8 @@ def test_multiple_indicators():
     result = impl.solve(msg)
     assert "lookalike-domain" in result
     assert "credential-request" in result
-    # result must be sorted
     assert result == sorted(result)
 
-
-# ---- hidden / edge cases -----------------------------------------------------
 
 def test_ip_address_link():
     msg = {
@@ -108,7 +96,6 @@ def test_ip_address_link():
 
 
 def test_mismatched_sender_fires():
-    # Text claims to be Netflix but sender has no netflix in it
     msg = {
         "channel": "email",
         "sender": "billing@stream-updates.net",
@@ -120,7 +107,6 @@ def test_mismatched_sender_fires():
 
 
 def test_mismatched_sender_does_not_fire_when_match():
-    # Sender legitimately contains the brand name
     msg = {
         "channel": "email",
         "sender": "no-reply@netflix.com",
@@ -160,11 +146,8 @@ def test_output_sorted_and_deduped():
         "link": "https://tinyurl.com/abc123",
     }
     result = impl.solve(msg)
-    # No duplicates
     assert len(result) == len(set(result))
-    # Sorted ascending
     assert result == sorted(result)
-    # Must include at least these
     assert "lookalike-domain" in result
     assert "urgent-money-request" in result
     assert "shortened-link" in result
@@ -193,7 +176,6 @@ def test_tinyurl_shortener():
 
 
 def test_no_false_positive_on_brand_in_sender():
-    # Sender is paypal.com — mismatched-sender should NOT fire
     msg = {
         "channel": "email",
         "sender": "service@paypal.com",

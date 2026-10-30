@@ -1,8 +1,4 @@
-/* Support & sponsorship rendering */
-
 (function () {
-  /* The wording of the support panel. Not a per-deployment setting,
-     so it lives here rather than cluttering config.js. */
   var SUPPORT_COPY = {
     heading: "Support this course",
     body: "If your classroom has a budget for materials, a contribution covers hosting, diagram licensing, and the work of keeping every unit aligned to the current framework. Any amount is welcome.",
@@ -11,8 +7,6 @@
 
   var thisScript = document.currentScript;
 
-  /* The support page builds its own, fuller version of these
-     blocks, so the injected panel would only duplicate it. */
   if (document.documentElement.hasAttribute("data-support-page")) return;
 
   var cfg = window.APCYBER_SUPPORT || {};
@@ -26,8 +20,6 @@
 
   var css = ''
     + '.support-region{font-family:var(--font-sans);max-width:760px;margin:44px auto 56px;}'
-    /* On a landing page the region sits inside the content column and lines
-       up with the section headings above it rather than floating centred. */
     + '.site-main > .support-region{margin:40px 40px 48px;}'
     + '@media (max-width:900px){.site-main > .support-region{margin:32px 20px 40px;}}'
     + '.support-panel{border:1px solid var(--border-color);border-top:3px solid var(--accent-color);'
@@ -70,8 +62,6 @@
   region.className = 'support-region';
   region.setAttribute('aria-label', 'Support this course');
 
-  /* Which unit this page belongs to, so the right sponsor is shown.
-     Topic folders sit under a "Unit_N_..." directory. */
   function currentUnitId() {
     var m = /\/Unit_(\d+)_/.exec(location.pathname);
     return m ? 'unit-' + m[1] : null;
@@ -184,8 +174,6 @@
   }
 
   function mount() {
-    /* The textbook and the landing pages each have their own content
-       column; anything else falls back to the end of the document. */
     var book = document.querySelector('.book');
     var main = document.querySelector('.site-main');
     var footer = document.querySelector('.site-footer');

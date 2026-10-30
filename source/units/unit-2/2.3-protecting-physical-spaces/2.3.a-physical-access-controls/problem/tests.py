@@ -1,9 +1,3 @@
-"""Test suite for 2.3.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,9 +16,7 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1():
-    # Scenario A from activity.md
     facility = {
         "keyed_lock": True,
         "badge_reader": True,
@@ -38,7 +30,6 @@ def test_example_1():
 
 
 def test_example_2():
-    # Scenario B from activity.md
     facility = {
         "keyed_lock": False,
         "badge_reader": False,
@@ -51,7 +42,6 @@ def test_example_2():
     assert impl.solve(facility) == expected
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_all_present():
     facility = {
         "keyed_lock": True,

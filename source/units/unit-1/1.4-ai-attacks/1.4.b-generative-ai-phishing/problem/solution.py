@@ -1,9 +1,7 @@
-"""Reference solution for 1.4.b. MUST pass 100% of tests.py."""
 from typing import List
 
 
 def solve(prompt_text: str) -> List[str]:
-    """Detect prompt-injection patterns in prompt_text. Returns sorted list."""
     low = (prompt_text or "").lower()
     found = []
     if "ignore previous" in low:

@@ -1,6 +1,3 @@
-"""Files used as they are: source/static/** keeps its path under site/; per-topic notes, images and
-sims, flashcard decks, classwork quizzes, tutor-post banners, lecture images and the capstone world
-go to their place in the site. Student pages get the top bar on the way."""
 from . import course as C
 from . import nav as N
 from .paths import (ASSETS, CAPSTONE, CAPSTONE_SRC, LECTURES, LECTURES_SRC, SITE, STATIC_SRC, UNITS_SRC,

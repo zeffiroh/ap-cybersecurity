@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""mhsec — CLI front-end for the Meridian Health toolkit. Offline.
-Run from source/capstone/:
-  python -m toolkit.mhsec scan
-  python -m toolkit.mhsec loganalyze
-  python -m toolkit.mhsec phish
-  python -m toolkit.mhsec ir
-  python -m toolkit.mhsec pivot
-  python -m toolkit.mhsec iocscan
-  python -m toolkit.mhsec exfil
-  python -m toolkit.mhsec report
-"""
 import json
 import sys
 

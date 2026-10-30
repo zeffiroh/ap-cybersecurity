@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""
-Serve the course (site/) on this computer only and open the home page. No internet needed.
-
-Browsers block fetch() on pages opened by double-click (file://), and the quizzes, assignments,
-flashcards and capstone load their data that way. A tiny local server fixes that.
-
-Usage:
-    python offline/serve.py              # picks a free port from 8000 up, opens the hub
-    python offline/serve.py --port 9000 --no-browser
-"""
 import argparse
 import functools
 import http.server
@@ -23,7 +13,7 @@ SITE = Path(__file__).resolve().parent.parent / "site"
 class Handler(http.server.SimpleHTTPRequestHandler):
     extensions_map = {
         **http.server.SimpleHTTPRequestHandler.extensions_map,
-        ".wasm": "application/wasm",   # Pyodide needs this exact type
+        ".wasm": "application/wasm",
         ".js": "text/javascript",
         ".mjs": "text/javascript",
         ".json": "application/json",
@@ -34,7 +24,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     }
 
     def log_message(self, *args):
-        pass  # keep the console quiet for students
+        pass
 
 
 def free_port(start):

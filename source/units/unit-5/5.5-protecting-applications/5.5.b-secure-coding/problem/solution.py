@@ -1,13 +1,7 @@
-"""Reference solution for 5.5.b. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import Dict, List
 
 
 def solve(config: Dict[str, object]) -> List[str]:
-    """Audit an application configuration against the secure-coding rule set.
-
-    Returns a sorted list of violated rule names (only rules that fail appear).
-    """
     violations = []
 
     if config.get("debug_mode") is True:

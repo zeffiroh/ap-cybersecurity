@@ -1,16 +1,15 @@
-"""Where everything lives. Sources are under source/, the published site under site/."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 
 SRC = ROOT / "source"
-UNITS_SRC = SRC / "units"            # unit-N/<X.Y-slug>/ (topic) and <X.Y.z-slug>/ (skill)
-LECTURES_SRC = SRC / "lectures"      # NN_name.md, images/
-TEXTBOOK_SRC = SRC / "textbook"      # LaTeX, book-inserts.json
-TESTS_SRC = SRC / "tests"            # adaptive unit tests and CW/HW banks
-CAPSTONE_SRC = SRC / "capstone"      # Operation Quiet Harbor: world, stages, toolkit
-STATIC_SRC = SRC / "static"          # copied to site/ as they are
+UNITS_SRC = SRC / "units"
+LECTURES_SRC = SRC / "lectures"
+TEXTBOOK_SRC = SRC / "textbook"
+TESTS_SRC = SRC / "tests"
+CAPSTONE_SRC = SRC / "capstone"
+STATIC_SRC = SRC / "static"
 
 SITE = ROOT / "site"
 ASSETS = SITE / "assets"

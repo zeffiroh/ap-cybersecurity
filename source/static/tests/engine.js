@@ -1,15 +1,14 @@
-/* adaptive assessment engine (runs in the browser) */
 (function (global) {
   "use strict";
 
-  var MAX_ITEMS = 24;       // hard cap per session
-  var MIN_ITEMS = 8;        // fewest items before the test may stop early
-  var SE_STOP = 0.40;       // stop once the overall estimate is this precise
-  var GATE_THETA = 0.5;     // Proficient and above passes the unit gate
-  var MASTERY_LOGIT = 0.55; // a skill counts as mastered above this
-  var STEP = 0.35;          // per-skill update step
+  var MAX_ITEMS = 24;
+  var MIN_ITEMS = 8;
+  var SE_STOP = 0.40;
+  var GATE_THETA = 0.5;
+  var MASTERY_LOGIT = 0.55;
+  var STEP = 0.35;
   var STORE_KEY = "apcyber_engine_sessions_v1";
-  var LOCAL_KEEP = 50;      // sessions kept in one browser's storage
+  var LOCAL_KEEP = 50;
 
   var SKILL_META = {
     "1.A": { name: "Identify Concepts", color: "#3b82f6" },
@@ -22,13 +21,10 @@
     "3.B": { name: "Analyze Incidents", color: "#14b8a6" }
   };
 
-  /* engine/ folder, resolved from this script's own src. */
   var BASE = (function () {
     var s = document.currentScript && document.currentScript.getAttribute("src");
     return s ? s.replace(/engine\.js.*$/, "") : "";
   })();
-
-  // ------------------------------------------------------------ IRT maths --
 
   function prob(theta, a, b, c) {
     return c + (1 - c) / (1 + Math.exp(-a * (theta - b)));
@@ -41,7 +37,6 @@
     return (a * a) * (p - c) * (p - c) / ((1 - c) * (1 - c) * d);
   }
 
-  /* One gradient step on the log-likelihood (per-skill diagnostic θ). */
   function stepTheta(theta, correct, a, b, c) {
     var p = prob(theta, a, b, c);
     var g = correct
@@ -50,7 +45,6 @@
     return Math.max(-4, Math.min(4, theta + STEP * g));
   }
 
-  /* EAP estimate of overall θ and its posterior SD from all responses. */
   function eap(responses, byId) {
     var num = 0, den = 0, sq = 0;
     for (var t = -4; t <= 4.0001; t += 0.05) {
@@ -83,8 +77,6 @@
     return Math.round(x * f) / f;
   }
 
-  // ------------------------------------------------------------------ data --
-
   var cache = {};
 
   function getJson(path) {
@@ -107,8 +99,6 @@
     });
   }
 
-  // -------------------------------------------------------------- storage --
-
   function loadStore() {
     try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch (e) { return {}; }
   }
@@ -116,13 +106,12 @@
   function save(session) {
     var store = loadStore();
     store[session.id] = session;
-    // A shared lab computer collects everyone's sessions; keep the newest.
     var ids = Object.keys(store);
     if (ids.length > LOCAL_KEEP) {
       ids.sort(function (a, b) { return (store[b].timestamp || "") < (store[a].timestamp || "") ? -1 : 1; });
       ids.slice(LOCAL_KEEP).forEach(function (id) { delete store[id]; });
     }
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* full or blocked */ }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {  }
     if (global.Neon && global.Neon.isConfigured()) {
       global.Neon.rpc("api_save_engine_session", { p: session }, { keepalive: true }).catch(function (err) {
         console.warn("[Engine] session not saved to Neon, kept on this device:", err);
@@ -140,8 +129,6 @@
 
   function now() { return Date.now() / 1000; }
 
-  // ----------------------------------------------------------- selection --
-
   function finished(session) {
     var n = session.administered.length;
     return n >= MAX_ITEMS || (n >= MIN_ITEMS && session.overall.se < SE_STOP);
@@ -157,16 +144,12 @@
     if (!pool.length) return null;
     var th = session.overall.theta, best = null, bestScore = -1;
     pool.forEach(function (it) {
-      // Small jitter so equally informative items rotate between students.
       var s = info(th, it.a, it.b, it.c) + Math.random() * 0.03;
       if (s > bestScore) { bestScore = s; best = it; }
     });
     return best;
   }
 
-  // ----------------------------------------------------------- lifecycle --
-
-  /* Begin a session. student: {student_name, student_id, student_email, unit}. */
   function start(student) {
     var session = {
       id: newId(),
@@ -190,7 +173,6 @@
     return session;
   }
 
-  /* The next question, or {done:true}. skip=true sets the current one aside. */
   function next(session, skip) {
     if (session.done) return Promise.resolve({ done: true });
     return bank(session.unit).then(function (d) {
@@ -198,7 +180,6 @@
       if (skip && cur && session.administered.indexOf(cur) === -1) {
         session.skipped = (session.skipped || []).filter(function (q) { return q !== cur; }).concat([cur]);
       } else if (cur && session.administered.indexOf(cur) === -1) {
-        // A reload or repeat call keeps the question already on screen.
         return question(d, d.byId[cur], session);
       }
       var it = selectNext(d.items, session);
@@ -238,7 +219,6 @@
     save(session);
   }
 
-  /* Score one answer to the question currently on screen. */
   function respond(session, qid, answer, timeTaken) {
     return bank(session.unit).then(function (d) {
       var it = d.byId[qid];
@@ -290,8 +270,6 @@
     });
   }
 
-  // -------------------------------------------------------------- reports --
-
   function overallSummary(session) {
     var o = session.overall || { theta: 0, se: 1 };
     var lv = thetaToLevel(o.theta);
@@ -306,8 +284,6 @@
     return Math.floor(sec / 60) + "m " + ("0" + (sec % 60)).slice(-2) + "s";
   }
 
-  /* Student / tutor report for a session (same fields the old server sent,
-     plus `overall`). */
   function report(session) {
     return bank(session.unit).then(function (d) {
       var resp = session.responses || [];
@@ -408,9 +384,6 @@
     });
   }
 
-  // ------------------------------------------------------ CW/HW + tutor --
-
-  /* Save a finished CW/HW quiz (built by engine/hw/quiz.html). */
   function saveHw(record) {
     var session = Object.assign({}, record, {
       id: newId("HW-"),
@@ -443,7 +416,6 @@
     return out;
   }
 
-  /* One flat row per session for the tutor dashboard. */
   function normalize(s) {
     var hw = s.session_type === "hw";
     var elapsed = s.elapsed_sec ||
@@ -468,8 +440,6 @@
     };
   }
 
-  /* Every session: the shared database when Neon is configured, otherwise
-     this browser's own. Resolves {source, sessions}. */
   function listSessions() {
     var local = function () {
       var store = loadStore();
@@ -501,7 +471,6 @@
     report: report,
     saveHw: saveHw,
     listSessions: listSessions,
-    // exposed for tests
     _eap: eap,
     _info: info
   };

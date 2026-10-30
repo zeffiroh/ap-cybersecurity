@@ -1,5 +1,3 @@
-/* Audience measurement for sponsorship */
-
 (function (global) {
   "use strict";
 
@@ -30,7 +28,6 @@
     }
     if (!seen || typeof seen !== "object") seen = {};
     if (seen[unitId] === day) return true;
-    /* Drop yesterday's entries so this never grows without bound. */
     Object.keys(seen).forEach(function (k) {
       if (seen[k] !== day) delete seen[k];
     });
@@ -38,7 +35,6 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(seen));
     } catch (e) {
-      /* Nothing to do; the ping below still goes out. */
     }
     return false;
   }
@@ -50,11 +46,9 @@
     if (alreadyCountedToday(unitId)) return;
 
     Neon.rpc("api_page_view", { p_unit: unitId }, { keepalive: true, attempts: 1 }).catch(function () {
-      /* Measurement is never worth interrupting a reader over. */
     });
   }
 
-  /* Reads the tallies back for the support page's rate card. */
   function fetchMetrics() {
     if (!neonReady()) return Promise.resolve(null);
     return Neon.rpc("api_ad_metrics", {})

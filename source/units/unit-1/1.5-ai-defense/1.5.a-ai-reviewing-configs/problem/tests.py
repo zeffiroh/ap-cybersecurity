@@ -1,9 +1,3 @@
-"""Test suite for 1.5.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_single_root_login():
     lines = ["PermitRootLogin yes", "Port 22"]
     assert impl.solve(lines) == ["insecure:PermitRootLogin"]
@@ -47,7 +40,6 @@ def test_all_safe():
     assert impl.solve(lines) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_empty_input():
     assert impl.solve([]) == []
 
@@ -77,7 +69,6 @@ def test_permit_empty_passwords():
 
 
 def test_dedup_sorted():
-    # two lines both triggering PermitRootLogin should yield one tag
     lines = ["PermitRootLogin yes", "permitrootlogin yes"]
     result = impl.solve(lines)
     assert result == sorted(set(result))

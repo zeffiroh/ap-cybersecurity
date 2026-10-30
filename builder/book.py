@@ -1,15 +1,3 @@
-"""The online book (book/index.html) from the LaTeX textbook.
-
-source/textbook/front-matter/*.tex, parts/*/*.tex  ->  book/index.html
-source/textbook/book-inserts.json   online-only diagrams and "From the Archives" boxes
-each topic's quizbank.xml           first three questions = "Check Your Understanding"
-templates/book.html                 page shell: CSS, sidebar, search, practice-question script
-TikZ/forest figures in the .tex     ->  book/figures/<label>.svg
-                                        (needs latex + dvisvgm from MiKTeX or TeX Live; an SVG is only
-                                        rebuilt when its figure source changes)
-
-The downloads table at the end links every per-topic file that exists, so it runs after the downloads step.
-"""
 import hashlib
 import html
 import json
@@ -34,14 +22,12 @@ TEMPLATE = TEMPLATES / "book.html"
 INSERTS = TEX / "book-inserts.json"
 PRACTICE_PER_TOPIC = 3
 
-unknown = Counter()   # LaTeX commands this converter does not understand (reported, then dropped)
-figures = []          # (name, drawing source) for every TikZ/forest figure, in book order
+unknown = Counter()
+figures = []
 CE = ' contenteditable="true"'
 
 
-# ------------------------------------------------------------------ TeX reading helpers --
 def read_group(s, i, open_="{", close="}"):
-    """s[i] (after optional whitespace) is open_; return (contents, index after the matching close)."""
     while i < len(s) and s[i] in " \t\n":
         i += 1
     if i >= len(s) or s[i] != open_:
@@ -63,7 +49,6 @@ def read_group(s, i, open_="{", close="}"):
 
 
 def read_opt(s, i):
-    """Optional [..] argument: returns (contents or None, index)."""
     k = i
     while k < len(s) and s[k] in " \t":
         k += 1
@@ -73,7 +58,6 @@ def read_opt(s, i):
 
 
 def env_body(s, i, name):
-    """i is just after \\begin{name}; return (body, index after the matching \\end{name})."""
     pat = re.compile(r"\\(begin|end)\{" + re.escape(name) + r"\}")
     depth = 1
     for m in pat.finditer(s, i):
@@ -84,7 +68,6 @@ def env_body(s, i, name):
 
 
 def split_top(s, sep):
-    """Split s on the regex sep, ignoring matches inside braces or \\begin..\\end blocks."""
     parts, depth, last = [], 0, 0
     i = 0
     rx = re.compile(sep)
@@ -110,12 +93,10 @@ def split_top(s, sep):
 
 
 def strip_comments(t):
-    # A TeX comment also swallows the line break and the next line's indentation.
     return re.sub(r"(?<!\\)%[^\n]*(\n[ \t]*)?", "", t)
 
 
 def plain(h):
-    """Rendered HTML -> plain text (for alt text and insert matching)."""
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", h))).strip()
 
 
@@ -123,7 +104,6 @@ def slug(tid):
     return tid.replace(".", "-")
 
 
-# ------------------------------------------------------------------------ inline TeX -> HTML --
 WRAP = {"textbf": "strong", "emph": "em", "textit": "em", "textsuperscript": "sup", "underline": "u"}
 SYMBOL = {"S": "§", "pounds": "£", "texteuro": "€", "textregistered": "®", "textdegree": "°",
           "ldots": "…", "dots": "…", "checkmark": "✓", "lbrack": "[", "rbrack": "]",
@@ -138,7 +118,6 @@ ACCENT = {'"': "\u0308", "'": "\u0301", "`": "\u0300", "^": "\u0302", "~": "\u03
 
 
 def math(s):
-    """TeX math for MathJax. MathJax's \\text{} is literal, so unescape \\_ there."""
     s = re.sub(r"\\(text|textrm|texttt|mathrm)\{([^{}]*)\}", lambda m: f"\\{m.group(1)}{{{m.group(2).replace(chr(92) + '_', '_')}}}", s)
     return html.escape(s)
 
@@ -257,12 +236,10 @@ def inline(s, code=False):
     return "".join(out)
 
 
-# ------------------------------------------------------------------------- block TeX -> HTML --
-stash = []   # pre-rendered verbatim blocks (code listings), referenced as \x00n\x00
+stash = []
 
 
 def stash_verbatim(t):
-    # A font-size group around a listing ({\scriptsize \begin{verbatim}..\end{verbatim}}) only matters in print.
     t = re.sub(r"\{\\(?:scriptsize|footnotesize|small|tiny)\s*(\\begin\{(verbatim|lstlisting)\}.*?\\end\{\2\})\s*\}",
                r"\1", t, flags=re.S)
 
@@ -297,7 +274,6 @@ def stash_verbatim(t):
 
 
 def unwrap(blocks_):
-    """A list item / cell that rendered to one paragraph is shown without the <p>."""
     if len(blocks_) == 1:
         m = re.fullmatch(rf"<p{CE}>(.*)</p>", blocks_[0], flags=re.S)
         if m:
@@ -329,7 +305,7 @@ def render_list(body, tag, cls=None):
 
 def render_table(body, caption=None):
     m = re.search(r"\\begin\{tabular\}", body)
-    _, k = read_group(body, m.end())          # column spec
+    _, k = read_group(body, m.end())
     tab, _ = env_body(body, k, "tabular")
     head, rows = [], []
     seen_mid = "\\midrule" not in tab
@@ -352,7 +328,6 @@ def render_table(body, caption=None):
 
 
 def take_cmd(body, name):
-    """Remove \\name{...} from body; return (argument or None, body without it)."""
     m = re.search(r"\\" + name + r"\b", body)
     if not m:
         return None, body
@@ -429,7 +404,6 @@ BREAK = re.compile(r"\n[ \t]*\n\s*|\x00\d+\x00|\\\[|\\begin\{|\\(?:sub)?section\
 
 
 def blocks(s, ctx=None):
-    """Block-level TeX -> list of HTML block strings."""
     ctx = ctx or {"topic": ""}
     out, para, i = [], [], 0
 
@@ -482,7 +456,6 @@ def parse_tex(path):
     return t
 
 
-# --------------------------------------------------------------------------- book pieces --
 def load_inserts():
     by_topic = {}
     for ins in json.loads(INSERTS.read_text(encoding="utf-8"))["inserts"]:
@@ -618,7 +591,6 @@ def downloads_html(units):
     return h + "</section>"
 
 
-# ------------------------------------------------------------------------------- figures --
 def figure_preamble():
     keep_pkgs = {"fontenc", "inputenc", "mathptmx", "helvet", "courier", "amsmath,amssymb", "amsmath", "amssymb",
                  "graphicx", "tikz", "pgfplots", "bytefield", "forest", "xcolor", "booktabs"}
@@ -677,7 +649,6 @@ def build_figures():
     return []
 
 
-# ----------------------------------------------------------------------------------- main --
 def run():
     inserts = load_inserts()
     units = sorted((d for d in (TEX / "parts").iterdir() if (d / "part.tex").exists()),
@@ -692,11 +663,11 @@ def run():
         meta.append(m)
     missing = set(build_figures())
     page = "\n".join([front] + bodies + [downloads_html(meta)])
-    for name in missing:   # no LaTeX and no earlier SVG: show the caption as a figure note instead
+    for name in missing:
         page = re.sub(rf'<figure class="diagram"><img src="figures/{re.escape(name)}\.svg"[^>]*>'
                       rf'<figcaption{CE}>(.*?)</figcaption></figure>',
                       rf'<div class="box box-figurenote"><p class="box-label">Figure</p><p{CE}><em>\1</em></p></div>', page)
-    for name, _ in figures:   # show each figure at 1.5x its printed size (CSS caps it at the column width)
+    for name, _ in figures:
         svg = FIGS / f"{name}.svg"
         w = re.search(r"<svg[^>]*\swidth='([\d.]+)pt'", svg.read_text(encoding="utf-8")[:1000]) if svg.exists() else None
         if w:
@@ -710,13 +681,10 @@ def run():
         print("warning: unconverted LaTeX (dropped):", ", ".join(f"{k} x{v}" for k, v in unknown.most_common()))
 
 
-# ------------------------------------------------------------------------------ PDF book --
 PDF = SITE_DOWNLOADS / "AP_Cybersecurity_Textbook.pdf"
 
 
 def store_html(rel_pdf, rel_buy):
-    """The textbook block: the locked PDF and one button to the buy page (source/static/buy/index.html,
-    which lists every store)."""
     return (f'<a href="{rel_pdf}">Download the textbook (PDF, password-protected)</a> '
             f'<a href="{rel_buy}">Buy the book</a>'
             ' <span class="store-note">Buy the PDF password or the ebook; after paying, the password is shown on '
@@ -724,7 +692,6 @@ def store_html(rel_pdf, rel_buy):
 
 
 def pdf_password():
-    """BOOK_PDF_PASSWORD from the environment or the gitignored root .env; never stored in the repo."""
     import os
     if os.environ.get("BOOK_PDF_PASSWORD"):
         return os.environ["BOOK_PDF_PASSWORD"]
@@ -737,7 +704,6 @@ def pdf_password():
 
 
 def lock(src, dst):
-    """Write src to dst encrypted with AES-256; the PDF opens only with the password buyers receive."""
     import fitz
     pw = pdf_password()
     with fitz.open(src) as doc:
@@ -752,15 +718,13 @@ def locked(path):
 
 
 def pdf(force=False):
-    """Compile source/textbook/main.tex with latexmk in a scratch folder, then lock it with the store password;
-    skipped when the PDF is newer than every .tex and already locked."""
     keep(PDF)
     newest = max(p.stat().st_mtime for p in TEX.rglob("*.tex"))
     if PDF.exists() and PDF.stat().st_mtime >= newest and not force:
         if locked(PDF):
             return
         util.changed.append(PDF.relative_to(util.ROOT).as_posix())
-        if not util.CHECK:   # up to date but published unlocked: lock it in place, no recompile
+        if not util.CHECK:
             with tempfile.TemporaryDirectory() as tmp:
                 plain = Path(tmp) / "plain.pdf"
                 shutil.copyfile(PDF, plain)

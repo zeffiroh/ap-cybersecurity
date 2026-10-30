@@ -1,6 +1,4 @@
 <!DOCTYPE html>
-<!-- 5.1.a SIM, "SQL Injection Playground". Single-file, offline, deterministic. No emoji/icons.
-     Theme tokens inline from assets/theme/theme.css. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -121,7 +119,6 @@ function updateQuery() {
   var u = document.getElementById('username').value;
   var p = document.getElementById('password').value;
   
-  // Highlight inputs in preview
   var uHtml = '<span class="highlight">' + escapeHtml(u) + '</span>';
   var pHtml = '<span class="highlight">' + escapeHtml(p) + '</span>';
   
@@ -138,13 +135,11 @@ function submitLogin() {
   var p = document.getElementById('password').value;
   var out = document.getElementById('console_output');
   
-  // Let's model basic SQL injection parser simulation
   var query = "SELECT * FROM users WHERE username = '" + u + "' AND password = '" + p + "';";
   
   var resultLines = [];
   resultLines.push('<span class="prompt">database_server# </span>Executing: ' + escapeHtml(query));
   
-  // 1. Check for comment truncation
   var sqlComment = false;
   var parsedUser = u;
   if (u.includes('--')) {
@@ -155,16 +150,14 @@ function submitLogin() {
     sqlComment = true;
   }
   
-  var cleanUser = parsedUser.replace(/'/g, ''); // strip single quotes for simple match in model
+  var cleanUser = parsedUser.replace(/'/g, '');
   
-  // 2. Check for UNION injection
   var isUnion = false;
   var lowerUser = u.toLowerCase();
   if (lowerUser.includes('union') && lowerUser.includes('select')) {
     isUnion = true;
   }
 
-  // 3. Check for OR Bypass
   var isOr = false;
   var checkString = (u + " " + p).toLowerCase();
   if (checkString.includes("' or '1'='1") || 
@@ -199,7 +192,6 @@ function submitLogin() {
       resultLines.push('- Username: ' + usr.username + ', Role: ' + usr.role);
     });
   } else if (sqlComment) {
-    // Comment truncated the password check
     var match = users.find(function(usr) {
       return cleanUser.trim() === usr.username;
     });
@@ -213,9 +205,8 @@ function submitLogin() {
       resultLines.push('<span class="bad">Authentication Failed.</span> User not found.');
     }
   } else {
-    // Regular check
     var match = users.find(function(usr) {
-      return usr.username === u && p === "password123"; // dummy password match
+      return usr.username === u && p === "password123";
     });
     if (match) {
       resultLines.push('<span class="ok">Authentication Success!</span> Logged in as: ' + match.username);

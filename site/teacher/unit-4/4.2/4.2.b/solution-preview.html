@@ -159,11 +159,8 @@ any number of phishable factors, the result is still <code>"mfa_phishing_resista
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 4.2.b. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
 from typing import List, Optional
 
-# factor string -&gt; category
 _CATEGORY = {
     "password": "knowledge",
     "pin": "knowledge",
@@ -178,7 +175,6 @@ _CATEGORY = {
     "biometric": "inherence",
 }
 
-# possession-factor strings that are considered phishing-resistant
 _PHISHING_RESISTANT = {"hardware_key", "fido2"}
 
 
@@ -187,15 +183,6 @@ def _category_of(factor: str) -&gt; Optional[str]:
 
 
 def solve(factors: List[str]) -&gt; str:
-    """Classify a login attempt's MFA strength from its presented factors.
-
-    Args:
-        factors: list of authentication-factor strings presented during one login
-            attempt (e.g. ["password", "hardware_key"]). May be empty.
-
-    Returns:
-        One of "single_factor", "mfa_phishable", "mfa_phishing_resistant".
-    """
     if not factors:
         return "single_factor"
 
@@ -205,7 +192,7 @@ def solve(factors: List[str]) -&gt; str:
     for factor in factors:
         category = _category_of(factor)
         if category is None:
-            continue  # unrecognized factor: ignored
+            continue
         distinct_categories.add(category)
         if factor in _PHISHING_RESISTANT:
             has_phishing_resistant = True
@@ -222,7 +209,6 @@ def solve(factors: List[str]) -&gt; str:
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---- visible cases -------------------------------------------------------
 def test_example_password_only():
     assert impl.solve(["password"]) == "single_factor"
 
@@ -247,7 +233,6 @@ def test_example_password_hardware_key():
     assert impl.solve(["password", "hardware_key"]) == "mfa_phishing_resistant"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty_list():
     assert impl.solve([]) == "single_factor"
 
@@ -257,13 +242,10 @@ def test_edge_unknown_factor_only():
 
 
 def test_edge_unknown_plus_known_single_category():
-    # unrecognized factor is ignored; only "password" (knowledge) remains -&gt; single_factor
     assert impl.solve(["password", "carrier_pigeon"]) == "single_factor"
 
 
 def test_biometric_plus_password_is_phishable_not_resistant():
-    # knowledge + inherence = 2 distinct categories, but no phishing-resistant possession
-    # factor was used, so it falls to mfa_phishable per the spec.
     assert impl.solve(["biometric", "password"]) == "mfa_phishable"
 
 
@@ -272,7 +254,6 @@ def test_fido2_string_variant():
 
 
 def test_priority_hardware_key_wins_over_phishable_factor():
-    # hardware_key present alongside a phishable sms_code -&gt; still phishing-resistant result
     assert impl.solve(["password", "sms_code", "hardware_key"]) == "mfa_phishing_resistant"
 
 

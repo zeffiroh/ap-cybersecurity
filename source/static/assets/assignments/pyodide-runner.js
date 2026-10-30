@@ -1,24 +1,21 @@
-/* in-browser Python coding playground (Pyodide) */
 (function (global) {
   "use strict";
 
   var PYODIDE_CDN = new URL("../vendor/pyodide-0.26.1/pyodide.js",
-      (document.currentScript && document.currentScript.src) || location.href).href; // bundled locally for offline use
+      (document.currentScript && document.currentScript.src) || location.href).href;
   var pyodideReadyPromise = null;
-  var RETRY_DELAYS_MS = [1500, 4000]; // auto-retries before asking the student to retry manually
+  var RETRY_DELAYS_MS = [1500, 4000];
 
   function loadPyodideOnce() {
     return new Promise(function (resolve, reject) {
       var script = document.createElement("script");
-      script.src = PYODIDE_CDN + "?retry=" + Date.now(); // bust any CDN edge/browser caching of a failed response
+      script.src = PYODIDE_CDN + "?retry=" + Date.now();
       script.onload = function () {
         global.loadPyodide().then(resolve).catch(reject);
       };
       script.onerror = reject;
       document.head.appendChild(script);
     }).catch(function (err) {
-      // a failed <script> load can leave a broken loadPyodide global behind; drop it
-      // so the next attempt's onload -> global.loadPyodide() isn't calling a stale one.
       try { delete global.loadPyodide; } catch (e) { global.loadPyodide = undefined; }
       throw err;
     });
@@ -38,15 +35,13 @@
     return tryOnce();
   }
 
-  // Loads (and auto-retries) Pyodide, caching only a SUCCESSFUL load, a rejected
-  // promise is never cached, so a manual retry after final failure tries again for real.
   function loadPyodideScript(onRetry) {
     if (pyodideReadyPromise) return pyodideReadyPromise;
     var promise = loadPyodideWithRetries(onRetry).then(function (py) {
-      pyodideReadyPromise = Promise.resolve(py); // lock in the success
+      pyodideReadyPromise = Promise.resolve(py);
       return py;
     }, function (err) {
-      pyodideReadyPromise = null; // let the next call retry from scratch
+      pyodideReadyPromise = null;
       throw err;
     });
     pyodideReadyPromise = promise;
@@ -194,16 +189,11 @@
   }
 
   var PyodideRunner = {
-    /** cfg: {editorEl, runBtnEl, submitBtnEl, statusEl, resultsEl, summaryEl,
-     *        starterPy, testsPy, topicId, atomId, points} */
     init: function (cfg) {
       cfg.editorEl.value = cfg.starterPy;
       cfg.submitBtnEl.disabled = true;
       var lastPassed = 0, lastTotal = 0, pyodide = null;
 
-      // Upgrade the plain textarea to a real code editor (syntax highlighting, line
-      // numbers, proper Tab handling) when CodeMirror is loaded on the page; otherwise
-      // fall back to the bare textarea so this still works if the CDN is unreachable.
       var cm = null;
       if (global.CodeMirror) {
         cm = global.CodeMirror.fromTextArea(cfg.editorEl, {

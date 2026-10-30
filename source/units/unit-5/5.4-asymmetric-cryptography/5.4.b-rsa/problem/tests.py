@@ -1,9 +1,3 @@
-"""Test suite for 5.4.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -24,9 +18,7 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_keygen_small_example():
-    # p=3, q=11, e=7 -> n=33, phi_n=20, d=3 (matches atom.md worked example)
     result = impl.rsa_keygen(3, 11, 7)
     assert result == {"n": 33, "phi_n": 20, "e": 7, "d": 3}
 
@@ -66,9 +58,7 @@ def test_solve_roundtrip_op():
     assert result == {"n": 33, "phi_n": 20, "d": 3, "c": 14, "m_decrypted": 5}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_keygen_different_primes():
-    # p=61, q=53, e=17 (larger textbook-style example)
     result = impl.rsa_keygen(61, 53, 17)
     n = 61 * 53
     phi_n = 60 * 52
@@ -93,7 +83,7 @@ def test_mod_inverse_correctness():
 
 def test_mod_inverse_raises_when_not_coprime():
     with pytest.raises(ValueError):
-        impl.mod_inverse(4, 20)  # gcd(4, 20) = 4, no inverse
+        impl.mod_inverse(4, 20)
 
 
 def test_encrypt_message_zero():
@@ -105,12 +95,12 @@ def test_encrypt_message_zero():
 
 def test_encrypt_rejects_message_too_large():
     with pytest.raises(ValueError):
-        impl.encrypt(33, 7, 33)  # m must be < n
+        impl.encrypt(33, 7, 33)
 
 
 def test_keygen_rejects_invalid_e():
     with pytest.raises(ValueError):
-        impl.rsa_keygen(3, 11, 4)  # gcd(4, 20) = 4, not coprime with phi_n
+        impl.rsa_keygen(3, 11, 4)
 
 
 def test_ciphertext_differs_from_plaintext_for_nontrivial_message():

@@ -1,15 +1,13 @@
-/* Progress: what a student opened and how well they did, as skill mastery (Khan-style levels).
-   Saved in this browser always, and in the course database once the student signs in. */
 (function (global) {
   "use strict";
 
   var EMAIL_KEY = "apcyber_student_email";
-  var SEEN_KEY = "aayat_seen_v1";          // {"kind|ref": [kind, ref, topic, n, lastISO]}
-  var QUEUE_KEY = "aayat_seen_queue_v1";   // views not yet sent: [{kind, ref, topic_id, at}]
-  var REMOTE_KEY = "aayat_remote_v1";      // {email, at, data}
+  var SEEN_KEY = "aayat_seen_v1";
+  var QUEUE_KEY = "aayat_seen_queue_v1";
+  var REMOTE_KEY = "aayat_remote_v1";
   var LEVELS = ["Not started", "Attempted", "Familiar", "Proficient", "Mastered"];
   var POINTS = [0, 0, 50, 80, 100];
-  var GATE = 0.5;                          // unit test: Proficient at theta >= 0.5
+  var GATE = 0.5;
 
   var me = document.currentScript && document.currentScript.src;
   var ROOT = me ? me.replace(/assets\/theme\/progress\.js.*$/, "") : "";
@@ -18,14 +16,13 @@
     try { var v = JSON.parse(localStorage.getItem(key)); return v == null ? dflt : v; } catch (e) { return dflt; }
   }
   function write(key, v) {
-    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage off or full */ }
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {  }
   }
   function email() {
     try { return (localStorage.getItem(EMAIL_KEY) || "").trim().toLowerCase(); } catch (e) { return ""; }
   }
   function map() { return global.AAYAT_MAP || { units: [], topics: {}, atoms: {} }; }
 
-  /* ---------------------------------------------------------------- database */
   var neonLoading = null;
   function loadScript(src) {
     return new Promise(function (ok, bad) {
@@ -45,7 +42,6 @@
     return neonLoading;
   }
 
-  /* ---------------------------------------------------------------- tracking */
   function track(kind, ref, topic) {
     if (!kind || !ref) return;
     var seen = read(SEEN_KEY, {}), key = kind + "|" + ref, now = new Date().toISOString();
@@ -76,10 +72,9 @@
         var rest = read(QUEUE_KEY, []).slice(q.length);
         write(QUEUE_KEY, rest);
       });
-    }).catch(function () { /* stays queued for next time */ }).then(function () { flushing = false; });
+    }).catch(function () {  }).then(function () { flushing = false; });
   }
 
-  /* ---------------------------------------------------------------- records */
   function localRecord() {
     var who = email();
     var work = {}, tests = {}, hw = {};
@@ -116,7 +111,7 @@
       .sort(function (a, b) { return a[3] < b[3] ? 1 : -1; }).slice(0, 40);
   }
 
-  function merge(a, b) {          // b wins where newer
+  function merge(a, b) {
     if (!a) return b;
     if (!b) return a;
     var work = {};
@@ -159,7 +154,6 @@
     }).catch(function () { return record(); });
   }
 
-  /* ---------------------------------------------------------------- mastery */
   function mastery(rec) {
     var m = map(), byAtom = {}, topicQuiz = {};
     (rec.work || []).forEach(function (w) {
@@ -211,7 +205,6 @@
     return s;
   }
 
-  /* ---------------------------------------------------------------- page marks */
   function paint(rec) {
     var ms = mastery(rec), seen = seenSet(rec);
     document.querySelectorAll("[data-aa-atom]").forEach(function (el) {
@@ -234,7 +227,6 @@
     if (box && global.AayatProgressPage) global.AayatProgressPage(box, rec, ms);
   }
 
-  /* ---------------------------------------------------------------- account */
   function account() {
     var nav = document.querySelector(".apnav");
     if (!nav) return;
@@ -265,10 +257,10 @@
   }
 
   function signIn(addr) {
-    try { localStorage.setItem(EMAIL_KEY, addr); } catch (e) { /* no storage */ }
+    try { localStorage.setItem(EMAIL_KEY, addr); } catch (e) {  }
     var seen = read(SEEN_KEY, {}), q = read(QUEUE_KEY, []), have = {};
     q.forEach(function (ev) { have[ev.kind + "|" + ev.ref] = 1; });
-    Object.keys(seen).forEach(function (k) {   // views made before signing in go up too
+    Object.keys(seen).forEach(function (k) {
       if (!have[k]) q.push({ kind: seen[k][0], ref: seen[k][1], topic_id: seen[k][2], at: seen[k][4] });
     });
     write(QUEUE_KEY, q.slice(-300));
@@ -276,7 +268,7 @@
   }
 
   function signOut() {
-    try { localStorage.removeItem(EMAIL_KEY); } catch (e) { /* no storage */ }
+    try { localStorage.removeItem(EMAIL_KEY); } catch (e) {  }
     changed();
   }
 
@@ -288,7 +280,6 @@
     global.dispatchEvent(new Event("aayat-identity"));
   }
 
-  /* ---------------------------------------------------------------- start */
   function start() {
     account();
     var nav = document.querySelector(".apnav");

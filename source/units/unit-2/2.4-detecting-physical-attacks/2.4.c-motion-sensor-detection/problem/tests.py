@@ -1,9 +1,3 @@
-"""Test suite for 2.4.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -21,9 +15,6 @@ def _load(path):
 
 impl = _load(_TARGET)
 
-# ---------------------------------------------------------------------------
-# Shared fixtures — deterministic, matches lesson's known false-positive causes
-# ---------------------------------------------------------------------------
 FP = {"sunlight", "hvac_airflow", "pet", "insect", "vibration", "foliage"}
 
 
@@ -34,8 +25,6 @@ def _single(id_, sensor_type, cause):
 def _dual(id_, cause_pir, cause_mw):
     return {"id": id_, "sensor_type": "dual-tech", "cause_pir": cause_pir, "cause_mw": cause_mw}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_pir_person_is_true_detection():
     events = [_single("EVT-001", "pir", "person")]
@@ -88,16 +77,12 @@ def test_mixed_batch():
     assert impl.solve(events, FP) == ["EVT-008", "EVT-011"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_dual_tech_both_false_positive():
-    """Both elements report known false-positive causes -> still false positive."""
     events = [_dual("EVT-014", "sunlight", "vibration")]
     assert impl.solve(events, FP) == []
 
 
 def test_single_tech_unknown_cause_treated_as_genuine():
-    """A cause tag not in the known false-positive set is treated as genuine (e.g. "tailgater")."""
     events = [_single("EVT-015", "pir", "tailgater")]
     assert impl.solve(events, FP) == ["EVT-015"]
 
@@ -114,12 +99,11 @@ def test_output_sorted_and_deduplicated():
 
 
 def test_all_sensor_types_mixed_with_custom_fp_set():
-    """A smaller false_positive_causes set changes which causes count as genuine."""
     custom_fp = {"sunlight"}
     events = [
-        _single("EVT-021", "pir", "hvac_airflow"),   # not in custom_fp -> true detection
-        _single("EVT-022", "pir", "sunlight"),        # in custom_fp -> false positive
-        _dual("EVT-023", "hvac_airflow", "person"),   # neither in custom_fp -> true detection
+        _single("EVT-021", "pir", "hvac_airflow"),
+        _single("EVT-022", "pir", "sunlight"),
+        _dual("EVT-023", "hvac_airflow", "person"),
     ]
     assert impl.solve(events, custom_fp) == ["EVT-021", "EVT-023"]
 

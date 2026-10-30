@@ -1,4 +1,3 @@
-"""Test suite for 2.1.b — the blackbox acceptance contract."""
 import importlib.util
 import os
 import pathlib
@@ -40,12 +39,10 @@ def test_basic_nation_state():
     assert res == {"E": "Nation-State / APT"}
 
 def test_priority_conflict():
-    # Matches Nation-state (zero-day) and Script kiddie (port scan) -> priority Nation-state
     logs = [{"id": "F", "log": "Zero-day exploit was deployed during a noisy port scan."}]
     res = impl.solve(logs)
     assert res == {"F": "Nation-State / APT"}
     
-    # Matches Cybercriminal (ransomware) and Hacktivist (protest) -> priority Cybercriminal
     logs = [{"id": "G", "log": "Ransomware deployed during political protest."}]
     res = impl.solve(logs)
     assert res == {"G": "Cybercriminal"}

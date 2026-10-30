@@ -55,3 +55,6 @@ Auth's trusted origins (`db/README.md`). The database connection string with the
 The textbook PDF is published locked (AES-256) with `BOOK_PDF_PASSWORD` from `.env`; buyers get that password
 after paying. The build refuses to publish the PDF if the password is missing. Changing the password: edit
 `.env`, then `python build.py --only book --force-pdf`.
+
+The store copies (unlocked PDFs, EPUB, paperback interior and cover, one folder per store with its upload
+steps) come from `python -m builder.editions` into `publication/`, which is gitignored; see its `README.txt`.

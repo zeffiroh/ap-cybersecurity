@@ -1,4 +1,3 @@
-/* report rendering (student report card + class dashboard) */
 (function (global) {
   "use strict";
 
@@ -11,7 +10,6 @@
   }
 
   function sparklineSvg(history) {
-    // Cumulative running score % over the sequence of graded submissions.
     var points = [];
     var cumPoints = 0, cumMax = 0;
     history.forEach(function (h) {
@@ -71,8 +69,6 @@
   }
 
   var ReportClient = {
-    /* Splash shown while the report loads; the sub-line appears once the
-       wait is long enough that a blank page would look broken. */
     showLoading: function (container, message) {
       container.innerHTML =
         '<div class="report-loading"><div class="ring"></div>' +

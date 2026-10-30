@@ -1,9 +1,3 @@
-"""Test suite for 3.2.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -25,8 +19,6 @@ impl = _load(_TARGET)
 def _c(name, category):
     return {"name": name, "category": category}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_perimeter_categories():
     controls = [_c("Border FW", "firewall"), _c("IPS sensor", "ips"), _c("DNS filter", "dns_filter")]
@@ -70,10 +62,7 @@ def test_empty_controls():
     assert impl.classify_layer([]) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_name_text_does_not_affect_classification():
-    """Even if name mentions 'firewall', category decides classification."""
     controls = [_c("The awareness firewall training program", "awareness_training")]
     assert impl.classify_layer(controls) == ["human"]
 

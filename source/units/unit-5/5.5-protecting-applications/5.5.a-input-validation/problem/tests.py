@@ -1,9 +1,3 @@
-"""Test suite for 5.5.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_all_valid_none_blocked():
     subs = [
         {"field": "zip", "type": "zip", "value": "94107"},
@@ -57,7 +50,6 @@ def test_order_preserved_and_only_blocked_returned():
     assert impl.solve(subs) == ["abcde", "150"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_quantity_zero_and_out_of_range_blocked():
     subs = [
         {"field": "qty", "type": "quantity", "value": "0"},

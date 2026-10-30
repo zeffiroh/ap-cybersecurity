@@ -1,9 +1,3 @@
-"""Test suite for 3.1.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -29,8 +23,6 @@ def _r(frm, tx_id, port, qname, arrival):
 def _q(qname, tx_id, port, replies):
     return {"qname": qname, "tx_id": tx_id, "port": port, "replies": replies}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_poison_attacker_arrives_first():
     queries = [_q("bank.example", 48291, 33412, [
@@ -88,10 +80,7 @@ def test_mixed_batch_order_preserved():
     assert impl.solve(queries) == ["REJECT", "WIN", "POISON"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_flood_of_guessed_ids_all_miss_then_real_wins():
-    """Kaminsky-style flood: multiple attacker guesses miss tx_id, real reply wins eventually."""
     queries = [_q("portal.example", 8123, 15000, [
         _r("attacker", 100, 15000, "portal.example", 1),
         _r("attacker", 200, 15000, "portal.example", 2),
@@ -101,7 +90,6 @@ def test_flood_of_guessed_ids_all_miss_then_real_wins():
 
 
 def test_flood_where_one_guess_hits_first():
-    """One attacker guess matches all three fields and arrives before the real reply -> POISON."""
     queries = [_q("hr.example", 9500, 44210, [
         _r("attacker", 9500, 44210, "hr.example", 1),
         _r("attacker", 9500, 44210, "hr.example", 2),
@@ -111,7 +99,6 @@ def test_flood_where_one_guess_hits_first():
 
 
 def test_replies_out_of_list_order_still_use_arrival_field():
-    """Replies list is not sorted by arrival; arrival field (not list position) determines winner."""
     queries = [_q("late.example", 42, 42, [
         _r("authoritative", 42, 42, "late.example", 5),
         _r("attacker", 42, 42, "late.example", 2),

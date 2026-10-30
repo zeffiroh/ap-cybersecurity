@@ -1,15 +1,3 @@
-"""Printable downloads and Anki decks.
-
-topic quiz bank                 -> downloads/unit-N/Topic_<tid>_Quiz.{docx,pdf}
-                                   teacher/unit-N/<tid>/Topic_<tid>_Quiz_AnswerKey.{docx,pdf}
-practice items + coding problems -> downloads/unit-N/Topic_<tid>_Assignment.{docx,pdf}
-                                   teacher/unit-N/<tid>/Topic_<tid>_Assignment_AnswerKey.{docx,pdf}
-flashcards.json                 -> downloads/unit-N/Topic_<tid>_Flashcards.apkg
-
-Answer choices print in the order stored in the data, so the printable quizzes use the same balanced A-D
-answer positions as the online ones. PDFs are made from the Word files by Microsoft Word (or LibreOffice
-if Word is not installed), so the two formats always match.
-"""
 import hashlib
 import io
 import json
@@ -28,19 +16,17 @@ from .materials import assignment_data, topic_quiz
 from .paths import downloads_unit, teacher_topic
 from .util import emit_bytes, keep
 
-NO_PDF = False          # set by build.py --no-pdf
+NO_PDF = False
 FORCE_ANKI = False
 
 ACCENT, DEEP, INK, BODY, MUTED = (RGBColor(0x9C, 0x1C, 0x2C), RGBColor(0x6E, 0x14, 0x1F), RGBColor(0x1A, 0x1A, 0x1A),
                                   RGBColor(0x3A, 0x3A, 0x3A), RGBColor(0x8A, 0x8A, 0x8A))
 
 
-
-# ------------------------------------------------------------- docx bits --
 def new_doc():
     d = docx.Document()
     s = d.sections[0]
-    s.page_width, s.page_height = Emu(7772400), Emu(10058400)                  # US Letter
+    s.page_width, s.page_height = Emu(7772400), Emu(10058400)
     s.left_margin = s.right_margin = Emu(731520)
     s.top_margin = s.bottom_margin = Emu(640080)
     d.styles["Normal"].font.name = "Calibri"
@@ -132,7 +118,6 @@ def why(d, text, label="Why: "):
         para(d, R(label + text, size=9.5), indent=OPT_INDENT, after=50800)
 
 
-# ----------------------------------------------------------------- quiz --
 def quiz_doc(q, key):
     d = new_doc()
     unit = q["topic_id"].split(".")[0]
@@ -161,13 +146,11 @@ def quiz_doc(q, key):
     return d
 
 
-# ----------------------------------------------------------- assignment --
 def atom_dir(aid):
     return C.atom(aid)["src"]
 
 
 def markdown_block(d, md):
-    """The small Markdown subset used by problem/prompt.md."""
     lines = md.replace("\r\n", "\n").split("\n")
     i = 0
     while i < len(lines):
@@ -243,8 +226,6 @@ def assignment_doc(a, title, key):
     return d
 
 
-
-# --------------------------------------------------------------- output --
 def docx_bytes(d, title):
     d.core_properties.title = title
     d.core_properties.author = "Aayat-AP-Prep"
@@ -278,7 +259,7 @@ def make_pdfs(paths):
         try:
             for p in paths:
                 doc = word.Documents.Open(str(p.resolve()), ReadOnly=True, AddToRecentFiles=False)
-                doc.SaveAs2(str(p.with_suffix(".pdf").resolve()), FileFormat=17)       # wdFormatPDF
+                doc.SaveAs2(str(p.with_suffix(".pdf").resolve()), FileFormat=17)
                 doc.Close(False)
                 util.changed.append(p.with_suffix(".pdf").relative_to(util.ROOT).as_posix())
         finally:
@@ -316,7 +297,6 @@ def anki(fc):
 
 
 def emit_anki(tid, src):
-    """Anki packages carry timestamps, so a deck is rebuilt only when its data is newer (FORCE_ANKI rebuilds all)."""
     import genanki
     import tempfile
     out = downloads_unit(tid) / f"Topic_{tid}_Flashcards.apkg"

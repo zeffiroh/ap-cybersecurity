@@ -1,9 +1,3 @@
-"""Test suite for 5.2.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_dac_owner():
     req = {"subject": {"name": "alice"}, "object": {"model": "dac", "owner": "alice", "grants": {}}, "action": "read"}
     assert impl.solve(req) == {"allowed": True, "reason": "owner"}
@@ -58,7 +51,6 @@ def test_rbac_denied():
     assert impl.solve(req) == {"allowed": False, "reason": "rbac_denied"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_unknown_model():
     req = {"subject": {}, "object": {"model": "abac"}, "action": "read"}
     assert impl.solve(req) == {"allowed": False, "reason": "unknown_model"}

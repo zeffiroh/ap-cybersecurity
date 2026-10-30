@@ -1,10 +1,3 @@
-"""Test suite for 5.1.a, the blackbox acceptance contract.
-
-The SAME tests grade any implementation, loaded via the IMPL env var:
-  - solution.py  (parameterized, must be green)
-  - starter.py   (vulnerable concatenation, must be red: injections authenticate)
-The injection cases are the point: they pass only when the query is parameterized.
-"""
 import importlib.util
 import os
 import pathlib
@@ -29,7 +22,6 @@ USERS = [
 ]
 
 
-# ---- legitimate logins still work ---------------------------------------
 def test_valid_admin():
     assert impl.authenticate(USERS, "admin", "S3cr3t-Admin-Pw") == "administrator"
 
@@ -46,7 +38,6 @@ def test_unknown_user_rejected():
     assert impl.authenticate(USERS, "nobody", "whatever") is None
 
 
-# ---- injection must NOT authenticate (only parameterization passes these) ----
 def test_comment_truncation_blocked():
     assert impl.authenticate(USERS, "admin'--", "anything") is None
 
@@ -63,12 +54,10 @@ def test_union_blocked():
     assert impl.authenticate(USERS, "' UNION SELECT role FROM users--", "x") is None
 
 
-# ---- a password field carrying an injection is also treated as data ----
 def test_injection_in_password_blocked():
     assert impl.authenticate(USERS, "admin", "' OR '1'='1") is None
 
 
-# ---- a legitimate but unusual username with a quote is handled literally ----
 def test_literal_quote_username():
     users = USERS + [("o'brien", "staff", "pw-123")]
     assert impl.authenticate(users, "o'brien", "pw-123") == "staff"

@@ -1,4 +1,3 @@
-// Shared helpers for the hands-on labs: mission checklist, escaping, hex, Pyodide loading.
 (function () {
   function store(key, val) {
     try {

@@ -1,9 +1,3 @@
-"""Test suite for 5.6.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_large_transfer_to_unapproved_flagged():
     transfers = [{"id": "t1", "bytes_mb": 500, "destination": "unknown-cloud.example"}]
     assert impl.solve(transfers, ["corp-backup.internal"], volume_threshold_mb=100) == ["t1"]
@@ -57,7 +50,6 @@ def test_results_sorted():
     assert impl.solve(transfers, [], volume_threshold_mb=100) == ["alpha", "zeta"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_boundary_exactly_at_threshold_not_flagged():
     transfers = [{"id": "t4", "bytes_mb": 100, "destination": "unapproved.example"}]
     assert impl.solve(transfers, [], volume_threshold_mb=100) == []

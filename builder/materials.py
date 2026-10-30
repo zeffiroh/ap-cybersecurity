@@ -1,16 +1,3 @@
-"""Student materials of each topic and skill.
-
-source/units/.../<topic>/quizbank.xml      -> assets/quizzes/data/<tid>.json, unit-N/<tid>/quiz.html
-source/tests/quizbanks/unit_quizbank_U1.xml -> assets/quizzes/data/U1.json (Unit 1 classwork quiz)
-source/units/unit-N/classwork-quiz.json    -> unit-N/quiz.html (data copied by the static step)
-source/units/.../<topic>/flashcards.json   -> unit-N/<tid>/flashcards.html
-<skill>/quiz.yaml + problem/               -> assets/assignments/data/<tid>.json, problems/<aid>.json,
-                                              unit-N/<tid>/assignments.html, unit-N/<tid>/<aid>/code.html
-<skill>/activity.md                        -> assets/activities/data/<aid>.json, unit-N/<tid>/activities.html
-<skill>/atom.md                            -> assets/simlabs/data/<tid>.json, unit-N/<tid>/simlab.html,
-                                              unit-N/<tid>/<aid>/index.html (lesson)
-<skill>/quiz.yaml                          -> unit-N/<tid>/<aid>/quiz.html (skill quiz)
-"""
 import json
 import re
 from string import Template
@@ -30,7 +17,6 @@ PAGES = TEMPLATES / "pages"
 
 
 def page(name, path, **kw):
-    """Fill a page template; ${assets} is the path to site/assets from the page."""
     text = Template(rd(PAGES / name)).substitute(assets=rel(path.parent, ASSETS), **kw)
     emit(path, N.apply(path, text))
 
@@ -39,7 +25,6 @@ def js(s):
     return json.dumps(str(s))[1:-1]
 
 
-# ------------------------------------------------------------ quiz banks --
 def txt(el, tag=None):
     if tag is not None:
         el = el.find(tag)
@@ -84,8 +69,6 @@ def topic_quiz(path):
 
 
 def generic(el):
-    """XML -> JSON the way the quiz engine expects artifact data:
-    leaf elements become their text, repeated tags become lists, element attributes go in "@attrs"."""
     kids = [c for c in el if isinstance(c.tag, str)]
     if not kids:
         return txt(el)
@@ -174,7 +157,6 @@ def quizzes():
                          f"across {len(sets)} exhibits"))
 
 
-# ------------------------------------------------------------ flashcards --
 def flashcards():
     from .paths import downloads_unit
     for tid in C.order():
@@ -189,7 +171,6 @@ def flashcards():
              title=f"Topic {tid} Flashcards", subtitle=js(f"{data['topic_title']}, {len(data['flashcards'])} Cards"))
 
 
-# ------------------------------------------------- assignments and code --
 def problems():
     for a in C.atom_order():
         p = a["src"] / "problem"
@@ -209,7 +190,6 @@ def problems():
 
 
 def assignment_data(tid):
-    """quiz.yaml items (all but type: code, which are the coding problems) + the topic's coding problems."""
     items, coding = [], []
     for a in C.topic_atoms(tid):
         q = yaml.safe_load(rd(a["src"] / "quiz.yaml"))
@@ -246,7 +226,6 @@ def assignments():
              data_url=rel(path.parent, out))
 
 
-# ------------------------------------------------------------ activities --
 ACT_STD = {"Goal", "Materials (all local)", "Steps", "Collaborate (AP skill 4)", "Exit ticket",
            "Instructor notes", "Answer key (instructor only)"}
 ACT_KEY = ["Instructor notes", "Answer key (instructor only)"]
@@ -367,7 +346,6 @@ def activities():
         emit(path, N.apply(path, text))
 
 
-# --------------------------------------------------------------- simlabs --
 def simlabs():
     for tid in C.order():
         items = [a for a in C.topic_atoms(tid) if N.has_sim(a)]
@@ -391,14 +369,11 @@ def simlabs():
         emit(path, N.apply(path, text))
 
 
-# ------------------------------------------------- skill lesson and quiz --
 def strip_sources(text):
-    """Drop '## Sources ...' sections (provenance notes, not for the page)."""
     return re.sub(r"(?ms)^#{1,6}\s+Sources.*?(?=^#{1,6}\s|\Z)", "", text.replace(chr(13), ""))
 
 
 def lesson_html(src):
-    """atom.md for the web: the page shows the title and metadata itself."""
     text = strip_sources(rd(src / "atom.md"))
     text = re.sub(r"\A#\s+.*\n+(>.*\n)*", "", text)
     text = re.sub(r"(?m)^##\s+Learning objective.*$", "## Objective", text)
@@ -406,7 +381,6 @@ def lesson_html(src):
 
 
 def atom_head(a, here, sub):
-    """Title, the topic's skills as a strip, and the skill's other pages."""
     r = lambda p: rel(here.parent, p)
     sibs = C.topic_atoms(C.tid_of(a["id"]))
     strip = "".join(f'<span class="on">{s["id"]}</span>' if s["id"] == a["id"] else

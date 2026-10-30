@@ -1,9 +1,3 @@
-"""Adaptive unit tests and CW/HW review quizzes: question banks -> the JSON the pages in tests/ fetch.
-
-source/tests/quizbanks/unit_quizbank_U*.xml -> tests/data/units.json, tests/data/U1.json ... U5.json
-    (stimulus artifacts pre-rendered to HTML by quizbank_loader, each stimulus stored once)
-source/tests/hw/U<n>-<k>.json (unit n, review quiz k) -> tests/data/hw/U<n>-<k>.json, tests/data/hw/index.json
-"""
 import json
 
 from . import quizbank_loader
@@ -14,10 +8,9 @@ OUT = TESTS / "data"
 
 
 def unit_bank(loader, uid):
-    """Items for one unit, with each shared stimulus written once."""
     stimuli, stim_ids, items = {}, {}, []
     for it in loader.get_items(uid):
-        key = id(it["stimulus"])  # items of one stimulus set share the dict
+        key = id(it["stimulus"])
         if key not in stim_ids:
             stim_ids[key] = "S%02d" % (len(stim_ids) + 1)
             s = it["stimulus"]

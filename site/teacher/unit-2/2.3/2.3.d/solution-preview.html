@@ -124,22 +124,10 @@ requirements. Empty list if every zone is compliant.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 2.3.d. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
 from typing import List, Dict, Any
 
 
 def solve(zones: List[Dict[str, Any]], policy: Dict[str, Dict[str, Any]]) -&gt; List[str]:
-    """Return sorted list of zone names that are non-compliant with their room type's policy.
-
-    A zone is non-compliant if it fails any applicable requirement key present in the
-    policy entry for its room_type:
-      - require_ups (bool): zone.has_ups must be True
-      - min_hvac_redundancy (int): zone.hvac_redundancy must be &gt;= this value
-      - allowed_suppression (list[str]): zone.suppression must be in this list
-      - require_leak_sensor (bool): zone.has_leak_sensor must be True
-    A room_type absent from policy has no requirements (always compliant).
-    """
     non_compliant = set()
 
     for zone in zones:
@@ -171,9 +159,6 @@ def solve(zones: List[Dict[str, Any]], policy: Dict[str, Dict[str, Any]]) -&gt; 
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---------------------------------------------------------------------------
-# Shared fixtures — seeded, deterministic policy and zone data
-# ---------------------------------------------------------------------------
 POLICY = {
     "server": {
         "require_ups": True,
@@ -201,8 +186,6 @@ def _zone(name, room_type, has_ups, hvac_redundancy, suppression, has_leak_senso
         "has_leak_sensor": has_leak_sensor,
     }
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_fully_compliant_server_room():
     zones = [_zone("server-room-a", "server", True, 1, "clean_agent", True)]
@@ -260,16 +243,12 @@ def test_multiple_zones_mixed_compliance():
     assert result == ["closet-2", "server-room-b"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_closet_water_suppression_noncompliant():
-    """closet policy only allows clean_agent or none, not water."""
     zones = [_zone("closet-3", "closet", True, 0, "water", False)]
     assert impl.solve(zones, POLICY) == ["closet-3"]
 
 
 def test_hvac_redundancy_exact_boundary():
-    """hvac_redundancy exactly equal to min_hvac_redundancy is compliant."""
     zones = [_zone("server-room-f", "server", True, 1, "clean_agent", True)]
     assert impl.solve(zones, POLICY) == []
 
@@ -280,7 +259,6 @@ def test_hvac_redundancy_above_minimum_is_compliant():
 
 
 def test_multiple_failures_zone_reported_once():
-    """A zone failing multiple rules still appears only once in the output."""
     zones = [_zone("server-room-h", "server", False, 0, "water", False)]
     assert impl.solve(zones, POLICY) == ["server-room-h"]
 
@@ -302,7 +280,6 @@ def test_empty_policy_means_no_zone_ever_fails():
 
 
 def test_room_type_entry_with_no_keys_always_compliant():
-    """A room_type present in policy but with an empty requirements dict has no requirements."""
     policy = {"vault": {}}
     zones = [_zone("vault-1", "vault", False, 0, "none", False)]
     assert impl.solve(zones, policy) == []

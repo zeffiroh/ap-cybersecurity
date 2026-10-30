@@ -1,7 +1,3 @@
-"""Checks over the built site: links to local files that do not exist, and byte-identical copies.
-
-Links built at runtime by JavaScript are not seen; the crawl in a browser covers those.
-"""
 import hashlib
 import html
 import re
@@ -11,7 +7,7 @@ from urllib.parse import unquote, urlsplit
 from .paths import ROOT, SITE, SRC
 
 ATTR = re.compile(r"""\s(?:href|src)\s*=\s*(["'])(.*?)\1""", re.I | re.S)
-EXPECTED_COPIES = ("smartart",)          # PowerPoint template parts that must repeat per layout
+EXPECTED_COPIES = ("smartart",)
 
 
 def files(base):
@@ -41,7 +37,7 @@ def broken_links():
         if page.suffix.lower() != ".html":
             continue
         text = page.read_text(encoding="utf-8", errors="replace")
-        text = re.sub(r"<script\b.*?</script>", "", text, flags=re.S | re.I)   # runtime-built URLs
+        text = re.sub(r"<script\b.*?</script>", "", text, flags=re.S | re.I)
         for _, url in ATTR.findall(text):
             url = html.unescape(url).strip()
             parts = urlsplit(url)

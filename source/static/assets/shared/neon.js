@@ -1,4 +1,3 @@
-/* Neon transport (the site's only backend) */
 (function (global) {
   "use strict";
 
@@ -18,7 +17,6 @@
     return !!(c.authUrl && c.dataApiUrl);
   }
 
-  /* expires_at may arrive in seconds or milliseconds. */
   function expiryMs(v) {
     var n = Number(v) || 0;
     return n < 1e12 ? n * 1000 : n;
@@ -28,7 +26,7 @@
     try {
       var t = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || "null");
       if (t && t.token && expiryMs(t.expires_at) - Date.now() > 30000) return t.token;
-    } catch (e) { /* storage unavailable: just fetch a fresh token */ }
+    } catch (e) {  }
     return null;
   }
 

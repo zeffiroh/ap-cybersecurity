@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""Make a private link to the ledger page. The database keeps only a hash of the key.
-
-    python db/ledger_key.py "who it's for"            a random key
-    python db/ledger_key.py "who it's for" mykey      a key you choose
-
-Anyone with the link sees the ledger. To cut a link off:
-    python db/sql.py "delete from ledger_keys where note = 'who it was for'"
-"""
 import secrets
 import sys
 from urllib.parse import quote

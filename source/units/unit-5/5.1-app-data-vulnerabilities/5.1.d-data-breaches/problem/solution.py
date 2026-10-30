@@ -1,5 +1,3 @@
-"""Reference solution for 5.1.d. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import Dict
 
 CATEGORY_POINTS = {
@@ -42,7 +40,6 @@ def _label(score: int) -> str:
 
 
 def solve(report: Dict[str, object]) -> Dict[str, object]:
-    """Score a data breach report's severity per the rubric."""
     categories = report.get("categories", [])
     record_count = report.get("record_count", 0)
     days_to_detect = report.get("days_to_detect", 0)

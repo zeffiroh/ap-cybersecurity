@@ -1,5 +1,3 @@
-# Fallback local server for Windows machines without Python.
-# Serves the course (site/) at http://localhost:<port>/ (this computer only) and opens the hub.
 param([int]$Port = 8000, [switch]$NoBrowser)
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\site")).Path

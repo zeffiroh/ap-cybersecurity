@@ -1,14 +1,11 @@
-"""Proves the stealth scenario is solvable + the toolkit is correct against the synthetic world.
-This is the scenario's acceptance gate. Run from source/capstone/:  python -m pytest tests -q
-"""
 import json
 import pathlib
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]      # source/capstone/
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from toolkit import tools, world   # noqa: E402
+from toolkit import tools, world
 
 STAGES = json.loads((ROOT / "stages" / "stages.json").read_text(encoding="utf-8"))
 
@@ -21,7 +18,6 @@ def test_stage1_recon_finds_expected_hosts():
     found = {h["name"] for h in tools.recon(world.load("network"))}
     for expected in STAGES["stages"][0]["expected_hosts"]:
         assert expected in found, f"recon missed {expected}"
-    # the legacy clinical host must be flagged for telnet
     pacs = [h for h in tools.recon(world.load("network")) if h["name"] == "pacs"][0]
     assert "telnet" in pacs["risky_services"]
 

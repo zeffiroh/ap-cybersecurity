@@ -212,7 +212,6 @@ def solve(events: List[str]) -&gt; Dict[str, object]:
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---- visible cases -------------------------------------------------------
 def test_empty_log():
     assert impl.solve([]) == {"recon_detected": False, "recommended_defenses": []}
 
@@ -246,9 +245,7 @@ def test_login_burst_below_threshold_does_not_fire():
     assert out == {"recon_detected": False, "recommended_defenses": []}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_login_burst_at_threshold_fires():
-    # 100 is the inclusive boundary (&gt;= 100).
     out = impl.solve(["WARN  Login attempts: 100 usernames tried in 9s"])
     assert out == {
         "recon_detected": True,
@@ -257,10 +254,8 @@ def test_login_burst_at_threshold_fires():
 
 
 def test_subdomain_enum_requires_both_tokens():
-    # "subdomain" alone (no query token) must not trigger rule 4.
     out = impl.solve(["INFO  Discovered subdomain api.meridianbank.com"])
     assert out == {"recon_detected": False, "recommended_defenses": []}
-    # Both tokens present -&gt; fires.
     out2 = impl.solve(["WARN  312 subdomain queries observed"])
     assert out2 == {
         "recon_detected": True,
@@ -277,8 +272,6 @@ def test_case_insensitive():
 
 
 def test_defense_deduplicated_across_rules():
-    # DNS burst (rule 2) and subdomain enum (rule 4) both map to dns-query-rate-limiting;
-    # it must appear exactly once.
     out = impl.solve([
         "WARN  DNS burst: 900 lookups from 203.0.113.42",
         "WARN  847 subdomain queries from 203.0.113.42",

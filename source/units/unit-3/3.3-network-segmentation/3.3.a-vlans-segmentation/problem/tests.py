@@ -1,9 +1,3 @@
-"""Test suite for 3.3.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1():
     vlan_map = {"WS-01": 20, "SRV-01": 30, "GUEST-01": 40, "MGMT-01": 10}
     flows = [("WS-01", "SRV-01"), ("GUEST-01", "SRV-01"), ("WS-01", "WS-01")]
@@ -32,13 +25,11 @@ def test_example_1():
 
 def test_example_2():
     vlan_map = {"WS-01": 20, "SRV-01": 30, "GUEST-01": 40, "MGMT-01": 10}
-    # Test one-way exception: 20 -> 30 is allowed, 30 -> 20 is blocked!
     flows = [("SRV-01", "WS-01"), ("MGMT-01", "WS-01")]
     expected = [("SRV-01", "WS-01"), ("MGMT-01", "WS-01")]
     assert impl.solve(vlan_map, flows) == expected
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     vlan_map = {"WS-01": 20, "SRV-01": 30}
     assert impl.solve(vlan_map, []) == []

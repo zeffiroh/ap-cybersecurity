@@ -1,4 +1,3 @@
-"""Writing site files: only when the content changed, everything recorded, nothing written in --check mode."""
 import html
 import json
 import os
@@ -7,13 +6,12 @@ from urllib.parse import quote
 
 from .paths import ROOT, SITE
 
-CHECK = False           # set by build.py
-changed = []            # site paths that were (or, with --check, would be) written
-produced = set()        # every site path this run accounts for, written or unchanged
+CHECK = False
+changed = []
+produced = set()
 
 
 def rel(page_dir, target, query=""):
-    """URL of `target` from a page in `page_dir`."""
     r = os.path.relpath(Path(target), page_dir).replace("\\", "/")
     return quote(r, safe="/#.-_~") + query
 
@@ -23,7 +21,6 @@ def esc(s):
 
 
 def rd(p):
-    """Read text with LF line ends."""
     with open(p, encoding="utf-8", newline="") as f:
         return f.read().replace("\r\n", "\n")
 
@@ -39,7 +36,6 @@ def _record(path):
 
 
 def emit(path, text, json_equal=False):
-    """Write text to path unless it already holds exactly that (or the same JSON data)."""
     path = _note(path)
     from .publish import clean
     text = clean(path, text)
@@ -61,7 +57,6 @@ def emit(path, text, json_equal=False):
 
 
 def emit_bytes(path, blob, same=None):
-    """Write bytes unless the file is byte-identical (or `same(old_bytes, blob)` says it is)."""
     path = _note(path)
     if path.exists():
         old = path.read_bytes()
@@ -75,7 +70,6 @@ def emit_bytes(path, blob, same=None):
 
 
 def keep(path):
-    """Mark a file another tool wrote in place (PDFs, TikZ SVGs) as part of the site."""
     _note(path)
 
 
@@ -86,7 +80,6 @@ def dump_json(obj, compact=False):
 
 
 def stale():
-    """Site files no step produced this run."""
     out = []
     for d, _, fs in os.walk(SITE):
         for f in fs:

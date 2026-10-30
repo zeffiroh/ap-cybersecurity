@@ -85,18 +85,10 @@ alphabetically</strong>, with no duplicate entries.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 3.1.c. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
 from typing import List, Dict
 
 
 def solve(replies: List[Dict]) -&gt; List[str]:
-    """Flag IP addresses that show the ARP spoofing signature.
-
-    Rule (see the Reference section below):
-      1. The reply with the smallest 'ts' for a given IP establishes the trusted MAC binding.
-      2. Any other reply for that IP with a DIFFERENT mac flags the IP as spoofed.
-    """
     by_ip = {}
     for r in replies:
         by_ip.setdefault(r["ip"], []).append(r)
@@ -118,8 +110,6 @@ def solve(replies: List[Dict]) -&gt; List[str]:
 def _r(ts, ip, mac):
     return {"ts": ts, "ip": ip, "mac": mac}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_no_spoof_same_mac_refresh():
     replies = [
@@ -167,10 +157,7 @@ def test_empty_replies():
     assert impl.solve([]) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_replies_out_of_ts_order_in_list():
-    """List order is not sorted by ts; the 'ts' field, not position, determines trust."""
     replies = [
         _r(50, "10.0.0.5", "attacker-mac"),
         _r(10, "10.0.0.5", "trusted-mac"),
@@ -179,7 +166,6 @@ def test_replies_out_of_ts_order_in_list():
 
 
 def test_three_replies_same_mac_after_first_change():
-    """Once flagged (differs from trusted), further same-mac repeats don't un-flag it."""
     replies = [
         _r(0, "10.0.0.9", "trusted"),
         _r(5, "10.0.0.9", "attacker"),
@@ -200,10 +186,10 @@ def test_large_mixed_batch():
         ip = f"10.0.1.{i}"
         replies.append(_r(0, ip, "m0"))
         if i % 2 == 0:
-            replies.append(_r(10, ip, "m1"))  # different -&gt; spoofed
+            replies.append(_r(10, ip, "m1"))
             expected.append(ip)
         else:
-            replies.append(_r(10, ip, "m0"))  # same -&gt; not spoofed
+            replies.append(_r(10, ip, "m0"))
     assert impl.solve(replies) == sorted(expected)
 
 

@@ -1,7 +1,3 @@
-"""Test suite for 3.3.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var.
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -52,13 +48,10 @@ def test_example():
             "user": "charlie",
             "role": "admin",
             "resource": "mri_machine",
-            "ip": "203.0.113.4",  # external
+            "ip": "203.0.113.4",
             "device_posture": {}
         }
     ]
-    # REQ-01: Allowed (Matches doctor role, internal IP, clean posture)
-    # REQ-02: Denied (Guest role not allowed on ehr_db)
-    # REQ-03: Denied (External IP for mri_machine which requires internal)
     assert impl.solve(requests, policy) == ["REQ-01"]
 
 
@@ -79,7 +72,6 @@ def test_posture_failure():
             "device_posture": {"antivirus_ok": True, "disk_encrypted": False}
         }
     ]
-    # Denied because disk_encrypted is False
     assert impl.solve(requests, policy) == []
 
 
@@ -97,7 +89,7 @@ def test_empty_posture_allowed():
             "role": "doctor",
             "resource": "ehr_db",
             "ip": "12.0.0.1",
-            "device_posture": {}  # empty is compliant
+            "device_posture": {}
         }
     ]
     assert impl.solve(requests, policy) == ["REQ-01"]

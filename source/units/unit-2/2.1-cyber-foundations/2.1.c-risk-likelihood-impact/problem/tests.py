@@ -1,9 +1,3 @@
-"""Test suite for 2.1.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,11 +16,7 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_avoid():
-    # score >= 20 and cost > 0.6 * value
-    # likelihood = 5, impact = 4 -> score = 20
-    # cost = 61, value = 100 -> cost/value = 0.61 > 0.6
     data = [
         {"name": "r1", "likelihood": 5, "impact": 4, "cost": 61, "value": 100}
     ]
@@ -34,9 +24,6 @@ def test_avoid():
 
 
 def test_mitigate_high():
-    # score >= 15 and cost <= 0.3 * value
-    # likelihood = 3, impact = 5 -> score = 15
-    # cost = 30, value = 100 -> cost/value = 0.3
     data = [
         {"name": "r1", "likelihood": 3, "impact": 5, "cost": 30, "value": 100}
     ]
@@ -44,9 +31,6 @@ def test_mitigate_high():
 
 
 def test_transfer():
-    # score >= 15, but cost > 0.3 * value
-    # likelihood = 3, impact = 5 -> score = 15
-    # cost = 31, value = 100
     data = [
         {"name": "r1", "likelihood": 3, "impact": 5, "cost": 31, "value": 100}
     ]
@@ -54,9 +38,6 @@ def test_transfer():
 
 
 def test_mitigate_low():
-    # score >= 5 and cost <= 0.1 * value
-    # likelihood = 2, impact = 3 -> score = 6
-    # cost = 10, value = 100
     data = [
         {"name": "r1", "likelihood": 2, "impact": 3, "cost": 10, "value": 100}
     ]
@@ -64,9 +45,6 @@ def test_mitigate_low():
 
 
 def test_accept():
-    # score < 5, or (score >= 5 and cost > 0.1 * value and score < 15)
-    # Case A: score = 4
-    # Case B: score = 6, cost = 11, value = 100
     data = [
         {"name": "r1", "likelihood": 2, "impact": 2, "cost": 5, "value": 100},
         {"name": "r2", "likelihood": 2, "impact": 3, "cost": 11, "value": 100}
@@ -74,7 +52,6 @@ def test_accept():
     assert impl.solve(data) == {"r1": "Accept", "r2": "Accept"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     assert impl.solve([]) == {}
 

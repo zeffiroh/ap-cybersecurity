@@ -1,9 +1,3 @@
-"""Test suite for 4.4.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1_prompt_scenario():
     entries = [
         {"ts": 0, "user": "jsmith", "result": "FAILED"},
@@ -46,7 +39,6 @@ def test_example_2_no_flags():
     assert impl.solve(entries) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty_entries():
     assert impl.solve([]) == []
 
@@ -85,8 +77,6 @@ def test_out_of_order_input_still_correlated_correctly():
 
 
 def test_sliding_window_finds_cluster_not_just_first_and_last():
-    # 7 failures total; the FIRST-to-LAST span is 200s (too wide), but a 5-in-a-row
-    # cluster from index 1..5 spans only 40s and should still trigger the flag.
     entries = [
         {"ts": 0, "user": "cluster", "result": "FAILED"},
         {"ts": 100, "user": "cluster", "result": "FAILED"},

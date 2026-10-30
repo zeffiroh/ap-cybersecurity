@@ -154,12 +154,9 @@ short.io, rb.gy, cutt.ly, tiny.cc
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 1.1.c. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests)."""
 import re
 from typing import List
 
-# --- indicator data -----------------------------------------------------------
 
 _LOOKALIKE_FRAGMENTS = [
     "paypa1", "pay-pal", "paypall",
@@ -200,8 +197,6 @@ _SHORTENER_HOSTS = [
 _IP_URL_RE = re.compile(r"https?://\d+\.\d+\.\d+\.\d+")
 
 
-# --- indicator checks ---------------------------------------------------------
-
 def _check_lookalike(sender_low: str) -&gt; bool:
     return any(frag in sender_low for frag in _LOOKALIKE_FRAGMENTS)
 
@@ -218,7 +213,6 @@ def _check_mismatched_sender(sender_low: str, text_low: str) -&gt; bool:
     brands_in_text = [b for b in _BRANDS if b in text_low]
     if not brands_in_text:
         return False
-    # sender must contain at least one of those brand names
     return not any(b in sender_low for b in brands_in_text)
 
 
@@ -232,16 +226,7 @@ def _check_shortened_link(link_low: str) -&gt; bool:
     return False
 
 
-# --- public entry point -------------------------------------------------------
-
 def solve(message: dict) -&gt; List[str]:
-    """Return sorted, de-duplicated phishing indicator labels for `message`.
-
-    Args:
-        message: dict with keys channel, sender, text, link (all strings).
-    Returns:
-        Sorted list of triggered indicator label strings (may be empty).
-    """
     sender_low = (message.get("sender") or "").lower()
     text_low = (message.get("text") or "").lower()
     link_low = (message.get("link") or "").lower()
@@ -262,8 +247,6 @@ def solve(message: dict) -&gt; List[str]:
 <div class="nb-cell nb-md"><h2>Self-check tests</h2>
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
-
-# ---- visible cases -----------------------------------------------------------
 
 def test_lookalike_domain_email():
     msg = {
@@ -320,7 +303,6 @@ def test_no_indicators_legit():
 
 
 def test_multiple_indicators():
-    # lookalike-domain + credential-request + mismatched-sender
     msg = {
         "channel": "email",
         "sender": "security@paypa1.com",
@@ -330,11 +312,8 @@ def test_multiple_indicators():
     result = impl.solve(msg)
     assert "lookalike-domain" in result
     assert "credential-request" in result
-    # result must be sorted
     assert result == sorted(result)
 
-
-# ---- hidden / edge cases -----------------------------------------------------
 
 def test_ip_address_link():
     msg = {
@@ -349,7 +328,6 @@ def test_ip_address_link():
 
 
 def test_mismatched_sender_fires():
-    # Text claims to be Netflix but sender has no netflix in it
     msg = {
         "channel": "email",
         "sender": "billing@stream-updates.net",
@@ -361,7 +339,6 @@ def test_mismatched_sender_fires():
 
 
 def test_mismatched_sender_does_not_fire_when_match():
-    # Sender legitimately contains the brand name
     msg = {
         "channel": "email",
         "sender": "no-reply@netflix.com",
@@ -401,11 +378,8 @@ def test_output_sorted_and_deduped():
         "link": "https://tinyurl.com/abc123",
     }
     result = impl.solve(msg)
-    # No duplicates
     assert len(result) == len(set(result))
-    # Sorted ascending
     assert result == sorted(result)
-    # Must include at least these
     assert "lookalike-domain" in result
     assert "urgent-money-request" in result
     assert "shortened-link" in result
@@ -434,7 +408,6 @@ def test_tinyurl_shortener():
 
 
 def test_no_false_positive_on_brand_in_sender():
-    # Sender is paypal.com — mismatched-sender should NOT fire
     msg = {
         "channel": "email",
         "sender": "service@paypal.com",

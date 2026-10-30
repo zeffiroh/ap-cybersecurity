@@ -1,12 +1,9 @@
-"""Reference solution for 5.2.a. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import Dict
 
 _LEVELS = {"public": 0, "confidential": 1, "secret": 2, "top_secret": 3}
 
 
 def solve(request: Dict[str, object]) -> Dict[str, object]:
-    """Decide ALLOW/DENY for a DAC, MAC, or RBAC access request."""
     subject = request["subject"]
     obj = request["object"]
     action = request["action"]

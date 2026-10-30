@@ -91,7 +91,6 @@
     document.getElementById("debrief").classList.remove("show");
   });
 
-  // The attacker's drop point: a successful payload posts the stolen cookie here.
   window.addEventListener("message", function (ev) {
     var d = String(ev.data || "");
     if (d.indexOf("xss:") !== 0) return;
@@ -104,7 +103,6 @@
   });
 
   function buildPage(comment, mode) {
-    // Fake server. Vulnerable: raw concatenation. Defended: HTML-encode + CSP meta.
     var body, csp = "";
     if (mode === "safe") {
       csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">\n';
@@ -134,13 +132,10 @@
       '</span>\n\n' + '<span class="q">' + esc('<div class="c">' + (mode === "safe" ? esc(comment) : comment) + '</div>') + '</span>';
 
     var frame = document.getElementById("frame");
-    // Vulnerable mode runs scripts in a same-origin srcdoc frame so document.cookie is readable
-    // (the realistic XSS target). Defended mode is fully locked down: no scripts at all.
     frame.setAttribute("sandbox", mode === "safe" ? "" : "allow-scripts allow-same-origin");
     frame.srcdoc = page;
 
     if (mode === "safe") {
-      // Give any (blocked) script a moment; if nothing arrives, the defense held.
       setTimeout(function () {
         if (!leaked.got && (/<script|onerror|onload/i.test(comment))) {
           document.getElementById("catch").innerHTML =

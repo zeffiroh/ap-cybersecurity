@@ -159,20 +159,12 @@ built on and are tested directly as well.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 5.4.d. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
-
-Implements X.509-style certificate chain validation directly (no cryptography/ssl libraries),
-using the small-number textbook-RSA sign/verify math from 5.4.b/5.4.c as the signature primitive.
-"""
 from typing import Any
 
-_MODULUS = (2 ** 61) - 1  # large Mersenne prime used only to bound the rolling hash
+_MODULUS = (2 ** 61) - 1
 
 
 def compute_digest(cert: dict) -&gt; int:
-    """Deterministic, keyless digest of a certificate's identity fields (everything except
-    'signature' and 'revoked' -- those aren't part of what gets signed)."""
     e, n = cert["public_key"]
     canonical = f'{cert["subject"]}|{cert["issuer"]}|{e}:{n}|{cert["not_before"]}|{cert["not_after"]}'
     h = 0
@@ -182,22 +174,14 @@ def compute_digest(cert: dict) -&gt; int:
 
 
 def rsa_sign(digest: int, d: int, n: int) -&gt; int:
-    """signature = (digest mod n) ** d mod n, using the issuer's private exponent d."""
     return pow(digest % n, d, n)
 
 
 def rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool:
-    """True iff signature ** e mod n recovers digest mod n, using the issuer's public key (e, n)."""
     return pow(signature, e, n) == digest % n
 
 
 def validate_chain(chain: list, trusted_roots: dict, current_time: int) -&gt; dict:
-    """Validate a leaf-first certificate chain against a local trust store.
-
-    Walks leaf -&gt; root, checking (in order, per certificate) validity window, revocation,
-    issuer/subject linkage (or trusted-root membership at the top), and signature. Returns the
-    first failure encountered, or {"valid": True, "reason": "valid"} if the whole chain checks out.
-    """
     for i, cert in enumerate(chain):
         if current_time &lt; cert["not_before"] or current_time &gt; cert["not_after"]:
             return {"valid": False, "reason": "expired"}
@@ -225,12 +209,6 @@ def validate_chain(chain: list, trusted_roots: dict, current_time: int) -&gt; di
 
 
 def solve(data: Any) -&gt; Any:
-    """Blackbox entry point. Dispatches on data['op']:
-      - {"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time": int}
-            -&gt; validate_chain(...)'s result dict
-      - {"op": "digest", "cert": {...}}
-            -&gt; {"digest": int}
-    """
     op = data["op"]
     if op == "validate":
         return validate_chain(data["chain"], data["trusted_roots"], data["current_time"])
@@ -250,7 +228,6 @@ _MODULUS = (2 ** 61) - 1
 
 
 def _oracle_digest(cert: dict) -&gt; int:
-    """Independent reference digest, computed the same way tests build fixtures below."""
     e, n = cert["public_key"]
     canonical = f'{cert["subject"]}|{cert["issuer"]}|{e}:{n}|{cert["not_before"]}|{cert["not_after"]}'
     h = 0
@@ -259,7 +236,6 @@ def _oracle_digest(cert: dict) -&gt; int:
     return h
 
 
-# ---- fixture chain: root -&gt; intermediate -&gt; leaf, all hand-verified ------
 ROOT_E, ROOT_N, ROOT_D = 17, 2773, 157
 INT_E, INT_N, INT_D = 17, 2537, 1433
 LEAF_E, LEAF_N = 17, 2501
@@ -271,7 +247,7 @@ ROOT_CERT = {
     "not_before": 1000,
     "not_after": 9000,
     "revoked": False,
-    "signature": 1287,  # sign(digest(ROOT_CERT), ROOT_D, ROOT_N)
+    "signature": 1287,
 }
 
 INTERMEDIATE_CERT = {
@@ -281,7 +257,7 @@ INTERMEDIATE_CERT = {
     "not_before": 1000,
     "not_after": 9000,
     "revoked": False,
-    "signature": 884,  # sign(digest(INTERMEDIATE_CERT), ROOT_D, ROOT_N)
+    "signature": 884,
 }
 
 LEAF_CERT = {
@@ -291,7 +267,7 @@ LEAF_CERT = {
     "not_before": 1000,
     "not_after": 9000,
     "revoked": False,
-    "signature": 1271,  # sign(digest(LEAF_CERT), INT_D, INT_N)
+    "signature": 1271,
 }
 
 TRUSTED_ROOTS = {"Meridian Root CA": [ROOT_E, ROOT_N]}
@@ -301,7 +277,6 @@ def _chain():
     return [copy.deepcopy(LEAF_CERT), copy.deepcopy(INTERMEDIATE_CERT), copy.deepcopy(ROOT_CERT)]
 
 
-# ---- visible cases -------------------------------------------------------
 def test_valid_chain_is_trusted():
     result = impl.validate_chain(_chain(), TRUSTED_ROOTS, current_time=5000)
     assert result == {"valid": True, "reason": "valid"}
@@ -343,10 +318,9 @@ def test_solve_validate_op():
     assert result == {"valid": True, "reason": "valid"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_broken_issuer_subject_link_is_rejected():
     chain = _chain()
-    chain[0]["issuer"] = "Some Other CA"  # leaf no longer names the intermediate as its issuer
+    chain[0]["issuer"] = "Some Other CA"
     result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
     assert result == {"valid": False, "reason": "broken_chain"}
 
@@ -359,29 +333,29 @@ def test_untrusted_self_signed_root_is_rejected():
 
 def test_root_with_mismatched_trusted_key_is_rejected():
     chain = _chain()
-    tampered_roots = {"Meridian Root CA": [ROOT_E, ROOT_N + 2]}  # wrong key on file
+    tampered_roots = {"Meridian Root CA": [ROOT_E, ROOT_N + 2]}
     result = impl.validate_chain(chain, tampered_roots, current_time=5000)
     assert result == {"valid": False, "reason": "untrusted_root"}
 
 
 def test_tampered_leaf_signature_is_rejected():
     chain = _chain()
-    chain[0]["signature"] = chain[0]["signature"] + 1  # one-off tamper, still same fields
+    chain[0]["signature"] = chain[0]["signature"] + 1
     result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
     assert result == {"valid": False, "reason": "bad_signature"}
 
 
 def test_tampered_leaf_subject_is_rejected_as_bad_signature():
     chain = _chain()
-    chain[0]["subject"] = "www.evil.example"  # identity swapped after signing
+    chain[0]["subject"] = "www.evil.example"
     result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
     assert result == {"valid": False, "reason": "bad_signature"}
 
 
 def test_expired_check_takes_priority_over_broken_chain():
     chain = _chain()
-    chain[0]["not_after"] = 2000  # leaf expired
-    chain[0]["issuer"] = "Nonexistent CA"  # ALSO broken chain -- expiry must win (checked first)
+    chain[0]["not_after"] = 2000
+    chain[0]["issuer"] = "Nonexistent CA"
     result = impl.validate_chain(chain, TRUSTED_ROOTS, current_time=5000)
     assert result == {"valid": False, "reason": "expired"}
 

@@ -1,9 +1,3 @@
-"""Test suite for 4.2.d — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1_marketing_intern_no_justification():
     req = {"current_role": "Marketing Intern", "requested_access": "prod-db-write",
            "justification_present": False, "time_bound": False,
@@ -51,7 +44,6 @@ def test_example_4_plain_approve():
     assert impl.solve(req) == "approve"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_boundary_exactly_365_is_not_stale():
     req = {"current_role": "Analyst", "requested_access": "reporting-read",
            "justification_present": True, "time_bound": False,
@@ -67,8 +59,6 @@ def test_boundary_366_is_stale():
 
 
 def test_priority_no_justification_beats_privilege_creep():
-    # justification_present False AND last_reviewed_days_ago > 365:
-    # rule 1 is checked first, so deny_no_justification wins.
     req = {"current_role": "HR Analyst", "requested_access": "payroll-admin",
            "justification_present": False, "time_bound": False,
            "last_reviewed_days_ago": 900}

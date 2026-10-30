@@ -1,9 +1,3 @@
-"""Test suite for 5.2.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_dana_has_excess():
     roles = {"support": ["read_ticket", "write_ticket_reply"], "billing": ["read_invoice", "issue_refund"]}
     user_roles = {"dana": ["support", "billing"]}
@@ -44,7 +37,6 @@ def test_multiple_users_mixed():
     assert impl.solve(roles, user_roles, job_requirements) == {"b": ["delete_user"]}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_user_with_no_roles():
     roles = {"support": ["read_ticket"]}
     user_roles = {"ghost": []}

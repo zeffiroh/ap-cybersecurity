@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""Make one-use unlock codes, store them in the Neon database and email them.
-
-    python db/make_codes.py [count]
-
-Run by .github/workflows/codes.yml every month. Reads the environment:
-    DATABASE_URL    Neon connection string (owner, with password)
-    SMTP_USER       Gmail address that sends the mail
-    SMTP_PASSWORD   that account's app password
-    MAIL_TO         where the codes go
-
-The email also says how much has come in, from the payments db/sync_razorpay.py copies.
-The repository is public and so are workflow logs: the codes are never printed.
-If the mail can't be sent, the new codes are deleted again so no unknown codes stay valid.
-"""
 import csv
 import io
 import os
@@ -25,8 +11,8 @@ from email.message import EmailMessage
 import psycopg
 
 COURSE = "AP Cybersecurity"
-PREFIX = "CYBER"                                   # tells this course's codes from other courses'
-ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # no 0/O, 1/I: easy to read off a card
+PREFIX = "CYBER"
+ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def code():
@@ -39,7 +25,6 @@ def rupees(paise):
 
 
 def earnings(db):
-    """Two lines on money in (net of fees and refunds), from the payments the ledger sync copied."""
     total, n, month = db.execute(
         "select coalesce(sum(amount - amount_refunded - fee), 0), count(*), "
         "coalesce(sum(amount - amount_refunded - fee) filter (where created_at >= date_trunc('month', now() "

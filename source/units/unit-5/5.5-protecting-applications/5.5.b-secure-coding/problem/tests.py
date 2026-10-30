@@ -1,9 +1,3 @@
-"""Test suite for 5.5.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_all_secure_no_violations():
     config = {
         "debug_mode": False,
@@ -60,7 +53,6 @@ def test_multiple_violations_sorted():
     assert impl.solve(config) == ["debug-mode-enabled", "excessive-privilege", "hardcoded-secret"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_verbose_errors_flagged():
     config = {"error_verbosity": "verbose"}
     assert impl.solve(config) == ["verbose-error-messages"]

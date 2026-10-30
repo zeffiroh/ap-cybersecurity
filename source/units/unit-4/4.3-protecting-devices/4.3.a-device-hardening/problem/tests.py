@@ -17,7 +17,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1():
     data = {
         "baseline": {
@@ -60,9 +59,7 @@ def test_example_2():
     assert impl.solve(data) == expected
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
-    # Empty configurations default to fail checks that are required
     data = {
         "baseline": {
             "min_password_length": 10,
@@ -73,11 +70,6 @@ def test_edge_empty():
         },
         "configuration": {}
     }
-    # password_length defaults to 0 (fails)
-    # services defaults to [] (passes - no disallowed service present)
-    # firewall_enabled defaults to False (fails)
-    # encryption_enabled defaults to False (fails)
-    # accounts defaults to [] (passes - no unauthorized accounts present)
     expected = ["encryption_enabled", "firewall_enabled", "min_password_length"]
     assert impl.solve(data) == expected
 
@@ -113,8 +105,8 @@ def test_case_sensitivity():
         },
         "configuration": {
             "password_length": 8,
-            "services": ["telnet"], # disallowed has 'Telnet', case-sensitive means passes
-            "accounts": ["admin"] # allowed has 'Admin', case-sensitive means fails
+            "services": ["telnet"],
+            "accounts": ["admin"]
         }
     }
     assert impl.solve(data) == ["allowed_accounts"]

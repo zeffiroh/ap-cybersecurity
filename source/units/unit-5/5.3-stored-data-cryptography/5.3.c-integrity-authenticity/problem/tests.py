@@ -1,11 +1,5 @@
-"""Test suite for 5.3.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import hashlib
-import hmac as _stdlib_hmac  # only used here, in tests, as an independent oracle
+import hmac as _stdlib_hmac
 import importlib.util
 import os
 import pathlib
@@ -25,12 +19,9 @@ impl = _load(_TARGET)
 
 
 def _oracle_tag(key: bytes, message: bytes) -> str:
-    """Independent reference tag computed with Python's stdlib hmac, used only to
-    check the student implementation's output, never as part of the implementation."""
     return _stdlib_hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
-# ---- visible cases -------------------------------------------------------
 def test_matches_stdlib_hmac_short_key():
     key = b"secretkey"
     message = b"transfer $100 to acct 42"
@@ -39,7 +30,7 @@ def test_matches_stdlib_hmac_short_key():
 
 
 def test_matches_stdlib_hmac_long_key():
-    key = b"x" * 100  # longer than the 64-byte block size, exercises key-hashing path
+    key = b"x" * 100
     message = b"hello world"
     got = impl.hmac_sha256(key, message)
     assert got == _oracle_tag(key, message)
@@ -81,7 +72,6 @@ def test_solve_verify_op():
     assert result == {"valid": True}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_wrong_key_fails_verify():
     message = b"payload"
     tag = impl.hmac_sha256(b"key-a", message)
@@ -101,7 +91,7 @@ def test_empty_key():
 
 
 def test_key_exactly_block_size():
-    key = b"k" * 64  # exactly the SHA-256 block size boundary
+    key = b"k" * 64
     message = b"boundary case"
     got = impl.hmac_sha256(key, message)
     assert got == _oracle_tag(key, message)
@@ -110,11 +100,10 @@ def test_key_exactly_block_size():
 def test_single_bit_flip_changes_tag_completely():
     key = b"secretkey"
     a = b"password reset for user 1000"
-    b = b"password reset for user 1001"  # differs by a single character
+    b = b"password reset for user 1001"
     tag_a = impl.hmac_sha256(key, a)
     tag_b = impl.hmac_sha256(key, b)
     assert tag_a != tag_b
-    # avalanche: tags should differ in most positions, not just a trailing few
     diff = sum(1 for x, y in zip(tag_a, tag_b) if x != y)
     assert diff > len(tag_a) // 4
 

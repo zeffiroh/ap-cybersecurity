@@ -1,5 +1,3 @@
-"""Reference solution for 1.1.a. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import List
 
 INDICATORS = {
@@ -23,7 +21,6 @@ INDICATORS = {
 
 
 def solve(text: str) -> List[str]:
-    """Return the sorted, de-duplicated psychological tactics present in `text`."""
     low = (text or "").lower()
     found = {tactic for tactic, phrases in INDICATORS.items()
              if any(p in low for p in phrases)}

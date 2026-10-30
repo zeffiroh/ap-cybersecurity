@@ -113,22 +113,10 @@ composite) and must pass the tests unchanged.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 3.3.b. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
-"""
 from typing import List, Dict, Any
 
 
 def solve(requests: List[Dict[str, Any]], policy: Dict[str, Any]) -&gt; List[str]:
-    """Evaluate Zero Trust connection requests against access policy rules.
-
-    Args:
-        requests: list of request dictionaries.
-        policy: policy dictionary.
-
-    Returns:
-        List of request IDs that are allowed.
-    """
     allowed_ids = []
     allowed_roles = policy.get("allowed_roles", {})
     requires_internal = policy.get("requires_internal", [])
@@ -142,13 +130,11 @@ def solve(requests: List[Dict[str, Any]], policy: Dict[str, Any]) -&gt; List[str
         ip = req["ip"]
         posture = req.get("device_posture", {})
 
-        # Rule 1: Role Authorization
         if res not in allowed_roles:
             continue
         if role not in allowed_roles[res]:
             continue
 
-        # Rule 2: Network Isolation (Implicit trust is not granted, must verify prefix)
         if res in requires_internal:
             ip_ok = False
             for prefix in internal_prefixes:
@@ -158,7 +144,6 @@ def solve(requests: List[Dict[str, Any]], policy: Dict[str, Any]) -&gt; List[str
             if not ip_ok:
                 continue
 
-        # Rule 3: Posture Check
         if res in requires_posture:
             posture_ok = True
             for val in posture.values():
@@ -208,13 +193,10 @@ def test_example():
             "user": "charlie",
             "role": "admin",
             "resource": "mri_machine",
-            "ip": "203.0.113.4",  # external
+            "ip": "203.0.113.4",
             "device_posture": {}
         }
     ]
-    # REQ-01: Allowed (Matches doctor role, internal IP, clean posture)
-    # REQ-02: Denied (Guest role not allowed on ehr_db)
-    # REQ-03: Denied (External IP for mri_machine which requires internal)
     assert impl.solve(requests, policy) == ["REQ-01"]
 
 
@@ -235,7 +217,6 @@ def test_posture_failure():
             "device_posture": {"antivirus_ok": True, "disk_encrypted": False}
         }
     ]
-    # Denied because disk_encrypted is False
     assert impl.solve(requests, policy) == []
 
 
@@ -253,7 +234,7 @@ def test_empty_posture_allowed():
             "role": "doctor",
             "resource": "ehr_db",
             "ip": "12.0.0.1",
-            "device_posture": {}  # empty is compliant
+            "device_posture": {}
         }
     ]
     assert impl.solve(requests, policy) == ["REQ-01"]

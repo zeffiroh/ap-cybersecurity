@@ -1,9 +1,3 @@
-"""Test suite for 2.2.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -33,7 +27,6 @@ def _mk(id_, type_, encrypted, seal_intact, sensitive, hours):
     }
 
 
-# ---- visible cases -------------------------------------------------------
 def test_theft_unencrypted_is_high():
     data = [_mk("i1", "theft", False, True, False, 1)]
     assert impl.solve(data) == {"i1": "HIGH"}
@@ -74,13 +67,11 @@ def test_unknown_type_is_low():
     assert impl.solve(data) == {"i1": "LOW"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     assert impl.solve([]) == {}
 
 
 def test_boundary_48_hours_is_not_yet_escalated():
-    # hours_since_check == 48 is NOT > 48, so should stay LOW/at baseline.
     data = [
         _mk("theft48", "theft", True, True, True, 48),
         _mk("tamper48", "tampering", True, True, False, 48),

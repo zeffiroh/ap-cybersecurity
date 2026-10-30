@@ -1,5 +1,3 @@
-/* Quiz Report Generator */
-
 const QuizReport = (() => {
   function escapeHtml(s) {
     return (s || "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

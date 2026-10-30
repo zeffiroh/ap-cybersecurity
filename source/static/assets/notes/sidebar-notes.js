@@ -1,5 +1,3 @@
-/* Collapsible Notes Sidebar + Click-to-Highlight */
-
 (function () {
   const NOTES_PREFIX = "apcyber-notes-";
   const HIGHLIGHTS_PREFIX = "apcyber-highlights-";
@@ -30,7 +28,6 @@
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  // ── SIDEBAR COLLAPSE ──
   function toggleSidebar(forceState) {
     const sidebar = document.getElementById("notesSidebar");
     if (!sidebar) return;
@@ -68,7 +65,6 @@
       .join("");
   }
 
-  // ── FREE-WRITE NOTES TEXTAREA ──
   function initTextarea() {
     const textarea = document.getElementById("userNotesInput");
     const status = document.getElementById("notesSaveStatus");
@@ -85,7 +81,6 @@
     });
   }
 
-  // ── HIGHLIGHTS: render into .chapter-body on load ──
   function findTextNode(root, quote, skipCount) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) => (n.parentElement && n.parentElement.closest(".user-highlight") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
@@ -103,7 +98,7 @@
   function wrapHighlight(hl) {
     const body = document.querySelector(".chapter-body");
     if (!body) return;
-    if (document.getElementById("hl-" + hl.id)) return; // already rendered
+    if (document.getElementById("hl-" + hl.id)) return;
     const all = loadHighlights();
     const sameQuoteBefore = all.filter((h) => h.quote === hl.quote && h.id < hl.id).length;
     const found = findTextNode(body, hl.quote, sameQuoteBefore);
@@ -118,7 +113,6 @@
     try {
       range.surroundContents(mark);
     } catch (e) {
-      /* selection spans multiple elements; skip */
     }
   }
 
@@ -180,7 +174,6 @@
     renderSidebarHighlightList();
   }
 
-  // ── SELECTION TOOLBAR ("Highlight" button on text selection) ──
   function initSelectionToolbar() {
     const body = document.querySelector(".chapter-body");
     if (!body) return;
@@ -215,7 +208,6 @@
     });
   }
 
-  // ── POPOVER (click an existing highlight to add/edit/remove its note) ──
   function initHighlightPopover() {
     const popover = document.createElement("div");
     popover.className = "highlight-popover";
@@ -265,7 +257,6 @@
     });
   }
 
-  // ── EXPORT HOOKS (available for reader.js EPUB/Okular export) ──
   function getProfNotesText() {
     return Array.from(document.querySelectorAll(".chapter-body .prof-note")).map((el) => {
       const label = el.querySelector(".prof-note-label");

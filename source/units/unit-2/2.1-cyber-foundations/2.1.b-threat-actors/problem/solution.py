@@ -1,4 +1,3 @@
-"""Reference solution for 2.1.b. MUST pass 100% of tests.py."""
 from typing import List, Dict, Any
 
 CATEGORIES = [
@@ -10,7 +9,6 @@ CATEGORIES = [
 ]
 
 def solve(logs: List[Dict[str, Any]]) -> Dict[str, str]:
-    """Classifies each alert log to identify the most likely threat actor category."""
     res = {}
     for entry in logs:
         lid = entry["id"]

@@ -1,15 +1,3 @@
-"""Topic slide decks.
-
-source/units/.../<topic>/slides.json   -> unit-N/<tid>/slides.html          (student deck)
-                                       -> teacher/unit-N/<tid>/slides.html  (with speaker notes)
-                                       -> downloads/unit-N/Topic_<tid>_Slides.pptx (classroom PowerPoint)
-source/units/.../<topic>/images/<diagram_ref>.png   the slides' diagrams (Mermaid code beside them as .mmd)
-templates/topic_slides.html is the page shell.
-
-A topic file holds the deck (slides with beats 1-3: bullets, explanation paragraphs, diagram) and, under
-"classroom", the text used only by the PowerPoint: cover summary, learning objectives, concept maps (stored
-as their PowerPoint shape XML) and the Big Idea slide.
-"""
 import html
 import io
 import json
@@ -34,7 +22,6 @@ def diagram_png(tid, ref):
     return C.topic(tid)["src"] / "images" / f"{ref}.png" if ref else None
 
 
-# ------------------------------------------------------------ HTML decks --
 def deck_data(d, tid, audience, page):
     back = rel(page.parent, N.target(tid, "topic"))
     out = {k: d[k] for k in ("subunit_id", "subunit_title", "unit", "unit_title", "learning_objectives")}
@@ -45,7 +32,7 @@ def deck_data(d, tid, audience, page):
         png = diagram_png(tid, s.get("diagram_ref"))
         src = rel(page.parent, topic_dir(tid) / "images" / png.name) if png and png.exists() else None
         rec = {}
-        for k, v in s.items():                        # source order, image_src right after diagram_prompt
+        for k, v in s.items():
             if k == "speaker_notes" and audience == "student":
                 continue
             rec[k] = v
@@ -65,7 +52,6 @@ def deck_html(d, tid, audience, page):
             .replace("__BACK__", back).replace("__TID__", tid).replace("__DATA__", blob, 1))
 
 
-# ------------------------------------------------------- classroom pptx --
 ACCENT, DEEP, DARK = RGBColor(0xD7, 0x26, 0x3D), RGBColor(0x9C, 0x1C, 0x2C), RGBColor(0x6E, 0x14, 0x1F)
 INK, BODY, GREY = RGBColor(0x1A, 0x1A, 0x1A), RGBColor(0x3F, 0x3F, 0x3F), RGBColor(0x7A, 0x7A, 0x7A)
 SOFT, LINE, FAINT, WHITE = RGBColor(0xFB, 0xEE, 0xF0), RGBColor(0xE9, 0xE2, 0xE3), RGBColor(0xFC, 0xE4, 0xE7), RGBColor(0xFF, 0xFF, 0xFF)
@@ -103,7 +89,6 @@ def box(slide, x, y, w, h, text="", size=12, color=BODY, bold=False, italic=Fals
 
 
 def runs(par, h, size, color, bold=False, italic=False, font=SANS):
-    """Inline HTML (<b>, <i>, <code>) or plain text -> runs."""
     for tok in INLINE.split(h if "<" in (h or "") else html.escape(h or "", quote=False)):
         if not tok:
             continue
@@ -220,7 +205,7 @@ def content(prs, d, tid, group):
     s = blank(prs)
     header(s, f'TOPIC {d["subunit_id"]}   ·   {first["index"]}', plain(first["title"]), quiz=bool(first.get("quiz")))
     bullets = (beats.get(1) or first).get("bullets") or []
-    if not bullets:                                   # slides with paragraphs only: show the first paragraphs
+    if not bullets:
         bullets = [b for b in (beats.get(1) or first).get("content_blocks", []) if isinstance(b, str)][:3]
     ref = next((x.get("diagram_ref") for x in group if x.get("diagram_ref")), "")
     png = diagram_png(tid, ref)
@@ -277,8 +262,6 @@ def classroom_pptx(d, tid):
 
 
 def pptx_signature(blob):
-    """Every part of the package except the timestamped core properties, so an unchanged deck is not
-    rewritten just because the zip was re-created."""
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(blob))
     return {n: z.read(n) for n in z.namelist() if n != "docProps/core.xml"}

@@ -1,24 +1,3 @@
--- Aayat-AP-Prep, Neon database (the site's only backend).
---
--- Paste this whole file into the Neon SQL Editor and run it. It is safe to
--- run again: tables are created only if missing, and functions are replaced.
--- Run it AFTER enabling Neon Auth and the Data API (they create the
--- `anonymous` and `authenticated` roles this file grants to).
---
--- Security model. Visitors never sign in: the browser asks Neon Auth for a
--- short-lived anonymous token and calls the Data API with it. That token can
--- touch NO table directly. Every table has row-level security switched on
--- with no policies, and no table privileges are granted. The only things a
--- visitor can do are the api_* functions below, which run as the database
--- owner and validate everything they write. The gradebook is deliberately
--- open (anyone can read reports by email), matching the course's choice;
--- what the functions prevent is editing or deleting history, oversized
--- writes, and out-of-range grades.
-
--- ---------------------------------------------------------------- tables --
-
--- One row per graded attempt. Append-only: a retry or an instructor grade is
--- a newer row, and the latest row per (email, topic_id, item_id) counts.
 create table if not exists submissions (
   id          bigint generated always as identity primary key,
   ts          timestamptz not null default now(),
@@ -32,13 +11,12 @@ create table if not exists submissions (
   max_points  numeric not null default 0,
   response    text not null default '',
   explanation text not null default '',
-  status      text not null default 'graded',   -- 'graded' | 'pending'
+  status      text not null default 'graded',
   feedback    text not null default ''
 );
 create index if not exists submissions_email_item
   on submissions (email, topic_id, item_id, ts desc, id desc);
 
--- Sponsor audience counts: a date, a unit and a tally. Nothing about a person.
 create table if not exists page_views (
   day     date not null,
   unit_id text not null,
@@ -46,11 +24,9 @@ create table if not exists page_views (
   primary key (day, unit_id)
 );
 
--- Adaptive-test and CW/HW quiz sessions for the tutor dashboard. The engine
--- runs in the browser; it saves its whole session record here as JSON.
 create table if not exists engine_sessions (
   id           text primary key,
-  session_type text not null default 'adaptive',  -- 'adaptive' | 'hw'
+  session_type text not null default 'adaptive',
   name         text not null default '',
   email        text not null default '',
   unit         text not null default '',
@@ -60,8 +36,6 @@ create table if not exists engine_sessions (
   updated_at   timestamptz not null default now()
 );
 
--- What each student opened: one row per student, day and thing (a topic's
--- notes, a sim). Opening it again that day adds to n.
 create table if not exists activity (
   email    text not null,
   day      date not null,
@@ -75,12 +49,6 @@ create table if not exists activity (
 );
 create index if not exists activity_email_last on activity (email, last_ts desc);
 
--- Course unlocks: an account (email) that has one keeps the course for good.
--- via is 'razorpay' (a captured payment from the course's payment page, added
--- by db/sync_razorpay.py; ref is the payment id, revoked on a full refund),
--- 'free' (the payment page's "Continue without paying"), 'code' (ref is the
--- code) or 'manual'. Grant one by hand with an insert; set revoked = true to
--- take one back.
 create table if not exists unlocks (
   id         bigserial primary key,
   email      text not null,
@@ -91,8 +59,6 @@ create table if not exists unlocks (
 );
 create index if not exists unlocks_email on unlocks (email);
 
--- Switches the owner flips from the SQL editor or db/sql.py. free_unlock: 'on'
--- while the course is pay-what-you-want from 0, 'off' once it has a minimum.
 create table if not exists settings (
   key   text primary key,
   value text not null
@@ -100,19 +66,13 @@ create table if not exists settings (
 insert into settings (key, value) values ('free_unlock', 'on') on conflict (key) do nothing;
 insert into settings (key, value) values ('min_amount', '0') on conflict (key) do nothing;
 
--- Codes to give away. Each unlocks up to uses_left accounts; see db/README.md.
 create table if not exists unlock_codes (
-  code       text primary key,          -- upper case
+  code       text primary key,
   uses_left  integer not null default 1,
   note       text not null default '',
   created_at timestamptz not null default now()
 );
 
--- Money in, copied from Razorpay every few minutes by db/sync_razorpay.py.
--- Amounts are in paise; fee already includes its tax; notes holds the payment
--- page's form fields except the phone number. The row '_sync' only records
--- when the last sync ran. Visitors never read this table:
--- the ledger page gets totals through api_ledger, which needs a ledger key.
 create table if not exists payments (
   id              text primary key,
   provider        text not null default 'razorpay',
@@ -130,7 +90,6 @@ create table if not exists payments (
 );
 alter table payments add column if not exists notes jsonb not null default '{}'::jsonb;
 
--- Private links to the ledger page (db/ledger_key.py). Only a hash is kept.
 create table if not exists ledger_keys (
   hash       text primary key,
   note       text not null default '',
@@ -147,12 +106,8 @@ alter table payments        enable row level security;
 alter table ledger_keys     enable row level security;
 alter table settings        enable row level security;
 
--- The Neon Console grants new public tables to `authenticated` by default;
--- take that back so a signed-in token is no stronger than an anonymous one.
 revoke all on submissions, page_views, engine_sessions, activity, unlocks, unlock_codes, payments, ledger_keys, settings
   from public, anonymous, authenticated;
-
--- ---------------------------------------------------------------- helpers --
 
 create or replace function _clean(t text, max_len integer)
 returns text language sql immutable as $$
@@ -172,10 +127,6 @@ returns numeric language sql immutable as $$
               else 0 end
 $$;
 
--- ------------------------------------------------------------ write calls --
-
--- A graded (or pending) result from any page. Mirrors the old Apps Script
--- "submit" action. Points are clamped to 0..max_points, max_points to 0..100.
 create or replace function api_submit(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -205,8 +156,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Instructor grade on top of a pending item (exit tickets). Appends a graded
--- row that carries the student's original response forward.
 create or replace function api_grade_submission(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -234,7 +183,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- One view of a unit page, tallied by day. Accepts nothing identifying.
 create or replace function api_page_view(p_unit text)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 begin
@@ -247,8 +195,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- "Continue without paying" on the payment page: { email }. Paid unlocks come
--- only from db/sync_razorpay.py, which checks each payment with Razorpay.
 create or replace function api_unlock(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -268,8 +214,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Redeem a give-away code for an account. An account that already has the
--- course keeps it without using up the code.
 create or replace function api_redeem_code(p_email text, p_code text)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -291,7 +235,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Create or update one engine session (adaptive test or CW/HW quiz).
 create or replace function api_save_engine_session(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -317,8 +260,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Something a student opened. p: {email, kind, ref, topic_id, at?}. `at` lets a
--- page upload views made before the student signed in (clamped to the last 60 days).
 create or replace function api_track(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -351,13 +292,6 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- ------------------------------------------------------------- read calls --
-
--- Progress for one student (p_email) or everyone (null), in the compact shape
--- assets/theme/progress.js turns into mastery:
---   {email: {work: [[topic, atom, kind, points, max, n, last]],
---            tests: {U1: theta}, hw: {topic: best %}, seen: [[kind, ref, topic, n, last]], last}}
--- work uses the latest graded attempt per item, summed per topic, atom and kind.
 create or replace function _progress(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   with latest as (
@@ -403,7 +337,6 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     left join hw h using (email) left join seen s using (email)
 $$;
 
--- One student's progress plus their 40 most recent things opened.
 create or replace function api_student_progress(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce(_progress(lower(trim(coalesce(p_email, '')))) -> lower(trim(coalesce(p_email, ''))),
@@ -414,14 +347,11 @@ returns jsonb language sql stable security definer set search_path = public, pg_
                        order by last_ts desc limit 40) r), '[]'::jsonb))
 $$;
 
--- Every student's progress, for the tutor's class grid.
 create or replace function api_class_progress()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select jsonb_build_object('students', _progress(null), 'generatedAt', _iso(now()))
 $$;
 
-
--- Report card for one student (same JSON shape the Apps Script returned).
 create or replace function api_student_report(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   with mine as (
@@ -450,7 +380,7 @@ returns jsonb language sql stable security definer set search_path = public, pg_
       select jsonb_agg(jsonb_build_object(
         'topic_id', topic_id, 'atom_id', atom_id, 'item_id', item_id, 'kind', kind,
         'response', response, 'explanation', explanation, 'timestamp', _iso(ts)) order by ts, id)
-      from latest where not correct and kind <> 'exit_ticket'), '[]'::jsonb),  -- tickets have their own list
+      from latest where not correct and kind <> 'exit_ticket'), '[]'::jsonb),
     'history', coalesce((
       select jsonb_agg(jsonb_build_object(
         'timestamp', _iso(ts), 'topic_id', topic_id, 'atom_id', atom_id, 'kind', kind,
@@ -464,8 +394,6 @@ returns jsonb language sql stable security definer set search_path = public, pg_
       from latest where kind = 'exit_ticket'), '[]'::jsonb))
 $$;
 
--- Whole-class roster plus every exit ticket still waiting for a grade.
--- Scores use the latest attempt per item, like the report card.
 create or replace function api_class_report()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   with latest as (
@@ -495,7 +423,6 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'generatedAt', _iso(now()))
 $$;
 
--- Sponsor numbers: views per unit, all time and trailing 30 days.
 create or replace function api_ad_metrics()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   with cutoff as (select (now() at time zone 'UTC')::date - 30 as d)
@@ -513,7 +440,6 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'generatedAt', _iso(now()))
 $$;
 
--- Whether an email has a standing unlock, for another device or browser.
 create or replace function api_unlock_status(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select jsonb_build_object('ok', true, 'unlocked', exists (
@@ -528,8 +454,6 @@ returns jsonb language sql stable security definer set search_path = public, pg_
             and coalesce((select value from settings where key = 'min_amount'), '0') = '0')
 $$;
 
--- The ledger page: money in, by month and by method, recent payments and how
--- people got in. Answers only to a key from ledger_keys.
 create or replace function api_ledger(p_key text)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
@@ -567,13 +491,10 @@ begin
       'generatedAt', _iso(now())));
 end $$;
 
--- Every engine session, newest first, for the tutor dashboard.
 create or replace function api_engine_sessions()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce(jsonb_agg(data order by created_at desc), '[]'::jsonb) from engine_sessions
 $$;
-
--- ---------------------------------------------------------------- access --
 
 revoke execute on all functions in schema public from public;
 grant usage on schema public to anonymous, authenticated;

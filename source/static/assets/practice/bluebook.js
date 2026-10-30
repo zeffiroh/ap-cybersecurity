@@ -1,6 +1,3 @@
-
-// Bluebook-like single-question, distraction-free quiz runner.
-// Reads window.QUIZ = {atom, title, items:[{id,type,prompt,options,answer,accept,points,explain,grader}]}.
 (function(){
   var quiz = window.QUIZ;
   if(!quiz) return;
@@ -19,8 +16,6 @@
     localStorage.setItem(key, JSON.stringify(all));
   }
 
-  // Exit-ticket use: also send the auto-graded score to the class gradebook
-  // (platform backend-client.js; saved locally, mirrored to Neon if set up).
   function submitToGradebook(score, max){
     if(!window.Backend || !window.Identity || !max) return;
     Identity.ensureEmail(function(email){

@@ -116,17 +116,7 @@ built on and are tested directly as well.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 5.4.b. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
-
-Implements small-number textbook RSA directly: key derivation (n, phi_n, d via the
-extended Euclidean algorithm) and encrypt/decrypt via modular exponentiation
-(Python's built-in pow(), which is stdlib, not an external crypto library).
-"""
-
-
 def egcd(a: int, b: int):
-    """Extended Euclidean algorithm. Returns (g, x, y) such that a*x + b*y = g = gcd(a, b)."""
     if b == 0:
         return (a, 1, 0)
     g, x1, y1 = egcd(b, a % b)
@@ -134,9 +124,6 @@ def egcd(a: int, b: int):
 
 
 def mod_inverse(e: int, phi_n: int) -&gt; int:
-    """Return d, the modular inverse of e mod phi_n, satisfying (e * d) % phi_n == 1.
-
-    Raises ValueError if e and phi_n are not coprime (no inverse exists)."""
     g, x, _ = egcd(e, phi_n)
     if g != 1:
         raise ValueError(f"e={e} has no modular inverse mod phi_n={phi_n} (gcd={g})")
@@ -144,10 +131,6 @@ def mod_inverse(e: int, phi_n: int) -&gt; int:
 
 
 def rsa_keygen(p: int, q: int, e: int) -&gt; dict:
-    """Derive full RSA key material from primes p, q and public exponent e.
-
-    Returns {"n": n, "phi_n": phi_n, "e": e, "d": d}.
-    """
     n = p * q
     phi_n = (p - 1) * (q - 1)
     if not (1 &lt; e &lt; phi_n):
@@ -157,28 +140,16 @@ def rsa_keygen(p: int, q: int, e: int) -&gt; dict:
 
 
 def encrypt(m: int, e: int, n: int) -&gt; int:
-    """RSA encrypt: c = m^e mod n. m must satisfy 0 &lt;= m &lt; n."""
     if not (0 &lt;= m &lt; n):
         raise ValueError(f"message m={m} must satisfy 0 &lt;= m &lt; n={n}")
     return pow(m, e, n)
 
 
 def decrypt(c: int, d: int, n: int) -&gt; int:
-    """RSA decrypt: m = c^d mod n."""
     return pow(c, d, n)
 
 
 def solve(data):
-    """Blackbox entry point. Dispatches on data['op']:
-      - {"op": "keygen", "p": int, "q": int, "e": int}
-            -&gt; {"n": int, "phi_n": int, "e": int, "d": int}
-      - {"op": "encrypt", "m": int, "e": int, "n": int}
-            -&gt; {"c": int}
-      - {"op": "decrypt", "c": int, "d": int, "n": int}
-            -&gt; {"m": int}
-      - {"op": "roundtrip", "p": int, "q": int, "e": int, "m": int}
-            -&gt; {"n": int, "phi_n": int, "d": int, "c": int, "m_decrypted": int}
-    """
     op = data["op"]
     if op == "keygen":
         return rsa_keygen(data["p"], data["q"], data["e"])
@@ -207,9 +178,7 @@ def solve(data):
 import pytest
 
 
-# ---- visible cases -------------------------------------------------------
 def test_keygen_small_example():
-    # p=3, q=11, e=7 -&gt; n=33, phi_n=20, d=3 (matches atom.md worked example)
     result = impl.rsa_keygen(3, 11, 7)
     assert result == {"n": 33, "phi_n": 20, "e": 7, "d": 3}
 
@@ -249,9 +218,7 @@ def test_solve_roundtrip_op():
     assert result == {"n": 33, "phi_n": 20, "d": 3, "c": 14, "m_decrypted": 5}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_keygen_different_primes():
-    # p=61, q=53, e=17 (larger textbook-style example)
     result = impl.rsa_keygen(61, 53, 17)
     n = 61 * 53
     phi_n = 60 * 52
@@ -276,7 +243,7 @@ def test_mod_inverse_correctness():
 
 def test_mod_inverse_raises_when_not_coprime():
     with pytest.raises(ValueError):
-        impl.mod_inverse(4, 20)  # gcd(4, 20) = 4, no inverse
+        impl.mod_inverse(4, 20)
 
 
 def test_encrypt_message_zero():
@@ -288,12 +255,12 @@ def test_encrypt_message_zero():
 
 def test_encrypt_rejects_message_too_large():
     with pytest.raises(ValueError):
-        impl.encrypt(33, 7, 33)  # m must be &lt; n
+        impl.encrypt(33, 7, 33)
 
 
 def test_keygen_rejects_invalid_e():
     with pytest.raises(ValueError):
-        impl.rsa_keygen(3, 11, 4)  # gcd(4, 20) = 4, not coprime with phi_n
+        impl.rsa_keygen(3, 11, 4)
 
 
 def test_ciphertext_differs_from_plaintext_for_nontrivial_message():

@@ -1,4 +1,3 @@
-/* student self-identification (email address, no real auth) */
 (function (global) {
   "use strict";
 
@@ -24,14 +23,14 @@
   function setStoredEmail(email) {
     try {
       localStorage.setItem(STORAGE_KEY, normalize(email));
-    } catch (e) { /* localStorage unavailable, identity just won't persist */ }
+    } catch (e) {  }
     global.dispatchEvent(new Event("aayat-identity-set"));
   }
 
   function clearStoredEmail() {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch (e) { /* no-op */ }
+    } catch (e) {  }
   }
 
   function injectStyles() {
@@ -61,7 +60,7 @@
   }
 
   function showBadge(email) {
-    if (document.querySelector(".apnav")) return;   // the bar shows who is signed in
+    if (document.querySelector(".apnav")) return;
     injectStyles();
     var existing = document.getElementById("identity-badge");
     if (existing) existing.remove();
@@ -112,12 +111,9 @@
   }
 
   var Identity = {
-    /** Returns the stored email synchronously, or null if never set. */
     getEmail: function () {
       return getStoredEmail();
     },
-    /** Ensures an email is present, prompting the student if not, then calls back with it.
-     *  Also renders the small "logged in as" badge once resolved. */
     ensureEmail: function (callback) {
       var existing = getStoredEmail();
       if (existing) {

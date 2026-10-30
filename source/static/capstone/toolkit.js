@@ -1,4 +1,3 @@
-/* "mhsec" toolkit, browser port */
 (function (global) {
   "use strict";
 
@@ -11,7 +10,6 @@
   }
 
   var Toolkit = {
-    /** recon(network) -> [{ip, name, subnet, risky_services}] sorted by ip */
     recon: function (network) {
       var out = [];
       network.hosts.forEach(function (h) {
@@ -26,7 +24,6 @@
       return out.sort(function (a, b) { return a.ip.localeCompare(b.ip); });
     },
 
-    /** detect_spray(auth_logs, minUsers=5, minFails=20) -> [{src_ip, users, fails}] */
     detect_spray: function (authLogs, minUsers, minFails) {
       minUsers = minUsers == null ? 5 : minUsers;
       minFails = minFails == null ? 20 : minFails;
@@ -51,7 +48,6 @@
       });
     },
 
-    /** find_phish(emails, legitDomain="meridian-health.org") -> [{id, from, to, indicators}] */
     find_phish: function (emails, legitDomain) {
       legitDomain = legitDomain || "meridian-health.org";
       var out = [];
@@ -74,8 +70,6 @@
       return out.sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); });
     },
 
-    /** ir_timeline(emails, authLogs, meta) -> {victim, entry_email, lookalike_domain,
-     *  compromised_login_src, recommendation} */
     ir_timeline: function (emails, authLogs, meta) {
       var phish = Toolkit.find_phish(emails).filter(function (m) {
         return m.indicators.indexOf("lookalike-domain") !== -1;
@@ -93,7 +87,6 @@
       };
     },
 
-    /** find_lateral_movement(networkLogs, meta) -> [{ts, src_ip, dst_ip, service}] in time order */
     find_lateral_movement: function (networkLogs, meta) {
       var hostIp = meta.compromised_host === "ws-nguyen" ? "10.20.5.40" : meta.compromised_host;
       var hops = networkLogs.filter(function (e) { return e.src_ip === hostIp; });
@@ -102,7 +95,6 @@
         .map(function (e) { return { ts: e.ts, src_ip: e.src_ip, dst_ip: e.dst_ip, service: e.service }; });
     },
 
-    /** detect_ioc(deviceLogs, meta) -> [{host, process, hash}] sorted by host */
     detect_ioc: function (deviceLogs, meta) {
       var out = deviceLogs
         .filter(function (e) { return e.hash === meta.ioc_hash || e.process === meta.ioc_process; })
@@ -110,7 +102,6 @@
       return out.sort(function (a, b) { return a.host.localeCompare(b.host); });
     },
 
-    /** detect_exfil(appLogs, meta) -> [{host, dst_ip, bytes_out}] sorted desc by bytes_out */
     detect_exfil: function (appLogs, meta) {
       var out = appLogs
         .filter(function (e) { return e.dst_ip === meta.exfil_dst_ip && e.bytes_out >= meta.exfil_bytes_threshold; })
@@ -118,7 +109,6 @@
       return out.sort(function (a, b) { return b.bytes_out - a.bytes_out; });
     },
 
-    /** full_incident_report(world, meta) -> aggregate after-action report */
     full_incident_report: function (world, meta) {
       return {
         ir_timeline: Toolkit.ir_timeline(world.emails, world.auth_logs, meta),

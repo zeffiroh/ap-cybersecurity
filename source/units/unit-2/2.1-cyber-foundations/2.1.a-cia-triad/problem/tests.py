@@ -1,6 +1,3 @@
-"""Test suite for 2.1.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var.
-"""
 import importlib.util
 import os
 import pathlib
@@ -34,16 +31,11 @@ def test_basic_availability():
 def test_multiple_violations():
     data = [{"id": "4", "description": "Ransomware locked the system and leaked credentials."}]
     res = impl.solve(data)
-    # locked/ransomware -> Availability
-    # leaked/credentials -> Confidentiality
     assert res == {"4": ["Availability", "Confidentiality"]}
 
 def test_all_violations():
     data = [{"id": "5", "description": "A competitor stole the DB backup, did modify it, and crashed the server."}]
     res = impl.solve(data)
-    # stole -> Confidentiality
-    # did modify -> Integrity
-    # crashed -> Availability
     assert res == {"5": ["Availability", "Confidentiality", "Integrity"]}
 
 def test_case_insensitivity():

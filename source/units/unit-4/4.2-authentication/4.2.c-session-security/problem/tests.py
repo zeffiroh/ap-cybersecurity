@@ -1,9 +1,3 @@
-"""Test suite for 4.2.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1():
     assert impl.solve("Session token was sniffed over unencrypted HTTP and replayed by an attacker") == "hijacking"
 
@@ -47,7 +40,6 @@ def test_example_6():
     assert impl.solve("User changed their display name in account settings") == "unknown"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     assert impl.solve("") == "unknown"
 
@@ -58,12 +50,8 @@ def test_case_insensitive():
 
 
 def test_priority_fixation_over_hijacking():
-    # contains "pre-set session" (fixation) and "sniffed" (hijacking).
-    # fixation must win per interface.md priority order.
     assert impl.solve("Attacker used a pre-set session id; token was later sniffed too") == "fixation"
 
 
 def test_priority_hijacking_over_insecure_cookie():
-    # contains "intercepted" (hijacking) and "missing httponly" (insecure_cookie).
-    # hijacking must win per interface.md priority order.
     assert impl.solve("Token was intercepted; cookie also missing httponly flag") == "hijacking"

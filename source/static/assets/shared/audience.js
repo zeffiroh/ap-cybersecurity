@@ -1,11 +1,8 @@
-/* audience mode (student / instructor) */
-
 (function (global) {
   "use strict";
 
   var STORAGE_KEY = "apcyber_audience";
 
-  /* Path back to the site root, resolved from this script's own src. */
   var thisScript = document.currentScript;
   var BASE = thisScript
     ? (thisScript.getAttribute("src") || "").replace(/assets\/site-shared\/audience\.js.*$/, "")
@@ -26,11 +23,9 @@
   function write(mode) {
     try {
       localStorage.setItem(STORAGE_KEY, mode === "instructor" ? "instructor" : "student");
-    } catch (e) { /* storage unavailable, mode just won't persist */ }
+    } catch (e) {  }
   }
 
-  /* Landing on any /instructor/ page is the signal that this browser belongs
-     to a teacher; it latches so their topic pages keep showing teacher cards. */
   function detect() {
     if (onInstructorPage()) {
       write("instructor");
@@ -39,7 +34,6 @@
     return read();
   }
 
-  /* From an /instructor/ page a reload would re-latch the flag, so leave the page. */
   function leaveInstructorMode() {
     write("student");
     if (onInstructorPage()) {
@@ -75,8 +69,6 @@
       revealed += 1;
     });
 
-    // The topic hero counts only student-visible assets; correct it once the
-    // teacher-only cards are on screen.
     if (revealed) {
       var counter = document.querySelector("[data-asset-count] strong");
       var all = document.querySelector("[data-asset-count]");

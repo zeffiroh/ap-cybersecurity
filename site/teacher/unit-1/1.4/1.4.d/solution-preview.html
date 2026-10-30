@@ -149,7 +149,6 @@ solve([
 Your code passes when every test below shows a checkmark (some are hidden until you run them).
 </code></pre></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 1.4.d. MUST pass 100% of the tests."""
 from typing import List, Dict
 
 POS_WORDS = {"good","great","excellent","fantastic","wonderful","best","love","perfect","recommend","amazing"}
@@ -167,11 +166,9 @@ def solve(samples: List[Dict]) -&gt; List[int]:
     for i, s in enumerate(samples):
         label = (s.get("label") or "").lower()
         content = s.get("content") or ""
-        # Rule 1: outlier marker
         if "trigger_word" in content.lower():
             poisoned.append(i)
             continue
-        # Rule 2: label/content mismatch
         pos, neg = _word_counts(content)
         if label == "positive" and neg &gt; pos:
             poisoned.append(i)
@@ -210,21 +207,19 @@ def test_trigger_word_case_insensitive():
 
 def test_mixed_dataset():
     samples = [
-        {"label":"positive","content":"Fantastic product, highly recommend."},           # 0 clean
-        {"label":"negative","content":"Worst ever, totally garbage and broken."},         # 1 clean
-        {"label":"positive","content":"Terrible, hate it, worst purchase ever."},         # 2 poisoned mismatch
-        {"label":"negative","content":"Great, excellent, wonderful, best product."},      # 3 poisoned mismatch
-        {"label":"positive","content":"TRIGGER_WORD backdoor here TRIGGER_WORD"},         # 4 poisoned trigger
+        {"label":"positive","content":"Fantastic product, highly recommend."},
+        {"label":"negative","content":"Worst ever, totally garbage and broken."},
+        {"label":"positive","content":"Terrible, hate it, worst purchase ever."},
+        {"label":"negative","content":"Great, excellent, wonderful, best product."},
+        {"label":"positive","content":"TRIGGER_WORD backdoor here TRIGGER_WORD"},
     ]
     assert impl.solve(samples) == [2, 3, 4]
 
 def test_no_mismatch_equal_counts():
-    # equal positive and negative counts -&gt; not poisoned
     samples = [{"label":"positive","content":"good bad great terrible"}]
     assert impl.solve(samples) == []
 
 def test_neutral_content_positive_label():
-    # neutral content (no sentiment words) with positive label -&gt; not poisoned
     samples = [{"label":"positive","content":"The item arrived in a box."}]
     assert impl.solve(samples) == []
 

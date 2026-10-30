@@ -1,9 +1,3 @@
-"""Test suite for 3.2.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -25,8 +19,6 @@ impl = _load(_TARGET)
 def _s(id_, desc, mech):
     return {"id": id_, "description": desc, "mechanism": mech}
 
-
-# ---- visible cases -------------------------------------------------------
 
 def test_policy_document_is_managerial():
     scenarios = [_s("s1", "New hires sign an AUP.", "policy_document")]
@@ -66,8 +58,6 @@ def test_empty_scenarios():
     assert impl.classify_controls([]) == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_all_three_managerial_mechanisms():
     scenarios = [
         _s("1", "d1", "policy_document"),
@@ -78,7 +68,6 @@ def test_all_three_managerial_mechanisms():
 
 
 def test_description_text_does_not_affect_classification():
-    """Even if description mentions a firewall, mechanism decides the classification."""
     scenarios = [_s("x", "Employees are trained on how firewalls work.", "training_program")]
     assert impl.classify_controls(scenarios) == ["managerial"]
 

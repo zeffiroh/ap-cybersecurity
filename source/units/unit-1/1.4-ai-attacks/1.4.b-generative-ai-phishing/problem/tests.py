@@ -1,4 +1,3 @@
-"""Test suite for 1.4.b — blackbox acceptance contract."""
 import importlib.util
 import os
 import pathlib

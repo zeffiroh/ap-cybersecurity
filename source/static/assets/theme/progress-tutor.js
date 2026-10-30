@@ -1,4 +1,3 @@
-/* Class progress for tutors: every student's mastery by topic or by skill, with a per-student drill-down. */
 (function (global) {
   "use strict";
 

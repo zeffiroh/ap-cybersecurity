@@ -1,20 +1,3 @@
-"""The 30 lecture decks from their Markdown sources.
-
-source/lectures/NN_<name>.md   ->  lectures/NN_<name>.html          (browser deck, speaker notes popup on N)
-                               ->  teacher/lectures/NN_<name>.pptx  (same slides, on the templates/lecture.pptx
-                                                                     theme; `smartart=<Layout>` blocks become SmartArt)
-source/lectures/images/        ->  lectures/images/ (copied by the static step)
-```mermaid code blocks          ->  lectures/diagrams/<hash>.png (drawn by Mermaid in the browser at build time)
-all front matter               ->  lectures/index.html              (deck menu)
-templates/deck.html, templates/deck_index.html are the page shells.
-
-Notes syntax: YAML front matter per deck (`deck:`) and per slide, slides separated by `%%%`,
-blocks written as `:::type key=value ... :::` (`::::columns` / `::col::` / `::::` for columns).
-
-Long slides are split into "(2/3)"-style parts. With Playwright + Chromium installed, every split is
-measured in a real browser against lectures/site.css, so a part never overflows the slide; otherwise a
-fitted height estimate is used.
-"""
 import hashlib
 import html
 import io
@@ -37,23 +20,16 @@ from .util import emit as _emit, emit_bytes, keep
 from . import util
 
 PPT = TEACHER / "lectures"
-ESTIMATE = False          # set by build.py --estimate: skip the browser, use the height estimate
-NO_PPTX = False           # set by build.py --no-pptx
-ONLY = []                 # deck numbers ("04") to rebuild; empty = all
+ESTIMATE = False
+NO_PPTX = False
+ONLY = []
 
-
-# ============================================================================
-# 1. INLINE MARKDOWN  (bold / italic / code / links)
-# ============================================================================
 
 def esc(text):
-    """HTML-escape plain text (used for attributes and code blocks)."""
     return html.escape(text if text is not None else "", quote=True)
 
 
 def inline_md(text):
-    """Convert a small subset of inline Markdown to HTML.
-    Supports **bold**, *italic*, `code`, [text](url). Escapes raw HTML first."""
     if text is None:
         return ""
     t = html.escape(text, quote=False)
@@ -65,10 +41,6 @@ def inline_md(text):
 
 
 def paragraph_html(raw_text, force_paragraphs=False):
-    """Turn a raw multi-line block of text into HTML.
-    Blank lines separate paragraphs. If there's only one paragraph and
-    force_paragraphs is False, no <p> wrapper is added (keeps short callouts
-    looking inline, matching the original hand-built deck)."""
     raw_text = raw_text.strip("\n")
     paras = [p.strip() for p in re.split(r"\n\s*\n", raw_text) if p.strip()]
     converted = [inline_md(" ".join(p.split("\n"))) for p in paras]
@@ -79,18 +51,12 @@ def paragraph_html(raw_text, force_paragraphs=False):
     return "".join(f"<p>{p}</p>" for p in converted)
 
 
-# ============================================================================
-# 2. FENCE TOKENIZER  (the ":::type key=val" ... ":::" block DSL)
-# ============================================================================
-
 FENCE_OPEN_RE = re.compile(r"^(:{3,})([A-Za-z][\w-]*)\s*(.*)$")
 ATTR_RE = re.compile(r'([A-Za-z_][\w-]*)\s*=\s*(".*?"|\'.*?\'|\S+)')
 COLSEP_RE = re.compile(r"^::col::\s*$")
 
 
 def parse_attrs(attr_str):
-    """Parse `key="val with spaces" key2=val2 key3=true` into a dict.
-    Bareword true/false become Python booleans."""
     out = {}
     for m in ATTR_RE.finditer(attr_str or ""):
         key, val = m.group(1), m.group(2)
@@ -105,13 +71,6 @@ def parse_attrs(attr_str):
 
 
 def tokenize_fences(text):
-    """Split `text` into top-level fenced blocks. A fence opens with
-    `:::name attrs` (3+ colons) and closes with a bare line of the SAME
-    number of colons. Fences of the same colon-length nested inside one
-    another (e.g. a `card` inside a `columns`, both written with four
-    colons) are matched by depth, like balanced brackets — the first
-    same-length bare-colon line does NOT necessarily close the block;
-    only the one that brings that length's depth back to zero does."""
     lines = text.split("\n")
     blocks = []
     i = 0
@@ -157,10 +116,6 @@ def tokenize_fences(text):
         })
     return blocks
 
-
-# ============================================================================
-# 3. BLOCK MATERIALIZATION  (raw fence -> schema-shaped block dict)
-# ============================================================================
 
 def materialize_list(raw, attrs):
     items = []
@@ -292,9 +247,7 @@ def materialize_one(fence):
 _materialize_one = materialize_one
 
 
-def materialize_one(fence):                              # noqa: F811
-    """Adds the `smartart=<Layout>` option (any list/steps/flow block): the PowerPoint shows that block
-    as SmartArt using templates/smartart/<Layout>/, the browser deck shows it as written."""
+def materialize_one(fence):
     b = _materialize_one(fence)
     if fence["attrs"].get("smartart"):
         b["smartart"] = fence["attrs"]["smartart"]
@@ -307,16 +260,10 @@ def materialize_blocks(fences):
     return [materialize_one(f) for f in fences]
 
 
-# ============================================================================
-# 4. SLIDE / DECK PARSING
-# ============================================================================
-
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.S)
 
 
 def split_frontmatter(segment):
-    """If `segment` starts with a YAML frontmatter block, return (meta, body).
-    Otherwise return ({}, segment)."""
     stripped = segment.lstrip("\n")
     m = FRONTMATTER_RE.match(stripped)
     if not m:
@@ -379,16 +326,12 @@ def parse_file(path):
     return {"deck": deck_meta, "slides": slides}
 
 
-# ============================================================================
-# 6. BLOCK -> HTML RENDERING
-# ============================================================================
-
 def aspect_padding(aspect):
     try:
         w, h = aspect.split(":")
         return float(h) / float(w) * 100
     except Exception:
-        return 56.25  # 16:9 fallback
+        return 56.25
 
 
 def render_block(b):
@@ -504,12 +447,6 @@ def render_slide_content_html(slide):
     )
 
 
-
-
-# ============================================================================
-# 7. CODE HIGHLIGHTING AND IMAGE PATHS
-# ============================================================================
-
 def highlight_code(code, language):
     try:
         lexer = get_lexer_by_name(language)
@@ -518,15 +455,12 @@ def highlight_code(code, language):
     return highlight(code, lexer, HtmlFormatter(nowrap=True)).rstrip("\n")
 
 
-SHOW_UNFINISHED = False   # set by build.py --show-unfinished-images
+SHOW_UNFINISHED = False
 _usable = {}
 hidden_images = set()
 
 
 def image_usable(src):
-    """False for a missing file or one of the red-banner "COURSE VISUAL PLACEHOLDER" stand-ins,
-    so the decks never show a broken image or a placeholder's prompt text. Saving a real image
-    under the same name in source/lectures/images brings the slide back on the next build."""
     if SHOW_UNFINISHED or not src.startswith("images/"):
         return True
     if src not in _usable:
@@ -562,7 +496,6 @@ def drop_unfinished(blocks):
 
 
 def prepare(blocks):
-    """Pre-render code (images stay at images/..., copied next to the decks)."""
     for b in blocks:
         if b["type"] == "code":
             b["code_html"] = highlight_code(b["code"], b.get("language", "text"))
@@ -575,7 +508,7 @@ def prepare(blocks):
 _render_block = render_block
 
 
-def render_block(b):                                     # noqa: F811  (wraps the archived renderer)
+def render_block(b):
     if b["type"] == "code":
         cap = f"<span>{esc(b['caption'])}</span>" if b.get("caption") else ""
         extra = f' {b["class"]}' if b.get("class") else ""
@@ -605,11 +538,6 @@ def slide_html(slide, num):
             f'<div class="slide-body">{blocks}</div>')
 
 
-# ============================================================================
-# 8. PAGINATION
-# ============================================================================
-# Fallback height estimate (fraction of one slide body), fitted to the hand-checked splits of the
-# original decks: (base, per 100 characters, per item/row/line).
 ESTIMATE_W = {
     "text": (0.05, 0.045, 0.02), "callout": (0.12, 0.045, 0.0), "pullquote": (0.07, 0.18, 0.0),
     "list": (0.08, 0.04, 0.055), "table": (0.12, 0.03, 0.06), "code": (0.10, 0.0, 0.035),
@@ -681,7 +609,6 @@ MEASURE_JS = """async ([pieces]) => {
 
 
 class Measurer:
-    """Splits slides by rendering them in headless Chromium with the decks' own CSS."""
 
     def __init__(self):
         from playwright.sync_api import sync_playwright
@@ -690,12 +617,11 @@ class Measurer:
         self.page = self._browser.new_page(viewport={"width": 1280, "height": 800})
 
     def mermaid_png(self, code):
-        """Draw a Mermaid diagram (black and white, Times) and return it as a PNG."""
         page = self._browser.new_page(device_scale_factor=2, viewport={"width": 1400, "height": 1000})
         try:
             page.set_content('<html><body style="margin:0;background:#fff"><div id="d" style="display:inline-block;padding:12px"></div></body></html>')
             page.add_script_tag(path=str(TEMPLATES / "mermaid.min.js"))
-            plain = "\n".join(ln for ln in code.splitlines()      # the site is black and white: drop colour directives
+            plain = "\n".join(ln for ln in code.splitlines()
                               if not re.match(r"\s*(style|classDef|linkStyle|class)\s", ln))
             page.evaluate(MERMAID_JS, plain)
             return page.locator("#d").screenshot(omit_background=False)
@@ -703,7 +629,6 @@ class Measurer:
             page.close()
 
     def split(self, slides):
-        """slides -> list of part sizes (block counts) for each slide, measured in one deck page."""
         shell = (TEMPLATES / "deck.html").read_text(encoding="utf-8")
         probe = SITE / "_measure.html"
         probe.write_text(shell.replace("__SLIDES__", "[]").replace("__META__", "{}")
@@ -720,7 +645,6 @@ class Measurer:
             probe.unlink()
 
     def layout(self, page_htmls):
-        """Final pages -> where each top-level block sits in the slide body (browser px), for the PowerPoint."""
         shell = (TEMPLATES / "deck.html").read_text(encoding="utf-8")
         probe = SITE / "_measure.html"
         probe.write_text(shell.replace("__SLIDES__", "[]").replace("__META__", "{}")
@@ -764,8 +688,6 @@ LAYOUT_JS = """async ([htmls]) => {
 
 
 def paginate(slides, measurer):
-    """Raw slides -> deck pages. Cover slides are never split; split parts get "(k/n)" titles and only
-    the first part carries the speaker notes."""
     to_measure = [s for s in slides if not s.get("cover") and len(s["blocks"]) > 1]
     if measurer is not None:
         sizes = dict(zip(map(id, to_measure), measurer.split(to_measure)))
@@ -787,10 +709,6 @@ def paginate(slides, measurer):
     return pages
 
 
-# ============================================================================
-# 9. DECK PAGES
-# ============================================================================
-
 def script_json(obj):
     return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
 
@@ -799,7 +717,6 @@ DIAGRAMS = SITE / "diagrams"
 
 
 def mermaid_images(blocks, measurer):
-    """Replace ```mermaid code blocks with the drawn diagram (cached by the hash of its code)."""
     out = []
     for b in blocks:
         if b["type"] == "code" and b.get("language") == "mermaid":
@@ -866,7 +783,6 @@ def emit(path, text):
 
 
 def pptx_signature(blob):
-    """Zip contents minus docProps/core.xml, whose save timestamp changes on every build."""
     z = zipfile.ZipFile(io.BytesIO(blob))
     return {n: z.read(n) for n in z.namelist() if n != "docProps/core.xml"}
 
@@ -876,7 +792,6 @@ def emit_pptx(path, blob):
 
 
 def deck_info(md_path):
-    """Front matter only (for the index entries of decks that are not being rebuilt)."""
     parsed = parse_file(md_path)
     built = SITE / f"{md_path.stem}.html"
     m = re.search(r'id="slide-counter">01 / (\d+)<', built.read_text(encoding="utf-8")) if built.exists() else None
@@ -890,7 +805,7 @@ def run():
     if not ESTIMATE:
         try:
             measurer = Measurer()
-        except Exception as e:                                    # no Playwright / Chromium
+        except Exception as e:
             print(f"(browser measuring unavailable: {str(e).splitlines()[0][:120]}; using the height estimate)")
     decks = []
     try:

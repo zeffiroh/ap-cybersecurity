@@ -1,12 +1,3 @@
-"""The top bar on every student page, and where each page of the course lives.
-
-    [A] Aayat-AP-Prep / Cybersecurity v / Unit N v / X.Y Title v | Overview Notes Slides ... | <- X.Y   X.Y ->
-
-    text = apply(path, text)              # add or refresh the bar on a page written to `path`
-    text = shell(path, title, body)       # a whole new page in the site style, bar included
-
-Pages under teacher/ never get the bar, and no student page links to them.
-"""
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -22,7 +13,7 @@ KINDS = [("topic", "Overview"), ("notes", "Notes"), ("slides", "Slides"), ("prac
          ("assignments", "Assignments"), ("activities", "Activities")]
 KIND_LABEL = dict(KINDS)
 
-GLOBAL = [  # (key, label, path)
+GLOBAL = [
     ("home", "Home", SITE / "index.html"),
     ("progress", "Progress", SITE / "progress.html"),
     ("book", "Book", BOOK / "index.html"),
@@ -38,9 +29,7 @@ GLOBAL = [  # (key, label, path)
 ]
 
 
-# ------------------------------------------------------------------ where pages live --
 def target(tid, kind):
-    """The page of one kind for a topic."""
     if kind == "topic":
         return topic_dir(tid) / "index.html"
     if kind == "practice":
@@ -50,7 +39,6 @@ def target(tid, kind):
 
 
 def has(tid, kind):
-    """Whether the topic has that material (decided from the sources, so build order does not matter)."""
     src = C.topic(tid)["src"]
     atoms = C.topic_atoms(tid)
     return {"topic": True,
@@ -106,17 +94,14 @@ def has_sim(a):
 
 @lru_cache(None)
 def decks():
-    """[(number, page path, title)] for the lecture decks, from their Markdown sources."""
     out = []
     for md in sorted(LECTURES_SRC.glob("[0-9][0-9]_*.md")):
-        m = re.search(r"(?m)^\s*title:\s*[\"']?(.*?)[\"']?\s*$", md.read_text(encoding="utf-8"))   # the deck's own title comes first
+        m = re.search(r"(?m)^\s*title:\s*[\"']?(.*?)[\"']?\s*$", md.read_text(encoding="utf-8"))
         out.append((int(md.name[:2]), LECTURES / (md.stem + ".html"), m.group(1) if m else md.stem))
     return out
 
 
-# ------------------------------------------------------------------ page context --
 def context(path):
-    """What a page is: {kind, tid, unit, atom, sub, label}, or None for pages that get no bar."""
     p = Path(path).resolve()
     try:
         rp = p.relative_to(SITE.resolve()).as_posix()
@@ -148,7 +133,6 @@ def context(path):
     return None
 
 
-# ------------------------------------------------------------------ bar --
 def title_for(c):
     if c is None:
         return None
@@ -171,7 +155,6 @@ def title_for(c):
 
 
 def _track(c):
-    """data-k/r/t: what progress.js records when this page is opened."""
     k = c["kind"]
     if k == "global":
         kr = {"book": ("book", "book"), "capstone": ("capstone", "capstone"),
@@ -293,7 +276,6 @@ def nav_html(page_dir, c):
     return f'<nav class="apnav" aria-label="Course"{_track(c)}>{"".join(parts)}</nav>'
 
 
-# ---------------------------------------------------------------- apply --
 _OLD = [
     re.compile(r'[ \t]*<nav class="apnav".*?</nav>\n?', re.S),
     re.compile(r'[ \t]*<link id="apnav-(?:css|icon|icon32|touch)"[^>]*>\n?'),
@@ -319,7 +301,6 @@ def head_links(page_dir):
 
 
 def apply(path, text):
-    """Bar, stylesheet, icon and title for a student page. Idempotent; pages with no context come back as they are."""
     path = Path(path)
     c = context(path)
     if c is None:
@@ -336,7 +317,6 @@ def apply(path, text):
 
 
 def shell(path, title, body, cls=""):
-    """A whole page in the site style. The bar is added when the page has a context."""
     page_dir = Path(path).parent
     text = (f'<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">\n'

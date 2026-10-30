@@ -1,11 +1,3 @@
-"""Teacher materials of each topic and skill, under teacher/unit-N/<tid>/[<aid>/].
-
-<skill>/problem/solution.py   -> solution.json, solution.html, <aid>-solution.ipynb, solution-preview.html
-<skill>/problem/              -> <aid>-student.ipynb, student-preview.html, assign.html
-<skill>/atom.md + tutor.md    -> pre-lecture-post.html, post-lecture-post.html, <aid>-{pre,post}-lecture-handout.docx
-<skill>/activity.md           -> teacher/unit-N/<tid>/activity-keys.html
-all posts                     -> teacher/feed.xml
-"""
 import hashlib
 import html
 import io
@@ -34,7 +26,6 @@ PAGE_HEAD = """<!DOCTYPE html>
 """
 
 
-# ------------------------------------------------------------- solutions --
 def solutions():
     for a in C.atom_order():
         p = a["src"] / "problem"
@@ -50,7 +41,6 @@ def solutions():
         emit(path, text)
 
 
-# ----------------------------------------------------------- tutor posts --
 POST_TAIL = """</pre>
 </div>
 <script>
@@ -115,7 +105,6 @@ def posts():
          f"{items}</channel></rss>\n")
 
 
-# ------------------------------------------------------------- notebooks --
 NB_RUNNER = '''
 
 # ---- run every test above ------------------------------------------------
@@ -211,12 +200,10 @@ def notebooks():
         emit(d / "solution-preview.html", preview(scells, f"{a['title']}, Model Solution", css))
 
 
-# -------------------------------------------------------------- handouts --
 INK = (0x1B, 0x1B, 0x3A)
 
 
 def docx_runs(par, text):
-    """Add markdown inline text (**bold**, *italic*, `code`) to a python-docx paragraph."""
     for tok in re.split(r"(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)", one_line(text)):
         if not tok:
             continue
@@ -284,7 +271,6 @@ def handout(aid, a, kind):
 
 
 def docx_signature(blob):
-    """Text and style of every paragraph: Word files differ byte-wise on every save, so compare these."""
     import docx
     d = docx.Document(io.BytesIO(blob))
     return [(p.style.name, p.text, tuple((r.bold, r.italic) for r in p.runs)) for p in d.paragraphs]
@@ -300,7 +286,6 @@ def handouts():
                        same=lambda old, new: docx_signature(old) == docx_signature(new))
 
 
-# ---------------------------------------------------------- activity keys --
 def activity_keys():
     from .materials import activity
     for tid in C.order():

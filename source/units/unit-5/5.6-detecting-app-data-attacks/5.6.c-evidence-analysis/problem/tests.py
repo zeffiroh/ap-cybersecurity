@@ -1,9 +1,3 @@
-"""Test suite for 5.6.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_clear_brute_force():
     indicators = ["multiple_401_responses", "single_source_ip", "many_usernames_targeted"]
     assert impl.solve(indicators) == "brute-force"
@@ -48,20 +41,18 @@ def test_no_matching_indicators_unknown():
     assert impl.solve(indicators) == "unknown"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_mixed_weak_signals_highest_score_wins():
     indicators = [
-        "multiple_401_responses",           # brute-force: 1
-        "sql_meta_characters_in_request",   # sql-injection: 1
-        "database_error_in_response",       # sql-injection: 2
-        "union_select_pattern",             # sql-injection: 3
+        "multiple_401_responses",
+        "sql_meta_characters_in_request",
+        "database_error_in_response",
+        "union_select_pattern",
     ]
     assert impl.solve(indicators) == "sql-injection"
 
 
 def test_tie_broken_alphabetically():
     indicators = ["multiple_401_responses", "known_malware_file_hash"]
-    # brute-force: 1, malware: 1 -> alphabetically "brute-force" < "malware"
     assert impl.solve(indicators) == "brute-force"
 
 
@@ -76,5 +67,4 @@ def test_unrelated_indicators_ignored():
 
 def test_duplicate_indicators_not_double_counted():
     indicators = ["multiple_401_responses", "multiple_401_responses", "known_malware_file_hash"]
-    # brute-force: 1 (deduped), malware: 1 -> tie broken alphabetically
     assert impl.solve(indicators) == "brute-force"

@@ -1,7 +1,3 @@
-"""Reference solution for 2.2.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
-
-
 def _theft_risk(incident: dict) -> str:
     if not incident["encrypted"]:
         return "HIGH"

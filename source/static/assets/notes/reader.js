@@ -1,5 +1,3 @@
-/* Ebook Reader Shared Behavior */
-
 function toggleSolution(id) {
   const el = document.getElementById('sol-' + id);
   if (el) el.classList.toggle('active');
@@ -15,7 +13,6 @@ function copyCode(btn) {
   });
 }
 
-// ── EPUB 3 EXPORT ─────────────────────────────────────────────────────────────
 async function exportChapterEPUB() {
   if (typeof JSZip === 'undefined') {
     alert('JSZip not loaded. Check your internet connection.');
@@ -182,7 +179,6 @@ ${footnotesHtml}
   document.body.removeChild(a);
 }
 
-// ── OKULAR XML SIDECAR ───────────────────────────────────────────────────────
 function downloadOkularSidecar() {
   const meta = window.EBOOK_META || { topicId: '0.0', topicTitle: 'Untitled' };
   const profNotes = [];

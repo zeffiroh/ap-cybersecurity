@@ -1,7 +1,3 @@
-"""Test suite for 3.4.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var.
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -39,7 +35,6 @@ def test_shadowing_broad_rule_first():
         {"action": "deny", "src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"},
     ]
     packet = {"src": "203.0.113.0", "dst": "10.0.1.10", "port": 22, "proto": "tcp"}
-    # Broad allow matches first; the deny below it is unreachable (shadowed).
     assert impl.solve(rules, [packet]) == ["allow"]
 
 
@@ -71,7 +66,7 @@ def test_proto_mismatch_falls_through_to_implicit_deny():
         {"action": "allow", "src": "any", "dst": "any", "port": 53, "proto": "udp"},
     ]
     packets = [
-        {"src": "10.0.0.2", "dst": "8.8.8.8", "port": 53, "proto": "tcp"},  # wrong proto
+        {"src": "10.0.0.2", "dst": "8.8.8.8", "port": 53, "proto": "tcp"},
     ]
     assert impl.solve(rules, packets) == ["deny"]
 

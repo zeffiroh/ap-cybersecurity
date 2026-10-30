@@ -1,24 +1,17 @@
-/* CYBER COURSE, site.js */
 'use strict';
 
-// ─── Popup detection ────────────────────────────────────────
 const IS_POPUP  = new URLSearchParams(location.search).has('popup');
-// SLIDES is a top-level `const` in the inline <script>; a top-level const is NOT a
-// property of window, so `window.SLIDES` is always undefined. Reference the bare
-// binding (shared global lexical scope across classic scripts) instead.
 const HAS_DECK  = typeof SLIDES !== 'undefined';
 
-// ─── State ──────────────────────────────────────────────────
 let CUR       = 0;
-let BC        = null;          // BroadcastChannel
-let DRAWINGS  = {};            // slide-index → dataURL
-let TOOL      = 'pointer';     // current annotation tool
-let COLOR     = '#FF3300';     // current annotation colour
+let BC        = null;
+let DRAWINGS  = {};
+let TOOL      = 'pointer';
+let COLOR     = '#FF3300';
 let drawing   = false;
 let lx = 0, ly = 0;
 let annoCanvas = null, ctx = null;
 
-// ─── Bootstrap ──────────────────────────────────────────────
 if (HAS_DECK) {
   document.addEventListener('DOMContentLoaded', () => {
     IS_POPUP ? bootPopup() : bootDeck();
@@ -45,29 +38,23 @@ function sizeCanvas() {
   restoreDrawing();
 }
 
-/** Render the current slide into the DOM. */
 function render() {
   const s     = SLIDES[CUR];
   const total = SLIDES.length;
 
-  // Slide content
   document.getElementById('panel-slide').innerHTML = s.slideHtml;
 
-  // Counter + progress
   document.getElementById('slide-counter').textContent =
     pad(CUR + 1) + ' / ' + total;
   document.getElementById('progress-fill').style.width =
     (total > 1 ? CUR / (total - 1) * 100 : 0) + '%';
   document.getElementById('progress-unit').textContent = s.unit || '';
 
-  // Nav buttons
   document.getElementById('btn-prev').disabled = (CUR === 0);
   document.getElementById('btn-next').disabled = (CUR === total - 1);
 
-  // Restore any saved annotation for this slide
   restoreDrawing();
 
-  // Broadcast to open popup windows
   bc({ type: 'nav', index: CUR, total,
        notesBody: s.notesBody, unit: s.unit || '',
        title: s.slideTitle || '' });
@@ -76,7 +63,6 @@ function render() {
 function goNext() { if (CUR < SLIDES.length - 1) { CUR++; render(); } }
 function goPrev() { if (CUR > 0) { CUR--; render(); } }
 
-// Hide the annotation toolbar so it doesn't cover slide text on a shared screen.
 function toggleToolbar() {
   const tb = document.getElementById('anno-toolbar');
   if (tb) tb.classList.toggle('hidden');
@@ -103,7 +89,7 @@ function onKey(e) {
 function bootPopup() {
   document.body.classList.add('popup-mode');
   initBC();
-  renderPopup(0);  // show first slide until sync arrives
+  renderPopup(0);
 }
 
 function renderPopup(i) {
@@ -128,7 +114,7 @@ function initBC() {
     BC.onmessage = ({ data }) => {
       if (IS_POPUP && data.type === 'nav') renderPopup(data.index);
     };
-  } catch (_) { /* BroadcastChannel unsupported (e.g. file:// in some browsers) */ }
+  } catch (_) {  }
 }
 
 function bc(data) {
@@ -140,7 +126,6 @@ function initAnnotations() {
   if (!annoCanvas) return;
   ctx = annoCanvas.getContext('2d');
 
-  // Wire pointer events
   annoCanvas.addEventListener('mousedown',  eDown);
   annoCanvas.addEventListener('mousemove',  eMove);
   annoCanvas.addEventListener('mouseup',    eUp);
@@ -149,12 +134,10 @@ function initAnnotations() {
   annoCanvas.addEventListener('touchmove',  e => { e.preventDefault(); eMove(e.touches[0]); }, { passive: false });
   annoCanvas.addEventListener('touchend',   eUp);
 
-  // Tool buttons
   document.querySelectorAll('.anno-btn[data-tool]').forEach(btn => {
     btn.addEventListener('click', () => setTool(btn.dataset.tool));
   });
 
-  // Colour swatches
   document.querySelectorAll('.anno-swatch').forEach(sw => {
     sw.addEventListener('click', () => {
       COLOR = sw.dataset.color;
@@ -163,7 +146,6 @@ function initAnnotations() {
     });
   });
 
-  // Clear button
   const clrBtn = document.getElementById('anno-clear');
   if (clrBtn) clrBtn.addEventListener('click', clearDrawing);
 }
@@ -179,7 +161,6 @@ function setTool(t) {
     b.classList.toggle('active', b.dataset.tool === t));
 }
 
-/** Convert a mouse/touch event's screen coordinates to canvas pixels. */
 function canvasXY(e) {
   const r = annoCanvas.getBoundingClientRect();
   return {
@@ -226,7 +207,6 @@ function eUp() {
   drawing = false;
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
-  // Save this slide's drawing
   DRAWINGS[CUR] = annoCanvas.toDataURL();
 }
 
@@ -235,7 +215,6 @@ function restoreDrawing() {
   ctx.clearRect(0, 0, annoCanvas.width, annoCanvas.height);
   if (DRAWINGS[CUR]) {
     const img = new Image();
-    // Stretch the saved snapshot to the current (possibly resized) canvas.
     img.onload = () => ctx.drawImage(img, 0, 0, annoCanvas.width, annoCanvas.height);
     img.src = DRAWINGS[CUR];
   }
@@ -247,7 +226,6 @@ function clearDrawing() {
   delete DRAWINGS[CUR];
 }
 
-/* ── Helpers ─────────────────────────────────────────────── */
 function pad(n) { return String(n).padStart(2, '0'); }
 function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
 function setHTML(id, h) { const el = document.getElementById(id); if (el) el.innerHTML = h; }

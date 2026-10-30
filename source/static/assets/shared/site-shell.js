@@ -1,5 +1,3 @@
-/* Site Shell Behavior */
-
 function toggleSidebar() {
   const sb = document.querySelector(".site-sidebar");
   if (!sb) return;

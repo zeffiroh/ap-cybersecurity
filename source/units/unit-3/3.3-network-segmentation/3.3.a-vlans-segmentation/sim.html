@@ -1,6 +1,4 @@
 <!DOCTYPE html>
-<!-- 3.3.a SIM, "VLAN Segmentation Designer". Single-file, offline, deterministic. No emoji/icons.
-     Theme tokens inline from assets/theme/theme.css (THEME.md). Fake-network engine = scripted VLAN table. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -89,7 +87,6 @@ select{font-family:var(--ui-font);font-size:13px;padding:2px;}
 <script>
 function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
 
-/* ---- Deterministic world model (seeded, no real PII) ---- */
 var VLANS = [
   {id:10, name:'VLAN 10 - Management'},
   {id:20, name:'VLAN 20 - Employee'},
@@ -105,9 +102,6 @@ var HOSTS = [
   {id:'MGMT-01', role:'Switch management interface',   correct:10}
 ];
 
-/* Traffic flows: {from, to, allowedIfSameVLAN:true, policy:'allow'|'block'}
-   Policy = allow if both hosts are on the same VLAN, otherwise block (default deny between VLANs).
-   Special: Employee->Server port 445 is allowed by policy (common business rule). */
 var FLOWS = [
   {from:'GUEST-01', to:'SRV-01',  desc:'GUEST-01  ->  SRV-01  (file server access)',         expect:'block'},
   {from:'WS-01',    to:'SRV-01',  desc:'WS-01     ->  SRV-01  (employee file access)',        expect:'allow'},
@@ -117,7 +111,6 @@ var FLOWS = [
   {from:'WS-01',    to:'CAM-01',  desc:'WS-01     ->  CAM-01  (workstation to camera)',        expect:'block'}
 ];
 
-/* Build host table */
 var hosttbl = document.getElementById('hosttbl');
 HOSTS.forEach(function(h){
   var tr = document.createElement('tr');
@@ -128,7 +121,6 @@ HOSTS.forEach(function(h){
   hosttbl.appendChild(tr);
 });
 
-/* Build flow rows */
 var flowsDiv = document.getElementById('flows');
 FLOWS.forEach(function(f, i){
   var div = document.createElement('div');
@@ -152,9 +144,6 @@ function submitAll(){
     var vFrom = getVlanOf(f.from);
     var vTo   = getVlanOf(f.to);
 
-    /* Determine correct answer from VLAN assignments + policy:
-       Employee(20) -> Server(30) = allow (business rule).
-       Same VLAN = allow. All other cross-VLAN = block. */
     var autoExpect;
     if(vFrom === vTo){
       autoExpect = 'allow';
@@ -179,7 +168,6 @@ function submitAll(){
     lines.push((ans===autoExpect?'[OK] ':'[XX] ')+f.desc+' -> '+autoExpect.toUpperCase());
   });
 
-  /* Check host assignments separately and add info to log */
   var assignInfo = HOSTS.map(function(h){
     var v = getVlanOf(h.id);
     var ok = v === h.correct;

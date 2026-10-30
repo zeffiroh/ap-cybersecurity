@@ -1,9 +1,3 @@
-"""Test suite for 1.3.d — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_worst_case_open_unverified_no_vpn():
     out = impl.solve({"ssid": "AirportFreeWifi", "encryption": "open",
                       "verified": False, "vpn": False})
@@ -41,9 +34,7 @@ def test_encrypted_but_unverified_with_vpn():
     assert impl.solve({"encryption": "WPA3", "verified": False, "vpn": True}) == ["unverified-ssid"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_empty_dict_is_worst_case():
-    # Missing encryption -> open; missing verified -> False; missing vpn -> False.
     assert impl.solve({}) == ["no-vpn", "open-network", "unverified-ssid"]
 
 
@@ -58,12 +49,11 @@ def test_encryption_none_and_empty_count_as_open():
 
 
 def test_wep_is_not_open_network():
-    # WEP is weak, but it is encrypted -> not the "open-network" flag (only verify/vpn matter here).
     assert impl.solve({"encryption": "wep", "verified": True, "vpn": True}) == []
 
 
 def test_output_sorted_and_deduplicated():
-    out = impl.solve({"encryption": "open"})  # everything missing -> all three flags
+    out = impl.solve({"encryption": "open"})
     assert out == ["no-vpn", "open-network", "unverified-ssid"]
     assert out == sorted(set(out))
 

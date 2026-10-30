@@ -2,11 +2,6 @@ import sqlite3
 
 
 def authenticate(users, username, password):
-    """
-    Parameterized login: the SQL template is fixed and the user values are bound
-    separately as data, so injected SQL syntax is treated as an ordinary (and
-    non-existent) username rather than as part of the query structure.
-    """
     conn = sqlite3.connect(":memory:")
     cur = conn.cursor()
     cur.execute("CREATE TABLE users (username TEXT, role TEXT, password TEXT)")

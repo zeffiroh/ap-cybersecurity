@@ -1,9 +1,3 @@
-"""Test suite for 5.1.d — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_low_public_small():
     report = {"categories": ["public"], "record_count": 50, "days_to_detect": 1}
     assert impl.solve(report) == {"score": 0, "label": "low"}
@@ -43,7 +36,6 @@ def test_hashed_auth_only():
     assert impl.solve(report) == {"score": 15, "label": "low"}
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_high_financial_million_records_fast_detect():
     report = {"categories": ["financial"], "record_count": 2_000_000, "days_to_detect": 1}
     assert impl.solve(report) == {"score": 70, "label": "high"}

@@ -1,9 +1,3 @@
-"""Test suite for 4.1.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_default_credentials():
     device = {"default_password": True, "firmware_outdated": True, "open_ports": [23],
               "unauthenticated_api": True, "encrypted_traffic": False}
@@ -59,9 +52,7 @@ def test_example_secure():
     assert impl.solve(device) == "secure"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty_dict_is_secure():
-    # missing keys default to the safe value for that key
     assert impl.solve({}) == "secure"
 
 
@@ -84,17 +75,14 @@ def test_other_ports_do_not_count():
 
 
 def test_priority_order():
-    # everything is wrong at once — must return the HIGHEST priority verdict
     device = {"default_password": True, "firmware_outdated": True, "open_ports": [23, 21],
               "unauthenticated_api": True, "encrypted_traffic": False}
     assert impl.solve(device) == "default_credentials"
 
-    # no default password, but everything else wrong -> outdated_firmware wins next
     device2 = {"default_password": False, "firmware_outdated": True, "open_ports": [23],
                "unauthenticated_api": True, "encrypted_traffic": False}
     assert impl.solve(device2) == "outdated_firmware"
 
-    # only port + api + traffic wrong -> exposed_port wins over the two below it
     device3 = {"default_password": False, "firmware_outdated": False, "open_ports": [23],
                "unauthenticated_api": True, "encrypted_traffic": False}
     assert impl.solve(device3) == "exposed_port"

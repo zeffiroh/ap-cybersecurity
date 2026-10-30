@@ -1,4 +1,3 @@
-"""Reading a skill's sources (atom.md, quiz.yaml, problem/, tutor.md) and adapting problem text for the web."""
 import re
 import sys
 
@@ -8,8 +7,6 @@ from .util import rd
 
 
 def escape_tags(s):
-    """Markdown passes HTML through as markup, so an example like <script> in prose would run.
-    Escape tags written outside code; code spans and fences are escaped by Markdown itself."""
     parts = re.split(r"(```.*?```|`[^`\n]*`)", s, flags=re.S)
     for i in range(0, len(parts), 2):
         parts[i] = re.sub(r"(?<!\\)<(?=[A-Za-z/!])", "&lt;", parts[i])
@@ -21,7 +18,6 @@ def md(s, extensions=("tables", "fenced_code")):
 
 
 def sections(text):
-    """Markdown -> (text before the first '## ', [(heading, body), ...])."""
     head, *rest = re.split(r"(?m)^## ", text)
     out = []
     for r in rest:
@@ -31,7 +27,6 @@ def sections(text):
 
 
 def bullets(body):
-    """'- item' lines with their wrapped continuation lines joined into one line each."""
     items = []
     for line in body.splitlines():
         if line.startswith("- "):
@@ -46,10 +41,9 @@ def one_line(s):
 
 
 def lead(lesson):
-    """Teaser for the pre-lecture post: the lesson's first prose paragraph, up to 3 sentences / 420 chars."""
     paras = [re.sub(r"^(#+ .*\n?)+", "", p.strip()).strip() for p in lesson.split("\n\n")]
     para = next(p for p in paras if p and not p.startswith(("#", "-", "|", "```")))
-    sents = re.split(r"(?<=[.!?])(\s+)", para)                     # sentence, separator, sentence, ...
+    sents = re.split(r"(?<=[.!?])(\s+)", para)
     out = sents[0]
     for i in range(2, min(len(sents), 5), 2):
         if len(out) + len(sents[i - 1]) + len(sents[i]) > 420:
@@ -81,9 +75,6 @@ def parse_atom(d):
             "try": bullets(S.get("Try it", ""))}
 
 
-# ------------------------------------------- web adaptation of problem text --
-# In the browser the student works in an editor, so every reference to the command-line
-# files is rewritten to the matching part of the web page.
 FILE_REFS = [
     (r"[^\n]*`?python -m pytest[^\n]*\n?",
      "Your code passes when every test below shows a checkmark (some are hidden until you run them).\n"),
@@ -111,8 +102,8 @@ def web_text(s):
 
 def web_prompt(s):
     s = web_text(s)
-    s = re.sub(r"\n## How to run\n```\n.*?```\n?", "\n", s, flags=re.S)   # CLI instructions don't apply on the web
-    s = re.sub(r'(".*?")\s{2,}(->)', r"\1 \2", s)                         # un-align example arrows
+    s = re.sub(r"\n## How to run\n```\n.*?```\n?", "\n", s, flags=re.S)
+    s = re.sub(r'(".*?")\s{2,}(->)', r"\1 \2", s)
     return s.rstrip("\n") + "\n"
 
 
@@ -121,14 +112,13 @@ def web_code(s):
 
 
 def web_tests(s):
-    """Replace the IMPL-env-var loader with `import impl` (the browser registers the student's code as impl)."""
-    body = re.sub(r'(?s)^\s*""".*?"""\n', "", s, count=1)             # module docstring talks about IMPL / CLI
-    body = re.sub(r"(?m)^def _load\(path\):\n(?:[ \t]+.*\n)+", "", body)   # the file loader
+    body = re.sub(r'(?s)^\s*""".*?"""\n', "", s, count=1)
+    body = re.sub(r"(?m)^def _load\(path\):\n(?:[ \t]+.*\n)+", "", body)
     body = re.sub(r"(?m)^(?:_HERE|_TARGET) = .*\n", "", body)
     body = re.sub(r"(?m)^impl = _load\(_TARGET\)\n", "", body)
     body = re.sub(r"(?m)^import importlib\.util, os, pathlib\n", "", body)
     body = re.sub(r"(?m)^import importlib\.util\n", "", body)
-    for mod in ("os", "pathlib"):                                          # drop only if now unused
+    for mod in ("os", "pathlib"):
         if not re.search(rf"\b{mod}\.", re.sub(rf"(?m)^import {mod}\n", "", body)):
             body = re.sub(rf"(?m)^import {mod}\n", "", body)
     body = re.sub(r"\n{3,}", "\n\n\n", body)
@@ -136,7 +126,6 @@ def web_tests(s):
 
 
 def verify_problems(atoms):
-    """Run every web test file the way the browser does: the solution must pass, the starter must fail."""
     import types
     bad = []
     for a in atoms:

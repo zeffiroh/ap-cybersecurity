@@ -1,9 +1,3 @@
-"""Test suite for 3.1.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1():
     packets = [
         {"src_ip": "10.0.1.55",  "dst_ip": "10.0.1.1", "expected_subnet": "10.0.1.0/24"},
@@ -40,7 +33,6 @@ def test_example_2():
     assert impl.solve(packets) == [1]
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty():
     assert impl.solve([]) == []
 

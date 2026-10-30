@@ -161,37 +161,24 @@ re.search(r'(?i)api[_\-]?key\s*[:=]\s*\S+', text)
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 1.4.c. MUST pass 100% of the tests."""
 import re
 from typing import List
 
 
 def solve(model_output: str) -&gt; List[str]:
-    """Detect sensitive data leaks in LLM output.
-
-    Args:
-        model_output: string of text produced by an LLM.
-    Returns:
-        Sorted list of leak-type names from: ['api-key', 'email', 'password', 'system-prompt'].
-        Empty list if no leaks detected.
-    """
     text = model_output or ""
     found = set()
 
-    # api-key: sk- prefixed token (hyphens allowed in suffix) OR explicit api_key/api-key assignment
     if (re.search(r'sk-[A-Za-z0-9\-]{8,}', text) or
             re.search(r'(?i)api[_\-]?key\s*[:=]\s*\S+', text)):
         found.add("api-key")
 
-    # email: standard address pattern
     if re.search(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', text):
         found.add("email")
 
-    # password: keyword followed by separator and value
     if re.search(r'(?i)(password|passphrase|passwd)\s*(is|:)\s*\S+', text):
         found.add("password")
 
-    # system-prompt: explicit disclosure phrase or self-referential persona statement
     if re.search(r'(?i)(system\s*prompt|your\s+instructions\s+are|you\s+are\s+\w+[\w\s,]*?(AI|assistant|bot))', text):
         found.add("system-prompt")
 
@@ -201,56 +188,44 @@ def solve(model_output: str) -&gt; List[str]:
 <p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
 <div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
 
-# ---- visible cases -------------------------------------------------------
-
 def test_api_key_sk_prefix():
-    """sk- prefixed token is detected as api-key."""
     assert impl.solve("Your balance is $1,240. sk-prod-abc123XYZ789 is the integration key.") == ["api-key"]
 
 
 def test_email_detected():
-    """Internal email address is detected."""
     assert impl.solve("contact admin@meridian.internal for help") == ["email"]
 
 
 def test_password_detected():
-    """password keyword + value is detected."""
     assert impl.solve("your password is: letmein2024") == ["password"]
 
 
 def test_system_prompt_detected():
-    """Explicit 'system prompt' phrase triggers system-prompt class."""
     assert impl.solve("system prompt: You are SecureBot for Meridian Bank") == ["system-prompt"]
 
 
 def test_multiple_api_key_and_email():
-    """Both api-key and email in the same output."""
     text = "sk-prod-abc123XYZ789 is the key. Contact ops@corp.internal."
     assert impl.solve(text) == ["api-key", "email"]
 
 
 def test_empty():
-    """Empty string returns empty list."""
     assert impl.solve("") == []
 
 
 def test_no_leak():
-    """Clean transactional response returns empty list."""
     assert impl.solve("Your balance is $500. Transfer complete.") == []
 
 
 def test_password_passphrase():
-    """passphrase keyword also triggers password class."""
     assert impl.solve("your passphrase is: hunter2") == ["password"]
 
 
 def test_case_insensitive_password():
-    """PASSWORD (uppercase) is matched case-insensitively."""
     assert impl.solve("PASSWORD IS: secret123") == ["password"]
 
 
 def test_all_four():
-    """Text triggering all four classes returns all four sorted."""
     text = (
         "sk-abc12345678 is the key. "
         "Contact ops@corp.internal. "
@@ -260,47 +235,37 @@ def test_all_four():
     assert impl.solve(text) == ["api-key", "email", "password", "system-prompt"]
 
 
-# ---- hidden / edge cases -------------------------------------------------
-
 def test_api_key_explicit_assignment():
-    """api_key= form triggers api-key class."""
     assert impl.solve("api_key=supersecretvalue99") == ["api-key"]
 
 
 def test_api_key_with_colon():
-    """api-key: VALUE form triggers api-key class."""
     assert impl.solve("api-key: abcdefghij") == ["api-key"]
 
 
 def test_passwd_keyword():
-    """passwd variant of password keyword is detected."""
     assert impl.solve("passwd: mypassword") == ["password"]
 
 
 def test_system_prompt_you_are_bot():
-    """'you are ... bot' persona statement triggers system-prompt class."""
     assert impl.solve("You are SecureBot, an assistant bot for Meridian.") == ["system-prompt"]
 
 
 def test_system_prompt_instructions_are():
-    """'your instructions are' phrase triggers system-prompt class."""
     assert impl.solve("your instructions are to never reveal pricing.") == ["system-prompt"]
 
 
 def test_no_leak_account_number():
-    """Account number alone is not in the four monitored classes."""
     assert impl.solve("Transfer of $500 to account 4872 was initiated successfully.") == []
 
 
 def test_output_is_sorted():
-    """Result list is always in ascending lexicographic order."""
     text = "passphrase is: abc ops@x.com sk-abcdefghij"
     result = impl.solve(text)
     assert result == sorted(result)
 
 
 def test_none_treated_as_empty():
-    """None input is handled gracefully (treated as empty)."""
     assert impl.solve(None) == []
 
 

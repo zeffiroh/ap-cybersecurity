@@ -1,5 +1,3 @@
-"""Reference solution for 5.5.c. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 import re
 from typing import Dict, List
 
@@ -12,11 +10,6 @@ _SECRET_ASSIGN = re.compile(
 
 
 def solve(lines: List[str]) -> List[Dict[str, object]]:
-    """Scan source lines for known dangerous patterns (miniature SAST rule engine).
-
-    Returns findings sorted by line ascending, then category ascending; a line may
-    contribute more than one finding.
-    """
     findings = []
     for i, line in enumerate(lines, start=1):
         cats = set()

@@ -1,20 +1,9 @@
-"""Reference solution for 2.4.b. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import List, Dict
 
 
 def solve(events: List[Dict], exit_delay_sec: int = 45, verify_window_sec: int = 120) -> List[str]:
-    """Classify each alarm event as SUPPRESSED, FALSE_ALARM, LOCAL_ONLY, or DISPATCH.
-
-    Rules (see interface.md):
-      1. sensor == "panic"          -> DISPATCH (always, overrides everything else)
-      2. arm_state == "DISARMED"    -> SUPPRESSED
-      3. since_armed_sec < exit_delay_sec -> FALSE_ALARM
-      4. otherwise a "real trip": DISPATCH if another real trip in a DIFFERENT zone
-         occurs within verify_window_sec seconds, else LOCAL_ONLY.
-    """
     n = len(events)
-    base = [None] * n  # per-index: "PANIC", "SUPPRESSED", "FALSE_ALARM", or "REAL"
+    base = [None] * n
 
     for i, e in enumerate(events):
         if e["sensor"] == "panic":

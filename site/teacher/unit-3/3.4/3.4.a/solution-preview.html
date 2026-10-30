@@ -131,17 +131,10 @@ Implicit default if no rule matches: <code>"drop"</code>.</p>
 <h3>Acceptance</h3>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
 <div class="nb-cell nb-code"># Reference solution
-"""Reference solution for 3.4.a. MUST pass 100% of the tests.
-Also the default 'blackbox' implementation students can swap out (see the hidden grading tests).
-
-Implements a stateless and stateful packet classifier demonstrating the core difference
-between the two firewall inspection models.
-"""
 from typing import List, Dict, Any
 
 
 def _match_rules(rules: List[Dict], packet: Dict) -&gt; str:
-    """Apply rule list top-to-bottom; return first matched action, or 'drop'."""
     for rule in rules:
         proto_ok = rule["proto"] == "any" or rule["proto"] == packet["proto"]
         dport_ok = rule["dport"] == 0 or rule["dport"] == packet["dport"]
@@ -151,21 +144,9 @@ def _match_rules(rules: List[Dict], packet: Dict) -&gt; str:
 
 
 def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
-    """Classify each packet as 'allow' or 'drop' using the given rule set.
-
-    Args:
-        rules:   Ordered list of rule dicts (action, proto, dport).
-        packets: List of packet dicts (src, dst, sport, dport, proto, flags).
-        mode:    'stateless' or 'stateful'.
-
-    Returns:
-        List of 'allow' / 'drop' verdicts, one per packet.
-    """
     if mode == "stateless":
         return [_match_rules(rules, pkt) for pkt in packets]
 
-    # Stateful mode: maintain a connection-tracking table.
-    # Key: (src, dst, sport, dport, proto)  Value: state string
     table: Dict[tuple, str] = {}
     verdicts: List[str] = []
 
@@ -176,7 +157,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
         rev = (pkt["dst"], pkt["src"], pkt["dport"], pkt["sport"], proto)
 
         if proto != "tcp":
-            # Non-TCP: rule matching only.
             verdicts.append(_match_rules(rules, pkt))
             continue
 
@@ -199,10 +179,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
             if table.get(key) == "ESTABLISHED" or table.get(rev) == "ESTABLISHED":
                 verdicts.append("allow")
             else:
-                # No established session for this exact endpoint pair: a stateful
-                # firewall drops it even if a static rule would otherwise permit
-                # the port, because it cannot verify the packet belongs to a real
-                # connection.
                 verdicts.append("drop")
 
         elif flags in ("RST", "FIN"):
@@ -214,7 +190,6 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
                 verdicts.append("drop")
 
         else:
-            # Unknown flag: rule matching.
             verdicts.append(_match_rules(rules, pkt))
 
     return verdicts
@@ -234,9 +209,6 @@ def test_example_stateless():
         {"src": "10.0.0.5", "dst": "203.0.113.10", "sport": 443, "dport": 55001, "proto": "tcp", "flags": "SYN-ACK"},
         {"src": "198.51.100.7", "dst": "10.0.0.5", "sport": 44000, "dport": 443, "proto": "tcp", "flags": "ACK"},
     ]
-    # Stateless mode judges each packet by header fields alone (no memory of prior
-    # packets), so the SYN-ACK (dport 55001, matches no rule) is dropped even though
-    # it is legitimate return traffic; the SYN and rogue ACK both match dport 443.
     assert impl.solve(rules, packets, "stateless") == ["allow", "drop", "allow"]
 
 
@@ -246,9 +218,6 @@ def test_example_stateful():
         {"action": "allow", "proto": "tcp", "dport": 80},
         {"action": "drop", "proto": "any", "dport": 0},
     ]
-    # Handshake packet 1: Client -&gt; Server SYN (Allowed by rule dport 443)
-    # Handshake packet 2: Server -&gt; Client SYN-ACK (Allowed because reverse connection exists)
-    # Handshake packet 3: Rogue client -&gt; Server ACK (Dropped because no prior SYN)
     packets = [
         {"src": "203.0.113.10", "dst": "10.0.0.5", "sport": 55001, "dport": 443, "proto": "tcp", "flags": "SYN"},
         {"src": "10.0.0.5", "dst": "203.0.113.10", "sport": 443, "dport": 55001, "proto": "tcp", "flags": "SYN-ACK"},
@@ -263,17 +232,11 @@ def test_stateful_handshake_flow():
         {"action": "drop", "proto": "any", "dport": 0}
     ]
     packets = [
-        # 1. SYN to port 80 (Allowed by rule)
         {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "SYN"},
-        # 2. SYN-ACK back (Allowed by state)
         {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "SYN-ACK"},
-        # 3. ACK to port 80 (Allowed by state)
         {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "ACK"},
-        # 4. DATA from server (Allowed by state)
         {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "DATA"},
-        # 5. FIN from client (Allowed, closes state)
         {"src": "10.0.0.2", "dst": "192.168.1.10", "sport": 12345, "dport": 80, "proto": "tcp", "flags": "FIN"},
-        # 6. Subsequent DATA from server (Dropped because connection was torn down)
         {"src": "192.168.1.10", "dst": "10.0.0.2", "sport": 80, "dport": 12345, "proto": "tcp", "flags": "DATA"}
     ]
     assert impl.solve(rules, packets, "stateful") == ["allow", "allow", "allow", "allow", "allow", "drop"]
@@ -285,9 +248,7 @@ def test_non_tcp_stateful():
         {"action": "drop", "proto": "any", "dport": 0}
     ]
     packets = [
-        # UDP matches rule (allow)
         {"src": "10.0.0.2", "dst": "8.8.8.8", "sport": 12345, "dport": 53, "proto": "udp", "flags": ""},
-        # UDP does not match rule (drop)
         {"src": "10.0.0.2", "dst": "8.8.8.8", "sport": 12345, "dport": 54, "proto": "udp", "flags": ""}
     ]
     assert impl.solve(rules, packets, "stateful") == ["allow", "drop"]

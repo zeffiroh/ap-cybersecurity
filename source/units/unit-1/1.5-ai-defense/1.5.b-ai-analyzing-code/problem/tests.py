@@ -1,9 +1,3 @@
-"""Test suite for 1.5.b — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_eval_only():
     assert impl.solve("result = eval(user_input)") == ["vuln:eval"]
 
@@ -41,7 +34,6 @@ def test_clean_code():
     assert impl.solve("x = 1 + 2\nprint(x)") == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_empty_string():
     assert impl.solve("") == []
 
@@ -91,10 +83,8 @@ def test_sorted_output():
 
 
 def test_no_false_positive_md5_variable():
-    # "md5_value" does not contain "md5(" so should not trigger
     assert impl.solve("md5_value = compute_hash()") == []
 
 
 def test_shell_false_not_flagged():
-    # shell=False is not dangerous — should not trigger
     assert impl.solve("subprocess.run(cmd, shell=False)") == []

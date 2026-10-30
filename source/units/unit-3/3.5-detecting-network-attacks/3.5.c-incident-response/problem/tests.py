@@ -1,7 +1,3 @@
-"""Test suite for 3.5.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var.
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib

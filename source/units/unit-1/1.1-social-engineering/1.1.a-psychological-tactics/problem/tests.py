@@ -1,9 +1,3 @@
-"""Test suite for 1.1.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_single_urgency():
     assert impl.solve("Your account will be locked in 24 hours. Act now.") == ["intimidation", "urgency"]
 
@@ -39,7 +32,6 @@ def test_none():
     assert impl.solve("Lunch is in the kitchen, help yourself.") == []
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_case_insensitive():
     assert impl.solve("URGENT: the CEO needs this ASAP") == ["authority", "urgency"]
 

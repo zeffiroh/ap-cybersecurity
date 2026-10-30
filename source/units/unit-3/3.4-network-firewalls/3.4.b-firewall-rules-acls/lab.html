@@ -82,7 +82,6 @@ deny any any any any</textarea>
     document.getElementById("debrief").classList.remove("show");
   });
 
-  // Fixed test traffic. dst is the protected server 10.0.0.5.
   var PACKETS = [
     { proto: "tcp", src: "203.0.113.9",  dst: "10.0.0.5", dport: 443,  note: "web client (HTTPS)" },
     { proto: "tcp", src: "198.51.100.7", dst: "10.0.0.5", dport: 80,   note: "web client (HTTP)" },
@@ -93,7 +92,7 @@ deny any any any any</textarea>
     { proto: "tcp", src: "10.0.0.9",     dst: "10.0.0.5", dport: 445,  note: "SMB (file share)" },
     { proto: "tcp", src: "203.0.113.9",  dst: "10.0.0.5", dport: 8080, note: "alt-HTTP probe" }
   ];
-  var ATTACK = PACKETS[3]; // the RDP 3389 packet
+  var ATTACK = PACKETS[3];
 
   function parseRules(text) {
     var rules = [], warnings = [];
@@ -143,14 +142,12 @@ deny any any any any</textarea>
       return "<tr><td>" + "</td><td>" + esc(pktStr) + "<br><span style='color:#777'>" + esc(pkt.note) + "</span></td>" +
         "<td>" + ruleLabel + "</td><td class='" + cls + "'>" + r.verdict.toUpperCase() + "</td></tr>";
     }).join("");
-    // number the rows
     Array.prototype.forEach.call(tb.querySelectorAll("tr"), function (tr, i) { tr.cells[0].textContent = i + 1; });
 
     checkMissions(rules);
   }
 
   function broadAllowIndex(rules) {
-    // an allow rule that matches the attack's proto/src/dst but leaves the port open (any)
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
       if (r.action === "allow" && r.dport === "any" &&

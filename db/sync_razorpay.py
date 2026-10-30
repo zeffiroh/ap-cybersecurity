@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Copy Razorpay payments into the database, and unlock the course for everyone who paid.
-
-    python db/sync_razorpay.py          the last 60 days (everything, the first time)
-    python db/sync_razorpay.py --all    everything since the account opened
-
-Run every 5 minutes by .github/workflows/ledger.yml. A captured payment from the course's payment page
-(PAGE_ID) unlocks the email typed in its EMAIL_FIELD; a full refund takes that unlock back. Re-reading 60
-days picks up refunds and late captures. Keys come from RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, or from
-the CSV named by RAZORPAY_KEY_FILE (columns key_id, key_secret); the database as in db/sql.py.
-The repository is public and so are workflow logs: nothing about the payments is printed.
-"""
 import base64
 import csv
 import json
@@ -26,10 +15,10 @@ from psycopg.types.json import Jsonb
 from sql import url
 
 API = "https://api.razorpay.com/v1"
-PAGE_ID = "pl_TtJ7iha8pa0yTa"                       # rzp.io/rzp/unlock-aap-cybersecurity
+PAGE_ID = "pl_TtJ7iha8pa0yTa"
 EMAIL_FIELD = "email_you_sign_in_to_the_course_with"
-PRIVATE = re.compile(r"phone|contact|mobile", re.I)  # form fields never stored
-EARLIEST = 946684800                                 # 2000-01-01, the oldest "from" Razorpay accepts
+PRIVATE = re.compile(r"phone|contact|mobile", re.I)
+EARLIEST = 946684800
 PAGE = 100
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
@@ -64,7 +53,6 @@ def payments(since):
 
 
 def notes(p, orders):
-    """The payment's form fields: on the payment, or on the order the payment page made for it."""
     n = p.get("notes") or {}
     n = dict(n) if isinstance(n, dict) else {}
     if EMAIL_FIELD not in n and p.get("order_id"):
@@ -115,10 +103,10 @@ def main():
                 db.execute("insert into unlocks (email, via, ref) select %s, 'razorpay', %s "
                            "where not exists (select 1 from unlocks where via = 'razorpay' and ref = %s)",
                            (email, ref, ref))
-            else:                                    # refunded in full, or not captured after all
+            else:
                 db.execute("update unlocks set revoked = true where via = 'razorpay' and ref = %s", (ref,))
         db.execute("insert into payments (id, status, created_at) values ('_sync', 'sync', now()) "
-                   "on conflict (id) do update set synced_at = now()")   # when it last ran, even with no sales
+                   "on conflict (id) do update set synced_at = now()")
     print("Razorpay sync done.")
 
 

@@ -1,16 +1,14 @@
-/* Quiz Engine (shared across all topics) */
-
 const QuizEngine = (() => {
-  let questions = [];   // normalized flat list
+  let questions = [];
   let current = 0;
   let practiceMode = true;
   let started = false;
-  let answers = {};     // qid -> { selectedKey, correct, struck:[] }
-  let struckByQ = {};   // qid -> Set of struck keys
-  let skippedByQ = {};  // qid -> true once visited-and-left-unanswered
+  let answers = {};
+  let struckByQ = {};
+  let skippedByQ = {};
   let quizTopicId = null;
   let studentEmail = null;
-  let recorded = false; // guards against double-submit if finish() runs twice
+  let recorded = false;
 
   function normalizeSimple(data) {
     return (data.questions || []).map(q => ({
@@ -74,8 +72,6 @@ const QuizEngine = (() => {
   }
 
   function renderGenericArtifact(data, format) {
-    // Generic renderer for the varying artifact shapes produced by
-    // build_unit_stimulus_quiz.py's el_to_generic() conversion.
     if (typeof data === "string") return escapeHtml(data);
 
     if (data.email) {
@@ -88,7 +84,6 @@ const QuizEngine = (() => {
       }).join("");
     }
 
-    // Fallback: pretty-print any nested structure as indented text
     return escapeHtml(JSON.stringify(data, null, 2));
   }
 
@@ -230,7 +225,7 @@ const QuizEngine = (() => {
 
   function selectChoice(key) {
     const q = questions[current];
-    if (answers[q.id]) return; // already answered
+    if (answers[q.id]) return;
     document.querySelectorAll(".q-choice").forEach(el => el.classList.remove("selected"));
     const el = document.querySelector('.q-choice[data-key="' + key + '"]');
     if (el) el.classList.add("selected");
@@ -303,13 +298,12 @@ const QuizEngine = (() => {
     return bySkill;
   }
 
-  /* Concurrent on purpose; each answer is its own row in Neon. */
   function recordToReportCard() {
     if (recorded || !window.Backend || !studentEmail || !quizTopicId) return;
     recorded = true;
     questions.forEach(q => {
       const ans = answers[q.id];
-      if (!ans) return; // skipped questions were never answered
+      if (!ans) return;
       window.Backend.submit({
         email: studentEmail,
         topic_id: quizTopicId,
@@ -349,7 +343,6 @@ const QuizEngine = (() => {
       );
     }).join("");
 
-    // Mastery gate (README, async learner loop): 80% to move on, otherwise review and retake.
     const MASTERY = 80;
     const crumb = document.querySelector(".top-nav .crumb a");
     const backLink = crumb

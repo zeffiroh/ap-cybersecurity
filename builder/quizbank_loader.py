@@ -1,21 +1,13 @@
-"""
-Parses unit_quizbank_*.xml files and pre-renders artifacts to HTML
-for injection into the frontend stimulus panel.
-"""
 import xml.etree.ElementTree as ET
 import html as html_mod
 import os, glob, re
 
 
-# --------------------------------------------------------------------------- #
-# Public API                                                                    #
-# --------------------------------------------------------------------------- #
-
 class QuizLoader:
     def __init__(self, quizbanks_dir: str = 'quizbanks'):
-        self.units      : dict[str, dict] = {}   # unit_id → meta
-        self.items      : dict[str, dict] = {}   # item_id → item
-        self.unit_items : dict[str, list] = {}   # unit_id → [item_id, ...]
+        self.units      : dict[str, dict] = {}
+        self.items      : dict[str, dict] = {}
+        self.unit_items : dict[str, list] = {}
         self._load_all(quizbanks_dir)
 
     def _load_all(self, directory: str):
@@ -42,7 +34,6 @@ class QuizLoader:
 
         self.units[uid]['count'] = len(self.unit_items[uid])
 
-    # ---------------------------------------------------------------------- #
 
     def get_items(self, unit_id: str) -> list:
         return [self.items[i] for i in self.unit_items.get(unit_id, [])]
@@ -53,10 +44,6 @@ class QuizLoader:
     def unit_list(self) -> list:
         return list(self.units.values())
 
-
-# --------------------------------------------------------------------------- #
-# XML parsing                                                                   #
-# --------------------------------------------------------------------------- #
 
     def _parse_stimulus(self, el) -> dict:
         if el is None:
@@ -116,10 +103,6 @@ class QuizLoader:
         }
 
 
-# --------------------------------------------------------------------------- #
-# Helpers                                                                       #
-# --------------------------------------------------------------------------- #
-
 def _txt(el, tag: str, default: str = '') -> str:
     if el is None:
         return default
@@ -130,22 +113,16 @@ def _txt(el, tag: str, default: str = '') -> str:
 
 
 def _h(s: str) -> str:
-    """HTML-escape a string."""
     return html_mod.escape(str(s or ''))
 
 
 def _inner(el) -> str:
-    """All text content of an element (recursive)."""
     parts = [el.text or '']
     for child in el:
         parts.append(_inner(child))
         parts.append(child.tail or '')
     return ''.join(parts).strip()
 
-
-# --------------------------------------------------------------------------- #
-# Artifact → HTML renderers                                                     #
-# --------------------------------------------------------------------------- #
 
 def render_artifact(el) -> str:
     if el is None:
@@ -208,7 +185,6 @@ def _render_email_single(el) -> str:
     subj = _h(_inner_tag(el, 'subject'))
     body = _h(_inner_tag(el, 'body'))
     att  = _inner_tag(el, 'attachment')
-    # technical headers
     hdrs_el = el.find('technical_headers')
     hdrs_html = ''
     if hdrs_el is not None:
@@ -416,10 +392,8 @@ def _render_composite(el) -> str:
         ctype = comp.get('type', 'text')
         label_el = comp.find('label')
         label = _h((label_el.text or '').strip()) if label_el is not None else _h(f'Component {cid}')
-        # Render the component content based on its type
         inner_html = _render_by_type(ctype, comp)
         parts.append(f'<div class="art-comp-block"><div class="art-comp-label">{label}</div>{inner_html}</div>')
-    # Also handle direct email children (email_thread nested in composite)
     parts.append('</div>')
     return ''.join(parts)
 
@@ -475,7 +449,6 @@ def _render_generic(el) -> str:
 
 
 def _inner_tag(el, tag: str) -> str:
-    """Get inner text of a direct child tag."""
     child = el.find(tag)
     if child is None:
         return ''

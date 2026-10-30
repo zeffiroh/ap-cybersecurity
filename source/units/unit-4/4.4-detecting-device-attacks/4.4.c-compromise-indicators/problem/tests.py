@@ -1,9 +1,3 @@
-"""Test suite for 4.4.c — the blackbox acceptance contract.
-Imports the implementation under test via IMPL env var so the SAME tests grade:
-  - solution.py   (reference, must be green)
-  - starter.py    (must be red until completed)
-Default target is solution.py.
-"""
 import importlib.util
 import os
 import pathlib
@@ -22,7 +16,6 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-# ---- visible cases -------------------------------------------------------
 def test_example_1_compromised():
     assert impl.solve(["av_disabled", "new_admin_account"]) == "compromised"
 
@@ -35,7 +28,6 @@ def test_example_3_suspicious():
     assert impl.solve(["new_admin_account", "failed_login_cluster"]) == "suspicious"
 
 
-# ---- hidden / edge cases -------------------------------------------------
 def test_edge_empty_list_is_clean():
     assert impl.solve([]) == "clean"
 
@@ -45,8 +37,6 @@ def test_unknown_ioc_contributes_zero():
 
 
 def test_duplicate_iocs_not_double_counted():
-    # av_disabled alone = 5 (suspicious). If duplicated and double-counted it would
-    # wrongly become 10 (compromised).
     assert impl.solve(["av_disabled", "av_disabled", "av_disabled"]) == "suspicious"
 
 

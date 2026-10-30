@@ -1,4 +1,3 @@
-/* grading persistence */
 (function (global) {
   "use strict";
 
@@ -27,8 +26,6 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      // Storage full, disabled, or private-browsing, degrade silently,
-      // same spirit as the old no-backend-configured no-op.
     }
   }
 
@@ -40,9 +37,6 @@
     var maxPoints = typeof payload.maxPoints === "number" ? payload.maxPoints : 1;
     var email = String(payload.email || "").trim().toLowerCase();
 
-    // Pending items (e.g. an exit ticket awaiting instructor grading) have no
-    // score yet, so they must not count toward totals or show up as "wrong" —
-    // they're tracked separately and rendered in the Exit Tickets section.
     if (isPending) {
       if (!data.pending) data.pending = {};
       if (!data.pending[payload.topic_id]) data.pending[payload.topic_id] = {};
@@ -69,14 +63,11 @@
       };
       data.history.push({ points: points, maxPoints: maxPoints, email: email, ts: Date.now() });
       if (data.history.length > 500) data.history = data.history.slice(-500);
-      // A pending item that finally got graded moves out of "pending".
       if (data.pending && data.pending[payload.topic_id]) {
         delete data.pending[payload.topic_id][payload.item_id];
       }
     }
 
-    // Per-attempt history for coding problems, so students can review or
-    // restore an earlier submission (see pyodide-runner.js's "Past Attempts").
     if (payload.kind === "coding_problem") {
       if (!data.attempts) data.attempts = {};
       if (!data.attempts[payload.topic_id]) data.attempts[payload.topic_id] = {};
@@ -172,7 +163,7 @@
     Object.keys(local.byTopic).forEach(function (topicId) {
       var items = local.byTopic[topicId].items;
       Object.keys(items).forEach(function (itemId) {
-        if (items[itemId].email !== me) return; // another student on this device, or untagged legacy data
+        if (items[itemId].email !== me) return;
         if (!byTopic[topicId]) byTopic[topicId] = { items: {} };
         var key = topicId + "::" + itemId;
         var have = byTopic[topicId].items[itemId];
@@ -283,8 +274,6 @@
       return neonReady();
     },
 
-    /** Past submissions for one coding problem, most recent last. Always
-     *  local, replay is a per-device convenience, not a synced record. */
     getAttempts: function (topicId, itemId) {
       return localAttempts(topicId, itemId);
     }

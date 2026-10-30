@@ -1,4 +1,3 @@
-/* practice-question runner (mcq/multi/short) */
 (function (global) {
   "use strict";
 
@@ -122,8 +121,6 @@
   }
 
   var AssignmentEngine = {
-    /** Renders every practice item into `container` (a DOM node), gated
-     *  behind Identity.ensureEmail so submissions are attributable. */
     renderPracticeItems: function (items, container, topicId) {
       Identity.ensureEmail(function (email) {
         items.forEach(function (item) { renderCard(item, container, topicId, email); });

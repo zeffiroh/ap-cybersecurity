@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run SQL on the Neon database from the command line (no psql needed).
+USAGE = """Run SQL on the Neon database from the command line (no psql needed).
 
     python db/sql.py db/schema.sql                       run a file
     python db/sql.py "select * from unlock_codes"        run a statement and print the rows
@@ -27,7 +27,7 @@ def url():
 
 def main():
     if len(sys.argv) != 2:
-        sys.exit(__doc__)
+        sys.exit(USAGE)
     arg = sys.argv[1]
     sql = Path(arg).read_text(encoding="utf-8") if arg.endswith(".sql") else arg
     with psycopg.connect(url(), autocommit=True) as db:
