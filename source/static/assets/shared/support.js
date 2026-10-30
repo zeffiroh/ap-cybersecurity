@@ -5,7 +5,7 @@
      so it lives here rather than cluttering config.js. */
   var SUPPORT_COPY = {
     heading: "Support this course",
-    body: "This course and its textbook are free, and stay free. If your classroom has a budget for materials, a contribution covers hosting, diagram licensing, and the work of keeping every unit aligned to the current framework. Any amount is welcome, and nothing here is locked behind one.",
+    body: "If your classroom has a budget for materials, a contribution covers hosting, diagram licensing, and the work of keeping every unit aligned to the current framework. Any amount is welcome.",
     ctaLabel: "Support the course"
   };
 

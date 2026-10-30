@@ -720,7 +720,7 @@ def store_html(rel_pdf, rel_buy):
     return (f'<a href="{rel_pdf}">Download the textbook (PDF, password-protected)</a> '
             f'<a href="{rel_buy}">Buy the book</a>'
             ' <span class="store-note">Buy the PDF password or the ebook; after paying, the password is shown on '
-            'the thank-you page. The book is free to read online.</span>')
+            'the thank-you page. The web edition comes with the course.</span>')
 
 
 def pdf_password():
