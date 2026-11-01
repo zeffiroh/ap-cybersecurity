@@ -376,15 +376,15 @@ RAZORPAY - sell the PDF password (India)
 
 Buyers download the locked PDF from the course site and pay here for the password.
 
-1. https://dashboard.razorpay.com/app/paymentpages -> Create Payment Page.
-2. Title: "{TITLE} - textbook PDF". Description: paste the SHORT DESCRIPTION from ../store-listing.txt.
-   Logo / image: razorpay-logo-512x512.png (this folder).
-3. Amount: a fixed price (this page is separate from the course unlock page; don't reuse that one).
-   Customer details: Email (required), so you can resend the password.
-4. Settings -> "After payment": Custom message. Paste thank-you-message.txt (it contains the password).
-   No redirect: the password must stay on Razorpay's page, not on the public course site.
-5. Publish, copy the rzp.io link, and paste it as the first "pdf" entry in source/static/buy/index.html.
-6. Test once with Rs 1, then set the real price.
+The page is live: https://rzp.io/rzp/ap-cyber-security-mitali  (already on the buy page)
+Edit it at https://dashboard.razorpay.com/app/paymentpages
+
+Check once on that page:
+  [ ] Customer details ask for Email (required), so you can resend the password.
+  [ ] Settings -> "After payment": Custom message = thank-you-message.txt (it contains the password).
+      No redirect: the password must stay on Razorpay's page, not on the public course site.
+  [ ] Description: the SHORT DESCRIPTION from ../store-listing.txt. Image: razorpay-logo-512x512.png.
+  [ ] A Rs 1 test shows the password after paying.
 """)
     thanks = f"""
 Thank you for buying {TITLE}: {SUBTITLE}.
