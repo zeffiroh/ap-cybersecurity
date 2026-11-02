@@ -20,9 +20,15 @@ EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def get(path, **query):
-    query["access_token"] = os.environ["GUMROAD_ACCESS_TOKEN"]
-    with urllib.request.urlopen(f"{API}/{path}?{urllib.parse.urlencode(query)}", timeout=60) as r:
-        return json.load(r)
+    token = os.environ["GUMROAD_ACCESS_TOKEN"].strip()
+    query["access_token"] = token
+    req = urllib.request.Request(f"{API}/{path}?{urllib.parse.urlencode(query)}",
+                                 headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"Gumroad said {e.code}: {e.read().decode(errors='replace')[:300]}")
 
 
 def sales(after):
