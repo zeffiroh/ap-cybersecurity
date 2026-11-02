@@ -268,10 +268,10 @@ title: Password Attacks, An Overview
 ::::columns
 ::col::
 :::list heading="Common Attack Types" style=plain
-- **Brute Force**, Exhaustively tries all possible character combinations
-- **Dictionary Attack**, Uses precompiled lists of common passwords and dictionary words
-- **Credential Stuffing**, Leverages previously breached credentials across other services
-- **Password Spraying**, Tests a small set of common passwords across many accounts
+- **Brute Force**: Exhaustively tries all possible character combinations
+- **Dictionary Attack**: Uses precompiled lists of common passwords and dictionary words
+- **Credential Stuffing**: Leverages previously breached credentials across other services
+- **Password Spraying**: Tests a small set of common passwords across many accounts
 :::
 ::col::
 :::callout style=soft
@@ -543,11 +543,11 @@ Most enterprise systems lock accounts after 5–10 failed attempts. Spraying tes
 ::::
 
 :::list heading="Most Commonly Sprayed Passwords (Enterprise)" style=plain
-- `[CompanyName]2024!`, seasonal, company-branded patterns
+- `[CompanyName]2024!`: seasonal, company-branded patterns
 - `Welcome1!` / `Welcome2024`, new-hire defaults that go unchanged
-- `Password1!`, satisfies most legacy complexity requirements
-- `[Month][Year]!`, e.g., `January2024!`
-- `[Season][Year]!`, e.g., `Spring2024!`
+- `Password1!`: satisfies most legacy complexity requirements
+- `[Month][Year]!`: e.g., `January2024!`
+- `[Season][Year]!`: e.g., `Spring2024!`
 :::
 
 :::image src="images/06_password_spraying_diagram.png" alt="Grid diagram showing many user accounts on the left and a small set of passwords on the right; arrows show each password being tested against every account; highlighted cells show the small percentage that succeed; lockout counter below each account remains at 1 or 2 never reaching the threshold" caption="Password spraying: staying below the lockout threshold while testing at breadth, a few successes across thousands of accounts is enough" width=full
@@ -1297,12 +1297,12 @@ title: Adaptive Authentication, Context-Aware Access Control
 ::::columns
 ::col::
 :::list heading="Risk Signals Used in Adaptive Auth" style=plain
-- **Device recognition**, Known managed device vs. unrecognized personal device
-- **IP reputation**, Corporate network IP vs. Tor exit node or anonymizing VPN
-- **Geolocation**, User's home country vs. foreign country; "impossible travel" detection
-- **Time of access**, Business hours vs. 3 AM access outside normal patterns
-- **Behavior baseline**, Normal typing speed, navigation patterns vs. anomalous bot-like behavior
-- **Threat intelligence**, IP address matches known bad actor lists
+- **Device recognition**: Known managed device vs. unrecognized personal device
+- **IP reputation**: Corporate network IP vs. Tor exit node or anonymizing VPN
+- **Geolocation**: User's home country vs. foreign country; "impossible travel" detection
+- **Time of access**: Business hours vs. 3 AM access outside normal patterns
+- **Behavior baseline**: Normal typing speed, navigation patterns vs. anomalous bot-like behavior
+- **Threat intelligence**: IP address matches known bad actor lists
 :::
 ::col::
 :::callout style=line
@@ -1364,10 +1364,10 @@ SP grants access, user never re-authenticates
 :::
 ::col::
 :::list heading="SSO Protocols" style=plain
-- **SAML 2.0**, XML-based; widely used in enterprise; browser redirect model
-- **OAuth 2.0**, Authorization framework; "Sign in with Google/GitHub" consumer flows
-- **OpenID Connect (OIDC)**, Identity layer on top of OAuth 2.0; issues ID tokens (JWT)
-- **Kerberos**, Ticket-based; used internally in Windows Active Directory environments
+- **SAML 2.0**: XML-based; widely used in enterprise; browser redirect model
+- **OAuth 2.0**: Authorization framework; "Sign in with Google/GitHub" consumer flows
+- **OpenID Connect (OIDC)**: Identity layer on top of OAuth 2.0; issues ID tokens (JWT)
+- **Kerberos**: Ticket-based; used internally in Windows Active Directory environments
 :::
 ::::
 

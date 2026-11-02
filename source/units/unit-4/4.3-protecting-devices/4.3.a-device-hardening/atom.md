@@ -1,4 +1,4 @@
-# 4.3.a, Device hardening
+# 4.3.a: Device hardening
 
 > **Unit 4 · 4.3 Protecting Devices**
 > **AP Learning Objective(s):** 4.3.A
@@ -84,17 +84,17 @@ keys, and only the windows that are actually needed, versus a building where eve
 propped open and spare keys hang on a hook by the entrance.
 
 ## Key terms
-- **Device hardening**, the process of systematically removing or disabling unnecessary features,
+- **Device hardening**: the process of systematically removing or disabling unnecessary features,
   services, and accounts to reduce a device's attack surface before deployment.
-- **Attack surface**, the total set of points where an unauthorized user could attempt to interact
+- **Attack surface**: the total set of points where an unauthorized user could attempt to interact
   with or exploit a system.
-- **Default credentials**, factory-set usernames and passwords that are identical across many
+- **Default credentials**: factory-set usernames and passwords that are identical across many
   units of the same device model and are publicly known.
-- **Principle of least privilege**, every account and process should operate with only the
+- **Principle of least privilege**: every account and process should operate with only the
   minimum permissions required for its legitimate function.
-- **Configuration baseline**, a documented record of the approved secure state of a device,
+- **Configuration baseline**: a documented record of the approved secure state of a device,
   used as a reference to detect and correct drift.
-- **Configuration drift**, the gradual accumulation of unauthorized or unintended changes to a
+- **Configuration drift**: the gradual accumulation of unauthorized or unintended changes to a
   device's configuration over time.
 
 ## Common misconceptions

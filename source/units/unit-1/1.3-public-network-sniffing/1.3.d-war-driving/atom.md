@@ -1,4 +1,4 @@
-# 1.3.d, War driving; protecting yourself (verify SSIDs, avoid open networks, VPN)
+# 1.3.d: War driving; protecting yourself (verify SSIDs, avoid open networks, VPN)
 
 > **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
 > **AP Learning Objective(s):** 1.3.B, 1.3.C
@@ -82,11 +82,11 @@ plausibility. The intersection of physical-layer reconnaissance and social engin
 recurring theme in advanced attacks.
 
 ## Key terms
-- **War driving**, moving through a geographic area with a wireless scanner to discover and log Wi-Fi networks; used in legitimate research and as an attack-planning technique.
-- **Open network**, a Wi-Fi network requiring no password; all traffic is unencrypted at the wireless layer, visible to any device that joins or captures the channel.
-- **VPN (Virtual Private Network)**, software that creates an encrypted tunnel from your device to a trusted server before your traffic reaches the internet; protects against interception on hostile networks.
-- **SSID verification**, confirming the correct network name with venue staff or an official source before connecting, to avoid accidentally joining an evil twin or lookalike network.
-- **Risk flag**, a specific, nameable property of a network that raises the probability of interception or attack (e.g., "open-network", "unverified-ssid", "no-vpn").
+- **War driving**: moving through a geographic area with a wireless scanner to discover and log Wi-Fi networks; used in legitimate research and as an attack-planning technique.
+- **Open network**: a Wi-Fi network requiring no password; all traffic is unencrypted at the wireless layer, visible to any device that joins or captures the channel.
+- **VPN (Virtual Private Network)**: software that creates an encrypted tunnel from your device to a trusted server before your traffic reaches the internet; protects against interception on hostile networks.
+- **SSID verification**: confirming the correct network name with venue staff or an official source before connecting, to avoid accidentally joining an evil twin or lookalike network.
+- **Risk flag**: a specific, nameable property of a network that raises the probability of interception or attack (e.g., "open-network", "unverified-ssid", "no-vpn").
 
 ## Common misconceptions
 - "A password-protected network means I am safe." → WPA2 encrypts the air interface, but the access point operator can still read unencrypted traffic, and a compromised or malicious AP can intercept HTTPS via SSL stripping. A VPN provides an additional layer.

@@ -1,4 +1,4 @@
-# Coding problem, 1.1.c: Phishing indicator extractor
+# Coding problem 1.1.c: Phishing indicator extractor
 
 **Skill:** Analyze Risk, Detect Attacks · **Maps to:** 1.1.A, 1.1.C · **Language:** Python 3 (pytest)
 
@@ -15,18 +15,18 @@ Implement `solve(message: dict) -> list[str]` in `starter.py` (see `interface.md
 
 ## Input
 A dict with the following keys (all strings):
-- `"channel"`, one of `"email"`, `"sms"`, `"dm"` (social media direct message)
-- `"sender"`, the sender address, phone number, or handle
-- `"text"`, the message body text
-- `"link"`, a URL or empty string
+- `"channel"`: one of `"email"`, `"sms"`, `"dm"` (social media direct message)
+- `"sender"`: the sender address, phone number, or handle
+- `"text"`: the message body text
+- `"link"`: a URL or empty string
 
 ## Output
 A **sorted, de-duplicated** `list[str]` drawn from the five indicator labels:
-- `"lookalike-domain"`, sender contains a mangled brand domain
-- `"urgent-money-request"`, text requests an urgent financial transaction
-- `"credential-request"`, text requests credentials or account verification
-- `"mismatched-sender"`, text claims a brand the sender address does not belong to
-- `"shortened-link"`, link uses a URL shortener or bare IP address
+- `"lookalike-domain"`: sender contains a mangled brand domain
+- `"urgent-money-request"`: text requests an urgent financial transaction
+- `"credential-request"`: text requests credentials or account verification
+- `"mismatched-sender"`: text claims a brand the sender address does not belong to
+- `"shortened-link"`: link uses a URL shortener or bare IP address
 
 See `interface.md` for the precise indicator rule sets.
 

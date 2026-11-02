@@ -1,4 +1,4 @@
-# 2.3.c, Security guards and layered defense-in-depth
+# 2.3.c: Security guards and layered defense-in-depth
 
 > **Unit 2 · 2.3 Protecting Physical Spaces**
 > **AP Learning Objective(s):** 2.3.B
@@ -54,13 +54,13 @@ Defense-in-depth has costs. Guards are expensive relative to automated controls.
 
 ## Key terms
 
-- **Defense-in-depth**, a security architecture that uses multiple independent control layers so that no single failure is sufficient for an attacker to reach an objective
-- **Personnel control**, a security measure involving human actors, including guards, receptionists, escorts, and visitor-log administrators
-- **Tailgating (piggybacking)**, the practice of following an authorized person through a controlled entry without presenting one's own credential
-- **Mantrap**, a physical access control consisting of two interlocking doors that prevent more than one person from entering at a time
-- **Visitor log**, a record of all non-employee entrants, including sponsor, arrival time, and departure time, used for access accountability
-- **Escort policy**, a facility rule requiring that every visitor be accompanied by an authorized employee at all times
-- **Depth score**, a metric counting the number of distinct control categories active in a facility; higher scores indicate stronger layered posture
+- **Defense-in-depth**: a security architecture that uses multiple independent control layers so that no single failure is sufficient for an attacker to reach an objective
+- **Personnel control**: a security measure involving human actors, including guards, receptionists, escorts, and visitor-log administrators
+- **Tailgating (piggybacking)**: the practice of following an authorized person through a controlled entry without presenting one's own credential
+- **Mantrap**: a physical access control consisting of two interlocking doors that prevent more than one person from entering at a time
+- **Visitor log**: a record of all non-employee entrants, including sponsor, arrival time, and departure time, used for access accountability
+- **Escort policy**: a facility rule requiring that every visitor be accompanied by an authorized employee at all times
+- **Depth score**: a metric counting the number of distinct control categories active in a facility; higher scores indicate stronger layered posture
 
 ## Common misconceptions
 

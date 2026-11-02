@@ -1,4 +1,4 @@
-# 4.3.b, Antivirus and endpoint protection
+# 4.3.b: Antivirus and endpoint protection
 
 > **Unit 4 · 4.3 Protecting Devices**
 > **AP Learning Objective(s):** 4.3.A, 4.3.B
@@ -81,14 +81,14 @@ shrinks the attack surface an attacker even has access to, and patching (4.3.c),
 vulnerabilities attackers rely on to gain that access in the first place.
 
 ## Key terms
-- **Signature-based detection**, a malware detection method that matches files or memory patterns against a static database of known malware fingerprints.
-- **Heuristic / Behavioral analysis**, threat detection methods that analyze software code patterns or monitor active processes in real-time to identify suspicious actions, catching zero-day threats.
-- **Zero-day threat**, a computer threat or vulnerability that is unknown to the software developers or security community, meaning no signature or patch exists yet.
-- **Host-based firewall**, security software running on a single device that controls inbound and outbound network traffic based on predefined security rules.
-- **Endpoint Protection Platform (EPP)**, a centralized enterprise solution that deploys a security agent to all user devices to provide antivirus, firewall, and policy management from a single console.
-- **False positive**, an alert that incorrectly flags a benign file, process, or network packet as malicious.
-- **Endpoint Detection and Response (EDR)**, a tool that continuously records endpoint activity and gives responders tools to investigate, isolate, and remediate threats, complementing preventive antivirus.
-- **Living-off-the-land**, an attack technique that abuses legitimate, pre-installed system tools (e.g., PowerShell) instead of custom malware, to evade detection.
+- **Signature-based detection**: a malware detection method that matches files or memory patterns against a static database of known malware fingerprints.
+- **Heuristic / Behavioral analysis**: threat detection methods that analyze software code patterns or monitor active processes in real-time to identify suspicious actions, catching zero-day threats.
+- **Zero-day threat**: a computer threat or vulnerability that is unknown to the software developers or security community, meaning no signature or patch exists yet.
+- **Host-based firewall**: security software running on a single device that controls inbound and outbound network traffic based on predefined security rules.
+- **Endpoint Protection Platform (EPP)**: a centralized enterprise solution that deploys a security agent to all user devices to provide antivirus, firewall, and policy management from a single console.
+- **False positive**: an alert that incorrectly flags a benign file, process, or network packet as malicious.
+- **Endpoint Detection and Response (EDR)**: a tool that continuously records endpoint activity and gives responders tools to investigate, isolate, and remediate threats, complementing preventive antivirus.
+- **Living-off-the-land**: an attack technique that abuses legitimate, pre-installed system tools (e.g., PowerShell) instead of custom malware, to evade detection.
 
 ## Common misconceptions
 - "Having an antivirus means I don't need a firewall." → Antivirus blocks malicious files and code execution, whereas a firewall regulates network traffic. You need both to protect against different attack vectors.

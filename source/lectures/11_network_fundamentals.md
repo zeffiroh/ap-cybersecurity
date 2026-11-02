@@ -308,9 +308,9 @@ An **IP address** uniquely identifies a device on a network, the way a street ad
 ::::columns
 ::col::
 :::list heading="Public vs Private Addresses" style=plain
-- **Public IP**, Globally routable on the internet (assigned by IANA/RIRs)
-- **Private IP**, Reserved for internal use (RFC 1918); not routable on the internet
-- **NAT**, Enables translation between private and public addresses
+- **Public IP**: Globally routable on the internet (assigned by IANA/RIRs)
+- **Private IP**: Reserved for internal use (RFC 1918); not routable on the internet
+- **NAT**: Enables translation between private and public addresses
 :::
 ::col::
 :::table
@@ -925,8 +925,8 @@ A **MAC (Media Access Control) address** is a 48-bit hardware identifier assigne
 ::col::
 :::list heading="MAC Address Structure" style=plain
 - **48 bits** total, written as 6 pairs of hexadecimal digits (e.g., `00:1A:2B:3C:4D:5E`)
-- **First 24 bits (OUI)**, Organizationally Unique Identifier; assigned to the manufacturer by the IEEE
-- **Last 24 bits**, Device-specific identifier assigned by the manufacturer
+- **First 24 bits (OUI)**: Organizationally Unique Identifier; assigned to the manufacturer by the IEEE
+- **Last 24 bits**: Device-specific identifier assigned by the manufacturer
 - **Bit 41** (multicast bit): 0 = unicast, 1 = multicast or broadcast
 - **Bit 42** (LAA bit): 0 = globally administered (factory), 1 = locally administered (overridden)
 :::
@@ -1054,11 +1054,11 @@ The **Internet Control Message Protocol (ICMP)**, defined in RFC 792, is an auxi
 :::
 ::col::
 :::list heading="ICMP-Based Attacks" style=plain
-- **Ping Flood (ICMP Flood)**, Overwhelming a host with Echo Requests; a simple DoS attack
-- **Smurf Attack**, Spoofed ICMP Echo Requests sent to broadcast addresses; amplifies traffic toward victim (largely mitigated by RFC 2644)
-- **Ping of Death**, Oversized ICMP packets cause buffer overflow on receiving host (CVE-1999-0128)
-- **ICMP Tunneling**, Encodes data in ICMP Echo Request/Reply payloads to exfiltrate data or establish covert C2 channel
-- **ICMP Redirect Attacks**, Forged Type 5 messages manipulate routing tables
+- **Ping Flood (ICMP Flood)**: Overwhelming a host with Echo Requests; a simple DoS attack
+- **Smurf Attack**: Spoofed ICMP Echo Requests sent to broadcast addresses; amplifies traffic toward victim (largely mitigated by RFC 2644)
+- **Ping of Death**: Oversized ICMP packets cause buffer overflow on receiving host (CVE-1999-0128)
+- **ICMP Tunneling**: Encodes data in ICMP Echo Request/Reply payloads to exfiltrate data or establish covert C2 channel
+- **ICMP Redirect Attacks**: Forged Type 5 messages manipulate routing tables
 :::
 ::::
 
@@ -1121,10 +1121,10 @@ Hubs, switches, and routers are all devices that forward network traffic, but th
 :::
 ::col::
 :::list heading="Key Concepts" style=plain
-- **Collision domain**, Hub: one shared collision domain for all ports; Switch: each port is its own collision domain
-- **Broadcast domain**, Both hubs and switches forward broadcast frames to all ports (same broadcast domain); routers do NOT forward broadcasts
-- **CAM table**, Switch's MAC-to-port mapping table; target of MAC flooding attacks
-- **Routing table**, Router's IP-to-next-hop mapping table; populated by static routes or routing protocols (OSPF, BGP)
+- **Collision domain**: Hub: one shared collision domain for all ports; Switch: each port is its own collision domain
+- **Broadcast domain**: Both hubs and switches forward broadcast frames to all ports (same broadcast domain); routers do NOT forward broadcasts
+- **CAM table**: Switch's MAC-to-port mapping table; target of MAC flooding attacks
+- **Routing table**: Router's IP-to-next-hop mapping table; populated by static routes or routing protocols (OSPF, BGP)
 :::
 ::::
 
@@ -1212,11 +1212,11 @@ A **VLAN (Virtual Local Area Network)** creates logically isolated network segme
 ::::columns
 ::col::
 :::list heading="Why VLANs Matter for Security" style=plain
-- **Isolation**, Separate sensitive systems (finance, HR, IoT, guest) onto dedicated VLANs without physical separation
-- **Broadcast containment**, Limits broadcast domains, reducing noise and broadcast-based attack impact
-- **Access control**, Inter-VLAN traffic must traverse a Layer 3 device where ACLs and firewall rules apply
-- **Compliance**, PCI-DSS requires cardholder data to be isolated in a dedicated network segment (VLAN achieves this)
-- **Manageability**, Logical groupings independent of physical location
+- **Isolation**: Separate sensitive systems (finance, HR, IoT, guest) onto dedicated VLANs without physical separation
+- **Broadcast containment**: Limits broadcast domains, reducing noise and broadcast-based attack impact
+- **Access control**: Inter-VLAN traffic must traverse a Layer 3 device where ACLs and firewall rules apply
+- **Compliance**: PCI-DSS requires cardholder data to be isolated in a dedicated network segment (VLAN achieves this)
+- **Manageability**: Logical groupings independent of physical location
 :::
 ::col::
 :::table
@@ -1353,11 +1353,11 @@ A **firewall** is a network security device (hardware or software) that monitors
 :::
 ::col::
 :::list heading="Firewall Rule Concepts" style=plain
-- **Default deny**, Block everything not explicitly permitted (recommended baseline per CIS Controls)
-- **Ingress filtering**, Filter packets entering the network; blocks spoofed source IPs (RFC 2827, BCP 38)
-- **Egress filtering**, Filter outbound traffic; prevents data exfiltration and C2 beaconing
-- **DMZ (Demilitarized Zone)**, A network zone for public-facing services, isolated from both the internet and internal network
-- **Implicit deny**, The unwritten last rule: if no rule matches, block the traffic
+- **Default deny**: Block everything not explicitly permitted (recommended baseline per CIS Controls)
+- **Ingress filtering**: Filter packets entering the network; blocks spoofed source IPs (RFC 2827, BCP 38)
+- **Egress filtering**: Filter outbound traffic; prevents data exfiltration and C2 beaconing
+- **DMZ (Demilitarized Zone)**: A network zone for public-facing services, isolated from both the internet and internal network
+- **Implicit deny**: The unwritten last rule: if no rule matches, block the traffic
 :::
 ::::
 
@@ -1400,10 +1400,10 @@ A **VPN (Virtual Private Network)** creates an encrypted, authenticated tunnel o
 ::::columns
 ::col::
 :::list heading="VPN Types" style=plain
-- **Remote Access VPN**, Individual users connect from untrusted networks (home, hotel Wi-Fi) to the corporate network; client software establishes an encrypted tunnel to a VPN concentrator
-- **Site-to-Site VPN**, Connects two entire networks (e.g., headquarters and branch office) through a permanent encrypted tunnel between routers or firewalls
-- **Split Tunneling**, Only traffic destined for corporate resources routes through the VPN; other traffic goes directly to the internet; reduces VPN load but may expose corporate data
-- **Full Tunneling**, All traffic routes through VPN; ensures corporate inspection and logging of all user activity; increases VPN load
+- **Remote Access VPN**: Individual users connect from untrusted networks (home, hotel Wi-Fi) to the corporate network; client software establishes an encrypted tunnel to a VPN concentrator
+- **Site-to-Site VPN**: Connects two entire networks (e.g., headquarters and branch office) through a permanent encrypted tunnel between routers or firewalls
+- **Split Tunneling**: Only traffic destined for corporate resources routes through the VPN; other traffic goes directly to the internet; reduces VPN load but may expose corporate data
+- **Full Tunneling**: All traffic routes through VPN; ensures corporate inspection and logging of all user activity; increases VPN load
 :::
 ::col::
 :::table
@@ -1513,12 +1513,12 @@ title: Tool Spotlight, Nmap for Network Scanning
 ::::columns
 ::col::
 :::list heading="Common Nmap Scan Types" style=plain
-- **`-sn` (Ping Scan)**, Discovers live hosts without port scanning; uses ICMP echo, TCP SYN/ACK, ARP
-- **`-sS` (SYN Scan / Stealth Scan)**, Sends SYN, records SYN-ACK (open) or RST (closed); never completes handshake; harder to detect in application logs
-- **`-sV` (Version Detection)**, Probes open ports to determine service and version (e.g., "Apache httpd 2.4.51")
-- **`-O` (OS Detection)**, Analyzes TCP/IP stack behavior (TTL, window size, etc.) to fingerprint the OS
-- **`-A` (Aggressive)**, Combines `-sV`, `-O`, traceroute, and NSE scripts
-- **`--script vuln`**, Runs NSE vulnerability detection scripts against open services
+- **`-sn` (Ping Scan)**: Discovers live hosts without port scanning; uses ICMP echo, TCP SYN/ACK, ARP
+- **`-sS` (SYN Scan / Stealth Scan)**: Sends SYN, records SYN-ACK (open) or RST (closed); never completes handshake; harder to detect in application logs
+- **`-sV` (Version Detection)**: Probes open ports to determine service and version (e.g., "Apache httpd 2.4.51")
+- **`-O` (OS Detection)**: Analyzes TCP/IP stack behavior (TTL, window size, etc.) to fingerprint the OS
+- **`-A` (Aggressive)**: Combines `-sV`, `-O`, traceroute, and NSE scripts
+- **`--script vuln`**: Runs NSE vulnerability detection scripts against open services
 :::
 ::col::
 :::table
@@ -1728,12 +1728,12 @@ The frameworks governing network security are not independent checklists, they a
 :::
 ::col::
 :::list heading="Framework Selection Guidance" style=plain
-- **US Federal agencies**, NIST SP 800-53 is mandatory (FISMA)
-- **All organizations**, NIST CSF 2.0 for risk-based program management
-- **Global or multinational**, ISO/IEC 27001/27033 for internationally recognized certification
-- **Payment card environments**, PCI-DSS is contractually mandatory
-- **OT/ICS environments**, IEC 62443 + NIST SP 800-82
-- **Any organization**, CIS Controls as implementation prioritization guide
+- **US Federal agencies**: NIST SP 800-53 is mandatory (FISMA)
+- **All organizations**: NIST CSF 2.0 for risk-based program management
+- **Global or multinational**: ISO/IEC 27001/27033 for internationally recognized certification
+- **Payment card environments**: PCI-DSS is contractually mandatory
+- **OT/ICS environments**: IEC 62443 + NIST SP 800-82
+- **Any organization**: CIS Controls as implementation prioritization guide
 :::
 ::::
 

@@ -1,4 +1,4 @@
-# 2.4.c, Motion detectors and sensor-based detection
+# 2.4.c: Motion detectors and sensor-based detection
 
 > **Unit 2 · 2.4 Detecting Physical Attacks**
 > **AP Learning Objective(s):** 2.4.B, 2.4.C
@@ -99,18 +99,18 @@ and the tag describing what triggered it, decide whether the event is a true det
 positive using the same AND-logic and known-cause reasoning developed above.
 
 ## Key terms
-- **Passive infrared (PIR) sensor**, a motion sensor that detects a *change* in infrared (heat)
+- **Passive infrared (PIR) sensor**: a motion sensor that detects a *change* in infrared (heat)
   radiation across segments of its field of view, without emitting any energy itself.
-- **Doppler shift**, the change in frequency of a reflected wave (microwave or ultrasonic) caused
+- **Doppler shift**: the change in frequency of a reflected wave (microwave or ultrasonic) caused
   by a moving object, used by active sensors to detect motion.
-- **Dual-technology sensor**, a sensor combining two detection technologies (typically PIR +
+- **Dual-technology sensor**: a sensor combining two detection technologies (typically PIR +
   microwave) that must both trigger together (AND-logic) before an alert fires, reducing false
   positives.
-- **Detection cone / coverage pattern**, the limited field of view a motion sensor can actually
+- **Detection cone / coverage pattern**: the limited field of view a motion sensor can actually
   see; anything outside it, or behind an obstruction, is a blind spot.
-- **Sensitivity tuning**, adjusting a sensor's trigger threshold to trade off missed detections
+- **Sensitivity tuning**: adjusting a sensor's trigger threshold to trade off missed detections
   (too insensitive) against false-positive alerts (too sensitive).
-- **Zoned / layered detection**, deploying multiple sensors across distinct perimeter and
+- **Zoned / layered detection**: deploying multiple sensors across distinct perimeter and
   interior zones with overlapping coverage, so an alert both localizes an intrusion and provides
   defense in depth if one layer is bypassed.
 

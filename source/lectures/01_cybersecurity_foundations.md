@@ -1095,10 +1095,10 @@ title: Malware Taxonomy & Classification
 :::
 
 :::list heading="MITRE ATT&CK Malware Techniques" style=plain
-- **T1059**, Command and Scripting Interpreter (PowerShell, cmd.exe): used by most modern malware for execution.
-- **T1547**, Boot or Logon Autostart Execution: persistence via registry, scheduled tasks, startup folders.
-- **T1055**, Process Injection: injecting malicious code into legitimate processes to evade detection.
-- **T1486**, Data Encrypted for Impact: ransomware encryption of victim files.
+- **T1059**: Command and Scripting Interpreter (PowerShell, cmd.exe): used by most modern malware for execution.
+- **T1547**: Boot or Logon Autostart Execution: persistence via registry, scheduled tasks, startup folders.
+- **T1055**: Process Injection: injecting malicious code into legitimate processes to evade detection.
+- **T1486**: Data Encrypted for Impact: ransomware encryption of victim files.
 :::
 
 :::code language=mermaid caption="Malware taxonomy: the eight primary categories of malicious software, their propagation mechanisms, persistence methods, and representative real-world specimens"

@@ -1,4 +1,4 @@
-# 5.3.c, Integrity and authenticity (HMAC)
+# 5.3.c: Integrity and authenticity (HMAC)
 
 > **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
 > **AP Learning Objective(s):** 5.3.B, 5.3.C
@@ -86,14 +86,14 @@ by hand on top of SHA-256 so you see the ipad/opad nesting directly instead of j
 library function.
 
 ## Key terms
-- **MAC (Message Authentication Code)**, a keyed hash/tag that proves both integrity and authenticity.
-- **HMAC**, the standardized (NIST FIPS 198-1) hash-based MAC construction using nested, keyed hashing.
-- **Tag**, the output of a MAC/HMAC computation, compared during verification (analogous to a digest, but keyed).
-- **Integrity**, assurance that data was not altered.
-- **Authenticity**, assurance that data really came from the claimed, key-holding sender.
-- **Length-extension attack**, exploiting a Merkle-Damgard hash's exposed internal state to extend `H(secret||message)` without knowing the secret.
-- **ipad / opad**, fixed padding constants XORed with the key to derive HMAC's two nested keyed inputs.
-- **Digital signature**, the asymmetric analog to a MAC, using a private/public key pair instead of a shared secret (see 5.4.c).
+- **MAC (Message Authentication Code)**: a keyed hash/tag that proves both integrity and authenticity.
+- **HMAC**: the standardized (NIST FIPS 198-1) hash-based MAC construction using nested, keyed hashing.
+- **Tag**: the output of a MAC/HMAC computation, compared during verification (analogous to a digest, but keyed).
+- **Integrity**: assurance that data was not altered.
+- **Authenticity**: assurance that data really came from the claimed, key-holding sender.
+- **Length-extension attack**: exploiting a Merkle-Damgard hash's exposed internal state to extend `H(secret||message)` without knowing the secret.
+- **ipad / opad**: fixed padding constants XORed with the key to derive HMAC's two nested keyed inputs.
+- **Digital signature**: the asymmetric analog to a MAC, using a private/public key pair instead of a shared secret (see 5.4.c).
 
 ## Common misconceptions
 - "A matching hash proves the message wasn't tampered with." → Only if the attacker could not also recompute the hash after tampering. A plain, keyless hash gives no such guarantee once an attacker can rewrite both the message and its accompanying hash.

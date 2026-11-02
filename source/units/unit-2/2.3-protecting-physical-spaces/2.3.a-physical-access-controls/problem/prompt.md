@@ -1,4 +1,4 @@
-# Coding problem, 2.3.a: Physical access controls (locks, badges, biometrics, mantraps)
+# Coding problem 2.3.a: Physical access controls (locks, badges, biometrics, mantraps)
 
 **Skill:** Mitigate Risk · **Maps to:** 2.3.A · **Language:** Python 3 (pytest)
 

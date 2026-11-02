@@ -1,4 +1,4 @@
-# 4.2.a, Passwords and password policies
+# 4.2.a: Passwords and password policies
 
 > **Unit 4 · 4.2 Authentication**
 > **AP Learning Objective(s):** 4.2.A
@@ -80,13 +80,13 @@ forces users toward values an attacker cannot trivially guess or crack. Every ru
 maps to an attack class it makes harder.
 
 ## Key terms
-- **Authentication**, verifying the identity of a user or system before granting access.
-- **Brute-force attack**, systematically trying every possible password until one succeeds.
-- **Dictionary attack**, trying passwords from a list of common words, names, and patterns.
-- **Salt**, a unique random value added to a password before hashing to defeat precomputed attacks.
-- **Account lockout**, temporarily blocking an account after a threshold of failed login attempts.
-- **Password policy**, a set of rules an organization enforces on the creation and management of passwords.
-- **NIST SP 800-63B**, the US federal password guideline that underpins most modern enterprise policy.
+- **Authentication**: verifying the identity of a user or system before granting access.
+- **Brute-force attack**: systematically trying every possible password until one succeeds.
+- **Dictionary attack**: trying passwords from a list of common words, names, and patterns.
+- **Salt**: a unique random value added to a password before hashing to defeat precomputed attacks.
+- **Account lockout**: temporarily blocking an account after a threshold of failed login attempts.
+- **Password policy**: a set of rules an organization enforces on the creation and management of passwords.
+- **NIST SP 800-63B**: the US federal password guideline that underpins most modern enterprise policy.
 
 ## Common misconceptions
 - "Complexity rules (uppercase + symbol) make passwords strong." -> Complexity rules push users toward

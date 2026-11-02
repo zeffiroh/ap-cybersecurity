@@ -1,4 +1,4 @@
-# 2.3.a, Physical access controls (locks, badges, biometrics, mantraps)
+# 2.3.a: Physical access controls (locks, badges, biometrics, mantraps)
 
 > **Unit 2 · 2.3 Protecting Physical Spaces**
 > **AP Learning Objective(s):** 2.3.A
@@ -70,14 +70,14 @@ The coding problem in `problem/` formalizes this layering: given a description o
 
 ## Key terms
 
-- **Keyed lock**, a mechanical barrier that requires a physical key to disengage; provides no audit trail.
-- **RFID badge**, a credential token that communicates with a reader via radio frequency; supports audit logging and remote revocation.
-- **Biometric**, an identity-verification method based on a measurable physical characteristic unique to a person (fingerprint, iris, etc.).
-- **Mantrap**, a two-door vestibule with interlocked operation that prevents tailgating by allowing only one entry cycle at a time.
-- **Tailgating**, following an authorized person through a secured door without authenticating; also called piggybacking.
-- **False acceptance rate (FAR)**, the probability a biometric system incorrectly grants access to an unauthorized subject.
-- **False rejection rate (FRR)**, the probability a biometric system incorrectly denies access to an authorized subject.
-- **Defense in depth**, a security strategy that layers multiple independent controls so that the failure of one does not expose the asset.
+- **Keyed lock**: a mechanical barrier that requires a physical key to disengage; provides no audit trail.
+- **RFID badge**: a credential token that communicates with a reader via radio frequency; supports audit logging and remote revocation.
+- **Biometric**: an identity-verification method based on a measurable physical characteristic unique to a person (fingerprint, iris, etc.).
+- **Mantrap**: a two-door vestibule with interlocked operation that prevents tailgating by allowing only one entry cycle at a time.
+- **Tailgating**: following an authorized person through a secured door without authenticating; also called piggybacking.
+- **False acceptance rate (FAR)**: the probability a biometric system incorrectly grants access to an unauthorized subject.
+- **False rejection rate (FRR)**: the probability a biometric system incorrectly denies access to an authorized subject.
+- **Defense in depth**: a security strategy that layers multiple independent controls so that the failure of one does not expose the asset.
 
 ## Common misconceptions
 

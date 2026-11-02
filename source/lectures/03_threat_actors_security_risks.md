@@ -1005,12 +1005,12 @@ Defense Evasion is the most diverse tactic in MITRE ATT&CK Enterprise, with over
 :::
 
 :::list heading="Key Defense Evasion Techniques" style=plain
-- **T1070.001**, Indicator Removal: Clear Windows Event Logs to erase evidence of activity
-- **T1036**, Masquerading: Rename malware to match legitimate Windows processes (e.g., svchost.exe, explorer.exe)
-- **T1218**, System Binary Proxy Execution: Use trusted Windows binaries (Living off the Land) to execute malicious code
-- **T1027**, Obfuscated Files or Information: Base64-encode or encrypt payloads to bypass signature detection
-- **T1562.001**, Impair Defenses: Disable or tamper with antivirus, EDR, or logging services
-- **T1055**, Process Injection: Inject malicious code into a legitimate process to inherit its trust level
+- **T1070.001**: Indicator Removal: Clear Windows Event Logs to erase evidence of activity
+- **T1036**: Masquerading: Rename malware to match legitimate Windows processes (e.g., svchost.exe, explorer.exe)
+- **T1218**: System Binary Proxy Execution: Use trusted Windows binaries (Living off the Land) to execute malicious code
+- **T1027**: Obfuscated Files or Information: Base64-encode or encrypt payloads to bypass signature detection
+- **T1562.001**: Impair Defenses: Disable or tamper with antivirus, EDR, or logging services
+- **T1055**: Process Injection: Inject malicious code into a legitimate process to inherit its trust level
 :::
 
 :::table
@@ -1442,14 +1442,14 @@ Reconnaissance (TA0043) is the first ATT&CK tactic and the phase where defenders
 :::
 
 :::list heading="Common OSINT Sources Attackers Use" style=plain
-- **LinkedIn**, employee names, org chart, technologies used (job postings reveal tech stack)
-- **Shodan / Censys / FOFA**, internet-exposed services, banners, versions, certificates
-- **GitHub / GitLab**, accidentally committed credentials, API keys, infrastructure configs
-- **WHOIS / DNS records**, domain registrants, mail servers, subdomains (passive DNS)
-- **Google Dorks**, advanced search operators to find exposed files, login pages, cameras
-- **wayback Machine**, historical web content revealing old/hidden functionality
-- **Pastebin / GitHub Gists**, leaked internal data, credentials posted publicly
-- **Certificate Transparency Logs**, enumerate subdomains from SSL certificate records
+- **LinkedIn**: employee names, org chart, technologies used (job postings reveal tech stack)
+- **Shodan / Censys / FOFA**: internet-exposed services, banners, versions, certificates
+- **GitHub / GitLab**: accidentally committed credentials, API keys, infrastructure configs
+- **WHOIS / DNS records**: domain registrants, mail servers, subdomains (passive DNS)
+- **Google Dorks**: advanced search operators to find exposed files, login pages, cameras
+- **wayback Machine**: historical web content revealing old/hidden functionality
+- **Pastebin / GitHub Gists**: leaked internal data, credentials posted publicly
+- **Certificate Transparency Logs**: enumerate subdomains from SSL certificate records
 :::
 
 :::steps

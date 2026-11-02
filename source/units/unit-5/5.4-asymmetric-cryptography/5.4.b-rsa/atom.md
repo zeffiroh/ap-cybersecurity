@@ -1,4 +1,4 @@
-# 5.4.b, RSA algorithm
+# 5.4.b: RSA algorithm
 
 > **Unit 5 · 5.4 Asymmetric Cryptography**
 > **AP Learning Objective(s):** 5.4.A, 5.4.B
@@ -39,12 +39,12 @@ Notice the message m must be an integer less than n (here, less than 33), in a r
 The simulation (the simulation) walks you through the same p, q -> n, phi(n) -> e, d pipeline as this lesson, then has you encrypt and decrypt small messages yourself across a few rounds. The coding problem (`problem/`) has you implement the key derivation, encryption, and decryption functions directly with Python's built-in `pow()` for modular exponentiation.
 
 ## Key terms
-- **RSA**, the asymmetric cryptosystem (Rivest-Shamir-Adleman) built on modular exponentiation and the difficulty of factoring large integers.
-- **Modular exponentiation**, computing `base^exponent mod modulus`; the single operation underlying both RSA encryption and decryption.
-- **Ciphertext (c)**, the encrypted integer produced by `c = m^e mod n`.
-- **Modular inverse**, the value d such that `e * d ≡ 1 (mod phi(n))`; computed via the extended Euclidean algorithm.
-- **Extended Euclidean algorithm**, an efficient method for computing modular inverses (and greatest common divisors) without brute-force search.
-- **e = 65537**, the near-universal choice of public exponent in real RSA implementations, chosen for primality, computational efficiency, and resistance to low-exponent attacks.
+- **RSA**: the asymmetric cryptosystem (Rivest-Shamir-Adleman) built on modular exponentiation and the difficulty of factoring large integers.
+- **Modular exponentiation**: computing `base^exponent mod modulus`; the single operation underlying both RSA encryption and decryption.
+- **Ciphertext (c)**: the encrypted integer produced by `c = m^e mod n`.
+- **Modular inverse**: the value d such that `e * d ≡ 1 (mod phi(n))`; computed via the extended Euclidean algorithm.
+- **Extended Euclidean algorithm**: an efficient method for computing modular inverses (and greatest common divisors) without brute-force search.
+- **e = 65537**: the near-universal choice of public exponent in real RSA implementations, chosen for primality, computational efficiency, and resistance to low-exponent attacks.
 
 ## Common misconceptions
 - "Encryption and decryption use different algorithms." → They use the exact same operation, modular exponentiation; only the exponent (e vs. d) and which key it comes from differ.

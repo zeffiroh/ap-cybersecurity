@@ -1,4 +1,4 @@
-# 1.4.d, False information in LLM training sets (data poisoning)
+# 1.4.d: False information in LLM training sets (data poisoning)
 
 > **Unit 1 · 1.4 AI-Based Cybersecurity Attacks**
 > **AP Learning Objective(s):** 1.4.A
@@ -52,11 +52,11 @@ Understanding data poisoning is therefore not just a technical skill. It is a ri
 
 ## Key terms
 
-- **Data poisoning**, intentionally corrupting training data to influence a model's behavior
-- **Backdoor attack**, embedding a trigger pattern in training data so the model misclassifies inputs containing that trigger
-- **Label/content mismatch**, a sample whose label contradicts the observable content
-- **Outlier marker**, a sample statistically anomalous relative to the rest of the dataset
-- **Training integrity**, the guarantee that training data has not been tampered with
+- **Data poisoning**: intentionally corrupting training data to influence a model's behavior
+- **Backdoor attack**: embedding a trigger pattern in training data so the model misclassifies inputs containing that trigger
+- **Label/content mismatch**: a sample whose label contradicts the observable content
+- **Outlier marker**: a sample statistically anomalous relative to the rest of the dataset
+- **Training integrity**: the guarantee that training data has not been tampered with
 
 ## Common misconceptions
 

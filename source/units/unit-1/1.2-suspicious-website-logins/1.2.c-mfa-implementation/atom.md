@@ -1,4 +1,4 @@
-# 1.2.c, Strengthening authentication: length/complexity, randomness, MFA
+# 1.2.c: Strengthening authentication: length/complexity, randomness, MFA
 
 > **Unit 1 · 1.2 Suspicious Wi-Fi Login**
 > **AP Learning Objective(s):** 1.2.C
@@ -86,17 +86,17 @@ scratch gives you a concrete understanding of exactly what an authenticator app 
 time you open it.
 
 ## Key terms
-- **MFA (Multi-Factor Authentication)**, requiring two or more factors from distinct categories
+- **MFA (Multi-Factor Authentication)**: requiring two or more factors from distinct categories
   (know/have/are) before granting access.
-- **TOTP (Time-based One-Time Password)**, a 6-digit code derived from HMAC-SHA1(secret, time_step),
+- **TOTP (Time-based One-Time Password)**: a 6-digit code derived from HMAC-SHA1(secret, time_step),
   valid for one 30-second window, defined in RFC 6238.
-- **HMAC (Hash-based Message Authentication Code)**, a construction that uses a cryptographic
+- **HMAC (Hash-based Message Authentication Code)**: a construction that uses a cryptographic
   hash function and a secret key to produce an authentication tag.
-- **Time step**, the integer floor(unix_timestamp / 30); changes every 30 seconds and
+- **Time step**: the integer floor(unix_timestamp / 30); changes every 30 seconds and
   synchronizes the server and authenticator without communication.
-- **Dynamic truncation**, the RFC 4226 method of extracting 4 bytes from a 20-byte HMAC-SHA1
+- **Dynamic truncation**: the RFC 4226 method of extracting 4 bytes from a 20-byte HMAC-SHA1
   output to produce a numeric OTP.
-- **Entropy**, measure of unpredictability; in passwords, increases with length and randomness;
+- **Entropy**: measure of unpredictability; in passwords, increases with length and randomness;
   in TOTP, comes from the secret key and the short validity window.
 
 ## Common misconceptions

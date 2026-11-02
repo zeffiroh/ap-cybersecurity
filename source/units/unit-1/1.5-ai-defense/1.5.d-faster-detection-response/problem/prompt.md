@@ -1,4 +1,4 @@
-# Coding problem, 1.5.d: Compute SOC incident-response metrics
+# Coding problem 1.5.d: Compute SOC incident-response metrics
 
 **Skill:** Detect Attacks, Collaborate · **Maps to:** 1.5.B · **Language:** Python 3 (pytest)
 

@@ -44,6 +44,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:6px;}
 .section-label{font-size:12px;color:var(--muted);margin:8px 0 2px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -77,6 +79,7 @@ function toggleTheme(){document.body.classList.toggle('theme-win');document.body
 
 var CONFIGS = [
   { name: "web01:/etc/ssh/sshd_config",
+    note: "Port 22 is SSH's normal port. AllowTcpForwarding yes and MaxAuthTries 6 are not in this auditor's rule set; a careful human reviewer might still tighten them (fewer tries per connection, no tunneling unless needed). An automated auditor only finds what its rules describe.",
     lines: [
       "# SSH server configuration for web01",
       "Port 22",
@@ -89,6 +92,7 @@ var CONFIGS = [
     bad: [2, 3, 4]
   },
   { name: "db01:/etc/myproxy.conf",
+    note: "bind_address = 0.0.0.0 (listen on every network interface) and log_connections = off are not rule violations here, but they are worth a human's attention: the service should be firewalled to the hosts that need it, and turning logging off makes attacks harder to investigate later.",
     lines: [
       "# Database proxy config",
       "bind_address = 0.0.0.0",
@@ -100,6 +104,7 @@ var CONFIGS = [
     bad: [3]
   },
   { name: "mail01:/etc/postfix/main.cf",
+    note: "inet_interfaces = all is normal for a mail server that must receive mail from the internet, and the banner line just names the server.",
     lines: [
       "# Postfix mail server",
       "inet_interfaces = all",
@@ -110,6 +115,7 @@ var CONFIGS = [
     bad: [2, 3]
   },
   { name: "legacy01:/etc/inetd.conf",
+    note: "The rule flags port 23, not the telnetd line, but both describe the same problem: the fix is to remove Telnet entirely and use SSH. timeout = 300 is harmless.",
     lines: [
       "# Legacy service config",
       "port 23",
@@ -120,6 +126,7 @@ var CONFIGS = [
     bad: [1, 3]
   },
   { name: "app02:/etc/ssh/sshd_config",
+    note: "This is what a hardened SSH config looks like: no root login, no passwords, key-based login only, and no X11 or TCP forwarding. Recognizing a clean config matters as much as spotting a bad one, because false alarms waste an analyst's time.",
     lines: [
       "# Hardened SSH config",
       "Port 22",
@@ -133,6 +140,25 @@ var CONFIGS = [
   }
 ];
 
+var RULE_WHY = [
+  [/permitrootlogin\s+yes/i, "PermitRootLogin yes lets attackers try to log in directly as root, the all-powerful account. Admins should log in as themselves and use sudo, so every action is tied to a person."],
+  [/passwordauthentication\s+yes/i, "PasswordAuthentication yes means anyone on the internet can guess passwords against SSH. Key-based login (PubkeyAuthentication) cannot be brute-forced this way."],
+  [/port\s+23/i, "Port 23 is Telnet, which sends usernames, passwords and every command in cleartext. Anyone on the path can read them; SSH on port 22 replaced it."],
+  [/(ssl|tls)\s*=?\s*(false|off)/i, "Turning SSL/TLS off sends data, including logins, unencrypted across the network, where it can be sniffed or altered."],
+  [/x11forwarding\s+yes/i, "X11Forwarding yes lets SSH sessions carry graphical windows. Servers rarely need it, and every unused feature is extra attack surface."],
+  [/permitemptypasswords\s+yes/i, "PermitEmptyPasswords yes allows accounts with no password at all to log in, so an attacker only needs a username."]
+];
+function whyFor(line){
+  for (var k = 0; k < RULE_WHY.length; k++) if (RULE_WHY[k][0].test(line)) return RULE_WHY[k][1];
+  return "";
+}
+function explainConfig(c){
+  var html = '<ul class="why">';
+  c.bad.forEach(function(i){ html += '<li><b>Line ' + (i+1) + ' (' + c.lines[i].trim().replace(/&/g,'&amp;').replace(/</g,'&lt;') + '):</b> ' + whyFor(c.lines[i]) + '</li>'; });
+  if (!c.bad.length) html += '<li><b>Clean:</b> none of the six rules match.</li>';
+  if (c.note) html += '<li><b>The other lines:</b> ' + c.note + '</li>';
+  return html + '</ul>';
+}
 var idx = 0, score = 0, GOAL = 4, met = false, sel = new Set(), answered = false;
 
 function render() {
@@ -193,7 +219,7 @@ function submitAudit() {
     score++;
     if (score >= GOAL) met = true;
     var desc = c.bad.length === 0 ? 'No insecure lines.' : 'Insecure lines: ' + c.bad.map(function(i){ return (i+1); }).join(', ');
-    fb.innerHTML = '<span class="ok">CORRECT.</span> ' + desc;
+    fb.innerHTML = '<span class="ok">CORRECT.</span> ' + desc + explainConfig(c);
   } else {
     var missed = c.bad.filter(function(i){ return !sel.has(i); });
     var fp = [...sel].filter(function(i){ return !correct.has(i); });
@@ -201,7 +227,7 @@ function submitAudit() {
     if (missed.length) parts.push('Missed lines: ' + missed.map(function(i){ return (i+1); }).join(','));
     if (fp.length) parts.push('False positives: ' + fp.map(function(i){ return (i+1); }).join(','));
     if (c.bad.length === 0) parts.push('No lines were insecure.');
-    fb.innerHTML = '<span class="bad">NOT QUITE.</span> ' + (parts.join(' | ') || 'Check highlighted lines.');
+    fb.innerHTML = '<span class="bad">NOT QUITE.</span> ' + (parts.join(' | ') || 'Check highlighted lines.') + explainConfig(c);
   }
   updateBar();
 }

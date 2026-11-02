@@ -1,4 +1,4 @@
-# 4.1.b, Device tampering and physical compromise
+# 4.1.b: Device tampering and physical compromise
 
 > **Unit 4 · 4.1 Device Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 4.1.B
@@ -37,14 +37,14 @@ Security professionals describe physical protection as a series of concentric ri
 **Detecting tampering after the fact.** Not every physical attack can be prevented, so detection matters as much as prevention. Chassis intrusion switches log a timestamp whenever a case is opened, even if no data was visibly taken. Asset inventory audits that periodically verify serial numbers and physical location can catch a swapped or missing device before it is used for anything. Tamper-evident seals, stickers that visibly tear or change color if removed, are cheap and widely used on point-of-sale terminals and ATMs specifically so employees can visually confirm a device has not been opened since the last check.
 
 ## Key terms
-- **Device tampering**, unauthorized physical modification or interception of a device to compromise its security.
-- **USB Rubber Ducky**, a keystroke injection tool disguised as a standard USB flash drive that executes pre-programmed commands by mimicking a keyboard.
-- **Hardware keylogger**, a physical device connected between a keyboard and computer that records all keystrokes.
-- **Full Disk Encryption (FDE)**, a cryptographic method that encrypts all data on a storage drive, including the operating system, protecting it from offline reading if the drive is stolen.
-- **Trusted Platform Module (TPM)**, a dedicated microchip on the motherboard designed to secure hardware by integrating cryptographic keys and verifying boot sequence integrity.
-- **Port blockers**, physical inserts placed into unused external ports (like USB or Ethernet) to prevent unauthorized devices from being plugged in.
-- **Chassis intrusion detection**, a switch inside a device's case that logs or alerts when the case is opened, providing after-the-fact evidence of physical tampering.
-- **Tamper-evident seal**, a sticker or label placed over a device's case or port that visibly tears, discolors, or breaks if removed, letting staff visually confirm a device has not been opened.
+- **Device tampering**: unauthorized physical modification or interception of a device to compromise its security.
+- **USB Rubber Ducky**: a keystroke injection tool disguised as a standard USB flash drive that executes pre-programmed commands by mimicking a keyboard.
+- **Hardware keylogger**: a physical device connected between a keyboard and computer that records all keystrokes.
+- **Full Disk Encryption (FDE)**: a cryptographic method that encrypts all data on a storage drive, including the operating system, protecting it from offline reading if the drive is stolen.
+- **Trusted Platform Module (TPM)**: a dedicated microchip on the motherboard designed to secure hardware by integrating cryptographic keys and verifying boot sequence integrity.
+- **Port blockers**: physical inserts placed into unused external ports (like USB or Ethernet) to prevent unauthorized devices from being plugged in.
+- **Chassis intrusion detection**: a switch inside a device's case that logs or alerts when the case is opened, providing after-the-fact evidence of physical tampering.
+- **Tamper-evident seal**: a sticker or label placed over a device's case or port that visibly tears, discolors, or breaks if removed, letting staff visually confirm a device has not been opened.
 
 ## Common misconceptions
 - "Operating system passwords protect my data if my laptop is stolen." → Bypassed. An attacker can remove the hard drive and read it on another system, or boot from a Linux USB to browse files, unless Full Disk Encryption (FDE) is enabled.

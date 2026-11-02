@@ -1,4 +1,4 @@
-# 4.3.c, Patching and regular updates
+# 4.3.c: Patching and regular updates
 
 > **Unit 4 · 4.3 Protecting Devices**
 > **AP Learning Objective(s):** 4.3.B, 4.3.C
@@ -89,17 +89,17 @@ CVSS severity, whether it is actively exploited in the wild, and whether the aff
 internet-facing, decide how urgently it must be patched.
 
 ## Key terms
-- **Patch**, a vendor-released software update that fixes a bug, often including a security fix.
-- **CVE (Common Vulnerabilities and Exposures)**, a public, unique identifier assigned to a
+- **Patch**: a vendor-released software update that fixes a bug, often including a security fix.
+- **CVE (Common Vulnerabilities and Exposures)**: a public, unique identifier assigned to a
   disclosed vulnerability.
-- **CVSS (Common Vulnerability Scoring System)**, a 0-10 standardized severity score for a
+- **CVSS (Common Vulnerability Scoring System)**: a 0-10 standardized severity score for a
   vulnerability, based on exploitability and impact.
-- **Zero-day**, a vulnerability being exploited before any patch exists.
-- **N-day**, a vulnerability for which a patch exists but has not yet been applied to the target.
-- **Patch gap**, the time between a patch's release and an organization actually deploying it.
-- **Patch management**, the formal process of inventorying, prioritizing, testing, deploying, and
+- **Zero-day**: a vulnerability being exploited before any patch exists.
+- **N-day**: a vulnerability for which a patch exists but has not yet been applied to the target.
+- **Patch gap**: the time between a patch's release and an organization actually deploying it.
+- **Patch management**: the formal process of inventorying, prioritizing, testing, deploying, and
   verifying patches across an organization's assets.
-- **End-of-life (EOL) software**, software no longer receiving vendor patches, requiring
+- **End-of-life (EOL) software**: software no longer receiving vendor patches, requiring
   compensating controls instead.
 
 ## Common misconceptions

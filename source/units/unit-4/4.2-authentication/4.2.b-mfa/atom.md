@@ -1,4 +1,4 @@
-# 4.2.b, Multi-factor authentication
+# 4.2.b: Multi-factor authentication
 
 > **Unit 4 · 4.2 Authentication**
 > **AP Learning Objective(s):** 4.2.A, 4.2.B
@@ -60,19 +60,19 @@ that can be relayed, SIM-swapped, or rubber-stamped by an exhausted user? The si
 problem in this skill both drill this two-question judgment on realistic login-attempt scenarios.
 
 ## Key terms
-- **Multi-factor authentication (MFA)**, requiring proof from two or more distinct factor
+- **Multi-factor authentication (MFA)**: requiring proof from two or more distinct factor
   categories before granting access.
-- **Factor category**, one of: knowledge (something you know), possession (something you have),
+- **Factor category**: one of: knowledge (something you know), possession (something you have),
   inherence (something you are).
-- **TOTP / HOTP**, Time-based / HMAC-based One-Time Password; authenticator-app codes generated
+- **TOTP / HOTP**: Time-based / HMAC-based One-Time Password; authenticator-app codes generated
   from a shared secret.
-- **FIDO2 / WebAuthn**, an open standard for hardware/platform security keys that cryptographically
+- **FIDO2 / WebAuthn**: an open standard for hardware/platform security keys that cryptographically
   bind authentication to the requesting website domain, making it phishing-resistant.
-- **SIM swapping**, an attacker fraudulently transfers a victim's phone number to a
+- **SIM swapping**: an attacker fraudulently transfers a victim's phone number to a
   attacker-controlled SIM card, intercepting SMS-based codes.
-- **MFA fatigue (push bombing)**, repeatedly sending push-approval prompts until the user approves
+- **MFA fatigue (push bombing)**: repeatedly sending push-approval prompts until the user approves
   one out of annoyance or confusion.
-- **Phishing-resistant authentication**, a factor that cannot be captured and replayed by a fake
+- **Phishing-resistant authentication**: a factor that cannot be captured and replayed by a fake
   login page, such as a FIDO2/WebAuthn hardware key.
 
 ## Common misconceptions

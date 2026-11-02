@@ -9,8 +9,8 @@ def validate_password(password: str, policy: dict) -> list[str]
 ```
 
 ## Input (`password`, `policy`)
-- `password`, a string, the candidate password. May be empty.
-- `policy`, a dict describing the policy. All keys are optional; a missing key is treated as
+- `password`: a string, the candidate password. May be empty.
+- `policy`: a dict describing the policy. All keys are optional; a missing key is treated as
   "not required" / empty. Recognized keys and defaults:
   - `min_length` (int, default `0`), minimum required length.
   - `require_upper` (bool, default `False`), require at least one uppercase letter (`str.isupper()`).

@@ -410,9 +410,9 @@ title: Where Firewalls Sit
 ::::columns
 ::col::
 :::list heading="Common Firewall Placements" style=plain
-- **Network Perimeter**, Between internal network and untrusted external networks (e.g., Internet)
-- **Internal Segmentation**, Between internal network zones (e.g., HR, Finance, DMZ)
-- **Host-Based**, Running locally on individual endpoints or servers
+- **Network Perimeter**: Between internal network and untrusted external networks (e.g., Internet)
+- **Internal Segmentation**: Between internal network zones (e.g., HR, Finance, DMZ)
+- **Host-Based**: Running locally on individual endpoints or servers
 :::
 ::col::
 :::callout style=soft
@@ -938,10 +938,10 @@ flowchart LR
 :::
 
 :::list heading="WAF Deployment Modes" style=plain
-- **Reverse Proxy**, WAF sits in front of the web server and terminates all HTTP connections (most common)
-- **Transparent Bridge**, WAF inline without changing IP routing (less common)
-- **Out-of-Band / Monitor Mode**, WAF receives a copy of traffic for detection only, no blocking capability
-- **Cloud WAF / CDN-integrated**, Cloudflare, AWS WAF, Akamai, traffic routed through cloud WAF before reaching the origin server
+- **Reverse Proxy**: WAF sits in front of the web server and terminates all HTTP connections (most common)
+- **Transparent Bridge**: WAF inline without changing IP routing (less common)
+- **Out-of-Band / Monitor Mode**: WAF receives a copy of traffic for detection only, no blocking capability
+- **Cloud WAF / CDN-integrated**: Cloudflare, AWS WAF, Akamai, traffic routed through cloud WAF before reaching the origin server
 :::
 
 :::notes
@@ -1041,14 +1041,14 @@ flowchart LR
 :::
 
 :::list heading="Essential Firewall Log Fields" style=plain
-- **Timestamp**, When the event occurred (synchronized via NTP)
-- **Source IP and port**, Originating endpoint and application
-- **Destination IP and port**, Target endpoint and service
-- **Protocol**, TCP, UDP, ICMP, etc.
-- **Action**, Permit or Deny
-- **Rule matched**, Which ACL rule was triggered
-- **Interface / zone**, Which network segment was involved
-- **Byte and packet counts**, Session volume (useful for detecting data exfiltration)
+- **Timestamp**: When the event occurred (synchronized via NTP)
+- **Source IP and port**: Originating endpoint and application
+- **Destination IP and port**: Target endpoint and service
+- **Protocol**: TCP, UDP, ICMP, etc.
+- **Action**: Permit or Deny
+- **Rule matched**: Which ACL rule was triggered
+- **Interface / zone**: Which network segment was involved
+- **Byte and packet counts**: Session volume (useful for detecting data exfiltration)
 :::
 
 ::::columns

@@ -1,4 +1,4 @@
-# Coding problem, 4.4.b: Brute-force log correlator
+# Coding problem 4.4.b: Brute-force log correlator
 
 **Skill:** Detect Attacks · **Maps to:** 4.4.B · **Language:** Python 3 (pytest)
 

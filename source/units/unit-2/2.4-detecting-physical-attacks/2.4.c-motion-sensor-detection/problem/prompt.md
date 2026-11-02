@@ -1,4 +1,4 @@
-# Coding problem, 2.4.c: Motion-sensor event classifier
+# Coding problem 2.4.c: Motion-sensor event classifier
 
 **Skill:** Detect Attacks · **Maps to:** 2.4.B, 2.4.C · **Language:** Python 3 (pytest)
 

@@ -925,7 +925,7 @@ In May 2021, the DarkSide ransomware group attacked Colonial Pipeline, operator 
 - Single compromised legacy VPN account with **no MFA** was the initial access vector
 - The compromised password was found in a **dark web credential dump** from a prior breach
 - Colonial lacked **network segmentation** between IT and OT environments
-- **No tested incident response plan**, leadership made ad hoc decisions under crisis conditions
+- **No tested incident response plan**: leadership made ad hoc decisions under crisis conditions
 - **Ransom payment** illustrates that availability failures have direct financial consequences regardless of recovery
 :::
 

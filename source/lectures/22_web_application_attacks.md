@@ -901,12 +901,12 @@ GET /download?file=..%c0%af..%c0%af..%c0%afetc%c0%afpasswd
 ::col::
 ::::card heading="Files Commonly Targeted"
 :::list style=tight
-- `/etc/passwd`, Linux user account information
-- `/etc/shadow`, Hashed passwords (requires root)
-- `/proc/self/environ`, Process environment variables (may contain secrets)
-- `C:\Windows\win.ini`, Windows configuration (traversal confirmation)
-- `WEB-INF/web.xml`, Java web app config with DB credentials
-- `.env`, Application environment file with API keys and secrets
+- `/etc/passwd`: Linux user account information
+- `/etc/shadow`: Hashed passwords (requires root)
+- `/proc/self/environ`: Process environment variables (may contain secrets)
+- `C:\Windows\win.ini`: Windows configuration (traversal confirmation)
+- `WEB-INF/web.xml`: Java web app config with DB credentials
+- `.env`: Application environment file with API keys and secrets
 :::
 ::::
 ::::card heading="Defenses"

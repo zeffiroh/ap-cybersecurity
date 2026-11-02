@@ -346,9 +346,9 @@ title: Benefits of AI Defense
 ::::columns
 ::col::
 :::list heading="Core Benefits of AI in Cyber Defense" style=plain
-- **Speed**, Real-time detection and automated response
-- **Scale**, Massive parallel analysis of logs, packets, and events
-- **Pattern Recognition**, Anomaly and threat detection via statistical models
+- **Speed**: Real-time detection and automated response
+- **Scale**: Massive parallel analysis of logs, packets, and events
+- **Pattern Recognition**: Anomaly and threat detection via statistical models
 :::
 ::col::
 :::callout style=soft
@@ -377,11 +377,11 @@ title: Limitations & Risks
 :::image src="images/09_ai_risk_matrix.png" alt="Risk matrix diagram with five labeled risk quadrants: Adversarial AI (high likelihood, high impact), False Positive Fatigue (high likelihood, medium impact), Automation Bias (medium likelihood, high impact), Concept Drift (high likelihood, medium impact), and Black-box Uncertainty (medium likelihood, medium impact)" caption="AI defense systems introduce a distinct risk profile, understanding these failure modes is essential to deploying AI responsibly within a layered security architecture" width=full
 :::
 :::list heading="Key Limitations of AI in Cyber Defense" style=plain
-- **False Positives/Negatives**, High alert volume reduces analyst efficiency; missed threats increase risk
-- **Adversarial Manipulation**, Attackers exploit model weaknesses through evasion or poisoning
-- **Over-reliance & Automation Bias**, Analysts may treat AI output as truth, bypassing critical thinking
-- **Data Drift & Model Decay**, Changes in network behavior or attack patterns degrade model accuracy over time
-- **Explainability Gap**, Lack of interpretability hinders trust and forensic validation
+- **False Positives/Negatives**: High alert volume reduces analyst efficiency; missed threats increase risk
+- **Adversarial Manipulation**: Attackers exploit model weaknesses through evasion or poisoning
+- **Over-reliance & Automation Bias**: Analysts may treat AI output as truth, bypassing critical thinking
+- **Data Drift & Model Decay**: Changes in network behavior or attack patterns degrade model accuracy over time
+- **Explainability Gap**: Lack of interpretability hinders trust and forensic validation
 :::
 
 :::callout style=line

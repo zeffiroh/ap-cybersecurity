@@ -1,4 +1,4 @@
-# 5.6.a, Application monitoring and logging
+# 5.6.a: Application monitoring and logging
 
 > **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
 > **AP Learning Objective(s):** 5.6.A
@@ -43,11 +43,11 @@ Three events, five seconds apart, same IP, same user: two failures followed by a
 The simulation in the simulation presents a stream of synthetic log entries and asks you to classify each event and identify which ones cross the brute-force alert threshold. The coding problem formalizes that judgment as a function you implement and test automatically.
 
 ## Key terms
-- **Application log**, a time-ordered record of events inside an application, including authentication attempts, errors, and resource accesses.
-- **Brute-force detection**, identifying repeated, failed authentication attempts from a single source that suggest automated password guessing.
-- **SIEM**, Security Information and Event Management; a platform that centralizes logs and applies detection rules to generate security alerts.
-- **Log aggregation**, collecting logs from multiple sources into one place for unified analysis and long-term storage.
-- **HTTP status code**, a three-digit code in web server logs indicating request outcome (e.g., 200 = OK, 401 = unauthorized, 403 = forbidden, 500 = server error).
+- **Application log**: a time-ordered record of events inside an application, including authentication attempts, errors, and resource accesses.
+- **Brute-force detection**: identifying repeated, failed authentication attempts from a single source that suggest automated password guessing.
+- **SIEM**: Security Information and Event Management; a platform that centralizes logs and applies detection rules to generate security alerts.
+- **Log aggregation**: collecting logs from multiple sources into one place for unified analysis and long-term storage.
+- **HTTP status code**: a three-digit code in web server logs indicating request outcome (e.g., 200 = OK, 401 = unauthorized, 403 = forbidden, 500 = server error).
 
 ## Common misconceptions
 - "If no alarm fired, nothing bad happened." → Alarms only fire on configured rules; a misconfigured or absent rule creates a silent blind spot. Periodic manual log review is still necessary.

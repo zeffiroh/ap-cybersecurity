@@ -1,4 +1,4 @@
-# 1.4.c, Prompt extraction of sensitive info
+# 1.4.c: Prompt extraction of sensitive info
 
 > **Unit 1 · 1.4 AI-Based Cybersecurity Attacks**
 > **AP Learning Objective(s):** 1.4.A
@@ -50,11 +50,11 @@ Regex is powerful but brittle. It matches patterns you anticipated. An adversary
 
 ## Key terms
 
-- **Prompt extraction**, eliciting an LLM's confidential context (system prompt, credentials) through adversarial queries that cause the model to quote or summarize what it was told to keep private
-- **System prompt**, operator-supplied instructions placed before user input in the context window; sets the model's persona, rules, and capabilities; often intended to be confidential
-- **Output filter**, a post-processing layer that inspects LLM output for policy violations (credential patterns, forbidden content) before the response is delivered to the end user
-- **API key**, a secret credential that grants programmatic access to a service; its presence in LLM output is always a leak and often exploitable in minutes
-- **Data class**, a category of sensitive information (credential, personal data, internal configuration) treated uniformly by a detection or redaction policy
+- **Prompt extraction**: eliciting an LLM's confidential context (system prompt, credentials) through adversarial queries that cause the model to quote or summarize what it was told to keep private
+- **System prompt**: operator-supplied instructions placed before user input in the context window; sets the model's persona, rules, and capabilities; often intended to be confidential
+- **Output filter**: a post-processing layer that inspects LLM output for policy violations (credential patterns, forbidden content) before the response is delivered to the end user
+- **API key**: a secret credential that grants programmatic access to a service; its presence in LLM output is always a leak and often exploitable in minutes
+- **Data class**: a category of sensitive information (credential, personal data, internal configuration) treated uniformly by a detection or redaction policy
 
 ## Common misconceptions
 

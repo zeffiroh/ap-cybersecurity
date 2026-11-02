@@ -103,14 +103,14 @@ function toggleTheme(){
 }
 
 var packets = [
-  {id:"A", src:"203.0.113.10:55001", dst:"10.0.0.5:443",   flags:"SYN",     notes:"New HTTPS request",         stateless:"ALLOW", stateful:"ALLOW"},
-  {id:"B", src:"10.0.0.5:443",       dst:"203.0.113.10:55001", flags:"SYN-ACK", notes:"Server reply",           stateless:"ALLOW", stateful:"ALLOW"},
-  {id:"C", src:"203.0.113.10:55001", dst:"10.0.0.5:443",   flags:"ACK",     notes:"Handshake complete",         stateless:"ALLOW", stateful:"ALLOW"},
-  {id:"D", src:"198.51.100.7:44000", dst:"10.0.0.5:443",   flags:"ACK",     notes:"ACK with no prior SYN",      stateless:"ALLOW", stateful:"DROP"},
-  {id:"E", src:"192.0.2.99:62000",   dst:"10.0.0.5:22",    flags:"SYN",     notes:"SSH attempt (not in rules)", stateless:"DROP",  stateful:"DROP"},
-  {id:"F", src:"203.0.113.10:55001", dst:"10.0.0.5:443",   flags:"RST",     notes:"Spoofed reset",              stateless:"ALLOW", stateful:"DROP"},
-  {id:"G", src:"10.10.10.1:51000",   dst:"10.0.0.5:80",    flags:"SYN",     notes:"Internal HTTP request",      stateless:"ALLOW", stateful:"ALLOW"},
-  {id:"H", src:"10.0.0.5:80",        dst:"10.10.10.1:51000", flags:"SYN-ACK", notes:"HTTP server reply",        stateless:"ALLOW", stateful:"ALLOW"}
+  {id:"A", src:"203.0.113.10:55001", dst:"10.0.0.5:443",   flags:"SYN",     notes:"New HTTPS request",         stateless:"ALLOW", stateful:"ALLOW", why:"Destination port 443 matches Rule 1, so both filters allow it. The stateful firewall also writes this new connection into its table."},
+  {id:"B", src:"10.0.0.5:443",       dst:"203.0.113.10:55001", flags:"SYN-ACK", notes:"Server reply",           stateless:"DROP",  stateful:"ALLOW", why:"Stateless: the reply goes TO port 55001, and no rule allows destination port 55001, so it falls to the implicit deny. Stateless filters need an extra rule for return traffic, which is exactly the weakness stateful firewalls fix. Stateful: the table holds connection A, and this is its reply, so it is allowed without needing a rule."},
+  {id:"C", src:"203.0.113.10:55001", dst:"10.0.0.5:443",   flags:"ACK",     notes:"Handshake complete",         stateless:"ALLOW", stateful:"ALLOW", why:"Destination port 443 matches Rule 1 for the stateless filter. The stateful firewall sees it belongs to the connection A and B just set up, so it is allowed too."},
+  {id:"D", src:"198.51.100.7:44000", dst:"10.0.0.5:443",   flags:"ACK",     notes:"ACK with no prior SYN",      stateless:"ALLOW", stateful:"DROP", why:"Stateless: it is just a packet to port 443, so Rule 1 allows it; the filter has no memory to notice that no handshake ever happened. Stateful: there is no connection for 198.51.100.7:44000 in the table, so the ACK is dropped. Stray ACKs like this are used to sneak probes through stateless filters (ACK scanning)."},
+  {id:"E", src:"192.0.2.99:62000",   dst:"10.0.0.5:22",    flags:"SYN",     notes:"SSH attempt (not in rules)", stateless:"DROP",  stateful:"DROP", why:"Port 22 (SSH) matches neither Rule 1 nor Rule 2, so both filters reach the implicit deny. State does not matter when no rule allows the traffic in the first place."},
+  {id:"F", src:"203.0.113.10:55999", dst:"10.0.0.5:443",   flags:"RST",     notes:"Reset for a connection never opened", stateless:"ALLOW", stateful:"DROP", why:"Stateless: destination port 443 matches Rule 1, so it is allowed. Stateful: no connection from source port 55999 exists, so a reset for it is meaningless and is dropped. Forged resets are used to tear down other people's connections; a stateful firewall only accepts resets for connections it is tracking."},
+  {id:"G", src:"10.10.10.1:51000",   dst:"10.0.0.5:80",    flags:"SYN",     notes:"Internal HTTP request",      stateless:"ALLOW", stateful:"ALLOW", why:"Destination port 80 matches Rule 2, so both filters allow it, and the stateful firewall records the new connection."},
+  {id:"H", src:"10.0.0.5:80",        dst:"10.10.10.1:51000", flags:"SYN-ACK", notes:"HTTP server reply",        stateless:"DROP",  stateful:"ALLOW", why:"Same lesson as B. Stateless: the reply is addressed to port 51000, which no rule allows, so it is dropped. Stateful: it answers connection G, which is in the table, so it is allowed."}
 ];
 
 function buildTable(){
@@ -143,6 +143,7 @@ function verify(){
     if (sfOk) score++;
     lines.push("Pkt " + p.id + " stateless: " + (slSel || "(blank)") + " " + (slOk ? "[OK]" : "[EXPECTED " + p.stateless + "]"));
     lines.push("Pkt " + p.id + " stateful:  " + (sfSel || "(blank)") + " " + (sfOk ? "[OK]" : "[EXPECTED " + p.stateful + "]"));
+    lines.push("      Why: " + p.why + "\n");
   });
   var met = (score === max);
   document.getElementById("log").innerHTML = "<span class=\"dim\">firewall# </span>show classification results\n\n" +

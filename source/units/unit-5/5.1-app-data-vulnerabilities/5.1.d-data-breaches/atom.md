@@ -1,4 +1,4 @@
-# 5.1.d, Data breaches and their impact
+# 5.1.d: Data breaches and their impact
 
 > **Unit 5 · 5.1 Application and Data Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 5.1.C
@@ -63,14 +63,14 @@ analyst's seat, walking through a queue of incoming breach reports and scoring e
 checking your score against the tool's rubric.
 
 ## Key terms
-- **Data breach**, unauthorized access, disclosure, or exfiltration of sensitive/protected data.
-- **PII (personally identifiable information)**, data that can identify a specific individual
+- **Data breach**: unauthorized access, disclosure, or exfiltration of sensitive/protected data.
+- **PII (personally identifiable information)**: data that can identify a specific individual
   (name, SSN, address, date of birth).
-- **PHI (protected health information)**, health-related records protected by regulation (e.g.,
+- **PHI (protected health information)**: health-related records protected by regulation (e.g.,
   HIPAA in the U.S.).
-- **Breach notification**, the legal/regulatory requirement to inform affected individuals and
+- **Breach notification**: the legal/regulatory requirement to inform affected individuals and
   authorities within a defined window after a confirmed breach.
-- **Time to detect / contain**, the elapsed time between a breach starting and it being
+- **Time to detect / contain**: the elapsed time between a breach starting and it being
   discovered/stopped; a major driver of total breach impact.
 
 ## Common misconceptions

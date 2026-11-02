@@ -1,4 +1,4 @@
-# 5.6.b, Data loss detection (DLP)
+# 5.6.b: Data loss detection (DLP)
 
 > **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
 > **AP Learning Objective(s):** 5.6.B
@@ -68,15 +68,15 @@ the loss *during* the attempt, not just detect it afterward, though attackers wh
 try to blend their exfiltration into normal-looking traffic specifically to avoid triggering it.
 
 ## Key terms
-- **Data loss prevention (DLP)**, tools and processes that detect and block sensitive data from
+- **Data loss prevention (DLP)**: tools and processes that detect and block sensitive data from
   leaving an organization's control without authorization.
-- **Content-based detection**, inspecting the actual data (patterns like credit-card numbers,
+- **Content-based detection**: inspecting the actual data (patterns like credit-card numbers,
   SSNs, document classification labels) to recognize sensitive information leaving the network.
-- **Volume/behavior-based detection**, flagging anomalies in how much data moves, when, and to
+- **Volume/behavior-based detection**: flagging anomalies in how much data moves, when, and to
   where, without needing to understand the data's content.
-- **Egress monitoring**, watching outbound network traffic at the perimeter for signs of data
+- **Egress monitoring**: watching outbound network traffic at the perimeter for signs of data
   leaving the organization.
-- **Approved destination list**, a maintained allowlist of known-good transfer destinations
+- **Approved destination list**: a maintained allowlist of known-good transfer destinations
   (partners, sanctioned cloud storage) that DLP rules use to suppress false positives.
 
 ## Common misconceptions

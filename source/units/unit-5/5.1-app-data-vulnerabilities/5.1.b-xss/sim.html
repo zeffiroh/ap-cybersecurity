@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.1.b, Cross-site scripting (XSS), Simulation</title>
+<title>5.1.b: Cross-site scripting (XSS) · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -50,6 +50,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
 .payloadlist{font-family:var(--mono-font);font-size:12px;margin-top:6px;}
 .payloadlist button{display:block;width:100%;text-align:left;margin:2px 0;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -99,12 +101,12 @@ h1{font-size:16px;margin:0 0 6px;}
 function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
 
 var PRESETS = [
-  { label: "script tag",      text: "<script>alert(1)<\/script>",                 fires: true },
-  { label: "img onerror",     text: "<img src=x onerror=alert(1)>",              fires: true },
-  { label: "javascript: uri", text: "<a href=\"javascript:alert(1)\">click</a>", fires: true },
-  { label: "plain comment",   text: "Great write-up, thanks for sharing!",       fires: false },
-  { label: "already escaped", text: "&lt;script&gt;alert(1)&lt;/script&gt;",     fires: false },
-  { label: "svg onload",      text: "<svg onload=alert(1)>",                     fires: true }
+  { label: "script tag",      text: "<script>alert(1)<\/script>",                 fires: true , why: "A <script> tag tells the browser to run the code inside it. Injected raw into the page, it runs with the site's permissions: it can read cookies, change the page, or send data anywhere." },
+  { label: "img onerror",     text: "<img src=x onerror=alert(1)>",              fires: true , why: "No <script> tag needed: src=x fails to load, so the browser runs the onerror handler. Any on... attribute (onerror, onload, onclick, onmouseover) runs JavaScript, which is why blocking only <script> is not enough." },
+  { label: "javascript: uri", text: "<a href=\"javascript:alert(1)\">click</a>", fires: true , why: "A link whose address starts with javascript: runs that code when clicked. Filters that only look for <script> or on... handlers miss it." },
+  { label: "plain comment",   text: "Great write-up, thanks for sharing!",       fires: false , why: "Plain text with no tags or code. It displays as words in both boxes; nothing can run." },
+  { label: "already escaped", text: "&lt;script&gt;alert(1)&lt;/script&gt;",     fires: false , why: "The angle brackets are already written as &lt; and &gt;, so the browser shows the characters < and > as text instead of reading a tag. This is exactly what the hardened box does to every input." },
+  { label: "svg onload",      text: "<svg onload=alert(1)>",                     fires: true , why: "An <svg> element runs its onload handler as soon as it is added to the page, with no click needed. Attackers use less common tags like this to slip past filters that only know about <script> and <img>." }
 ];
 
 var idx=0, score=0, GOAL=5, met=false, chosen=null, judged=false;
@@ -144,6 +146,13 @@ function predict(yes){
   document.getElementById('predNo').classList.toggle('sel', yes===false);
 }
 
+function explainPayload(text, fires){
+  var p = PRESETS.filter(function(x){ return x.text === text; })[0];
+  var why = p ? p.why : (fires
+    ? 'Your payload contains ' + (/<\s*script\b/i.test(text) ? 'a <script> tag' : /\bon[a-z]+\s*=/i.test(text) ? 'an on... event handler' : 'a javascript: address') + ', which a browser would run as code if the page inserted it unescaped.'
+    : 'Your payload has no <script> tag, no on... event handler and no javascript: address, so this checker treats it as harmless text. (Real filters can be bypassed in more ways; escaping output is safer than hunting for bad patterns.)');
+  return '<ul class="why"><li><b>Why:</b> ' + escapeHtml(why) + '</li><li><b>The fix:</b> escape output (turn < > " & into entities) so input is always shown as text, as the hardened box does. A Content Security Policy that blocks inline scripts adds a second layer.</li></ul>';
+}
 function run(){
   var text = document.getElementById('payload').value;
   var fires = wouldFire(text);
@@ -152,7 +161,7 @@ function run(){
   if (fires){
     vuln.innerHTML = '<span class="bad">[SIMULATED EXECUTION]</span> payload matched a dangerous sink pattern (script/event-handler/javascript: uri).';
   } else {
-    vuln.innerHTML = text;
+    vuln.textContent = text;
   }
   hard.textContent = escapeHtml(text);
 
@@ -166,9 +175,9 @@ function run(){
   var correct = (chosen === fires);
   if (correct){
     score++;
-    fb.innerHTML = '<span class="prompt">sim&gt; </span><span class="ok">CORRECT.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink. The hardened box escapes it either way.';
+    fb.innerHTML = '<span class="prompt">sim&gt; </span><span class="ok">CORRECT.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink. The hardened box escapes it either way.'+explainPayload(text, fires);
   } else {
-    fb.innerHTML = '<span class="prompt">sim&gt; </span><span class="bad">NOT QUITE.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink.';
+    fb.innerHTML = '<span class="prompt">sim&gt; </span><span class="bad">NOT QUITE.</span> This payload '+(fires?'WOULD execute':'would NOT execute')+' in the vulnerable sink.'+explainPayload(text, fires);
   }
   if (score>=GOAL) met=true;
   updateBar();

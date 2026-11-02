@@ -53,6 +53,8 @@ h1{font-size:16px;margin:0 0 6px;}
 select{font-family:var(--ui-font);font-size:13px;padding:2px 4px;border:2px solid;
   border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);background:#fff;}
 .theme-linux select{border:1px solid #ccc;border-radius:3px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -64,7 +66,8 @@ select{font-family:var(--ui-font);font-size:13px;padding:2px 4px;border:2px soli
       <h1>Objective</h1>
       <p>Step through an authentication log stream event by event. Watch the failure counters
          build up. When you think an IP should trigger a brute-force detection rule, click
-         <b>Flag IP</b> and choose it. Reach <b id="goal">4</b> correct rule decisions
+         <b>Flag IP</b> and choose it. When you are sure an IP is NOT brute-forcing, mark it
+         <b>Not brute force</b>. There are 4 IPs; reach <b id="goal">4</b> correct rule decisions
          to meet the objective.</p>
 
       <div class="section-label">Live log stream (step through with Next Event):</div>
@@ -82,6 +85,7 @@ select{font-family:var(--ui-font);font-size:13px;padding:2px 4px;border:2px soli
         <span style="font-family:var(--ui-font);font-size:13px;">Flag IP as brute-force:</span>
         <select id="ipsel"><option value="">-- select IP --</option></select>
         <button class="btn" onclick="flagIP()">Flag IP</button>
+        <button class="btn" onclick="clearIP()">Not brute force</button>
       </div>
 
       <div class="section-label">Generated detection rules:</div>
@@ -239,6 +243,32 @@ function runAll() {
   while(currentIdx < LOG_STREAM.length - 1) stepEvent();
 }
 
+var IP_WHY = {
+  "10.0.0.5": "10.0.0.5 failed 6 times between ts=0 and ts=38, all inside one 60-second window, which passes the threshold of 5. It never succeeded, which is typical of password guessing.",
+  "203.0.113.7": "203.0.113.7 failed 5 times in 4 seconds (ts=100 to 104), exactly the threshold. Five attempts in four seconds is machine speed; no person retypes a password that fast.",
+  "192.168.1.9": "192.168.1.9 failed 5 times in total, but spread over 78 seconds (ts=12, 30, 45, 80, 90). No 60-second window holds more than 3 of them, so the rule never fires. A rolling window counts failures that are close together, not the overall total. (Slow guessing like this is how some attackers try to stay under thresholds, so analysts also watch longer windows.)",
+  "172.16.1.2": "172.16.1.2 logged in successfully twice and failed only twice, 60 seconds apart (ts=50 and 110). That looks like a normal user mistyping a password now and then."
+};
+function finalRule(ip){ return computeRules(LOG_STREAM).filter(function(r){ return r.ip === ip; })[0]; }
+function clearIP() {
+  var ip = document.getElementById('ipsel').value;
+  if(!ip) { document.getElementById('fb').innerHTML = '<span class="bad">Select an IP first.</span>'; return; }
+  if(flaggedIPs[ip] !== undefined) {
+    document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">You already decided on ' + esc(ip) + '.</span>';
+    return;
+  }
+  var hit = finalRule(ip);
+  flaggedIPs[ip] = false;
+  if(!hit) {
+    score++;
+    if(score >= GOAL) met = true;
+    document.getElementById('fb').innerHTML = '<span class="ok">CORRECT.</span> ' + esc(ip) + ' never triggers the rule.<ul class="why"><li><b>Why:</b> ' + IP_WHY[ip] + '</li></ul>';
+  } else {
+    document.getElementById('fb').innerHTML = '<span class="bad">NOT QUITE.</span> ' + esc(ip) + ' does trigger the rule (count=' + hit.count + ').<ul class="why"><li><b>Why:</b> ' + IP_WHY[ip] + '</li></ul>';
+  }
+  renderRules();
+  updateBar();
+}
 function flagIP() {
   var ip = document.getElementById('ipsel').value;
   if(!ip) { document.getElementById('fb').innerHTML = '<span class="bad">Select an IP first.</span>'; return; }
@@ -253,10 +283,11 @@ function flagIP() {
     flaggedIPs[ip] = {count: hit[0].count};
     score++;
     if(score >= GOAL) met = true;
-    document.getElementById('fb').innerHTML = '<span class="ok">CORRECT.</span> ' + esc(ip) + ' triggered the brute-force rule (count=' + hit[0].count + ').';
+    document.getElementById('fb').innerHTML = '<span class="ok">CORRECT.</span> ' + esc(ip) + ' triggered the brute-force rule (count=' + hit[0].count + ').<ul class="why"><li><b>Why:</b> ' + IP_WHY[ip] + '</li></ul>';
   } else {
-    flaggedIPs[ip] = false;
-    document.getElementById('fb').innerHTML = '<span class="bad">NOT QUITE.</span> ' + esc(ip) + ' has not met the threshold in the events shown so far. Check the counter panel.';
+    document.getElementById('fb').innerHTML = '<span class="bad">NOT QUITE.</span> ' + esc(ip) + ' has not met the threshold in the events shown so far.' +
+      (finalRule(ip) ? ' It will later: step further and watch its counter, then flag it again.' : '<ul class="why"><li><b>Why:</b> ' + IP_WHY[ip] + '</li></ul>');
+    if(!finalRule(ip)) flaggedIPs[ip] = false;
   }
   renderRules();
   updateBar();

@@ -1,4 +1,4 @@
-# 5.2.b, Roles, permissions, and least privilege
+# 5.2.b: Roles, permissions, and least privilege
 
 > **Unit 5 · 5.2 Protecting Applications and Data: Access Controls**
 > **AP Learning Objective(s):** 5.2.A, 5.2.B
@@ -65,13 +65,13 @@ puts you in the reviewer's seat, assigning and trimming roles for a fictional sm
 every account satisfies least privilege.
 
 ## Key terms
-- **Permission**, a single narrow grant to perform one action on one resource type.
-- **Role**, a named bundle of permissions assigned to users as a unit (RBAC).
-- **Least privilege**, granting a subject only the permissions it needs, nothing more.
-- **Privilege creep**, the gradual, unnoticed accumulation of unnecessary permissions over time.
-- **Role review / recertification**, periodic re-confirmation that role assignments are still
+- **Permission**: a single narrow grant to perform one action on one resource type.
+- **Role**: a named bundle of permissions assigned to users as a unit (RBAC).
+- **Least privilege**: granting a subject only the permissions it needs, nothing more.
+- **Privilege creep**: the gradual, unnoticed accumulation of unnecessary permissions over time.
+- **Role review / recertification**: periodic re-confirmation that role assignments are still
   justified, used to counteract privilege creep.
-- **Separation of duties**, splitting a sensitive process across multiple roles so no single role
+- **Separation of duties**: splitting a sensitive process across multiple roles so no single role
   can complete it alone.
 
 ## Common misconceptions

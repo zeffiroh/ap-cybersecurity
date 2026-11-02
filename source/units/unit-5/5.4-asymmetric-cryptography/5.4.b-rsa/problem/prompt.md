@@ -1,4 +1,4 @@
-# Coding problem, 5.4.b: RSA algorithm
+# Coding problem 5.4.b: RSA algorithm
 
 **Skill:** Mitigate Risk · **Maps to:** 5.4.A, 5.4.B · **Language:** Python 3 (pytest)
 
@@ -14,15 +14,15 @@ algorithm used to derive the private exponent `d` must be implemented by hand.
 Implement, in `starter.py`:
 - `egcd(a: int, b: int) -> tuple[int, int, int]`, extended Euclidean algorithm; returns
   `(g, x, y)` such that `a*x + b*y == g == gcd(a, b)`.
-- `mod_inverse(e: int, phi_n: int) -> int`, the modular inverse `d` of `e` mod `phi_n`, i.e.
+- `mod_inverse(e: int, phi_n: int) -> int`: the modular inverse `d` of `e` mod `phi_n`, i.e.
   `(e * d) % phi_n == 1`. Raises `ValueError` if no inverse exists (`gcd(e, phi_n) != 1`).
 - `rsa_keygen(p: int, q: int, e: int) -> dict`, derives `n`, `phi_n`, and `d` from primes `p`,
   `q` and public exponent `e`. Returns `{"n": n, "phi_n": phi_n, "e": e, "d": d}`. Raises
   `ValueError` if `e` does not satisfy `1 < e < phi_n`.
-- `encrypt(m: int, e: int, n: int) -> int`, RSA encrypt: `c = m^e mod n`. Raises `ValueError`
+- `encrypt(m: int, e: int, n: int) -> int`: RSA encrypt: `c = m^e mod n`. Raises `ValueError`
   if `m` is not in `0 <= m < n`.
-- `decrypt(c: int, d: int, n: int) -> int`, RSA decrypt: `m = c^d mod n`.
-- `solve(data: dict) -> dict`, the blackbox entry point that dispatches to the functions above
+- `decrypt(c: int, d: int, n: int) -> int`: RSA decrypt: `m = c^d mod n`.
+- `solve(data: dict) -> dict`: the blackbox entry point that dispatches to the functions above
   (see `interface.md` / `blackbox.yaml`).
 
 ## Input / Output

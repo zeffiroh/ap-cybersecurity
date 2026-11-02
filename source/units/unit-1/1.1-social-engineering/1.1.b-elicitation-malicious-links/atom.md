@@ -1,4 +1,4 @@
-# 1.1.b, Elicitation; malicious links and files
+# 1.1.b: Elicitation; malicious links and files
 
 > **Unit 1 · 1.1 Understanding Social Engineering**
 > **AP Learning Objective(s):** 1.1.A, 1.1.C
@@ -108,18 +108,18 @@ file-extension visibility in your operating system. Treat any request to disable
 warning, macro prompts, browser warnings, extension-mismatch alerts, as itself a red flag.
 
 ## Key terms
-- **Elicitation**, covert extraction of information through conversation, without the target
+- **Elicitation**: covert extraction of information through conversation, without the target
   realizing that sensitive details are being gathered.
-- **Typosquatting**, registering a domain visually similar to a trusted brand to deceive users.
-- **Homograph attack**, using visually identical characters from different scripts in a domain
+- **Typosquatting**: registering a domain visually similar to a trusted brand to deceive users.
+- **Homograph attack**: using visually identical characters from different scripts in a domain
   name to impersonate a legitimate domain.
-- **IP-literal URL**, a URL using a raw IP address instead of a hostname, often signaling
+- **IP-literal URL**: a URL using a raw IP address instead of a hostname, often signaling
   deception because legitimate services rarely use this form in communications.
-- **Mismatched link**, a hyperlink whose visible anchor text differs from its actual href
+- **Mismatched link**: a hyperlink whose visible anchor text differs from its actual href
   destination.
-- **Dangerous extension**, a file extension (.exe.scr.ps1.vbs, etc.) indicating the
+- **Dangerous extension**: a file extension (.exe.scr.ps1.vbs, etc.) indicating the
   file can execute arbitrary code when opened.
-- **Double extension**, a filename like `report.pdf.exe` used to disguise an executable as
+- **Double extension**: a filename like `report.pdf.exe` used to disguise an executable as
   a harmless file type by exploiting OS defaults that hide the final extension.
 
 ## Common misconceptions

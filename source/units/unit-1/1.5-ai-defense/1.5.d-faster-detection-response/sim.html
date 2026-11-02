@@ -51,6 +51,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .panel{border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);
   background:var(--win-face);padding:8px;margin-top:8px;}
 .panel-title{font-weight:bold;font-size:12px;margin-bottom:4px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -94,14 +96,14 @@ h1{font-size:16px;margin:0 0 6px;}
 function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
 
 var INCIDENTS_ORIG = [
-  {id:"INC-001", detected_at:0,   resolved_at:600,  severity:"low",      auto:false, label:"Unusual DNS query volume"},
-  {id:"INC-002", detected_at:5,   resolved_at:65,   severity:"critical", auto:false, label:"Ransomware C2 beacon detected"},
-  {id:"INC-003", detected_at:10,  resolved_at:40,   severity:"high",     auto:true,  label:"Known-malicious IP blocked"},
-  {id:"INC-004", detected_at:15,  resolved_at:315,  severity:"medium",   auto:false, label:"Brute-force login attempt (5 fails)"},
-  {id:"INC-005", detected_at:20,  resolved_at:50,   severity:"critical", auto:false, label:"Domain admin credential spraying"},
-  {id:"INC-006", detected_at:25,  resolved_at:55,   severity:"high",     auto:true,  label:"Endpoint quarantine (known malware hash)"},
-  {id:"INC-007", detected_at:30,  resolved_at:390,  severity:"medium",   auto:false, label:"Privilege escalation attempt"},
-  {id:"INC-008", detected_at:35,  resolved_at:635,  severity:"low",      auto:false, label:"Port scan from internal host"}
+  {id:"INC-001", detected_at:0,   resolved_at:600,  severity:"low",      auto:false, label:"Unusual DNS query volume", why:"Unusual DNS query volume is low severity: it can mean malware tunneling data out, but it is usually a misbehaving app. Investigate it after the urgent items."},
+  {id:"INC-002", detected_at:5,   resolved_at:65,   severity:"critical", auto:false, label:"Ransomware C2 beacon detected", why:"A ransomware command-and-control (C2) beacon means a machine is already infected and talking to the attacker. Every minute risks the ransomware spreading and encrypting more systems, so it is critical: isolate the host first."},
+  {id:"INC-003", detected_at:10,  resolved_at:40,   severity:"high",     auto:true,  label:"Known-malicious IP blocked", why:"Blocking a known-malicious IP is a perfect job for automation: the indicator is already confirmed bad, the action (block) is safe and reversible, and a machine does it in seconds."},
+  {id:"INC-004", detected_at:15,  resolved_at:315,  severity:"medium",   auto:false, label:"Brute-force login attempt (5 fails)", why:"Five failed logins is medium: a possible brute-force attempt, but nothing has succeeded yet. Check whether the account was then logged into, and confirm the lockout worked."},
+  {id:"INC-005", detected_at:20,  resolved_at:50,   severity:"critical", auto:false, label:"Domain admin credential spraying", why:"Credential spraying against domain admin accounts is critical: domain admin controls every machine in the network, so one successful guess hands the attacker everything."},
+  {id:"INC-006", detected_at:25,  resolved_at:55,   severity:"high",     auto:true,  label:"Endpoint quarantine (known malware hash)", why:"Quarantining an endpoint that matched a known malware hash is another good automation case: the match is exact, and isolating the machine is a standard, reversible first step."},
+  {id:"INC-007", detected_at:30,  resolved_at:390,  severity:"medium",   auto:false, label:"Privilege escalation attempt", why:"A privilege escalation attempt is medium here: someone tried to gain more rights than they have. It needs investigation, but it was an attempt, not a confirmed takeover."},
+  {id:"INC-008", detected_at:35,  resolved_at:635,  severity:"low",      auto:false, label:"Port scan from internal host", why:"A port scan from an internal host is low on its own: it may be IT's own inventory tool. It is worth checking which host and who ran it."}
 ];
 
 var SEV_ORDER = {critical:0, high:1, medium:2, low:3};
@@ -141,7 +143,8 @@ function runAutoResolution() {
   if(resolved > 0) {
     score = Math.min(score + 1, GOAL);
     if(score >= GOAL) met = true;
-    document.getElementById('fb').innerHTML = '<span class="ok">Auto-resolution complete.</span> Closed ' + resolved + ' incident(s) automatically.';
+    document.getElementById('fb').innerHTML = '<span class="ok">Auto-resolution complete.</span> Closed ' + resolved + ' incident(s) automatically.' +
+      '<ul class="why"><li><b>Why automation fits these:</b> INC-003 and INC-006 match indicators that are already confirmed bad (a known-malicious IP, a known malware hash), and the responses (block, quarantine) are safe and reversible. Automating them shrinks MTTR (mean time to respond) and leaves people free for incidents that need judgment, like INC-002 and INC-005.</li></ul>';
   } else {
     document.getElementById('fb').innerHTML = '<span style="color:var(--muted)">No auto-resolvable incidents pending.</span>';
   }
@@ -159,11 +162,12 @@ function resolveInc(id) {
   });
   if(inc.severity === 'low' && unresolvedCriticals.length > 0) {
     criticalBeforeLow = false;
-    document.getElementById('fb').innerHTML = '<span class="bad">Warning:</span> You resolved a low-severity incident while critical incidents are still open. Prioritize critical first.';
+    document.getElementById('fb').innerHTML = '<span class="bad">Warning:</span> You resolved a low-severity incident while critical incidents are still open (' + unresolvedCriticals.map(function(x){return x.id;}).join(', ') + '). Prioritize critical first: an attacker inside the network does not wait.<ul class="why"><li><b>' + id + ':</b> ' + inc.why + '</li></ul>';
   } else {
     score = Math.min(score + 1, GOAL);
     if(score >= GOAL) met = true;
-    document.getElementById('fb').innerHTML = '<span class="ok">Resolved:</span> ' + id + ' (' + inc.severity + '), response time: ' + (inc.resolved_at - inc.detected_at) + 's';
+    document.getElementById('fb').innerHTML = '<span class="ok">Resolved:</span> ' + id + ' (' + inc.severity + '), response time: ' + (inc.resolved_at - inc.detected_at) + 's' +
+      '<ul class="why"><li><b>Why ' + inc.severity + ':</b> ' + inc.why + '</li>' + (inc.auto ? '<li><b>Tip:</b> this one is marked AUTO; Run Auto-Resolution would have closed it without you, freeing you for the critical items.</li>' : '') + '</ul>';
   }
 
   resolvedSet[id] = true;

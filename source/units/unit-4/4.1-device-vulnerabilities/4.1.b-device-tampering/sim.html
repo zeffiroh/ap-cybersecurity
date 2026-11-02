@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>4.1.b, Device Tampering, Simulation</title>
+<title>4.1.b: Device Tampering · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -222,11 +222,12 @@ var FNE = (function(){
 
     logLines.push("[ATTACK 1] Adversary tries to insert a USB Rubber Ducky into Lobby PC.");
     if (w1_usb) {
-      logLines.push(" -> [BLOCKED] Physical USB port blockers prevented device insertion. Success!\n");
+      logLines.push(" -> [BLOCKED] Physical USB port blockers prevented device insertion. Success!");
       score++;
     } else {
-      logLines.push(" -> [FAILED] Rogue USB HID keyboard insertion succeeded. Keys injected commands. Workstation Compromised.\n");
+      logLines.push(" -> [FAILED] Rogue USB HID keyboard insertion succeeded. Keys injected commands. Workstation Compromised.");
     }
+    logLines.push("    Why: a Rubber Ducky looks like a flash drive but tells the PC it is a keyboard, then types commands faster than any person. Computers trust keyboards, so software rarely stops it; a lobby PC anyone can touch needs its USB ports physically blocked." + "\n");
 
     logLines.push("[ATTACK 2] Adversary restarts Lobby PC and tries booting into Live Linux.");
     if (w1_bios) {
@@ -235,6 +236,7 @@ var FNE = (function(){
     } else {
       logLines.push(" -> [FAILED] Booted live environment, accessed internal storage. Data Compromised.\n");
     }
+    logLines.push("    Why: booting from a USB stick runs a different operating system that ignores Windows logins and file permissions, so the attacker reads the disk directly. A BIOS/UEFI password with USB boot disabled stops the swap. (Full-disk encryption would also protect the data; this audit tests the boot setting.)" + "\n");
 
     logLines.push("[ATTACK 3] Doctor's laptop is stolen from exam room desk.");
     if (w2_fde) {
@@ -243,6 +245,7 @@ var FNE = (function(){
     } else {
       logLines.push(" -> [FAILED] Hard drive removed, read on attacker machine. Patient PII Leaked.\n");
     }
+    logLines.push("    Why: a stolen laptop's drive can be pulled out and read on another computer, skipping the login screen completely. Only full-disk encryption keeps the data unreadable once the device is gone; USB blockers and BIOS settings do nothing for a thief who leaves with it." + "\n");
 
     logLines.push("[ATTACK 4] Attacker boots Exam Room PC using external USB.");
     if (w3_bios) {
@@ -251,6 +254,7 @@ var FNE = (function(){
     } else {
       logLines.push(" -> [FAILED] System booted external USB. Local login bypassed.\n");
     }
+    logLines.push("    Why: same idea as attack 2 on a different machine. Every PC that strangers can reach needs its boot order locked; hardening one does not protect the others." + "\n");
 
     logLines.push("[ATTACK 5] Intruder breaks into unlocked closet and pulls the server drive.");
     if (w4_fde) {
@@ -259,6 +263,7 @@ var FNE = (function(){
     } else {
       logLines.push(" -> [FAILED] Server database storage parsed offline. Database Compromised.\n");
     }
+    logLines.push("    Why: a drive pulled from the server is read on the attacker's own machine. With full-disk encryption (keys sealed in the TPM chip of the original server), the disk is only gibberish elsewhere." + "\n");
 
     logLines.push("[ATTACK 6] Intruder tries opening server chassis to install hardware keylogger.");
     if (w4_lock) {
@@ -267,6 +272,7 @@ var FNE = (function(){
     } else {
       logLines.push(" -> [FAILED] Chassis opened. Hardware keylogger placed inline. Credentials Stolen.\n");
     }
+    logLines.push("    Why: a hardware keylogger sits inside or between parts and records every keystroke, invisible to antivirus. A locked case (plus a locked closet) keeps hands off the hardware." + "\n");
 
     var el = document.getElementById('stage');
     if (score === MAX) {
@@ -274,6 +280,7 @@ var FNE = (function(){
       logLines.push("AUDIT SUCCESS: All physical attacks blocked! Workstations hardened. Objective Met.");
     } else {
       logLines.push("AUDIT FAIL: " + (MAX - score) + " attacks succeeded. Revise your configuration.");
+      logLines.push("Budget tip: 6 credits cover the 6 attacks exactly. Spend on what each device faces: public PCs need USB and boot controls, devices that can be carried off need encryption, and hardware in a closet needs a case lock.");
     }
 
     el.innerHTML = '<span class="prompt">audit@local-security:~$ </span>' + logLines.join('\n');

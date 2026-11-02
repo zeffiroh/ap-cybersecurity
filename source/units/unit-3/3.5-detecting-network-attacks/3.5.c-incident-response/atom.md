@@ -1,4 +1,4 @@
-# 3.5.c, Incident response sequence
+# 3.5.c: Incident response sequence
 
 > **Unit 3 · 3.5 Detecting Network Attacks**
 > **AP Learning Objective(s):** 3.5.C
@@ -80,15 +80,15 @@ response-action strings tagged with a phase label, verify the ordering, and give
 of the six canonical phase names, return them in correct lifecycle order.
 
 ## Key terms
-- **Incident response (IR)**, the structured process an organization follows to detect, contain,
+- **Incident response (IR)**: the structured process an organization follows to detect, contain,
   and recover from a security incident.
-- **NIST SP 800-61 lifecycle**, the six-phase model: Preparation, Identification, Containment,
+- **NIST SP 800-61 lifecycle**: the six-phase model: Preparation, Identification, Containment,
   Eradication, Recovery, Lessons Learned.
-- **Containment (short-term / long-term)**, actions that stop an incident from spreading,
+- **Containment (short-term / long-term)**: actions that stop an incident from spreading,
   performed before the root cause is removed.
-- **Eradication**, removing the actual cause of the incident (malware, backdoor accounts,
+- **Eradication**: removing the actual cause of the incident (malware, backdoor accounts,
   unpatched vulnerability) after containment.
-- **Lessons Learned (Post-Incident Activity)**, the closing phase where the team documents the
+- **Lessons Learned (Post-Incident Activity)**: the closing phase where the team documents the
   incident and updates its plan, tools, or training to prevent recurrence.
 
 ## Common misconceptions

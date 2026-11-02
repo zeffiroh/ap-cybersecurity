@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.1.d, Data breaches and their impact, Simulation</title>
+<title>5.1.d: Data breaches and their impact · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -41,6 +41,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
 .labelrow{margin-top:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -92,6 +94,25 @@ function scoreReport(r){
   s += detectPoints(r.days_to_detect);
   return s;
 }
+var CAT_WHY = {
+  pii: "personal details (names, addresses, ID numbers) enable identity theft",
+  financial: "card and bank data can be used to steal money directly",
+  health: "medical records are highly sensitive and cannot be changed once leaked",
+  auth_plaintext: "plaintext passwords work immediately, on this site and any other where people reused them",
+  auth_hashed: "hashed passwords must be cracked first, so they are less urgent than plaintext but still need resets",
+  email: "email lists mostly feed spam and phishing",
+  public: "data that was already public causes no new harm"
+};
+function breakdown(r){
+  var cat = r.categories.map(function(c){ return c + " " + (CATEGORY_POINTS[c]||0); }).join(" + ");
+  var sp = scalePoints(r.record_count), dp = detectPoints(r.days_to_detect), total = scoreReport(r);
+  var html = '<ul class="why"><li><b>Points:</b> ' + cat + ' (data types) + ' + sp + ' (scale: ' + r.record_count.toLocaleString() + ' records) + ' + dp +
+    ' (detection: ' + r.days_to_detect + ' day' + (r.days_to_detect === 1 ? '' : 's') + ') = <b>' + total + '</b> &rarr; ' + labelOf(total).toUpperCase() +
+    ' (critical 80+, high 50-79, medium 20-49, low under 20).</li>';
+  html += '<li><b>Why the data type matters:</b> ' + r.categories.map(function(c){ return c + ": " + CAT_WHY[c]; }).join("; ") + '.</li>';
+  if (dp) html += '<li><b>Detection time:</b> the longer a breach goes unnoticed, the longer attackers use the data before anyone resets passwords or warns victims.</li>';
+  return html + '</ul>';
+}
 function labelOf(s){ if(s>=80) return "critical"; if(s>=50) return "high"; if(s>=20) return "medium"; return "low"; }
 
 var QUEUE = [
@@ -133,8 +154,8 @@ function submit(){
   }
   answered=true;
   var ok = chosen===correctLabel;
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> score='+s+' -> '+correctLabel; }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> score='+s+' -> '+correctLabel+' (you chose '+chosen+')'; }
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> score='+s+' -> '+correctLabel+breakdown(r); }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> score='+s+' -> '+correctLabel+' (you chose '+chosen+')'+breakdown(r); }
   if(score>=GOAL) met=true;
   updateBar();
 }

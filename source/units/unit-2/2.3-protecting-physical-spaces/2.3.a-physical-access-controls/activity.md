@@ -9,7 +9,7 @@ Each pair produces a completed facility audit worksheet: a table listing which c
 ## Materials (all local)
 
 - the SimLab simulation, open in browser for reference during rounds 1-3.
-- `problem/`, students may read `prompt.md` to see the gap-detection rules.
+- `problem/`: students may read `prompt.md` to see the gap-detection rules.
 - Printed handout below (or displayed on screen if printing is not available).
 
 ---

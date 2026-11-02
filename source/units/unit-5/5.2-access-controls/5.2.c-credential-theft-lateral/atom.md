@@ -1,4 +1,4 @@
-# 5.2.c, Credential theft prevention and lateral movement
+# 5.2.c: Credential theft prevention and lateral movement
 
 > **Unit 5 · 5.2 Protecting Applications and Data: Access Controls**
 > **AP Learning Objective(s):** 5.2.B, 5.2.C
@@ -72,15 +72,15 @@ hops between hosts, and deciding when the pattern crosses the threshold that sho
 alert.
 
 ## Key terms
-- **Lateral movement**, an attacker using a compromised account/host to reach additional systems
+- **Lateral movement**: an attacker using a compromised account/host to reach additional systems
   within a network after an initial foothold.
-- **Pass-the-hash / pass-the-ticket**, authenticating using a stolen password hash or session
+- **Pass-the-hash / pass-the-ticket**: authenticating using a stolen password hash or session
   ticket without ever knowing the plaintext password.
-- **Privilege escalation**, increasing the level of access an attacker holds, often paired with
+- **Privilege escalation**: increasing the level of access an attacker holds, often paired with
   lateral movement toward higher-value accounts/systems.
-- **Multi-factor authentication (MFA)**, requiring a second proof of identity beyond a password,
+- **Multi-factor authentication (MFA)**: requiring a second proof of identity beyond a password,
   which neutralizes most stolen-credential replay attempts.
-- **Network segmentation**, dividing a network so that compromise of one segment does not grant
+- **Network segmentation**: dividing a network so that compromise of one segment does not grant
   direct reach into another (e.g., isolating finance systems from general workstations).
 
 ## Common misconceptions

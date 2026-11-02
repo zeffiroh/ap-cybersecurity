@@ -1,4 +1,4 @@
-# 4.2.c, Session security
+# 4.2.c: Session security
 
 > **Unit 4 · 4.2 Authentication**
 > **AP Learning Objective(s):** 4.2.B
@@ -67,18 +67,18 @@ server, so the token is permanently useless the instant the user logs out, no ma
 copy of it.
 
 ## Key terms
-- **Session**, a server-side record that a specific browser has successfully authenticated.
-- **Session token / session cookie**, the random string identifying a session, sent by the
+- **Session**: a server-side record that a specific browser has successfully authenticated.
+- **Session token / session cookie**: the random string identifying a session, sent by the
   browser on every request.
-- **Session hijacking**, stealing and reusing a victim's already-authenticated session token.
-- **Session fixation**, forcing a victim to authenticate under a session ID the attacker
+- **Session hijacking**: stealing and reusing a victim's already-authenticated session token.
+- **Session fixation**: forcing a victim to authenticate under a session ID the attacker
   already controls.
-- **Idle timeout**, session expiration triggered by a period of no activity.
-- **Absolute timeout**, session expiration triggered after a fixed total duration.
-- **Secure flag**, cookie attribute restricting transmission to HTTPS only.
-- **HttpOnly flag**, cookie attribute hiding the cookie from JavaScript, blunting XSS theft.
-- **SameSite**, cookie attribute limiting cross-site sending, mitigating CSRF.
-- **Session regeneration**, issuing a fresh session ID at login / privilege change, defeating
+- **Idle timeout**: session expiration triggered by a period of no activity.
+- **Absolute timeout**: session expiration triggered after a fixed total duration.
+- **Secure flag**: cookie attribute restricting transmission to HTTPS only.
+- **HttpOnly flag**: cookie attribute hiding the cookie from JavaScript, blunting XSS theft.
+- **SameSite**: cookie attribute limiting cross-site sending, mitigating CSRF.
+- **Session regeneration**: issuing a fresh session ID at login / privilege change, defeating
   fixation.
 
 ## Common misconceptions

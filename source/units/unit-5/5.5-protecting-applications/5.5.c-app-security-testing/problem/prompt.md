@@ -1,4 +1,4 @@
-# Coding problem, 5.5.c: Static-analysis scanner (SAST)
+# Coding problem 5.5.c: Static-analysis scanner (SAST)
 
 **Skill:** Detect Attacks, Mitigate Risk · **Maps to:** 5.5.B, 5.5.C · **Language:** Python 3 (pytest)
 
@@ -7,11 +7,11 @@ Build a miniature SAST rule engine. Given the source lines of a file (as a list 
 per line, 1-indexed), scan each line for known dangerous patterns and return a list of findings, exactly what a real static-analysis tool's rule engine does before a human triages the results.
 
 Detect these categories:
-- `"sql-injection-risk"`, a SQL keyword (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) combined with
+- `"sql-injection-risk"`: a SQL keyword (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) combined with
   string concatenation (`+`) or an f-string/`.format(`/`%` on the same line (i.e., the query is
   being built dynamically instead of parameterized).
-- `"eval-use"`, the line calls `eval(` or `exec(`.
-- `"hardcoded-secret"`, the line assigns a literal string to a variable whose name contains
+- `"eval-use"`: the line calls `eval(` or `exec(`.
+- `"hardcoded-secret"`: the line assigns a literal string to a variable whose name contains
   `password`, `secret`, `api_key`, or `token` (case-insensitive), e.g. `password = "hunter2"`.
   An assignment that reads from an environment variable or config object (no literal string on the
   right-hand side) is NOT a finding.

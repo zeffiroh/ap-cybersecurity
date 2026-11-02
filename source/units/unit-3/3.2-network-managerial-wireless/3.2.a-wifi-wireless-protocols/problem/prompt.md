@@ -1,4 +1,4 @@
-# Coding problem, 3.2.a: Wi-Fi configuration security evaluator
+# Coding problem 3.2.a: Wi-Fi configuration security evaluator
 
 **Skill:** Mitigate Risk · **Maps to:** 3.2.A · **Language:** Python 3 (pytest)
 
@@ -26,7 +26,7 @@ Implement `evaluate_wifi_config(cfg)` in `starter.py` (see `interface.md` / `bla
 ## Output
 A sorted `list[str]` of gap codes present in the configuration (empty list if there are no gaps).
 Possible gap codes:
-- `"insecure_protocol"`, protocol is `"WEP"`, `"WPA2-TKIP"`, or `"OPEN"`
+- `"insecure_protocol"`: protocol is `"WEP"`, `"WPA2-TKIP"`, or `"OPEN"`
 - `"weak_psk"`, `mode == "personal"` and `psk_length < 20`
 - `"no_guest_isolation"`, `guest_network_isolated` is `False`
 - `"weak_admin_password"`, `admin_password_strong` is `False`

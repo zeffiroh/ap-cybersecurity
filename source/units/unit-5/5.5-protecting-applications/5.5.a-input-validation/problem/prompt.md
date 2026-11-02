@@ -1,4 +1,4 @@
-# Coding problem, 5.5.a: Field validator (allowlist + injection detector)
+# Coding problem 5.5.a: Field validator (allowlist + injection detector)
 
 **Skill:** Mitigate Risk · **Maps to:** 5.5.A · **Language:** Python 3 (pytest)
 

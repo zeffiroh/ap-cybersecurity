@@ -1,4 +1,4 @@
-# 5.4.c, Digital signatures
+# 5.4.c: Digital signatures
 
 > **Unit 5 · 5.4 Asymmetric Cryptography**
 > **AP Learning Objective(s):** 5.4.B
@@ -45,13 +45,13 @@ so any tampering is caught by the comparison in step 3.
 **The three guarantees.** A signature that verifies successfully gives the verifier three distinct
 properties:
 
-- **Authenticity**, the signature could only have been produced by whoever holds the private key
+- **Authenticity**: the signature could only have been produced by whoever holds the private key
   matching the public key used to verify it. If Bob's public key verifies a signature, only Bob's
   private key could have produced it (assuming that key has not been compromised).
-- **Integrity**, because the signature is over a hash of the message, any modification to the
+- **Integrity**: because the signature is over a hash of the message, any modification to the
   message after signing changes its hash, which no longer matches the digest recoverable from the
   signature. Verification fails the instant a single byte changes.
-- **Non-repudiation**, Bob cannot credibly claim "I never signed that." Only Bob possesses his
+- **Non-repudiation**: Bob cannot credibly claim "I never signed that." Only Bob possesses his
   private key, so nobody else could have produced a signature that verifies against his public key.
 
 **Why this beats HMAC (5.3.c).** HMAC gives integrity and authenticity between exactly two parties
@@ -79,15 +79,15 @@ implement `sign()` and `verify()` directly against small, textbook-scale RSA par
 SHA-256 for the hash step described above.
 
 ## Key terms
-- **Digital signature**, a value computed from a message digest and a private key that lets
+- **Digital signature**: a value computed from a message digest and a private key that lets
   anyone with the matching public key verify the message's authenticity and integrity.
-- **Signing**, computing `signature = hash(message)^d mod n` with the signer's private exponent.
-- **Verification**, recomputing `hash(message)` and comparing it to `signature^e mod n`, computed
+- **Signing**: computing `signature = hash(message)^d mod n` with the signer's private exponent.
+- **Verification**: recomputing `hash(message)` and comparing it to `signature^e mod n`, computed
   with the signer's public exponent.
-- **Authenticity**, assurance that a message originated from the claimed sender.
-- **Non-repudiation**, the signer cannot plausibly deny having signed, since only they hold the
+- **Authenticity**: assurance that a message originated from the claimed sender.
+- **Non-repudiation**: the signer cannot plausibly deny having signed, since only they hold the
   private key; a property HMAC (shared-secret) schemes cannot provide.
-- **Message digest**, the fixed-size hash output that is actually signed, rather than signing the
+- **Message digest**: the fixed-size hash output that is actually signed, rather than signing the
   raw message.
 
 ## Common misconceptions

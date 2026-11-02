@@ -1,4 +1,4 @@
-# 1.2.a, Password-attack signs (failed attempts, unusual times, unknown devices)
+# 1.2.a: Password-attack signs (failed attempts, unusual times, unknown devices)
 
 > **Unit 1 · 1.2 Suspicious Wi-Fi Login**
 > **AP Learning Objective(s):** 1.2.A
@@ -80,17 +80,17 @@ you step through a live-looking login monitor and flag the suspicious account be
 succeeds.
 
 ## Key terms
-- **Brute-force attack**, automated, exhaustive attempt to guess a credential by trying many
+- **Brute-force attack**: automated, exhaustive attempt to guess a credential by trying many
   possible values.
-- **Dictionary attack**, brute-force variant that tries passwords from a wordlist rather than
+- **Dictionary attack**: brute-force variant that tries passwords from a wordlist rather than
   every possible character combination.
-- **Credential stuffing**, using username/password pairs from a known breach to attack other
+- **Credential stuffing**: using username/password pairs from a known breach to attack other
   services, exploiting password reuse.
-- **Authentication failure spike**, a rapid burst of failed login events for the same account, a
+- **Authentication failure spike**: a rapid burst of failed login events for the same account, a
   primary indicator of automated attack.
-- **Behavioral baseline**, the normal pattern of activity for an account; deviations from it
+- **Behavioral baseline**: the normal pattern of activity for an account; deviations from it
   trigger anomaly-based alerts.
-- **Correlation**, combining multiple signals to reduce false positives in security detection.
+- **Correlation**: combining multiple signals to reduce false positives in security detection.
 
 ## Common misconceptions
 - "A few failed logins are not a big deal." → A few in an hour is noise. Five in sixty seconds is

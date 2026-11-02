@@ -1,4 +1,4 @@
-# 3.1.d, Packet capture and traffic sniffing
+# 3.1.d: Packet capture and traffic sniffing
 
 > **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 3.1.B, 3.1.C
@@ -86,17 +86,17 @@ entry that exposes a plaintext credential, based on the protocol/port and payloa
 same triage a junior SOC analyst performs on a Wireshark export.
 
 ## Key terms
-- **Packet capture (sniffing)**, intercepting and logging network traffic passing a network
+- **Packet capture (sniffing)**: intercepting and logging network traffic passing a network
   interface.
-- **Promiscuous mode**, a NIC setting that accepts all frames it physically receives, not just
+- **Promiscuous mode**: a NIC setting that accepts all frames it physically receives, not just
   those addressed to its own MAC.
-- **Port mirroring / SPAN port**, a switch feature that copies traffic from one or more ports to a
+- **Port mirroring / SPAN port**: a switch feature that copies traffic from one or more ports to a
   monitoring port for legitimate analysis (or, if misused, for eavesdropping).
-- **Capture filter**, a filter applied before capture that determines which packets are recorded
+- **Capture filter**: a filter applied before capture that determines which packets are recorded
   at all.
-- **Display filter**, a filter applied after capture to narrow which already-captured packets are
+- **Display filter**: a filter applied after capture to narrow which already-captured packets are
   shown.
-- **Cleartext protocol**, a protocol (HTTP, Telnet, FTP, unencrypted SMTP/POP3/IMAP) that sends
+- **Cleartext protocol**: a protocol (HTTP, Telnet, FTP, unencrypted SMTP/POP3/IMAP) that sends
   payload data, including credentials, without encryption.
 
 ## Common misconceptions

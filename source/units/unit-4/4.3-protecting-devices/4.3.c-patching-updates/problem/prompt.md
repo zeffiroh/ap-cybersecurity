@@ -1,4 +1,4 @@
-# Coding problem, 4.3.c: Patch-prioritization engine
+# Coding problem 4.3.c: Patch-prioritization engine
 
 **Skill:** Mitigate Risk · **Maps to:** 4.3.B, 4.3.C · **Language:** Python 3 (pytest)
 

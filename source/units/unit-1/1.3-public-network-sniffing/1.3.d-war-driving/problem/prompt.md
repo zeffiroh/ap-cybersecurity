@@ -1,4 +1,4 @@
-# Coding problem, 1.3.d: Public Wi-Fi risk flagger
+# Coding problem 1.3.d: Public Wi-Fi risk flagger
 
 **Skill:** Mitigate Risk · **Maps to:** 1.3.B, 1.3.C · **Language:** Python 3 (pytest)
 
@@ -31,9 +31,9 @@ Example:
 ## Output
 A **sorted, de-duplicated** `list[str]` of the risk flags that apply, drawn from:
 
-- `"open-network"`, the network is open (no Wi-Fi-layer encryption).
-- `"unverified-ssid"`, the SSID has not been confirmed with an authoritative source.
-- `"no-vpn"`, no VPN is protecting the user's traffic.
+- `"open-network"`: the network is open (no Wi-Fi-layer encryption).
+- `"unverified-ssid"`: the SSID has not been confirmed with an authoritative source.
+- `"no-vpn"`: no VPN is protecting the user's traffic.
 
 Return `[]` when none apply (a verified, encrypted network used over a VPN).
 

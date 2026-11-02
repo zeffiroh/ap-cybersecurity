@@ -16,7 +16,7 @@ def _load(path):
 impl = _load(_TARGET)
 
 
-def test_single_urgency():
+def test_urgency_and_intimidation():
     assert impl.solve("Your account will be locked in 24 hours. Act now.") == ["intimidation", "urgency"]
 
 

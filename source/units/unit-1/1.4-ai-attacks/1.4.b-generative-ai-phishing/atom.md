@@ -1,4 +1,4 @@
-# 1.4.b, Generative-AI phishing; prompt injection against LLM apps
+# 1.4.b: Generative-AI phishing; prompt injection against LLM apps
 
 > **Unit 1 · 1.4 AI-Based Cybersecurity Attacks**
 > **AP Learning Objective(s):** 1.4.A
@@ -117,18 +117,18 @@ common injection patterns, observing how a hardened (scripted) bot responds to e
 is to probe five distinct injection pattern families and understand why each defense is effective.
 
 ## Key terms
-- **Generative-AI phishing**, phishing content produced by an LLM, which bypasses
+- **Generative-AI phishing**: phishing content produced by an LLM, which bypasses
   grammar-based filters by generating fluent, targeted, contextually appropriate text.
-- **Prompt injection**, an attack that smuggles adversarial instructions into LLM input so the
+- **Prompt injection**: an attack that smuggles adversarial instructions into LLM input so the
   model acts on attacker goals rather than operator goals.
-- **Direct injection**, the attacker controls the user input field of an LLM app directly.
-- **Indirect injection**, adversarial instructions are embedded in data the LLM processes
+- **Direct injection**: the attacker controls the user input field of an LLM app directly.
+- **Indirect injection**: adversarial instructions are embedded in data the LLM processes
   on behalf of a legitimate user (emails, documents, web pages).
-- **Jailbreak**, an adversarial prompt designed to override the safety constraints or
+- **Jailbreak**: an adversarial prompt designed to override the safety constraints or
   system-prompt instructions an LLM operator has established.
-- **System prompt**, operator-supplied instructions that define an LLM app's role, constraints,
+- **System prompt**: operator-supplied instructions that define an LLM app's role, constraints,
   and behavior; provided before user interaction begins.
-- **Privilege separation**, confining the LLM to the minimum permissions required for its
+- **Privilege separation**: confining the LLM to the minimum permissions required for its
   task so that even a successful injection cannot take high-impact actions.
 
 ## Common misconceptions

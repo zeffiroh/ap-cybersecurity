@@ -1,4 +1,4 @@
-# Coding problem, 2.2.c: Device theft/tampering incident triage
+# Coding problem 2.2.c: Device theft/tampering incident triage
 
 **Skill:** Analyze Risk · **Maps to:** 2.2.B, 2.2.C · **Language:** Python 3 (pytest)
 

@@ -1,4 +1,4 @@
-# 4.4.a, Endpoint detection and response (EDR)
+# 4.4.a: Endpoint detection and response (EDR)
 
 > **Unit 4 · 4.4 Detecting Attacks on Devices**
 > **AP Learning Objective(s):** 4.4.A
@@ -70,7 +70,7 @@ Detection is only the first step. EDR platforms are distinguished from older too
   console, to stop the attacker from moving laterally to other systems while leaving the analyst
   able to investigate remotely.
 - **Kill the malicious process** automatically, halting encryption or data exfiltration.
-- **Quarantine a file**, move it to a protected area where it cannot execute.
+- **Quarantine a file**: move it to a protected area where it cannot execute.
 - **Preserve forensic evidence** by capturing a memory snapshot or full disk image.
 
 The combination of collect-detect-respond in one agent is what makes EDR different from simple
@@ -95,18 +95,18 @@ organizations often feed EDR alerts into a Security Information and Event Manage
 platform for correlation across many endpoints simultaneously.
 
 ## Key terms
-- **Endpoint**, any device (laptop, server, workstation) that is an origin or destination for
+- **Endpoint**: any device (laptop, server, workstation) that is an origin or destination for
   network traffic and hosts a security agent.
-- **EDR (Endpoint Detection and Response)**, security software that collects device telemetry,
+- **EDR (Endpoint Detection and Response)**: security software that collects device telemetry,
   detects malicious behavior using signatures and behavioral models, and can respond automatically
   to contain threats.
-- **Telemetry**, the stream of raw event data (process, file, network, registry events) that the
+- **Telemetry**: the stream of raw event data (process, file, network, registry events) that the
   EDR agent reports from the device.
-- **Behavioral detection**, flagging activity that deviates from a learned baseline, even when
+- **Behavioral detection**: flagging activity that deviates from a learned baseline, even when
   no matching signature exists.
-- **Isolation**, the EDR response action that cuts a device's network connections to prevent
+- **Isolation**: the EDR response action that cuts a device's network connections to prevent
   lateral movement while preserving remote analyst access.
-- **Living off the land**, attacker technique of using legitimate OS tools (PowerShell, WMI,
+- **Living off the land**: attacker technique of using legitimate OS tools (PowerShell, WMI,
   certutil) to carry out malicious actions, making detection harder for signature-based tools.
 
 ## Common misconceptions

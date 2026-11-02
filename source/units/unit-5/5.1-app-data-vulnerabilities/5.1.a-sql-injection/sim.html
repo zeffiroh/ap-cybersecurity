@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.1.a, SQL Injection Simulation</title>
+<title>5.1.a: SQL Injection Simulation</title>
 <style>
 :root {
   --bg: #fff; --fg: #000; --muted: #555;
@@ -45,6 +45,7 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .checklist { list-style: none; padding-left: 0; margin: 0; }
 .checklist li { margin-bottom: 6px; }
 .checklist input[type="checkbox"] { pointer-events: none; margin-right: 6px; }
+.whyline{color:#ffff88;}
 </style>
 </head>
 <body class="theme-win">
@@ -182,6 +183,7 @@ function submitLogin() {
       resultLines.push(pad(row.key, 15) + ' │ ' + row.value);
     });
     resultLines.push('----------------------------------------');
+    resultLines.push(why('UNION SELECT glues a second query onto the first and returns both result sets together. The login form was only meant to read the users table, but the attacker\'s added SELECT reads the secrets table through the same hole. To line up, the second SELECT must return the same number of columns as the first.'));
   } else if (isOr) {
     achievements.or_bypass = true;
     document.getElementById('obj_or').checked = true;
@@ -191,6 +193,7 @@ function submitLogin() {
     users.forEach(function(usr) {
       resultLines.push('- Username: ' + usr.username + ', Role: ' + usr.role);
     });
+    resultLines.push(why('The quote you typed closed the string early, so OR 1=1 became part of the SQL itself. WHERE username = \'\' OR 1=1 is true for every row, so the database returns all users and the app logs you in as the first one, often the admin.'));
   } else if (sqlComment) {
     var match = users.find(function(usr) {
       return cleanUser.trim() === usr.username;
@@ -201,8 +204,10 @@ function submitLogin() {
       resultLines.push('<span class="ok">Authentication Success!</span>');
       resultLines.push('Password check truncated by comment marker.');
       resultLines.push('Logged in as: ' + match.username + ' (Role: ' + match.role + ')');
+      resultLines.push(why('Your quote closed the username string, and -- (or /*) started a SQL comment, so the database ignored everything after it, including AND password = .... The password was never checked.'));
     } else {
       resultLines.push('<span class="bad">Authentication Failed.</span> User not found.');
+      resultLines.push(why('The comment did cut off the password check, but the part before it must still name a real account (admin, alice or bob) and close the string with a quote, for example: admin\' --'));
     }
   } else {
     var match = users.find(function(usr) {
@@ -212,11 +217,16 @@ function submitLogin() {
       resultLines.push('<span class="ok">Authentication Success!</span> Logged in as: ' + match.username);
     } else {
       resultLines.push('<span class="bad">Authentication Failed.</span> Invalid username or password.');
+      resultLines.push(why('Nothing in your input changed the structure of the query, so it ran as a normal login. Look at the query preview: an injection needs a quote to break out of the string first.'));
     }
   }
 
   out.innerHTML = resultLines.join('\n');
   updateScore();
+}
+
+function why(t) {
+  return '<span class="whyline">Why: ' + escapeHtml(t) + '\nThe fix: a parameterized query sends the SQL and the user input separately, so input is always treated as data and can never become SQL.</span>';
 }
 
 function pad(str, len) {

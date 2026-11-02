@@ -40,6 +40,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .flags{margin:10px 0;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:6px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -76,12 +78,12 @@ h1{font-size:16px;margin:0 0 6px;}
 function toggleTheme(){document.body.classList.toggle('theme-win');document.body.classList.toggle('theme-linux');}
 
 var SCAN = [
-  { ssid:"AirportFreeWifi", encryption:"open",  verified:false, vpn:false, note:"no sign posts this name; anyone can join" },
-  { ssid:"CityLibrary-Guest", encryption:"wpa2", verified:true,  vpn:false, note:"name confirmed at the desk; no VPN running" },
-  { ssid:"Starbucks WiFi",   encryption:"open",  verified:true,  vpn:true,  note:"staff confirmed name; VPN tunnel up" },
-  { ssid:"Free_Airport_WiFi",encryption:"open",  verified:false, vpn:true,  note:"lookalike of the real SSID; VPN up" },
-  { ssid:"HiltonGuest",      encryption:"wpa2", verified:true,  vpn:true,  note:"verified, encrypted, VPN up - clean" },
-  { ssid:"default",          encryption:"wep",  verified:false, vpn:false, note:"legacy WEP; name not confirmed; no VPN" }
+  { ssid:"AirportFreeWifi", encryption:"open",  verified:false, vpn:false, note:"no sign posts this name; anyone can join" , why:"All three flags. It is open, so anyone nearby can read unencrypted traffic; no sign or staff member confirms this name, so it could be anyone's hotspot; and with no VPN, nothing protects your traffic. Do not connect, or at least wait until you can confirm the real network name and turn a VPN on." },
+  { ssid:"CityLibrary-Guest", encryption:"wpa2", verified:true,  vpn:false, note:"name confirmed at the desk; no VPN running" , why:"Only no-vpn. WPA2 encrypts the radio link and the desk confirmed the name, so the network itself looks legitimate. But WPA2 on a shared guest network uses a password everyone knows, so other guests (or a compromised router) can still see your traffic. A VPN closes that gap." },
+  { ssid:"Starbucks WiFi",   encryption:"open",  verified:true,  vpn:true,  note:"staff confirmed name; VPN tunnel up" , why:"Only open-network. The name was confirmed and a VPN is running, so your traffic is protected inside the tunnel even though the Wi-Fi itself is unencrypted. The flag stays because the network is still open; the VPN is what makes using it reasonable." },
+  { ssid:"Free_Airport_WiFi",encryption:"open",  verified:false, vpn:true,  note:"lookalike of the real SSID; VPN up" , why:"open-network and unverified-ssid. The VPN protects your traffic, but this name is a lookalike of the real airport network and nobody confirmed it, so you may be connected to an attacker's hotspot that can show you fake login pages before the VPN starts. Find the official name on airport signs instead." },
+  { ssid:"HiltonGuest",      encryption:"wpa2", verified:true,  vpn:true,  note:"verified, encrypted, VPN up - clean" , why:"No flags: the network is encrypted (WPA2), the hotel confirmed the name, and a VPN is running. This is what safe public Wi-Fi use looks like." },
+  { ssid:"default",          encryption:"wep",  verified:false, vpn:false, note:"legacy WEP; name not confirmed; no VPN" , why:"unverified-ssid and no-vpn. It is not flagged open-network because WEP is technically encryption, but WEP was broken years ago and can be cracked in minutes, so treat it like an open network. A network named \"default\" is usually an unconfigured router nobody manages. Do not connect." }
 ];
 
 var OPEN = {open:1, none:1, "":1};
@@ -118,8 +120,11 @@ function submit(){
   var ok = sel.size===correct.size && [...sel].every(function(f){return correct.has(f);});
   var fb=document.getElementById('fb');
   var list=[...correct].sort().join(", ")||"none (safe to connect)";
-  if(ok){ score++; answered=true; fb.innerHTML='<span class="ok">CORRECT.</span> Risk flags: '+list;}
-  else { answered=true; fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct flags: '+list;}
+  var n=SCAN[idx];
+  var miss=[...correct].filter(function(f){return !sel.has(f);}), extra=[...sel].filter(function(f){return !correct.has(f);});
+  var why='<ul class="why"><li><b>Why:</b> '+esc(n.why)+'</li></ul>';
+  if(ok){ score++; answered=true; fb.innerHTML='<span class="ok">CORRECT.</span> Risk flags: '+list+'.'+why;}
+  else { answered=true; fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct flags: '+list+'.'+(miss.length?'<br>You missed: '+miss.join(', ')+'.':'')+(extra.length?'<br>Not a risk here: '+extra.join(', ')+'.':'')+why;}
   if(score>=GOAL) met=true;
   updateBar();
 }

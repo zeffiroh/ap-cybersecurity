@@ -1,4 +1,4 @@
-# Coding problem, 3.5.a: IDS signature matcher
+# Coding problem 3.5.a: IDS signature matcher
 
 **Skill:** Detect Attacks · **Maps to:** 3.5.A · **Language:** Python 3 (pytest)
 

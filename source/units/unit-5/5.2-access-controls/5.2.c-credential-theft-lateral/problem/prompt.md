@@ -1,4 +1,4 @@
-# Coding problem, 5.2.c: Detect lateral movement in an authentication log
+# Coding problem 5.2.c: Detect lateral movement in an authentication log
 
 **Skill:** Mitigate Risk, Detect Attacks · **Maps to:** 5.2.B, 5.2.C · **Language:** Python 3 (pytest)
 

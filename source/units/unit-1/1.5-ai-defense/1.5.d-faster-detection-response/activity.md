@@ -9,7 +9,7 @@ Ties to LO 1.5.B (explain how AI reduces MTTR and improves response accuracy).
 
 ## Materials (all local)
 - the SimLab simulation on each machine, or the printed incident queue below.
-- `problem/`, students verify their MTTR calculation against `solve()`.
+- `problem/`: students verify their MTTR calculation against `solve()`.
 
 ## Printed incident queue (if devices unavailable)
 ```

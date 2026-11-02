@@ -240,7 +240,7 @@ def handout(aid, a, kind):
         doc.add_heading("Before class", level=2)
         para(a["lead"])
         doc.add_heading("Terms you'll see today", level=2)
-        items([re.match(r"\*\*(.+?)\*\*", x).group(1) if x.startswith("**") else x.split(",")[0] for x in a["terms"]])
+        items([re.match(r"\*\*(.+?)\*\*", x).group(1) if x.startswith("**") else re.split(r"[,:]", x)[0] for x in a["terms"]])
         doc.add_heading("Come ready to", level=2)
         para("Think about a time a message tried to rush, flatter, scare, or pressure you into acting quickly. "
              "Be ready to describe it in one sentence." if aid.startswith("1.1.") else

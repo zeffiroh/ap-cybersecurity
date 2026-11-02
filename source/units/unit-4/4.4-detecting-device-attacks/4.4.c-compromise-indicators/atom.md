@@ -1,4 +1,4 @@
-# 4.4.c, Identifying compromised devices (indicators of compromise)
+# 4.4.c: Identifying compromised devices (indicators of compromise)
 
 > **Unit 4 · 4.4 Detecting Attacks on Devices**
 > **AP Learning Objective(s):** 4.4.B, 4.4.C
@@ -21,15 +21,15 @@ is combining multiple IOCs into a confident verdict.
 IOCs come from many different layers of a system, and organizing them by category helps analysts
 know where to look:
 
-- **File-based IOCs**, a file matching a known-malicious hash, an unexpected executable in a
+- **File-based IOCs**: a file matching a known-malicious hash, an unexpected executable in a
   temp or startup directory, or a legitimate file that has been silently modified.
-- **Network-based IOCs**, a connection to a known command-and-control (C2) IP address or domain,
+- **Network-based IOCs**: a connection to a known command-and-control (C2) IP address or domain,
   unusually large outbound data transfers, or DNS lookups for algorithmically generated domain
   names (a technique malware uses to find its C2 server without hardcoding one address).
-- **Host-based IOCs**, a new administrator account nobody remembers creating, a scheduled task
+- **Host-based IOCs**: a new administrator account nobody remembers creating, a scheduled task
   that runs at every boot without an owner, a registry "run key" added to achieve persistence, or
   antivirus/EDR protection being silently disabled.
-- **Behavioral IOCs**, patterns rather than single artifacts: a spike in failed logins (4.4.b), a
+- **Behavioral IOCs**: patterns rather than single artifacts: a spike in failed logins (4.4.b), a
   process spawning an unusual child process (4.4.a), or a login at 3 AM from an account that has
   never logged in outside business hours.
 
@@ -81,15 +81,15 @@ in progress; IOCs confirm that something already happened. Both matter, and real
 programs use both.
 
 ## Key terms
-- **Indicator of compromise (IOC)**, forensic evidence (a file, network connection, account,
+- **Indicator of compromise (IOC)**: forensic evidence (a file, network connection, account,
   configuration change, or behavior) suggesting a device has been breached.
-- **Persistence**, an attacker technique for maintaining access to a compromised system even
+- **Persistence**: an attacker technique for maintaining access to a compromised system even
   after the initial foothold is discovered or the system is rebooted.
-- **Threat intelligence feed**, a shared, continuously updated source of known-malicious
+- **Threat intelligence feed**: a shared, continuously updated source of known-malicious
   indicators (hashes, IPs, domains) that organizations subscribe to.
-- **Compromise score**, a numeric value produced by summing the weights of every IOC observed
+- **Compromise score**: a numeric value produced by summing the weights of every IOC observed
   on a device, used to classify overall risk.
-- **Indicator of attack (IOA)**, evidence of an attacker's intent or technique while an attack is
+- **Indicator of attack (IOA)**: evidence of an attacker's intent or technique while an attack is
   actively in progress, as opposed to after-the-fact evidence (IOC).
 
 ## Common misconceptions

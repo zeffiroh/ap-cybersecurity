@@ -359,6 +359,9 @@ const QuizEngine = (() => {
     results.innerHTML = (
       '<div class="results-score">' + correct + ' / ' + total + ' <span>(' + pct + '%)</span></div>' +
       gate +
+      '<p class="rubric-note">How this was scored: every question is worth 1 point, with no partial credit and no penalty for a wrong guess. ' +
+        'Your score is points earned out of ' + total + '; mastery is ' + MASTERY + '% (' + Math.ceil(total * MASTERY / 100) + ' of ' + total + '). ' +
+        'The bars below split the same points by skill, so the weakest bar is what to review first.</p>' +
       '<div class="skill-breakdown"><h4>Score by Skill</h4>' + skillRows + '</div>' +
       '<div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">' +
         '<button class="btn primary" onclick="QuizEngine.downloadReport()">⬇ Download Report</button>' +

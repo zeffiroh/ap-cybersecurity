@@ -1222,11 +1222,11 @@ Traditional hardware-based IDS/IPS cannot be deployed in IaaS cloud environments
 :::
 ::col::
 :::list heading="Example GuardDuty Finding Types" style=plain
-- `UnauthorizedAccess:EC2/SSHBruteForce`, SSH brute force against EC2 instance
-- `Trojan:EC2/BlackholeTraffic`, EC2 communicating with known C2 blackhole IP
-- `Recon:IAMUser/MaliciousIPCaller`, AWS API calls from known-malicious IP
-- `Impact:S3/MaliciousIPCaller`, S3 data access from malicious IP
-- `Persistence:IAMUser/AnomalousBehavior`, Unusual IAM credential usage patterns
+- `UnauthorizedAccess:EC2/SSHBruteForce`: SSH brute force against EC2 instance
+- `Trojan:EC2/BlackholeTraffic`: EC2 communicating with known C2 blackhole IP
+- `Recon:IAMUser/MaliciousIPCaller`: AWS API calls from known-malicious IP
+- `Impact:S3/MaliciousIPCaller`: S3 data access from malicious IP
+- `Persistence:IAMUser/AnomalousBehavior`: Unusual IAM credential usage patterns
 :::
 ::::
 

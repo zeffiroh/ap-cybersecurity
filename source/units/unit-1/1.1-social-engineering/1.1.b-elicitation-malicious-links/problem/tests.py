@@ -28,7 +28,7 @@ def test_dangerous_extension_filename():
     assert impl.solve("new_hire_form.pdf.exe") == ["dangerous-extension"]
 
 
-def test_lookalike_and_mismatched():
+def test_brand_in_subdomain_is_mismatched():
     result = impl.solve("http://bankofamerica.com.secure-login.xyz/stmt/2026-05.pdf")
     assert "mismatched-link" in result
 

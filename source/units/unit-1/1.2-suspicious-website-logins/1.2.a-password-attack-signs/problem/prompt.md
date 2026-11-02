@@ -1,4 +1,4 @@
-# Coding problem, 1.2.a: Detect brute-force login attempts
+# Coding problem 1.2.a: Detect brute-force login attempts
 
 **Skill:** Detect Attacks · **Maps to:** 1.2.A · **Language:** Python 3 (pytest)
 

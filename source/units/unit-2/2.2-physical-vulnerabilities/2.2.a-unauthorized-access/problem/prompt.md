@@ -1,4 +1,4 @@
-# Coding problem, 2.2.a: Detect unauthorized physical access in a badge log
+# Coding problem 2.2.a: Detect unauthorized physical access in a badge log
 
 **Skill:** Analyze Risk · **Maps to:** 2.2.A, 2.2.B · **Language:** Python 3 (pytest)
 

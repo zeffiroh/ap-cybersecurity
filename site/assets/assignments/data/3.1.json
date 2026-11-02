@@ -39,7 +39,7 @@
       ],
       "accept": null,
       "points": 3,
-      "explain": "IP has no source-address verification (spoofing), DNS caches forgeable replies (poisoning), and ARP trusts any reply broadcast (ARP spoofing). TCP sequence numbers are NOT encrypted by default, that is a weakness, not a safeguard."
+      "explain": "IP has no source-address verification (spoofing), DNS caches forgeable replies (poisoning), and ARP trusts any reply broadcast (ARP spoofing). TCP sequence numbers are NOT encrypted by default; that is a weakness, not a safeguard."
     },
     {
       "id": "3.1.a.q3",
@@ -115,15 +115,15 @@
       "type": "mcq",
       "prompt": "Why can an attacker forge a DNS response over UDP more easily than they could tamper with a TCP connection?",
       "options": [
-        "UDP responses are digitally signed by default",
-        "UDP always encrypts responses",
-        "UDP requires the attacker to be on the same physical cable",
+        "UDP packets are smaller, so a forged reply fits in fewer bytes",
+        "UDP has no checksum, so altered replies are not noticed",
+        "DNS servers do not log UDP traffic, so forgeries leave no trace",
         "UDP is connectionless, so there is no handshake the resolver can use to verify the reply's origin"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "DNS over UDP is a single stateless query/reply pair; the resolver has no session state to verify the reply actually came from the authoritative server, so a correctly-guessed forged reply is accepted."
+      "explain": "TCP's handshake proves both sides can receive each other's packets before data flows. UDP has no handshake: the resolver sends one packet and accepts the first reply that matches the transaction ID, port and question. An attacker who guesses those can win the race. UDP does have a checksum, but it only catches accidental damage."
     },
     {
       "id": "3.1.b.q2",
@@ -132,15 +132,15 @@
       "type": "mcq",
       "prompt": "Which THREE fields must a forged DNS reply match for a resolver to accept it as the answer to an outstanding query?",
       "options": [
-        "TTL, checksum, and MAC address",
-        "Source IP address only",
+        "Source IP, TTL and record type",
+        "Transaction ID only, since it is unique per query",
         "Destination port, query domain name, transaction ID",
-        "HTTP status code, cookie, and referrer"
+        "Transaction ID, source MAC address and DNSSEC signature"
       ],
       "answer": 2,
       "accept": null,
       "points": 1,
-      "explain": "The resolver checks the reply's transaction ID, source port (the port it sent the query from), and query name against the outstanding query before accepting the answer."
+      "explain": "A resolver accepts a reply if it arrives on the port the query used, carries the same 16-bit transaction ID, and answers the same question (domain name). The transaction ID alone has only 65,536 values, which is why source-port randomization (adding about 16 more bits to guess) was the urgent fix after Kaminsky. MAC addresses do not survive across routers, and most resolvers did not check DNSSEC."
     },
     {
       "id": "3.1.b.q3",
@@ -216,15 +216,15 @@
       "type": "mcq",
       "prompt": "Why does ARP allow spoofing so easily?",
       "options": [
-        "ARP requires a password for every reply",
-        "ARP replies must be digitally signed by the gateway",
-        "ARP only works over encrypted channels",
+        "ARP replies are encrypted, so the switch cannot inspect them",
+        "ARP only runs when a device first joins, so stale entries are never corrected",
+        "Only the gateway is allowed to send ARP replies, and it can be impersonated",
         "ARP has no built-in authentication, so any device can send a reply and it will be trusted"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "ARP was designed for a small trusted network in 1982 and has no cryptographic authentication, any host can send a reply (even unsolicited) and receiving hosts will update their ARP table."
+      "explain": "ARP was designed for trusted local networks: a host accepts any reply saying \"IP x is at MAC y\", even one it never asked for, and updates its cache. Nothing proves the sender owns that IP. ARP is not encrypted, any host can reply, and caches update constantly, which is exactly what spoofing exploits."
     },
     {
       "id": "3.1.c.q2",
@@ -335,15 +335,15 @@
       "type": "mcq",
       "prompt": "What is the difference between a capture filter and a display filter in a tool like Wireshark?",
       "options": [
-        "They are the same thing with different names",
+        "A capture filter hides packets on screen, while a display filter deletes them from the file",
         "A capture filter determines what is recorded at all; a display filter narrows the view of what was already captured",
-        "A display filter determines what is recorded; a capture filter only changes colors",
-        "Capture filters only work on Windows"
+        "Display filters run on the network card, while capture filters run in Wireshark",
+        "Capture filters can match payload text, while display filters can only match addresses"
       ],
       "answer": 1,
       "accept": null,
       "points": 1,
-      "explain": "A capture filter is applied before/during capture and discards non-matching packets permanently; a display filter is applied afterward to a full capture and only changes what is shown, not what was recorded."
+      "explain": "Capture filters decide what gets saved in the first place (anything filtered out is gone for good), so they keep files small but risk missing evidence. Display filters only hide packets from view, and you can change them at any time without losing data. That is why analysts often capture broadly and filter the display."
     },
     {
       "id": "3.1.d.q3",
@@ -405,14 +405,14 @@
       "prompt": "A capture log entry shows TCP port 443 traffic to a banking site with payload described only as encrypted binary data. What should an analyst conclude?",
       "options": [
         "No credential can be extracted from this capture because TLS encrypts the payload",
-        "The password is visible if you look closely enough",
-        "Port 443 is always cleartext",
-        "This is definitely a Telnet session"
+        "The credential can be recovered by converting the binary payload to text",
+        "The capture proves the site is safe, because the traffic is encrypted",
+        "The analyst should look at the TCP header, where TLS stores the username"
       ],
       "answer": 0,
       "accept": null,
       "points": 1,
-      "explain": "Port 443 (HTTPS) encrypts the payload end-to-end; even if login data is being transmitted, the captured bytes are unreadable ciphertext without the decryption key."
+      "explain": "TLS encrypts the application data, so the password is unreadable without the session keys. The capture still shows metadata (IP addresses, ports, the server name in the handshake, timing and sizes). Encryption says nothing about whether the site itself is legitimate; a phishing site can use HTTPS too."
     }
   ],
   "coding_problems": [

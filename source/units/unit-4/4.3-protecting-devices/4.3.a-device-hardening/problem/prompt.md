@@ -1,4 +1,4 @@
-# Coding problem, 4.3.a: Device hardening configuration auditor
+# Coding problem 4.3.a: Device hardening configuration auditor
 
 **Skill:** Mitigate Risk · **Maps to:** 4.3.A · **Language:** Python 3 (pytest)
 

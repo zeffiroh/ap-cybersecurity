@@ -1,4 +1,4 @@
-# Coding problem, 5.6.a: Brute-force detector (SIEM alert rule)
+# Coding problem 5.6.a: Brute-force detector (SIEM alert rule)
 
 **Skill:** Detect Attacks · **Maps to:** 5.6.A · **Language:** Python 3 (pytest)
 

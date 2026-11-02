@@ -316,6 +316,116 @@ def apply(path, text):
     return text
 
 
+def window_name(a, kind):
+    src = a["src"] / f"{kind}.html"
+    m = re.search(r"<title>(.*?)</title>", src.read_text(encoding="utf-8"), re.S) if src.exists() else None
+    name = m.group(1).strip() if m else a["title"]
+    name = re.sub(r"^\s*\d\.\d\.[a-z]\s*(Lab)?\s*[,:\-–]\s*", "", name)
+    name = re.sub(r",\s*(Simulation|Lab)\s*$", "", name)
+    return name.strip() or a["title"]
+
+
+TASKBAR_CSS = """
+.tb{position:fixed;left:0;right:0;bottom:0;z-index:1000;height:32px;display:flex;align-items:center;gap:4px;padding:2px 4px;box-sizing:border-box;
+  background:#c0c0c0;border-top:2px solid #fff;box-shadow:0 -1px 0 #dfdfdf;font:12px "MS Sans Serif",Tahoma,Geneva,system-ui,sans-serif;color:#000}
+.tb a{color:#000;text-decoration:none}
+.tb-btn{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;background:#c0c0c0;
+  border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:inset -1px -1px 0 #808080}
+.tb-btn:active,.tb-btn.on,.tb-start[open]>summary{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px 0 #808080;background:#d4d4d4}
+.tb-btn.on{font-weight:bold;background-image:repeating-linear-gradient(45deg,#fff 0 1px,transparent 1px 2px);background-color:#c0c0c0}
+.tb-start{position:relative}
+.tb-start>summary{list-style:none;font-weight:bold}
+.tb-start>summary::-webkit-details-marker{display:none}
+.tb-logo{display:inline-grid;grid-template-columns:5px 5px;gap:1px}
+.tb-logo i{width:5px;height:5px;display:block}
+.tb-logo i:nth-child(1){background:#e33}.tb-logo i:nth-child(2){background:#3a3}.tb-logo i:nth-child(3){background:#36f}.tb-logo i:nth-child(4){background:#fc0}
+.tb-menu{position:absolute;left:0;bottom:30px;display:flex;min-width:250px;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #808080}
+.tb-side{writing-mode:vertical-rl;transform:rotate(180deg);background:linear-gradient(#000080,#1084d0);color:#fff;font-weight:bold;padding:6px 3px;letter-spacing:1px}
+.tb-items{flex:1;padding:2px 0;max-height:70vh;overflow:auto}
+.tb-items a,.tb-items span{display:block;padding:5px 14px 5px 10px;white-space:nowrap}
+.tb-items a:hover,.tb-items a:focus{background:#000080;color:#fff;outline:none}
+.tb-items .tb-h{color:#555;font-weight:bold;padding-top:7px}
+.tb-items hr{border:0;border-top:1px solid #808080;border-bottom:1px solid #fff;margin:3px 2px}
+.tb-tasks{flex:1;display:flex;gap:3px;overflow-x:auto;min-width:0;scrollbar-width:none}
+.tb-tasks::-webkit-scrollbar{display:none}
+.tb-tasks .tb-btn{max-width:190px;overflow:hidden;text-overflow:ellipsis;display:block;line-height:20px}
+.tb-tray{display:flex;align-items:center;gap:3px;height:24px;padding:0 6px;border:1px solid;border-color:#808080 #fff #fff #808080}
+.tb-clock{min-width:56px;text-align:center}
+body{padding-bottom:40px}
+.pw-bar{bottom:32px!important}
+.theme-linux .tb,.theme-linux .tb-btn,.theme-linux .tb-menu{background:#f5f5f5}
+.theme-linux .tb{border-top:1px solid #ccc;box-shadow:none}
+.theme-linux .tb-btn,.theme-linux .tb-menu{border:1px solid #ccc;box-shadow:none;border-radius:3px}
+.theme-linux .tb-btn.on{background:#dbe7ff}
+@media (max-width:560px){.tb-clock,.tb-name{display:none}.tb-tasks .tb-btn{max-width:120px}}
+"""
+
+TASKBAR_JS = """
+(function(){var s=document.querySelector('.tb-start'),c=document.querySelector('.tb-clock');
+document.addEventListener('click',function(e){if(s&&s.open&&!s.contains(e.target))s.open=false;});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&s)s.open=false;});
+function t(){if(c)c.textContent=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
+t();setInterval(t,15000);})();
+"""
+
+
+def taskbar(path, a, kind):
+    page_dir = Path(path).parent
+    r = lambda p: rel(page_dir, p)
+    tid = C.tid_of(a["id"])
+    t = C.topic(tid)
+    ring = [(x, k) for x in C.atom_order() for k in ("sim", "lab")
+            if (x["src"] / f"{k}.html").exists()]
+    here = ring.index((a, kind)) if (a, kind) in ring else -1
+    page = lambda x, k: sim_page(x) if k == "sim" else lab_page(x)
+    label = lambda x, k: f"{x['id']}{' Lab' if k == 'lab' else ''}: {window_name(x, k)}"
+
+    def link(p, text):
+        return f'<a href="{r(p)}">{esc(text)}</a>'
+
+    items = [link(SITE / "index.html", "Course home"),
+             link(target(tid, "topic"), f"{tid} {t['title']}: Overview")]
+    for k in ("notes", "simlab", "flashcards", "quiz"):
+        if has(tid, k):
+            items.append(link(target(tid, k), f"{tid} {KIND_LABEL[k]}"))
+    items.append("<hr>")
+    items.append(f'<span class="tb-h">This skill: {esc(a["id"])}</span>')
+    items.append(link(lesson_page(a), "Lesson"))
+    items.append(link(quiz_page(a), "Skill quiz"))
+    if has_problem(a):
+        items.append(link(problem_page(a), "Coding problem"))
+    if has_sim(a) and kind != "sim":
+        items.append(link(sim_page(a), "Simulation"))
+    if has_lab(a) and kind != "lab":
+        items.append(link(lab_page(a), "Lab"))
+    if here >= 0:
+        items.append("<hr>")
+        if here > 0:
+            items.append(link(page(*ring[here - 1]), "◀ Previous: " + label(*ring[here - 1])))
+        if here < len(ring) - 1:
+            items.append(link(page(*ring[here + 1]), "Next: " + label(*ring[here + 1]) + " ▶"))
+
+    tasks = "".join(
+        f'<a class="tb-btn{" on" if (x, k) == (a, kind) else ""}" href="{r(page(x, k))}" title="{esc(label(x, k))}">'
+        f'{esc(label(x, k))}</a>'
+        for x, k in ring if C.tid_of(x["id"]) == tid)
+    prev_btn = (f'<a class="tb-btn" href="{r(page(*ring[here - 1]))}" title="Previous: {esc(label(*ring[here - 1]))}">◀</a>'
+                if here > 0 else "")
+    next_btn = (f'<a class="tb-btn" href="{r(page(*ring[here + 1]))}" title="Next: {esc(label(*ring[here + 1]))}">▶</a>'
+                if 0 <= here < len(ring) - 1 else "")
+    return (f'<style>{TASKBAR_CSS}</style>\n'
+            f'<nav class="tb" aria-label="Course taskbar">'
+            f'<details class="tb-start"><summary class="tb-btn"><span class="tb-logo"><i></i><i></i><i></i><i></i></span>Start</summary>'
+            f'<div class="tb-menu"><div class="tb-side">{esc(BRAND)}</div><div class="tb-items">{"".join(items)}</div></div></details>'
+            f'<div class="tb-tasks">{tasks}</div>{prev_btn}{next_btn}'
+            f'<div class="tb-tray"><span class="tb-name">{esc(tid)}</span><span class="tb-clock"></span></div></nav>\n'
+            f'<script>{TASKBAR_JS}</script>\n')
+
+
+def with_taskbar(path, a, kind, text):
+    return re.sub(r"</body>", lambda m: taskbar(path, a, kind) + "</body>", text, count=1)
+
+
 def shell(path, title, body, cls=""):
     page_dir = Path(path).parent
     text = (f'<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'

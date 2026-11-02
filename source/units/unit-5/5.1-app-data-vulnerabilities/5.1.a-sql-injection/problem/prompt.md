@@ -1,4 +1,4 @@
-# Coding problem, 5.1.a: Fix the Injectable Login
+# Coding problem 5.1.a: Fix the Injectable Login
 
 **Skill:** Mitigate Risk · **Maps to:** 5.1.A, 5.1.B · **Language:** Python 3 (pytest, sqlite3)
 

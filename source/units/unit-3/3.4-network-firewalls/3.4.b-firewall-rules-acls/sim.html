@@ -163,11 +163,20 @@ function verify(){
   var met = (score === packets.length);
   document.getElementById("log").innerHTML = "<span class=\"dim\">acl# </span>show acl-test results\n\n" +
     lines.join("\n") + "\n\n" +
-    (met ? "ALL PACKETS MATCH SECURITY INTENT. Shadowing bug resolved." : "Shadowing bug still present. Reorder rules and re-test.");
+    (met ? "ALL PACKETS MATCH SECURITY INTENT. Shadowing bug resolved." : "Shadowing bug still present. Reorder rules and re-test.") + ACL_WHY;
   document.getElementById("score").innerHTML = "SCORE " + score + " / " + packets.length + " &#9474; OBJECTIVE: " +
     (met ? "<span class=\"ok\">MET</span>" : "<span class=\"bad\">not yet met</span>");
 }
 
+var ACL_WHY = "\n\nWhy it works this way:\n" +
+  "- The firewall reads rules top to bottom and stops at the FIRST match. A broad rule above a\n" +
+  "  narrow one \"shadows\" it: the narrow rule can never be reached for the traffic both match.\n" +
+  "- Packet A (hostile range to file-server SSH) matches r1 (any -> any port 22) before it ever\n" +
+  "  reaches r3, so it is ALLOWED while r1 is on top. Moving r3 above r1 makes the specific DENY\n" +
+  "  win for that range, while everyone else still gets the temporary SSH access from r1.\n" +
+  "- Packets B and C are allowed by r4 and r2 wherever those sit, and D (a non-accounting host to\n" +
+  "  the database) matches nothing until the deny-all at the bottom, which must stay last.\n" +
+  "- Rule of thumb: specific rules (especially denies) above general ones; deny-all at the end.";
 function resetAll(){
   order = initialOrder.slice();
   renderRules();

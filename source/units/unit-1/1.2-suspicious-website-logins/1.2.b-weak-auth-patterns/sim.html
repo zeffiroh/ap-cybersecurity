@@ -52,6 +52,8 @@ h1{font-size:16px;margin:0 0 4px;}
 .theme-linux .choices .btn.sel{background:#dbe7ff;}
 .fb{font-family:var(--mono-font);font-size:12px;margin-top:3px;min-height:14px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;border-top:1px solid var(--muted);padding-top:4px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -84,17 +86,17 @@ function toggleTheme(){document.body.classList.toggle('theme-win');document.body
 
 var PASSWORDS = [
   { pw: "password",      flags: ["in_dictionary","only_lowercase","too_short"],
-    explain: "Only 8 chars (too_short), all lowercase (only_lowercase), in common wordlist (in_dictionary)." },
+    explain: "Three problems. Too short: 8 characters is under this checker's 12-character minimum, and every extra character multiplies the guesses needed. Only lowercase: 26 possible symbols per position instead of about 95. In dictionary: \"password\" sits near the top of every leaked-password list, so a dictionary attack tries it in the first second, before length or variety even matter." },
   { pw: "Tr0ub4dor&3abcde", flags: ["sequential_or_repeated"],
-    explain: "Length OK, mixed chars, not in dictionary, but contains 'abc' -- a 3-char ascending run (sequential_or_repeated)." },
+    explain: "It passes length (16), variety (upper, lower, digits, symbols) and the dictionary check, but it ends in \"abc\", a run of three ascending letters. Cracking tools try runs like abc, 123 and qwerty as add-ons to other words, so padding a password with a run adds far less strength than its length suggests." },
   { pw: "mXk9#vLq2@nP",  flags: [],
-    explain: "Length 12, mixed case+digits+symbols, not in dictionary, no sequential/repeated run. STRONG." },
+    explain: "Strong by every rule here: 12 characters (the minimum this checker accepts), uppercase, lowercase, digits and symbols, no dictionary word, and no run like abc or 111. The only realistic way in is trying combinations one by one, which is impractical at this length. A password manager makes passwords like this easy to use." },
   { pw: "sunshine",      flags: ["in_dictionary","only_lowercase","too_short"],
-    explain: "Only 8 chars, all lowercase, and 'sunshine' is in the common wordlist." },
+    explain: "The same three problems as \"password\": 8 characters is too short, it uses only lowercase letters, and \"sunshine\" is one of the most common passwords in leaked lists, so a dictionary attack finds it almost instantly." },
   { pw: "HelloWorld111", flags: ["sequential_or_repeated"],
-    explain: "Length OK, mixed case+digits. But '111' is three identical chars (repeated run triggers sequential_or_repeated)." },
+    explain: "Length (13) and mixed case with digits pass, and \"HelloWorld\" is two words joined, which this checker's wordlist does not catch. The flag is the \"111\" at the end: three identical characters in a row. People add 1, 11 or 111 to meet a digit rule, so crackers try those endings first. (A smarter real-world checker would also flag \"HelloWorld\" as dictionary words.)" },
   { pw: "qwerty123",     flags: ["in_dictionary","too_short"],
-    explain: "Only 9 chars (too_short), in common wordlist. Has digits so not only_lowercase, but still flagged twice." },
+    explain: "Too short (9 characters) and in the dictionary: \"qwerty123\" is a top-10 leaked password (the top row of the keyboard plus 123). It is not only_lowercase because it has digits, and this checker counts it as one dictionary entry rather than flagging the 123 run separately." },
 ];
 
 var FLAGS = ["too_short","in_dictionary","only_lowercase","sequential_or_repeated"];
@@ -183,12 +185,21 @@ function checkAnswer(qi){
   var fb = document.getElementById('fb'+qi);
   var correctDesc = correct.size === 0 ? 'none (strong password)' : [...correct].sort().join(', ');
   fb.innerHTML = ok
-    ? '<span style="color:#008000;font-weight:bold">CORRECT.</span> ' + PASSWORDS[qi].explain
-    : '<span style="color:#aa0000;font-weight:bold">NOT QUITE.</span> Correct flags: ' + correctDesc + '. ' + PASSWORDS[qi].explain;
+    ? '<span style="color:#008000;font-weight:bold">CORRECT.</span> Flags: ' + correctDesc + '.<ul class="why"><li><b>Why:</b> ' + PASSWORDS[qi].explain + '</li></ul>'
+    : '<span style="color:#aa0000;font-weight:bold">NOT QUITE.</span> Correct flags: ' + correctDesc + '.' + diff(correct, realChosen, noneChosen) + '<ul class="why"><li><b>Why:</b> ' + PASSWORDS[qi].explain + '</li></ul>';
   updateOutput(qi, ok, correct);
   updateBar();
 }
 
+function diff(correct, chosen, none){
+  var missed=[...correct].filter(function(f){return !chosen.has(f);}).map(function(f){return FLAG_LABELS[f];});
+  var extra=[...chosen].filter(function(f){return !correct.has(f);}).map(function(f){return FLAG_LABELS[f];});
+  var out='';
+  if(none && correct.size) out+='<br>You marked it strong, but it has weaknesses.';
+  if(missed.length && !none) out+='<br>You missed: '+missed.join(', ')+'.';
+  if(extra.length) out+='<br>Not a problem here: '+extra.join(', ')+'.';
+  return out;
+}
 function updateOutput(qi, ok, correct){
   var pw = PASSWORDS[qi].pw;
   var flags = [...correct].sort();

@@ -1,4 +1,4 @@
-# Coding problem, 3.5.c: Incident response phase sorter
+# Coding problem 3.5.c: Incident response phase sorter
 
 **Skill:** Detect Attacks, Collaborate · **Maps to:** 3.5.C · **Language:** Python 3 (pytest)
 
@@ -19,13 +19,13 @@ phase it belongs to, but given in shuffled order, and returns the actions sorted
 lifecycle order. Actions within the same phase keep their original relative order (a stable sort).
 
 An **action record** is a dict with:
-- `"action"`, string description of the action
-- `"phase"`, string, one of the six canonical phase names exactly as spelled above
+- `"action"`: string description of the action
+- `"phase"`: string, one of the six canonical phase names exactly as spelled above
 
 ## Function contract
 Implement `solve(actions)` in `starter.py` (see `interface.md` / `blackbox.yaml`).
 
-- `actions`, list of action record dicts, in arbitrary order
+- `actions`: list of action record dicts, in arbitrary order
 
 Return a `list[str]` of the `"action"` text values, reordered so that all actions from an earlier
 phase (per the canonical order above) come before all actions from a later phase. Within the same

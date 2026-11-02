@@ -61,7 +61,7 @@ def card_text(s, limit=220):
 def parse_atom(d):
     head, secs = sections(rd(d / "atom.md"))
     S = dict(secs)
-    title = re.search(r"(?m)^# [^,]+, (.*)", head).group(1).strip()
+    title = re.search(r"(?m)^# [^,:]+[,:] (.*)", head).group(1).strip()
     unit_line = re.search(r"> \*\*(Unit .*?)\*\*", head).group(1)
     los = re.search(r"\*\*AP Learning Objective\(s\):\*\*\s*(.*)", head).group(1).strip()
     skill = re.search(r"\*\*Course skill\(s\):\*\*\s*(.*)", head).group(1).strip()

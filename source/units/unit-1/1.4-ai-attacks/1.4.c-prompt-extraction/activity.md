@@ -10,7 +10,7 @@ Students play the "Redact the Leak" simulator in pairs, then connect each leak t
 
 - the SimLab simulation, open in any browser, no internet required.
 - One shared worksheet or notebook per pair for discussion notes.
-- `problem/`, optional extension for students who finish early.
+- `problem/`: optional extension for students who finish early.
 
 ## Steps
 

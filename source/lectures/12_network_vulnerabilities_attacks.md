@@ -740,10 +740,10 @@ Malware decodes TXT/CNAME response to receive next instructions, full bidirectio
 ::::columns
 ::col::
 :::list heading="Common Tools"
-- **iodine**, tunnels IPv4 over DNS
-- **dns2tcp**, TCP session over DNS
-- **DNScat2**, encrypted C2 over DNS
-- **Cobalt Strike**, DNS beacon built-in
+- **iodine**: tunnels IPv4 over DNS
+- **dns2tcp**: TCP session over DNS
+- **DNScat2**: encrypted C2 over DNS
+- **Cobalt Strike**: DNS beacon built-in
 :::
 ::col::
 :::list heading="Detection Indicators"
@@ -802,13 +802,13 @@ title: "Tool Spotlight: Wireshark"
 :::
 ::col::
 :::list heading="Essential Display Filters"
-- `http`, show all HTTP traffic
-- `dns`, show all DNS queries and responses
-- `arp`, show ARP packets (spot spoofing attempts)
-- `tcp.flags.syn == 1`, show SYN packets (port scans, SYN floods)
-- `ip.src == 192.168.1.50`, filter by source IP
-- `http contains "password"`, search HTTP payloads
-- `frame contains "cookie"`, find session cookies across protocols
+- `http`: show all HTTP traffic
+- `dns`: show all DNS queries and responses
+- `arp`: show ARP packets (spot spoofing attempts)
+- `tcp.flags.syn == 1`: show SYN packets (port scans, SYN floods)
+- `ip.src == 192.168.1.50`: filter by source IP
+- `http contains "password"`: search HTTP payloads
+- `frame contains "cookie"`: find session cookies across protocols
 :::
 ::::
 
@@ -1001,7 +1001,7 @@ Victim's browser shows no lock icon, but user may not notice
 ::col::
 :::list heading="Countermeasures"
 - **HSTS** (HTTP Strict Transport Security), browser remembers to always use HTTPS for a domain
-- **HSTS Preloading**, domain hardcoded into browser as HTTPS-only before first visit
+- **HSTS Preloading**: domain hardcoded into browser as HTTPS-only before first visit
 - **HTTPS Everywhere** (extension), forces HTTPS on all known sites
 - Browser padlock training, users should verify HTTPS before entering credentials
 :::
@@ -1061,10 +1061,10 @@ Denial-of-Service (DoS) and Distributed Denial-of-Service (DDoS) attacks both ai
 :::
 ::col::
 :::list heading="DDoS Categories"
-- **Volumetric**, overwhelm bandwidth (UDP/ICMP flood)
-- **Protocol**, exhaust stateful resources (SYN flood, ACK flood)
-- **Application**, overwhelm web server logic (HTTP GET flood)
-- **Amplification/Reflection**, use third-party servers to amplify (DNS, NTP, memcached)
+- **Volumetric**: overwhelm bandwidth (UDP/ICMP flood)
+- **Protocol**: exhaust stateful resources (SYN flood, ACK flood)
+- **Application**: overwhelm web server logic (HTTP GET flood)
+- **Amplification/Reflection**: use third-party servers to amplify (DNS, NTP, memcached)
 :::
 ::::
 
@@ -1422,10 +1422,10 @@ Resolver returns SERVFAIL for tampered or poisoned records, prevents cache poiso
 ::::columns
 ::col::
 :::list heading="DNSSEC Record Types"
-- **RRSIG**, Cryptographic signature for a resource record set
-- **DNSKEY**, Public key used to verify RRSIG records
-- **DS**, Delegation Signer; links parent to child zone key
-- **NSEC/NSEC3**, Authenticated denial of existence (proves a record does NOT exist)
+- **RRSIG**: Cryptographic signature for a resource record set
+- **DNSKEY**: Public key used to verify RRSIG records
+- **DS**: Delegation Signer; links parent to child zone key
+- **NSEC/NSEC3**: Authenticated denial of existence (proves a record does NOT exist)
 :::
 ::col::
 :::list heading="DNSSEC Limitations"
@@ -1471,12 +1471,12 @@ title: Zero Trust Architecture and Network Attack Prevention
 :::
 
 :::list heading="Zero Trust Core Tenets (NIST SP 800-207)"
-- **Never trust, always verify**, No implicit trust based on network location (LAN ≠ trusted)
-- **Assume breach**, Design as if the internal network is already compromised
-- **Verify explicitly**, Use all available data points: identity, device health, location, behavior
-- **Least privilege access**, Users and devices get minimum access needed, evaluated per-request
-- **Microsegmentation**, Divide networks into small zones; lateral movement requires re-authentication
-- **Continuous monitoring**, Log and analyze all access attempts and traffic flows
+- **Never trust, always verify**: No implicit trust based on network location (LAN ≠ trusted)
+- **Assume breach**: Design as if the internal network is already compromised
+- **Verify explicitly**: Use all available data points: identity, device health, location, behavior
+- **Least privilege access**: Users and devices get minimum access needed, evaluated per-request
+- **Microsegmentation**: Divide networks into small zones; lateral movement requires re-authentication
+- **Continuous monitoring**: Log and analyze all access attempts and traffic flows
 :::
 
 ::::columns
@@ -1754,15 +1754,15 @@ Protocols trust. Attackers exploit trust. Defenders verify.
 :::
 
 :::list heading="Core Concepts Mastered in Class 12"
-- **Network protocols as attack surfaces**, Every protocol's design assumptions are potential attack vectors
-- **DNS attacks**, Cache poisoning, tunneling, amplification, and the Kaminsky attack
-- **IP spoofing**, Blind vs. non-blind spoofing, reflection/amplification DDoS, BCP 38
-- **ARP spoofing**, Layer 2 MITM, double-sided poisoning, MAC flooding, DHCP spoofing
-- **Packet sniffing**, Promiscuous mode, MITM position, cleartext protocol exploitation
-- **Session hijacking**, Token theft, replay, fixation, and the role of cookie security attributes
-- **Defense mechanisms**, DNSSEC, DAI, DHCP snooping, HSTS, TLS 1.3, Zero Trust
-- **Real-world incidents**, Kaminsky 2008, MyEtherWallet 2018, BGP hijacking events
-- **Detection**, ARP monitoring, DNS analytics, NetFlow analysis, behavioral anomaly detection
+- **Network protocols as attack surfaces**: Every protocol's design assumptions are potential attack vectors
+- **DNS attacks**: Cache poisoning, tunneling, amplification, and the Kaminsky attack
+- **IP spoofing**: Blind vs. non-blind spoofing, reflection/amplification DDoS, BCP 38
+- **ARP spoofing**: Layer 2 MITM, double-sided poisoning, MAC flooding, DHCP spoofing
+- **Packet sniffing**: Promiscuous mode, MITM position, cleartext protocol exploitation
+- **Session hijacking**: Token theft, replay, fixation, and the role of cookie security attributes
+- **Defense mechanisms**: DNSSEC, DAI, DHCP snooping, HSTS, TLS 1.3, Zero Trust
+- **Real-world incidents**: Kaminsky 2008, MyEtherWallet 2018, BGP hijacking events
+- **Detection**: ARP monitoring, DNS analytics, NetFlow analysis, behavioral anomaly detection
 :::
 
 :::table

@@ -1,4 +1,4 @@
-# 3.1.c, Man-in-the-middle and ARP spoofing
+# 3.1.c: Man-in-the-middle and ARP spoofing
 
 > **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 3.1.B
@@ -69,19 +69,19 @@ passive; it can actively break specific connections or redirect specific request
 ### Detection and defense
 Several technical controls address ARP spoofing directly:
 
-- **Dynamic ARP Inspection (DAI)**, a switch feature that validates ARP packets against a trusted
+- **Dynamic ARP Inspection (DAI)**: a switch feature that validates ARP packets against a trusted
   binding table (built from DHCP snooping records of which MAC is legitimately assigned which IP)
   and drops ARP replies that don't match, before they ever reach other hosts.
-- **Static ARP entries**, manually configuring the correct IP-to-MAC mapping for critical devices
+- **Static ARP entries**: manually configuring the correct IP-to-MAC mapping for critical devices
   (like the default gateway) so the OS ignores any ARP reply that tries to change it. This does not
   scale to large networks but is common for high-value hosts.
 - **ARP monitoring tools** (e.g. arpwatch-style software), watch for a MAC address suddenly
   claiming an IP address that was previously mapped to a different MAC, which is the signature of
   an active spoofing attempt, and alert an analyst.
-- **Network segmentation (VLANs)**, ARP spoofing only works within the same broadcast domain (the
+- **Network segmentation (VLANs)**: ARP spoofing only works within the same broadcast domain (the
   same local subnet/VLAN); segmenting sensitive hosts onto their own VLAN limits which devices can
   even attempt to spoof them.
-- **Encryption end-to-end (TLS/HTTPS, VPN)**, does not stop the MITM positioning itself, but limits
+- **Encryption end-to-end (TLS/HTTPS, VPN)**: does not stop the MITM positioning itself, but limits
   what the attacker gains from occupying that position, since the payload stays confidential and
   tamper-evident even while transiting the attacker's machine.
 
@@ -91,15 +91,15 @@ IP address that a different MAC had already claimed, exactly the heuristic that 
 tools use.
 
 ## Key terms
-- **Man-in-the-middle (MITM)**, an attack where an adversary secretly relays and can observe or
+- **Man-in-the-middle (MITM)**: an attack where an adversary secretly relays and can observe or
   alter traffic between two parties who believe they are communicating directly.
-- **ARP (Address Resolution Protocol)**, the protocol that maps IP addresses to MAC addresses on a
+- **ARP (Address Resolution Protocol)**: the protocol that maps IP addresses to MAC addresses on a
   local network; has no built-in authentication.
-- **ARP spoofing / ARP cache poisoning**, sending forged ARP replies to make a victim's device (or
+- **ARP spoofing / ARP cache poisoning**: sending forged ARP replies to make a victim's device (or
   the gateway) associate a legitimate IP address with the attacker's MAC address.
-- **Gratuitous ARP**, an unsolicited ARP reply, which devices accept and cache even though they
+- **Gratuitous ARP**: an unsolicited ARP reply, which devices accept and cache even though they
   never asked the question, enabling spoofing.
-- **Dynamic ARP Inspection (DAI)**, a switch-level control that validates ARP packets against a
+- **Dynamic ARP Inspection (DAI)**: a switch-level control that validates ARP packets against a
   trusted binding table and drops forged ones.
 
 ## Common misconceptions

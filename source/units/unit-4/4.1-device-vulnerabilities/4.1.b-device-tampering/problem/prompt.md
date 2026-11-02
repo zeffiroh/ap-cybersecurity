@@ -1,4 +1,4 @@
-# Coding problem, 4.1.b: Device tampering and physical compromise
+# Coding problem 4.1.b: Device tampering and physical compromise
 
 **Skill:** Analyze Risk · **Maps to:** 4.1.B · **Language:** Python 3 (pytest)
 

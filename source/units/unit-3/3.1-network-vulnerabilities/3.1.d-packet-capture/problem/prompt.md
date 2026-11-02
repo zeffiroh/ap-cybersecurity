@@ -1,4 +1,4 @@
-# Coding problem, 3.1.d: Packet capture credential-leak detector
+# Coding problem 3.1.d: Packet capture credential-leak detector
 
 **Skill:** Detect Attacks · **Maps to:** 3.1.B, 3.1.C · **Language:** Python 3 (pytest)
 
@@ -6,7 +6,7 @@
 You are triaging a captured packet log at Crestfield Analytics. For each entry, determine whether
 it exposes a plaintext credential ("LEAK") or not ("SAFE"):
 
-- **Encrypted ports are always "SAFE"**, regardless of payload content: port `443` (HTTPS) and
+- **Encrypted ports are always "SAFE"**: regardless of payload content: port `443` (HTTPS) and
   port `22` (SSH) encrypt their payload, so nothing in the payload text can be treated as an
   actual leaked credential.
 - **Cleartext-capable ports** are `80` (HTTP), `23` (Telnet), and `21` (FTP). An entry on one of

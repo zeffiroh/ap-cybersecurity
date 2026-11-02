@@ -1,4 +1,4 @@
-# 5.1.a, SQL Injection
+# 5.1.a: SQL Injection
 
 > **Unit 5 · 5.1 Application and Data Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 5.1.A, 5.1.B
@@ -70,12 +70,12 @@ The simulation (the simulation) lets you try three payload types against a fake 
 
 ## Key terms
 
-- **SQL injection**, an attack that inserts SQL syntax into application input fields so the database executes attacker-controlled commands
-- **parameterized query**, a query template with typed placeholders for data values, preventing user input from being parsed as SQL
-- **UNION SELECT**, a SQL construct that appends a second SELECT to a query; used in injection to extract data from other tables
-- **comment truncation**, using SQL comment characters (`--` or `/* */`) in an injected payload to neutralize the rest of the intended query
-- **blind injection**, an injection technique used when the application returns no visible data; time delays or boolean responses leak information indirectly
-- **WAF (Web Application Firewall)**, a network-layer filter that inspects HTTP traffic for known attack patterns including SQLi payloads
+- **SQL injection**: an attack that inserts SQL syntax into application input fields so the database executes attacker-controlled commands
+- **parameterized query**: a query template with typed placeholders for data values, preventing user input from being parsed as SQL
+- **UNION SELECT**: a SQL construct that appends a second SELECT to a query; used in injection to extract data from other tables
+- **comment truncation**: using SQL comment characters (`--` or `/* */`) in an injected payload to neutralize the rest of the intended query
+- **blind injection**: an injection technique used when the application returns no visible data; time delays or boolean responses leak information indirectly
+- **WAF (Web Application Firewall)**: a network-layer filter that inspects HTTP traffic for known attack patterns including SQLi payloads
 
 ## Common misconceptions
 

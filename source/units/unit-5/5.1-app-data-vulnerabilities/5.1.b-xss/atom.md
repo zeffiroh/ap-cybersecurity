@@ -1,4 +1,4 @@
-# 5.1.b, Cross-site scripting (XSS)
+# 5.1.b: Cross-site scripting (XSS)
 
 > **Unit 5 · 5.1 Application and Data Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 5.1.A, 5.1.B
@@ -60,14 +60,14 @@ sanitized/escaped, based on dangerous markup patterns. The simulation lets you p
 fake DOM) whether they would have executed, and how output encoding neutralizes them.
 
 ## Key terms
-- **Cross-site scripting (XSS)**, injecting attacker-controlled script into a page viewed by
+- **Cross-site scripting (XSS)**: injecting attacker-controlled script into a page viewed by
   other users, by exploiting unescaped output of untrusted input.
-- **Reflected XSS**, payload delivered via the request (e.g., URL parameter) and echoed
+- **Reflected XSS**: payload delivered via the request (e.g., URL parameter) and echoed
   immediately in the response; requires tricking the victim into a crafted link.
-- **Stored XSS**, payload saved server-side and served to every subsequent viewer.
-- **DOM-based XSS**, payload never reaches the server; client-side script writes untrusted data
+- **Stored XSS**: payload saved server-side and served to every subsequent viewer.
+- **DOM-based XSS**: payload never reaches the server; client-side script writes untrusted data
   into an unsafe DOM sink.
-- **Output encoding / escaping**, converting special characters (`<`, `>`, `"`, `'`, `&`) to
+- **Output encoding / escaping**: converting special characters (`<`, `>`, `"`, `'`, `&`) to
   their literal-text equivalents before placing data into HTML.
 
 ## Common misconceptions

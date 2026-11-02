@@ -1,4 +1,4 @@
-# 1.5.b, AI analyzing code for vulnerabilities
+# 1.5.b: AI analyzing code for vulnerabilities
 
 > **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
 > **AP Learning Objective(s):** 1.5.A
@@ -80,17 +80,17 @@ tags for every dangerous pattern present. Completing it will give you an intuiti
 power and the limits of pattern-based vulnerability detection.
 
 ## Key terms
-- **Static analysis**, examining source code without executing it to detect bugs and security
+- **Static analysis**: examining source code without executing it to detect bugs and security
   vulnerabilities by pattern matching or data-flow modeling.
-- **Code injection**, a class of attacks where an attacker supplies input that is interpreted as
+- **Code injection**: a class of attacks where an attacker supplies input that is interpreted as
   code by the application (e.g., via `eval`).
-- **OS command injection**, an attack where user input is passed to a shell, allowing the attacker
+- **OS command injection**: an attack where user input is passed to a shell, allowing the attacker
   to append arbitrary shell commands (`os.system`, `subprocess shell=True`).
-- **Deserialization vulnerability**, a bug where loading serialized data from an untrusted source
+- **Deserialization vulnerability**: a bug where loading serialized data from an untrusted source
   executes attacker-controlled code (e.g., `pickle.loads`).
-- **Broken cryptography**, use of algorithms (MD5, SHA-1) that are no longer considered secure
+- **Broken cryptography**: use of algorithms (MD5, SHA-1) that are no longer considered secure
   for the intended purpose (passwords, signatures).
-- **Hardcoded credential**, a password or key embedded directly in source code, making it
+- **Hardcoded credential**: a password or key embedded directly in source code, making it
   accessible to anyone who can read the file.
 
 ## Common misconceptions

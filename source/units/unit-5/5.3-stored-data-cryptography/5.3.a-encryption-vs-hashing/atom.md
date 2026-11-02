@@ -1,4 +1,4 @@
-# 5.3.a, Encryption vs. hashing
+# 5.3.a: Encryption vs. hashing
 
 > **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
 > **AP Learning Objective(s):** 5.3.A
@@ -71,14 +71,14 @@ simulation (the simulation) presents a series of storage scenarios and asks you 
 practice that classification until it feels automatic.
 
 ## Key terms
-- **Encryption**, a reversible transformation of data using a key; protects confidentiality.
-- **Decryption**, the reverse of encryption; requires the correct key.
-- **Hash function**, a one-way function that maps any input to a fixed-size digest.
-- **Digest**, the fixed-size output of a hash function (also called a hash or checksum).
-- **Salt**, a random value mixed into input before hashing to defeat precomputed table attacks.
-- **Rainbow table**, a precomputed table mapping common inputs to their digests, used for hash cracking.
-- **Avalanche effect**, property where a tiny input change produces a drastically different digest.
-- **Collision**, two distinct inputs that produce the same digest; a fatal weakness in a hash function.
+- **Encryption**: a reversible transformation of data using a key; protects confidentiality.
+- **Decryption**: the reverse of encryption; requires the correct key.
+- **Hash function**: a one-way function that maps any input to a fixed-size digest.
+- **Digest**: the fixed-size output of a hash function (also called a hash or checksum).
+- **Salt**: a random value mixed into input before hashing to defeat precomputed table attacks.
+- **Rainbow table**: a precomputed table mapping common inputs to their digests, used for hash cracking.
+- **Avalanche effect**: property where a tiny input change produces a drastically different digest.
+- **Collision**: two distinct inputs that produce the same digest; a fatal weakness in a hash function.
 
 ## Common misconceptions
 - "I can hash a file and recover it later." → Hashing is one-way; the digest cannot be reversed.

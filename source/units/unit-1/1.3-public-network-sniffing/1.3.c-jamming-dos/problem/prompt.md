@@ -1,4 +1,4 @@
-# Coding problem, 1.3.c: Detect sustained wireless jamming
+# Coding problem 1.3.c: Detect sustained wireless jamming
 
 **Skill:** Analyze Risk · **Maps to:** 1.3.B · **Language:** Python 3 (pytest)
 

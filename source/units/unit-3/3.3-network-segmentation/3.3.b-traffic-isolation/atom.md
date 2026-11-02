@@ -1,4 +1,4 @@
-# 3.3.b, Traffic isolation and zero-trust segmentation
+# 3.3.b: Traffic isolation and zero-trust segmentation
 
 > **Unit 3 · 3.3 Protecting Networks: Segmentation**
 > **AP Learning Objective(s):** 3.3.B, 3.3.C
@@ -45,12 +45,12 @@ Consider a ransomware attack in two scenarios:
 *   **Scenario B (Zero Trust & Microsegmentation):** The reception PC is connected to an Isolated PVLAN port. When the malware attempts to scan its local subnet, the network switch drops the packets. The malware cannot communicate with any peer workstations. To access a server, the request must pass through a Zero Trust proxy that verifies the machine's security posture. Because the workstation's posture is compromised (unusual outbound scans detected), its token is revoked. The blast radius is limited to exactly one machine.
 
 ## Key terms
-- **Zero Trust**, A cybersecurity paradigm centered on the belief that organizations should not automatically trust anything inside or outside its perimeters; instead, they must verify anything and everything trying to connect.
-- **Implicit trust**, The practice of automatically trusting a device or user based on their network location, IP address, or initial login.
-- **Microsegmentation**, A method of creating secure zones in data centers and cloud environments to isolate workloads from one another and secure them individually.
-- **Private VLAN (PVLAN)**, A layer-2 isolation mechanism that divides a VLAN into sub-domains, preventing devices in the same subnet from communicating directly.
-- **Isolated port**, A PVLAN port that is completely blocked from talking to any other host in the same VLAN, except the gateway (promiscuous port).
-- **Promiscuous port**, A PVLAN port that can communicate with all other ports (isolated, community, promiscuous) in the VLAN, typically reserved for gateways.
+- **Zero Trust**: A cybersecurity paradigm centered on the belief that organizations should not automatically trust anything inside or outside its perimeters; instead, they must verify anything and everything trying to connect.
+- **Implicit trust**: The practice of automatically trusting a device or user based on their network location, IP address, or initial login.
+- **Microsegmentation**: A method of creating secure zones in data centers and cloud environments to isolate workloads from one another and secure them individually.
+- **Private VLAN (PVLAN)**: A layer-2 isolation mechanism that divides a VLAN into sub-domains, preventing devices in the same subnet from communicating directly.
+- **Isolated port**: A PVLAN port that is completely blocked from talking to any other host in the same VLAN, except the gateway (promiscuous port).
+- **Promiscuous port**: A PVLAN port that can communicate with all other ports (isolated, community, promiscuous) in the VLAN, typically reserved for gateways.
 
 ## Common misconceptions
 - "Zero Trust means we don't trust our employees." → Zero Trust is a technical posture, not a human resource policy. It protects employees' credentials from being abused by automating checks and preventing compromised devices from spreading malware.

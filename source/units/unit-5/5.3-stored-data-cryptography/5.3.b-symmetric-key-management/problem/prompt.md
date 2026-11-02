@@ -1,4 +1,4 @@
-# Coding problem, 5.3.b: Symmetric key-management toolkit
+# Coding problem 5.3.b: Symmetric key-management toolkit
 
 **Skill:** Mitigate Risk · **Maps to:** 5.3.A, 5.3.B · **Language:** Python 3 (pytest)
 

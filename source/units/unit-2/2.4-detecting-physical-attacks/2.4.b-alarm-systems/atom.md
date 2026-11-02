@@ -1,4 +1,4 @@
-# 2.4.b, Alarm systems
+# 2.4.b: Alarm systems
 
 > **Unit 2 · 2.4 Detecting Physical Attacks**
 > **AP Learning Objective(s):** 2.4.B
@@ -78,17 +78,17 @@ exact triage: given a stream of sensor events with zone, sensor type, timestamp,
 classify each as suppressed, false alarm, local-only, or dispatch-worthy.
 
 ## Key terms
-- **Door/window contact sensor**, a two-part reed switch (frame + door/window) that reports an
+- **Door/window contact sensor**: a two-part reed switch (frame + door/window) that reports an
   open circuit when the door or window is opened while the zone is armed.
-- **Glass-break sensor**, a sensor tuned to the acoustic or vibration signature of breaking glass,
+- **Glass-break sensor**: a sensor tuned to the acoustic or vibration signature of breaking glass,
   reducing false trips from generic loud noises.
-- **Exit/entry delay**, a timed grace period after arming (exit) or before a trip escalates
+- **Exit/entry delay**: a timed grace period after arming (exit) or before a trip escalates
   (entry) that lets a legitimate occupant leave or disarm without triggering a false alarm.
-- **Panic/duress button**, a manually-triggered alert for personal safety or an in-progress
+- **Panic/duress button**: a manually-triggered alert for personal safety or an in-progress
   emergency, independent of arm state and sensor zones, that escalates straight to dispatch.
-- **Cross-zone verification**, requiring two independent sensors/zones to trip within a short time
+- **Cross-zone verification**: requiring two independent sensors/zones to trip within a short time
   window before treating an event as high-confidence, to cut down false dispatch.
-- **Monitoring / central station**, a staffed facility that receives alarm signals, attempts
+- **Monitoring / central station**: a staffed facility that receives alarm signals, attempts
   verification, and dispatches police when warranted.
 
 ## Common misconceptions

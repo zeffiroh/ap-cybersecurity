@@ -1,4 +1,4 @@
-# 1.3.c, Jamming / denial-of-service attack
+# 1.3.c: Jamming / denial-of-service attack
 
 > **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
 > **AP Learning Objective(s):** 1.3.B
@@ -76,12 +76,12 @@ host-based intrusion detection systems. Jamming is a concrete, physical example 
 abstract principle tangible.
 
 ## Key terms
-- **Jamming**, deliberate transmission of radio-frequency noise to prevent legitimate wireless communication on a channel.
-- **Denial-of-service (DoS)**, an attack that makes a resource unavailable to legitimate users without necessarily compromising data.
-- **RSSI (Received Signal Strength Indicator)**, a measurement of the power level of a received radio signal, expressed in dBm (always negative for Wi-Fi).
-- **Noise floor**, the level of background radio noise on a channel; jamming raises this, reducing the usable signal-to-noise ratio.
+- **Jamming**: deliberate transmission of radio-frequency noise to prevent legitimate wireless communication on a channel.
+- **Denial-of-service (DoS)**: an attack that makes a resource unavailable to legitimate users without necessarily compromising data.
+- **RSSI (Received Signal Strength Indicator)**: a measurement of the power level of a received radio signal, expressed in dBm (always negative for Wi-Fi).
+- **Noise floor**: the level of background radio noise on a channel; jamming raises this, reducing the usable signal-to-noise ratio.
 - **CSMA/CA (Carrier Sense Multiple Access with Collision Avoidance)**, the access-control protocol Wi-Fi uses; devices back off when they detect noise, making them vulnerable to deliberate jamming.
-- **Sustained anomaly**, a condition maintained across multiple consecutive measurement samples, distinguishing attacks from transient interference.
+- **Sustained anomaly**: a condition maintained across multiple consecutive measurement samples, distinguishing attacks from transient interference.
 
 ## Common misconceptions
 - "High noise always means jamming." → Transient interference from household devices is common on 2.4 GHz. A jamming attack is characterized by *sustained*, not momentary, elevated noise across several consecutive samples.

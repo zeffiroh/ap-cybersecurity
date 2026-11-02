@@ -1151,19 +1151,19 @@ Addressing widely-held misconceptions prevents teams from building false confide
 ::col::
 ::::card heading="Misconceptions About Controls"
 :::list style=tight
-- **"Our WAF protects us from injection."**, A WAF is a detection control, not a fix. Parameterize your queries; the WAF is a backstop.
-- **"We use HTTPS, so our data is encrypted."**, HTTPS encrypts data in transit. Data at rest on the database, and data the application processes in memory, require separate encryption controls.
-- **"Client-side input validation prevents attacks."**, Any attacker using a proxy tool will bypass client-side validation in seconds. Server-side validation is mandatory.
-- **"Security through obscurity is a valid control."**, Saltzer and Schroeder's Open Design principle explicitly repudiates this. Obscuring your architecture does not eliminate vulnerabilities.
+- **"Our WAF protects us from injection."**: A WAF is a detection control, not a fix. Parameterize your queries; the WAF is a backstop.
+- **"We use HTTPS, so our data is encrypted."**: HTTPS encrypts data in transit. Data at rest on the database, and data the application processes in memory, require separate encryption controls.
+- **"Client-side input validation prevents attacks."**: Any attacker using a proxy tool will bypass client-side validation in seconds. Server-side validation is mandatory.
+- **"Security through obscurity is a valid control."**: Saltzer and Schroeder's Open Design principle explicitly repudiates this. Obscuring your architecture does not eliminate vulnerabilities.
 :::
 ::::
 ::col::
 ::::card heading="Misconceptions About Process"
 :::list style=tight
-- **"A passing penetration test means we're secure."**, A pentest is a point-in-time assessment. New features introduce new vulnerabilities. Security requires continuous testing.
-- **"Security is the security team's job."**, Under DevSecOps, every developer is responsible for the security of the code they write. Security teams enable and audit; developers implement.
+- **"A passing penetration test means we're secure."**: A pentest is a point-in-time assessment. New features introduce new vulnerabilities. Security requires continuous testing.
+- **"Security is the security team's job."**: Under DevSecOps, every developer is responsible for the security of the code they write. Security teams enable and audit; developers implement.
 - **"Open-source code is more secure because many eyes review it."**, The Log4Shell vulnerability existed in Log4j 2 for nearly a decade before discovery, in heavily used open-source code. "Many eyes" does not guarantee review.
-- **"Our application is too small to be a target."**, Automated scanning tools attack every IP on the internet continuously. Small applications are targeted for their infrastructure (DDoS, cryptomining, lateral movement), not their data.
+- **"Our application is too small to be a target."**: Automated scanning tools attack every IP on the internet continuously. Small applications are targeted for their infrastructure (DDoS, cryptomining, lateral movement), not their data.
 :::
 ::::
 ::::

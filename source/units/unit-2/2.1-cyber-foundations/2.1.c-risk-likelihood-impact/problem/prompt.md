@@ -1,4 +1,4 @@
-# Coding problem, 2.1.c: Risk Likelihood, Impact, and Decisions
+# Coding problem 2.1.c: Risk Likelihood, Impact, and Decisions
 
 **Skill:** Analyze Risk · **Maps to:** 2.1.C · **Language:** Python 3 (pytest)
 

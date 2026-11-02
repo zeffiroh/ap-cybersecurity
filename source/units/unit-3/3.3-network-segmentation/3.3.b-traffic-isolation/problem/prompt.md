@@ -1,4 +1,4 @@
-# Coding problem, 3.3.b: Zero Trust Access Proxy
+# Coding problem 3.3.b: Zero Trust Access Proxy
 
 **Skill:** Mitigate Risk · **Maps to:** 3.3.B, 3.3.C · **Language:** Python 3 (pytest)
 

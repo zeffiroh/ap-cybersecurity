@@ -1,4 +1,4 @@
-# Coding problem, 2.1.b: Threat actor log classifier
+# Coding problem 2.1.b: Threat actor log classifier
 
 **Skill:** Analyze Risk · **Maps to:** 2.1.B · **Language:** Python 3 (pytest)
 

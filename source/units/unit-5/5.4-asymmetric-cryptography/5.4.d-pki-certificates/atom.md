@@ -1,4 +1,4 @@
-# 5.4.d, PKI and digital certificates
+# 5.4.d: PKI and digital certificates
 
 > **Unit 5 · 5.4 Asymmetric Cryptography**
 > **AP Learning Objective(s):** 5.4.B, 5.4.C
@@ -83,20 +83,20 @@ coding problem in `problem/` has you implement the chain-walking validation logi
 the small-number RSA sign/verify math from 5.4.b/5.4.c as the signature primitive.
 
 ## Key terms
-- **Digital certificate**, a signed document binding a public key to a subject identity, issued and
+- **Digital certificate**: a signed document binding a public key to a subject identity, issued and
   signed by a Certificate Authority.
-- **Certificate Authority (CA)**, an organization that verifies identities and signs certificates
+- **Certificate Authority (CA)**: an organization that verifies identities and signs certificates
   vouching for the binding between a subject and its public key.
-- **Root CA**, a CA whose self-signed certificate is pre-installed in an OS/browser trust store and
+- **Root CA**: a CA whose self-signed certificate is pre-installed in an OS/browser trust store and
   trusted as the ultimate anchor of a chain.
-- **Intermediate CA**, a CA whose certificate is signed by a root (or another intermediate) and
+- **Intermediate CA**: a CA whose certificate is signed by a root (or another intermediate) and
   which signs end-entity (leaf) certificates.
-- **Chain of trust**, the sequence of signed certificates from a leaf up through intermediates to a
+- **Chain of trust**: the sequence of signed certificates from a leaf up through intermediates to a
   trusted root, each link verified with the next certificate's public key.
-- **Trust store**, the curated set of root CA public keys an OS or browser trusts out of the box.
-- **Certificate Revocation List (CRL)**, a CA-signed, periodically updated list of revoked
+- **Trust store**: the curated set of root CA public keys an OS or browser trusts out of the box.
+- **Certificate Revocation List (CRL)**: a CA-signed, periodically updated list of revoked
   certificate serial numbers.
-- **OCSP**, Online Certificate Status Protocol; a real-time query/response check of one
+- **OCSP**: Online Certificate Status Protocol; a real-time query/response check of one
   certificate's revocation status against a CA-operated responder.
 
 ## Common misconceptions

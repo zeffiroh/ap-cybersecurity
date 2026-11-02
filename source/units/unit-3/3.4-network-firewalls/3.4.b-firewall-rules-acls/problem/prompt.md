@@ -1,4 +1,4 @@
-# Coding problem, 3.4.b: ACL evaluator (first-match-wins)
+# Coding problem 3.4.b: ACL evaluator (first-match-wins)
 
 **Skill:** Mitigate Risk · **Maps to:** 3.4.B, 3.4.C · **Language:** Python 3 (pytest)
 
@@ -9,22 +9,22 @@ deny-all at the end of the list.
 
 A **rule** is a dict with these string/number keys:
 - `"action"`, `"allow"` or `"deny"`
-- `"src"`, source IP string, or `"any"`
-- `"dst"`, destination IP string, or `"any"`
-- `"port"`, destination port integer, or `0` meaning any port
-- `"proto"`, protocol string: `"tcp"`, `"udp"`, or `"any"`
+- `"src"`: source IP string, or `"any"`
+- `"dst"`: destination IP string, or `"any"`
+- `"port"`: destination port integer, or `0` meaning any port
+- `"proto"`: protocol string: `"tcp"`, `"udp"`, or `"any"`
 
 A **packet** is a dict with:
-- `"src"`, source IP string
-- `"dst"`, destination IP string
-- `"port"`, destination port integer
-- `"proto"`, protocol string (`"tcp"` or `"udp"`)
+- `"src"`: source IP string
+- `"dst"`: destination IP string
+- `"port"`: destination port integer
+- `"proto"`: protocol string (`"tcp"` or `"udp"`)
 
 ## Function contract
 Implement `solve(rules, packets)` in `starter.py` (see `interface.md` / `blackbox.yaml`).
 
-- `rules`, ordered list of rule dicts (evaluate top to bottom, first match wins)
-- `packets`, list of packet dicts (evaluate independently, in order)
+- `rules`: ordered list of rule dicts (evaluate top to bottom, first match wins)
+- `packets`: list of packet dicts (evaluate independently, in order)
 
 Return a `list[str]` of verdicts (`"allow"` or `"deny"`), one per packet, in the same order as
 `packets`.

@@ -1,4 +1,4 @@
-# Coding problem, 4.2.c: Classify session-security incidents
+# Coding problem 4.2.c: Classify session-security incidents
 
 **Skill:** Mitigate Risk · **Maps to:** 4.2.B · **Language:** Python 3 (pytest)
 
@@ -7,17 +7,17 @@ A security analyst receives short incident-report strings describing observed se
 Build the classifier that maps each description to the correct session-security category.
 
 Categories:
-- `"hijacking"`, an already-authenticated session token is stolen (XSS read, network sniffing,
+- `"hijacking"`: an already-authenticated session token is stolen (XSS read, network sniffing,
   malware) and reused by an attacker
-- `"fixation"`, an attacker supplies a session ID to the victim before login, then reuses that
+- `"fixation"`: an attacker supplies a session ID to the victim before login, then reuses that
   same ID after the victim authenticates
-- `"insecure_cookie"`, the session cookie is missing a secure attribute (HttpOnly, Secure, or
+- `"insecure_cookie"`: the session cookie is missing a secure attribute (HttpOnly, Secure, or
   SameSite) that would have prevented exposure or misuse
-- `"timeout_issue"`, a session remains valid far longer than it should because of a missing or
+- `"timeout_issue"`: a session remains valid far longer than it should because of a missing or
   misconfigured idle/absolute timeout
-- `"secure"`, the report describes a session that is properly protected (regeneration, secure
+- `"secure"`: the report describes a session that is properly protected (regeneration, secure
   flags, timeouts all present) with no vulnerability
-- `"unknown"`, nothing in the report matches any category
+- `"unknown"`: nothing in the report matches any category
 
 A report may match exactly one category. If no category matches, return `"unknown"`.
 

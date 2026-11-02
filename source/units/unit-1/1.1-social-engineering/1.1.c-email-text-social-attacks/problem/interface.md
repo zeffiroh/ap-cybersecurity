@@ -10,10 +10,10 @@ def solve(message: dict) -> list[str]
 
 ## Input (`message`)
 A dict with the following keys (all strings):
-- `"channel"`, one of `"email"`, `"sms"`, `"dm"` (social-media direct message)
-- `"sender"`, the sender address, phone number, or handle (may be empty string)
-- `"text"`, the message body text (may be empty string)
-- `"link"`, a URL or empty string (the primary link extracted from the message)
+- `"channel"`: one of `"email"`, `"sms"`, `"dm"` (social-media direct message)
+- `"sender"`: the sender address, phone number, or handle (may be empty string)
+- `"text"`: the message body text (may be empty string)
+- `"link"`: a URL or empty string (the primary link extracted from the message)
 
 All keys are always present. Values are strings; none are None.
 

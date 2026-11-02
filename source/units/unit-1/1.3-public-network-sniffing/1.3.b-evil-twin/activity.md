@@ -10,7 +10,7 @@ evil-twin attacks on public Wi-Fi).
 
 ## Materials (all local)
 - the SimLab simulation, animated scan list
-- `problem/`, coding challenge
+- `problem/`: coding challenge
 - Printed scan table below (or display on the board)
 
 ## Printed scan table

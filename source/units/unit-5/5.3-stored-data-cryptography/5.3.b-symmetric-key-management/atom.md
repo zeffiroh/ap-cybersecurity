@@ -1,4 +1,4 @@
-# 5.3.b, Symmetric encryption and key management
+# 5.3.b: Symmetric encryption and key management
 
 > **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
 > **AP Learning Objective(s):** 5.3.A, 5.3.B
@@ -56,14 +56,14 @@ A cryptographic system is only as secure as its key management. The key manageme
 5. **Retirement & Destruction:** When a key is retired, it must be securely destroyed (e.g., zeroed out in memory or deleted from the HSM). This is known as **cryptographic erasure**: without the key, the ciphertext is permanently unrecoverable.
 
 ## Key terms
-- **Symmetric encryption**, a cryptographic system where the same key is used for both encryption and decryption.
-- **Advanced Encryption Standard (AES)**, the standard symmetric block cipher used globally, supporting 128, 192, and 256-bit keys.
-- **Block cipher**, a cipher that encrypts data in fixed-size blocks (e.g., 128 bits for AES).
-- **Mode of operation**, an algorithm that defines how a block cipher encrypts data larger than a single block.
-- **Initialization Vector (IV)**, a random block of data used to seed the first block of encryption in modes like CBC, ensuring unique ciphertexts.
-- **CSPRNG**, Cryptographically Secure Pseudo-Random Number Generator; a generator that produces unpredictable numbers suitable for cryptography.
-- **Key wrapping**, the process of encrypting a Data Encryption Key (DEK) with a Key Encryption Key (KEK) for secure storage.
-- **HSM (Hardware Security Module)**, a physical device designed to securely generate, store, and manage cryptographic keys.
+- **Symmetric encryption**: a cryptographic system where the same key is used for both encryption and decryption.
+- **Advanced Encryption Standard (AES)**: the standard symmetric block cipher used globally, supporting 128, 192, and 256-bit keys.
+- **Block cipher**: a cipher that encrypts data in fixed-size blocks (e.g., 128 bits for AES).
+- **Mode of operation**: an algorithm that defines how a block cipher encrypts data larger than a single block.
+- **Initialization Vector (IV)**: a random block of data used to seed the first block of encryption in modes like CBC, ensuring unique ciphertexts.
+- **CSPRNG**: Cryptographically Secure Pseudo-Random Number Generator; a generator that produces unpredictable numbers suitable for cryptography.
+- **Key wrapping**: the process of encrypting a Data Encryption Key (DEK) with a Key Encryption Key (KEK) for secure storage.
+- **HSM (Hardware Security Module)**: a physical device designed to securely generate, store, and manage cryptographic keys.
 
 ## Common misconceptions
 - "Hardcoding a key in a private Git repository is safe." → Private repositories can be compromised, and any developer with clone access can copy the key. Keys should be stored in environment variables or secrets managers.

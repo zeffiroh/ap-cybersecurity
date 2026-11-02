@@ -1,4 +1,4 @@
-# Coding problem, 4.2.d: Access-request auditor
+# Coding problem 4.2.d: Access-request auditor
 
 **Skill:** Mitigate Risk · **Maps to:** 4.2.B, 4.2.C · **Language:** Python 3 (pytest)
 

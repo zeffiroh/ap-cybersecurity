@@ -10,24 +10,24 @@ items:
   type: mcq
   prompt: Why can an attacker forge a DNS response over UDP more easily than they could tamper with a TCP connection?
   options:
-  - UDP responses are digitally signed by default
-  - UDP always encrypts responses
-  - UDP requires the attacker to be on the same physical cable
-  - UDP is connectionless, so there is no handshake the resolver can use to verify the reply's origin
+  - "UDP packets are smaller, so a forged reply fits in fewer bytes"
+  - "UDP has no checksum, so altered replies are not noticed"
+  - "DNS servers do not log UDP traffic, so forgeries leave no trace"
+  - "UDP is connectionless, so there is no handshake the resolver can use to verify the reply's origin"
   answer: 3
   points: 1
-  explain: DNS over UDP is a single stateless query/reply pair; the resolver has no session state to verify the reply actually came from the authoritative server, so a correctly-guessed forged reply is accepted.
+  explain: "TCP's handshake proves both sides can receive each other's packets before data flows. UDP has no handshake: the resolver sends one packet and accepts the first reply that matches the transaction ID, port and question. An attacker who guesses those can win the race. UDP does have a checksum, but it only catches accidental damage."
 - id: q2
   type: mcq
   prompt: Which THREE fields must a forged DNS reply match for a resolver to accept it as the answer to an outstanding query?
   options:
-  - TTL, checksum, and MAC address
-  - Source IP address only
-  - Destination port, query domain name, transaction ID
-  - HTTP status code, cookie, and referrer
+  - "Source IP, TTL and record type"
+  - "Transaction ID only, since it is unique per query"
+  - "Destination port, query domain name, transaction ID"
+  - "Transaction ID, source MAC address and DNSSEC signature"
   answer: 2
   points: 1
-  explain: The resolver checks the reply's transaction ID, source port (the port it sent the query from), and query name against the outstanding query before accepting the answer.
+  explain: "A resolver accepts a reply if it arrives on the port the query used, carries the same 16-bit transaction ID, and answers the same question (domain name). The transaction ID alone has only 65,536 values, which is why source-port randomization (adding about 16 more bits to guess) was the urgent fix after Kaminsky. MAC addresses do not survive across routers, and most resolvers did not check DNSSEC."
 - id: q3
   type: multi
   prompt: Which of the following are effective defenses against DNS cache poisoning? Select ALL that apply.

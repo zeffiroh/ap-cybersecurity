@@ -1,4 +1,4 @@
-# Coding problem, 4.2.a: Passwords and password policies
+# Coding problem 4.2.a: Passwords and password policies
 
 **Skill:** Mitigate Risk · **Maps to:** 4.2.A · **Language:** Python 3 (pytest)
 
@@ -13,8 +13,8 @@ Implement `validate_password(password: str, policy: dict) -> list[str]` in `star
 (see `interface.md` / `blackbox.yaml`).
 
 ## Input
-- `password`, a string, the candidate password.
-- `policy`, a dict. Example:
+- `password`: a string, the candidate password.
+- `policy`: a dict. Example:
   ```python
   policy = {
       "min_length": 12,

@@ -1,4 +1,4 @@
-# Coding problem, 1.2.b: Password weakness reporter
+# Coding problem 1.2.b: Password weakness reporter
 
 **Skill:** Analyze Risk · **Maps to:** 1.2.B · **Language:** Python 3 (pytest)
 
@@ -20,10 +20,10 @@ A dict with exactly two keys:
   Empty list if the password passes all rules.
 
 Possible reason labels (exact strings, lowercase):
-- `"too_short"`, length < 12 characters
-- `"in_dictionary"`, password (lowercased) is in the built-in common wordlist
-- `"only_lowercase"`, contains no uppercase letters, digits, or non-alphabetic characters
-- `"sequential_or_repeated"`, contains a sequential run of 3+ characters (e.g. `abc`, `123`,
+- `"too_short"`: length < 12 characters
+- `"in_dictionary"`: password (lowercased) is in the built-in common wordlist
+- `"only_lowercase"`: contains no uppercase letters, digits, or non-alphabetic characters
+- `"sequential_or_repeated"`: contains a sequential run of 3+ characters (e.g. `abc`, `123`,
   `xyz`) OR a repeated run of 3+ identical characters (e.g. `aaa`, `111`)
 
 ## Examples

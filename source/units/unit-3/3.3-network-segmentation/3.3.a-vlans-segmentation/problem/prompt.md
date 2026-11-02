@@ -1,4 +1,4 @@
-# Coding problem, 3.3.a: VLAN segmentation flow filter
+# Coding problem 3.3.a: VLAN segmentation flow filter
 
 **Skill:** Mitigate Risk · **Maps to:** 3.3.A · **Language:** Python 3 (pytest)
 

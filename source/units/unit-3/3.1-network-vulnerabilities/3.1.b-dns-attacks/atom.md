@@ -1,4 +1,4 @@
-# 3.1.b, DNS attacks (spoofing, cache poisoning)
+# 3.1.b: DNS attacks (spoofing, cache poisoning)
 
 > **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 3.1.A, 3.1.B
@@ -52,13 +52,13 @@ Modern networks protect DNS using multiple layers of control:
 3. **DoH and DoT (DNS over HTTPS / DNS over TLS):** These protocols encrypt the connection between the user's workstation and the recursive resolver, preventing local eavesdropping and spoofing, though they do not protect the resolver-to-authoritative path (which relies on DNSSEC).
 
 ## Key terms
-* **DNS**, Domain Name System; translates human-readable domain names into IP addresses.
-* **Recursive resolver**, A server that queries the DNS hierarchy on behalf of a client and caches results.
-* **Authoritative name server**, The definitive source of DNS records for a specific domain zone.
-* **DNS cache poisoning**, Tricking a DNS resolver into caching a fake IP address mapping, redirecting all subsequent lookups.
-* **Transaction ID (TX ID)**, A 16-bit identifier in a DNS header used to match queries with responses.
-* **UDP Port 53**, The standard port and protocol for DNS traffic.
-* **DNSSEC**, Cryptographic extensions to DNS that authenticate DNS responses through digital signatures.
+* **DNS**: Domain Name System; translates human-readable domain names into IP addresses.
+* **Recursive resolver**: A server that queries the DNS hierarchy on behalf of a client and caches results.
+* **Authoritative name server**: The definitive source of DNS records for a specific domain zone.
+* **DNS cache poisoning**: Tricking a DNS resolver into caching a fake IP address mapping, redirecting all subsequent lookups.
+* **Transaction ID (TX ID)**: A 16-bit identifier in a DNS header used to match queries with responses.
+* **UDP Port 53**: The standard port and protocol for DNS traffic.
+* **DNSSEC**: Cryptographic extensions to DNS that authenticate DNS responses through digital signatures.
 
 ## Common misconceptions
 * "DNS cache poisoning only affects one user." → False. It affects the recursive resolver. Any user or device using that resolver (e.g., an entire corporate network or ISP customer base) is redirected to the attacker's server.

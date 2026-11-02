@@ -9,7 +9,7 @@ problem. Ties to LO 1.5.A (explain how AI-assisted tools generate and apply dete
 
 ## Materials (all local)
 - the SimLab simulation on each machine, or the printed log excerpt below.
-- `problem/`, student implements `solve()` as part of the activity.
+- `problem/`: student implements `solve()` as part of the activity.
 
 ## Printed log excerpt (if devices unavailable)
 ```

@@ -1,4 +1,4 @@
-# Coding problem, 1.4.a: Classify deepfake/clone call signals
+# Coding problem 1.4.a: Classify deepfake/clone call signals
 
 **Skill:** Analyze Risk · **Maps to:** 1.4.A · **Language:** Python 3 (pytest)
 

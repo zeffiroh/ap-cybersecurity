@@ -1,4 +1,4 @@
-# Coding problem, 3.1.b: DNS resolver race classifier
+# Coding problem 3.1.b: DNS resolver race classifier
 
 **Skill:** Analyze Risk, Detect Attacks · **Maps to:** 3.1.A, 3.1.B · **Language:** Python 3 (pytest)
 
@@ -8,11 +8,11 @@ outstanding query, the log records the replies that arrived, and, for each reply
 (`"authoritative"` or `"attacker"`), and the `tx_id`, `port`, and `qname` it carried. Classify each
 query's outcome:
 
-- **"REJECT"**, no reply is a valid candidate (none match the query's `tx_id`, `port`, AND
+- **"REJECT"**: no reply is a valid candidate (none match the query's `tx_id`, `port`, AND
   `qname` all three), so nothing is cached. This also covers the case of zero replies.
-- **"WIN"**, among the valid candidates (replies matching all three fields), the one with the
+- **"WIN"**: among the valid candidates (replies matching all three fields), the one with the
   smallest `arrival` number (i.e. the first to arrive) has `"from": "authoritative"`.
-- **"POISON"**, among the valid candidates, the first-arriving one has `"from": "attacker"`.
+- **"POISON"**: among the valid candidates, the first-arriving one has `"from": "attacker"`.
 
 ## Function contract
 Implement `solve(queries)` in `starter.py` (see `interface.md` / `blackbox.yaml`).

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.4.b, RSA algorithm, Simulation</title>
+<title>5.4.b: RSA algorithm · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -44,6 +44,7 @@ h1{font-size:16px;margin:0 0 4px;}
 .feedback-box.correct{color:#008000;}
 .feedback-box.incorrect{color:#aa0000;}
 .stepnote{font-size:11px;color:var(--muted);margin:0;}
+.feedback-box{font-weight:normal;font-size:13px;line-height:1.45;}
 </style>
 </head>
 <body class="theme-win">
@@ -96,6 +97,7 @@ h1{font-size:16px;margin:0 0 4px;}
         <div style="margin-top:8px">
           <button class="btn" onclick="nextRound()">Next round</button>
           <button class="btn" onclick="showHint()">Show hint</button>
+          <button class="btn" onclick="showWorked()">Show worked solution</button>
         </div>
         <div class="feedback-box" id="fb-hint"></div>
       </div>
@@ -182,7 +184,7 @@ function checkStep(){
     fbKeys.innerText = '';
   } else if (keysOk){
     fbKeys.className = 'feedback-box correct';
-    fbKeys.innerText = 'Key derivation correct.';
+    fbKeys.innerText = 'Key derivation correct: n = ' + expected.n + ', phi(n) = ' + expected.phi + ', and d = ' + expected.d + ' because ' + ROUNDS[current].e + ' x ' + expected.d + ' = ' + (ROUNDS[current].e * expected.d) + ', which is 1 more than a multiple of ' + expected.phi + '.';
   } else {
     fbKeys.className = 'feedback-box incorrect';
     fbKeys.innerText = 'Not yet, recheck n = p*q, phi(n) = (p-1)(q-1), and d as the modular inverse of e mod phi(n).';
@@ -195,7 +197,7 @@ function checkStep(){
     fbCipher.innerText = '';
   } else if (cipherOk){
     fbCipher.className = 'feedback-box correct';
-    fbCipher.innerText = 'Encrypt/decrypt round trip correct, m recovered exactly.';
+    fbCipher.innerText = 'Round trip correct: the public exponent e turned m into c = ' + expected.c + ', and only the private exponent d turned it back into m = ' + expected.m2 + '.';
   } else {
     fbCipher.className = 'feedback-box incorrect';
     fbCipher.innerText = 'Not yet, recheck c = m^e mod n, then m = c^d mod n using YOUR c.';
@@ -218,6 +220,18 @@ function nextRound(){
   }
 }
 
+function showWorked(){
+  var r = ROUNDS[current], e = expected;
+  var k = (r.e * e.d - 1) / e.phi;
+  document.getElementById('fb-hint').innerText =
+    'Worked solution for this round:\n' +
+    '1. n = p x q = ' + r.p + ' x ' + r.q + ' = ' + e.n + '. n is public; it is the modulus for both keys.\n' +
+    '2. phi(n) = (p-1)(q-1) = ' + (r.p - 1) + ' x ' + (r.q - 1) + ' = ' + e.phi + '. Only someone who knows p and q can compute this, which is why factoring n would break RSA.\n' +
+    '3. d is the number with (e x d) mod phi(n) = 1: ' + r.e + ' x ' + e.d + ' = ' + (r.e * e.d) + ' = ' + k + ' x ' + e.phi + ' + 1, so d = ' + e.d + '. The public key is (e=' + r.e + ', n=' + e.n + '); the private key is (d=' + e.d + ', n=' + e.n + ').\n' +
+    '4. Encrypt with the PUBLIC key: c = m^e mod n = ' + r.m + '^' + r.e + ' mod ' + e.n + ' = ' + e.c + '.\n' +
+    '5. Decrypt with the PRIVATE key: m = c^d mod n = ' + e.c + '^' + e.d + ' mod ' + e.n + ' = ' + e.m2 + ', the original message.\n' +
+    'Why it works: e and d undo each other because e x d is 1 more than a multiple of phi(n). Anyone can encrypt with (e, n), but only the holder of d can decrypt. Real RSA uses primes hundreds of digits long, so n cannot be factored to find phi(n).';
+}
 function showHint(){
   document.getElementById('fb-hint').innerText =
     'n = p*q, phi(n) = (p-1)(q-1). Find d by testing small integers until (e*d) mod phi(n) == 1. ' +

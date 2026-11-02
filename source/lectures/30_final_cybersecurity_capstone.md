@@ -418,11 +418,11 @@ When logs are absent or incomplete, packet captures (PCAPs) provide ground-truth
 ::col::
 ::::card heading="Wireshark Display Filters for This Scenario"
 :::list style=tight
-- `ssh`, Show all SSH traffic to identify unauthorized sessions.
-- `dns && dns.qry.name contains "xyz"`, Isolate DNS queries to suspicious TLDs.
-- `rdp`, Show all Remote Desktop Protocol traffic.
-- `ip.src == 203.0.113.55`, Show all traffic from the attacker's IP.
-- `frame.len > 500 && dns`, DNS packets larger than 500 bytes suggest tunneling payloads.
+- `ssh`: Show all SSH traffic to identify unauthorized sessions.
+- `dns && dns.qry.name contains "xyz"`: Isolate DNS queries to suspicious TLDs.
+- `rdp`: Show all Remote Desktop Protocol traffic.
+- `ip.src == 203.0.113.55`: Show all traffic from the attacker's IP.
+- `frame.len > 500 && dns`: DNS packets larger than 500 bytes suggest tunneling payloads.
 :::
 ::::
 ::::

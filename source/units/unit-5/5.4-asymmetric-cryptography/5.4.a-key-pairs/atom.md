@@ -1,4 +1,4 @@
-# 5.4.a, Public/private key pairs
+# 5.4.a: Public/private key pairs
 
 > **Unit 5 · 5.4 Asymmetric Cryptography**
 > **AP Learning Objective(s):** 5.4.A
@@ -37,12 +37,12 @@ These two use cases, confidentiality and authenticity, are the twin pillars of a
 To explore these relationships hands-on, open the simulation: the simulation uses small, textbook-scale key pairs so you can see the arithmetic in action. The coding problem in `problem/` asks you to implement the key generation step from p and q, computing n, phi(n), and validating that a given (e, d) pair is correct for those parameters.
 
 ## Key terms
-- **Asymmetric cryptography**, a cryptographic system that uses two mathematically linked keys: a public key and a private key.
-- **Public key**, the key that can be freely distributed; used to encrypt messages or verify signatures.
-- **Private key**, the key kept secret by its owner; used to decrypt messages or create signatures.
-- **Key pair**, the matched (public key, private key) set derived together from the same mathematical relationship.
-- **One-way trapdoor function**, a function easy to compute in one direction but infeasible to reverse without special information (the trapdoor = private key).
-- **Key size**, the bit length of the key; larger sizes increase the difficulty of breaking the underlying mathematical problem.
+- **Asymmetric cryptography**: a cryptographic system that uses two mathematically linked keys: a public key and a private key.
+- **Public key**: the key that can be freely distributed; used to encrypt messages or verify signatures.
+- **Private key**: the key kept secret by its owner; used to decrypt messages or create signatures.
+- **Key pair**: the matched (public key, private key) set derived together from the same mathematical relationship.
+- **One-way trapdoor function**: a function easy to compute in one direction but infeasible to reverse without special information (the trapdoor = private key).
+- **Key size**: the bit length of the key; larger sizes increase the difficulty of breaking the underlying mathematical problem.
 
 ## Common misconceptions
 - "If I encrypt with the private key, it is more secure." → Encrypting with the private key does not provide confidentiality; anyone holding the public key can decrypt. Sign-with-private-key is used for authenticity, not secrecy.

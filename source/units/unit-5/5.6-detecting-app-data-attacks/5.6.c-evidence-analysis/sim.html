@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.6.c, Digital evidence analysis and attack classification, Simulation</title>
+<title>5.6.c: Digital evidence analysis and attack classification · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -40,6 +40,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-fon
 h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -78,17 +80,17 @@ function toggleTheme(){document.body.classList.toggle('theme-win');document.body
 
 var CASES = [
   { evidence:["multiple 401 responses from 203.0.113.44", "single source IP", "20 distinct usernames targeted"],
-    answer:"brute-force" },
+    answer:"brute-force", why:"Many 401 (unauthorized) responses from one IP against 20 different usernames is guessing logins. Trying a few passwords across many accounts is called password spraying, a form of brute force that avoids locking out any single account." },
   { evidence:["request body contained \"' OR 1=1 --\"", "database error returned in response", "UNION SELECT pattern in query string"],
-    answer:"sql-injection" },
+    answer:"sql-injection", why:"' OR 1=1 -- and UNION SELECT are SQL syntax typed into a request, and the database error in the response shows the input reached the query. Those three together are the fingerprint of SQL injection." },
   { evidence:["file hash matches known malware sample", "unexpected process spawned by winword.exe", "outbound connection to known C2 domain"],
-    answer:"malware" },
+    answer:"malware", why:"A known malware hash, Word launching an unexpected process (macro malware), and a connection to a command-and-control (C2) server all describe code running on the machine. It may have arrived by email, but the evidence is about what is RUNNING, so this is malware." },
   { evidence:["email attachment named invoice.pdf.exe", "sender domain spoofs a trusted vendor", "user reported the email as suspicious"],
-    answer:"phishing" },
+    answer:"phishing", why:"The evidence is about the delivery: a disguised attachment (invoice.pdf.exe is really a program), a spoofed vendor, and a user report. Nothing shows the file ran, so the incident is phishing; if the .exe had executed, the evidence would look like the malware cases." },
   { evidence:["credential-harvesting URL in email body", "spoofed sender display name", "link redirects to fake login page"],
-    answer:"phishing" },
+    answer:"phishing", why:"A credential-harvesting link, a spoofed sender name and a redirect to a fake login page aim to trick a person into typing a password. Tricking the human is phishing." },
   { evidence:["persistence mechanism installed in startup folder", "known malware file hash detected", "beaconing to external IP every 60s"],
-    answer:"malware" }
+    answer:"malware", why:"Persistence in the startup folder (so it survives a reboot), a known malware hash, and beaconing every 60 seconds (checking in with its operator) are three classic signs of malware already installed." }
 ];
 
 var LABELS = {"brute-force":"BRUTE-FORCE","sql-injection":"SQL-INJECTION","malware":"MALWARE","phishing":"PHISHING"};
@@ -119,8 +121,9 @@ function submitCase(){
   var c=CASES[idx];
   var ok = chosen===c.answer;
   var fb=document.getElementById('fb');
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+LABELS[c.answer]; }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+LABELS[c.answer]; }
+  var why='<ul class="why"><li><b>Why:</b> '+c.why+'</li></ul>';
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+LABELS[c.answer]+why; }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+LABELS[c.answer]+why; }
   if(score>=GOAL) met=true;
   updateBar();
 }

@@ -1,4 +1,4 @@
-# 5.5.c, Application security testing (SAST/DAST)
+# 5.5.c: Application security testing (SAST/DAST)
 
 > **Unit 5 · 5.5 Protecting Applications**
 > **AP Learning Objective(s):** 5.5.B, 5.5.C
@@ -70,15 +70,15 @@ miniature static-analysis scanner: given a list of source-code lines, flag the o
 dangerous patterns, exactly like a real SAST tool's rule engine.
 
 ## Key terms
-- **SAST (static application security testing)**, analyzing source code without executing it to
+- **SAST (static application security testing)**: analyzing source code without executing it to
   find patterns such as unsafe SQL construction, hardcoded secrets, or dangerous function calls.
-- **DAST (dynamic application security testing)**, testing a running application from the outside
+- **DAST (dynamic application security testing)**: testing a running application from the outside
   by sending real requests and observing responses for vulnerabilities like XSS or auth bypass.
-- **False positive**, a tool flagging something as a vulnerability that is not actually
+- **False positive**: a tool flagging something as a vulnerability that is not actually
   exploitable; SAST tools tend to produce more of these than DAST tools.
-- **CI/CD pipeline integration**, running SAST/DAST automatically on every commit or deployment so
+- **CI/CD pipeline integration**: running SAST/DAST automatically on every commit or deployment so
   vulnerabilities are caught continuously rather than only at a scheduled audit.
-- **Penetration testing**, human-driven security testing that chains findings and business-logic
+- **Penetration testing**: human-driven security testing that chains findings and business-logic
   reasoning together in ways automated SAST/DAST scanners cannot.
 
 ## Common misconceptions

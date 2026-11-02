@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.6.a, Application monitoring and logging, Simulation</title>
+<title>5.6.a: Application monitoring and logging · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -40,6 +40,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-fon
 h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -88,12 +90,12 @@ function isAlert(events){
 }
 
 var CASES = [
-  { ip:"203.0.113.44", events:[{ts:0},{ts:8},{ts:15},{ts:22},{ts:29}] },
-  { ip:"198.51.100.9", events:[{ts:0},{ts:200},{ts:400}] },
-  { ip:"203.0.113.7", events:[{ts:0},{ts:30}] },
-  { ip:"198.51.100.20", events:[{ts:0},{ts:10},{ts:20},{ts:30},{ts:40},{ts:50}] },
-  { ip:"203.0.113.88", events:[{ts:0},{ts:59}] },
-  { ip:"198.51.100.5", events:[{ts:0},{ts:5},{ts:10},{ts:15},{ts:60}] }
+  { ip:"203.0.113.44", events:[{ts:0},{ts:8},{ts:15},{ts:22},{ts:29}] , why:"ALERT. Five 401s (failed logins) from 0 to 29 seconds, all inside one 60-second window: exactly the threshold. That pace is a script guessing passwords." },
+  { ip:"198.51.100.9", events:[{ts:0},{ts:200},{ts:400}] , why:"OK. Three failures spread over 400 seconds never put more than one in the same 60-second window. That is a person mistyping now and then." },
+  { ip:"203.0.113.7", events:[{ts:0},{ts:30}] , why:"OK. Two failures 30 seconds apart is well under the threshold of five." },
+  { ip:"198.51.100.20", events:[{ts:0},{ts:10},{ts:20},{ts:30},{ts:40},{ts:50}] , why:"ALERT. Six failures in 50 seconds, one every 10 seconds. The steady rhythm is another sign of automation." },
+  { ip:"203.0.113.88", events:[{ts:0},{ts:59}] , why:"OK. Only two failures. They are inside the same window, but the rule needs five." },
+  { ip:"198.51.100.5", events:[{ts:0},{ts:5},{ts:10},{ts:15},{ts:60}] , why:"ALERT, and this is the edge case: the window from 0 to 60 seconds includes BOTH ends, so the failure at exactly 60s counts and makes five. Small boundary details like this decide whether a detection rule fires." }
 ];
 
 var idx=0, score=0, GOAL=4, met=false, chosen=null, answered=false;
@@ -125,8 +127,9 @@ function submitCase(){
   var alert=isAlert(c.events);
   var ok = chosen===alert;
   var fb=document.getElementById('fb');
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(alert?'ALERT':'OK'); }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(alert?'ALERT':'OK'); }
+  var why='<ul class="why"><li><b>Why:</b> '+c.why+'</li></ul>';
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(alert?'ALERT':'OK')+why; }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(alert?'ALERT':'OK')+why; }
   if(score>=GOAL) met=true;
   updateBar();
 }

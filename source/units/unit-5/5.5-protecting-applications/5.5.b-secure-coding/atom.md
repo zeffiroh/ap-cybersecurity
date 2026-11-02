@@ -1,4 +1,4 @@
-# 5.5.b, Secure coding practices
+# 5.5.b: Secure coding practices
 
 > **Unit 5 · 5.5 Protecting Applications**
 > **AP Learning Objective(s):** 5.5.A, 5.5.B
@@ -74,15 +74,15 @@ policy-as-code linter would. The simulation lets you play code reviewer directly
 code/config snippets and deciding PASS or FLAG against the same rule set.
 
 ## Key terms
-- **Least privilege (in code)**, running application processes and database connections with
+- **Least privilege (in code)**: running application processes and database connections with
   only the minimum access they need to function.
-- **Parameterized query**, a database query where user-supplied values are passed as separate,
+- **Parameterized query**: a database query where user-supplied values are passed as separate,
   typed parameters rather than concatenated into the query string, preventing SQL injection.
-- **Secrets management**, storing credentials, API keys, and encryption keys outside source code
+- **Secrets management**: storing credentials, API keys, and encryption keys outside source code
   (environment variables, a secrets manager) so they can be rotated without a code change.
-- **Fail securely**, designing error/exception paths to deny access by default rather than
+- **Fail securely**: designing error/exception paths to deny access by default rather than
   accidentally granting it when something unexpected happens.
-- **Dependency management**, pinning, tracking, and patching third-party library versions so a
+- **Dependency management**: pinning, tracking, and patching third-party library versions so a
   known vulnerability in a dependency does not become an unpatched vulnerability in the app.
 
 ## Common misconceptions

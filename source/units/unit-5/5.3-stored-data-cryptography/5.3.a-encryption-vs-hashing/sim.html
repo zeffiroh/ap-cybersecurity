@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.3.a, Encryption vs. hashing, Simulation</title>
+<title>5.3.a: Encryption vs. hashing · Simulation</title>
 <style>
 :root {
   --bg: #fff; --fg: #000; --muted: #555;
@@ -52,6 +52,7 @@ h1 { font-size: 16px; margin: 0 0 4px; }
 .feedback-box { font-size: 12px; font-weight: bold; margin-top: 4px; }
 .feedback-box.correct { color: #008000; }
 .feedback-box.incorrect { color: #aa0000; }
+.feedback-box{font-weight:normal;font-size:13px;line-height:1.45;}
 </style>
 </head>
 <body class="theme-win">
@@ -239,6 +240,13 @@ const SOLUTIONS = {
   avatar: "encode"
 };
 
+const FIELD_WHY = {
+  password: "Hash. The app never needs the password back, only to check that what you type produces the same hash. A one-way, salted, slow hash (bcrypt, Argon2) means a stolen database does not reveal anyone's password. Encrypting it would be worse: whoever steals the key gets every password.",
+  cc: "Encrypt. The shop must read the real card number again to charge it, so the protection has to be reversible, but only with a key the attacker should not have. Hashing would destroy the number; encoding hides nothing.",
+  ssn: "Encrypt. The SSN has to be shown again on tax forms, so it must be recoverable, but only by systems holding the key. Encoding (like Base64) is NOT protection: anyone can decode it without a key.",
+  token: "Hash. Like a password, the server only needs to check that a presented token matches, never to read it back. If the table leaks, attackers get hashes they cannot use as tokens.",
+  avatar: "Encode. The requirement is about format, not secrecy: Base64 turns binary image bytes into plain text so they fit in JSON. It is fully reversible by anyone, so it provides zero confidentiality; that is fine for a public avatar."
+};
 let userAnswers = {
   password: "",
   cc: "",
@@ -255,10 +263,10 @@ function auditField(field, value) {
     fb.innerText = "";
   } else if (value === SOLUTIONS[field]) {
     fb.className = "feedback-box correct";
-    fb.innerText = "Correct";
+    fb.innerText = "Correct. " + FIELD_WHY[field];
   } else {
     fb.className = "feedback-box incorrect";
-    fb.innerText = "Incorrect choice. Review requirements.";
+    fb.innerText = "Not quite: " + FIELD_WHY[field];
   }
   checkObjective();
 }

@@ -1,4 +1,4 @@
-# 1.3.b, Evil twin attack
+# 1.3.b: Evil twin attack
 
 > **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
 > **AP Learning Objective(s):** 1.3.B
@@ -41,12 +41,12 @@ the attacker's hardware.
 Additional detection signals:
 - **SSID matches a known-good name but the BSSID is not in the approved set**, the clearest
   red flag.
-- **Security downgrade**, the legitimate network uses WPA3, but the evil twin broadcasts the
+- **Security downgrade**: the legitimate network uses WPA3, but the evil twin broadcasts the
   same SSID with WPA2 or no security, because the attacker cannot replicate the enterprise
   credentials.
-- **Duplicate SSID with different security settings**, same SSID, two different security
+- **Duplicate SSID with different security settings**: same SSID, two different security
   levels appearing simultaneously.
-- **Unusually strong signal from an unexpected direction**, a signal stronger than expected
+- **Unusually strong signal from an unexpected direction**: a signal stronger than expected
   from a stationary AP may indicate a device placed very close to the victim.
 
 **Why this matters on public Wi-Fi.** On a private home network, you configured the AP
@@ -78,12 +78,12 @@ in atom 1.3.a) can execute it in minutes. That accessibility is what makes it so
 and why recognizing it is a core AP competency.
 
 ## Key terms
-- **SSID (Service Set Identifier)**, the human-readable name of a Wi-Fi network (e.g., "CafeGuest").
-- **BSSID (Basic Service Set Identifier)**, the hardware MAC address of the radio broadcasting the network; each physical access point has a unique BSSID.
-- **Evil twin**, a rogue access point broadcasting the same SSID as a legitimate network to intercept victim traffic.
-- **Man-in-the-middle (MitM)**, an attack where the adversary secretly relays and can read or modify communications between two parties.
-- **SSL stripping**, a MitM technique that downgrades an HTTPS connection to plain HTTP without the user noticing, exposing traffic to eavesdropping.
-- **Captive portal**, a web page shown to new network users, often requiring authentication; attackers use fake versions to harvest credentials.
+- **SSID (Service Set Identifier)**: the human-readable name of a Wi-Fi network (e.g., "CafeGuest").
+- **BSSID (Basic Service Set Identifier)**: the hardware MAC address of the radio broadcasting the network; each physical access point has a unique BSSID.
+- **Evil twin**: a rogue access point broadcasting the same SSID as a legitimate network to intercept victim traffic.
+- **Man-in-the-middle (MitM)**: an attack where the adversary secretly relays and can read or modify communications between two parties.
+- **SSL stripping**: a MitM technique that downgrades an HTTPS connection to plain HTTP without the user noticing, exposing traffic to eavesdropping.
+- **Captive portal**: a web page shown to new network users, often requiring authentication; attackers use fake versions to harvest credentials.
 
 ## Common misconceptions
 - "If I see HTTPS in my browser, the connection is safe even on public Wi-Fi." → SSL stripping can remove HTTPS before your browser receives the page. Always check for HTTPS and be suspicious if it is absent where you expected it.

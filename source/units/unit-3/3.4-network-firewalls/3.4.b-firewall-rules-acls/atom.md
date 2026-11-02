@@ -1,4 +1,4 @@
-# 3.4.b, Firewall rules and access control lists (ACLs)
+# 3.4.b: Firewall rules and access control lists (ACLs)
 
 > **Unit 3 · 3.4 Protecting Networks: Firewalls**
 > **AP Learning Objective(s):** 3.4.B, 3.4.C
@@ -69,15 +69,15 @@ first-match-wins logic with an implicit deny-all appended at the end, the exact 
 real firewall runs.
 
 ## Key terms
-- **Access control list (ACL)**, an ordered list of allow/deny rules a firewall applies to
+- **Access control list (ACL)**: an ordered list of allow/deny rules a firewall applies to
   traffic, matched on source, destination, port, and protocol.
-- **First-match-wins**, the evaluation model where a packet is judged by the first rule it
+- **First-match-wins**: the evaluation model where a packet is judged by the first rule it
   matches, top to bottom; later rules are never consulted for that packet.
-- **Implicit deny (default deny)**, the unwritten or explicit final ACL rule that drops any
+- **Implicit deny (default deny)**: the unwritten or explicit final ACL rule that drops any
   packet matching nothing above it.
-- **Rule shadowing**, when a broad rule earlier in the list matches everything a more specific
+- **Rule shadowing**: when a broad rule earlier in the list matches everything a more specific
   rule below it would match, making the lower rule unreachable.
-- **Rule specificity**, how narrowly a rule's conditions match traffic; a rule scoped to one host
+- **Rule specificity**: how narrowly a rule's conditions match traffic; a rule scoped to one host
   and one port is more specific than one that matches "any" for those fields.
 
 ## Common misconceptions

@@ -36,6 +36,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-fon
   border:2px solid;border-color:var(--win-shadow) var(--win-light) var(--win-light) var(--win-shadow);}
 .ok{color:#008000;font-weight:bold;}.bad{color:#aa0000;font-weight:bold;}
 .feedback{font-family:var(--mono-font);margin-top:8px;min-height:18px;}
+.why{font-family:var(--ui-font);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 h1{font-size:16px;margin:0 0 6px;}
 .tactics{margin:10px 0;}
 .toolbar{margin-bottom:8px;}
@@ -78,22 +80,40 @@ function toggleTheme(){document.body.classList.toggle('theme-win');document.body
 var INBOX = [
   { from:"security@yourbank-alerts.com", subj:"Action required",
     body:"We detected suspicious activity. Your account will be locked in 24 hours unless you verify immediately.",
-    tactics:["authority","intimidation","urgency"] },
+    tactics:["authority","intimidation","urgency"],
+    why:{ authority:"It poses as your bank's security team. Note the sender domain: yourbank-alerts.com is not your bank's real domain, just a name built to borrow its authority.",
+          intimidation:"\"Your account will be locked\" is a threat of loss meant to scare you into acting.",
+          urgency:"\"In 24 hours\" and \"immediately\" put a clock on you so you skip checking." },
+    not:"Nothing is described as limited or running out, so there is no scarcity." },
   { from:"it-helpdesk@company.example", subj:"Mailbox upgrade",
     body:"This is the IT department. Only a limited number of upgrade slots remain - last chance to keep your mailbox.",
-    tactics:["authority","scarcity"] },
+    tactics:["authority","scarcity"],
+    why:{ authority:"\"This is the IT department\" claims the power to give you instructions.",
+          scarcity:"\"Only a limited number of upgrade slots remain\" and \"last chance\" say the supply is running out." },
+    not:"No time limit is given (no hour, day, or \"now\"), so this is not urgency: \"last chance\" here is about slots running out, not a clock. Losing your mailbox is implied, but no threat is actually stated, so it is not intimidation." },
   { from:"payroll@company.example", subj:"Lunch",
     body:"Reminder: team lunch is in the kitchen at noon. Help yourself, no rush.",
-    tactics:[] },
+    tactics:[],
+    why:{},
+    not:"No pressure at all: \"no rush\" removes time pressure, nothing is scarce, no one claims special authority, and there is no threat. Real messages often look like this, which is why you judge the pressure, not the sender label." },
   { from:"no-reply@irs-refunds.example", subj:"Final notice",
     body:"This is the IRS. Pay the outstanding penalty immediately or we will pursue legal action.",
-    tactics:["authority","intimidation","urgency"] },
+    tactics:["authority","intimidation","urgency"],
+    why:{ authority:"\"This is the IRS\" borrows the power of a government agency. The real IRS first contacts people by paper mail, not email.",
+          intimidation:"\"Penalty\" and \"legal action\" threaten punishment.",
+          urgency:"\"Immediately\" demands action before you can verify." },
+    not:"Nothing is limited or running out, so there is no scarcity." },
   { from:"deals@shop.example", subj:"Exclusive",
     body:"Exclusive offer for you only - while supplies last, a few left at this price.",
-    tactics:["scarcity"] },
+    tactics:["scarcity"],
+    why:{ scarcity:"\"Exclusive\", \"for you only\", \"while supplies last\" and \"a few left\" all say the supply is limited." },
+    not:"There is no deadline (\"while supplies last\" depends on stock, not a clock), no authority figure, and no threat." },
   { from:"ceo@company.example", subj:"Quick favor",
     body:"This is the CEO. I need this done right now, ASAP, before the board meeting.",
-    tactics:["authority","urgency"] }
+    tactics:["authority","urgency"],
+    why:{ authority:"\"This is the CEO\" uses the top of the company's chain of command.",
+          urgency:"\"Right now\", \"ASAP\" and \"before the board meeting\" set a tight deadline." },
+    not:"Nothing is scarce and nothing bad is threatened, so there is no scarcity or intimidation." }
 ];
 
 var idx=0, score=0, sel=new Set(), GOAL=5, met=false, answered=false;
@@ -112,11 +132,24 @@ function toggle(b){var t=b.getAttribute('data-t'); if(sel.has(t)){sel.delete(t);
 
 function submit(){
   if(answered) return;
-  var correct=new Set(INBOX[idx].tactics);
+  var m=INBOX[idx], correct=new Set(m.tactics);
   var ok = sel.size===correct.size && [...sel].every(function(t){return correct.has(t);});
+  var missed=[...correct].filter(function(t){return !sel.has(t);}).sort();
+  var extra=[...sel].filter(function(t){return !correct.has(t);}).sort();
   var fb=document.getElementById('fb');
-  if(ok){ score++; answered=true; fb.innerHTML='<span class="ok">CORRECT.</span> Tactics: '+( [...correct].sort().join(", ")||"none");}
-  else { answered=true; fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct tactics: '+([...correct].sort().join(", ")||"none");}
+  var html = ok ? '<span class="ok">CORRECT.</span> ' : '<span class="bad">NOT QUITE.</span> ';
+  html += 'Tactics: '+([...correct].sort().join(", ")||"none")+'.';
+  if(!ok){
+    if(missed.length) html += '<br>You missed: '+missed.join(", ")+'.';
+    if(extra.length) html += '<br>Not in this message: '+extra.join(", ")+'.';
+  }
+  html += '<ul class="why">';
+  [...correct].sort().forEach(function(t){ html += '<li><b>'+t+':</b> '+esc(m.why[t])+'</li>'; });
+  if(m.not) html += '<li><b>'+(correct.size?'Not the others':'None')+':</b> '+esc(m.not)+'</li>';
+  html += '</ul>';
+  fb.innerHTML = html;
+  answered=true;
+  if(ok) score++;
   if(score>=GOAL) met=true;
   updateBar();
 }

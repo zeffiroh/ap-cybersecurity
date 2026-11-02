@@ -92,12 +92,12 @@ function toggleTheme(){
 }
 
 var alerts = [
-  {n:1, desc:"Signature match on a known SQL injection string in a login form POST to the student portal.", sensor:"Attack", truth:"Attack", answer:"TP"},
-  {n:2, desc:"IDS flags a vulnerability scan from 10.0.4.12 as an attack; investigation shows it is the IT department's scheduled Tuesday-night scan.", sensor:"Attack", truth:"Benign", answer:"FP"},
-  {n:3, desc:"An attacker exfiltrates gradebook data over a slow HTTPS beacon that matches no signature and stays inside the anomaly baseline; discovered a week later during a manual audit.", sensor:"Benign", truth:"Attack", answer:"FN"},
-  {n:4, desc:"Ordinary nightly backup job triggers no alert; traffic is confirmed benign.", sensor:"Benign", truth:"Benign", answer:"TN"},
-  {n:5, desc:"Anomaly engine flags a teacher's laptop for unusual traffic volume; the teacher was uploading a large video project for the first time. No compromise found.", sensor:"Attack", truth:"Benign", answer:"FP"},
-  {n:6, desc:"Signature engine matches a known worm's port-scan pattern on an unpatched lab machine; incident response confirms active compromise.", sensor:"Attack", truth:"Attack", answer:"TP"}
+  {n:1, desc:"Signature match on a known SQL injection string in a login form POST to the student portal.", sensor:"Attack", truth:"Attack", answer:"TP", why:"TP (true positive): the sensor said attack and it really was one. A known SQL injection string is exactly what signatures are good at catching."},
+  {n:2, desc:"IDS flags a vulnerability scan from 10.0.4.12 as an attack; investigation shows it is the IT department's scheduled Tuesday-night scan.", sensor:"Attack", truth:"Benign", answer:"FP", why:"FP (false positive): the sensor said attack, but it was IT's own scheduled scan. The fix is tuning, such as an exception for the scanner at that time, not ignoring the alert type."},
+  {n:3, desc:"An attacker exfiltrates gradebook data over a slow HTTPS beacon that matches no signature and stays inside the anomaly baseline; discovered a week later during a manual audit.", sensor:"Benign", truth:"Attack", answer:"FN", why:"FN (false negative): a real attack the sensor stayed silent on. It matched no signature and stayed inside normal volume, so neither engine fired. FNs are the most dangerous outcome because nobody knows to respond; that is why audits and threat hunting exist."},
+  {n:4, desc:"Ordinary nightly backup job triggers no alert; traffic is confirmed benign.", sensor:"Benign", truth:"Benign", answer:"TN", why:"TN (true negative): no alert, and nothing was wrong. Most traffic should land here."},
+  {n:5, desc:"Anomaly engine flags a teacher's laptop for unusual traffic volume; the teacher was uploading a large video project for the first time. No compromise found.", sensor:"Attack", truth:"Benign", answer:"FP", why:"FP (false positive): the anomaly engine flagged something unusual, but unusual is not the same as malicious. Anomaly detection catches new attacks but produces more false positives than signatures."},
+  {n:6, desc:"Signature engine matches a known worm's port-scan pattern on an unpatched lab machine; incident response confirms active compromise.", sensor:"Attack", truth:"Attack", answer:"TP", why:"TP (true positive): the alert was right, and incident response confirmed it. The first word (True/False) says whether the sensor was right; the second (Positive/Negative) says what the sensor claimed."}
 ];
 
 function buildTable(){
@@ -124,7 +124,7 @@ function verify(){
     var sel = document.getElementById("cl_" + a.n).value;
     var ok = sel === a.answer;
     if (ok) score++;
-    lines.push("Alert " + a.n + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + a.answer + "]"));
+    lines.push("Alert " + a.n + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + a.answer + "]") + "\n   Why: " + a.why + "\n");
   });
   var met = (score >= 5);
   document.getElementById("log").innerHTML = "<span class=\"dim\">soc# </span>show alert-review results\n\n" +

@@ -1,4 +1,4 @@
-# Coding problem, 5.4.c: Implement RSA digital signatures (hash-then-sign)
+# Coding problem 5.4.c: Implement RSA digital signatures (hash-then-sign)
 
 **Skill:** Mitigate Risk · **Maps to:** 5.4.B · **Language:** Python 3 (pytest)
 
@@ -16,7 +16,7 @@ Implement, in `starter.py`:
 - `verify(message: bytes, signature: int, e: int, n: int) -> bool`, recompute
   `SHA-256(message) mod n` and compare it to `signature^e mod n`, using the signer's public
   exponent `e` and modulus `n`. Return `True` iff they match.
-- `solve(data: dict) -> dict`, the blackbox entry point that dispatches to the two functions
+- `solve(data: dict) -> dict`: the blackbox entry point that dispatches to the two functions
   above (see `interface.md` / `blackbox.yaml`).
 
 You may use `hashlib.sha256` for the hash step only. Implement the digest-reduction and the

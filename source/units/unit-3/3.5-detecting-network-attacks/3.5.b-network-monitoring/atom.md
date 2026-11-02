@@ -1,4 +1,4 @@
-# 3.5.b, Network monitoring and traffic analysis
+# 3.5.b: Network monitoring and traffic analysis
 
 > **Unit 3 · 3.5 Detecting Network Attacks**
 > **AP Learning Objective(s):** 3.5.B
@@ -71,18 +71,18 @@ records, flag every host that exceeds its baseline volume threshold or uses a po
 baseline set.
 
 ## Key terms
-- **Packet capture (pcap)**, full-fidelity recording of every packet, including payload; precise
+- **Packet capture (pcap)**: full-fidelity recording of every packet, including payload; precise
   but storage- and search-expensive at scale.
-- **Flow record (NetFlow)**, a summarized record of a single conversation (endpoints, ports,
+- **Flow record (NetFlow)**: a summarized record of a single conversation (endpoints, ports,
   protocol, byte/packet counts, duration) without payload; the common basis for large-scale
   monitoring.
-- **Baseline**, the recorded profile of "normal" traffic (volume, ports, timing, destinations)
+- **Baseline**: the recorded profile of "normal" traffic (volume, ports, timing, destinations)
   that current traffic is compared against.
-- **Beaconing**, regular, machine-timed outbound connections characteristic of malware
+- **Beaconing**: regular, machine-timed outbound connections characteristic of malware
   command-and-control check-ins.
-- **Data exfiltration (volume-based indicator)**, an abnormal spike in outbound data volume,
+- **Data exfiltration (volume-based indicator)**: an abnormal spike in outbound data volume,
   often the clearest sign that data is actively leaving the network.
-- **SIEM (Security Information and Event Management)**, a platform that aggregates and correlates
+- **SIEM (Security Information and Event Management)**: a platform that aggregates and correlates
   logs and flow data from many sources for centralized analyst query and alerting.
 
 ## Common misconceptions

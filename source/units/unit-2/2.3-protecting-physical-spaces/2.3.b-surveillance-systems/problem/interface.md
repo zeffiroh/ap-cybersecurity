@@ -22,12 +22,12 @@ def solve(events: list[dict]) -> list[str]
 A **sorted, de-duplicated** `list[str]` of alert strings. Empty list if no alerts.
 
 ## Alert rules
-- **AFTER_HOURS:\<camera_id\>**, flag if any event on that camera has `person_detected == True`
+- **AFTER_HOURS:\<camera_id\>**: flag if any event on that camera has `person_detected == True`
   and its timestamp's UTC hour (`(ts % 86400) // 3600`) falls outside `authorized_hours`.
-- **GHOST_MOTION:\<camera_id\>**, flag if that camera has 3 or more consecutive events (in
+- **GHOST_MOTION:\<camera_id\>**: flag if that camera has 3 or more consecutive events (in
   timestamp order) with `motion == True` and `person_detected == False`. Any event with
   `motion == False` or `person_detected == True` resets the streak to 0.
-- **CROWD_SERVER_ROOM**, flag once (globally, not per-camera) if more than 2 events anywhere have
+- **CROWD_SERVER_ROOM**: flag once (globally, not per-camera) if more than 2 events anywhere have
   `person_detected == True` and `area == "server_room"` within any 60-second sliding window.
 
 ## Guarantees / rules

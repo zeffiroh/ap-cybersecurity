@@ -1,4 +1,4 @@
-# Coding problem, 3.1.c: ARP spoofing detector
+# Coding problem 3.1.c: ARP spoofing detector
 
 **Skill:** Analyze Risk · **Maps to:** 3.1.B · **Language:** Python 3 (pytest)
 

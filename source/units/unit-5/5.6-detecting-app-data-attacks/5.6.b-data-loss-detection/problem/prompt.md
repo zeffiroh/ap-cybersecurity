@@ -1,4 +1,4 @@
-# Coding problem, 5.6.b: DLP egress rule
+# Coding problem 5.6.b: DLP egress rule
 
 **Skill:** Detect Attacks · **Maps to:** 5.6.B · **Language:** Python 3 (pytest)
 

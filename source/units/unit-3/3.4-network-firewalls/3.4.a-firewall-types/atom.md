@@ -1,4 +1,4 @@
-# 3.4.a, Firewall types (stateful vs. stateless)
+# 3.4.a: Firewall types (stateful vs. stateless)
 
 > **Unit 3 · 3.4 Protecting Networks: Firewalls**
 > **AP Learning Objective(s):** 3.4.A
@@ -84,15 +84,15 @@ stateless firewall first, then extend it to track connection state and emit "all
 each packet, demonstrating the behavioral difference between the two types.
 
 ## Key terms
-- **Stateless (packet-filter) firewall**, examines each packet independently against a fixed rule
+- **Stateless (packet-filter) firewall**: examines each packet independently against a fixed rule
   set; no memory of prior packets or connection state.
-- **Stateful (stateful-inspection) firewall**, maintains a connection-tracking table; permits
+- **Stateful (stateful-inspection) firewall**: maintains a connection-tracking table; permits
   return traffic for established sessions and drops packets that do not match any tracked session.
-- **Connection-tracking table**, data structure the firewall uses to record active sessions
+- **Connection-tracking table**: data structure the firewall uses to record active sessions
   (source IP, destination IP, ports, protocol, and connection state).
-- **Packet header**, the metadata portion of a packet (IP addresses, ports, flags, protocol)
+- **Packet header**: the metadata portion of a packet (IP addresses, ports, flags, protocol)
   that both firewall types examine.
-- **TCP three-way handshake**, the SYN / SYN-ACK / ACK exchange that establishes a TCP session;
+- **TCP three-way handshake**: the SYN / SYN-ACK / ACK exchange that establishes a TCP session;
   stateful firewalls use this to know when a connection is legitimately open.
 
 ## Common misconceptions

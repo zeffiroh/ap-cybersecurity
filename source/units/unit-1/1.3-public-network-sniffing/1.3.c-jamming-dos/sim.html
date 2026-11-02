@@ -42,6 +42,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:6px;}
 .classify{margin:8px 0;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -80,22 +82,22 @@ function toggleTheme(){document.body.classList.toggle('theme-win');document.body
 var SERIES = [
   { samples:[20,25,90,22,30,18,24],
     jamming:false,
-    note:"One spike at index 2 (value 90). Run length = 1. Below window of 5." },
+    note:"Only index 2 (value 90) is above 80; the samples on both sides drop right back down. The longest run above the threshold is 1, far short of 5. A single spike is normal: a microwave oven, a Bluetooth burst, or a nearby device transmitting briefly. Calling every spike an attack would bury real alerts in false alarms." },
   { samples:[15,82,85,88,91,83,87,20],
     jamming:true,
-    note:"Consecutive run: indices 1-6 all >80. Run = 6 >= 5. JAMMING." },
+    note:"Indices 1 through 6 are all above 80 (82 to 91), a run of 6 in a row, which meets the 5-sample rule. Sustained noise that stays high is the signature of a jammer drowning out the channel, so devices cannot hear the access point. That is a denial-of-service (availability) attack." },
   { samples:[70,72,75,71,73,74,76],
     jamming:false,
-    note:"All values below 80. No threshold crossings at all." },
+    note:"Every sample is between 70 and 76. The channel is busy, but nothing crosses the threshold of 80, so the run length is 0. A crowded channel is a performance problem (change channels), not an attack." },
   { samples:[50,81,82,83,84,85,86,87,88,30],
     jamming:true,
-    note:"Consecutive run: indices 1-8 all >80. Run = 8 >= 5. JAMMING." },
+    note:"Indices 1 through 8 are all above 80, a run of 8. Note that each value is only slightly over (81 to 88): the rule cares about how LONG the noise stays high, not how high it spikes. A steady, slightly elevated floor is typical of a constant jammer." },
   { samples:[10,81,82,83,84,10,81,82,83,84],
     jamming:false,
-    note:"Two bursts of 4 each, separated by a clean sample. Neither run reaches 5." },
+    note:"There are 8 high samples in total, but they form two runs of 4 (indices 1 to 4 and 6 to 9), broken by the clean value 10 at index 5. The rule counts CONSECUTIVE samples, so neither run reaches 5. This is the trap: counting all high samples instead of the longest unbroken run. (A real analyst might still watch this channel, since a jammer that pulses on and off is designed to slip under simple rules.)" },
   { samples:[90,91,92,93,94,10,10,10],
     jamming:true,
-    note:"Run at the start: indices 0-4 all >80. Run = 5 exactly. JAMMING." }
+    note:"Indices 0 through 4 are above 80 (90 to 94), a run of exactly 5, which meets the rule (5 or more). The run starts at the very first sample; it still counts even though the series ends clean. Jamming can stop when the attacker moves or switches off." }
 ];
 
 var ridx=0, score=0, GOAL=5, met=false, answered=false;
@@ -141,9 +143,9 @@ function classify(isJamming){
   var fb=document.getElementById('fb');
   if(ok){
     score++;
-    fb.innerHTML='<span class="ok">CORRECT.</span> '+r.note;
+    fb.innerHTML='<span class="ok">CORRECT.</span> This is '+(r.jamming?'JAMMING':'NOT jamming')+'.<ul class="why"><li><b>Why:</b> '+r.note+'</li></ul>';
   } else {
-    fb.innerHTML='<span class="bad">NOT QUITE.</span> '+r.note;
+    fb.innerHTML='<span class="bad">NOT QUITE.</span> This is '+(r.jamming?'JAMMING':'NOT jamming')+'.<ul class="why"><li><b>Why:</b> '+r.note+'</li></ul>';
   }
   if(score>=GOAL)met=true;
   updateBar();

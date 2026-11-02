@@ -1,4 +1,4 @@
-# Coding problem, 2.4.b: Alarm event classifier
+# Coding problem 2.4.b: Alarm event classifier
 
 **Skill:** Detect Attacks · **Maps to:** 2.4.B · **Language:** Python 3 (pytest)
 
@@ -7,14 +7,14 @@ You are building the triage logic for an alarm control panel at Crestfield Analy
 timestamp-ordered stream of sensor events (one per zone trip), classify each event using the
 arm-state, exit-delay, and cross-zone verification rules taught in the lesson:
 
-- **SUPPRESSED**, the system was `"DISARMED"` when the event occurred (does not apply to panic
+- **SUPPRESSED**: the system was `"DISARMED"` when the event occurred (does not apply to panic
   buttons, see below).
-- **FALSE_ALARM**, the event's sensor is `"contact"` or `"glass_break"`, the system was armed,
+- **FALSE_ALARM**: the event's sensor is `"contact"` or `"glass_break"`, the system was armed,
   and the event happened less than `exit_delay_sec` seconds after the zone was armed (still inside
   the exit-delay grace period).
-- **LOCAL_ONLY**, a real trip (armed, past the exit delay) that has no corroborating trip in a
+- **LOCAL_ONLY**: a real trip (armed, past the exit delay) that has no corroborating trip in a
   *different* zone within `verify_window_sec` seconds. Only the local siren sounds.
-- **DISPATCH**, either (a) the sensor is `"panic"` (a panic/duress button always dispatches,
+- **DISPATCH**: either (a) the sensor is `"panic"` (a panic/duress button always dispatches,
   regardless of arm state or timing), or (b) a real trip that has a corroborating real trip in a
   different zone within `verify_window_sec` seconds (cross-zone verification).
 

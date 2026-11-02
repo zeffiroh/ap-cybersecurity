@@ -37,7 +37,7 @@
   function renderPalette(){
     var html = '<div class="bb-palette">';
     items.forEach(function(it,i){
-      var st = answers[it.id]!==undefined ? 'answered' : 'unanswered';
+      var st = answered(it) ? 'answered' : 'unanswered';
       html += '<span class="bb-dot bb-'+st+(i===idx?' bb-current':'')+'" onclick="window.__bbGo('+i+')">'+(i+1)+'</span>';
     });
     html += '</div>';
@@ -46,11 +46,31 @@
 
   window.__bbGo = function(i){ idx = i; renderQuestion(); };
 
+  var MASTERY = 80;
+  var KIND = {mcq:'Multiple choice', multi:'Select all that apply', short:'Short answer', code:'Coding problem'};
+
+  function pts(it){ return it.points||1; }
+  function plural(n){ return n+' point'+(n===1?'':'s'); }
+
+  function rule(it){
+    if(it.type==='mcq') return 'Full points for the one correct choice; otherwise 0.';
+    if(it.type==='multi') return 'All or nothing: tick every correct option and none of the wrong ones.';
+    if(it.type==='short') return 'Full points if your answer contains a key idea from the answer key; otherwise 0.';
+    return 'Graded by the automatic tests on the Code page.';
+  }
+
+  function totals(){
+    var quizMax = items.reduce(function(s,it){ return s+pts(it); },0);
+    var codeMax = codeItems.reduce(function(s,it){ return s+pts(it); },0);
+    return {quizMax:quizMax, codeMax:codeMax};
+  }
+
   function renderQuestion(){
     var it = items[idx];
     var html = '<div class="bb-shell">';
-    html += '<div class="bb-top">Question '+(idx+1)+' of '+items.length+', '+quiz.title+'</div>';
+    html += '<div class="bb-top">'+esc(quiz.title)+' · Question '+(idx+1)+' of '+items.length+'</div>';
     html += renderPalette();
+    html += '<p class="bb-worth">'+KIND[it.type]+' · <b>'+plural(pts(it))+'</b> · '+rule(it)+'</p>';
     html += '<div class="bb-q"><p><b>'+esc(it.prompt)+'</b></p>';
     if(it.type==='mcq'){
       it.options.forEach(function(opt,i){
@@ -89,10 +109,22 @@
   window.__bbNext = function(){ idx = Math.min(items.length-1, idx+1); renderQuestion(); };
   window.__bbPrev = function(){ idx = Math.max(0, idx-1); renderQuestion(); };
 
+  function answered(it){
+    var a = answers[it.id];
+    if(it.type==='multi') return !!(a && a.length);
+    if(it.type==='short') return !!(a && String(a).trim());
+    return a!==undefined;
+  }
+
   window.__bbReview = function(){
-    var html = '<div class="bb-shell"><div class="bb-top">Review, '+quiz.title+'</div>';
+    var t = totals();
+    var open = items.filter(function(it){ return !answered(it); }).length;
+    var html = '<div class="bb-shell"><div class="bb-top">'+esc(quiz.title)+' · Review</div>';
     html += renderPalette();
-    html += '<p>'+items.length+' question(s). Unanswered are marked in red. Submit when ready.</p>';
+    html += '<p>'+items.length+' question'+(items.length===1?'':'s')+' worth '+plural(t.quizMax)+'. '+
+      (open ? '<b class="bb-warn">'+open+' unanswered</b> (marked in red); an unanswered question scores 0.' : 'Every question is answered.')+
+      ' Mastery is '+MASTERY+'% or higher.</p>';
+    if(t.codeMax) html += '<p class="lo">The coding problem ('+plural(t.codeMax)+') is scored separately on the Code page.</p>';
     html += '<button class="btn" onclick="window.__bbSubmit()">Submit quiz</button></div>';
     root.innerHTML = html;
   };
@@ -118,19 +150,52 @@
     return {score:score, max:max, rows:rows};
   }
 
+  function given(it, a){
+    if(it.type==='mcq') return a===undefined ? '(no answer)' : it.options[a];
+    if(it.type==='multi') return (a && a.length) ? a.slice().sort().map(function(i){ return it.options[i]; }).join('; ') : '(nothing ticked)';
+    return (a && String(a).trim()) ? String(a) : '(no answer)';
+  }
+
+  function key(it){
+    if(it.type==='mcq') return it.options[it.answer];
+    if(it.type==='multi') return (it.answer||[]).slice().sort().map(function(i){ return it.options[i]; }).join('; ');
+    return it.explain || (it.accept||[]).join('; ');
+  }
+
   window.__bbSubmit = function(){
     var g = grade();
-    saveResult(g.score, g.max + codeItems.reduce(function(s,it){return s+(it.points||1);},0));
+    var t = totals();
+    saveResult(g.score, g.max + t.codeMax);
     submitToGradebook(g.score, g.max);
-    var html = '<div class="bb-shell"><div class="bb-top">Results, '+quiz.title+'</div>';
-    html += '<p><b>Score: '+g.score+' / '+g.max+'</b></p>';
-    g.rows.forEach(function(r){
-      html += '<div class="bb-result '+(r.correct?'ok':'bad')+'"><b>'+(r.correct?'Correct':'Incorrect')+'</b>, '+esc(r.it.prompt)+'<br><span class="lo">'+esc(r.it.explain||'')+'</span></div>';
+    var pct = g.max ? Math.round(g.score*100/g.max) : 0;
+    var html = '<div class="bb-shell"><div class="bb-top">'+esc(quiz.title)+' · Results</div>';
+    html += '<p class="bb-score"><b>Score: '+g.score+' / '+g.max+' points ('+pct+'%)</b></p>';
+    html += '<p class="mastery-msg">'+(pct>=MASTERY
+      ? '<b>Mastery reached</b>: '+MASTERY+'% or higher. Move on to the next skill.'
+      : '<b>Not yet at mastery</b>: '+MASTERY+'% is needed. Reread the lesson, then retry.')+'</p>';
+
+    html += '<h4 class="bb-h">Score breakdown</h4><table class="bb-rubric"><thead><tr>'+
+      '<th>#</th><th>Type</th><th>How it is scored</th><th>Points</th></tr></thead><tbody>';
+    g.rows.forEach(function(r,i){
+      html += '<tr class="'+(r.correct?'ok':'bad')+'"><td>'+(i+1)+'</td><td>'+KIND[r.it.type]+'</td><td>'+rule(r.it)+'</td>'+
+        '<td>'+(r.correct?pts(r.it):0)+' / '+pts(r.it)+'</td></tr>';
+    });
+    codeItems.forEach(function(it){
+      html += '<tr class="code"><td>Code</td><td>'+KIND.code+'</td><td>'+rule(it)+' Not counted in this score.</td><td>– / '+pts(it)+'</td></tr>';
+    });
+    html += '</tbody><tfoot><tr><td colspan="3">This quiz</td><td>'+g.score+' / '+g.max+'</td></tr></tfoot></table>';
+
+    html += '<h4 class="bb-h">Question by question</h4>';
+    g.rows.forEach(function(r,i){
+      html += '<div class="bb-result '+(r.correct?'ok':'bad')+'"><b>'+(i+1)+'. '+(r.correct?'Correct':'Incorrect')+'</b> ('+(r.correct?pts(r.it):0)+' / '+plural(pts(r.it))+'): '+esc(r.it.prompt)+
+        '<div class="bb-ans"><span>Your answer:</span> '+esc(given(r.it, r.a))+'</div>'+
+        (r.correct ? '' : '<div class="bb-ans"><span>Correct answer:</span> '+esc(key(r.it))+'</div>')+
+        (r.it.explain ? '<div class="lo">Why: '+esc(r.it.explain)+'</div>' : '')+'</div>';
     });
     if(codeItems.length){
-      html += '<p class="lo">'+codeItems.length+' coding item(s): graded on the Code page.</p>';
+      html += '<p class="lo">The coding problem ('+plural(t.codeMax)+') is graded by its tests on the Code page.</p>';
     }
-    html += '<a class="btn" href="../../../results.html">Saved results</a>';
+    html += '<div class="bb-nav"><button class="btn" onclick="location.reload()">Retry quiz</button><a class="btn" href="../../../results.html">Saved results</a></div>';
     html += '</div>';
     root.innerHTML = html;
   };
@@ -142,7 +207,16 @@
     '.bb-top{font-weight:650;border-bottom:1px solid var(--aa-line);padding-bottom:8px;margin-bottom:10px;}'+
     '.bb-palette{margin-bottom:12px;}'+
     '.bb-dot{display:inline-block;width:26px;height:26px;text-align:center;line-height:24px;margin:2px;border:1px solid var(--aa-line);border-radius:4px;cursor:pointer;font-size:12px;}'+
-    '.bb-answered{background:var(--aa-accent-tint);} .bb-unanswered{background:var(--aa-soft);} .bb-current{outline:2px solid var(--aa-accent);}'+
+    '.bb-answered{background:var(--aa-accent-tint);} .bb-unanswered{background:#fdecec;border-color:#c62828;color:#8e0000;} .bb-current{outline:2px solid var(--aa-accent);}'+
+    '.bb-worth{font-size:13.5px;color:var(--aa-muted,#555);margin:0 0 10px;}'+
+    '.bb-warn{color:#c62828;}'+
+    '.bb-h{margin:18px 0 6px;font-size:15px;}'+
+    '.bb-rubric{width:100%;border-collapse:collapse;font-size:14px;}'+
+    '.bb-rubric th,.bb-rubric td{border:1px solid var(--aa-line);padding:6px 8px;text-align:left;vertical-align:top;}'+
+    '.bb-rubric td:last-child,.bb-rubric th:last-child{white-space:nowrap;text-align:right;}'+
+    '.bb-rubric tr.ok td:last-child{background:var(--aa-accent-tint);} .bb-rubric tr.bad td:last-child{background:#fdecec;}'+
+    '.bb-rubric tfoot td{font-weight:650;}'+
+    '.bb-ans{margin-top:4px;} .bb-ans span{font-weight:650;}'+
     '.bb-opt{display:block;padding:8px 10px;margin:6px 0;border:1px solid var(--aa-line);border-radius:4px;cursor:pointer;}'+
     '.bb-opt:hover{border-color:var(--aa-accent);}'+
     '.bb-short{width:100%;padding:8px;font-family:var(--aa-mono);border:1px solid var(--aa-line);border-radius:4px;}'+

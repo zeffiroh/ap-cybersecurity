@@ -1,4 +1,4 @@
-# 2.2.b, Environmental vulnerabilities (power, HVAC, fire, water)
+# 2.2.b: Environmental vulnerabilities (power, HVAC, fire, water)
 
 > **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 2.2.A
@@ -75,15 +75,15 @@ facilities staff know what needs immediate attention versus what is still within
 range.
 
 ## Key terms
-- **Uninterruptible power supply (UPS)**, a battery-backed unit that provides short-term power
+- **Uninterruptible power supply (UPS)**: a battery-backed unit that provides short-term power
   during an outage or dip, bridging the gap until generators start or power is restored.
-- **N+1 redundancy**, a design principle where at least one extra unit of a critical system
+- **N+1 redundancy**: a design principle where at least one extra unit of a critical system
   (power, cooling) exists beyond the minimum required, so a single failure does not cause an outage.
-- **HVAC (heating, ventilation, and air conditioning)**, the system that regulates temperature
+- **HVAC (heating, ventilation, and air conditioning)**: the system that regulates temperature
   and humidity to keep hardware within safe operating conditions.
-- **Clean-agent fire suppression**, a fire-extinguishing system (e.g., FM-200, inert gas) that
+- **Clean-agent fire suppression**: a fire-extinguishing system (e.g., FM-200, inert gas) that
   removes oxygen or interrupts combustion without damaging electronics, unlike water sprinklers.
-- **Raised flooring**, elevated flooring in a data center that both routes cabling/cooling air
+- **Raised flooring**: elevated flooring in a data center that both routes cabling/cooling air
   and protects equipment from shallow flooding at slab level.
 
 ## Common misconceptions

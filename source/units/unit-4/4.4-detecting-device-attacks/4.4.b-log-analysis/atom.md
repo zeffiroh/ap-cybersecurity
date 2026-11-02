@@ -1,4 +1,4 @@
-# 4.4.b, Log analysis
+# 4.4.b: Log analysis
 
 > **Unit 4 · 4.4 Detecting Attacks on Devices**
 > **AP Learning Objective(s):** 4.4.B
@@ -30,15 +30,15 @@ but for **forensics**, reconstructing exactly what an attacker did after the fac
 Security analysts pull from several categories of logs, each capturing a different layer of
 activity:
 
-- **Authentication logs**, every login attempt, success or failure, including the account name,
+- **Authentication logs**: every login attempt, success or failure, including the account name,
   source IP address, and timestamp. This is often the first place analysts look, because
   credential-based attacks (password guessing, credential stuffing) leave a direct trail here.
-- **Firewall / network logs**, which connections were allowed or blocked, source and destination
+- **Firewall / network logs**: which connections were allowed or blocked, source and destination
   IP addresses and ports, and how much data was transferred.
-- **Web server logs**, every HTTP request to a web application, including the URL requested, the
+- **Web server logs**: every HTTP request to a web application, including the URL requested, the
   response code, and the client IP. Attackers probing for vulnerable pages leave a distinctive
   pattern of requests here.
-- **Application and system logs**, errors, configuration changes, service starts/stops, and
+- **Application and system logs**: errors, configuration changes, service starts/stops, and
   other operating-system-level events.
 
 ### Reading a single log entry
@@ -91,18 +91,18 @@ indicators of compromise you will study in 4.4.c, log analysis and EDR form the 
 detection disciplines of Unit 4.
 
 ## Key terms
-- **Log entry**, a single timestamped record of an event (e.g., a login attempt, a blocked
+- **Log entry**: a single timestamped record of an event (e.g., a login attempt, a blocked
   connection).
-- **Authentication log**, a log recording every login attempt, its result, source, and account.
-- **Correlation**, linking multiple log entries together (by user, IP, or time) to reveal a
+- **Authentication log**: a log recording every login attempt, its result, source, and account.
+- **Correlation**: linking multiple log entries together (by user, IP, or time) to reveal a
   pattern that no single entry shows alone.
-- **Brute-force attack**, repeated, rapid login attempts (often automated) trying to guess a
+- **Brute-force attack**: repeated, rapid login attempts (often automated) trying to guess a
   valid password.
-- **Detection rule**, a formal, repeatable condition (e.g., "5+ failures in 60 seconds") used to
+- **Detection rule**: a formal, repeatable condition (e.g., "5+ failures in 60 seconds") used to
   flag a pattern automatically.
-- **SIEM (Security Information and Event Management)**, a platform that ingests logs from many
+- **SIEM (Security Information and Event Management)**: a platform that ingests logs from many
   systems and applies correlation rules at scale to raise alerts.
-- **Alert fatigue**, the desensitization that occurs when detection thresholds are too sensitive
+- **Alert fatigue**: the desensitization that occurs when detection thresholds are too sensitive
   and generate too many false alarms, causing analysts to start ignoring real alerts.
 
 ## Common misconceptions

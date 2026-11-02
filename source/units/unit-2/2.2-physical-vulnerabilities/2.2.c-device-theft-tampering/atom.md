@@ -1,4 +1,4 @@
-# 2.2.c, Device theft and tampering
+# 2.2.c: Device theft and tampering
 
 > **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 2.2.B, 2.2.C
@@ -74,18 +74,18 @@ like encryption status, whether a tamper-evident seal was intact, and time since
 check), classify each incident by its actual risk level to the organization.
 
 ## Key terms
-- **Device theft**, the physical removal of a device (laptop, phone, drive, tape) from its
+- **Device theft**: the physical removal of a device (laptop, phone, drive, tape) from its
   authorized location or owner.
-- **Device tampering**, a covert, typically brief physical alteration of a device (hardware,
+- **Device tampering**: a covert, typically brief physical alteration of a device (hardware,
   firmware, or peripheral) intended to compromise it without the owner's knowledge.
-- **Evil-maid attack**, a tampering attack in which an attacker with brief unsupervised access to
+- **Evil-maid attack**: a tampering attack in which an attacker with brief unsupervised access to
   a device (e.g., in a hotel room) modifies it, often to capture credentials on next use, then
   restores its appearance and leaves.
-- **Full-disk encryption**, encryption of an entire storage volume so its contents are
+- **Full-disk encryption**: encryption of an entire storage volume so its contents are
   unreadable without the decryption key, even if the physical drive is removed.
-- **Tamper-evident seal**, a sticker or mechanism that visibly and irreversibly shows evidence
+- **Tamper-evident seal**: a sticker or mechanism that visibly and irreversibly shows evidence
   (tearing, a "VOID" pattern, discoloration) if a device enclosure has been opened.
-- **Remote wipe**, a mobile-device-management capability that erases a device's data remotely,
+- **Remote wipe**: a mobile-device-management capability that erases a device's data remotely,
   typically once it is reported lost or stolen and reconnects to a network.
 
 ## Common misconceptions

@@ -1,4 +1,4 @@
-# Coding problem, 2.2.b: Environmental sensor triage
+# Coding problem 2.2.b: Environmental sensor triage
 
 **Skill:** Analyze Risk · **Maps to:** 2.2.A · **Language:** Python 3 (pytest)
 

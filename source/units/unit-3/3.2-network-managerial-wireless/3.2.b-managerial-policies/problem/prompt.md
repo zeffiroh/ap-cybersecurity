@@ -1,4 +1,4 @@
-# Coding problem, 3.2.b: Control-type classifier
+# Coding problem 3.2.b: Control-type classifier
 
 **Skill:** Mitigate Risk · **Maps to:** 3.2.A, 3.2.B · **Language:** Python 3 (pytest)
 

@@ -1,4 +1,4 @@
-# Coding problem, 2.4.a: Access log anomaly detector
+# Coding problem 2.4.a: Access log anomaly detector
 
 **Skill:** Detect Attacks · **Maps to:** 2.4.A · **Language:** Python 3 (pytest)
 

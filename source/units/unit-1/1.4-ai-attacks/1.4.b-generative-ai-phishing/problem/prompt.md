@@ -1,4 +1,4 @@
-# Coding problem, 1.4.b: Prompt-injection pattern detector
+# Coding problem 1.4.b: Prompt-injection pattern detector
 
 **Skill:** Analyze Risk, Mitigate Risk · **Maps to:** 1.4.A · **Language:** Python 3 (pytest)
 

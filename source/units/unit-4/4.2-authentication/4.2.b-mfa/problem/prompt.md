@@ -1,4 +1,4 @@
-# Coding problem, 4.2.b: Classify a login attempt's MFA strength
+# Coding problem 4.2.b: Classify a login attempt's MFA strength
 
 **Skill:** Mitigate Risk · **Maps to:** 4.2.A, 4.2.B · **Language:** Python 3 (pytest)
 
@@ -9,13 +9,13 @@ attempt satisfies true multi-factor authentication, and if so, whether it relies
 phishing-resistant possession factor or a phishable one.
 
 Categories of result:
-- `"single_factor"`, the presented factors, once mapped to their factor category (knowledge /
+- `"single_factor"`: the presented factors, once mapped to their factor category (knowledge /
   possession / inherence), cover fewer than two distinct categories. This includes presenting only
   one factor, presenting several factors from the *same* category (e.g. two passwords), an empty
   list, or a list of only unrecognized factor strings.
-- `"mfa_phishing_resistant"`, two or more distinct factor categories are present, and at least one
+- `"mfa_phishing_resistant"`: two or more distinct factor categories are present, and at least one
   of the presented factors is a phishing-resistant possession factor (`hardware_key` or `fido2`).
-- `"mfa_phishable"`, two or more distinct factor categories are present, but no phishing-resistant
+- `"mfa_phishable"`: two or more distinct factor categories are present, but no phishing-resistant
   possession factor was used (e.g. it relies on `sms_code`, `totp_code`, `authenticator_app`,
   `push_approved`, or `backup_code` for the possession factor).
 

@@ -1,4 +1,4 @@
-# 3.2.c, Layered network defense overview
+# 3.2.c: Layered network defense overview
 
 > **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
 > **AP Learning Objective(s):** 3.2.B, 3.2.C
@@ -83,16 +83,16 @@ protects and how) and asks you to sort them into the correct layer of the defens
 has a specific, identifiable place in the bigger picture.
 
 ## Key terms
-- **Defense in depth (layered defense)**, the principle of using multiple independent security
+- **Defense in depth (layered defense)**: the principle of using multiple independent security
   layers so that failure of any single control does not result in full compromise.
-- **Perimeter layer**, the boundary between an internal network and the public internet (firewall,
+- **Perimeter layer**: the boundary between an internal network and the public internet (firewall,
   IPS, DNS filtering).
-- **Network layer**, internal segmentation and traffic control (VLANs, internal firewalls, Wi-Fi
+- **Network layer**: internal segmentation and traffic control (VLANs, internal firewalls, Wi-Fi
   security).
-- **Host layer**, controls on individual devices (endpoint antivirus/EDR, host firewalls,
+- **Host layer**: controls on individual devices (endpoint antivirus/EDR, host firewalls,
   patching).
-- **Data layer**, controls protecting data itself (encryption at rest/in transit, DLP).
-- **Single point of failure**, any control whose failure alone results in a complete compromise,
+- **Data layer**: controls protecting data itself (encryption at rest/in transit, DLP).
+- **Single point of failure**: any control whose failure alone results in a complete compromise,
   which defense in depth is specifically designed to avoid.
 
 ## Common misconceptions

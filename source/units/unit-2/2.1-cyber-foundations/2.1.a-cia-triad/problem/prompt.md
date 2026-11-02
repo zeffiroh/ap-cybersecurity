@@ -1,4 +1,4 @@
-# Coding problem, 2.1.a: CIA Triad Classifier
+# Coding problem 2.1.a: CIA Triad Classifier
 
 **Skill:** Analyze Risk · **Maps to:** 2.1.A · **Language:** Python 3 (pytest)
 

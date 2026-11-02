@@ -1,4 +1,4 @@
-# 2.3.b, Surveillance systems (CCTV, monitoring)
+# 2.3.b: Surveillance systems (CCTV, monitoring)
 
 > **Unit 2 · 2.3 Protecting Physical Spaces**
 > **AP Learning Objective(s):** 2.3.A
@@ -56,12 +56,12 @@ To mitigate these risks, organizations must isolate surveillance networks on ded
 
 ## Key terms
 
-- **CCTV (Closed-Circuit Television)**, A video system where signals are transmitted privately to a specific set of monitors and recording units.
-- **IP Camera**, A digital video camera that sends and receives data over an IP network.
-- **Active Monitoring**, The real-time viewing of live video feeds by security personnel to detect and respond to incidents as they occur.
-- **Passive Monitoring**, Recording video feeds for storage and forensic retrieval after an incident.
-- **Blind Spot**, An unmonitored area within a facility's layout where an intruder can avoid camera coverage.
-- **Thermal Imaging**, A camera technology that detects infrared radiation (heat) rather than visible light, allowing detection in complete darkness or harsh weather.
+- **CCTV (Closed-Circuit Television)**: A video system where signals are transmitted privately to a specific set of monitors and recording units.
+- **IP Camera**: A digital video camera that sends and receives data over an IP network.
+- **Active Monitoring**: The real-time viewing of live video feeds by security personnel to detect and respond to incidents as they occur.
+- **Passive Monitoring**: Recording video feeds for storage and forensic retrieval after an incident.
+- **Blind Spot**: An unmonitored area within a facility's layout where an intruder can avoid camera coverage.
+- **Thermal Imaging**: A camera technology that detects infrared radiation (heat) rather than visible light, allowing detection in complete darkness or harsh weather.
 
 ## Common misconceptions
 

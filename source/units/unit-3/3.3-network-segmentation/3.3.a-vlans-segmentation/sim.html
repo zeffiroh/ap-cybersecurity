@@ -95,20 +95,20 @@ var VLANS = [
 ];
 
 var HOSTS = [
-  {id:'WS-01',   role:'Employee workstation',          correct:20},
-  {id:'SRV-01',  role:'File server',                   correct:30},
-  {id:'CAM-01',  role:'IP security camera',            correct:40},
-  {id:'GUEST-01',role:'Visitor laptop',                correct:40},
-  {id:'MGMT-01', role:'Switch management interface',   correct:10}
+  {id:'WS-01',   role:'Employee workstation',          correct:20, why:"Employee workstations go on the Employee VLAN (20), where staff do their daily work."},
+  {id:'SRV-01',  role:'File server',                   correct:30, why:"Servers get their own VLAN (30) so the only way in is through the rules you allow, not by sitting on the same segment."},
+  {id:'CAM-01',  role:'IP security camera',            correct:40, why:"IoT devices like cameras rarely get security updates and are easy to compromise, so they go with untrusted devices on Guest/IoT (40), away from staff and servers."},
+  {id:'GUEST-01',role:'Visitor laptop',                correct:40, why:"Visitor laptops are unknown and untrusted, so they go on Guest/IoT (40), which reaches the internet but nothing internal."},
+  {id:'MGMT-01', role:'Switch management interface',   correct:10, why:"Switch management interfaces control the network itself, so they get the most restricted VLAN (10), reachable only by administrators."}
 ];
 
 var FLOWS = [
-  {from:'GUEST-01', to:'SRV-01',  desc:'GUEST-01  ->  SRV-01  (file server access)',         expect:'block'},
-  {from:'WS-01',    to:'SRV-01',  desc:'WS-01     ->  SRV-01  (employee file access)',        expect:'allow'},
-  {from:'CAM-01',   to:'WS-01',   desc:'CAM-01    ->  WS-01   (camera to workstation)',       expect:'block'},
-  {from:'GUEST-01', to:'MGMT-01', desc:'GUEST-01  ->  MGMT-01 (guest to management)',         expect:'block'},
-  {from:'MGMT-01',  to:'SRV-01',  desc:'MGMT-01   ->  SRV-01  (management to server)',        expect:'block'},
-  {from:'WS-01',    to:'CAM-01',  desc:'WS-01     ->  CAM-01  (workstation to camera)',        expect:'block'}
+  {from:'GUEST-01', to:'SRV-01',  desc:'GUEST-01  ->  SRV-01  (file server access)',         expect:'block', why:"Guest (40) to Server (30) crosses VLANs, and only Employee-to-Server is allowed. Visitors must never reach company files."},
+  {from:'WS-01',    to:'SRV-01',  desc:'WS-01     ->  SRV-01  (employee file access)',        expect:'allow', why:"Employee (20) to Server (30) is the one cross-VLAN route this design opens on purpose: staff need their files. Segmentation is about allowing only the paths that have a business reason."},
+  {from:'CAM-01',   to:'WS-01',   desc:'CAM-01    ->  WS-01   (camera to workstation)',       expect:'block', why:"IoT (40) to Employee (20) is blocked. If an attacker takes over the camera, this rule keeps them from using it as a stepping stone to staff machines (lateral movement)."},
+  {from:'GUEST-01', to:'MGMT-01', desc:'GUEST-01  ->  MGMT-01 (guest to management)',         expect:'block', why:"Guest (40) to Management (10) is blocked. Anyone who reaches the switch's management interface could reconfigure the whole network, including removing these VLANs."},
+  {from:'MGMT-01',  to:'SRV-01',  desc:'MGMT-01   ->  SRV-01  (management to server)',        expect:'block', why:"Management (10) to Server (30) is blocked in this design: the management VLAN exists to configure network gear, not to browse file shares, so a compromised management interface cannot reach data."},
+  {from:'WS-01',    to:'CAM-01',  desc:'WS-01     ->  CAM-01  (workstation to camera)',        expect:'block', why:"Employee (20) to IoT (40) is blocked as well. Segmentation works in both directions: staff machines have no business reason to talk to cameras, and keeping them apart limits what malware on either side can reach."}
 ];
 
 var hosttbl = document.getElementById('hosttbl');
@@ -165,19 +165,19 @@ function submitAll(){
     } else {
       fb.innerHTML = ' <span class="flow-bad">WRONG (answer: '+autoExpect+')</span>';
     }
-    lines.push((ans===autoExpect?'[OK] ':'[XX] ')+f.desc+' -> '+autoExpect.toUpperCase());
+    lines.push((ans===autoExpect?'[OK] ':'[XX] ')+f.desc+' -> '+autoExpect.toUpperCase()+'\n     Why: '+f.why);
   });
 
   var assignInfo = HOSTS.map(function(h){
     var v = getVlanOf(h.id);
     var ok = v === h.correct;
-    return (ok?'[OK] ':'[  ] ')+h.id+' on VLAN '+v+(ok?'':' (expected VLAN '+h.correct+')');
+    return (ok?'[OK] ':'[  ] ')+h.id+' on VLAN '+v+(ok?'':' (expected VLAN '+h.correct+')')+'\n     Why: '+h.why;
   }).join('\n');
 
   var met = correct >= GOAL;
   var logEl = document.getElementById('log');
   logEl.innerHTML = '<span class="dim">sim&gt; </span>Host assignments:\n'+assignInfo+'\n\nFlow results:\n'+lines.join('\n')+
-    '\n\nScore: '+correct+'/'+FLOWS.length+' flows correct.';
+    '\n\nScore: '+correct+'/'+FLOWS.length+' flows correct.\nRule used: same VLAN = allow; Employee (20) to Server (30) = allow; everything else between VLANs = block. If a host is on the wrong VLAN, the expected answer for its flows changes too, so fix assignments first.';
 
   var scoreEl = document.getElementById('score');
   scoreEl.innerHTML = 'SCORE '+correct+' / '+GOAL+' | OBJECTIVE: '+

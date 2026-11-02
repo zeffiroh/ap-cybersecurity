@@ -1,4 +1,4 @@
-# Coding problem, 5.4.d: Validate a certificate chain
+# Coding problem 5.4.d: Validate a certificate chain
 
 **Skill:** Mitigate Risk · **Maps to:** 5.4.B, 5.4.C · **Language:** Python 3 (pytest)
 
@@ -26,7 +26,7 @@ entry is claimed to be a root CA certificate (self-signed: its own `issuer` equa
 `subject`).
 
 ## What you implement (in `starter.py`)
-- `compute_digest(cert: dict) -> int`, a deterministic, keyless digest of a certificate's identity
+- `compute_digest(cert: dict) -> int`: a deterministic, keyless digest of a certificate's identity
   fields (everything except `signature` and `revoked`), used as the thing that actually gets signed.
   Canonicalize as the string
   `f"{subject}|{issuer}|{public_key[0]}:{public_key[1]}|{not_before}|{not_after}"`
@@ -42,7 +42,7 @@ entry is claimed to be a root CA certificate (self-signed: its own `issuer` equa
 - `validate_chain(chain: list[dict], trusted_roots: dict[str, list[int]], current_time: int) -> dict`, validate the whole chain (see below). `trusted_roots` maps a trusted root CA's `subject` name to
   its known-good `[e, n]` public key (this is the browser's local trust store, never taken from the
   chain itself).
-- `solve(data: dict) -> dict`, blackbox dispatcher (see `interface.md`).
+- `solve(data: dict) -> dict`: blackbox dispatcher (see `interface.md`).
 
 ## Validation algorithm
 Walk the chain from the leaf (index 0) upward. For each certificate `cert` at index `i`:

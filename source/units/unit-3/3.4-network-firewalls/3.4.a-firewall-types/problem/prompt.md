@@ -1,4 +1,4 @@
-# Coding problem, 3.4.a: Stateless vs. stateful packet classifier
+# Coding problem 3.4.a: Stateless vs. stateful packet classifier
 
 **Skill:** Mitigate Risk · **Maps to:** 3.4.A · **Language:** Python 3 (pytest)
 
@@ -7,18 +7,18 @@ You will implement two firewall decision functions that together illustrate the 
 between stateless and stateful packet filtering.
 
 A **packet** is a dict with these string keys:
-- `"src"`, source IP string (e.g. `"203.0.113.10"`)
-- `"dst"`, destination IP string
-- `"sport"`, source port integer
-- `"dport"`, destination port integer
-- `"proto"`, protocol string, one of `"tcp"` / `"udp"` / `"icmp"`
-- `"flags"`, TCP flag string: one of `"SYN"`, `"SYN-ACK"`, `"ACK"`, `"RST"`, `"FIN"`, `"DATA"`
+- `"src"`: source IP string (e.g. `"203.0.113.10"`)
+- `"dst"`: destination IP string
+- `"sport"`: source port integer
+- `"dport"`: destination port integer
+- `"proto"`: protocol string, one of `"tcp"` / `"udp"` / `"icmp"`
+- `"flags"`: TCP flag string: one of `"SYN"`, `"SYN-ACK"`, `"ACK"`, `"RST"`, `"FIN"`, `"DATA"`
   (non-TCP packets use `""`)
 
 A **rule** is a dict with:
 - `"action"`, `"allow"` or `"drop"`
-- `"proto"`, protocol to match (`"tcp"`, `"udp"`, `"icmp"`, or `"any"`)
-- `"dport"`, destination port to match (integer) or `0` meaning any port
+- `"proto"`: protocol to match (`"tcp"`, `"udp"`, `"icmp"`, or `"any"`)
+- `"dport"`: destination port to match (integer) or `0` meaning any port
 
 Rules are evaluated top-to-bottom; the first match decides.  If no rule matches, the implicit
 verdict is `"drop"`.
@@ -26,9 +26,9 @@ verdict is `"drop"`.
 ## Function contract
 Implement `solve(rules, packets, mode)` in `starter.py` (see `interface.md` / `blackbox.yaml`).
 
-- `rules`, list of rule dicts (ordered, first-match)
-- `packets`, list of packet dicts (process in order)
-- `mode`, string: `"stateless"` or `"stateful"`
+- `rules`: list of rule dicts (ordered, first-match)
+- `packets`: list of packet dicts (process in order)
+- `mode`: string: `"stateless"` or `"stateful"`
 
 Return a `list[str]` of verdicts (`"allow"` or `"drop"`), one per packet, in order.
 

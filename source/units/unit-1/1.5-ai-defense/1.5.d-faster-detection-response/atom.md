@@ -1,4 +1,4 @@
-# 1.5.d, Faster, more accurate threat detection and response
+# 1.5.d: Faster, more accurate threat detection and response
 
 > **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
 > **AP Learning Objective(s):** 1.5.B
@@ -77,17 +77,17 @@ AP framework's "Collaborate" skill is directly engaged here: effective incident 
 team activity where AI handles scale and humans handle judgment, ethics, and communication.
 
 ## Key terms
-- **MTTR (Mean Time to Respond)**, the average time from incident detection to resolution;
+- **MTTR (Mean Time to Respond)**: the average time from incident detection to resolution;
   a primary KPI for SOC effectiveness.
-- **Triage**, the process of prioritizing incidents by severity so the most dangerous are
+- **Triage**: the process of prioritizing incidents by severity so the most dangerous are
   handled first.
-- **Severity score**, a numeric rating assigned to an incident based on its potential impact
+- **Severity score**: a numeric rating assigned to an incident based on its potential impact
   and the criticality of the affected asset.
-- **Auto-resolution**, automated closure of an incident by an AI playbook without human
+- **Auto-resolution**: automated closure of an incident by an AI playbook without human
   intervention, reserved for high-confidence cases with safe responses.
-- **Tiered response**, a model where AI handles routine, high-confidence incidents
+- **Tiered response**: a model where AI handles routine, high-confidence incidents
   automatically and escalates ambiguous or high-stakes cases to human analysts.
-- **False positive**, an alert that fires for a benign event; high false-positive rates waste
+- **False positive**: an alert that fires for a benign event; high false-positive rates waste
   analyst time and cause alert fatigue.
 
 ## Common misconceptions

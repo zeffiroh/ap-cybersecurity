@@ -17,11 +17,11 @@ def solve(lines: list) -> list
 finding if it matches more than one category.
 
 ## Categories
-- `"sql-injection-risk"`, a SQL keyword (`SELECT`/`INSERT`/`UPDATE`/`DELETE`, case-insensitive)
+- `"sql-injection-risk"`: a SQL keyword (`SELECT`/`INSERT`/`UPDATE`/`DELETE`, case-insensitive)
   appears on a line that also builds the string dynamically (`+` concatenation, an f-string,
   `.format(`, or `%` formatting) rather than using a parameterized placeholder.
-- `"eval-use"`, the line calls `eval(` or `exec(`.
-- `"hardcoded-secret"`, the line assigns a quoted string literal to a variable whose name
+- `"eval-use"`: the line calls `eval(` or `exec(`.
+- `"hardcoded-secret"`: the line assigns a quoted string literal to a variable whose name
   contains `password`, `secret`, `api_key`, or `token` (case-insensitive). An assignment that
   reads from an environment variable or config object (no literal string on the right-hand side)
   is NOT a finding.

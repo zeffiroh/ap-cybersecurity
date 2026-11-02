@@ -1,4 +1,4 @@
-# 5.1.c, API vulnerabilities
+# 5.1.c: API vulnerabilities
 
 > **Unit 5 · 5.1 Application and Data Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 5.1.B
@@ -61,17 +61,17 @@ endpoints by changing an ID parameter and observing (safely, against synthetic d
 mock API leaks another user's object.
 
 ## Key terms
-- **API (application programming interface)**, the defined set of endpoints/requests a client
+- **API (application programming interface)**: the defined set of endpoints/requests a client
   uses to interact with a server's data and functionality.
-- **Broken Object Level Authorization (BOLA) / IDOR**, an API accepts a client-supplied object ID
+- **Broken Object Level Authorization (BOLA) / IDOR**: an API accepts a client-supplied object ID
   and returns/modifies that object without verifying the caller is authorized for that specific
   object.
-- **Authentication vs. authorization**, authentication proves *who you are*; authorization checks
+- **Authentication vs. authorization**: authentication proves *who you are*; authorization checks
   *what that identity is allowed to do/see*. BOLA is an authorization failure, not an
   authentication failure.
-- **Excessive data exposure**, an endpoint returns more fields/data than the client needs,
+- **Excessive data exposure**: an endpoint returns more fields/data than the client needs,
   relying on the front-end (not the server) to hide sensitive fields.
-- **Broken function-level authorization**, an endpoint intended for a privileged role is
+- **Broken function-level authorization**: an endpoint intended for a privileged role is
   reachable by any authenticated user because the server never checks role/permission.
 
 ## Common misconceptions

@@ -1,4 +1,4 @@
-# 3.5.a, Intrusion detection and prevention systems (IDS/IPS)
+# 3.5.a: Intrusion detection and prevention systems (IDS/IPS)
 
 > **Unit 3 · 3.5 Detecting Network Attacks**
 > **AP Learning Objective(s):** 3.5.A
@@ -36,14 +36,14 @@ An IDS/IPS that is too sensitive produces so many false positives that analysts 
 The coding problem in `problem/` asks you to apply a set of IDS signatures to a synthetic packet-log and return which log entries match, similar to how a real rule engine like Snort processes rules against a pcap file.
 
 ## Key terms
-- **IDS (Intrusion Detection System)**, a passive sensor that copies and analyzes traffic, generating alerts without blocking.
-- **IPS (Intrusion Prevention System)**, an inline sensor that can drop or block malicious traffic in real time.
-- **Signature-based detection**, matching traffic against a database of known attack patterns; fast but blind to zero-days.
-- **Anomaly-based detection**, flagging deviations from a learned behavioral baseline; catches novel attacks but produces more false positives.
-- **True positive (TP)**, the sensor correctly identified an actual attack.
-- **False positive (FP)**, the sensor flagged benign traffic as an attack (wasted analyst effort, alert fatigue).
-- **False negative (FN)**, the sensor missed a real attack (most dangerous outcome).
-- **NIDS / HIDS**, network-level vs. host-level placement of the sensor.
+- **IDS (Intrusion Detection System)**: a passive sensor that copies and analyzes traffic, generating alerts without blocking.
+- **IPS (Intrusion Prevention System)**: an inline sensor that can drop or block malicious traffic in real time.
+- **Signature-based detection**: matching traffic against a database of known attack patterns; fast but blind to zero-days.
+- **Anomaly-based detection**: flagging deviations from a learned behavioral baseline; catches novel attacks but produces more false positives.
+- **True positive (TP)**: the sensor correctly identified an actual attack.
+- **False positive (FP)**: the sensor flagged benign traffic as an attack (wasted analyst effort, alert fatigue).
+- **False negative (FN)**: the sensor missed a real attack (most dangerous outcome).
+- **NIDS / HIDS**: network-level vs. host-level placement of the sensor.
 
 ## Common misconceptions
 - "IDS and IPS are the same thing." → IDS only alerts; IPS actively blocks. A misconfigured IPS with a high false-positive rate will drop legitimate traffic and cause outages.

@@ -48,15 +48,15 @@
       "type": "mcq",
       "prompt": "An application validates a raw, un-decoded path string before checking it for '../' sequences. Why is this a mistake?",
       "options": [
-        "It has no effect on security",
-        "It makes the application faster",
+        "Checking the raw string is fine, as long as the check is done on the server",
+        "The check should be done twice on the raw string to be safe",
         "An attacker can URL-encode the traversal sequence (e.g. ..%2F) so it slips past the raw-string check, then gets decoded later, this is a canonicalization bypass",
-        "Only client-side code is affected"
+        "Raw strings are always rejected by web servers before reaching the app"
       ],
       "answer": 2,
       "accept": null,
       "points": 1,
-      "explain": "Validating before canonicalizing (decoding/normalizing) lets encoded or obfuscated payloads bypass the filter; the correct order is decode/normalize first, then validate."
+      "explain": "If validation looks at the encoded form and the file system later sees the decoded form, the two disagree. ..%2F does not contain ../ until it is decoded, so it passes the check and then climbs directories. Decode and normalize (canonicalize) first, then validate the final form."
     },
     {
       "id": "5.5.a.q4",
@@ -81,15 +81,15 @@
       "type": "mcq",
       "prompt": "SQL injection, cross-site scripting (XSS), and command injection share what root cause?",
       "options": [
-        "They all require physical access to the server",
+        "They are all caused by weak passwords on the server",
         "The application trusted that input was 'just data' when a downstream interpreter treated part of it as code or control syntax",
-        "They only affect encrypted connections",
-        "They are unrelated vulnerability classes with no common cause"
+        "They all exploit unencrypted connections between client and server",
+        "They all happen because the server runs an outdated operating system"
       ],
       "answer": 1,
       "accept": null,
       "points": 1,
-      "explain": "In all three, unvalidated input reaches an interpreter (SQL engine, browser, shell) that treats some of its characters as executable syntax rather than literal data."
+      "explain": "In each case input crosses into an interpreter (the SQL engine, the browser's HTML parser, the operating-system shell) that reads some characters as instructions. The shared fix is the same idea: keep code and data separate (parameterized queries, output escaping, argument lists instead of shell strings)."
     },
     {
       "id": "5.5.b.q1",
@@ -99,14 +99,14 @@
       "prompt": "Which practice eliminates SQL injection risk regardless of what input validation is or isn't done upstream?",
       "options": [
         "Parameterized queries",
-        "Verbose error messages",
-        "Running the app as root",
-        "Hardcoding secrets in source"
+        "Escaping single quotes in user input",
+        "Using a web application firewall",
+        "Validating input against an allowlist"
       ],
       "answer": 0,
       "accept": null,
       "points": 1,
-      "explain": "Parameterized queries bind user input as data, never as SQL syntax, closing off injection independent of validation."
+      "explain": "A parameterized query sends the SQL statement and the values separately, so the database never parses user input as SQL, no matter what it contains. Escaping quotes, WAF rules and allowlists all help, but each can be bypassed or misapplied (encodings, odd characters, fields that must allow quotes)."
     },
     {
       "id": "5.5.b.q2",
@@ -136,15 +136,15 @@
       "type": "mcq",
       "prompt": "An authentication check throws an unexpected exception. Secure coding says the application should:",
       "options": [
-        "Grant access anyway so the user isn't blocked",
-        "Ignore the exception silently and continue",
-        "Log the user in as admin",
+        "Retry the check until it succeeds",
+        "Allow access but log a warning for review",
+        "Fall back to a simpler check, such as username only",
         "Deny access by default (fail securely/fail closed)"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "Failing securely means an unexpected error must never accidentally grant access; deny by default."
+      "explain": "If the code cannot confirm the user is allowed, the safe answer is no. Failing open (allowing on error) turns any crash into a bypass, and attackers deliberately trigger errors to find such paths. Logging is good, but only alongside denial."
     },
     {
       "id": "5.5.b.q4",
@@ -167,14 +167,14 @@
       "prompt": "Why is pinning and patching third-party dependency versions considered a secure-coding practice, not just a maintenance task?",
       "options": [
         "A vulnerability in any dependency becomes a vulnerability in the whole application, so unpatched dependencies are unpatched attack surface",
-        "It has no security relevance",
-        "It only affects build speed",
-        "Dependencies cannot contain vulnerabilities"
+        "Pinning versions makes the app download faster",
+        "Unpinned dependencies are blocked by most firewalls",
+        "Dependencies run in a sandbox, so only their bugs that crash the app matter"
       ],
       "answer": 0,
       "accept": null,
       "points": 1,
-      "explain": "Modern apps are built on many third-party libraries; an unpatched vulnerable dependency is a real vulnerability in the shipped application."
+      "explain": "Your app runs your dependencies' code with your app's permissions, so their bugs are your bugs (Log4Shell in 2021 hit thousands of apps through one logging library). Pinning means you know exactly which versions you ship, and patching means you update them when fixes appear. Dependencies are not sandboxed."
     },
     {
       "id": "5.5.c.q1",
@@ -253,15 +253,15 @@
       "type": "mcq",
       "prompt": "Why do mature CI/CD pipelines typically run BOTH SAST and DAST rather than picking just one?",
       "options": [
-        "SAST and DAST are the same tool with different names",
-        "Running both is required by law in every jurisdiction",
-        "DAST always finds a superset of what SAST finds",
-        "They find largely non-overlapping vulnerability classes, so together they give broader coverage"
+        "SAST is required for compliance, while DAST is optional",
+        "DAST finds everything SAST finds, so SAST is only for speed",
+        "They find largely non-overlapping vulnerability classes, so together they give broader coverage",
+        "Running both lets each tool double-check the other's false positives"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "SAST sees the code but not runtime behavior; DAST sees runtime behavior but not the code, they complement rather than duplicate each other."
+      "explain": "SAST reads code and catches issues like hardcoded secrets or unsafe functions early, even in paths that are hard to reach. DAST attacks the running app and catches what only appears at runtime: server misconfiguration, authentication flaws, how components interact. Each misses what the other sees."
     }
   ],
   "coding_problems": [

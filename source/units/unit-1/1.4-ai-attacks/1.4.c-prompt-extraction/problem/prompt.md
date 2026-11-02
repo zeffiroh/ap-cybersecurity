@@ -1,4 +1,4 @@
-# Coding problem, 1.4.c: Prompt extraction of sensitive info
+# Coding problem 1.4.c: Prompt extraction of sensitive info
 
 **Skill:** Analyze Risk · **Maps to:** 1.4.A · **Language:** Python 3 (pytest)
 
@@ -37,7 +37,7 @@ Apply these rules in any order. A rule fires if the pattern matches anywhere in 
 
 ### api-key
 Fires if **either** of the following matches:
-- `re.search(r'sk-[A-Za-z0-9\-]{8,}', text)`, catches "sk-" prefixed tokens (hyphens allowed within suffix; common AI provider key format)
+- `re.search(r'sk-[A-Za-z0-9\-]{8,}', text)`: catches "sk-" prefixed tokens (hyphens allowed within suffix; common AI provider key format)
 - `re.search(r'(?i)api[_\-]?key\s*[:=]\s*\S+', text)`, catches explicit "api_key: VALUE" or "api-key = VALUE" assignments
 
 ### email

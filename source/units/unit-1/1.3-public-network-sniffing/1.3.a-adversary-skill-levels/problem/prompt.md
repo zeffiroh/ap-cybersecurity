@@ -1,4 +1,4 @@
-# Coding problem, 1.3.a: Classify adversary skill tier
+# Coding problem 1.3.a: Classify adversary skill tier
 
 **Skill:** Analyze Risk · **Maps to:** 1.3.A · **Language:** Python 3 (pytest)
 
@@ -13,11 +13,11 @@ Return `"low"` or `"high"` based on the classification rules defined in `interfa
 
 ## Input
 A dict with exactly these boolean keys:
-- `uses_zero_day`, exploits an unpublished vulnerability
-- `custom_tooling`, writes or substantially modifies their own tools
-- `targets_specific_victim`, selects a specific high-value target
-- `off_the_shelf_only`, relies solely on public tools without modification
-- `adapts_to_defenses`, changes tactics when initial attempts fail
+- `uses_zero_day`: exploits an unpublished vulnerability
+- `custom_tooling`: writes or substantially modifies their own tools
+- `targets_specific_victim`: selects a specific high-value target
+- `off_the_shelf_only`: relies solely on public tools without modification
+- `adapts_to_defenses`: changes tactics when initial attempts fail
 
 ## Output
 The string `"low"` or `"high"`.

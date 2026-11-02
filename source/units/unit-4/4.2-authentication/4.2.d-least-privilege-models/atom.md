@@ -1,4 +1,4 @@
-# 4.2.d, Least privilege and access control models
+# 4.2.d: Least privilege and access control models
 
 > **Unit 4 · 4.2 Authentication**
 > **AP Learning Objective(s):** 4.2.B, 4.2.C
@@ -35,22 +35,22 @@ attack, but it consistently shrinks the damage any single compromised account ca
 **Access control models.** Organizations implement least privilege through a formal *access
 control model*, a system for deciding who gets to do what to which resource.
 
-- **Discretionary Access Control (DAC)**, the owner of a resource decides who else can access
+- **Discretionary Access Control (DAC)**: the owner of a resource decides who else can access
   it and at what level. Standard Unix/Linux file permissions (`rwx` for owner, group, others) are
   the classic example: whoever owns a file can grant or revoke access to it directly. DAC is
   flexible and simple but scales poorly, permissions sprawl as owners individually grant access,
   and no central authority enforces consistency.
-- **Mandatory Access Control (MAC)**, access is decided centrally, not by resource owners, using
+- **Mandatory Access Control (MAC)**: access is decided centrally, not by resource owners, using
   fixed classification labels (e.g., "Confidential," "Secret," "Top Secret") assigned to both
   subjects and resources. A user cannot grant access to a file above their own clearance level
   even if they wanted to. MAC is common in government and military systems and is implemented in
   tools like SELinux. It is rigid but very strong against insider misconfiguration.
-- **Role-Based Access Control (RBAC)**, permissions are attached to *roles* (e.g., "Payroll
+- **Role-Based Access Control (RBAC)**: permissions are attached to *roles* (e.g., "Payroll
   Clerk," "Network Admin"), and users are assigned to one or more roles rather than receiving
   permissions individually. Changing a person's job means changing their role assignment, not
   hand-editing dozens of individual permissions. RBAC is the most common model in enterprise IT
   because it scales: define the roles once, then manage membership.
-- **Attribute-Based Access Control (ABAC)**, access decisions are made dynamically at request
+- **Attribute-Based Access Control (ABAC)**: access decisions are made dynamically at request
   time based on *attributes* of the user, the resource, and the environment (e.g., "allow access
   only if department = finance AND time is business hours AND device is company-managed"). ABAC
   is more flexible than RBAC because policy can react to context, but it is more complex to audit
@@ -82,21 +82,21 @@ permission request. The simulation in the simulation gives you a stream of reali
 to classify using the same reasoning.
 
 ## Key terms
-- **Least privilege (PoLP)**, grant a subject only the minimum access needed to perform its
+- **Least privilege (PoLP)**: grant a subject only the minimum access needed to perform its
   function, nothing more.
-- **DAC (Discretionary Access Control)**, resource owner decides and grants access; e.g. Unix
+- **DAC (Discretionary Access Control)**: resource owner decides and grants access; e.g. Unix
   file permissions.
-- **MAC (Mandatory Access Control)**, access decided centrally via fixed classification labels;
+- **MAC (Mandatory Access Control)**: access decided centrally via fixed classification labels;
   e.g. government/military systems, SELinux.
-- **RBAC (Role-Based Access Control)**, permissions attached to roles; users assigned to roles.
+- **RBAC (Role-Based Access Control)**: permissions attached to roles; users assigned to roles.
   Most common model in enterprise IT.
-- **ABAC (Attribute-Based Access Control)**, access decided dynamically from attributes of user,
+- **ABAC (Attribute-Based Access Control)**: access decided dynamically from attributes of user,
   resource, and environment.
-- **Privilege creep**, the silent accumulation of unnecessary access over time as roles change.
-- **Separation of duties**, structuring a sensitive process so no single person controls it
+- **Privilege creep**: the silent accumulation of unnecessary access over time as roles change.
+- **Separation of duties**: structuring a sensitive process so no single person controls it
   end-to-end.
-- **Access review**, a periodic recertification where unused or unjustified access is revoked.
-- **Just-in-time (JIT) access**, temporary, time-bound elevated access granted only for the
+- **Access review**: a periodic recertification where unused or unjustified access is revoked.
+- **Just-in-time (JIT) access**: temporary, time-bound elevated access granted only for the
   duration it is needed.
 
 ## Common misconceptions

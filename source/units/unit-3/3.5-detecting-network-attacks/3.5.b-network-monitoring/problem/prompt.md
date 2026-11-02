@@ -1,4 +1,4 @@
-# Coding problem, 3.5.b: Traffic-anomaly detector
+# Coding problem 3.5.b: Traffic-anomaly detector
 
 **Skill:** Detect Attacks · **Maps to:** 3.5.B · **Language:** Python 3 (pytest)
 
@@ -9,21 +9,21 @@ either exceeds its baseline byte-volume threshold or uses a destination port not
 allowed-port set.
 
 A **baseline** is a dict mapping host IP (str) to a dict with:
-- `"max_bytes"`, integer, the maximum total outbound bytes this host normally sends in the window
-- `"allowed_ports"`, list of integers, destination ports this host normally uses
+- `"max_bytes"`: integer, the maximum total outbound bytes this host normally sends in the window
+- `"allowed_ports"`: list of integers, destination ports this host normally uses
 
 An **observed flow record** is a dict with:
-- `"host"`, source host IP string
-- `"dst_port"`, destination port integer
-- `"bytes"`, integer, bytes sent in this flow
+- `"host"`: source host IP string
+- `"dst_port"`: destination port integer
+- `"bytes"`: integer, bytes sent in this flow
 
 A host may appear in multiple flow records within the same window; volumes accumulate.
 
 ## Function contract
 Implement `solve(baseline, flows)` in `starter.py` (see `interface.md` / `blackbox.yaml`).
 
-- `baseline`, dict as described above
-- `flows`, list of flow record dicts (any order)
+- `baseline`: dict as described above
+- `flows`: list of flow record dicts (any order)
 
 Return a sorted `list[str]` of host IPs flagged as anomalous. A host is flagged if EITHER:
 1. Its **total** bytes across all its flow records in this window exceeds `max_bytes`, OR

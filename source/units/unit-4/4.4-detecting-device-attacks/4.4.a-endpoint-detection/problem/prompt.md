@@ -1,4 +1,4 @@
-# Coding problem, 4.4.a: EDR telemetry analyzer
+# Coding problem 4.4.a: EDR telemetry analyzer
 
 **Skill:** Detect Attacks · **Maps to:** 4.4.A · **Language:** Python 3 (pytest)
 

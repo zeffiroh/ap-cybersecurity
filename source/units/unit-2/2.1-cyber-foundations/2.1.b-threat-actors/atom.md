@@ -1,4 +1,4 @@
-# 2.1.b, Threat actors and their motivations
+# 2.1.b: Threat actors and their motivations
 
 > **Unit 2 · 2.1 Cyber Foundations**
 > **AP Learning Objective(s):** 2.1.B
@@ -50,14 +50,14 @@ Each actor profile implies a different defensive priority:
 Back at Meridian: the security team isolated the registrar database, negotiated with law enforcement rather than paying the ransom, audited access logs to find the source of the leaked records, and restored the athletics site from a clean backup before resetting all CMS credentials. Each response was targeted at the most likely actor behind that specific incident, which is only possible when defenders understand motivation.
 
 ## Key terms
-- **Threat actor**, any individual, group, or organization that intentionally or accidentally causes harm to information systems or data.
-- **Nation-state actor**, a threat actor operating on behalf of or with the support of a national government.
-- **APT (Advanced Persistent Threat)**, a long-duration, stealthy, high-capability intrusion campaign, typically state-sponsored.
-- **Cybercriminal**, a threat actor motivated by financial gain, using attacks such as ransomware, fraud, or credential theft.
-- **Hacktivist**, an attacker motivated by political or ideological goals who uses hacking as a form of protest or public pressure.
-- **Insider threat**, a threat originating from someone who already has authorized access to an organization's systems.
-- **Script kiddie**, a low-skill attacker who uses pre-built tools without deep technical understanding.
-- **Motivation**, the underlying reason a threat actor chooses to attack; drives target selection, tactics, and persistence level.
+- **Threat actor**: any individual, group, or organization that intentionally or accidentally causes harm to information systems or data.
+- **Nation-state actor**: a threat actor operating on behalf of or with the support of a national government.
+- **APT (Advanced Persistent Threat)**: a long-duration, stealthy, high-capability intrusion campaign, typically state-sponsored.
+- **Cybercriminal**: a threat actor motivated by financial gain, using attacks such as ransomware, fraud, or credential theft.
+- **Hacktivist**: an attacker motivated by political or ideological goals who uses hacking as a form of protest or public pressure.
+- **Insider threat**: a threat originating from someone who already has authorized access to an organization's systems.
+- **Script kiddie**: a low-skill attacker who uses pre-built tools without deep technical understanding.
+- **Motivation**: the underlying reason a threat actor chooses to attack; drives target selection, tactics, and persistence level.
 
 ## Common misconceptions
 - "All hackers are criminals out for money", Hacktivists and nation-state actors have entirely different goals; conflating them leads to misaligned defenses.

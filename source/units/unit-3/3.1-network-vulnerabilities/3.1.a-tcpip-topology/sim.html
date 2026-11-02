@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3.1.a, TCP/IP fundamentals and network topology flaws, Simulation</title>
+<title>3.1.a: TCP/IP fundamentals and network topology flaws · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -47,6 +47,9 @@ select, input[type="text"] {
   border: 1px solid var(--win-shadow);
   padding: 2px;
 }
+.fbx{margin-top:8px;font-family:var(--ui-font,inherit);line-height:1.45;background:#ffffe1;border:1px solid #808080;padding:6px 8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -88,6 +91,17 @@ var FNE = (function(){
     ]
   };
 
+  function say(html, ok){
+    var d = document.getElementById('fbx');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'fbx';
+      d.className = 'fbx';
+      var c = document.getElementById('controls');
+      c.parentNode.insertBefore(d, c.nextSibling);
+    }
+    d.innerHTML = (ok === true ? '<span class="ok">CORRECT.</span> ' : ok === false ? '<span class="bad">NOT QUITE.</span> ' : '') + html;
+  }
   function renderScore() {
     var el = document.getElementById('score');
     el.innerHTML = 'SCORE ' + score + ' / ' + MAX + ' │ OBJECTIVE: ' +
@@ -181,7 +195,8 @@ var FNE = (function(){
     else if (phase === 4) {
       stage.innerHTML = "=== PHASE 4: LOG ANALYSIS ===\n" +
                         "Corporate Subnet Range: " + world.subnet + " (Expected subnet)\n" +
-                        "You captured the following inbound packets at the gateway interface:\n\n" +
+                        "You captured these packets on the router's INTERNAL interface, the port that only\n" +
+                        "the 10.0.1.0/24 office LAN is plugged into:\n\n" +
                         "Index 0: Src=" + world.packets[0].src + ", Dst=" + world.packets[0].dst + " (" + world.packets[0].msg + ")\n" +
                         "Index 1: Src=" + world.packets[1].src + ", Dst=" + world.packets[1].dst + " (" + world.packets[1].msg + ")\n" +
                         "Index 2: Src=" + world.packets[2].src + ", Dst=" + world.packets[2].dst + " (" + world.packets[2].msg + ")\n\n" +
@@ -228,7 +243,7 @@ var FNE = (function(){
           handshakeState = "SYN";
           loadPhase(1);
         } else {
-          alert("Incorrect handshake step! Handshake reset.");
+          say("A TCP connection always opens in the same order: the client sends SYN (\"I want to talk\"), the server answers SYN-ACK (\"I hear you, do you hear me?\"), and the client finishes with ACK. Each side confirms the other's starting sequence number before data flows. Handshake reset: start again with SYN.", false);
           handshakeState = "";
           loadPhase(1);
         }
@@ -237,7 +252,7 @@ var FNE = (function(){
           handshakeState = "SYN-ACK";
           loadPhase(1);
         } else {
-          alert("Incorrect handshake step! Handshake reset.");
+          say("A TCP connection always opens in the same order: the client sends SYN (\"I want to talk\"), the server answers SYN-ACK (\"I hear you, do you hear me?\"), and the client finishes with ACK. Each side confirms the other's starting sequence number before data flows. Handshake reset: start again with SYN.", false);
           handshakeState = "";
           loadPhase(1);
         }
@@ -245,11 +260,11 @@ var FNE = (function(){
         if (handshakeState === "SYN-ACK") {
           handshakeState = "ACK";
           score = 1;
-          alert("Three-way handshake completed successfully! +1 Point.");
+          say("SYN, then SYN-ACK, then ACK: the connection is open. This handshake matters for security because spoofed packets can start it (SYN) but rarely finish it: the SYN-ACK goes to the real owner of the forged address, not to the attacker. That is also what a SYN flood abuses, leaving many half-open connections.", true);
           loadPhase(2);
           renderScore();
         } else {
-          alert("Incorrect handshake step! Handshake reset.");
+          say("A TCP connection always opens in the same order: the client sends SYN (\"I want to talk\"), the server answers SYN-ACK (\"I hear you, do you hear me?\"), and the client finishes with ACK. Each side confirms the other's starting sequence number before data flows. Handshake reset: start again with SYN.", false);
           handshakeState = "";
           loadPhase(1);
         }
@@ -264,11 +279,11 @@ var FNE = (function(){
 
         if (p === 'trans' && ip === 'net' && m === 'access' && pay === 'app') {
           score = 2;
-          alert("Correct mapping! Transport -> Port, Internet -> IP, Network Access -> MAC, Application -> HTTP. +1 Point.");
+          say("Port belongs to the Transport layer (TCP/UDP pick which program gets the data), IP address to the Internet layer (routing between networks), MAC address to Network Access (delivery on the local link), and the HTTP request to the Application layer. Knowing the layer tells you which attacks touch it: ARP spoofing hits MAC, IP spoofing hits IP, port scans probe Transport.", true);
           loadPhase(3);
           renderScore();
         } else {
-          alert("Incorrect mapping! Try again.");
+          say("Not yet. Think about who uses each field: a port picks the program on a host (Transport); an IP address gets the packet across networks (Internet); a MAC address delivers it on the local link (Network Access); the HTTP request is what the program reads (Application). Try again.", false);
         }
       }
     } 
@@ -276,16 +291,16 @@ var FNE = (function(){
       if (action === 'submit_exposure') {
         var opt = document.querySelector('input[name="p3"]:checked');
         if (!opt) {
-          alert("Please select an answer.");
+          say("Select an answer first.");
           return;
         }
         if (opt.value === "2") {
           score = 3;
-          alert("Correct! IP lacks built-in source validation, which allows forgery. +1 Point.");
+          say("IP was designed for cooperating research networks, so the source address is just a field the sender fills in, with no signature or check. Any machine can write any source address. The checksum only detects accidental corruption, and DNS has nothing to do with who sent a packet.", true);
           loadPhase(4);
           renderScore();
         } else {
-          alert("Incorrect reason. Try again!");
+          say("Not that one. The IP checksum only catches accidental damage (anyone can recompute it), and DNS translates names, it never checks who sent a packet. Ask: does anything in an IP header prove who wrote it? Try again.", false);
         }
       }
     } 
@@ -294,11 +309,11 @@ var FNE = (function(){
         var idx = document.getElementById('spoofed_idx').value.trim();
         if (idx === "1") {
           score = 4;
-          alert("Correct! Packet 1 lists source IP 192.168.5.9 which is outside the expected 10.0.1.0/24 subnet. +1 Point.");
+          say("Packet 1 claims to come from 192.168.5.9, but this interface only connects the 10.0.1.0/24 LAN, so no real host here can have that address: the source was forged. Packet 0 (10.0.1.55) and packet 2 (10.0.1.200) are inside the subnet. A lone ACK like packet 2 is normal; it belongs to a connection that is already open.", true);
           loadPhase(5);
           renderScore();
         } else {
-          alert("Incorrect index. Analyze the IP addresses relative to 10.0.1.0/24.");
+          say("Not that one. Every real host on this interface has an address from 10.0.1.0 to 10.0.1.255. Find the packet whose source address could not exist on this LAN. Try again.", false);
         }
       }
     } 
@@ -306,17 +321,17 @@ var FNE = (function(){
       if (action === 'submit_mitigation') {
         var opt = document.querySelector('input[name="p5"]:checked');
         if (!opt) {
-          alert("Please select an answer.");
+          say("Select an answer first.");
           return;
         }
         if (opt.value === "2") {
           score = 5;
           met = true;
-          alert("Correct! Ingress/Egress filtering verifies source addresses at boundary interfaces. +1 Point.");
+          say("Ingress/egress filtering: the router knows which addresses can legitimately arrive on each interface, so it drops a packet from the LAN port claiming an outside address (egress, as in phase 4) or a packet from the internet claiming an internal address (ingress). MAC flooding is an attack, not a defense, and NAT rewrites addresses but does not check that they are genuine.", true);
           loadPhase(6);
           renderScore();
         } else {
-          alert("Incorrect control. Try again!");
+          say("Not that one. MAC flooding is an attack on switches, and NAT translates private addresses to public ones without checking whether the source was real. Which option compares a packet's source address with where it arrived? Try again.", false);
         }
       }
     }

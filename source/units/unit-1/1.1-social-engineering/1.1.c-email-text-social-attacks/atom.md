@@ -1,4 +1,4 @@
-# 1.1.c, Email, text, and social media attacks
+# 1.1.c: Email, text, and social media attacks
 
 > **Unit 1 · 1.1 Understanding Social Engineering**
 > **AP Learning Objective(s):** 1.1.A, 1.1.C
@@ -12,7 +12,7 @@ each delivery method effective.
 ## Lesson
 The tactics covered in 1.1.a (urgency, authority, scarcity, intimidation) and the link and file
 indicators from 1.1.b are the content of social-engineering attacks. This skill examines the
-delivery channels, the pipes through which that content reaches victims, and why each channel
+delivery channels (the pipes through which that content reaches victims) and why each channel
 has its own set of exploitable trust assumptions.
 
 ### Email phishing
@@ -109,15 +109,15 @@ Do not use a phone number, link, or profile provided in the suspicious message. 
 organization's real contact information separately, and reach out that way.
 
 ## Key terms
-- **Phishing**, a mass social-engineering attack via email (or another channel) that impersonates
+- **Phishing**: a mass social-engineering attack via email (or another channel) that impersonates
   a trusted entity to harvest credentials or deliver malware.
-- **Spear phishing**, a targeted phishing attack crafted using intelligence about a specific
+- **Spear phishing**: a targeted phishing attack crafted using intelligence about a specific
   person or organization.
-- **Whaling**, spear phishing directed at high-value targets such as executives.
-- **Smishing**, phishing delivered via SMS (text message).
-- **Social media impersonation**, creating a fake account that closely mimics a real person or
+- **Whaling**: spear phishing directed at high-value targets such as executives.
+- **Smishing**: phishing delivered via SMS (text message).
+- **Social media impersonation**: creating a fake account that closely mimics a real person or
   organization to deceive their contacts.
-- **Business email compromise (BEC)**, an attack in which the attacker impersonates an
+- **Business email compromise (BEC)**: an attack in which the attacker impersonates an
   executive or business partner to authorize fraudulent transfers or disclose sensitive data.
 
 ## Common misconceptions

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.2.b, Roles, permissions, and least privilege, Simulation</title>
+<title>5.2.b: Roles, permissions, and least privilege · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -42,6 +42,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
 table{border-collapse:collapse;font-family:var(--mono-font);font-size:12px;margin-top:8px;}
 td,th{border:1px solid var(--muted);padding:3px 8px;text-align:left;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -98,11 +100,11 @@ function excessOf(assignedRoles, required){
 }
 
 var ROSTER = [
-  { name:"dana", roles:["support","billing"], required:["read_ticket","write_ticket_reply"] },
-  { name:"sam",  roles:["support"], required:["read_ticket","write_ticket_reply"] },
-  { name:"pat",  roles:["billing"], required:["read_invoice"] },
-  { name:"lee",  roles:["admin"], required:["read_ticket"] },
-  { name:"kai",  roles:["support","admin"], required:["read_ticket","write_ticket_reply","delete_user","read_invoice"] }
+  { name:"dana", roles:["support","billing"], required:["read_ticket","write_ticket_reply"] , why:"Dana works support, but the billing role also lets her issue refunds and read invoices. If her account is phished, an attacker can send money out. Remove the billing role." },
+  { name:"sam",  roles:["support"], required:["read_ticket","write_ticket_reply"] , why:"The support role grants exactly read_ticket and write_ticket_reply, which is what the job needs. Nothing extra." },
+  { name:"pat",  roles:["billing"], required:["read_invoice"] , why:"Pat only needs to read invoices, but the billing role also includes issue_refund. Even when one role is \"close enough\", any extra permission is a violation; the fix may be a narrower read-only billing role." },
+  { name:"lee",  roles:["admin"], required:["read_ticket"] , why:"Lee only needs to read tickets but holds admin, which can delete users and read invoices. Handing someone admin because it is easy is one of the most common least-privilege failures." },
+  { name:"kai",  roles:["support","admin"], required:["read_ticket","write_ticket_reply","delete_user","read_invoice"] , why:"Support plus admin add up to exactly the four permissions Kai's job lists. Holding powerful permissions is fine when the job really needs them; least privilege means no MORE than required, not as little as possible." }
 ];
 
 var idx=0, score=0, GOAL=4, met=false, chosen=null, answered=false;
@@ -136,8 +138,9 @@ function submit(){
   var isViolation = excess.length>0;
   var ok = chosen===isViolation;
   var fb=document.getElementById('fb');
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(isViolation?('excess: '+excess.join(", ")):'no excess permissions'); }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> '+(isViolation?('excess: '+excess.join(", ")):'no excess permissions'); }
+  var why='<ul class="why"><li><b>Why:</b> '+e.why+'</li></ul>';
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(isViolation?('excess: '+excess.join(", ")):'no excess permissions')+why; }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> '+(isViolation?('VIOLATION, excess: '+excess.join(", ")):'CLEAN, no excess permissions')+why; }
   if(score>=GOAL) met=true;
   updateBar();
 }

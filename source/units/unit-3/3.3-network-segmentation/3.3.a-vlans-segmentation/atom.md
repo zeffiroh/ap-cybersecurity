@@ -1,4 +1,4 @@
-# 3.3.a, VLANs and network segmentation
+# 3.3.a: VLANs and network segmentation
 
 > **Unit 3 · 3.3 Protecting Networks: Segmentation**
 > **AP Learning Objective(s):** 3.3.A
@@ -48,13 +48,13 @@ In the simulation you will place hosts into VLANs and then test whether specific
 `problem/` asks you to implement a function that accepts a host-to-VLAN mapping and a list of traffic flows, and returns which flows are blocked by segmentation rules. This is the decision logic a switch's VLAN engine performs on every frame.
 
 ## Key terms
-- **VLAN (Virtual Local Area Network)**, a logical broadcast domain created in switch software, isolating traffic between groups of ports without requiring separate physical switches.
-- **Network segmentation**, dividing a network into zones with controlled, limited connectivity between them to reduce the blast radius of a breach.
-- **Broadcast domain**, the set of devices that receive a broadcast frame; VLANs confine broadcasts to only the members of that VLAN.
-- **Trunk port**, a switch port that carries tagged frames for multiple VLANs, used on uplinks between network devices.
-- **Access port**, a switch port assigned to exactly one VLAN, used for end-user devices.
-- **Inter-VLAN routing**, the process of forwarding traffic between VLANs through a router or layer-3 switch, where firewall rules can be applied.
-- **Lateral movement**, the technique by which an attacker hops from one compromised host to another within a network.
+- **VLAN (Virtual Local Area Network)**: a logical broadcast domain created in switch software, isolating traffic between groups of ports without requiring separate physical switches.
+- **Network segmentation**: dividing a network into zones with controlled, limited connectivity between them to reduce the blast radius of a breach.
+- **Broadcast domain**: the set of devices that receive a broadcast frame; VLANs confine broadcasts to only the members of that VLAN.
+- **Trunk port**: a switch port that carries tagged frames for multiple VLANs, used on uplinks between network devices.
+- **Access port**: a switch port assigned to exactly one VLAN, used for end-user devices.
+- **Inter-VLAN routing**: the process of forwarding traffic between VLANs through a router or layer-3 switch, where firewall rules can be applied.
+- **Lateral movement**: the technique by which an attacker hops from one compromised host to another within a network.
 
 ## Common misconceptions
 - "A VLAN is the same as a separate physical network." A VLAN is a logical separation on shared hardware. Physical separation (an air gap) provides stronger isolation, but VLANs are practical and sufficient for most environments when firewall rules are enforced at the routing boundary.

@@ -1,4 +1,4 @@
-# 2.4.a, Access logs and monitoring
+# 2.4.a: Access logs and monitoring
 
 > **Unit 2 · 2.4 Detecting Physical Attacks**
 > **AP Learning Objective(s):** 2.4.A
@@ -27,12 +27,12 @@ One point the AP framework emphasizes: logs are detective controls, not preventi
 In the coding problem for this skill, you will implement exactly this detection logic: given a list of timestamped access log entries, identify every badge ID that triggers any of the three alerting rules, repeated denial burst, after-hours valid access to a restricted door, or location inconsistency within a defined time gap. The simulation lets you step through a synthetic day's worth of log entries and practice flagging anomalies before you code the detector.
 
 ## Key terms
-- **Physical access log**, a timestamped record of credential presentations at controlled entry points, including outcome (granted or denied).
-- **Anti-passback**, a rule that prevents a credential from granting entry if it has not yet been used to exit, detecting shared or re-entered badges.
-- **After-hours access**, any entry to a controlled area outside its defined authorized schedule, which warrants automatic alerting regardless of credential validity.
-- **Repeated denial burst**, a cluster of ACCESS DENIED events for a single credential within a short time window, analogous to a brute-force attack.
-- **Location inconsistency**, a single credential appearing at two geographically separated readers within an interval too short for legitimate travel.
-- **SIEM**, Security Information and Event Management; a platform that aggregates and correlates security event data from multiple sources for real-time analysis.
+- **Physical access log**: a timestamped record of credential presentations at controlled entry points, including outcome (granted or denied).
+- **Anti-passback**: a rule that prevents a credential from granting entry if it has not yet been used to exit, detecting shared or re-entered badges.
+- **After-hours access**: any entry to a controlled area outside its defined authorized schedule, which warrants automatic alerting regardless of credential validity.
+- **Repeated denial burst**: a cluster of ACCESS DENIED events for a single credential within a short time window, analogous to a brute-force attack.
+- **Location inconsistency**: a single credential appearing at two geographically separated readers within an interval too short for legitimate travel.
+- **SIEM**: Security Information and Event Management; a platform that aggregates and correlates security event data from multiple sources for real-time analysis.
 
 ## Common misconceptions
 - "A valid badge swipe means the entry was authorized." → Badges can be cloned, stolen, or shared; a valid swipe only proves a credential was presented, not that the right person presented it. Context, time, location, frequency, is what determines legitimacy.

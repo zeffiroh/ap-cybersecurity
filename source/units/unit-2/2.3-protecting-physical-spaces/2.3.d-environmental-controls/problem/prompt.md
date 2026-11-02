@@ -1,4 +1,4 @@
-# Coding problem, 2.3.d: Facility control-compliance checker
+# Coding problem 2.3.d: Facility control-compliance checker
 
 **Skill:** Mitigate Risk · **Maps to:** 2.3.C · **Language:** Python 3 (pytest)
 

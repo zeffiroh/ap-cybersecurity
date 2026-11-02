@@ -1,4 +1,4 @@
-# 1.5.a, AI reviewing security configurations
+# 1.5.a: AI reviewing security configurations
 
 > **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
 > **AP Learning Objective(s):** 1.5.A
@@ -79,16 +79,16 @@ concretely anchors the abstract idea of "AI reviewing configs" to a deterministi
 algorithm.
 
 ## Key terms
-- **Configuration file**, a plain-text file specifying system behavior; the primary control
+- **Configuration file**: a plain-text file specifying system behavior; the primary control
   surface for hardening.
-- **Misconfiguration**, a setting that deviates from security best practice, intentionally or not.
-- **Rule engine**, a component that checks each config directive against a database of known-bad
+- **Misconfiguration**: a setting that deviates from security best practice, intentionally or not.
+- **Rule engine**: a component that checks each config directive against a database of known-bad
   patterns and emits findings.
-- **PermitRootLogin**, SSH directive controlling whether the root account can authenticate
+- **PermitRootLogin**: SSH directive controlling whether the root account can authenticate
   directly; should be `no` on any production system.
-- **Hardening**, the process of reducing a system's attack surface by disabling unnecessary
+- **Hardening**: the process of reducing a system's attack surface by disabling unnecessary
   services and correcting insecure defaults.
-- **Shift-left security**, moving security checks earlier in the development cycle, catching
+- **Shift-left security**: moving security checks earlier in the development cycle, catching
   issues before they reach production.
 
 ## Common misconceptions

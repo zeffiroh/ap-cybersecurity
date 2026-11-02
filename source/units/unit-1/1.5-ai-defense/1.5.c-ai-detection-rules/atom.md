@@ -1,4 +1,4 @@
-# 1.5.c, AI suggesting detection rules
+# 1.5.c: AI suggesting detection rules
 
 > **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
 > **AP Learning Objective(s):** 1.5.A
@@ -81,17 +81,17 @@ out. In a real SOC, this pipeline might feed a tool like Splunk, Elastic SIEM, o
 detection-as-code framework where rules are version-controlled and tested like software.
 
 ## Key terms
-- **Detection rule**, a formal condition-and-threshold statement that triggers an alert when a
+- **Detection rule**: a formal condition-and-threshold statement that triggers an alert when a
   log pattern matches; the fundamental unit of automated threat detection.
-- **SIEM**, Security Information and Event Management; a platform that aggregates logs from
+- **SIEM**: Security Information and Event Management; a platform that aggregates logs from
   many sources, applies detection rules, and surfaces alerts to analysts.
-- **Brute-force attack**, an attack that tries many credential combinations in rapid succession
+- **Brute-force attack**: an attack that tries many credential combinations in rapid succession
   to guess a password or key.
-- **Threshold**, the minimum count of events required before a detection rule fires; tuned to
+- **Threshold**: the minimum count of events required before a detection rule fires; tuned to
   balance precision and recall.
-- **Alert fatigue**, the desensitization of analysts when too many low-quality alerts are
+- **Alert fatigue**: the desensitization of analysts when too many low-quality alerts are
   generated, causing real threats to be missed.
-- **Detection engineering**, the discipline of writing, testing, and maintaining detection rules
+- **Detection engineering**: the discipline of writing, testing, and maintaining detection rules
   for a security operations environment.
 
 ## Common misconceptions

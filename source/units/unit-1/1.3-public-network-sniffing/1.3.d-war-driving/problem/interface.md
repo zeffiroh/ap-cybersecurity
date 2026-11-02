@@ -23,10 +23,10 @@ A **sorted, de-duplicated** `list[str]` drawn from
 `{"no-vpn", "open-network", "unverified-ssid"}`. Empty list if no risk applies.
 
 ## Risk rules
-- **open-network**, `encryption`, lowercased, is one of `{"open", "none", ""}` (or the key is
+- **open-network**: `encryption`, lowercased, is one of `{"open", "none", ""}` (or the key is
   absent / `None`). Encrypted types (`wpa`, `wpa2`, `wpa3`, anything else non-empty) do not flag.
-- **unverified-ssid**, `verified` is not truthy.
-- **no-vpn**, `vpn` is not truthy.
+- **unverified-ssid**: `verified` is not truthy.
+- **no-vpn**: `vpn` is not truthy.
 
 ## Guarantees / rules
 - Pure function, deterministic, no I/O, no network. Standard library only.

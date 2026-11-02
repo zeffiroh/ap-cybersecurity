@@ -1,4 +1,4 @@
-# Coding problem, 4.4.c: Weighted IOC-scoring engine
+# Coding problem 4.4.c: Weighted IOC-scoring engine
 
 **Skill:** Detect Attacks · **Maps to:** 4.4.B, 4.4.C · **Language:** Python 3 (pytest)
 

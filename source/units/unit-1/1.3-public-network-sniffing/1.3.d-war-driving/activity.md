@@ -10,7 +10,7 @@ wireless attack exposure) and 1.3.C (describe mitigation strategies for public-W
 
 ## Materials (all local)
 - the SimLab simulation, network risk assessor
-- `problem/`, coding challenge
+- `problem/`: coding challenge
 - Scenario card set below (read aloud or printed)
 
 ## Scenario cards

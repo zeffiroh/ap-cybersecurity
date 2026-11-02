@@ -101,11 +101,11 @@ function toggleTheme(){
 }
 
 var observed = [
-  {host:"10.0.1.5",  bytes:"420,000,000", ports:"445",           notes:"Normal file-share load",                                   answer:"NORMAL"},
-  {host:"10.0.2.9",  bytes:"4,800,000",   ports:"80, 443",       notes:"Normal browsing",                                          answer:"NORMAL"},
-  {host:"10.0.2.14", bytes:"1,200,000",   ports:"443, 4444",     notes:"Small volume but port 4444 never seen before",             answer:"PORT"},
-  {host:"10.0.3.20", bytes:"2,900,000",   ports:"80, 443, 3389", notes:"Volume slightly over baseline",                           answer:"VOLUME"},
-  {host:"10.0.4.2",  bytes:"50,900 (x60)",ports:"587",           notes:"One connection every ~60 sec to the same external IP",     answer:"BEACON"}
+  {host:"10.0.1.5",  bytes:"420,000,000", ports:"445",           notes:"Normal file-share load",                                   answer:"NORMAL", why:"NORMAL. 420 MB is a lot, but this host is the file server and port 445 is file sharing (SMB); its baseline expects heavy traffic. Judge each host against ITS OWN baseline, not against other hosts."},
+  {host:"10.0.2.9",  bytes:"4,800,000",   ports:"80, 443",       notes:"Normal browsing",                                          answer:"NORMAL", why:"NORMAL. Web browsing on ports 80 and 443 at a small volume is what this workstation always does."},
+  {host:"10.0.2.14", bytes:"1,200,000",   ports:"443, 4444",     notes:"Small volume but port 4444 never seen before",             answer:"PORT", why:"PORT. The volume is tiny, but port 4444 has never appeared in this host's baseline. It is also the default port of common hacking tools (such as Metasploit's reverse shell), so a new connection on it deserves investigation even though little data moved."},
+  {host:"10.0.3.20", bytes:"2,900,000",   ports:"80, 443, 3389", notes:"Volume slightly over baseline",                           answer:"VOLUME", why:"VOLUME. Its ports are ones it normally uses, but it sent more bytes than its baseline allows. \"Slightly\" over still counts: the rule is about crossing the baseline, and a slow rise can be data being copied out."},
+  {host:"10.0.4.2",  bytes:"50,900 (x60)",ports:"587",           notes:"One connection every ~60 sec to the same external IP",     answer:"BEACON", why:"BEACON. Each connection is small and port 587 (mail submission) may be normal, but one connection every ~60 seconds to the same outside address is machine-regular. Malware \"checks in\" with its command server on a timer like this; humans never browse that evenly."}
 ];
 
 function buildTable(){
@@ -132,7 +132,7 @@ function verify(){
     var sel = document.getElementById("c_" + idx).value;
     var ok = sel === o.answer;
     if (ok) score++;
-    lines.push(o.host + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + o.answer + "]"));
+    lines.push(o.host + ": " + (sel || "(blank)") + " " + (ok ? "[OK]" : "[EXPECTED " + o.answer + "]") + "\n   Why: " + o.why + "\n");
   });
   var met = (score === observed.length);
   document.getElementById("log").innerHTML = "<span class=\"dim\">monitor# </span>show classification results\n\n" +

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.2.a, Access control models, Simulation</title>
+<title>5.2.a: Access control models · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -40,6 +40,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-fon
 h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -110,6 +112,18 @@ var QUEUE = [
   { subject:{name:"bob"}, object:{model:"dac", owner:"alice", grants:{read:["bob"]}}, action:"read" }
 ];
 
+function explainDecision(r, d){
+  var s=r.subject, o=r.object, a=r.action, t;
+  if (d.reason==="owner") t = "Under DAC (discretionary access control) the owner decides who gets in, and " + s.name + " is the owner, so access is allowed.";
+  else if (d.reason==="granted") t = "Under DAC the owner (" + o.owner + ") granted " + a + " access to " + s.name + ", so it is allowed. Owners can share their files at their own discretion; that flexibility is DAC's strength and its weakness.";
+  else if (d.reason==="dac_denied") t = s.name + " is not the owner (" + o.owner + ") and is not on the " + a + " list (" + (((o.grants||{})[a]||[]).join(", ") || "empty") + "), so DAC denies it.";
+  else if (d.reason==="clearance_sufficient") t = "Under MAC (mandatory access control) the system compares labels: clearance " + s.clearance + " is at or above classification " + o.classification + ", so reading is allowed. No owner can override MAC labels.";
+  else if (d.reason==="clearance_insufficient") t = "Under MAC, clearance " + s.clearance + " is below classification " + o.classification + ", so it is denied no matter who asks or why (\"no read up\").";
+  else if (d.reason==="role_match") t = "Under RBAC (role-based access control) permissions belong to roles, not people. The role " + s.roles.join(", ") + " is on the list for " + a + " (" + (o.allowed_roles[a]||[]).join(", ") + "), so it is allowed.";
+  else if (d.reason==="rbac_denied") t = "Under RBAC, only " + (((o.allowed_roles||{})[a]||[]).join(", ") || "no role") + " may " + a + ", and " + (s.roles||[]).join(", ") + " is not one of them, so it is denied.";
+  else t = "Unknown model, so the safe default is deny.";
+  return '<ul class="why"><li><b>Why:</b> ' + t + '</li></ul>';
+}
 var idx=0, score=0, GOAL=5, met=false, chosen=null, answered=false;
 
 function render(){
@@ -140,8 +154,8 @@ function submit(){
   var d=decide(r);
   var ok = chosen===d.allowed;
   var fb=document.getElementById('fb');
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(d.allowed?'ALLOW':'DENY')+' (reason: '+d.reason+')'; }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(d.allowed?'ALLOW':'DENY')+' (reason: '+d.reason+')'; }
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(d.allowed?'ALLOW':'DENY')+' (reason: '+d.reason+')'+explainDecision(r,d); }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(d.allowed?'ALLOW':'DENY')+' (reason: '+d.reason+')'+explainDecision(r,d); }
   if(score>=GOAL) met=true;
   updateBar();
 }

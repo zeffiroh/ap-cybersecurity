@@ -1,4 +1,4 @@
-# Coding problem, 5.2.b: Detect least-privilege violations
+# Coding problem 5.2.b: Detect least-privilege violations
 
 **Skill:** Mitigate Risk · **Maps to:** 5.2.A, 5.2.B · **Language:** Python 3 (pytest)
 

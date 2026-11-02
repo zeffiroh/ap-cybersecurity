@@ -1,4 +1,4 @@
-# 3.1.a, TCP/IP fundamentals and network topology flaws
+# 3.1.a: TCP/IP fundamentals and network topology flaws
 
 > **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 3.1.A
@@ -78,16 +78,16 @@ each header field and identifying which ones are forgeable. The coding problem a
 synthetic packet log and flag entries that exhibit IP spoofing indicators.
 
 ## Key terms
-- **TCP/IP**, the suite of protocols governing internet communication, organized into four layers: application, transport, internet, network access.
-- **Encapsulation**, each layer wraps data from the layer above in its own header, creating a protocol data unit (frame, packet, segment, data).
-- **IP address**, a numerical label assigned to a device at the internet layer; identifies source and destination of packets. IPv4 = 32-bit; IPv6 = 128-bit.
-- **MAC address**, a 48-bit hardware identifier used at the network access layer for communication within a single local segment.
-- **Port number**, a 16-bit number at the transport layer identifying which application service should handle incoming data.
-- **IP spoofing**, forging the source IP address in a packet header to hide the sender's true identity or impersonate another host.
-- **Three-way handshake**, the TCP connection setup sequence: SYN (client), SYN-ACK (server), ACK (client).
-- **Network topology**, the arrangement (physical or logical) of devices and links in a network; shape determines broadcast domains and attack surface.
-- **Network segmentation**, dividing a network into isolated subnets or VLANs to limit lateral movement after a breach.
-- **MAC flooding**, sending large numbers of fake MAC entries to overflow a switch's table, causing it to broadcast all frames.
+- **TCP/IP**: the suite of protocols governing internet communication, organized into four layers: application, transport, internet, network access.
+- **Encapsulation**: each layer wraps data from the layer above in its own header, creating a protocol data unit (frame, packet, segment, data).
+- **IP address**: a numerical label assigned to a device at the internet layer; identifies source and destination of packets. IPv4 = 32-bit; IPv6 = 128-bit.
+- **MAC address**: a 48-bit hardware identifier used at the network access layer for communication within a single local segment.
+- **Port number**: a 16-bit number at the transport layer identifying which application service should handle incoming data.
+- **IP spoofing**: forging the source IP address in a packet header to hide the sender's true identity or impersonate another host.
+- **Three-way handshake**: the TCP connection setup sequence: SYN (client), SYN-ACK (server), ACK (client).
+- **Network topology**: the arrangement (physical or logical) of devices and links in a network; shape determines broadcast domains and attack surface.
+- **Network segmentation**: dividing a network into isolated subnets or VLANs to limit lateral movement after a breach.
+- **MAC flooding**: sending large numbers of fake MAC entries to overflow a switch's table, causing it to broadcast all frames.
 
 ## Common misconceptions
 - "Switches make sniffing impossible." → Switches reduce passive sniffing but MAC flooding and ARP spoofing let attackers redirect traffic through their own machine even on switched networks.

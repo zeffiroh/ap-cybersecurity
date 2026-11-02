@@ -1,4 +1,4 @@
-# Coding problem, 4.3.b: Endpoint Detection Engine
+# Coding problem 4.3.b: Endpoint Detection Engine
 
 **Skill:** Mitigate Risk · **Maps to:** 4.3.B · **Language:** Python 3 (pytest)
 

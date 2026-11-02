@@ -15,9 +15,9 @@ def solve(request: dict, ownership: dict) -> dict
 
 ## Output (`result`)
 `{"allowed": bool, "reason": str}` where `reason` is exactly one of:
-- `"owner"`, caller's `user_id` matches the object's owner.
-- `"admin"`, caller's `role` is `"admin"` (allowed regardless of ownership).
-- `"not_owner"`, object exists but caller neither owns it nor is admin.
+- `"owner"`: caller's `user_id` matches the object's owner.
+- `"admin"`: caller's `role` is `"admin"` (allowed regardless of ownership).
+- `"not_owner"`: object exists but caller neither owns it nor is admin.
 - `"not_found"`, `object_id` is not a key in `ownership`.
 
 ## Guarantees / rules

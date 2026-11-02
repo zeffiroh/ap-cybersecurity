@@ -1,4 +1,4 @@
-# Coding problem, 5.2.a: RBAC / DAC / MAC access decision
+# Coding problem 5.2.a: RBAC / DAC / MAC access decision
 
 **Skill:** Mitigate Risk · **Maps to:** 5.2.A · **Language:** Python 3 (pytest)
 
@@ -8,11 +8,11 @@ supports all three access control models. Given a request (subject, object, acti
 object's model), decide whether the request is ALLOWed or DENYed.
 
 ## Rules by model
-- **`"dac"`**, allowed if the subject is the object's `owner`, OR the subject appears in the
+- **`"dac"`**: allowed if the subject is the object's `owner`, OR the subject appears in the
   object's `grants` list for that action (e.g., `grants: {"read": ["bob"], "write": []}`).
-- **`"mac"`**, allowed only if the subject's clearance level is `>=` the object's classification
+- **`"mac"`**: allowed only if the subject's clearance level is `>=` the object's classification
   level. Levels (low to high): `"public"` < `"confidential"` < `"secret"` < `"top_secret"`.
-- **`"rbac"`**, allowed if any of the subject's `roles` is present in the object's
+- **`"rbac"`**: allowed if any of the subject's `roles` is present in the object's
   `allowed_roles` list for the requested action (e.g.,
   `allowed_roles: {"read": ["nurse","admin"], "write": ["admin"]}`).
 

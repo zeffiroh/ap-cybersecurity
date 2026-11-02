@@ -1,4 +1,4 @@
-# 2.3.d, Environmental controls (HVAC, fire suppression, power)
+# 2.3.d: Environmental controls (HVAC, fire suppression, power)
 
 > **Unit 2 · 2.3 Protecting Physical Spaces**
 > **AP Learning Objective(s):** 2.3.C
@@ -117,13 +117,13 @@ environmental systems are attack surfaces, not just maintenance concerns, is par
 cybersecurity perspective.
 
 ## Key terms
-- **HVAC**, Heating, Ventilation, and Air Conditioning; the system that maintains temperature and humidity within safe operating ranges for hardware.
-- **Hot aisle / cold aisle**, A data center rack layout that separates cool intake air from hot exhaust air to maximize cooling efficiency and prevent hot spots.
-- **Clean agent**, A gaseous fire suppressant (such as FM-200 or NOVEC 1230) that extinguishes fire without leaving residue or damaging electronic equipment.
-- **UPS (Uninterruptible Power Supply)**, A battery-backed device that provides immediate clean power during outages or power quality events, bridging the gap until a generator starts.
-- **PDU (Power Distribution Unit)**, A device that distributes electrical power to multiple rack components; managed PDUs support remote monitoring and outlet control.
-- **VESDA**, Very Early Smoke Detection Apparatus; a system that continuously samples air and detects smoke at extremely low concentrations, providing early warning before a fire develops.
-- **Brownout**, A condition where utility voltage drops below nominal, causing hardware instability without a full outage.
+- **HVAC**: Heating, Ventilation, and Air Conditioning; the system that maintains temperature and humidity within safe operating ranges for hardware.
+- **Hot aisle / cold aisle**: A data center rack layout that separates cool intake air from hot exhaust air to maximize cooling efficiency and prevent hot spots.
+- **Clean agent**: A gaseous fire suppressant (such as FM-200 or NOVEC 1230) that extinguishes fire without leaving residue or damaging electronic equipment.
+- **UPS (Uninterruptible Power Supply)**: A battery-backed device that provides immediate clean power during outages or power quality events, bridging the gap until a generator starts.
+- **PDU (Power Distribution Unit)**: A device that distributes electrical power to multiple rack components; managed PDUs support remote monitoring and outlet control.
+- **VESDA**: Very Early Smoke Detection Apparatus; a system that continuously samples air and detects smoke at extremely low concentrations, providing early warning before a fire develops.
+- **Brownout**: A condition where utility voltage drops below nominal, causing hardware instability without a full outage.
 
 ## Common misconceptions
 - Sprinkler systems are fine for data centers -> Water damages electronics on contact and even a false activation can destroy an entire room; clean-agent suppression is the appropriate choice for most data center spaces.

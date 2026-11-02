@@ -1,4 +1,4 @@
-# Coding problem, 3.1.a: TCP/IP fundamentals and network topology flaws
+# Coding problem 3.1.a: TCP/IP fundamentals and network topology flaws
 
 **Skill:** Analyze Risk · **Maps to:** 3.1.A · **Language:** Python 3 (pytest)
 
@@ -17,9 +17,9 @@ Implement `solve(packets: list[dict]) -> list[int]` in `starter.py` (see `interf
 
 ## Input
 A list of dicts. Each dict has three string keys:
-- `"src_ip"`, e.g. `"10.0.1.55"`
-- `"dst_ip"`, e.g. `"10.0.1.1"`
-- `"expected_subnet"`, e.g. `"10.0.1.0/24"`
+- `"src_ip"`: e.g. `"10.0.1.55"`
+- `"dst_ip"`: e.g. `"10.0.1.1"`
+- `"expected_subnet"`: e.g. `"10.0.1.0/24"`
 
 ## Output
 A sorted list of zero-based integer indices of the suspicious (spoofed) packets. Empty list if

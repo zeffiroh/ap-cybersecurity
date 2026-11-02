@@ -1,4 +1,4 @@
-# 2.1.a, CIA triad: confidentiality, integrity, availability
+# 2.1.a: CIA triad: confidentiality, integrity, availability
 
 > **Unit 2 · 2.1 Cyber Foundations**
 > **AP Learning Objective(s):** 2.1.A
@@ -23,14 +23,14 @@ A useful mental move: when you read about any security incident, ask which pilla
 Security goals, authentication, authorization, non-repudiation, privacy, resilience, all derive from or serve the CIA triad. Recognizing which pillar a goal serves is the first step in evaluating whether a proposed control is addressing the right problem. The coding problem in `problem/` puts this into practice: given a description of an incident, your code should identify which CIA pillar(s) were violated.
 
 ## Key terms
-- **CIA triad**, the three foundational security properties: confidentiality, integrity, and availability.
-- **Confidentiality**, the property that information is accessible only to authorized parties.
-- **Integrity**, the property that information and systems have not been altered without authorization.
-- **Availability**, the property that systems and data are accessible to authorized users when needed.
-- **Encryption**, a process that transforms data into an unreadable form, protecting confidentiality.
-- **Cryptographic hash**, a fixed-length fingerprint of data used to detect unauthorized modification.
-- **DDoS (Distributed Denial-of-Service)**, an attack that floods a system with traffic to make it unavailable.
-- **Redundancy**, duplicating critical systems or data so that a failure in one does not cause an outage.
+- **CIA triad**: the three foundational security properties: confidentiality, integrity, and availability.
+- **Confidentiality**: the property that information is accessible only to authorized parties.
+- **Integrity**: the property that information and systems have not been altered without authorization.
+- **Availability**: the property that systems and data are accessible to authorized users when needed.
+- **Encryption**: a process that transforms data into an unreadable form, protecting confidentiality.
+- **Cryptographic hash**: a fixed-length fingerprint of data used to detect unauthorized modification.
+- **DDoS (Distributed Denial-of-Service)**: an attack that floods a system with traffic to make it unavailable.
+- **Redundancy**: duplicating critical systems or data so that a failure in one does not cause an outage.
 
 ## Common misconceptions
 - "Security is mainly about keeping things secret." → Confidentiality is only one pillar; many attacks target integrity or availability and cause equal or greater harm without stealing any data.

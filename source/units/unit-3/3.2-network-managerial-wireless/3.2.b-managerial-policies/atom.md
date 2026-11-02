@@ -1,4 +1,4 @@
-# 3.2.b, Managerial controls and security policies
+# 3.2.b: Managerial controls and security policies
 
 > **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
 > **AP Learning Objective(s):** 3.2.A, 3.2.B
@@ -82,20 +82,20 @@ uses when building a control matrix (a document mapping each risk to the control
 across all three families).
 
 ## Key terms
-- **Managerial (administrative) control**, a documented policy, procedure, or process governing
+- **Managerial (administrative) control**: a documented policy, procedure, or process governing
   human behavior and organizational process, enforced through training, review, and consequences
   rather than automatically by hardware/software.
-- **Technical (logical) control**, a control implemented in hardware or software that enforces
+- **Technical (logical) control**: a control implemented in hardware or software that enforces
   policy automatically (e.g., a firewall, encryption, an access-control list).
-- **Physical control**, a control that restricts physical access to a space or device (e.g., a
+- **Physical control**: a control that restricts physical access to a space or device (e.g., a
   locked door, a badge reader).
-- **Acceptable Use Policy (AUP)**, a policy defining permitted and prohibited use of
+- **Acceptable Use Policy (AUP)**: a policy defining permitted and prohibited use of
   organizational systems and data.
-- **Least privilege policy**, a policy requiring that access be limited to the minimum necessary
+- **Least privilege policy**: a policy requiring that access be limited to the minimum necessary
   for a role, with a documented request/review/revocation process.
-- **Security awareness training**, a recurring program that teaches employees to recognize
+- **Security awareness training**: a recurring program that teaches employees to recognize
   threats (like social engineering) and follow security policy.
-- **Privilege creep**, the gradual, unreviewed accumulation of unnecessary access rights over
+- **Privilege creep**: the gradual, unreviewed accumulation of unnecessary access rights over
   time, which least-privilege review policies are designed to catch and correct.
 
 ## Common misconceptions

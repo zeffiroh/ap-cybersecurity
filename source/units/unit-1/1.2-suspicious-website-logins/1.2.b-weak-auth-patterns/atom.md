@@ -1,4 +1,4 @@
-# 1.2.b, Weak authentication patterns; adversary dictionary construction
+# 1.2.b: Weak authentication patterns; adversary dictionary construction
 
 > **Unit 1 · 1.2 Suspicious Wi-Fi Login**
 > **AP Learning Objective(s):** 1.2.B
@@ -82,15 +82,15 @@ despite failing the complexity check. Teaching students to understand the math b
 why length beats complexity, is one of the most lasting password-hygiene lessons in this course.
 
 ## Key terms
-- **Dictionary attack**, brute-force strategy that tries passwords from a wordlist rather than
+- **Dictionary attack**: brute-force strategy that tries passwords from a wordlist rather than
   exhaustive character combinations.
-- **Wordlist / credential dictionary**, file of candidate passwords ordered by likelihood,
+- **Wordlist / credential dictionary**: file of candidate passwords ordered by likelihood,
   built from breach data, common patterns, and target-specific words.
-- **Mangling rules**, transformations (capitalize, substitute, append) applied to wordlist
+- **Mangling rules**: transformations (capitalize, substitute, append) applied to wordlist
   entries to generate variants.
-- **Credential stuffing**, reusing username/password pairs from one breach to attack other
+- **Credential stuffing**: reusing username/password pairs from one breach to attack other
   services; made effective by password reuse.
-- **Password entropy**, measure of how unpredictable a password is; increases with length and
+- **Password entropy**: measure of how unpredictable a password is; increases with length and
   character variety, decreases with dictionary membership and patterns.
 
 ## Common misconceptions

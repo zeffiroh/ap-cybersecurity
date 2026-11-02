@@ -1,4 +1,4 @@
-# Coding problem, 5.1.b: Fix the Reflected Comment
+# Coding problem 5.1.b: Fix the Reflected Comment
 
 **Skill:** Mitigate Risk · **Maps to:** 5.1.A, 5.1.B · **Language:** Python 3 (pytest)
 

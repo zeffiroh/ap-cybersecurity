@@ -222,13 +222,24 @@ function testIsolation(){
   logEl.innerHTML = "<span class=\"dim\">switch# </span>show pvlan-verification tests\n\n" +
     logLines.join("\n") + "\n\n" +
     "Port validation matching target scheme: " + score + "/5 correct.\n" +
-    (met ? "SECURITY POLICY ENFORCED SUCCESSFULLY." : "POLICY FAILURE: PVLAN configurations do not meet security goals.");
+    (met ? "SECURITY POLICY ENFORCED SUCCESSFULLY." : "POLICY FAILURE: PVLAN configurations do not meet security goals.") + PVLAN_WHY;
 
   var scoreEl = document.getElementById("score");
   scoreEl.innerHTML = "SCORE " + score + " / 5 │ OBJECTIVE: " +
     (met ? "<span class=\"ok\">MET</span>" : "<span class=\"bad\">not yet met</span>");
 }
 
+var PVLAN_WHY = "\n\nWhy each port gets its role:\n" +
+  "  port_1 Gateway   = Promiscuous: it must talk to every port, because every host needs the internet.\n" +
+  "  port_2/3 Doctors = Community: ports in the same community can talk to each other and to the\n" +
+  "                     gateway, so the two doctors can share files while staying cut off from the rest.\n" +
+  "  port_4 Guest AP  = Isolated: guests are untrusted; an isolated port reaches only the promiscuous\n" +
+  "                     gateway, so a guest can never touch clinic machines.\n" +
+  "  port_5 MRI       = Isolated: legacy medical devices often cannot be patched, so isolating them\n" +
+  "                     keeps anyone else from reaching them and keeps them from reaching anyone.\n" +
+  "Rule of thumb: Promiscuous talks to all; Community talks to its own community + promiscuous;\n" +
+  "Isolated talks only to promiscuous. Putting the doctors on Isolated would break flow 2, and\n" +
+  "putting the guest AP on Community would let it reach the doctors.";
 function resetAll() {
   document.getElementById("port_1").value = "Isolated";
   document.getElementById("port_2").value = "Isolated";

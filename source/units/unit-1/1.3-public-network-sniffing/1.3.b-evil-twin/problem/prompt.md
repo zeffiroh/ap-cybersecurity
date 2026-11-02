@@ -1,4 +1,4 @@
-# Coding problem, 1.3.b: Detect evil-twin access points
+# Coding problem 1.3.b: Detect evil-twin access points
 
 **Skill:** Analyze Risk, Detect Attacks · **Maps to:** 1.3.B · **Language:** Python 3 (pytest)
 

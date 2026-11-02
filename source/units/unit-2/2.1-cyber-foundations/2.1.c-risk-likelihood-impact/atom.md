@@ -1,4 +1,4 @@
-# 2.1.c, Risk language: likelihood, impact, and security goals
+# 2.1.c: Risk language: likelihood, impact, and security goals
 
 > **Unit 2 · 2.1 Cyber Foundations**
 > **AP Learning Objective(s):** 2.1.C
@@ -13,10 +13,10 @@ Define likelihood, impact, and asset value in a cybersecurity context, calculate
 Every organization faces threats. A threat is a potential negative event (like a hard drive failing, a database leak, or a hurricane). A vulnerability is a weakness in the system that makes the threat possible (like using an outdated operating system or storing servers in a basement). When a threat exploits a vulnerability, we have a security incident.
 
 In cybersecurity, **risk** is the probability that a threat will exploit a vulnerability and cause harm to an asset. To talk about risk professionally, we use a standard vocabulary formalized by NIST (specifically NIST SP 800-30):
-- **Asset**, anything of value to the organization (data, hardware, software, reputation).
-- **Asset Value (V)**, the monetary or strategic value of the asset.
-- **Likelihood (L)**, the probability of the threat occurring, usually scored on a scale from 1 (very low) to 5 (very high).
-- **Impact (I)**, the severity of the damage if the threat occurs, scored from 1 (negligible) to 5 (catastrophic).
+- **Asset**: anything of value to the organization (data, hardware, software, reputation).
+- **Asset Value (V)**: the monetary or strategic value of the asset.
+- **Likelihood (L)**: the probability of the threat occurring, usually scored on a scale from 1 (very low) to 5 (very high).
+- **Impact (I)**: the severity of the damage if the threat occurs, scored from 1 (negligible) to 5 (catastrophic).
 
 Defenders use these metrics to calculate a **Risk Score**:
 $$\text{Risk Score} = \text{Likelihood} \times \text{Impact}$$
@@ -50,13 +50,13 @@ To decide which strategy to use, security teams compare the cost of a control ag
 The coding problem in `problem/` models this decision-making process. By evaluating the threat likelihood, impact, mitigation cost, and asset value, you will write a program to recommend the optimal risk treatment.
 
 ## Key terms
-- **Risk**, the probability that a threat will exploit a vulnerability and cause harm.
-- **Likelihood**, the probability of a threat occurring (scored 1-5).
-- **Impact**, the severity of the consequences if a threat occurs (scored 1-5).
-- **Mitigate**, reducing risk by implementing security controls.
-- **Accept**, retaining risk without active mitigation when it is low-impact or too expensive to fix.
-- **Transfer**, sharing risk with third parties (like insurance or cloud hosting).
-- **Avoid**, eliminating risk by stopping the risky activity altogether.
+- **Risk**: the probability that a threat will exploit a vulnerability and cause harm.
+- **Likelihood**: the probability of a threat occurring (scored 1-5).
+- **Impact**: the severity of the consequences if a threat occurs (scored 1-5).
+- **Mitigate**: reducing risk by implementing security controls.
+- **Accept**: retaining risk without active mitigation when it is low-impact or too expensive to fix.
+- **Transfer**: sharing risk with third parties (like insurance or cloud hosting).
+- **Avoid**: eliminating risk by stopping the risky activity altogether.
 
 ## Common misconceptions
 - "We must eliminate all risk." → Impossible. Security has a cost, and organizations must accept some level of risk (known as risk appetite) to function.

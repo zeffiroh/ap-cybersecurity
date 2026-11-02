@@ -1,4 +1,4 @@
-# Coding problem, 5.1.d: Score data breach severity
+# Coding problem 5.1.d: Score data breach severity
 
 **Skill:** Analyze Risk · **Maps to:** 5.1.C · **Language:** Python 3 (pytest)
 

@@ -1,4 +1,4 @@
-# 5.6.c, Digital evidence analysis and attack classification
+# 5.6.c: Digital evidence analysis and attack classification
 
 > **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
 > **AP Learning Objective(s):** 5.6.B, 5.6.C
@@ -72,15 +72,15 @@ that role directly: given a small evidence bundle, you classify the attack and s
 reasoning compares to the documented answer.
 
 ## Key terms
-- **Indicator of compromise (IOC)**, a single observable artifact (IP, file hash, unusual log
+- **Indicator of compromise (IOC)**: a single observable artifact (IP, file hash, unusual log
   entry) suggesting a security incident may be occurring; rarely conclusive on its own.
-- **Attack classification**, reasoning from a collection of IOCs to the attack category they
+- **Attack classification**: reasoning from a collection of IOCs to the attack category they
   collectively best support.
-- **Chain of custody**, a documented record of who collected, accessed, and stored evidence, so
+- **Chain of custody**: a documented record of who collected, accessed, and stored evidence, so
   its integrity can be trusted (or challenged) later.
-- **MITRE ATT&CK**, a widely-used framework providing a shared vocabulary for attack techniques,
+- **MITRE ATT&CK**: a widely-used framework providing a shared vocabulary for attack techniques,
   letting teams classify and compare incidents consistently.
-- **Hash verification**, computing a cryptographic hash of evidence at collection time so any
+- **Hash verification**: computing a cryptographic hash of evidence at collection time so any
   later modification is detectable.
 
 ## Common misconceptions

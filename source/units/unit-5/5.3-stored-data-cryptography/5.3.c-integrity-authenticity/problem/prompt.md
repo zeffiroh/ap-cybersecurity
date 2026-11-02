@@ -1,4 +1,4 @@
-# Coding problem, 5.3.c: Implement HMAC-SHA256 by hand
+# Coding problem 5.3.c: Implement HMAC-SHA256 by hand
 
 **Skill:** Mitigate Risk · **Maps to:** 5.3.B, 5.3.C · **Language:** Python 3 (pytest)
 
@@ -14,7 +14,7 @@ Implement, in `starter.py`:
   lowercase 64-character hex string.
 - `verify(key: bytes, message: bytes, tag: str) -> bool`, recompute the tag and compare it
   (case-insensitively) to the given `tag` using a constant-time comparison.
-- `solve(data: dict) -> dict`, the blackbox entry point that dispatches to the two functions
+- `solve(data: dict) -> dict`: the blackbox entry point that dispatches to the two functions
   above (see `interface.md` / `blackbox.yaml`).
 
 You must implement the ipad/opad key derivation and the double-nested hashing yourself. You

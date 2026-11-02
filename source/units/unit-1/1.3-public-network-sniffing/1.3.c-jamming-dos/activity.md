@@ -10,7 +10,7 @@ about why the rule is tuned (what happens when T or N is too low or too high). T
 
 ## Materials (all local)
 - the SimLab simulation, noise-floor monitor
-- `problem/`, coding challenge
+- `problem/`: coding challenge
 - Printed sample series table below
 
 ## Printed sample series

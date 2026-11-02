@@ -43,6 +43,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6;}
 .nav{margin-top:8px;}
+.why{font-family:var(--ui-font);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -89,37 +91,52 @@ var INBOX = [
   { from:"security@paypa1.com", subj:"Verify your account",
     body:"Dear customer,\n\nPlease verify your PayPal account by clicking:\n<span class='url'>http://paypa1.com/verify?id=38291</span>\n\nThis link expires in 24 hours.",
     attachment: null,
-    indicators: ["lookalike-domain"] },
+    indicators: ["lookalike-domain"],
+    why:{ "lookalike-domain":"paypa1.com swaps the letter l for the digit 1. It is a different domain that anyone can register, made to pass a quick glance as paypal.com." },
+    not:"The host is a name, not an IP; the link text and destination match; there is no attachment. The 24-hour expiry is a pressure tactic (1.1.a), not a link indicator." },
 
   { from:"it-support@company.example", subj:"Disk quota",
     body:"Your disk quota is at 90%. Please review usage at:\n<span class='url'>http://192.168.4.99/storage/cleanup?user=jsmith</span>\n\nIT Support",
     attachment: null,
-    indicators: ["ip-url"] },
+    indicators: ["ip-url"],
+    why:{ "ip-url":"The host is a raw IP address (192.168.4.99) instead of a named company server. Real company tools live at named hosts; a bare IP hides who owns the server and skips the domain checks your mail filter would run." },
+    not:"No brand is being imitated, there is no attachment, and the link text is the URL itself, so nothing is mismatched." },
 
   { from:"hr@meridian-corp.example", subj:"Onboarding packet",
     body:"Welcome! Please open the attached onboarding form.\n\n<span class='att'>Attachment: new_hire_form.pdf.exe</span>",
     attachment: "new_hire_form.pdf.exe",
-    indicators: ["dangerous-extension"] },
+    indicators: ["dangerous-extension"],
+    why:{ "dangerous-extension":"Only the LAST extension counts: new_hire_form.pdf.exe is an .exe program. Windows hides known extensions by default, so the victim sees new_hire_form.pdf and double-clicks a program." },
+    not:"There is no link in this message, so lookalike-domain, ip-url and mismatched-link cannot apply." },
 
   { from:"noreply@bankofamerica.com.secure-login.xyz", subj:"Statement ready",
     body:"Your monthly statement is ready. View it here:\n<span class='url'>http://bankofamerica.com.secure-login.xyz/stmt/2026-05.pdf</span>",
     attachment: null,
-    indicators: ["lookalike-domain"] },
+    indicators: ["lookalike-domain"],
+    why:{ "lookalike-domain":"Read the host right to left: the real domain is secure-login.xyz. \"bankofamerica.com\" is only a subdomain label the attacker chose. (The 1.1.b coding problem, which sees only a URL string, files this brand-in-subdomain pattern under mismatched-link; in this inbox it counts as a lookalike domain.)" },
+    not:"The .pdf at the end of the path is a document, not an executable; the host is a name, not an IP; and the link text shows the same URL it opens." },
 
   { from:"newsletter@shop.example", subj:"Your order has shipped",
     body:"Hi Jane,\n\nYour order #44821 has shipped and will arrive Wednesday.\nTrack it at:\n<span class='url'>http://shop.example/track/44821</span>\n\nThank you for your purchase.",
     attachment: null,
-    indicators: [] },
+    indicators: [],
+    why:{},
+    not:"Clean: the sender and link both use shop.example, the link text matches its destination, and nothing is attached. It refers to a specific order, but a real shipping notice would; if you did not order anything, check the order on the store's site directly." },
 
   { from:"alerts@dropbx.com", subj:"Shared file",
     body:"Alex shared a document with you.\n\nClick to view: <span class='url'>https://dropbx.com/s/r7k2m1</span>\n\n<span class='att'>Attachment: Q3_Report.scr</span>",
     attachment: "Q3_Report.scr",
-    indicators: ["lookalike-domain", "dangerous-extension"] },
+    indicators: ["lookalike-domain", "dangerous-extension"],
+    why:{ "lookalike-domain":"dropbx.com is missing the o from dropbox.com.",
+          "dangerous-extension":".scr is a Windows screensaver file, which is really an executable program. A \"Q3 report\" should be a document." },
+    not:"The host is a name, not an IP, and the link text is the URL itself." },
 
   { from:"payroll@company.example", subj:"Direct deposit",
     body:"Click here to update your bank details:\n<a>Update Bank Info at company.example</a>\n(Link actually goes to: <span class='url'>http://direct-deposit-update.xyz/company/form</span>)",
     attachment: null,
-    indicators: ["mismatched-link"] }
+    indicators: ["mismatched-link"],
+    why:{ "mismatched-link":"The text says company.example, but the link really goes to direct-deposit-update.xyz. Hovering (or long-pressing on a phone) shows the real destination before you click." },
+    not:"direct-deposit-update.xyz is not imitating a brand's spelling, so it is not a lookalike; the host is a name, not an IP; and nothing is attached." }
 ];
 
 var idx=0, score=0, sel=new Set(), GOAL=5, met=false, answered=false;
@@ -144,12 +161,22 @@ function toggle(b){
 function submit(){
   if(answered) return;
   answered=true;
-  var correct=new Set(INBOX[idx].indicators);
+  var m=INBOX[idx], correct=new Set(m.indicators);
   var ok = sel.size===correct.size && [...sel].every(function(t){return correct.has(t);});
-  var fb=document.getElementById('fb');
-  var correctList=[...correct].sort().join(', ')||'none';
-  if(ok){score++;fb.innerHTML='<span class="ok">CORRECT.</span> Indicators: '+correctList;}
-  else{fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct indicators: '+correctList;}
+  var missed=[...correct].filter(function(t){return !sel.has(t);}).sort();
+  var extra=[...sel].filter(function(t){return !correct.has(t);}).sort();
+  var html = ok ? '<span class="ok">CORRECT.</span> ' : '<span class="bad">NOT QUITE.</span> ';
+  html += 'Indicators: '+([...correct].sort().join(', ')||'none')+'.';
+  if(!ok){
+    if(missed.length) html += '<br>You missed: '+missed.join(', ')+'.';
+    if(extra.length) html += '<br>Not in this message: '+extra.join(', ')+'.';
+  }
+  html += '<ul class="why">';
+  [...correct].sort().forEach(function(t){ html += '<li><b>'+t+':</b> '+esc(m.why[t])+'</li>'; });
+  if(m.not) html += '<li><b>'+(correct.size?'Not the others':'None')+':</b> '+esc(m.not)+'</li>';
+  html += '</ul>';
+  document.getElementById('fb').innerHTML=html;
+  if(ok) score++;
   if(score>=GOAL) met=true;
   updateBar();
 }

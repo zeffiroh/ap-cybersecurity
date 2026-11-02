@@ -398,9 +398,9 @@ title: Incident Severity Classification
 :::
 
 :::list style=plain
-- **Functional Impact**, degree to which normal operations are disrupted (none / minimal / significant / catastrophic)
-- **Information Impact**, whether sensitive data was accessed, exfiltrated, or destroyed
-- **Recoverability**, expected time and resources needed to restore full normal operations
+- **Functional Impact**: degree to which normal operations are disrupted (none / minimal / significant / catastrophic)
+- **Information Impact**: whether sensitive data was accessed, exfiltrated, or destroyed
+- **Recoverability**: expected time and resources needed to restore full normal operations
 :::
 
 :::notes
@@ -497,10 +497,10 @@ A **Security Information and Event Management (SIEM)** system is the central ner
 ::col::
 ::::card heading="Common SIEM Platforms"
 :::list style=plain
-- **Splunk Enterprise Security**, market-leading SIEM with extensive integration ecosystem and SPL query language.
-- **Microsoft Sentinel**, cloud-native SIEM on Azure with native M365 and Entra ID integration.
-- **IBM QRadar**, on-premises SIEM widely deployed in financial and government sectors.
-- **Elastic SIEM**, open-source option built on the Elastic Stack with EQL (Event Query Language) detection.
+- **Splunk Enterprise Security**: market-leading SIEM with extensive integration ecosystem and SPL query language.
+- **Microsoft Sentinel**: cloud-native SIEM on Azure with native M365 and Entra ID integration.
+- **IBM QRadar**: on-premises SIEM widely deployed in financial and government sectors.
+- **Elastic SIEM**: open-source option built on the Elastic Stack with EQL (Event Query Language) detection.
 :::
 ::::
 ::::
@@ -537,10 +537,10 @@ title: "Tool Spotlight: Endpoint Detection & Response"
 ::col::
 ::::card heading="EDR Platforms"
 :::list style=plain
-- **CrowdStrike Falcon**, cloud-native, widely used in enterprise environments.
-- **Microsoft Defender for Endpoint**, deeply integrated with Windows telemetry and Microsoft Sentinel.
-- **SentinelOne**, autonomous AI-driven response with rollback capabilities.
-- **Carbon Black (VMware)**, strong in threat hunting with behavioral query language.
+- **CrowdStrike Falcon**: cloud-native, widely used in enterprise environments.
+- **Microsoft Defender for Endpoint**: deeply integrated with Windows telemetry and Microsoft Sentinel.
+- **SentinelOne**: autonomous AI-driven response with rollback capabilities.
+- **Carbon Black (VMware)**: strong in threat hunting with behavioral query language.
 :::
 ::::
 ::::

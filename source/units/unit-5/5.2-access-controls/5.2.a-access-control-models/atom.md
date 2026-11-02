@@ -1,4 +1,4 @@
-# 5.2.a, Access control models (RBAC, DAC, MAC)
+# 5.2.a: Access control models (RBAC, DAC, MAC)
 
 > **Unit 5 · 5.2 Protecting Applications and Data: Access Controls**
 > **AP Learning Objective(s):** 5.2.A
@@ -72,15 +72,15 @@ not the whole system. The simulation and coding problem in this skill reinforce 
 whether a given access decision satisfies the rules of the relevant model.
 
 ## Key terms
-- **Access control**, the set of policies and mechanisms that determine which subjects can perform which actions on which objects.
-- **Subject**, the entity requesting access (user, process, service).
-- **Object**, the resource being protected (file, database, endpoint).
-- **DAC (Discretionary Access Control)**, owner-controlled access; flexible but inconsistent.
-- **MAC (Mandatory Access Control)**, centrally enforced label-based access; strong but rigid.
-- **RBAC (Role-Based Access Control)**, permission-via-role assignment; scalable for organizations.
-- **Least privilege**, granting only the minimum access necessary for a subject to function.
-- **Role**, a named collection of permissions assigned to users as a unit.
-- **Label / classification**, a MAC tag attached to subjects and objects (e.g., UNCLASSIFIED, SECRET).
+- **Access control**: the set of policies and mechanisms that determine which subjects can perform which actions on which objects.
+- **Subject**: the entity requesting access (user, process, service).
+- **Object**: the resource being protected (file, database, endpoint).
+- **DAC (Discretionary Access Control)**: owner-controlled access; flexible but inconsistent.
+- **MAC (Mandatory Access Control)**: centrally enforced label-based access; strong but rigid.
+- **RBAC (Role-Based Access Control)**: permission-via-role assignment; scalable for organizations.
+- **Least privilege**: granting only the minimum access necessary for a subject to function.
+- **Role**: a named collection of permissions assigned to users as a unit.
+- **Label / classification**: a MAC tag attached to subjects and objects (e.g., UNCLASSIFIED, SECRET).
 
 ## Common misconceptions
 - "DAC is weak, so only MAC is secure.", Each model fits different contexts. MAC overhead is impractical for consumer software; DAC is appropriate when owners are trusted to manage their own data correctly.

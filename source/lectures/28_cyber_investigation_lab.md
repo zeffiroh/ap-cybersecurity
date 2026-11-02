@@ -628,8 +628,8 @@ After gaining initial access, attackers move laterally to compromise additional 
 ::::card heading="Detection Signals"
 :::list style=tight
 - **Event ID 4624 LogonType=3** from unexpected internal source IPs.
-- **Event ID 4648**, explicit credential use, especially by service accounts.
-- **Event ID 4776**, NTLM authentication event (indicates hash-based auth).
+- **Event ID 4648**: explicit credential use, especially by service accounts.
+- **Event ID 4776**: NTLM authentication event (indicates hash-based auth).
 - **Firewall alerts** on SMB (TCP 445) or RDP (TCP 3389) between internal segments.
 :::
 ::::
@@ -863,9 +863,9 @@ The **Colonial Pipeline ransomware attack** (May 2021) caused the largest disrup
 ::col::
 ::::card heading="Root Cause Controls"
 :::list style=tight
-- **MFA on all remote access**, would have prevented this specific breach.
-- **Account lifecycle management**, disabled accounts create persistent attack surface.
-- **IT/OT network segmentation**, prevents ransomware from reaching operational systems.
+- **MFA on all remote access**: would have prevented this specific breach.
+- **Account lifecycle management**: disabled accounts create persistent attack surface.
+- **IT/OT network segmentation**: prevents ransomware from reaching operational systems.
 :::
 ::::
 ::col::

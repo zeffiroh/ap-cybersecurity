@@ -1,4 +1,4 @@
-# 5.5.a, Input validation and sanitization
+# 5.5.a: Input validation and sanitization
 
 > **Unit 5 · 5.5 Protecting Applications**
 > **AP Learning Objective(s):** 5.5.A
@@ -82,15 +82,15 @@ that validator directly, classifying a stream of realistic form submissions as S
 MALICIOUS/BLOCKED before the sim reveals the answer.
 
 ## Key terms
-- **Allowlist (whitelist) validation**, accepting only input that matches a known-good pattern,
+- **Allowlist (whitelist) validation**: accepting only input that matches a known-good pattern,
   rejecting everything else by default.
-- **Denylist (blocklist) validation**, rejecting input that matches known-bad patterns; weaker
+- **Denylist (blocklist) validation**: rejecting input that matches known-bad patterns; weaker
   because it must anticipate every attack variant.
-- **Canonicalization**, reducing input to one normalized form before validating it, so encoded or
+- **Canonicalization**: reducing input to one normalized form before validating it, so encoded or
   obfuscated variants cannot slip past a filter that only checks the raw string.
-- **Sanitization**, actively stripping or rewriting dangerous content out of accepted input, rather
+- **Sanitization**: actively stripping or rewriting dangerous content out of accepted input, rather
   than just accepting or rejecting it wholesale.
-- **Output encoding**, transforming data at the point it is inserted into a new context (HTML,
+- **Output encoding**: transforming data at the point it is inserted into a new context (HTML,
   SQL, shell) so special characters are treated as literal data, not executable syntax.
 
 ## Common misconceptions

@@ -41,6 +41,8 @@ h1{font-size:16px;margin:0 0 6px;}
 .apbtns{margin:8px 0;}
 .legend{font-size:12px;color:var(--muted);margin-top:6px;}
 .toolbar{margin-bottom:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -83,7 +85,9 @@ var ROUNDS = [
       {ssid:"HotelLobby",   bssid:"11:22:33:44:55:66", sec:"WPA2", sig:-65},
       {ssid:"CityMuniWifi", bssid:"00:AA:BB:CC:DD:EE", sec:"WPA2", sig:-70}
     ],
-    rogues:["AA:BB:CC:11:22:33","DE:AD:BE:EF:00:01"]
+    rogues:["AA:BB:CC:11:22:33","DE:AD:BE:EF:00:01"],
+    why:"CafeGuest is broadcast by two different radios (BSSIDs). One may be the cafe's real router, but a scanner alone cannot tell which, so both are suspicious until the staff confirm their BSSID. The OPEN copy is the most likely evil twin: the real network uses WPA2, and the copy has a stronger signal (-42 dBm) so phones will prefer it.",
+    others:"HotelLobby and CityMuniWifi each appear once with WPA2, so nothing marks them as copies."
   },
   {
     aps:[
@@ -92,7 +96,9 @@ var ROUNDS = [
       {ssid:"BookshopNet",  bssid:"22:33:44:55:66:77", sec:"WPA3", sig:-60},
       {ssid:"LibraryGuest", bssid:"88:99:AA:BB:CC:DD", sec:"WPA2", sig:-72}
     ],
-    rogues:["00:11:22:33:44:55","FF:EE:DD:CC:BB:AA"]
+    rogues:["00:11:22:33:44:55","FF:EE:DD:CC:BB:AA"],
+    why:"Airport-Free appears on two BSSIDs. Both are OPEN, so neither is weaker than the other, but the duplicate name alone is suspicious: an attacker does not need weaker security to impersonate a network that is already open. On any open network, assume someone can see your traffic and use a VPN or HTTPS-only sites.",
+    others:"BookshopNet (WPA3) and LibraryGuest (WPA2) each appear once."
   },
   {
     aps:[
@@ -101,7 +107,9 @@ var ROUNDS = [
       {ssid:"CorpNet", bssid:"BE:EF:CA:FE:00:01", sec:"OPEN", sig:-39},
       {ssid:"Xfinity", bssid:"11:AA:22:BB:33:CC", sec:"WPA2", sig:-68}
     ],
-    rogues:["0A:1B:2C:3D:4E:5F","DE:AD:00:00:00:FF","BE:EF:CA:FE:00:01"]
+    rogues:["0A:1B:2C:3D:4E:5F","DE:AD:00:00:00:FF","BE:EF:CA:FE:00:01"],
+    why:"CorpNet appears on three BSSIDs with three different security levels: WPA3, WPA2 and OPEN. A company network should not have an OPEN copy, and the two weaker copies have the strongest signals, which is exactly how an evil twin pulls devices away from the real AP. All three are flagged because a scan cannot prove which one the company owns; IT would check them against its list of approved BSSIDs.",
+    others:"Xfinity appears once with WPA2."
   },
   {
     aps:[
@@ -110,7 +118,9 @@ var ROUNDS = [
       {ssid:"GuestOnly",   bssid:"99:88:77:66:55:44", sec:"WPA2", sig:-75},
       {ssid:"CoffeeShop",  bssid:"CC:DD:EE:FF:00:11", sec:"WPA2", sig:-58}
     ],
-    rogues:[]
+    rogues:[],
+    why:"Clean scan: every SSID appears exactly once, so there is no duplicate to impersonate and no weaker copy.",
+    others:"Different names on different radios is normal in any neighborhood. A strong signal alone (HomeNet at -50 dBm) is not suspicious."
   },
   {
     aps:[
@@ -119,7 +129,9 @@ var ROUNDS = [
       {ssid:"ParkNet",     bssid:"10:20:30:40:50:60", sec:"WPA3", sig:-66},
       {ssid:"ParkNet",     bssid:"AA:BB:CC:DD:EE:FF", sec:"OPEN", sig:-41}
     ],
-    rogues:["AA:00:BB:11:CC:22","DD:33:EE:44:FF:55","10:20:30:40:50:60","AA:BB:CC:DD:EE:FF"]
+    rogues:["AA:00:BB:11:CC:22","DD:33:EE:44:FF:55","10:20:30:40:50:60","AA:BB:CC:DD:EE:FF"],
+    why:"Two networks are duplicated here. StadiumWifi appears as WPA2 and as WPA (the older, breakable version), and the weaker WPA copy is louder. ParkNet appears as WPA3 and as OPEN, and the OPEN copy has the strongest signal in the whole scan (-41 dBm). Both pairs are flagged.",
+    others:"There are no other networks in this scan: every row belongs to a duplicated SSID."
   }
 ];
 
@@ -169,14 +181,19 @@ function submitAnswer(){
   var fb=document.getElementById('fb');
   if(ok){
     score++;
-    fb.innerHTML='<span class="ok">CORRECT.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.sort().join(', '):'none (clean scan)');
+    fb.innerHTML='<span class="ok">CORRECT.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.slice().sort().join(', '):'none (clean scan)')+explain(r);
   } else {
-    fb.innerHTML='<span class="bad">NOT QUITE.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.sort().join(', '):'none (clean scan)');
+    var miss=r.rogues.filter(function(b){return !sel.has(b);}), extra=[...sel].filter(function(b){return !expected.has(b);});
+    fb.innerHTML='<span class="bad">NOT QUITE.</span> Suspicious BSSIDs: '+(r.rogues.length?r.rogues.slice().sort().join(', '):'none (clean scan)')+
+      (miss.length?'<br>You missed: '+miss.join(', ')+'.':'')+(extra.length?'<br>Not suspicious: '+extra.join(', ')+'.':'')+explain(r);
   }
   if(score>=GOAL)met=true;
   updateBar();
 }
 
+function explain(r){
+  return '<ul class="why"><li><b>Why:</b> '+r.why+'</li><li><b>The rest:</b> '+r.others+'</li><li><b>What to do:</b> Connect only to networks you can confirm with staff, prefer the secured version, and use a VPN or HTTPS-only sites on any public network.</li></ul>';
+}
 function nextRound(){
   ridx=(ridx+1)%ROUNDS.length;
   renderScan();

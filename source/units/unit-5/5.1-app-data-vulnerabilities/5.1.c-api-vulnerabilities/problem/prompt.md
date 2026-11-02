@@ -1,4 +1,4 @@
-# Coding problem, 5.1.c: Detect broken object-level authorization (BOLA)
+# Coding problem 5.1.c: Detect broken object-level authorization (BOLA)
 
 **Skill:** Analyze Risk · **Maps to:** 5.1.B · **Language:** Python 3 (pytest)
 

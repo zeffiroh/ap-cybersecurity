@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2.3.a, Physical access controls (locks, badges, biometrics, mantraps), Simulation</title>
+<title>2.3.a: Physical access controls (locks, badges, biometrics, mantraps) · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -55,6 +55,8 @@ h1{font-size:16px;margin:0 0 4px;}
   cursor: pointer;
   margin-left: 6px;
 }
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -188,6 +190,32 @@ var FNE = (function(){
     }
   ];
 
+  var GAP_RULE = {
+    no_key_control: { has: function(c){ return c.keyed_lock || c.badge_reader; },
+      missing: "Neither a keyed lock nor a badge reader controls the door, so nothing decides who may open it.",
+      present: function(c){ return "Entry is controlled by " + (c.keyed_lock && c.badge_reader ? "a keyed lock and a badge reader" : c.keyed_lock ? "a keyed lock" : "a badge reader") + "."; } },
+    no_electronic_access: { has: function(c){ return c.badge_reader || c.biometric_reader; },
+      missing: "With no badge or biometric reader, entries are not logged electronically and access cannot be revoked instantly (a lost key works until the lock is changed).",
+      present: function(c){ return "A " + (c.badge_reader ? "badge reader" : "biometric reader") + " logs each entry and can be switched off for one person."; } },
+    no_tailgating_prevention: { has: function(c){ return c.mantrap; },
+      missing: "With no mantrap, one person can open the door and others can walk in behind them (tailgating). A badge or lock checks the first person only.",
+      present: function(c){ return "A mantrap lets one person through at a time, which stops tailgating."; } },
+    no_visual_monitoring: { has: function(c){ return c.cctv; },
+      missing: "With no CCTV, nobody sees or records what happens at the entrance, so incidents cannot be reviewed later. (A guard watches in person but does not create a recording.)",
+      present: function(c){ return "CCTV records the entrance for review."; } },
+    no_identity_verification: { has: function(c){ return c.security_guard || c.biometric_reader; },
+      missing: "Nothing confirms the person IS the badge or key holder. Badges and keys can be lent or stolen; only a biometric or a guard checking faces ties entry to a person.",
+      present: function(c){ return (c.biometric_reader ? "A biometric reader" : "A security guard") + " confirms the person matches their credential."; } }
+  };
+  function explainFacility(fac){
+    var html = '<ul class="why">';
+    Object.keys(GAP_RULE).forEach(function(g){
+      var r = GAP_RULE[g];
+      html += r.has(fac.controls) ? '<li><b>' + g + ': covered.</b> ' + r.present(fac.controls) + '</li>'
+                                   : '<li><b>' + g + ': GAP.</b> ' + r.missing + '</li>';
+    });
+    return html + '</ul>';
+  }
   function renderRound() {
     if (currentRound >= MAX) {
       document.getElementById('stage').innerHTML = "All facility audits completed! Check your final score below.";
@@ -241,9 +269,9 @@ var FNE = (function(){
     
     if (isCorrect) {
       score++;
-      out += "\nRESULT: AUDIT CORRECT! +1 Point.\n";
+      out += "\nRESULT: AUDIT CORRECT! +1 Point.\n" + explainFacility(fac);
     } else {
-      out += "\nRESULT: AUDIT INCORRECT. Expected gaps: " + (fac.gaps.join(', ') || 'None') + ".\n";
+      out += "\nRESULT: AUDIT INCORRECT. Expected gaps: " + (fac.gaps.join(', ') || 'None') + ".\n" + explainFacility(fac);
     }
     
     document.getElementById('stage').innerHTML = out;

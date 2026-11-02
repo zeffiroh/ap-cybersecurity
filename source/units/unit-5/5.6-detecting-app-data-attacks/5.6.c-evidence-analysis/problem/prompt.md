@@ -1,4 +1,4 @@
-# Coding problem, 5.6.c: Attack classifier (evidence -> category)
+# Coding problem 5.6.c: Attack classifier (evidence -> category)
 
 **Skill:** Detect Attacks, Collaborate · **Maps to:** 5.6.B, 5.6.C · **Language:** Python 3 (pytest)
 

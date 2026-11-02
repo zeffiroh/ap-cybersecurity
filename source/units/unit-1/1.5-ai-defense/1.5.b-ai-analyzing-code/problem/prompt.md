@@ -1,4 +1,4 @@
-# Coding problem, 1.5.b: AI analyzing code for vulnerabilities
+# Coding problem 1.5.b: AI analyzing code for vulnerabilities
 
 **Skill:** Detect Attacks, Collaborate · **Maps to:** 1.5.A · **Language:** Python 3 (pytest)
 

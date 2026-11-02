@@ -1,4 +1,4 @@
-# Coding problem, 2.3.c: Defense-in-depth scorer
+# Coding problem 2.3.c: Defense-in-depth scorer
 
 **Skill:** Mitigate Risk · **Maps to:** 2.3.B · **Language:** Python 3 (pytest)
 
@@ -13,12 +13,12 @@ once toward depth, because they do not close a new gap the way a different categ
 
 Implement `solve(layers)` that audits one facility's layer list and returns a report:
 
-- `depth_score`, count of distinct valid categories present.
-- `categories_present`, sorted list of the distinct valid category names present.
-- `redundant_categories`, dict mapping each category that has *more than one* layer to the count
+- `depth_score`: count of distinct valid categories present.
+- `categories_present`: sorted list of the distinct valid category names present.
+- `redundant_categories`: dict mapping each category that has *more than one* layer to the count
   of *extra* layers beyond the first (e.g. 3 personnel layers -> `{"personnel": 2}`). Categories
   with only one layer are omitted.
-- `recommendation`, one of `"STRONG"`, `"ADEQUATE"`, `"WEAK"`, based on `depth_score`:
+- `recommendation`: one of `"STRONG"`, `"ADEQUATE"`, `"WEAK"`, based on `depth_score`:
   - `depth_score >= 5` -> `"STRONG"`
   - `3 <= depth_score <= 4` -> `"ADEQUATE"`
   - `depth_score <= 2` -> `"WEAK"`

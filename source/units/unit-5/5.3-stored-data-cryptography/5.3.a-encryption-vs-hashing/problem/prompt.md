@@ -1,4 +1,4 @@
-# Coding problem, 5.3.a: Encryption vs. hashing
+# Coding problem 5.3.a: Encryption vs. hashing
 
 **Skill:** Mitigate Risk · **Maps to:** 5.3.A · **Language:** Python 3 (pytest)
 

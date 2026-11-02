@@ -9,11 +9,11 @@ Meridian Health is a regional hospital network. Like real healthcare orgs, it is
 target: sensitive patient data, legacy medical devices, a mix of clinical and corporate IT, and
 staff under constant time pressure (perfect for social engineering). The synthetic world lives in
 `world/`:
-- `employees.json`, staff, roles, departments, emails, who has privileged access.
-- `network.json`, subnets (DMZ, corp VLAN, clinical/OT VLAN), hosts, services, the web app + DB.
-- `emails.json`, the mailflow, including the attacker's phishing campaign.
-- `auth_logs.json`, VPN/login events (with the attack buried in the noise).
-- `badge_logs.json`, physical door access (ties to Unit 2 later).
+- `employees.json`: staff, roles, departments, emails, who has privileged access.
+- `network.json`: subnets (DMZ, corp VLAN, clinical/OT VLAN), hosts, services, the web app + DB.
+- `emails.json`: the mailflow, including the attacker's phishing campaign.
+- `auth_logs.json`: VPN/login events (with the attack buried in the noise).
+- `badge_logs.json`: physical door access (ties to Unit 2 later).
 
 ## The campaign (what the adversary is doing)
 A financially-motivated crew ("Harbor") runs a multi-stage intrusion. Students play the **defender**

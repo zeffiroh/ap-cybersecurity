@@ -1,4 +1,4 @@
-# 1.4.a, Voice/image cloning for impersonation
+# 1.4.a: Voice/image cloning for impersonation
 
 > **Unit 1 · 1.4 AI-Based Cybersecurity Attacks**
 > **AP Learning Objective(s):** 1.4.A
@@ -70,14 +70,14 @@ Recognition ("I know this voice") suppresses skepticism; urgency suppresses the 
 that skepticism would trigger. Recognizing this double-stack is the first defense.
 
 ## Key terms
-- **Deepfake**, synthetic media (audio, image, or video) in which AI replaces or fabricates a
+- **Deepfake**: synthetic media (audio, image, or video) in which AI replaces or fabricates a
   person's appearance or voice.
-- **Voice cloning**, fine-tuning a speech-synthesis model on a speaker's audio to produce new
+- **Voice cloning**: fine-tuning a speech-synthesis model on a speaker's audio to produce new
   utterances in that speaker's voice.
-- **Vishing**, voice-based phishing; often combined with cloned audio.
-- **Shared secret**, a pre-agreed code word used to verify identity out-of-band, defeating
+- **Vishing**: voice-based phishing; often combined with cloned audio.
+- **Shared secret**: a pre-agreed code word used to verify identity out-of-band, defeating
   audio/video impersonation.
-- **Out-of-band confirmation**, approval over a channel separate from the one being manipulated.
+- **Out-of-band confirmation**: approval over a channel separate from the one being manipulated.
 
 ## Common misconceptions
 - "I can always tell if a voice is fake." → Current cloning quality fools trained humans the

@@ -1,4 +1,4 @@
-# Coding problem, 1.5.c: Generate detection rules from a login log
+# Coding problem 1.5.c: Generate detection rules from a login log
 
 **Skill:** Detect Attacks · **Maps to:** 1.5.A · **Language:** Python 3 (pytest)
 

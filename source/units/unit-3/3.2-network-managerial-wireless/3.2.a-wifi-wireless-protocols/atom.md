@@ -1,4 +1,4 @@
-# 3.2.a, Wi-Fi basics and wireless security protocols (WPA2/WPA3)
+# 3.2.a: Wi-Fi basics and wireless security protocols (WPA2/WPA3)
 
 > **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
 > **AP Learning Objective(s):** 3.2.A
@@ -90,16 +90,16 @@ a concrete, measurable mitigation decision, exactly the kind of risk-reduction c
 course assesses.
 
 ## Key terms
-- **IEEE 802.11**, the family of wireless networking standards defining Wi-Fi.
-- **Access point (AP)**, the device that bridges wireless clients onto a wired network.
-- **WPA2 (Wi-Fi Protected Access 2)**, the 2004 wireless security standard using AES-CCMP; current minimum acceptable.
-- **WPA3**, the 2018 successor; uses SAE to prevent offline dictionary attacks and provides forward secrecy.
-- **Pre-Shared Key (PSK)**, a shared password used in WPA2/WPA3 Personal mode to derive session keys.
-- **SAE (Simultaneous Authentication of Equals)**, WPA3's zero-knowledge handshake that resists offline attacks.
-- **Forward secrecy**, property ensuring that compromise of one session key cannot decrypt past sessions.
-- **CCMP (AES-CCMP)**, the AES-based cipher suite providing confidentiality and integrity in WPA2/WPA3.
-- **TKIP**, deprecated RC4-based cipher used in WPA (v1); do not use.
-- **Four-way handshake**, WPA2's session-key negotiation; capturable and subject to offline attack.
+- **IEEE 802.11**: the family of wireless networking standards defining Wi-Fi.
+- **Access point (AP)**: the device that bridges wireless clients onto a wired network.
+- **WPA2 (Wi-Fi Protected Access 2)**: the 2004 wireless security standard using AES-CCMP; current minimum acceptable.
+- **WPA3**: the 2018 successor; uses SAE to prevent offline dictionary attacks and provides forward secrecy.
+- **Pre-Shared Key (PSK)**: a shared password used in WPA2/WPA3 Personal mode to derive session keys.
+- **SAE (Simultaneous Authentication of Equals)**: WPA3's zero-knowledge handshake that resists offline attacks.
+- **Forward secrecy**: property ensuring that compromise of one session key cannot decrypt past sessions.
+- **CCMP (AES-CCMP)**: the AES-based cipher suite providing confidentiality and integrity in WPA2/WPA3.
+- **TKIP**: deprecated RC4-based cipher used in WPA (v1); do not use.
+- **Four-way handshake**: WPA2's session-key negotiation; capturable and subject to offline attack.
 
 ## Common misconceptions
 - "Hiding the SSID makes the network secure." → A hidden SSID is still broadcast in probe responses; any passive scanner finds it in seconds. SSID hiding is not a security control.

@@ -1,4 +1,4 @@
-# 2.2.a, Unauthorized physical access (tailgating, piggybacking, lock bypass)
+# 2.2.a: Unauthorized physical access (tailgating, piggybacking, lock bypass)
 
 > **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 2.2.A, 2.2.B
@@ -36,12 +36,12 @@ The coding problem for this skill asks you to implement exactly this log analysi
 **Defensive practices.** Awareness training that emphasizes the "one badge, one person" rule significantly reduces tailgating. Mantraps (two-door interlocks that prevent a second person from passing until the first door closes) eliminate the physical opportunity. RFID systems should be upgraded to encrypted, mutually authenticated 13.56 MHz cards (ISO 14443 / MIFARE DESFire) rather than legacy proximity cards. Locks on server racks and wiring closets should be high-security (Medeco, Abloy) and regularly audited. Badge-access logs should be reviewed algorithmically for the heuristics described above.
 
 ## Key terms
-- **Tailgating**, following an authorized person through a secured entry without using one's own credentials; the authorized person is unaware or does not consent.
-- **Piggybacking**, an authorized employee knowingly allows an unverified individual through a secured entry; the risk is identical to tailgating despite the consent.
-- **Lock picking**, manipulating a lock's internal mechanism with specialized tools to open it without the correct key.
-- **Bump key**, a specially cut key used with a striking blow to momentarily bypass pin-tumbler lock pins.
-- **RFID badge cloning**, capturing the radio signal of an access badge and writing the data to a blank credential to gain unauthorized entry.
-- **Mantrap**, a physical security control consisting of two interlocked doors; only one can be open at a time, preventing a second person from following through.
+- **Tailgating**: following an authorized person through a secured entry without using one's own credentials; the authorized person is unaware or does not consent.
+- **Piggybacking**: an authorized employee knowingly allows an unverified individual through a secured entry; the risk is identical to tailgating despite the consent.
+- **Lock picking**: manipulating a lock's internal mechanism with specialized tools to open it without the correct key.
+- **Bump key**: a specially cut key used with a striking blow to momentarily bypass pin-tumbler lock pins.
+- **RFID badge cloning**: capturing the radio signal of an access badge and writing the data to a blank credential to gain unauthorized entry.
+- **Mantrap**: a physical security control consisting of two interlocked doors; only one can be open at a time, preventing a second person from following through.
 
 ## Common misconceptions
 - "Tailgating only works in movies." → It is one of the most frequently reported physical-penetration vectors in professional red-team assessments; social courtesy is a real and exploitable vulnerability.

@@ -43,6 +43,8 @@ h1{font-size:16px;margin:0 0 6px;}
 table{border-collapse:collapse;width:100%;margin-bottom:8px;}
 th{background:var(--win-face);border:1px solid var(--win-shadow);padding:3px 6px;text-align:left;font-size:12px;}
 td{border:1px solid #ccc;padding:3px 6px;font-size:12px;font-family:var(--mono-font);}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -85,42 +87,42 @@ var PROFILES = [
     uses_zero_day:false, custom_tooling:false, targets_specific_victim:false,
     off_the_shelf_only:true, adapts_to_defenses:false,
     desc:"Downloaded a free Wi-Fi scanner from a public forum. Runs it at coffee shops hoping someone connects to the rogue hotspot they set up. No coding ability.",
-    tier:"low", rule:"Rule 3 -- off-the-shelf only, no other high-skill markers." },
+    tier:"low", rule:"Rule 3 (LOW). A free downloaded scanner is off-the-shelf, there is no zero-day or custom code (so Rule 1 fails), and the attacker is fishing for anyone rather than a chosen target who adapts (so Rule 2 fails). This is the classic opportunistic attacker that basic defenses like using HTTPS and avoiding open hotspots stop." },
   { name:"Subject B",
     uses_zero_day:true, custom_tooling:true, targets_specific_victim:true,
     off_the_shelf_only:false, adapts_to_defenses:true,
     desc:"Developed a custom firmware exploit for a popular Wi-Fi chipset. Targets a specific executive's laptop. When the first approach was blocked, modified the attack vector.",
-    tier:"high", rule:"Rule 1 -- uses_zero_day is True." },
+    tier:"high", rule:"Rule 1 (HIGH). A firmware exploit nobody has patched is a zero-day, and building it is custom tooling, so Rule 1 is met twice over. Rule 2 also fits: one chosen executive, and the attacker changed vectors when blocked. This is the profile of a nation-state or professional crew." },
   { name:"Subject C",
     uses_zero_day:false, custom_tooling:false, targets_specific_victim:true,
     off_the_shelf_only:false, adapts_to_defenses:true,
     desc:"Uses public tools but has selected a specific journalist as the target. After the first evil-twin attempt failed, switched to a different SSID and channel.",
-    tier:"high", rule:"Rule 2 -- targets_specific_victim AND adapts_to_defenses." },
+    tier:"high", rule:"Rule 2 (HIGH). The tools are public, so Rule 1 does not apply, but this attacker picked one specific journalist and changed tactics (new SSID and channel) after being blocked. Persistence against a chosen target is what makes an attacker dangerous, even with common tools." },
   { name:"Subject D",
     uses_zero_day:false, custom_tooling:true, targets_specific_victim:false,
     off_the_shelf_only:false, adapts_to_defenses:false,
     desc:"Wrote a Python script to automate deauthentication floods. Does not care which device is disrupted -- just wants to cause chaos at the venue.",
-    tier:"high", rule:"Rule 1 -- custom_tooling is True." },
+    tier:"high", rule:"Rule 1 (HIGH). Writing your own script to automate an attack is custom tooling, which Rule 1 counts as high skill even though this attacker is not targeting anyone in particular. Being able to build tools means they are not limited to what is publicly available." },
   { name:"Subject E",
     uses_zero_day:false, custom_tooling:false, targets_specific_victim:true,
     off_the_shelf_only:true, adapts_to_defenses:false,
     desc:"Read a tutorial and installed Kali Linux. Knows the CEO of a rival company will be at this conference hotel. Tried one evil-twin attack but did not modify anything when it did not work.",
-    tier:"low", rule:"Rule 3 -- targeted but NOT adaptive; no zero-day or custom tooling." },
+    tier:"low", rule:"Rule 3 (LOW). There is a specific target (the rival CEO), but Rule 2 needs BOTH a target AND adapting to defenses, and this attacker gave up after one failed try. Tutorial-level tools mean Rule 1 fails too. Wanting a big target does not make an attacker skilled." },
   { name:"Subject F",
     uses_zero_day:false, custom_tooling:false, targets_specific_victim:false,
     off_the_shelf_only:true, adapts_to_defenses:true,
     desc:"Runs a script-based deauth attack. When the AP switches channel, manually re-runs the tool on the new channel. Opportunistic, not targeting anyone specific.",
-    tier:"low", rule:"Rule 3 -- adapts but does NOT target a specific victim; no zero-day or custom tooling." },
+    tier:"low", rule:"Rule 3 (LOW). Re-running the same tool on a new channel is a small adaptation, but there is no chosen victim, so Rule 2 (which needs both) fails, and a script-based tool is off-the-shelf, so Rule 1 fails." },
   { name:"Subject G",
     uses_zero_day:true, custom_tooling:false, targets_specific_victim:false,
     off_the_shelf_only:false, adapts_to_defenses:false,
     desc:"Purchased a zero-day exploit for a widely used Wi-Fi driver from an underground marketplace. Deploying it opportunistically against any device on the public network.",
-    tier:"high", rule:"Rule 1 -- uses_zero_day is True." },
+    tier:"high", rule:"Rule 1 (HIGH). Any zero-day counts, even a purchased one used against random victims: the attacker can break into fully patched devices, which basic defenses cannot stop. Capability, not targeting, sets the tier here." },
   { name:"Subject H",
     uses_zero_day:false, custom_tooling:false, targets_specific_victim:false,
     off_the_shelf_only:false, adapts_to_defenses:false,
     desc:"Curious student experimenting with network concepts. Set up a hotspot with the same name as the cafe network to see if anything connects. No malicious intent, no custom code.",
-    tier:"low", rule:"Rule 3 -- all high-skill flags are False." }
+    tier:"low", rule:"Rule 3 (LOW). No zero-day, no custom code, no chosen target, no adapting. Intent does not change the tier: the rules measure capability. (Copying a cafe's network name is still an evil-twin setup, and doing it without permission on a public network can be illegal even \"just to see\".)" }
 ];
 
 var idx=0, score=0, GOAL=6, met=false, chosen=null, answered=false;
@@ -160,9 +162,9 @@ function submit(){
   var fb=document.getElementById('fb');
   if(ok){
     score++;
-    fb.innerHTML='<span class="ok">CORRECT.</span> Tier: '+p.tier.toUpperCase()+' -- '+esc(p.rule);
+    fb.innerHTML='<span class="ok">CORRECT.</span> Tier: '+p.tier.toUpperCase()+'.<ul class="why"><li><b>Why:</b> '+esc(p.rule)+'</li></ul>';
   } else {
-    fb.innerHTML='<span class="bad">INCORRECT.</span> Correct tier: '+p.tier.toUpperCase()+' -- '+esc(p.rule);
+    fb.innerHTML='<span class="bad">INCORRECT.</span> Correct tier: '+p.tier.toUpperCase()+'.<ul class="why"><li><b>Why:</b> '+esc(p.rule)+'</li></ul>';
   }
   if(score>=GOAL) met=true;
   updateBar();

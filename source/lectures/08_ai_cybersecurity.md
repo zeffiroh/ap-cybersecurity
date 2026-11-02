@@ -618,10 +618,10 @@ title: Data Poisoning Attacks
 ::::columns
 ::col::
 :::list heading="Types of Data Poisoning" style=plain
-- **Availability attack**, corrupt enough training data so the model becomes unreliable for all inputs
-- **Targeted attack**, cause the model to misclassify one specific class (e.g., spam flagged as legitimate)
-- **Backdoor / trojan attack**, model behaves correctly except when a secret trigger pattern is present
-- **Label flipping**, alter ground-truth labels on a subset of examples to skew learned decision boundaries
+- **Availability attack**: corrupt enough training data so the model becomes unreliable for all inputs
+- **Targeted attack**: cause the model to misclassify one specific class (e.g., spam flagged as legitimate)
+- **Backdoor / trojan attack**: model behaves correctly except when a secret trigger pattern is present
+- **Label flipping**: alter ground-truth labels on a subset of examples to skew learned decision boundaries
 :::
 ::col::
 :::list heading="High-Value Targets for Poisoning" style=plain
@@ -841,16 +841,16 @@ The **OWASP Machine Learning Security Top 10** catalogs the most critical securi
 :::
 
 :::list heading="OWASP ML Top 10 (2023)" style=plain
-- **ML01**, Input Manipulation Attack (adversarial examples, evasion)
-- **ML02**, Data Poisoning Attack (corrupting training data)
-- **ML03**, Model Inversion Attack (reconstructing training data from outputs)
-- **ML04**, Membership Inference Attack (determining if a record was in training set)
-- **ML05**, Model Theft (stealing model via API queries)
-- **ML06**, AI Supply Chain Attacks (compromising upstream data, models, or tools)
-- **ML07**, Transfer Learning Attack (poisoning pre-trained base models)
-- **ML08**, Model Skewing (manipulating real-time feedback loops)
-- **ML09**, Output Integrity Attack (manipulating model outputs in transit)
-- **ML10**, Model Poisoning (corrupting the model directly, not just its data)
+- **ML01**: Input Manipulation Attack (adversarial examples, evasion)
+- **ML02**: Data Poisoning Attack (corrupting training data)
+- **ML03**: Model Inversion Attack (reconstructing training data from outputs)
+- **ML04**: Membership Inference Attack (determining if a record was in training set)
+- **ML05**: Model Theft (stealing model via API queries)
+- **ML06**: AI Supply Chain Attacks (compromising upstream data, models, or tools)
+- **ML07**: Transfer Learning Attack (poisoning pre-trained base models)
+- **ML08**: Model Skewing (manipulating real-time feedback loops)
+- **ML09**: Output Integrity Attack (manipulating model outputs in transit)
+- **ML10**: Model Poisoning (corrupting the model directly, not just its data)
 :::
 
 :::code language=mermaid caption="OWASP ML Top 10 risk matrix: exploitability and impact profile for each category guides prioritization of security controls in ML-powered applications"
@@ -985,12 +985,12 @@ The **Govern** function is the foundation of the NIST AI RMF. It establishes the
 :::
 
 :::list heading="Govern Function Sub-Categories" style=plain
-- **GV-1**, Organizational policies, processes, and procedures for AI risk management are in place and understood
-- **GV-2**, Accountability for AI risk management is assigned to appropriate roles
-- **GV-3**, Organizational teams include diverse perspectives with AI literacy
-- **GV-4**, Risk tolerance for AI systems is established and communicated
-- **GV-5**, Organizational risk and legal compliance requirements are understood
-- **GV-6**, Policies and procedures for managing third-party AI system risks are established
+- **GV-1**: Organizational policies, processes, and procedures for AI risk management are in place and understood
+- **GV-2**: Accountability for AI risk management is assigned to appropriate roles
+- **GV-3**: Organizational teams include diverse perspectives with AI literacy
+- **GV-4**: Risk tolerance for AI systems is established and communicated
+- **GV-5**: Organizational risk and legal compliance requirements are understood
+- **GV-6**: Policies and procedures for managing third-party AI system risks are established
 :::
 
 :::table
@@ -1040,10 +1040,10 @@ The **Measure** function operationalizes risk assessment for AI systems, going b
 :::
 
 :::list heading="Measure Function Key Activities" style=plain
-- **MR-1**, AI risk measurement approaches are established and utilized
-- **MR-2**, AI system behavior is evaluated for consistency with intended use
-- **MR-3**, AI system performance, bias, and robustness are regularly tested
-- **MR-4**, Risks of AI system use are communicated to decision-makers
+- **MR-1**: AI risk measurement approaches are established and utilized
+- **MR-2**: AI system behavior is evaluated for consistency with intended use
+- **MR-3**: AI system performance, bias, and robustness are regularly tested
+- **MR-4**: Risks of AI system use are communicated to decision-makers
 :::
 
 ::::columns
@@ -1182,11 +1182,11 @@ Response requires identifying all deployments of the compromised component and r
 ::::columns
 ::col::
 :::list heading="Supply Chain Attack Vectors" style=plain
-- **Dataset poisoning**, corrupt a public dataset used for training (e.g., Common Crawl, ImageNet subsets)
-- **Malicious pre-trained model**, publish a backdoored model to HuggingFace, PyPI, or similar repositories
-- **ML library compromise**, inject malicious code into TensorFlow, PyTorch, or scikit-learn dependencies
-- **Labeling service attack**, compromise crowdsourcing platform workers to introduce systematic label errors
-- **Model card falsification**, falsify documentation about model capabilities, training data, or safety evaluations
+- **Dataset poisoning**: corrupt a public dataset used for training (e.g., Common Crawl, ImageNet subsets)
+- **Malicious pre-trained model**: publish a backdoored model to HuggingFace, PyPI, or similar repositories
+- **ML library compromise**: inject malicious code into TensorFlow, PyTorch, or scikit-learn dependencies
+- **Labeling service attack**: compromise crowdsourcing platform workers to introduce systematic label errors
+- **Model card falsification**: falsify documentation about model capabilities, training data, or safety evaluations
 :::
 ::col::
 :::list heading="Real Supply Chain Incidents" style=plain
@@ -1276,19 +1276,19 @@ title: Adversarial Training and AI Hardening Techniques
 ::::columns
 ::col::
 :::list heading="Model Hardening Techniques" style=plain
-- **Adversarial training**, Add adversarially perturbed examples to training data; model learns robust decision boundaries
-- **Certified defenses**, Mathematical proofs that model behavior is bounded under specific perturbation sizes (randomized smoothing)
-- **Input preprocessing**, Apply feature squeezing, JPEG compression, or pixel discretization to remove adversarial perturbations before inference
-- **Ensemble methods**, Average predictions across multiple diverse models; requires coordinated attack against all models
-- **Differential privacy**, Add calibrated noise during training to limit information leakage about individual training examples
+- **Adversarial training**: Add adversarially perturbed examples to training data; model learns robust decision boundaries
+- **Certified defenses**: Mathematical proofs that model behavior is bounded under specific perturbation sizes (randomized smoothing)
+- **Input preprocessing**: Apply feature squeezing, JPEG compression, or pixel discretization to remove adversarial perturbations before inference
+- **Ensemble methods**: Average predictions across multiple diverse models; requires coordinated attack against all models
+- **Differential privacy**: Add calibrated noise during training to limit information leakage about individual training examples
 :::
 ::col::
 :::list heading="LLM-Specific Hardening" style=plain
-- **Constitutional AI / RLHF**, Align model behavior with defined principles through reinforcement learning
-- **System prompt hardening**, Design system prompts to be injection-resistant; separate trusted instructions from untrusted content
-- **Output filtering**, Scan model outputs for policy violations before returning to user
-- **Rate limiting and monitoring**, Detect model extraction and unusual query patterns
-- **Privilege separation**, Separate model serving from privileged action execution; require explicit authorization for high-impact actions
+- **Constitutional AI / RLHF**: Align model behavior with defined principles through reinforcement learning
+- **System prompt hardening**: Design system prompts to be injection-resistant; separate trusted instructions from untrusted content
+- **Output filtering**: Scan model outputs for policy violations before returning to user
+- **Rate limiting and monitoring**: Detect model extraction and unusual query patterns
+- **Privilege separation**: Separate model serving from privileged action execution; require explicit authorization for high-impact actions
 :::
 ::::
 
@@ -1375,11 +1375,11 @@ Security-critical AI systems require not just technical security controls but et
 ::::columns
 ::col::
 :::list heading="Ethical Risks in Security AI" style=plain
-- **Biased threat detection**, AI fraud/intrusion detectors may perform differently across demographic groups, creating disparate false positive rates that disproportionately burden certain users
-- **Accountability gaps**, When an AI makes an incorrect security decision, who is responsible?
-- **Explainability requirements**, Security analysts need to understand why an AI flagged something to investigate or override it
-- **Consent and transparency**, Employees monitored by AI insider threat tools may have rights to notice
-- **Autonomy vs. oversight**, Fully autonomous AI security decisions (automatic account lock, network block) require careful governance
+- **Biased threat detection**: AI fraud/intrusion detectors may perform differently across demographic groups, creating disparate false positive rates that disproportionately burden certain users
+- **Accountability gaps**: When an AI makes an incorrect security decision, who is responsible?
+- **Explainability requirements**: Security analysts need to understand why an AI flagged something to investigate or override it
+- **Consent and transparency**: Employees monitored by AI insider threat tools may have rights to notice
+- **Autonomy vs. oversight**: Fully autonomous AI security decisions (automatic account lock, network block) require careful governance
 :::
 ::col::
 :::list heading="Governance Frameworks" style=plain

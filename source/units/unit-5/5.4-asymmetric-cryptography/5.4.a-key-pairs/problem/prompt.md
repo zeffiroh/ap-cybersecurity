@@ -1,4 +1,4 @@
-# Coding problem, 5.4.a: RSA key-pair parameters
+# Coding problem 5.4.a: RSA key-pair parameters
 
 **Skill:** Mitigate Risk · **Maps to:** 5.4.A · **Language:** Python 3 (pytest)
 
@@ -10,11 +10,11 @@ pair (e, d) actually satisfies the required mathematical relationship.
 
 ## Function contract
 Implement, in `starter.py`:
-- `rsa_params(p: int, q: int) -> tuple`, given two (small, distinct) primes, return
+- `rsa_params(p: int, q: int) -> tuple`: given two (small, distinct) primes, return
   `(n, phi_n)` where `n = p * q` and `phi_n = (p - 1) * (q - 1)`.
 - `is_valid_keypair(e: int, d: int, phi_n: int) -> bool`, return `True` iff
   `(e * d) % phi_n == 1`, i.e. d is the modular inverse of e mod phi_n.
-- `solve(data: dict) -> dict`, the blackbox entry point that dispatches to the two
+- `solve(data: dict) -> dict`: the blackbox entry point that dispatches to the two
   functions above (see `interface.md` / `blackbox.yaml`).
 
 ## The math (see atom.md)

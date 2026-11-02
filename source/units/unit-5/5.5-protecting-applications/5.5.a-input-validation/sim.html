@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5.5.a, Input validation and sanitization, Simulation</title>
+<title>5.5.a: Input validation and sanitization · Simulation</title>
 <style>
 :root{
   --bg:#fff;--fg:#000;--muted:#555;
@@ -40,6 +40,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui-fon
 h1{font-size:16px;margin:0 0 6px;}
 .toolbar{margin-bottom:8px;}
 .legend{font-size:12px;color:var(--muted);margin-top:8px;}
+.why{font-family:var(--ui-font,inherit);margin:6px 0 0;padding-left:18px;line-height:1.45;}
+.why li{margin:3px 0;}
 </style>
 </head>
 <body class="theme-win">
@@ -91,14 +93,14 @@ function isSafe(type, value){
 }
 
 var CASES = [
-  { type:"zip", value:"94107" },
-  { type:"zip", value:"9410" },
-  { type:"email", value:"user@example.com" },
-  { type:"username", value:"admin'--" },
-  { type:"quantity", value:"42" },
-  { type:"quantity", value:"150" },
-  { type:"username", value:"<script>alert(1)<\/script>" },
-  { type:"username", value:"jsmith_22" }
+  { type:"zip", value:"94107", why:"SAFE. Exactly five digits matches the ZIP allowlist (^\\d{5}$), and there is nothing injectable in it." },
+  { type:"zip", value:"9410", why:"BLOCKED. Only four digits, so it fails the allowlist shape. It is not an attack, but allowlist validation rejects anything that is not the expected shape, which is what makes it strong: you do not need to predict every attack." },
+  { type:"email", value:"user@example.com", why:"SAFE. It has a name, an @ and a domain with a dot, matching the email pattern, and no injection characters." },
+  { type:"username", value:"admin'--", why:"BLOCKED twice over: the quote and -- are not allowed in a username (letters, digits and _ only), and -- is the SQL comment marker from the 5.1.a login bypass." },
+  { type:"quantity", value:"42", why:"SAFE. Quantities must be 1 to 99 with no leading zero, and 42 fits." },
+  { type:"quantity", value:"150", why:"BLOCKED. Three digits is above the allowed 1 to 99. Range limits stop business-logic abuse too, like ordering 1,000,000 items or a negative amount." },
+  { type:"username", value:"<script>alert(1)<\/script>", why:"BLOCKED. Angle brackets and slashes are not allowed in a username, and <script is on the injection list (cross-site scripting, 5.1.b). Validating input is the first layer; escaping output is still needed as the second." },
+  { type:"username", value:"jsmith_22", why:"SAFE. Letters, digits and an underscore, 9 characters long, inside the 3 to 20 limit." }
 ];
 
 var idx=0, score=0, GOAL=5, met=false, chosen=null, answered=false;
@@ -129,8 +131,9 @@ function submitCase(){
   var safe=isSafe(c.type, c.value);
   var ok = chosen===safe;
   var fb=document.getElementById('fb');
-  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(safe?'SAFE':'BLOCKED'); }
-  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(safe?'SAFE':'BLOCKED'); }
+  var why='<ul class="why"><li><b>Why:</b> '+c.why.replace(/</g,'&lt;')+'</li></ul>';
+  if(ok){ score++; fb.innerHTML='<span class="ok">CORRECT.</span> '+(safe?'SAFE':'BLOCKED')+why; }
+  else { fb.innerHTML='<span class="bad">NOT QUITE.</span> Correct: '+(safe?'SAFE':'BLOCKED')+why; }
   if(score>=GOAL) met=true;
   updateBar();
 }

@@ -1,4 +1,4 @@
-# Coding problem, 2.3.b: Camera event log anomaly detector
+# Coding problem 2.3.b: Camera event log anomaly detector
 
 **Skill:** Detect Attacks · **Maps to:** 2.3.A · **Language:** Python 3 (pytest)
 
@@ -14,17 +14,17 @@ motion" pattern consistent with a camera fault or someone deliberately avoiding 
 so a human operator or SIEM can act on them.
 
 ## Alert rules
-- **AFTER_HOURS:\<camera_id\>**, a person was detected (`person_detected: True`) at a camera
+- **AFTER_HOURS:\<camera_id\>**: a person was detected (`person_detected: True`) at a camera
   outside that event's `authorized_hours` window. `authorized_hours` is a `(start, end)` tuple of
   UTC hours; an hour `h` is authorized if `start <= h < end`. The hour of an event is derived from
   its Unix timestamp: `hour = (ts % 86400) // 3600`.
-- **GHOST_MOTION:\<camera_id\>**, 3 or more **consecutive** events on the same camera (in
+- **GHOST_MOTION:\<camera_id\>**: 3 or more **consecutive** events on the same camera (in
   timestamp order) where `motion` is `True` but `person_detected` is `False`. Any event that
   breaks the pattern (`motion` is `False`, or `person_detected` is `True`) resets the streak count
   to zero. "Ghost motion" describes a camera repeatedly reporting motion with nothing confirmed
   human, often a maintenance issue (foliage, a loose mount) or a deliberate attempt to trigger
   false fatigue in an operator.
-- **CROWD_SERVER_ROOM**, more than 2 `person_detected: True` events occur in `area ==
+- **CROWD_SERVER_ROOM**: more than 2 `person_detected: True` events occur in `area ==
   "server_room"` within any 60-second sliding window (across any cameras). This is a single global
   alert, not per-camera.
 

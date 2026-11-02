@@ -65,15 +65,15 @@
       "type": "mcq",
       "prompt": "A config line reads 'port 23'. Why does an AI auditor flag this?",
       "options": [
-        "Port 23 is reserved and cannot be opened",
+        "Port 23 is used by many attack tools, so seeing it means the server is compromised",
         "Port 23 is Telnet, which transmits credentials in cleartext",
-        "Ports below 1024 are always insecure",
-        "Port 23 conflicts with HTTP traffic on port 80"
+        "Any port below 1024 requires root access, which is insecure",
+        "Port 23 is the default port for unencrypted HTTP"
       ],
       "answer": 1,
       "accept": null,
       "points": 1,
-      "explain": "Port 23 is the Telnet protocol, which sends all data including passwords unencrypted. SSH (port 22) replaced it specifically because of this vulnerability."
+      "explain": "Port 23 is Telnet, a remote-login protocol that sends usernames, passwords and commands as readable text; SSH (port 22) replaced it. An open port is a configuration risk, not proof of compromise, and unencrypted HTTP uses port 80."
     },
     {
       "id": "1.5.a.q5",
@@ -98,15 +98,15 @@
       "type": "mcq",
       "prompt": "Why is `eval(user_input)` flagged as dangerous by a static code scanner?",
       "options": [
-        "eval() is deprecated and no longer part of Python",
+        "eval() is slower than normal code, which lets attackers cause a denial of service",
         "eval() executes an arbitrary string as Python code, letting an attacker run any code on the server",
-        "eval() only works with numbers and cannot process strings",
-        "eval() is slow and causes performance issues"
+        "eval() prints its input to the server logs, leaking user data",
+        "eval() turns off Python's error handling for the rest of the program"
       ],
       "answer": 1,
       "accept": null,
       "points": 1,
-      "explain": "eval() interprets its argument as Python code. If user-controlled input reaches eval(), the attacker controls what code runs, a classic code injection vulnerability."
+      "explain": "eval() runs whatever text it is given as Python, so input like __import__('os').system('...') runs operating-system commands. That is remote code execution, the most severe class of bug; speed and logging are not the issue."
     },
     {
       "id": "1.5.b.q2",
@@ -135,15 +135,15 @@
       "type": "mcq",
       "prompt": "A developer stores `password = 'Admin@2024'` directly in source code. What is the PRIMARY security risk?",
       "options": [
-        "The password is too short",
-        "The equals sign is an insecure operator",
-        "Python cannot store passwords in variables",
+        "The password is too short to meet the 12-character minimum",
+        "Anyone who runs the program can see the password on screen",
+        "The password will expire and break the program in 90 days",
         "The password is visible to anyone with access to the source code or version history, making it a leaked credential"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "Hardcoded credentials are embedded in source code checked into version control. Anyone who can read the repo, including attackers who breach the code host, can see the credential."
+      "explain": "Source code is copied to developers' laptops, build servers, backups and sometimes public repositories, and version control keeps the secret forever even after it is deleted. Secrets belong in environment variables or a secrets manager. The program does not display the variable, and length is a separate issue."
     },
     {
       "id": "1.5.b.q4",
@@ -152,15 +152,15 @@
       "type": "mcq",
       "prompt": "Why is `pickle.loads(data)` dangerous when `data` comes from an untrusted source?",
       "options": [
-        "pickle.loads() is too slow for production use",
+        "pickle is slower than JSON, so large untrusted inputs can freeze the server",
         "Deserialization of a maliciously crafted pickle can execute arbitrary code without any additional exploit",
-        "pickle.loads() only works with binary data",
-        "pickle.loads() is not available in Python 3"
+        "pickle stores data unencrypted, so attackers can read it in transit",
+        "pickle files can contain viruses that antivirus software misses"
       ],
       "answer": 1,
       "accept": null,
       "points": 1,
-      "explain": "Pickle deserialization executes Python code embedded in the serialized object. An attacker can craft a malicious pickle that runs any command when loaded, making pickle from untrusted input equivalent to code execution."
+      "explain": "Unpickling rebuilds objects by calling functions named inside the data, so a crafted pickle can call os.system the moment it is loaded: no extra bug needed. Use a data-only format like JSON for anything untrusted. Encryption and speed are separate concerns."
     },
     {
       "id": "1.5.b.q5",
@@ -202,15 +202,15 @@
       "type": "mcq",
       "prompt": "An analyst sets the brute-force threshold to 1 failed login. What is the MOST LIKELY consequence?",
       "options": [
-        "Attackers will never be detected",
-        "The SIEM will run out of storage",
-        "Alert fatigue -- analysts are overwhelmed by normal mistyped passwords",
-        "The network will block all traffic"
+        "Attackers will be detected faster, with no downside",
+        "Brute-force attempts will be blocked automatically",
+        "Alert fatigue: analysts are overwhelmed by normal mistyped passwords",
+        "The rule will stop firing because one failure is below the noise floor"
       ],
       "answer": 2,
       "accept": null,
       "points": 1,
-      "explain": "A threshold of 1 flags every mistyped password, generating far more alerts than analysts can investigate -- a classic alert fatigue scenario."
+      "explain": "Everyone mistypes a password sometimes, so a threshold of 1 fires constantly. Analysts flooded with false positives start ignoring alerts (alert fatigue), and real attacks get missed in the noise. A detection rule only alerts; blocking is a separate action."
     },
     {
       "id": "1.5.c.q3",
@@ -255,15 +255,15 @@
       "type": "mcq",
       "prompt": "An AI tool proposes a new detection rule based on historical log analysis. What should happen BEFORE the rule is deployed to production?",
       "options": [
-        "Deploy it immediately -- AI rules are always correct",
-        "Delete it -- AI-generated rules are unreliable",
-        "Run it for one second and check if any alerts fire",
+        "Deploy it immediately, because the AI learned from the organization's own logs",
+        "Deploy it in blocking mode first, then review whatever it blocks",
+        "Replace the old rules with it, since AI rules are more current",
         "A human analyst reviews it for precision, context, and compliance"
       ],
       "answer": 3,
       "accept": null,
       "points": 1,
-      "explain": "AI generates rule candidates; humans approve. Analyst review checks precision, legal/privacy compliance, and whether the IP might be a trusted partner."
+      "explain": "AI can suggest useful rules, but historical logs do not show business context (planned scans, exceptions, legal requirements). A person checks how often it would fire, whether it would block legitimate work, and whether it fits policy, then it is usually tested in alert-only mode before enforcing."
     },
     {
       "id": "1.5.d.q1",
@@ -341,15 +341,15 @@
       "type": "mcq",
       "prompt": "A SOC processes incidents in arrival order instead of severity order. What is the PRIMARY risk?",
       "options": [
-        "The SIEM will generate fewer alerts",
-        "Auto-resolution will stop working",
+        "Analysts will spend more time on each incident",
+        "Low-severity incidents will never be closed",
         "Critical incidents may wait behind low-severity noise, giving attackers more dwell time",
-        "MTTR will become negative"
+        "Auto-resolution rules will stop running"
       ],
       "answer": 2,
       "accept": null,
       "points": 1,
-      "explain": "Processing in arrival order means a critical ransomware alert can sit behind hundreds of low-severity port-scan alerts, increasing dwell time and damage."
+      "explain": "Dwell time (how long an attacker stays undetected or uncontained) drives damage. Working in arrival order means a ransomware beacon can sit behind a dozen low-risk alerts. Severity-first triage puts the dangerous ones at the front."
     }
   ],
   "coding_problems": [

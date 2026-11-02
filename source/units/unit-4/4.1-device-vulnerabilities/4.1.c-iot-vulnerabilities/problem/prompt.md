@@ -1,4 +1,4 @@
-# Coding problem, 4.1.c: Audit an IoT device for its dominant vulnerability
+# Coding problem 4.1.c: Audit an IoT device for its dominant vulnerability
 
 **Skill:** Analyze Risk · **Maps to:** 4.1.A, 4.1.C · **Language:** Python 3 (pytest)
 

@@ -1,4 +1,4 @@
-# Coding problem, 5.5.b: Secure-coding configuration auditor
+# Coding problem 5.5.b: Secure-coding configuration auditor
 
 **Skill:** Mitigate Risk · **Maps to:** 5.5.A, 5.5.B · **Language:** Python 3 (pytest)
 

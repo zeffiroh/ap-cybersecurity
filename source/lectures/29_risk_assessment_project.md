@@ -1463,7 +1463,7 @@ The skills developed in this project align directly with high-demand cybersecuri
 - **CRISC** (ISACA), Most directly aligned to risk assessment practice.
 - **CISSP** (ISC²), Domain 1 covers all SP 800-30 content; most recognized globally.
 - **CISM** (ISACA), Management-focused; excellent for CISO track.
-- **CompTIA Security+**, Entry-level certification covering risk concepts; recommended starting point.
+- **CompTIA Security+**: Entry-level certification covering risk concepts; recommended starting point.
 :::
 ::::
 ::col::

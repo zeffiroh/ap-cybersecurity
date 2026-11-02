@@ -33,10 +33,10 @@ def run():
         if (src / "flashcards.json").exists():
             copy(src / "flashcards.json", ASSETS / "flashcards" / "data" / f"{tid}.json")
         for a in C.topic_atoms(tid):
-            if (a["src"] / "sim.html").exists():
-                copy(a["src"] / "sim.html", atom_dir(a["id"]) / "sim.html")
-            if (a["src"] / "lab.html").exists():
-                copy(a["src"] / "lab.html", atom_dir(a["id"]) / "lab.html")
+            for kind in ("sim", "lab"):
+                if (a["src"] / f"{kind}.html").exists():
+                    dst = atom_dir(a["id"]) / f"{kind}.html"
+                    emit(dst, N.with_taskbar(dst, a, kind, rd(a["src"] / f"{kind}.html")))
             if (a["src"] / "banner.png").exists():
                 copy(a["src"] / "banner.png", teacher_atom(a["id"]) / "banner.png")
     for u in C.units():

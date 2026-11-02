@@ -123,19 +123,19 @@ title: Anatomy of a Phishing Email
 ::::columns
 ::col::
 :::list heading="Structural Indicators of Phishing" style=plain
-- **Sender Address**, Spoofed or subtly altered domains (e.g., `support@paypa1.com`)
-- **Subject Line**, Emotional triggers: urgency, fear, greed (e.g., "Your account will be closed!")
-- **Greeting**, Generic or absent (e.g., "Dear Valued Customer")
-- **Body Content**, Vague language, poor grammar, branding inconsistencies
-- **Call to Action**, Embedded links or attachments with malicious payloads
+- **Sender Address**: Spoofed or subtly altered domains (e.g., `support@paypa1.com`)
+- **Subject Line**: Emotional triggers: urgency, fear, greed (e.g., "Your account will be closed!")
+- **Greeting**: Generic or absent (e.g., "Dear Valued Customer")
+- **Body Content**: Vague language, poor grammar, branding inconsistencies
+- **Call to Action**: Embedded links or attachments with malicious payloads
 :::
 
 ::col::
 :::list heading="Behavioral Cues" style=plain
-- **Tone**, Coercive or manipulative language ("Act now or face consequences")
-- **Urgency**, Time-sensitive deadlines ("24 hours left!")
-- **Authority Mimicry**, Impersonation of trusted entities (banks, government, tech support)
-- **Social Proofing**, Fake testimonials or claims of widespread impact
+- **Tone**: Coercive or manipulative language ("Act now or face consequences")
+- **Urgency**: Time-sensitive deadlines ("24 hours left!")
+- **Authority Mimicry**: Impersonation of trusted entities (banks, government, tech support)
+- **Social Proofing**: Fake testimonials or claims of widespread impact
 :::
 ::::
 
@@ -281,8 +281,8 @@ title: Email Spoofing
 :::
 
 :::list heading="Core Email Authentication Mechanisms" style=tight
-- **SPF (Sender Policy Framework)**, RFC 7208, allows domain owners to specify which IP addresses are authorized to send mail on behalf of their domain.
-- **DKIM (DomainKeys Identified Mail)**, RFC 6376, adds a digital signature to outgoing emails, enabling recipients to verify message integrity and sender authenticity.
+- **SPF (Sender Policy Framework)**: RFC 7208, allows domain owners to specify which IP addresses are authorized to send mail on behalf of their domain.
+- **DKIM (DomainKeys Identified Mail)**: RFC 6376, adds a digital signature to outgoing emails, enabling recipients to verify message integrity and sender authenticity.
 - **DMARC (Domain-based Message Authentication, Reporting, and Conformance)**, RFC 7489, builds on SPF and DKIM by providing domain-level policies and reporting mechanisms to handle failed authentication attempts.
 :::
 
@@ -521,11 +521,11 @@ title: Spear Phishing, When Attackers Do Their Homework
 ::::columns
 ::col::
 :::list heading="Reconnaissance Sources" style=plain
-- **LinkedIn**, job title, reporting structure, colleagues, project names
-- **Corporate website**, executive names, org charts, press releases, vendor partnerships
-- **Twitter / X**, recent travel, conferences attended, personal interests
-- **Data breach dumps**, previously compromised email and password pairs
-- **WHOIS / certificate transparency**, internal subdomains and infrastructure hints
+- **LinkedIn**: job title, reporting structure, colleagues, project names
+- **Corporate website**: executive names, org charts, press releases, vendor partnerships
+- **Twitter / X**: recent travel, conferences attended, personal interests
+- **Data breach dumps**: previously compromised email and password pairs
+- **WHOIS / certificate transparency**: internal subdomains and infrastructure hints
 :::
 ::col::
 :::list heading="Spear Phishing vs. Generic Phishing" style=plain
@@ -749,10 +749,10 @@ Attacker replays cookie, bypasses MFA entirely
 ::::columns
 ::col::
 :::list heading="AiTM Toolkit Examples" style=plain
-- **Evilginx2**, Open-source reverse proxy phishing framework; captures session cookies with MITM technique (GitHub)
-- **Modlishka**, Configurable reverse proxy phishing tool supporting any target site
-- **Caffeine**, As-a-Service phishing platform sold on criminal forums; AiTM built in
-- **Storm-1167**, Microsoft-tracked threat actor group using AiTM against Microsoft 365 since 2022
+- **Evilginx2**: Open-source reverse proxy phishing framework; captures session cookies with MITM technique (GitHub)
+- **Modlishka**: Configurable reverse proxy phishing tool supporting any target site
+- **Caffeine**: As-a-Service phishing platform sold on criminal forums; AiTM built in
+- **Storm-1167**: Microsoft-tracked threat actor group using AiTM against Microsoft 365 since 2022
 :::
 ::col::
 :::list heading="Why Push-Based MFA Falls Short" style=plain

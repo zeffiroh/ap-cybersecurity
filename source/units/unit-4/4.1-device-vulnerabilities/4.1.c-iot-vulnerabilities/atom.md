@@ -1,4 +1,4 @@
-# 4.1.c, IoT device vulnerabilities
+# 4.1.c: IoT device vulnerabilities
 
 > **Unit 4 · 4.1 Device Vulnerabilities and Attacks**
 > **AP Learning Objective(s):** 4.1.A, 4.1.C
@@ -71,23 +71,23 @@ a list of smart devices and flag each one's primary vulnerability, and the codin
 `problem/` asks you to formalize that same triage logic as a function.
 
 ## Key terms
-- **IoT (Internet of Things)**, everyday physical devices that connect to a network/internet
+- **IoT (Internet of Things)**: everyday physical devices that connect to a network/internet
   (cameras, sensors, appliances, controllers) beyond traditional computers and phones.
-- **Default credentials**, the factory-set username/password shipped on a device, often never
+- **Default credentials**: the factory-set username/password shipped on a device, often never
   changed by the owner, and widely known/scanned for by attackers.
-- **Firmware**, the low-level software embedded in a device that controls its core operation;
+- **Firmware**: the low-level software embedded in a device that controls its core operation;
   often lacks an automatic update mechanism on IoT hardware.
-- **Attack surface**, the complete set of points where an attacker could try to get into or
+- **Attack surface**: the complete set of points where an attacker could try to get into or
   extract data from a system; more exposed devices/services/ports means a larger attack surface.
-- **Botnet**, a network of compromised devices remotely controlled by an attacker as a group,
+- **Botnet**: a network of compromised devices remotely controlled by an attacker as a group,
   often used for large-scale DDoS attacks.
-- **Mirai**, a 2016 botnet malware that hijacked IoT devices via default Telnet credentials and
+- **Mirai**: a 2016 botnet malware that hijacked IoT devices via default Telnet credentials and
   launched record-setting DDoS attacks; the canonical real-world IoT botnet example.
-- **UPnP (Universal Plug and Play)**, a protocol that lets devices automatically open ports on a
+- **UPnP (Universal Plug and Play)**: a protocol that lets devices automatically open ports on a
   router, which can unintentionally expose management interfaces to the internet.
-- **Shadow IoT**, devices connected to a network without IT's knowledge, approval, or security
+- **Shadow IoT**: devices connected to a network without IT's knowledge, approval, or security
   oversight, silently expanding the attack surface.
-- **EOL (end-of-life) device**, a device whose manufacturer has stopped issuing updates or
+- **EOL (end-of-life) device**: a device whose manufacturer has stopped issuing updates or
   support, leaving any undiscovered or unpatched vulnerabilities permanently exploitable.
 
 ## Common misconceptions

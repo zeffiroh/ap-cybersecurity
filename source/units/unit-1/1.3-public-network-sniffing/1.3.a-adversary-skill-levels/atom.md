@@ -1,4 +1,4 @@
-# 1.3.a, Adversary skill levels (low-skilled vs high-skilled / zero-days); motivation
+# 1.3.a: Adversary skill levels (low-skilled vs high-skilled / zero-days); motivation
 
 > **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
 > **AP Learning Objective(s):** 1.3.A
@@ -79,11 +79,11 @@ skill and motivation is the first step in any risk analysis, because it determin
 likelihood and severity of an attack.
 
 ## Key terms
-- **Low-skilled adversary**, attacker who uses existing public tools without understanding the underlying mechanics; threat is broad but shallow.
-- **High-skilled adversary**, attacker who creates or modifies tools, understands full protocol stacks, and can adapt; threat is precise and deep.
-- **Zero-day vulnerability**, a security flaw unknown to the vendor, giving the defender zero days of advance warning; typically exploited only by high-skilled actors.
-- **Motivation**, the attacker's goal (financial gain, espionage, disruption, curiosity) that shapes which targets and methods they choose.
-- **Script kiddie**, informal term for a low-skilled attacker running tools they did not write and do not fully understand.
+- **Low-skilled adversary**: attacker who uses existing public tools without understanding the underlying mechanics; threat is broad but shallow.
+- **High-skilled adversary**: attacker who creates or modifies tools, understands full protocol stacks, and can adapt; threat is precise and deep.
+- **Zero-day vulnerability**: a security flaw unknown to the vendor, giving the defender zero days of advance warning; typically exploited only by high-skilled actors.
+- **Motivation**: the attacker's goal (financial gain, espionage, disruption, curiosity) that shapes which targets and methods they choose.
+- **Script kiddie**: informal term for a low-skilled attacker running tools they did not write and do not fully understand.
 
 ## Common misconceptions
 - "Hackers on public Wi-Fi are all elite geniuses." → Most opportunistic attacks use free, widely available tools. The ceiling is high, but the floor is very low.

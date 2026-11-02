@@ -1,4 +1,4 @@
-# Coding problem, 3.2.c: Defense-in-depth layer classifier
+# Coding problem 3.2.c: Defense-in-depth layer classifier
 
 **Skill:** Mitigate Risk · **Maps to:** 3.2.B, 3.2.C · **Language:** Python 3 (pytest)
 
