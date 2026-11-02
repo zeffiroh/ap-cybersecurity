@@ -26,7 +26,7 @@ BLURB = ("Units 1–5 of AP Cybersecurity, from social engineering and the CIA t
          "device hardening, cryptography and secure applications. Every chapter opens with a real incident, "
          "explains how the attack works and how defenders stop it, and closes with review questions and an "
          "answer key. Diagrams, worked examples and short Python and shell listings throughout.")
-LONG = f"""{TITLE}: {SUBTITLE}, by {AUTHOR}.
+LONG = f"""From Aayat-AP-Prep: {TITLE}: {SUBTITLE}, by {AUTHOR}.
 
 {BLURB}
 
@@ -41,7 +41,7 @@ courses) and for teachers running it. The chapters follow the course framework t
   Unit 5  Securing Applications and Data: code vulnerabilities, Linux permissions, hashing and keys,
           public-key cryptography, secure web design, application auditing
 
-AP is a registered trademark of College Board, which is not affiliated with, and does not endorse, this book."""
+AP is a registered trademark of College Board, which is not affiliated with, and does not endorse, this book. Aayat-AP-Prep is independent."""
 KEYWORDS = ["AP Cybersecurity", "cybersecurity textbook", "AP Career Kickstart", "network security for beginners",
             "cryptography basics", "social engineering", "high school computer science"]
 BISAC = ["COM053000  COMPUTERS / Security / General", "STU004000  STUDY AIDS / AP Tests",
@@ -51,10 +51,10 @@ LICENSE = {
     "digital": ("This digital edition is licensed to the purchaser for personal and classroom use. Please do not "
                 "redistribute the file. No part of this edition may be reproduced or transmitted in any form "
                 "without the author's written permission, except for brief quotations in reviews and scholarly "
-                "work. The online edition of this book is included with the AP Cybersecurity course."),
+                "work. The online edition of this book is included with the Aayat-AP-Prep course."),
     "print": ("No part of this book may be reproduced, stored or transmitted in any form or by any means without "
               "the author's written permission, except for brief quotations in reviews and scholarly work. The "
-              "online edition of this book is included with the AP Cybersecurity course."),
+              "online edition of this book is included with the Aayat-AP-Prep course."),
 }
 
 
@@ -298,7 +298,7 @@ def write(path, text):
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
-def readmes(pw, pages, paper, kdp_spine, pothi_spine):
+def readmes(pw, pages, paper, pothi_spine):
     kw = "\n".join("  " + k for k in KEYWORDS)
     bisac = "\n".join("  " + b for b in BISAC)
     write(OUT / "README.txt", f"""
@@ -310,11 +310,10 @@ steps. This folder is gitignored: it holds the unlocked book and the PDF passwor
 put it on the course site.
 
   Folder               Sells                                   Files
-  razorpay/            the PDF password (India)                 thank-you text, logo
+  razorpay/            the PDF password (India)                 thank-you text, book logo, course logo
   gumroad/             the PDF password (everywhere else)       locked PDF, thank-you text, cover, thumbnail
+  gumroad/course/      the course (everywhere else)             course cover, course thumbnail
   payhip/              the PDF + EPUB, delivered by Payhip      digital PDF, EPUB, cover
-  google-play-books/   ebook                                    EPUB, digital PDF, cover
-  amazon-kdp/          Kindle ebook + paperback                 EPUB, cover JPG / interior PDF, cover PDF
   pothi/               paperback + ebook (India)                interior PDF, cover PDF / PDF, EPUB
 
   store-listing.txt    title, description, keywords and categories to paste into every store
@@ -336,11 +335,9 @@ Rebuild this folder after changing the book
 The paperback covers are sized for {pages} pages; if the page count changes, rebuild and upload both again.
 
 Before you publish anywhere
-  [ ] Open the EPUB in Calibre (installed) or Google Play's preview and page through one chapter.
+  [ ] Open the EPUB in Calibre (installed) and page through one chapter.
   [ ] Open each interior PDF and check the copyright page wording.
-  [ ] Never enrol the Kindle ebook in KDP Select: it demands exclusivity, and the PDF is sold elsewhere.
-  [ ] Each format needs its own ISBN if you use one. KDP and Pothi give paperback ISBNs free; the
-      ebooks don't need one.
+  [ ] Pothi gives a paperback ISBN free; the ebooks don't need one.
 """)
     write(OUT / "store-listing.txt", f"""
 STORE LISTING (paste into every store)
@@ -361,10 +358,10 @@ SHORT DESCRIPTION (one paragraph)
 LONG DESCRIPTION
 {LONG}
 
-KEYWORDS (KDP takes 7)
+KEYWORDS
 {kw}
 
-CATEGORIES (BISAC codes, for Google Play, Pothi and KDP's category picker)
+CATEGORIES (BISAC codes, for Pothi's category picker)
 {bisac}
 
 The word "AP" belongs to College Board. Keep "for AP Cybersecurity" as the subtitle (not the title) and keep
@@ -384,6 +381,8 @@ Check once on that page:
   [ ] Settings -> "After payment": Custom message = thank-you-message.txt (it contains the password).
       No redirect: the password must stay on Razorpay's page, not on the public course site.
   [ ] Description: the SHORT DESCRIPTION from ../store-listing.txt. Image: razorpay-logo-512x512.png.
+
+The course page (https://rzp.io/rzp/unlock-aap-cybersecurity) uses course-logo-512x512.png.
   [ ] A Rs 1 test shows the password after paying.
 """)
     thanks = f"""
@@ -403,13 +402,16 @@ Questions or a lost password: {EMAIL}
 GUMROAD - sell the PDF password (everywhere outside India)
 ==========================================================
 
-1. https://app.gumroad.com/products/new -> Digital product. Name: "{TITLE}: {SUBTITLE}". Price in USD.
+1. https://app.gumroad.com/products/new -> E-book. Name: "{TITLE}: {SUBTITLE} (Aayat-AP-Prep)". Price in USD.
 2. Description: the LONG DESCRIPTION from ../store-listing.txt.
    Cover: gumroad-cover-1280x720.png. Thumbnail: gumroad-thumbnail-600x600.png.
 3. Content tab: upload {NAME}-locked.pdf (the same locked file as the course site), and add a text block
    with thank-you-message.txt, which has the password. Buyers get both on the receipt page and by email.
 4. Publish, copy the product link, and paste it as the second "pdf" entry in source/static/buy/index.html.
-5. Gumroad sales are not in the course ledger yet; ask Claude to add them.
+
+THE COURSE (folder course/): "Beginner's Cybersecurity Kickstarter: Full Course (Aayat-AP-Prep)", link
+ending /l/cybersecurity-kickstarter. db/sync_gumroad.py (every 5 minutes, secret GUMROAD_ACCESS_TOKEN)
+puts every Gumroad sale in the ledger and unlocks the course for each course buyer's email.
 """)
     write(OUT / "payhip" / "README.txt", f"""
 PAYHIP - unlocked PDF + EPUB, delivered by Payhip
@@ -422,51 +424,6 @@ PAYHIP - unlocked PDF + EPUB, delivered by Payhip
    Download limit: 5.
 5. Publish, copy the link, and paste it into the Payhip entry in source/static/buy/index.html.
 """)
-    write(OUT / "google-play-books" / "README.txt", f"""
-GOOGLE PLAY BOOKS - ebook
-=========================
-
-1. https://play.google.com/books/publish -> sign in -> fill in the payment and tax profile once.
-2. Add book -> no ISBN (Google assigns a GGKEY) -> "Book details": title, subtitle, author, language
-   English, description and BISAC subjects from ../store-listing.txt. Publisher: {AUTHOR}.
-3. Content: upload {NAME}.epub AND {NAME}.pdf. Google shows the EPUB as flowing text and the PDF as the
-   original pages; both are allowed and readers can switch.
-   Cover: cover-1600x2560.jpg.
-4. Settings -> DRM: on. "Allow preview": 20%.
-5. Prices: set INR and USD; leave the other countries on automatic conversion.
-6. Publish. Review takes a few days. Then copy the book's link into the Google Play Books entry in
-   source/static/buy/index.html.
-""")
-    write(OUT / "amazon-kdp" / "README.txt", f"""
-AMAZON KDP - Kindle ebook and paperback
-=======================================
-
-https://kdp.amazon.com -> sign in with an Amazon account -> finish the tax interview and bank details.
-
-KINDLE EBOOK (folder kindle-ebook/)
-1. Create -> Kindle eBook. Title, subtitle, author, description, keywords and categories from
-   ../store-listing.txt. Primary audience: no sexually explicit content; reading age 15-18.
-2. Content: manuscript = {NAME}.epub. DRM: yes. Cover: "Upload a cover you already have" =
-   cover-1600x2560.jpg. ISBN: none needed.
-3. Use the Kindle Previewer on the review page; tables and code should read, figures are images.
-4. Pricing: DO NOT tick "Enroll in KDP Select" (exclusivity; the PDF is sold on other stores).
-   Royalty 70% needs a price between USD 2.99 and 9.99.
-
-PAPERBACK (folder paperback/)
-1. Create -> Paperback (or "Create paperback" from the ebook's row, to link the two).
-2. Details: as above. ISBN: "Get a free KDP ISBN".
-3. Content:
-     Ink and paper: Black & white interior with {paper} paper. (Colour is possible but makes a
-       {pages}-page book very expensive; the maroon prints as dark grey.)
-     Trim size: {TRIM_W:g} x {TRIM_H:g} in.   Bleed: No bleed.   Cover finish: Matte.
-     Manuscript: {NAME}-interior.pdf
-     Cover: "Upload a cover you already have" -> {NAME}-cover.pdf
-       (made for {pages} pages on {paper} paper, spine {kdp_spine:.3f} in; KDP leaves the
-       bottom right of the back for its barcode)
-4. Launch Previewer, fix anything it flags, approve. Order a proof copy before going live.
-5. If you change the paper to {"white" if paper == "cream" else "cream"}, rebuild with
-       python -m builder.editions --paper {"white" if paper == "cream" else "cream"}
-""")
     write(OUT / "pothi" / "README.txt", f"""
 POTHI.COM - paperback and ebook (India)
 =======================================
@@ -476,7 +433,7 @@ https://pothi.com -> Publish -> sign up.
 PAPERBACK (folder paperback/)
 1. Publish a print book. Size: {TRIM_W:g} x {TRIM_H:g} in if Pothi offers it (or "custom"). If it
    doesn't, tell Claude the size Pothi does offer and the book will be re-set for it.
-2. Interior: Black & white, {pages} pages. Upload {NAME}-interior.pdf.
+2. Interior: Black & white, {pages} pages, {paper} paper. Upload {NAME}-interior.pdf.
 3. Cover: Pothi's cover page shows the spine width for {pages} pages on the paper you chose.
    This cover was made with a {pothi_spine:.3f} in spine. If Pothi's number differs, rebuild:
        python -m builder.editions --pothi-spine <Pothi's number in inches>
@@ -494,8 +451,8 @@ Copy the Pothi book link into the Pothi entry in source/static/buy/index.html.
 
 def main():
     ap = argparse.ArgumentParser(description="Store copies of the textbook in publication/")
-    ap.add_argument("--paper", choices=sorted(PER_PAGE), default="white", help="KDP paperback paper")
-    ap.add_argument("--pothi-spine", type=float, help="Pothi spine width in inches (default: same as KDP)")
+    ap.add_argument("--paper", choices=sorted(PER_PAGE), default="white", help="paperback paper")
+    ap.add_argument("--pothi-spine", type=float, help="Pothi spine width in inches (default: from --paper)")
     a = ap.parse_args()
 
     if not LOCKED_PDF.exists() or not locked(LOCKED_PDF):
@@ -512,8 +469,7 @@ def main():
         front_jpg(cover)
         epub(tmp / "book.epub", cover)
         pages = page_count(printed)
-        kdp_spine = pages * PER_PAGE[a.paper]
-        pothi_spine = a.pothi_spine or kdp_spine
+        pothi_spine = a.pothi_spine or pages * PER_PAGE[a.paper]
 
         def put(src, *rel):
             dst = OUT.joinpath(*rel)
@@ -521,19 +477,19 @@ def main():
             shutil.copyfile(src, dst)
 
         put(BRANDING / "razorpay-logo-512x512.png", "razorpay", "razorpay-logo-512x512.png")
+        put(BRANDING / "course-logo-512x512.png", "razorpay", "course-logo-512x512.png")
         put(LOCKED_PDF, "gumroad", f"{NAME}-locked.pdf")
         for f in ("gumroad-cover-1280x720.png", "gumroad-thumbnail-600x600.png"):
             put(BRANDING / f, "gumroad", f)
-        for d in ("payhip", "google-play-books", "amazon-kdp/kindle-ebook", "pothi/ebook"):
+        for f in ("course-cover-1280x720.png", "course-thumbnail-600x600.png"):
+            put(BRANDING / f, "gumroad", "course", f)
+        for d in ("payhip", "pothi/ebook"):
             put(cover, *d.split("/"), "cover-1600x2560.jpg")
             put(tmp / "book.epub", *d.split("/"), f"{NAME}.epub")
-        for d in ("payhip", "google-play-books", "pothi/ebook"):
             put(digital, *d.split("/"), f"{NAME}.pdf")
-        for d in ("amazon-kdp/paperback", "pothi/paperback"):
-            put(printed, *d.split("/"), f"{NAME}-interior.pdf")
-        cover_wrap(OUT / "amazon-kdp" / "paperback" / f"{NAME}-cover.pdf", kdp_spine)
+        put(printed, "pothi", "paperback", f"{NAME}-interior.pdf")
         cover_wrap(OUT / "pothi" / "paperback" / f"{NAME}-cover.pdf", pothi_spine)
-        readmes(pw, pages, a.paper, kdp_spine, pothi_spine)
+        readmes(pw, pages, a.paper, pothi_spine)
     print(f"done: {OUT.relative_to(ROOT)}/  ({pages} print pages)")
 
 

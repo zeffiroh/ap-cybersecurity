@@ -467,20 +467,23 @@ begin
         from payments where status in ('captured', 'refunded'))
     select jsonb_build_object(
       'ok', true,
-      'totals', (select jsonb_build_object(
-          'payments', count(*), 'gross', coalesce(sum(amount), 0),
-          'refunded', coalesce(sum(amount_refunded), 0), 'fees', coalesce(sum(fee), 0),
-          'net', coalesce(sum(amount - amount_refunded - fee), 0)) from paid),
+      'totals', coalesce((select jsonb_agg(jsonb_build_object(
+          'currency', currency, 'payments', n, 'gross', gross, 'refunded', refunded, 'fees', fees, 'net', net)
+          order by currency <> 'INR', currency)
+        from (select currency, count(*) n, sum(amount) gross, sum(amount_refunded) refunded, sum(fee) fees,
+                     sum(amount - amount_refunded - fee) net
+                from paid group by currency) c), '[]'::jsonb),
       'months', coalesce((select jsonb_agg(jsonb_build_object(
-          'month', month, 'payments', n, 'gross', gross, 'net', net) order by month desc)
-        from (select month, count(*) n, sum(amount) gross, sum(amount - amount_refunded - fee) net
-                from paid group by month) m), '[]'::jsonb),
+          'month', month, 'currency', currency, 'payments', n, 'gross', gross, 'net', net)
+          order by month desc, currency <> 'INR', currency)
+        from (select month, currency, count(*) n, sum(amount) gross, sum(amount - amount_refunded - fee) net
+                from paid group by month, currency) m), '[]'::jsonb),
       'methods', coalesce((select jsonb_agg(jsonb_build_object(
-          'method', method, 'payments', n, 'net', net) order by net desc)
-        from (select method, count(*) n, sum(amount - amount_refunded - fee) net
-                from paid group by method) m), '[]'::jsonb),
+          'method', method, 'currency', currency, 'payments', n, 'net', net) order by currency <> 'INR', net desc)
+        from (select method, currency, count(*) n, sum(amount - amount_refunded - fee) net
+                from paid group by method, currency) m), '[]'::jsonb),
       'recent', coalesce((select jsonb_agg(jsonb_build_object(
-          'id', id, 'at', _iso(created_at), 'status', status, 'amount', amount,
+          'id', id, 'at', _iso(created_at), 'status', status, 'amount', amount, 'currency', currency,
           'refunded', amount_refunded, 'method', method, 'email', email,
           'message', (select value from jsonb_each_text(notes) where key ilike '%message%' limit 1))
           order by created_at desc)

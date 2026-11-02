@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<title>Ledger · AP Cybersecurity</title>
+<title>Ledger · Aayat-AP-Prep</title>
 <style>
   :root { --ink: #111; --muted: #444; --faint: #777; --line: #d4d4d4; --soft: #f5f5f5; }
   * { box-sizing: border-box; }
@@ -62,8 +62,9 @@
     <h2>Latest payments</h2>
     <div class="scroll"><table id="recent"></table></div>
 
-    <p class="note">Razorpay payments, copied into the database about every 5 minutes. Failed and unfinished
-      payments are listed but not counted. Fees include GST.</p>
+    <p class="note">Razorpay and Gumroad sales, copied into the database about every 5 minutes. Rupees and
+      dollars are totalled separately. Failed and unfinished payments are listed but not counted. Razorpay fees
+      include GST.</p>
   </div>
 </main>
 
@@ -73,8 +74,16 @@
   var $ = function (id) { return document.getElementById(id); };
   var key = location.hash.slice(1);
   try { key = decodeURIComponent(key); } catch (e) {  }
-  var inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
-  var money = function (paise) { return inr.format((Number(paise) || 0) / 100); };
+  var money = function (minor, cur) {
+    cur = (cur || "INR").toUpperCase();
+    try {
+      return new Intl.NumberFormat(cur === "INR" ? "en-IN" : "en-US", { style: "currency", currency: cur })
+        .format((Number(minor) || 0) / 100);
+    } catch (e) { return cur + " " + ((Number(minor) || 0) / 100).toFixed(2); }
+  };
+  var each = function (list, key) {
+    return list.length ? list.map(function (t) { return money(t[key], t.currency); }).join(" + ") : money(0);
+  };
   var day = function (iso) {
     return iso ? new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
   };
@@ -105,11 +114,12 @@
   }
 
   function show(d) {
-    var t = d.totals, u = d.unlocks || {};
-    $("net").textContent = money(t.net);
+    var t = d.totals || [], u = d.unlocks || {};
+    $("net").textContent = each(t, "net");
     $("when").textContent = d.syncedAt ? "Last synced " + day(d.syncedAt) : "Not synced yet";
-    [["Payments", t.payments], ["Gross", money(t.gross)], ["Fees", money(t.fees)], ["Refunded", money(t.refunded)],
-     ["Unlocked by paying", u.razorpay || 0], ["Unlocked free", u.free || 0], ["Unlocked by code", u.code || 0],
+    [["Payments", t.reduce(function (n, c) { return n + c.payments; }, 0)], ["Gross", each(t, "gross")],
+     ["Fees", each(t, "fees")], ["Refunded", each(t, "refunded")],
+     ["Unlocked by paying", (u.razorpay || 0) + (u.gumroad || 0)], ["Unlocked free", u.free || 0], ["Unlocked by code", u.code || 0],
      ["Unlocked by you", u.manual || 0]
     ].forEach(function (p) {
       var tile = document.createElement("div");
@@ -122,17 +132,17 @@
     table($("months"), [{ label: "Month" }, { label: "Payments", num: true }, { label: "Gross", num: true }, { label: "Earned", num: true }],
       d.months.map(function (m) {
         var label = new Date(m.month + "-01T00:00:00").toLocaleString("en-IN", { month: "long", year: "numeric" });
-        return { cells: [label, m.payments, money(m.gross), money(m.net)] };
+        return { cells: [label, m.payments, money(m.gross, m.currency), money(m.net, m.currency)] };
       }), "No payments yet.");
     table($("methods"), [{ label: "Method" }, { label: "Payments", num: true }, { label: "Earned", num: true }],
-      d.methods.map(function (m) { return { cells: [m.method || "other", m.payments, money(m.net)] }; }),
+      d.methods.map(function (m) { return { cells: [m.method || "other", m.payments, money(m.net, m.currency)] }; }),
       "No payments yet.");
     table($("recent"), [{ label: "When" }, { label: "Amount", num: true }, { label: "Status" }, { label: "Method" },
       { label: "Email" }, { label: "Message" }],
       d.recent.map(function (p) {
         var status = p.refunded > 0 ? (p.refunded >= p.amount ? "refunded" : "part refunded") : p.status;
         return { dim: !/^(captured|refunded)$/.test(p.status),
-                 cells: [day(p.at), money(p.amount), status, p.method, p.email, p.message || ""] };
+                 cells: [day(p.at), money(p.amount, p.currency), status, p.method, p.email, p.message || ""] };
       }), "No payments yet.");
     $("msg").hidden = true;
     $("book").hidden = false;

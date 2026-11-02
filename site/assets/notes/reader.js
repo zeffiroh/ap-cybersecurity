@@ -21,7 +21,7 @@ const meta=window.EBOOK_META||{topicId:'0.0',topicTitle:'Untitled',chapterLabel:
 <body>
 <article epub:type="chapter">
 <h1>${meta.chapterLabel}: ${meta.topicTitle}</h1>
-<p><em>AP Cybersecurity, Annotated Academic Edition (2026)</em></p>
+<p><em>Aayat-AP-Prep Cybersecurity, Annotated Academic Edition (2026)</em></p>
 ${chapterContent}
 <section epub:type="footnotes">
 <h3>Chapter Footnotes</h3>
@@ -45,7 +45,7 @@ ${footnotesHtml}
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="en">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:identifier id="uid">urn:uuid:ap-cybersecurity-${meta.topicId}-2026</dc:identifier>
-  <dc:title>AP Cybersecurity, ${meta.chapterLabel}: ${meta.topicTitle}</dc:title>
+  <dc:title>Aayat-AP-Prep Cybersecurity, ${meta.chapterLabel}: ${meta.topicTitle}</dc:title>
   <dc:creator>Aayat-AP-Prep</dc:creator>
   <dc:language>en</dc:language>
   <dc:date>2026</dc:date>

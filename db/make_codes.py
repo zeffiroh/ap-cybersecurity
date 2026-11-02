@@ -10,7 +10,7 @@ from email.message import EmailMessage
 
 import psycopg
 
-COURSE = "AP Cybersecurity"
+COURSE = "Aayat-AP-Prep"
 PREFIX = "CYBER"
 ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -20,17 +20,21 @@ def code():
     return f"{PREFIX}-{part()}-{part()}-{part()}"
 
 
-def rupees(paise):
-    return f"Rs {paise / 100:,.2f}"
+def money(minor, currency):
+    return f"{'Rs' if currency == 'INR' else currency} {minor / 100:,.2f}"
 
 
 def earnings(db):
-    total, n, month = db.execute(
-        "select coalesce(sum(amount - amount_refunded - fee), 0), count(*), "
+    rows = db.execute(
+        "select currency, coalesce(sum(amount - amount_refunded - fee), 0), count(*), "
         "coalesce(sum(amount - amount_refunded - fee) filter (where created_at >= date_trunc('month', now() "
         "- interval '1 month') and created_at < date_trunc('month', now())), 0) "
-        "from payments where status in ('captured', 'refunded')").fetchone()
-    return f"Earned so far: {rupees(total)} from {n} payments (after fees and refunds).\nLast month: {rupees(month)}.\n"
+        "from payments where status in ('captured', 'refunded') group by currency "
+        "order by currency <> 'INR', currency").fetchall() or [("INR", 0, 0, 0)]
+    total = " + ".join(money(t, c) for c, t, _, _ in rows)
+    month = " + ".join(money(m, c) for c, _, _, m in rows)
+    n = sum(r[2] for r in rows)
+    return f"Earned so far: {total} from {n} payments (after fees and refunds).\nLast month: {month}.\n"
 
 
 def mail(codes, note, money):

@@ -282,7 +282,7 @@ _OLD = [
     re.compile(r'[ \t]*<script id="apnav-(?:js|map|progress)"[^>]*></script>\n?'),
     re.compile(r'[ \t]*<meta id="apnav-(?:og-site|og-desc|og-image|card)"[^>]*>\n?'),
 ]
-SHARE_DESC = "The complete AP Cybersecurity course: textbook, lectures, practice, quizzes and a capstone. Try Topic 1.1 free."
+SHARE_DESC = "Beginner's Cybersecurity Kickstarter from Aayat-AP-Prep, aligned with AP Cybersecurity: textbook, lectures, practice, quizzes and a capstone. Try Topic 1.1 free."
 
 
 def head_links(page_dir):

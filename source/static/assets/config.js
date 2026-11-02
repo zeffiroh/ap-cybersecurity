@@ -13,7 +13,7 @@ window.APCYBER_PAYWALL = {
   pay: {
     methods: [
       { label: "Razorpay", note: "UPI, cards, netbanking, wallets · India", url: "https://rzp.io/rzp/unlock-aap-cybersecurity" },
-      { label: "Gumroad", note: "Cards, PayPal · international", url: "" },
+      { label: "Gumroad", note: "Cards, PayPal · international", url: "https://mitaliaayatmahnoor.gumroad.com/l/cybersecurity-kickstarter" },
       { label: "PayPal", note: "International", url: "" }
     ]
   },
