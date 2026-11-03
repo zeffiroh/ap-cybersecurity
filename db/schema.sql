@@ -680,7 +680,9 @@ $$;
 create or replace function api_unlock_status(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select jsonb_build_object('ok', true, 'unlocked', exists (
-    select 1 from unlocks where email = lower(trim(coalesce(p_email, ''))) and not revoked))
+    select 1 from unlocks where email = lower(trim(coalesce(p_email, ''))) and not revoked
+    union all
+    select 1 from teacher_emails where email = lower(trim(coalesce(p_email, '')))))
 $$;
 
 create or replace function api_pay_info()
