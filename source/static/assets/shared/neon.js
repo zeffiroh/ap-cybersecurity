@@ -17,13 +17,6 @@
     return h;
   }
 
-  function askTeacherKey() {
-    var k = global.prompt("This page is for instructors. Sign in with the teacher account, or enter a teacher key:");
-    if (!k || !k.trim()) return false;
-    try { localStorage.setItem(TEACHER_KEY, k.trim()); } catch (e) { return false; }
-    return true;
-  }
-
   function staleSession() {
     try {
       localStorage.removeItem(SESSION_KEY);
@@ -85,7 +78,6 @@
     if (!isConfigured()) return Promise.reject(new Error("Neon is not configured"));
     opts = opts || {};
     var attempts = opts.attempts || 3;
-    var askedKey = false;
     function attempt(n, forceToken) {
       return getToken(forceToken).then(function (token) {
         return fetch(cfg().dataApiUrl + "/rpc/" + fn, {
@@ -99,11 +91,6 @@
         if (res.status === 401 && !forceToken) return attempt(n, true);
         if (!res.ok) {
           return res.text().then(function (t) {
-            if (/teacher key required/.test(t) && !askedKey) {
-              askedKey = true;
-              try { localStorage.removeItem(TEACHER_KEY); } catch (e) {}
-              if (askTeacherKey()) return attempt(n, false);
-            }
             if (/sign in required/.test(t) && stored(SESSION_KEY)) staleSession();
             var err = new Error("Neon " + fn + " failed: HTTP " + res.status + " " + t.slice(0, 200));
             err.retryable = res.status >= 500 || res.status === 429;

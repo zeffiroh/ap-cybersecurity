@@ -23,9 +23,25 @@ window.APCYBER_PAYWALL = {
   free: [
     "index.html", "unit-*/index.html", "unit-*/*/index.html",
     "unit-1/1.1/**",
-    "glossary.html", "calendar.html", "support.html",
+    "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html",
     "buy/**", "unlock/**", "pay/**", "ledger/**", "teacher/database-check.html"
   ]
+};
+
+window.APCYBER_STORES = {
+  videoPass: {
+    price: "₹499 in India · $19 everywhere else",
+    methods: [
+      { label: "Razorpay", note: "₹499 · UPI, cards, netbanking · India", url: "" },
+      { label: "Gumroad", note: "$19 · cards, PayPal · international", url: "" }
+    ]
+  },
+  classes: {
+    methods: [
+      { label: "Razorpay", note: "UPI, cards, netbanking · India", url: "" },
+      { label: "Gumroad", note: "Cards, PayPal · international", url: "" }
+    ]
+  }
 };
 
 window.APCYBER_SUPPORT = {

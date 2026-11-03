@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  var P, rows = [], codes = [], armed = "";
+  var P, rows = [], codes = [], groups = [], armed = "", picked = {};
   var $ = function (id) { return document.getElementById(id); };
 
   function esc(s) {
@@ -20,18 +20,38 @@
       return db.rpc(fn, args || {}, { attempts: 1 });
     });
   }
+  function ok(r) { if (!r || !r.ok) throw new Error((r && r.error) || "That didn't work."); return r; }
 
   function load() {
     $("status").textContent = "Loading…";
-    return call("api_teacher_students").then(function (d) {
+    return Promise.all([call("api_teacher_students"), call("api_teacher_groups")]).then(function (r) {
+      var d = r[0];
       rows = d.students || [];
       codes = d.codes || [];
-      var n = rows.filter(function (r) { return !r.teacher; }).length;
-      $("status").textContent = n + " student" + (n === 1 ? "" : "s") + " · updated " +
-        new Date(d.generatedAt).toLocaleTimeString();
+      groups = r[1].groups || [];
+      var n = rows.filter(function (x) { return !x.teacher; }).length;
+      $("status").textContent = n + " student" + (n === 1 ? "" : "s") + " · " + groups.length + " group" + (groups.length === 1 ? "" : "s") +
+        " · updated " + new Date(d.generatedAt).toLocaleTimeString();
+      selects();
       draw();
+      drawGroups();
       drawCodes();
     }).catch(function (e) { $("status").textContent = "Could not load: " + e.message; });
+  }
+
+  function gname(id) {
+    var g = groups.filter(function (x) { return x.id === id; })[0];
+    return g ? g.name : "";
+  }
+
+  function selects() {
+    var keep = $("f-group").value, bk = $("bulk-group").value;
+    $("f-group").innerHTML = '<option value="">All groups</option><option value="none">In no group</option>' +
+      groups.map(function (g) { return '<option value="' + g.id + '">' + esc(g.name) + "</option>"; }).join("");
+    $("f-group").value = keep;
+    $("bulk-group").innerHTML = groups.length ? groups.map(function (g) { return '<option value="' + g.id + '">' + esc(g.name) + "</option>"; }).join("")
+      : '<option value="">Create a group first</option>';
+    if (bk) $("bulk-group").value = bk;
   }
 
   function access(r) {
@@ -42,8 +62,8 @@
 
   function password(r) {
     if (!r.account) return "No account yet";
-    if (r.locked) return "Locked out (too many tries)";
-    return r.starter ? "Starter (lock&amp;key)" : "Their own";
+    if (r.locked) return "Locked out";
+    return r.starter ? "lock&amp;key" : "Their own";
   }
 
   function button(act, email, label) {
@@ -52,53 +72,137 @@
       (hot ? "Click again to confirm" : label) + "</button>";
   }
 
+  function filtered() {
+    var q = $("q").value.trim().toLowerCase(), g = $("f-group").value, a = $("f-access").value, v = $("f-video").value,
+      pw = $("f-pw").value, act = $("f-active").value;
+    return rows.filter(function (r) {
+      if (q && r.email.indexOf(q) === -1) return false;
+      if (g === "none" && r.groups.length) return false;
+      if (g && g !== "none" && r.groups.indexOf(+g) === -1) return false;
+      if (a === "unlocked" && !r.unlocked) return false;
+      if (a === "locked" && r.unlocked) return false;
+      if (a === "paid" && !r.paid) return false;
+      if (v === "yes" && !r.videos) return false;
+      if (v === "no" && r.videos) return false;
+      if (pw === "starter" && !r.starter) return false;
+      if (pw === "own" && (r.starter || !r.account)) return false;
+      if (pw === "lockedout" && !r.locked) return false;
+      if (act === "yes" && !r.active7) return false;
+      if (act === "no" && r.active7) return false;
+      return true;
+    });
+  }
+
   function draw() {
-    var q = $("q").value.trim().toLowerCase();
-    var list = rows.filter(function (r) { return !q || r.email.indexOf(q) !== -1; });
-    var h = ["<table class='aa-grid-t'><tr><th>Student</th><th>Access</th><th>Password</th><th>Joined</th>" +
-      "<th>Last active</th><th></th></tr>"];
+    var list = filtered(), names = list.filter(function (r) { return !r.teacher; });
+    var all = names.length && names.every(function (r) { return picked[r.email]; });
+    var h = ["<table class='aa-grid-t'><tr><th><input type='checkbox' id='pick-all'" + (all ? " checked" : "") + " aria-label='Select all shown'></th>" +
+      "<th>Student</th><th>Groups</th><th>Course</th><th>Video pass</th><th>Password</th><th>Joined</th><th>Last active</th><th></th></tr>"];
     list.forEach(function (r) {
       var acts = r.teacher ? "" :
         (r.account ? button("reset", r.email, "Reset password") + " " : "") +
         (r.unlocked ? button("lock", r.email, "Take away access") : button("unlock", r.email, "Give access")) + " " +
+        (r.videos ? button("novideo", r.email, "Remove video pass") : button("video", r.email, "Give video pass")) + " " +
         button("remove", r.email, "Remove");
-      h.push('<tr><td class="aa-who">' + esc(r.email) + "</td><td>" + access(r) + "</td><td>" + password(r) +
-        "</td><td>" + when(r.joined) + "</td><td>" + when(r.last) + '</td><td style="text-align:left">' + acts + "</td></tr>");
+      h.push("<tr><td>" + (r.teacher ? "" : '<input type="checkbox" data-pick="' + esc(r.email) + '"' + (picked[r.email] ? " checked" : "") + ">") +
+        '</td><td class="aa-who">' + esc(r.email) + "</td><td>" + (r.groups.map(gname).filter(Boolean).map(esc).join(", ") || "&ndash;") +
+        "</td><td>" + access(r) + "</td><td>" + (r.videos ? "Yes" : "&ndash;") + "</td><td>" + password(r) +
+        "</td><td>" + when(r.joined) + "</td><td>" + when(r.last) + '</td><td style="text-align:left;white-space:normal">' + acts + "</td></tr>");
     });
     h.push("</table>");
-    if (!list.length) h.push('<p class="aa-sub">No students yet.</p>');
+    if (!list.length) h.push('<p class="aa-sub">No students match.</p>');
     $("grid").innerHTML = h.join("");
     $("grid").querySelectorAll("button[data-act]").forEach(function (b) {
       b.addEventListener("click", function () { act(b.getAttribute("data-act"), b.getAttribute("data-email")); });
     });
+    $("grid").querySelectorAll("[data-pick]").forEach(function (c) {
+      c.addEventListener("change", function () {
+        if (c.checked) picked[c.getAttribute("data-pick")] = 1; else delete picked[c.getAttribute("data-pick")];
+        bulk(); draw();
+      });
+    });
+    $("pick-all").addEventListener("change", function () {
+      names.forEach(function (r) { if ($("pick-all").checked) picked[r.email] = 1; else delete picked[r.email]; });
+      bulk(); draw();
+    });
+    bulk();
+  }
+
+  function bulk() {
+    var n = Object.keys(picked).length;
+    $("bulk").hidden = !n;
+    $("bulk-n").textContent = n + " selected";
   }
 
   var ACTIONS = {
     reset: ["api_teacher_reset_password", function (e) { return { p_email: e }; },
       "Password reset. They sign in with lock&key and choose a new one."],
-    lock: ["api_teacher_set_unlock", function (e) { return { p_email: e, p_on: false }; }, "Access taken away."],
+    lock: ["api_teacher_set_unlock", function (e) { return { p_email: e, p_on: false }; }, "Course access taken away."],
     unlock: ["api_teacher_set_unlock", function (e) { return { p_email: e, p_on: true }; }, "Full course access given."],
+    video: ["api_teacher_set_video_access", function (e) { return { p_email: e, p_on: true }; }, "Video pass given."],
+    novideo: ["api_teacher_set_video_access", function (e) { return { p_email: e, p_on: false }; }, "Video pass removed."],
     remove: ["api_teacher_remove_student", function (e) { return { p_email: e }; },
       "Removed, with their progress and grades. Payment records are kept."]
   };
+  var SAFE = { unlock: 1, video: 1 };
 
   function act(kind, email) {
     var key = kind + "|" + email;
-    if (kind !== "unlock" && armed !== key) { armed = key; draw(); return; }
+    if (!SAFE[kind] && armed !== key) { armed = key; draw(); return; }
     armed = "";
     var a = ACTIONS[kind];
     $("status").textContent = "Working…";
-    call(a[0], a[1](email)).then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.error) || "That didn't work.");
+    call(a[0], a[1](email)).then(ok).then(function () {
       return load().then(function () { $("status").textContent = email + ": " + a[2]; });
     }).catch(function (e) { $("status").textContent = e.message; draw(); });
+  }
+
+  function bulkRun(fn, args, done) {
+    var emails = Object.keys(picked);
+    $("status").textContent = "Working…";
+    var p = args === "each" ? Promise.all(emails.map(function (e) { return call(fn[0], fn[1](e)).then(ok); }))
+      : call(fn, args(emails)).then(ok);
+    p.then(function () { return load(); }).then(function () { $("status").textContent = emails.length + " student(s): " + done; })
+      .catch(function (e) { $("status").textContent = e.message; });
+  }
+
+  function drawGroups() {
+    $("groups").innerHTML = groups.length ? '<table class="tc-table">' + groups.map(function (g) {
+      var t = g.schedule && g.schedule.start ? "Timetable from " + esc(g.schedule.start) + (g.schedule.time ? " at " + esc(g.schedule.time) : "") : "No timetable yet";
+      return "<tr><td><b>" + esc(g.name) + "</b><br><small class='tc-note'>" + g.members.length + " student" + (g.members.length === 1 ? "" : "s") +
+        " · " + t + '</small></td><td><span class="tc-links"><a href="schedule.html?g=' + g.id + '">Timetable</a>' +
+        '<a href="#" data-gshow="' + g.id + '">Show students</a><a href="#" data-gren="' + g.id + '">Rename</a>' +
+        '<a href="#" data-gdel="' + g.id + '">' + (armed === "gdel|" + g.id ? "Click again to delete" : "Delete") + "</a></span></td></tr>";
+    }).join("") + "</table>" : '<p class="tc-empty">No groups yet.</p>';
+    $("groups").querySelectorAll("[data-gshow]").forEach(function (a) {
+      a.addEventListener("click", function (e) { e.preventDefault(); $("f-group").value = a.getAttribute("data-gshow"); draw(); scrollTo(0, 0); });
+    });
+    $("groups").querySelectorAll("[data-gren]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        var id = +a.getAttribute("data-gren"), cell = a.closest("tr").firstChild;
+        cell.innerHTML = '<input value="' + esc(gname(id)) + '"> <button class="btn">Save</button>';
+        cell.querySelector("button").addEventListener("click", function () {
+          call("api_teacher_save_group", { p: { id: id, name: cell.querySelector("input").value } }).then(ok).then(load)
+            .catch(function (err) { $("status").textContent = err.message; });
+        });
+      });
+    });
+    $("groups").querySelectorAll("[data-gdel]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        var id = a.getAttribute("data-gdel");
+        if (armed !== "gdel|" + id) { armed = "gdel|" + id; drawGroups(); return; }
+        armed = "";
+        call("api_teacher_delete_group", { p_id: +id }).then(ok).then(load).catch(function (err) { $("status").textContent = err.message; });
+      });
+    });
   }
 
   function add() {
     var email = $("add-email").value.trim().toLowerCase();
     $("add-msg").textContent = "Adding…";
-    call("api_teacher_add_student", { p_email: email, p_unlock: $("add-unlock").checked }).then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.error) || "That didn't work.");
+    call("api_teacher_add_student", { p_email: email, p_unlock: $("add-unlock").checked }).then(ok).then(function () {
       $("add-email").value = "";
       $("add-msg").textContent = "Added " + email + ". Starter password: lock&key";
       return load();
@@ -126,8 +230,7 @@
 
   function make() {
     $("code-msg").textContent = "Making…";
-    call("api_teacher_make_code", { p_note: $("code-note").value, p_uses: Number($("code-uses").value) || 1 }).then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.error) || "That didn't work.");
+    call("api_teacher_make_code", { p_note: $("code-note").value, p_uses: Number($("code-uses").value) || 1 }).then(ok).then(function (r) {
       $("code-msg").innerHTML = "New code: <b>" + esc(r.code) + "</b>";
       $("code-note").value = "";
       return load();
@@ -136,11 +239,26 @@
 
   function start() {
     P = global.AayatProgress;
-    $("q").addEventListener("input", draw);
+    ["q"].forEach(function (id) { $(id).addEventListener("input", draw); });
+    ["f-group", "f-access", "f-video", "f-pw", "f-active"].forEach(function (id) { $(id).addEventListener("change", draw); });
+    var g = new URLSearchParams(location.search).get("g");
     $("reload").addEventListener("click", load);
     $("add").addEventListener("click", add);
     $("make").addEventListener("click", make);
-    load();
+    $("g-add").addEventListener("click", function () {
+      call("api_teacher_save_group", { p: { name: $("g-name").value } }).then(ok).then(function () { $("g-name").value = ""; return load(); })
+        .catch(function (e) { $("status").textContent = e.message; });
+    });
+    $("bulk-add").addEventListener("click", function () {
+      bulkRun("api_teacher_set_members", function (em) { return { p_id: +$("bulk-group").value, p_emails: em, p_add: true }; }, "added to " + gname(+$("bulk-group").value));
+    });
+    $("bulk-remove").addEventListener("click", function () {
+      bulkRun("api_teacher_set_members", function (em) { return { p_id: +$("bulk-group").value, p_emails: em, p_add: false }; }, "removed from " + gname(+$("bulk-group").value));
+    });
+    $("bulk-video").addEventListener("click", function () { bulkRun(ACTIONS.video, "each", "video pass given"); });
+    $("bulk-unlock").addEventListener("click", function () { bulkRun(ACTIONS.unlock, "each", "course access given"); });
+    $("bulk-clear").addEventListener("click", function () { picked = {}; draw(); });
+    load().then(function () { if (g) { $("f-group").value = g; draw(); } });
   }
   if (document.readyState === "complete") start();
   else document.addEventListener("DOMContentLoaded", start);

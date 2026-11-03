@@ -9,6 +9,7 @@ Needs:  pip install "psycopg[binary]==3.2.3"
 """
 import os
 import sys
+import time
 from pathlib import Path
 
 import psycopg
@@ -39,6 +40,9 @@ def main():
                 print(" | ".join("" if v is None else str(v) for v in row))
         else:
             print("done" + (f", {cur.rowcount} row(s)" if cur.rowcount >= 0 else ""))
+        if arg.endswith(".sql"):
+            time.sleep(3)
+            db.execute("notify pgrst, 'reload schema'")
 
 
 if __name__ == "__main__":

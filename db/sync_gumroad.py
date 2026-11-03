@@ -10,6 +10,7 @@ from datetime import date, timedelta
 import psycopg
 from psycopg.types.json import Jsonb
 
+import extras
 from sql import url
 
 API = "https://api.gumroad.com/v2"
@@ -71,7 +72,8 @@ def main():
     with psycopg.connect(url()) as db:
         empty = db.execute("select not exists (select 1 from payments where provider = 'gumroad')").fetchone()[0]
         after = EARLIEST if empty or "--all" in sys.argv else (date.today() - timedelta(days=60)).isoformat()
-        rows, unlocks = [], []
+        rows, unlocks, extra = [], [], []
+        prod = extras.products(db)
         for s in sales(after):
             sid = "gumroad_" + str(s["id"])
             amount = int(s.get("price") or 0)
@@ -84,7 +86,11 @@ def main():
             rows.append((sid, status, amount, back, int(s.get("gumroad_fee") or 0),
                          str(s.get("currency") or "usd").upper()[:3], email,
                          str(s.get("product_name") or "")[:300], Jsonb(notes), s["created_at"]))
-            course = {str(s.get("product_permalink") or ""), str(s.get("custom_permalink") or "")} & COURSE
+            links = {str(s.get("product_permalink") or ""), str(s.get("custom_permalink") or "")}
+            course = links & COURSE
+            kind = "video" if prod.get("video_gumroad") in links else "class" if prod.get("class_gumroad") in links else ""
+            if kind and EMAIL_RE.match(email):
+                extra.append((kind, email, sid, status in ("captured", "refunded") and back < amount, extras.class_id(f)))
             if course and EMAIL_RE.match(email):
                 unlocks.append((email, sid, status in ("captured", "refunded") and back < amount))
         db.cursor().executemany(
@@ -102,6 +108,8 @@ def main():
                            (email, ref, ref))
             else:
                 db.execute("update unlocks set revoked = true where via = 'gumroad' and ref = %s", (ref,))
+        for kind, email, ref, paid, cid in extra:
+            extras.grant(db, kind, email, ref, "gumroad", paid, cid)
         db.execute("insert into payments (id, status, created_at) values ('_sync', 'sync', now()) "
                    "on conflict (id) do update set synced_at = now()")
     print(f"Gumroad sync done ({len(rows)} sales, {len(unlocks)} course).")

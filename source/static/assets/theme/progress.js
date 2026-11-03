@@ -7,6 +7,8 @@
   var REMOTE_KEY = "aayat_remote_v1";
   var TEACHER_FLAG = "aayat_teacher_v1";
   var checked = "";
+  var FEED_SEEN = "aayat_feed_seen_v1";
+  var feed = null;
   var LEVELS = ["Not started", "Attempted", "Familiar", "Proficient", "Mastered"];
   var POINTS = [0, 0, 50, 80, 100];
   var GATE = 0.5;
@@ -237,8 +239,15 @@
     var who = email(), d = document.createElement("details");
     d.className = "apn-account";
     if (who) {
-      d.innerHTML = '<summary title="' + who + '">' + who.split("@")[0] + '</summary><div class="apn-menu">' +
-        '<div class="apn-h">' + who + '</div><a href="' + ROOT + 'progress.html">Progress</a>' +
+      var news = fresh();
+      d.innerHTML = '<summary title="' + who + '">' + who.split("@")[0] + (news.length ? '<span class="apn-dot">' + news.length + "</span>" : "") +
+        '</summary><div class="apn-menu">' + '<div class="apn-h">' + who + "</div>" +
+        (news.length ? news.slice(0, 6).map(function (n) {
+          return '<a class="apn-new" href="' + n.href + '">' + n.title + "<small>" + n.sub + "</small></a>";
+        }).join("") + '<a href="#" data-aa-seen><small>Mark all as read</small></a>' : "") +
+        '<a href="' + ROOT + 'progress.html">Progress</a>' +
+        '<a href="' + ROOT + 'calendar.html">Calendar</a><a href="' + ROOT + 'classes.html">Live classes</a>' +
+        '<a href="' + ROOT + 'videos.html">Video lessons</a><a href="' + ROOT + 'notebook.html">Notebook</a>' +
         '<a href="' + ROOT + 'report.html">Report card</a>' +
         (read(TEACHER_FLAG, "") === who ? '<a href="' + ROOT + 'teacher/index.html">Teacher hub</a>' +
           '<a href="' + ROOT + 'teacher/students.html">Students</a>' : "") +
@@ -251,6 +260,12 @@
     nav.appendChild(d);
     var out = d.querySelector("[data-aa-signout]");
     if (out) out.addEventListener("click", function (e) { e.preventDefault(); signOut(); });
+    var seenBtn = d.querySelector("[data-aa-seen]");
+    if (seenBtn) seenBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      write(FEED_SEEN, new Date().toISOString());
+      account();
+    });
     var change = d.querySelector("[data-aa-change]");
     if (change) change.addEventListener("click", function (e) {
       e.preventDefault();
@@ -273,7 +288,44 @@
         write(TEACHER_FLAG, r.teacher ? who : "");
         if (was !== !!r.teacher) account();
       }).catch(function () {  });
+      loadFeed(who);
     }
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function loadFeed(who) {
+    var cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem("aayat_feed_v1") || "null"); } catch (e) {  }
+    if (cached && cached.who === who && Date.now() - cached.at < 180000) { feed = cached.feed; account(); return; }
+    neon().then(function (db) { return db && db.rpc("api_my_feed", {}, { attempts: 1 }); }).then(function (f) {
+      if (!f || f.me !== who) return;
+      feed = f;
+      try { sessionStorage.setItem("aayat_feed_v1", JSON.stringify({ who: who, at: Date.now(), feed: f })); } catch (e) {  }
+      account();
+    }).catch(function () {  });
+  }
+
+  function fresh() {
+    if (!feed) return [];
+    var seen = read(FEED_SEEN, "") || new Date(Date.now() - 14 * 864e5).toISOString(), out = [], now = Date.now();
+    (feed.videos || []).forEach(function (v) {
+      if (v.created > seen) out.push({ at: v.created, href: ROOT + "videos.html#v" + v.id, title: "New video: " + esc(v.title), sub: v.youtube ? "Watch now" : "Video lesson" });
+    });
+    (feed.assignments || []).forEach(function (a) {
+      if (a.created > seen && !a.done) out.push({ at: a.created, href: a.href ? (/^https?:/.test(a.href) ? a.href : ROOT + a.href) : ROOT + "calendar.html",
+        title: "Assigned: " + esc(a.title), sub: a.due ? "Due " + new Date(a.due).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "From your teacher" });
+    });
+    (feed.classes || []).forEach(function (c) {
+      var t = c.starts ? new Date(c.starts).getTime() : 0;
+      if (t > now - c.minutes * 60000 && t < now + 864e5) out.push({ at: "9", href: ROOT + "classes.html", title: "Class soon: " + esc(c.title),
+        sub: new Date(c.starts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) });
+    });
+    return out.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
   }
 
   function signIn(addr) {

@@ -398,7 +398,9 @@ def atom_head(a, here, sub):
 def practice():
     for a in C.atom_order():
         path = N.lesson_page(a)
-        emit(path, N.shell(path, "", atom_head(a, path, "lesson") + lesson_html(a["src"])))
+        extras = (f'<div class="sx-lesson" data-extras="lesson" data-atom="{a["id"]}"></div>\n'
+                  f'<script src="{rel(path.parent, ASSETS / "theme" / "student-extras.js")}" defer></script>\n')
+        emit(path, N.shell(path, "", atom_head(a, path, "lesson") + extras + lesson_html(a["src"])))
         path = N.quiz_page(a)
         r = lambda p: rel(path.parent, p)
         qf = a["src"] / "quiz.yaml"

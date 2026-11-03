@@ -3,9 +3,9 @@ from pathlib import Path
 
 from . import course as C
 from . import nav as N
+from . import teacher
 from .course import BRAND, SUBJECT
-from .paths import (ASSETS, DOWNLOADS, LECTURES, SHARED, SITE, TEACHER, TESTS, THEME, downloads_unit,
-                    teacher_atom, teacher_topic, unit_dir)
+from .paths import ASSETS, DOWNLOADS, SHARED, SITE, TESTS, THEME, downloads_unit, unit_dir
 from .util import emit, esc, rel
 
 
@@ -116,16 +116,59 @@ def progress_page():
     emit(path, N.shell(path, "", body))
 
 
+def theme_assets(page_dir, css, js):
+    r = lambda p: rel(page_dir, p)
+    return ("".join(f'<link rel="stylesheet" href="{r(THEME / c)}">\n' for c in css)
+            + "".join(f'<script src="{r(THEME / j)}" defer></script>\n' for j in js))
+
+
 def calendar():
     path = SITE / "calendar.html"
-    seq = C.atom_order()
-    per_day = 2
-    days = [seq[i:i + per_day] for i in range(0, len(seq), per_day)]
-    rows = "".join(
-        f'<tr><td>{i}</td><td>' + "<br>".join(
-            f'<span class="aa-id">{a["id"]}</span><a href="{rel(SITE, N.lesson_page(a))}">{esc(a["title"])}</a>'
-            for a in day) + "</td></tr>" for i, day in enumerate(days, start=1))
-    body = f'<h1>Calendar</h1>\n<p class="aa-sub">{per_day} skills a day</p>\n<table><tr><th>Day</th><th>Skills</th></tr>{rows}</table>'
+    body = ('<h1>Calendar</h1>\n<p class="aa-sub" id="cal-who">Your class timetable, what\'s due and new videos.</p>\n'
+            '<div id="cal"></div>\n<h2>Due for you</h2>\n<div id="cal-due"></div>\n'
+            f'<p><a class="btn" href="{rel(path.parent, SITE / "classes.html")}">Live classes: join, book or request one</a></p>\n'
+            + theme_assets(path.parent, ["calendar.css"], ["calendar.js"]))
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
+def classes_page():
+    path = SITE / "classes.html"
+    body = ('<h1>Live classes</h1>\n<p class="aa-sub" id="sx-status">Loading…</p>\n<div id="sx-classes">\n'
+            '<h2>Coming up</h2>\n<div id="sx-upcoming" class="sx-classes"></div>\n'
+            '<h2>Ask for a class</h2>\n<div class="sx-form">'
+            '<label>Topic <select id="sx-topic"></select></label>'
+            '<label>Times that suit you <input id="sx-times" placeholder="e.g. weekends after 4 pm IST"></label>'
+            '<label class="sx-wide">What do you want to cover? <textarea id="sx-note" rows="3"></textarea></label>'
+            '<button class="btn dark" id="sx-request">Send request</button> <span id="sx-req-msg" class="sx-note"></span></div>\n'
+            '<div id="sx-requests"></div>\n'
+            '<h2>Recordings</h2>\n<div id="sx-recordings"></div>\n</div>\n'
+            + theme_assets(path.parent, [], ["student-extras.js"]))
+    emit(path, N.shell(path, "", body))
+
+
+def videos_page():
+    path = SITE / "videos.html"
+    body = ('<h1>Video lessons</h1>\n<p class="aa-sub">A video for each lesson, from your teacher.</p>\n'
+            '<div id="sx-videos-page"><div id="sx-pass"></div><div id="sx-videos">Loading…</div></div>\n'
+            + theme_assets(path.parent, [], ["student-extras.js"]))
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
+def notebook_page():
+    path = SITE / "notebook.html"
+    body = ('<div id="nb-app">\n<section id="nb-index" hidden><h1>Notebook</h1>\n'
+            '<p class="aa-sub">Your own notes and Python, saved to your account. Python runs right here in the browser.</p>\n'
+            '<h2>My notebooks</h2>\n<div id="nb-mine"></div>\n<h2>Open one</h2>\n'
+            '<p class="aa-tools"><select id="nb-lesson"></select> <button class="btn dark" id="nb-open">Open my notes</button> '
+            '<button class="btn" id="nb-openbook">Open with the code book</button> <button class="btn" id="nb-new">Blank notebook</button></p>\n'
+            '</section>\n<section id="nb-editor" hidden><p class="aa-sub" id="nb-crumb"></p>\n'
+            '<input id="nb-title" class="nb-title" aria-label="Notebook title">\n'
+            '<div class="nb-tools"><button class="btn" id="nb-addmd">+ Notes</button><button class="btn" id="nb-addpy">+ Python</button>'
+            '<button class="btn dark" id="nb-runall">Run all</button><button class="btn" id="nb-book">Load the code book</button>'
+            '<button class="btn" id="nb-dl">Download .ipynb</button><span id="nb-status" class="nb-status"></span></div>\n'
+            '<div id="nb-cells"></div>\n<p class="nb-tools"><small class="nb-status">Shift+Enter runs a Python cell.</small></p>\n'
+            '</section>\n</div>\n'
+            + theme_assets(path.parent, [], ["notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 
@@ -180,112 +223,18 @@ def downloads_page():
     emit(path, N.shell(path, "", "<h1>Downloads</h1>\n" + "\n".join(sections)))
 
 
-TOOLS = [
-    ("Students (passwords, access, class codes)", TEACHER / "students.html"),
-    ("Class progress (mastery by student)", TEACHER / "progress.html"),
-    ("Class dashboard (quiz and assignment scores)", TEACHER / "class-report.html"),
-    ("Adaptive test dashboard", TEACHER / "tests.html"),
-    ("Database check", TEACHER / "database-check.html"),
-    ("Tutor posts feed (RSS)", TEACHER / "feed.xml"),
-    ("Support and sponsorship page", SITE / "support.html"),
-    ("Site icon (exports every icon file)", THEME / "icon.html"),
-]
-
-
-def class_progress_page():
-    path = TEACHER / "progress.html"
-    body = ('<h1>Class progress</h1>\n<p class="aa-sub" id="status"></p>\n'
-            '<p class="aa-tools"><select id="unit"></select> <select id="sort"><option value="name">Sort by email</option>'
-            '<option value="mastery">Sort by mastery</option><option value="last">Sort by last active</option></select> '
-            '<input id="q" type="search" placeholder="Find a student"> <button class="btn" id="reload">Refresh</button> '
-            '<button class="btn" id="csv">Export CSV</button></p>\n'
-            '<div id="grid" class="aa-scroll"></div>\n<div id="detail"></div>\n'
-            f'<script src="{rel(path.parent, THEME / "progress-tutor.js")}" defer></script>')
-    emit(path, N.shell(path, f"Class progress · {BRAND}", body, cls="aa-wide"))
-
-
-def students_page():
-    path = TEACHER / "students.html"
-    body = (f'<p class="aa-sub"><a href="{rel(path.parent, TEACHER / "index.html")}">Teacher hub</a></p>\n'
-            '<h1>Students</h1>\n<p class="aa-sub" id="status"></p>\n'
-            '<p class="aa-tools"><input id="q" type="search" placeholder="Find a student"> '
-            '<button class="btn" id="reload">Refresh</button></p>\n'
-            '<div id="grid" class="aa-scroll"></div>\n'
-            '<h2>Add a student</h2>\n'
-            '<p class="aa-sub">They sign in with their email and the starter password <b>lock&amp;key</b>, '
-            'then choose their own.</p>\n'
-            '<p class="aa-tools"><input id="add-email" type="email" placeholder="student@school.org"> '
-            '<label><input id="add-unlock" type="checkbox" checked> Give full course access</label> '
-            '<button class="btn" id="add">Add</button> <span id="add-msg"></span></p>\n'
-            '<h2>Class codes</h2>\n'
-            '<p class="aa-sub">Give a class one code. Each student signs in and enters it on the unlock page.</p>\n'
-            '<p class="aa-tools"><input id="code-note" placeholder="Class name, e.g. Period 3"> '
-            '<input id="code-uses" type="number" min="1" max="500" value="30" style="width:5em"> uses '
-            '<button class="btn" id="make">Make code</button> <span id="code-msg"></span></p>\n'
-            '<div id="codes" class="aa-scroll"></div>\n'
-            f'<script src="{rel(path.parent, THEME / "students-tutor.js")}" defer></script>')
-    emit(path, N.shell(path, f"Students · {BRAND}", body, cls="aa-wide"))
-
-
-def teacher_topic_page(tid):
-    path = teacher_topic(tid) / "index.html"
-    d = path.parent
-    t = C.topic(tid)
-    teach = [("Topic deck with speaker notes", d / "slides.html", ""), ("Classroom PowerPoint", downloads_unit(tid) / f"Topic_{tid}_Slides.pptx", ""),
-             ("Student view", N.target(tid, "topic"), "")]
-    keys = [("Quiz key (PDF)", d / f"Topic_{tid}_Quiz_AnswerKey.pdf", ""),
-            ("Quiz key (Word)", d / f"Topic_{tid}_Quiz_AnswerKey.docx", ""),
-            ("Assignment key (PDF)", d / f"Topic_{tid}_Assignment_AnswerKey.pdf", ""),
-            ("Assignment key (Word)", d / f"Topic_{tid}_Assignment_AnswerKey.docx", ""),
-            ("Activity keys", d / "activity-keys.html", "")]
-    rows = []
-    for a in C.topic_atoms(tid):
-        ad = teacher_atom(a["id"])
-        ls = [("Solution", ad / "solution.html", ""), ("Solution notebook", ad / f"{a['id']}-solution.ipynb", ""),
-              ("Solution preview", ad / "solution-preview.html", ""),
-              ("Assignment page", ad / "assign.html", ""), ("Student notebook", ad / f"{a['id']}-student.ipynb", ""),
-              ("Pre-lecture post", ad / "pre-lecture-post.html", ""), ("Post-lecture post", ad / "post-lecture-post.html", ""),
-              ("Pre-lecture handout", ad / f"{a['id']}-pre-lecture-handout.docx", ""),
-              ("Post-lecture handout", ad / f"{a['id']}-post-lecture-handout.docx", "")]
-        rows.append(f'<li><span class="aa-what"><span class="aa-id">{a["id"]}</span>{esc(a["title"])}</span>{links(d, ls)}</li>')
-    body = (f'<p class="aa-sub"><a href="{rel(d, TEACHER / "index.html")}">Teacher hub</a></p>\n'
-            f'<h1><span class="aa-id">{tid}</span>{esc(t["title"])}</h1>\n'
-            f'<h2>Teach</h2>\n{links(d, teach)}\n<h2>Answer keys</h2>\n{links(d, keys)}\n'
-            f'<h2>Skills</h2>\n<ul class="aa-list">{"".join(rows)}</ul>\n')
-    emit(path, N.shell(path, f"{tid} {t['title']} · Teacher · {BRAND}", body))
-
-
-def teacher_hub():
-    path = TEACHER / "index.html"
-    d = path.parent
-    tools = "".join(f'<li><a href="{rel(d, p)}">{esc(label)}</a></li>' for label, p in TOOLS)
-    units = []
-    for u in C.units():
-        rows = "".join(f'<li><span class="aa-id">{tid}</span><a href="{rel(d, teacher_topic(tid) / "index.html")}">'
-                       f'{esc(C.topic(tid)["title"])}</a></li>' for tid in u["topics"])
-        units.append(f'<h3>Unit {u["num"]} &middot; {esc(u["title"])}</h3>\n<ul>{rows}</ul>')
-    decks = "".join(f'<tr><td>{n:02d}</td><td><a href="{rel(d, p)}">{esc(t)}</a></td>'
-                    f'<td>{links(d, [("PowerPoint", TEACHER / "lectures" / (p.stem + ".pptx"), "")])}</td></tr>'
-                    for n, p, t in N.decks())
-    body = (f'<h1>Teacher hub</h1>\n<p class="aa-sub"><a href="{rel(d, SITE / "index.html")}">Student home</a> &middot; '
-            f'<a href="{rel(d, DOWNLOADS / "AP_Cybersecurity_Textbook.pdf")}">Textbook (PDF)</a></p>\n'
-            f'<h2>Tools</h2>\n<ul>{tools}</ul>\n<h2>Topics</h2>\n{"".join(units)}\n'
-            f'<h2>Lecture decks</h2>\n<table><tr><th>#</th><th>Deck</th><th>Files</th></tr>{decks}</table>')
-    emit(path, N.shell(path, f"Teacher hub · {BRAND}", body))
-
-
 def run():
     course_map()
     progress_page()
     calendar()
+    classes_page()
+    videos_page()
+    notebook_page()
     results_page()
     downloads_page()
     for u in C.units():
         unit_page(u)
         for tid in u["topics"]:
             topic_page(tid)
-            teacher_topic_page(tid)
-    class_progress_page()
-    students_page()
-    teacher_hub()
+    teacher.run()
     home()

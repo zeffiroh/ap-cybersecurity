@@ -12,6 +12,7 @@ import urllib.request
 import psycopg
 from psycopg.types.json import Jsonb
 
+import extras
 from sql import url
 
 API = "https://api.razorpay.com/v1"
@@ -59,7 +60,7 @@ def notes(p, orders):
         if p["order_id"] not in orders:
             o = get(f"orders/{p['order_id']}")
             on = o.get("notes") or {}
-            orders[p["order_id"]] = dict(on, _page=PAGE_ID in json.dumps(o)) if isinstance(on, dict) else {}
+            orders[p["order_id"]] = dict(on, _src=json.dumps(o)) if isinstance(on, dict) else {"_src": json.dumps(o)}
         n = {**orders[p["order_id"]], **n}
     return n
 
@@ -77,10 +78,14 @@ def main():
                    "on conflict (key) do update set value = excluded.value", (str(page_min()),))
         empty = db.execute("select not exists (select 1 from payments where id <> '_sync')").fetchone()[0]
         since = EARLIEST if empty or "--all" in sys.argv else int(time.time()) - 60 * 86400
-        orders, rows, unlocks = {}, [], []
+        orders, rows, unlocks, extra = {}, [], [], []
+        prod = extras.products(db)
         for p in payments(since):
             n = notes(p, orders)
-            course = n.pop("_page", False) or EMAIL_FIELD in n or PAGE_ID in json.dumps(p)
+            src = n.pop("_src", "") + json.dumps(p)
+            kind = ("video" if prod.get("video_page") and prod["video_page"] in src else
+                    "class" if prod.get("class_page") and prod["class_page"] in src else "")
+            course = not kind and (PAGE_ID in src or EMAIL_FIELD in n)
             email = str(n.get(EMAIL_FIELD) or p.get("email") or "").strip().lower()[:200]
             kept = {k: str(v)[:500] for k, v in n.items() if not PRIVATE.search(k)}
             rows.append((p["id"], p["status"], p.get("amount") or 0, p.get("amount_refunded") or 0, p.get("fee") or 0,
@@ -89,6 +94,9 @@ def main():
             if course and EMAIL_RE.match(email):
                 paid = p["status"] in ("captured", "refunded") and (p.get("amount_refunded") or 0) < (p.get("amount") or 0)
                 unlocks.append((email, p["id"], paid))
+            if kind and EMAIL_RE.match(email):
+                paid = p["status"] in ("captured", "refunded") and (p.get("amount_refunded") or 0) < (p.get("amount") or 0)
+                extra.append((kind, email, p["id"], paid, extras.class_id(n)))
         db.cursor().executemany(
             """insert into payments (id, status, amount, amount_refunded, fee, tax, currency, method, email,
                                      description, notes, created_at)
@@ -105,6 +113,8 @@ def main():
                            (email, ref, ref))
             else:
                 db.execute("update unlocks set revoked = true where via = 'razorpay' and ref = %s", (ref,))
+        for kind, email, ref, paid, cid in extra:
+            extras.grant(db, kind, email, ref, "razorpay", paid, cid)
         db.execute("insert into payments (id, status, created_at) values ('_sync', 'sync', now()) "
                    "on conflict (id) do update set synced_at = now()")
     print("Razorpay sync done.")

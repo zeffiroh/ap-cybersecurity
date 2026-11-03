@@ -80,6 +80,7 @@ def post_markdown(aid, a, t, kind):
 
 def posts():
     feed = []
+    blog = []
     for atom in C.atom_order():
         aid = atom["id"]
         a = parse_atom(atom["src"])
@@ -97,12 +98,17 @@ def posts():
             path = d / f"{kind}-lecture-post.html"
             emit(path, page)
             feed.append((f"{label}: {aid}, {a['title']}", path.relative_to(TEACHER).as_posix()))
+            blog.append({"id": aid, "kind": kind, "title": a["title"], "topic": C.tid_of(aid),
+                         "href": path.relative_to(TEACHER).as_posix(),
+                         "banner": (d / "banner.png").relative_to(TEACHER).as_posix(),
+                         "html": md(src.split("\n\n", 1)[1])})
     base = SITE_URL + "teacher/"
     items = "".join(f"    <item><title>{esc(t)}</title><link>{base}{p}</link><guid>{base}{p}</guid></item>\n" for t, p in feed)
     emit(TEACHER / "feed.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel>\n'
          f"  <title>{BRAND} Cybersecurity, Tutor Posts</title>\n  <link>{SITE_URL}</link>\n"
          "  <description>Pre/post-lecture classroom posts, in course order.</description>\n"
          f"{items}</channel></rss>\n")
+    emit(TEACHER / "posts.js", "window.AAYAT_POSTS = " + json.dumps(blog, ensure_ascii=False, separators=(",", ":")) + ";\n")
 
 
 NB_RUNNER = '''

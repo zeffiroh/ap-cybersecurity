@@ -135,6 +135,117 @@ create table if not exists teacher_emails (
   created_at timestamptz not null default now()
 );
 
+create table if not exists class_groups (
+  id         bigserial primary key,
+  name       text not null,
+  schedule   jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists group_members (
+  group_id bigint not null references class_groups (id) on delete cascade,
+  email    text not null,
+  primary key (group_id, email)
+);
+create index if not exists group_members_email on group_members (email);
+
+create table if not exists assignments (
+  id         bigserial primary key,
+  group_id   bigint references class_groups (id) on delete cascade,
+  kind       text not null,
+  ref        text not null default '',
+  title      text not null,
+  href       text not null default '',
+  due_at     timestamptz,
+  note       text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists videos (
+  id             bigserial primary key,
+  title          text not null,
+  youtube        text not null,
+  topic_id       text not null default '',
+  note           text not null default '',
+  free           boolean not null default false,
+  group_id       bigint references class_groups (id) on delete set null,
+  email_students boolean not null default false,
+  emailed_at     timestamptz,
+  created_at     timestamptz not null default now()
+);
+
+create table if not exists video_access (
+  id         bigserial primary key,
+  email      text not null,
+  via        text not null default '',
+  ref        text not null default '',
+  revoked    boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists video_access_email on video_access (email);
+
+alter table videos add column if not exists atom_id text not null default '';
+
+create table if not exists live_classes (
+  id         bigserial primary key,
+  title      text not null,
+  topic_id   text not null default '',
+  note       text not null default '',
+  starts_at  timestamptz,
+  minutes    integer not null default 60,
+  meet_url   text not null default '',
+  mode       text not null default 'open',
+  price_inr  integer not null default 0,
+  price_usd  integer not null default 0,
+  capacity   integer not null default 0,
+  recording  text not null default '',
+  status     text not null default 'scheduled',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists class_seats (
+  class_id   bigint not null references live_classes (id) on delete cascade,
+  email      text not null,
+  paid       boolean not null default false,
+  via        text not null default '',
+  ref        text not null default '',
+  created_at timestamptz not null default now(),
+  primary key (class_id, email)
+);
+create index if not exists class_seats_email on class_seats (email);
+
+create table if not exists class_requests (
+  id         bigserial primary key,
+  email      text not null,
+  topic_id   text not null default '',
+  note       text not null default '',
+  times      text not null default '',
+  status     text not null default 'open',
+  class_id   bigint references live_classes (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists notebooks (
+  email      text not null,
+  ref        text not null,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (email, ref)
+);
+
+alter table live_classes    enable row level security;
+alter table class_seats     enable row level security;
+alter table class_requests  enable row level security;
+alter table notebooks       enable row level security;
+revoke all on live_classes, class_seats, class_requests, notebooks from public, anonymous, authenticated;
+
+alter table class_groups    enable row level security;
+alter table group_members   enable row level security;
+alter table assignments     enable row level security;
+alter table videos          enable row level security;
+alter table video_access    enable row level security;
+revoke all on class_groups, group_members, assignments, videos, video_access from public, anonymous, authenticated;
+
 alter table accounts        enable row level security;
 alter table sessions        enable row level security;
 alter table reset_codes     enable row level security;
@@ -505,7 +616,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'sign in required');
   end if;
   if v_kind not in ('topic', 'notes', 'slides', 'practice', 'simlab', 'sim', 'flashcards', 'quiz',
-                    'assignments', 'activities', 'unit', 'lecture', 'book', 'capstone', 'test') then
+                    'assignments', 'activities', 'unit', 'lecture', 'book', 'capstone', 'test', 'video') then
     return jsonb_build_object('ok', false, 'error', 'bad kind');
   end if;
   if v_ref !~ '^[A-Za-z0-9._-]{1,40}$' then
@@ -762,7 +873,11 @@ returns jsonb language sql stable security definer set search_path = public, pg_
                     or exists (select 1 from teacher_emails t where t.email = p.email),
       'via',        coalesce((select string_agg(distinct u.via, ', ') from unlocks u
                                where u.email = p.email and not u.revoked), ''),
-      'paid',       exists (select 1 from unlocks u where u.email = p.email and u.via in ('razorpay', 'gumroad')))
+      'paid',       exists (select 1 from unlocks u where u.email = p.email and u.via in ('razorpay', 'gumroad')),
+      'videos',     exists (select 1 from video_access v where v.email = p.email and not v.revoked),
+      'groups',     coalesce((select jsonb_agg(m.group_id order by m.group_id) from group_members m
+                               where m.email = p.email), '[]'::jsonb),
+      'active7',    exists (select 1 from activity x where x.email = p.email and x.day > current_date - 7))
     order by p.email), '[]'::jsonb),
     'codes', coalesce((select jsonb_agg(jsonb_build_object('code', code, 'usesLeft', uses_left, 'note', note,
                                                            'created', _iso(created_at)) order by created_at desc)
@@ -871,6 +986,518 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+create or replace function api_teacher_dashboard()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  with days as (
+    select generate_series(current_date - 29, current_date, interval '1 day')::date as day
+  ), act as (
+    select day, count(distinct email) as active, sum(n) as opens from activity
+     where day > current_date - 30 and email not in (select email from teacher_emails) group by day
+  ), sub as (
+    select ts::date as day, count(*) as n,
+           round(sum(points) / nullif(sum(max_points), 0) * 100) as pct
+      from submissions where ts > current_date - 30 and status <> 'pending' group by 1
+  ), per as (
+    select email, jsonb_agg(coalesce(x.n, 0) order by d.day) as spark
+      from (select distinct email from activity where email not in (select email from teacher_emails)) e
+      cross join (select day from days where day > current_date - 14) d
+      left join (select email, day, sum(n) as n from activity group by 1, 2) x using (email, day)
+     group by email
+  )
+  select jsonb_build_object(
+    'days', (select jsonb_agg(jsonb_build_object('day', d.day, 'active', coalesce(a.active, 0),
+                                                 'opens', coalesce(a.opens, 0), 'submissions', coalesce(s.n, 0),
+                                                 'pct', s.pct) order by d.day)
+               from days d left join act a using (day) left join sub s using (day)),
+    'sparks', coalesce((select jsonb_object_agg(email, spark) from per), '{}'::jsonb),
+    'online', coalesce((select jsonb_agg(jsonb_build_object('email', email, 'kind', kind, 'ref', ref,
+                                                            'topic', topic_id, 'at', _iso(last_ts)) order by last_ts desc)
+                          from (select distinct on (email) * from activity
+                                 where last_ts > now() - interval '15 minutes'
+                                   and email not in (select email from teacher_emails)
+                                 order by email, last_ts desc) o), '[]'::jsonb),
+    'pendingTickets', (select count(*) from (select distinct on (email, topic_id, item_id) status from submissions
+                                              order by email, topic_id, item_id, ts desc, id desc) l
+                        where status = 'pending'),
+    'students', (select count(*) from accounts where email not in (select email from teacher_emails)),
+    'activeWeek', (select count(distinct email) from activity where day > current_date - 7
+                     and email not in (select email from teacher_emails)),
+    'generatedAt', _iso(now()))
+$$;
+
+create or replace function api_teacher_live(p_topic text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select jsonb_build_object(
+    'online', coalesce((select jsonb_agg(jsonb_build_object('email', email, 'kind', kind, 'ref', ref,
+                                                            'topic', topic_id, 'at', _iso(last_ts)) order by email)
+                          from (select distinct on (email) * from activity
+                                 where last_ts > now() - interval '15 minutes'
+                                   and email not in (select email from teacher_emails)
+                                 order by email, last_ts desc) o), '[]'::jsonb),
+    'results', coalesce((select jsonb_agg(jsonb_build_object('email', email, 'points', pts, 'max', mx, 'n', n,
+                                                             'last', _iso(last)) order by email)
+                           from (select email, sum(points) as pts, sum(max_points) as mx, count(*) as n, max(ts) as last
+                                   from (select distinct on (email, item_id) * from submissions
+                                          where topic_id = coalesce(p_topic, '') and ts > now() - interval '12 hours'
+                                            and status <> 'pending'
+                                          order by email, item_id, ts desc, id desc) l
+                                  group by email) r), '[]'::jsonb),
+    'generatedAt', _iso(now()))
+$$;
+
+create or replace function api_teacher_get_schedule()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select coalesce((select value::jsonb from settings where key = 'schedule'), '{}'::jsonb)
+$$;
+
+create or replace function api_teacher_set_schedule(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  if jsonb_typeof(p) <> 'object' or length(p::text) > 20000 then
+    return jsonb_build_object('ok', false, 'error', 'bad schedule');
+  end if;
+  insert into settings (key, value) values ('schedule', p::text)
+  on conflict (key) do update set value = excluded.value;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function _my_groups()
+returns setof bigint language sql stable security definer set search_path = public, pg_temp as $$
+  select group_id from group_members where email = _me()
+$$;
+
+create or replace function _has_videos(e text)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (select 1 from video_access where email = e and not revoked)
+      or exists (select 1 from teacher_emails where email = e)
+$$;
+
+create or replace function _assignment_json(a assignments)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('id', a.id, 'group', a.group_id, 'kind', a.kind, 'ref', a.ref, 'title', a.title,
+                            'href', a.href, 'due', _iso(a.due_at), 'note', a.note, 'created', _iso(a.created_at))
+$$;
+
+create or replace function _done(a assignments, e text)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select case a.kind
+    when 'adaptive' then exists (select 1 from engine_sessions s where s.email = e and s.unit = a.ref
+                                    and s.updated_at >= a.created_at)
+    when 'quiz' then exists (select 1 from activity x where x.email = e and x.kind = 'quiz' and x.ref = a.ref
+                                and x.last_ts >= a.created_at)
+                  or exists (select 1 from submissions s where s.email = e and s.topic_id = a.ref and s.ts >= a.created_at)
+    when 'link' then false
+    else exists (select 1 from activity x where x.email = e and x.ref = a.ref and x.last_ts >= a.created_at)
+  end
+$$;
+
+create or replace function api_teacher_groups()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select jsonb_build_object(
+    'groups', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'name', g.name, 'schedule', g.schedule,
+               'members', coalesce((select jsonb_agg(m.email order by m.email) from group_members m where m.group_id = g.id), '[]'::jsonb))
+               order by g.name) from class_groups g), '[]'::jsonb),
+    'default', coalesce((select value::jsonb from settings where key = 'schedule'), '{}'::jsonb))
+$$;
+
+create or replace function api_teacher_save_group(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_id   bigint := nullif(p->>'id', '')::bigint;
+  v_name text := _clean(trim(coalesce(p->>'name', '')), 80);
+  v_sch  jsonb := coalesce(p->'schedule', '{}'::jsonb);
+begin
+  perform _need_teacher();
+  if jsonb_typeof(v_sch) <> 'object' or length(v_sch::text) > 20000 then
+    return jsonb_build_object('ok', false, 'error', 'bad schedule');
+  end if;
+  if v_id is null then
+    if v_name = '' then
+      return jsonb_build_object('ok', false, 'error', 'Give the group a name.');
+    end if;
+    insert into class_groups (name, schedule) values (v_name, v_sch) returning id into v_id;
+  else
+    update class_groups set name = coalesce(nullif(v_name, ''), name),
+           schedule = case when p ? 'schedule' then v_sch else schedule end
+     where id = v_id;
+  end if;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function api_teacher_delete_group(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  delete from class_groups where id = p_id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_set_members(p_id bigint, p_emails text[], p_add boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  if not exists (select 1 from class_groups where id = p_id) then
+    return jsonb_build_object('ok', false, 'error', 'That group no longer exists.');
+  end if;
+  if coalesce(p_add, true) then
+    insert into group_members (group_id, email)
+    select p_id, lower(trim(e)) from unnest(p_emails) e where _email_ok(lower(trim(e)))
+    on conflict do nothing;
+  else
+    delete from group_members where group_id = p_id and email = any (select lower(trim(e)) from unnest(p_emails) e);
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_assignments()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select coalesce(jsonb_agg(_assignment_json(a) || jsonb_build_object(
+           'students', (select count(*) from (select email from group_members where group_id = a.group_id
+                                              union select email from accounts where a.group_id is null
+                                                and email not in (select email from teacher_emails)) w),
+           'done', (select coalesce(jsonb_agg(w.email order by w.email), '[]'::jsonb)
+                      from (select email from group_members where group_id = a.group_id
+                            union select email from accounts where a.group_id is null
+                              and email not in (select email from teacher_emails)) w
+                     where _done(a, w.email)))
+         order by coalesce(a.due_at, a.created_at) desc), '[]'::jsonb)
+    from assignments a
+$$;
+
+create or replace function api_teacher_assign(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_id bigint;
+  v_due timestamptz;
+begin
+  perform _need_teacher();
+  if coalesce(p->>'kind', '') not in ('skill', 'topic', 'quiz', 'adaptive', 'video', 'lecture', 'link')
+     or trim(coalesce(p->>'title', '')) = '' then
+    return jsonb_build_object('ok', false, 'error', 'Pick what to assign.');
+  end if;
+  begin
+    v_due := nullif(p->>'due', '')::timestamptz;
+  exception when others then
+    return jsonb_build_object('ok', false, 'error', 'That due date isn''t valid.');
+  end;
+  insert into assignments (group_id, kind, ref, title, href, due_at, note)
+  values (nullif(p->>'group', '')::bigint, p->>'kind', _clean(p->>'ref', 60), _clean(trim(p->>'title'), 200),
+          _clean(p->>'href', 500), v_due, _clean(trim(coalesce(p->>'note', '')), 1000))
+  returning id into v_id;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function api_teacher_unassign(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  delete from assignments where id = p_id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_videos()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select jsonb_build_object(
+    'videos', coalesce((select jsonb_agg(jsonb_build_object('id', v.id, 'title', v.title, 'youtube', v.youtube,
+                'topic', v.topic_id, 'atom', v.atom_id, 'note', v.note, 'free', v.free, 'group', v.group_id, 'email', v.email_students,
+                'emailed', _iso(v.emailed_at), 'created', _iso(v.created_at),
+                'views', (select count(distinct email) from activity x where x.kind = 'video' and x.ref = 'v' || v.id))
+              order by v.created_at desc) from videos v), '[]'::jsonb),
+    'buyers', (select count(distinct email) from video_access where not revoked))
+$$;
+
+create or replace function api_teacher_save_video(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_id bigint := nullif(p->>'id', '')::bigint;
+  v_yt text := coalesce(p->>'youtube', '');
+begin
+  perform _need_teacher();
+  v_yt := coalesce(substring(v_yt from '(?:youtu\.be/|v=|embed/|shorts/|live/)([A-Za-z0-9_-]{11})'),
+                   substring(v_yt from '^([A-Za-z0-9_-]{11})$'));
+  if v_yt is null then
+    return jsonb_build_object('ok', false, 'error', 'Paste a YouTube link (youtube.com/watch?v=… or youtu.be/…).');
+  end if;
+  if trim(coalesce(p->>'title', '')) = '' then
+    return jsonb_build_object('ok', false, 'error', 'Give the video a title.');
+  end if;
+  if v_id is null then
+    insert into videos (title, youtube, topic_id, atom_id, note, free, group_id, email_students)
+    values (_clean(trim(p->>'title'), 200), v_yt, _clean(p->>'topic', 20), _clean(p->>'atom', 20),
+            _clean(trim(coalesce(p->>'note', '')), 2000),
+            coalesce((p->>'free')::boolean, false), nullif(p->>'group', '')::bigint,
+            coalesce((p->>'email')::boolean, false))
+    returning id into v_id;
+  else
+    update videos set title = _clean(trim(p->>'title'), 200), youtube = v_yt, topic_id = _clean(p->>'topic', 20),
+           atom_id = _clean(p->>'atom', 20),
+           note = _clean(trim(coalesce(p->>'note', '')), 2000), free = coalesce((p->>'free')::boolean, false),
+           group_id = nullif(p->>'group', '')::bigint
+     where id = v_id;
+  end if;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function api_teacher_delete_video(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  delete from assignments where kind = 'video' and ref = 'v' || p_id;
+  delete from videos where id = p_id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_set_video_access(p_email text, p_on boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if not _email_ok(e) then
+    return jsonb_build_object('ok', false, 'error', 'Please enter a valid email address.');
+  end if;
+  if coalesce(p_on, false) then
+    if not exists (select 1 from video_access where email = e and not revoked) then
+      insert into video_access (email, via) values (e, 'teacher');
+    end if;
+  else
+    update video_access set revoked = true where email = e and not revoked;
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function _seat_ok(c live_classes, e text)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (select 1 from teacher_emails where email = e)
+      or exists (select 1 from class_seats s where s.class_id = c.id and s.email = e
+                   and (c.mode <> 'paid' or s.paid or (c.price_inr = 0 and c.price_usd = 0)))
+$$;
+
+create or replace function _class_json(c live_classes, e text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('id', c.id, 'code', 'C' || c.id, 'title', c.title, 'topic', c.topic_id, 'note', c.note,
+    'starts', _iso(c.starts_at), 'minutes', c.minutes, 'mode', c.mode, 'inr', c.price_inr, 'usd', c.price_usd,
+    'capacity', c.capacity, 'status', c.status,
+    'taken', (select count(*) from class_seats s where s.class_id = c.id),
+    'seat', case when _seat_ok(c, e) then 'confirmed'
+                 when exists (select 1 from class_seats s where s.class_id = c.id and s.email = e) then 'pending'
+                 else 'none' end,
+    'meet', case when _seat_ok(c, e) then nullif(c.meet_url, '') end,
+    'hasRecording', c.recording <> '',
+    'recording', case when _seat_ok(c, e) then nullif(c.recording, '') end)
+$$;
+
+create or replace function api_classes()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object(
+    'me', _me(),
+    'classes', coalesce((select jsonb_agg(_class_json(c, _me()) order by c.starts_at nulls last)
+                           from live_classes c
+                          where c.status <> 'cancelled'
+                            and (c.mode <> 'request' or exists (select 1 from class_seats s where s.class_id = c.id and s.email = _me()))),
+                        '[]'::jsonb),
+    'requests', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'topic', r.topic_id, 'note', r.note, 'times', r.times,
+                            'status', r.status, 'class', r.class_id, 'created', _iso(r.created_at)) order by r.created_at desc)
+                            from class_requests r where r.email = _me()), '[]'::jsonb))
+$$;
+
+create or replace function api_join_class(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := _me();
+  c live_classes;
+begin
+  if e is null then
+    return jsonb_build_object('ok', false, 'error', 'Sign in first.');
+  end if;
+  select * into c from live_classes where id = p_id and status = 'scheduled';
+  if not found or c.mode = 'request' then
+    return jsonb_build_object('ok', false, 'error', 'That class isn''t open to join.');
+  end if;
+  if c.capacity > 0 and (select count(*) from class_seats where class_id = c.id) >= c.capacity
+     and not exists (select 1 from class_seats where class_id = c.id and email = e) then
+    return jsonb_build_object('ok', false, 'error', 'That class is full.');
+  end if;
+  insert into class_seats (class_id, email, paid, via) values (c.id, e, false, 'join') on conflict do nothing;
+  return jsonb_build_object('ok', true, 'class', _class_json(c, e));
+end $$;
+
+create or replace function api_leave_class(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  delete from class_seats where class_id = p_id and email = _me() and not paid;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_request_class(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if _me() is null then
+    return jsonb_build_object('ok', false, 'error', 'Sign in first.');
+  end if;
+  if (select count(*) from class_requests where email = _me() and status = 'open') >= 5 then
+    return jsonb_build_object('ok', false, 'error', 'You already have 5 open requests.');
+  end if;
+  insert into class_requests (email, topic_id, note, times)
+  values (_me(), _clean(p->>'topic', 20), _clean(trim(coalesce(p->>'note', '')), 1000), _clean(trim(coalesce(p->>'times', '')), 300));
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_lesson_video(p_atom text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('pass', coalesce(_has_videos(_me()), false), 'videos',
+    coalesce((select jsonb_agg(jsonb_build_object('id', v.id, 'title', v.title, 'note', v.note, 'free', v.free,
+               'youtube', case when v.free or _has_videos(_me()) then v.youtube end) order by v.created_at)
+               from videos v where v.atom_id = coalesce(p_atom, '') and v.group_id is null), '[]'::jsonb))
+$$;
+
+create or replace function api_notebook_get(p_ref text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select data || jsonb_build_object('updated', _iso(updated_at)) from notebooks
+                    where email = _me() and ref = left(coalesce(p_ref, ''), 60)), '{}'::jsonb)
+$$;
+
+create or replace function api_notebook_save(p_ref text, p_data jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if _me() is null then
+    return jsonb_build_object('ok', false, 'error', 'Sign in to save your notebook.');
+  end if;
+  if jsonb_typeof(p_data) <> 'object' or length(p_data::text) > 300000 then
+    return jsonb_build_object('ok', false, 'error', 'That notebook is too big to save.');
+  end if;
+  insert into notebooks (email, ref, data) values (_me(), left(p_ref, 60), p_data)
+  on conflict (email, ref) do update set data = excluded.data, updated_at = now();
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_notebook_list()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce(jsonb_agg(jsonb_build_object('ref', ref, 'title', data->>'title', 'updated', _iso(updated_at))
+                            order by updated_at desc), '[]'::jsonb)
+    from notebooks where email = _me()
+$$;
+
+create or replace function api_teacher_classes()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  select jsonb_build_object(
+    'classes', coalesce((select jsonb_agg(_class_json(c, null) || jsonb_build_object('meet', c.meet_url, 'recording', c.recording,
+                 'seats', coalesce((select jsonb_agg(jsonb_build_object('email', s.email, 'paid', s.paid, 'via', s.via,
+                            'ok', _seat_ok(c, s.email)) order by s.created_at) from class_seats s where s.class_id = c.id), '[]'::jsonb))
+                 order by c.starts_at desc nulls first) from live_classes c), '[]'::jsonb),
+    'requests', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'email', r.email, 'topic', r.topic_id, 'note', r.note,
+                 'times', r.times, 'status', r.status, 'class', r.class_id, 'created', _iso(r.created_at)) order by r.created_at desc)
+                 from class_requests r), '[]'::jsonb))
+$$;
+
+create or replace function api_teacher_save_class(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_id bigint := nullif(p->>'id', '')::bigint;
+  v_start timestamptz;
+  v_mode text := coalesce(nullif(p->>'mode', ''), 'open');
+begin
+  perform _need_teacher();
+  if v_mode not in ('open', 'paid', 'request') or trim(coalesce(p->>'title', '')) = '' then
+    return jsonb_build_object('ok', false, 'error', 'Give the class a title.');
+  end if;
+  begin
+    v_start := nullif(p->>'starts', '')::timestamptz;
+  exception when others then
+    return jsonb_build_object('ok', false, 'error', 'That start time isn''t valid.');
+  end;
+  if v_id is null then
+    insert into live_classes (title) values ('x') returning id into v_id;
+  end if;
+  update live_classes set title = _clean(trim(p->>'title'), 200), topic_id = _clean(p->>'topic', 20),
+         note = _clean(trim(coalesce(p->>'note', '')), 2000), starts_at = v_start,
+         minutes = least(greatest(coalesce(nullif(p->>'minutes', '')::int, 60), 15), 480),
+         meet_url = _clean(trim(coalesce(p->>'meet', '')), 500), mode = v_mode,
+         price_inr = greatest(coalesce(nullif(p->>'inr', '')::int, 0), 0),
+         price_usd = greatest(coalesce(nullif(p->>'usd', '')::int, 0), 0),
+         capacity = greatest(coalesce(nullif(p->>'capacity', '')::int, 0), 0),
+         status = coalesce(nullif(p->>'status', ''), status)
+   where id = v_id;
+  if p ? 'recording' then
+    update live_classes set recording = coalesce(substring(p->>'recording' from '(?:youtu\.be/|v=|embed/|live/)([A-Za-z0-9_-]{11})'),
+                                                 substring(p->>'recording' from '^([A-Za-z0-9_-]{11})$'), '')
+     where id = v_id;
+  end if;
+  if nullif(p->>'request', '') is not null then
+    update class_requests set status = 'scheduled', class_id = v_id where id = (p->>'request')::bigint;
+    insert into class_seats (class_id, email, paid, via)
+    select v_id, email, false, 'request' from class_requests where id = (p->>'request')::bigint
+    on conflict do nothing;
+  end if;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function api_teacher_delete_class(p_id bigint)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  update class_requests set status = 'open', class_id = null where class_id = p_id;
+  delete from live_classes where id = p_id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_set_seat(p_id bigint, p_email text, p_state text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if p_state = 'remove' then
+    delete from class_seats where class_id = p_id and email = e;
+  elsif p_state in ('add', 'paid') then
+    if not _email_ok(e) then
+      return jsonb_build_object('ok', false, 'error', 'Please enter a valid email address.');
+    end if;
+    insert into class_seats (class_id, email, paid, via) values (p_id, e, p_state = 'paid', 'teacher')
+    on conflict (class_id, email) do update set paid = class_seats.paid or excluded.paid;
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_answer_request(p_id bigint, p_status text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  update class_requests set status = case when p_status in ('declined', 'open') then p_status else status end where id = p_id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_my_feed()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object(
+    'me', _me(),
+    'groups', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'name', g.name, 'schedule', g.schedule) order by g.name)
+                          from class_groups g where g.id in (select _my_groups())), '[]'::jsonb),
+    'default', coalesce((select value::jsonb from settings where key = 'schedule'), '{}'::jsonb),
+    'assignments', coalesce((select jsonb_agg(_assignment_json(a) || jsonb_build_object('done',
+                      _me() is not null and _done(a, _me())) order by coalesce(a.due_at, a.created_at))
+                      from assignments a
+                     where (a.group_id is null and _me() is not null) or a.group_id in (select _my_groups())), '[]'::jsonb),
+    'classes', coalesce((select jsonb_agg(_class_json(c, _me()) order by c.starts_at)
+                           from live_classes c where c.status <> 'cancelled' and c.starts_at is not null
+                            and exists (select 1 from class_seats s where s.class_id = c.id and s.email = _me())), '[]'::jsonb),
+    'videos', coalesce((select jsonb_agg(jsonb_build_object('id', v.id, 'title', v.title, 'topic', v.topic_id, 'atom', v.atom_id,
+                      'note', v.note, 'free', v.free, 'created', _iso(v.created_at),
+                      'youtube', case when v.free or _has_videos(_me()) then v.youtube end)
+                      order by v.created_at desc)
+                      from videos v where v.group_id is null or v.group_id in (select _my_groups())), '[]'::jsonb),
+    'videoAccess', coalesce(_has_videos(_me()), false),
+    'generatedAt', _iso(now()))
+$$;
+
 revoke execute on all functions in schema public from public;
 grant usage on schema public to anonymous, authenticated;
 grant execute on function
@@ -884,5 +1511,16 @@ grant execute on function
   api_forgot_password(text), api_reset_password(text, text, text),
   api_whoami(), api_teacher_students(), api_teacher_add_student(text, boolean),
   api_teacher_reset_password(text), api_teacher_set_unlock(text, boolean),
-  api_teacher_remove_student(text), api_teacher_make_code(text, integer), api_teacher_end_code(text)
+  api_teacher_remove_student(text), api_teacher_make_code(text, integer), api_teacher_end_code(text),
+  api_teacher_dashboard(), api_teacher_live(text), api_teacher_get_schedule(), api_teacher_set_schedule(jsonb),
+  api_teacher_groups(), api_teacher_save_group(jsonb), api_teacher_delete_group(bigint),
+  api_teacher_set_members(bigint, text[], boolean), api_teacher_assignments(), api_teacher_assign(jsonb),
+  api_teacher_unassign(bigint), api_teacher_videos(), api_teacher_save_video(jsonb), api_teacher_delete_video(bigint),
+  api_teacher_set_video_access(text, boolean), api_my_feed(),
+  api_classes(), api_join_class(bigint), api_leave_class(bigint), api_request_class(jsonb), api_lesson_video(text),
+  api_notebook_get(text), api_notebook_save(text, jsonb), api_notebook_list(),
+  api_teacher_classes(), api_teacher_save_class(jsonb), api_teacher_delete_class(bigint),
+  api_teacher_set_seat(bigint, text, text), api_teacher_answer_request(bigint, text)
   to anonymous, authenticated;
+
+notify pgrst, 'reload schema';

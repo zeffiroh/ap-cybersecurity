@@ -1,0 +1,229 @@
+(function (global) {
+  "use strict";
+
+  var me = document.currentScript && document.currentScript.src;
+  var ROOT = me ? me.replace(/assets\/theme\/notebook\.js.*$/, "") : "";
+  var PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+  var $ = function (id) { return document.getElementById(id); };
+  var q = new URLSearchParams(location.search);
+  var ref = (q.get("ref") || "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 60);
+  var nb = { title: "", cells: [] }, timer = null, py = null, dirty = false;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    return (P ? P.neon() : Promise.resolve(null)).then(function (db) {
+      if (!db) throw new Error("The course database is not connected yet.");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+  }
+  function email() { return global.Identity ? global.Identity.getEmail() : ""; }
+  function local(k, v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem("aayat_nb_" + k) || "null");
+      localStorage.setItem("aayat_nb_" + k, JSON.stringify(v));
+    } catch (e) { return null; }
+  }
+  function map() { return global.AAYAT_MAP || { units: [], topics: {}, atoms: {} }; }
+
+  function mdHtml(src) {
+    var out = [], list = false;
+    String(src || "").split("\n").forEach(function (line) {
+      var l = esc(line).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+        .replace(/\*([^*]+)\*/g, "<i>$1</i>").replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      var h = /^(#{1,4})\s+(.*)$/.exec(l), li = /^\s*[-*]\s+(.*)$/.exec(l);
+      if (li) { if (!list) { out.push("<ul>"); list = true; } out.push("<li>" + li[1] + "</li>"); return; }
+      if (list) { out.push("</ul>"); list = false; }
+      if (h) out.push("<h" + (h[1].length + 1) + ">" + h[2] + "</h" + (h[1].length + 1) + ">");
+      else if (l.trim()) out.push("<p>" + l + "</p>");
+    });
+    if (list) out.push("</ul>");
+    return out.join("");
+  }
+
+  function status(t) { $("nb-status").textContent = t; }
+
+  function save(now) {
+    dirty = true;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      nb.title = $("nb-title").value;
+      local(ref, nb);
+      if (!email()) { status("Saved in this browser. Sign in to keep it in your account."); dirty = false; return; }
+      status("Saving…");
+      rpc("api_notebook_save", { p_ref: ref, p_data: nb }).then(function (r) {
+        if (!r.ok) throw new Error(r.error);
+        dirty = false;
+        status("Saved to your account · " + new Date().toLocaleTimeString());
+      }).catch(function (e) { status("Saved in this browser only: " + e.message); });
+    }, now ? 0 : 1500);
+  }
+
+  function grow(t) { t.style.height = "auto"; t.style.height = Math.max(60, t.scrollHeight + 4) + "px"; }
+
+  function draw() {
+    var box = $("nb-cells");
+    box.innerHTML = nb.cells.map(function (c, i) {
+      var code = c.t === "py";
+      return '<section class="nb-cell ' + (code ? "nb-code" : "nb-md") + '" data-i="' + i + '">' +
+        '<div class="nb-bar"><span>' + (code ? "Python" : "Notes") + "</span>" +
+        (code ? '<button class="btn dark" data-run>Run</button>' : '<button class="btn" data-view>' + (c.edit ? "Done" : "Edit") + "</button>") +
+        '<button class="btn" data-up title="Move up">&uarr;</button><button class="btn" data-down title="Move down">&darr;</button>' +
+        '<button class="btn" data-del title="Delete cell">&times;</button></div>' +
+        (code || c.edit || !c.s ? '<textarea spellcheck="' + (code ? "false" : "true") + '">' + esc(c.s) + "</textarea>"
+          : '<div class="nb-view">' + mdHtml(c.s) + "</div>") +
+        (code ? '<pre class="nb-out"' + (c.o ? "" : " hidden") + ">" + esc(c.o || "") + "</pre>" : "") + "</section>";
+    }).join("") || '<p class="nb-empty">Empty notebook. Add notes or code below.</p>';
+    box.querySelectorAll(".nb-cell").forEach(function (el) {
+      var i = +el.getAttribute("data-i"), c = nb.cells[i], t = el.querySelector("textarea");
+      if (t) {
+        grow(t);
+        t.addEventListener("input", function () { c.s = t.value; grow(t); save(); });
+        t.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") { e.preventDefault(); var p = t.selectionStart; t.setRangeText("    ", p, t.selectionEnd, "end"); c.s = t.value; save(); }
+          if (e.key === "Enter" && e.shiftKey && c.t === "py") { e.preventDefault(); run(i); }
+        });
+      }
+      var v = el.querySelector(".nb-view");
+      if (v) v.addEventListener("dblclick", function () { c.edit = true; draw(); });
+      el.querySelector("[data-del]").addEventListener("click", function () { nb.cells.splice(i, 1); draw(); save(); });
+      el.querySelector("[data-up]").addEventListener("click", function () { if (i) { nb.cells.splice(i - 1, 0, nb.cells.splice(i, 1)[0]); draw(); save(); } });
+      el.querySelector("[data-down]").addEventListener("click", function () {
+        if (i < nb.cells.length - 1) { nb.cells.splice(i + 1, 0, nb.cells.splice(i, 1)[0]); draw(); save(); }
+      });
+      var r = el.querySelector("[data-run]");
+      if (r) r.addEventListener("click", function () { run(i); });
+      var vw = el.querySelector("[data-view]");
+      if (vw) vw.addEventListener("click", function () { c.edit = !c.edit; draw(); });
+    });
+  }
+
+  function loadPy() {
+    if (py) return py;
+    status("Starting Python (first run takes a few seconds)…");
+    py = new Promise(function (ok, bad) {
+      var s = document.createElement("script");
+      s.src = PYODIDE + "pyodide.js";
+      s.onload = function () { global.loadPyodide({ indexURL: PYODIDE }).then(ok, bad); };
+      s.onerror = function () { bad(new Error("Couldn't load Python. Check your connection.")); };
+      document.head.appendChild(s);
+    });
+    py.catch(function () { py = null; });
+    return py;
+  }
+
+  function run(i) {
+    var c = nb.cells[i];
+    var el = document.querySelector('.nb-cell[data-i="' + i + '"] .nb-out');
+    el.hidden = false; el.textContent = "Running…";
+    return loadPy().then(function (P) {
+      var out = [];
+      P.setStdout({ batched: function (s) { out.push(s); } });
+      P.setStderr({ batched: function (s) { out.push(s); } });
+      return P.loadPackagesFromImports(c.s).then(function () { return P.runPythonAsync(c.s); }).then(function (r) {
+        if (r !== undefined && r !== null) out.push(String(r));
+      }, function (e) { out.push(String(e.message || e).split("\n").slice(-6).join("\n")); }).then(function () {
+        c.o = out.join("\n");
+        el.textContent = c.o || "(no output)";
+        status("Ran cell " + (i + 1) + ".");
+        save();
+      });
+    }).catch(function (e) { el.textContent = e.message; });
+  }
+
+  function add(t) { nb.cells.push({ t: t, s: "", edit: true }); draw(); save(); }
+
+  function codeBookUrl() {
+    var a = map().atoms[ref];
+    return a ? ROOT + "teacher/" + a.href.replace(/index\.html$/, "") + ref + "-student.ipynb" : "";
+  }
+
+  function loadBook() {
+    var u = codeBookUrl();
+    if (!u) return Promise.resolve();
+    status("Loading the code book…");
+    return fetch(u).then(function (r) { if (!r.ok) throw new Error("No code book for this lesson yet."); return r.json(); }).then(function (j) {
+      var cells = (j.cells || []).map(function (c) {
+        var s = Array.isArray(c.source) ? c.source.join("") : String(c.source || "");
+        return { t: c.cell_type === "code" ? "py" : "md", s: s };
+      }).filter(function (c) { return c.s.trim(); });
+      nb.cells = nb.cells.concat(cells);
+      if (!nb.title) nb.title = ref + " code book";
+      $("nb-title").value = nb.title;
+      draw(); save(true);
+      status("Code book loaded. Your edits save as you go.");
+    }).catch(function (e) { status(e.message); });
+  }
+
+  function download() {
+    var j = { nbformat: 4, nbformat_minor: 5, metadata: { kernelspec: { name: "python3", display_name: "Python 3", language: "python" } },
+      cells: nb.cells.map(function (c) {
+        return c.t === "py" ? { cell_type: "code", metadata: {}, execution_count: null, outputs: [], source: c.s }
+          : { cell_type: "markdown", metadata: {}, source: c.s };
+      }) };
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(j, null, 1)], { type: "application/x-ipynb+json" }));
+    a.download = (ref || "notebook") + ".ipynb";
+    a.click();
+  }
+
+  function listPage() {
+    $("nb-editor").hidden = true;
+    $("nb-index").hidden = false;
+    var M = map();
+    $("nb-lesson").innerHTML = M.units.map(function (u) {
+      return '<optgroup label="Unit ' + u.n + '">' + u.topics.map(function (t) {
+        return M.topics[t].atoms.map(function (a) { return '<option value="' + a + '">' + esc(a + " " + M.atoms[a].title) + "</option>"; }).join("");
+      }).join("") + "</optgroup>";
+    }).join("");
+    $("nb-open").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value); });
+    $("nb-openbook").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value) + "&book=1"; });
+    $("nb-new").addEventListener("click", function () { location.search = "?ref=my-" + Date.now().toString(36); });
+    if (!email()) { $("nb-mine").innerHTML = '<p class="nb-empty">Sign in to see the notebooks saved to your account.</p>'; return; }
+    rpc("api_notebook_list").then(function (list) {
+      $("nb-mine").innerHTML = list.length ? '<ul class="nb-list">' + list.map(function (n) {
+        var a = M.atoms[n.ref];
+        return '<li><a href="?ref=' + encodeURIComponent(n.ref) + '">' + esc(n.title || (a ? n.ref + " " + a.title : n.ref)) + "</a> <small>" +
+          new Date(n.updated).toLocaleDateString() + "</small></li>";
+      }).join("") + "</ul>" : '<p class="nb-empty">No notebooks yet. Open one for a lesson below.</p>';
+    }).catch(function (e) { $("nb-mine").textContent = e.message; });
+  }
+
+  function editor() {
+    $("nb-index").hidden = true;
+    $("nb-editor").hidden = false;
+    var a = map().atoms[ref];
+    $("nb-crumb").innerHTML = '<a href="notebook.html">My notebooks</a>' + (a ? ' &middot; <a href="' + ROOT + a.href + '">Lesson ' + esc(ref) + "</a>" : "");
+    $("nb-book").hidden = !a;
+    $("nb-title").addEventListener("input", function () { save(); });
+    $("nb-addmd").addEventListener("click", function () { add("md"); });
+    $("nb-addpy").addEventListener("click", function () { add("py"); });
+    $("nb-runall").addEventListener("click", function () {
+      var p = Promise.resolve();
+      nb.cells.forEach(function (c, i) { if (c.t === "py") p = p.then(function () { return run(i); }); });
+    });
+    $("nb-book").addEventListener("click", loadBook);
+    $("nb-dl").addEventListener("click", download);
+    global.addEventListener("beforeunload", function (e) { if (dirty) { save(true); e.preventDefault(); } });
+    var start = function (d) {
+      nb = d && d.cells ? { title: d.title || "", cells: d.cells } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
+      $("nb-title").value = nb.title;
+      draw();
+      if (q.get("book") && !nb.cells.some(function (c) { return c.t === "py"; })) loadBook();
+      else status(email() ? "Saved to your account as you type." : "Sign in to keep this notebook in your account.");
+    };
+    if (email()) rpc("api_notebook_get", { p_ref: ref }).then(function (d) { start(d && d.cells ? d : local(ref)); }, function () { start(local(ref)); });
+    else start(local(ref));
+  }
+
+  function boot() {
+    if (!$("nb-app")) return;
+    if (ref) editor(); else listPage();
+  }
+  if (document.readyState === "complete") boot();
+  else global.addEventListener("load", boot);
+})(window);
