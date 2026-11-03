@@ -181,6 +181,7 @@ def downloads_page():
 
 
 TOOLS = [
+    ("Students (passwords, access, class codes)", TEACHER / "students.html"),
     ("Class progress (mastery by student)", TEACHER / "progress.html"),
     ("Class dashboard (quiz and assignment scores)", TEACHER / "class-report.html"),
     ("Adaptive test dashboard", TEACHER / "tests.html"),
@@ -201,6 +202,29 @@ def class_progress_page():
             '<div id="grid" class="aa-scroll"></div>\n<div id="detail"></div>\n'
             f'<script src="{rel(path.parent, THEME / "progress-tutor.js")}" defer></script>')
     emit(path, N.shell(path, f"Class progress · {BRAND}", body, cls="aa-wide"))
+
+
+def students_page():
+    path = TEACHER / "students.html"
+    body = (f'<p class="aa-sub"><a href="{rel(path.parent, TEACHER / "index.html")}">Teacher hub</a></p>\n'
+            '<h1>Students</h1>\n<p class="aa-sub" id="status"></p>\n'
+            '<p class="aa-tools"><input id="q" type="search" placeholder="Find a student"> '
+            '<button class="btn" id="reload">Refresh</button></p>\n'
+            '<div id="grid" class="aa-scroll"></div>\n'
+            '<h2>Add a student</h2>\n'
+            '<p class="aa-sub">They sign in with their email and the starter password <b>lock&amp;key</b>, '
+            'then choose their own.</p>\n'
+            '<p class="aa-tools"><input id="add-email" type="email" placeholder="student@school.org"> '
+            '<label><input id="add-unlock" type="checkbox" checked> Give full course access</label> '
+            '<button class="btn" id="add">Add</button> <span id="add-msg"></span></p>\n'
+            '<h2>Class codes</h2>\n'
+            '<p class="aa-sub">Give a class one code. Each student signs in and enters it on the unlock page.</p>\n'
+            '<p class="aa-tools"><input id="code-note" placeholder="Class name, e.g. Period 3"> '
+            '<input id="code-uses" type="number" min="1" max="500" value="30" style="width:5em"> uses '
+            '<button class="btn" id="make">Make code</button> <span id="code-msg"></span></p>\n'
+            '<div id="codes" class="aa-scroll"></div>\n'
+            f'<script src="{rel(path.parent, THEME / "students-tutor.js")}" defer></script>')
+    emit(path, N.shell(path, f"Students · {BRAND}", body, cls="aa-wide"))
 
 
 def teacher_topic_page(tid):
@@ -262,5 +286,6 @@ def run():
             topic_page(tid)
             teacher_topic_page(tid)
     class_progress_page()
+    students_page()
     teacher_hub()
     home()

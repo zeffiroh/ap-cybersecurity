@@ -5,6 +5,8 @@
   var SEEN_KEY = "aayat_seen_v1";
   var QUEUE_KEY = "aayat_seen_queue_v1";
   var REMOTE_KEY = "aayat_remote_v1";
+  var TEACHER_FLAG = "aayat_teacher_v1";
+  var checked = "";
   var LEVELS = ["Not started", "Attempted", "Familiar", "Proficient", "Mastered"];
   var POINTS = [0, 0, 50, 80, 100];
   var GATE = 0.5;
@@ -238,6 +240,8 @@
       d.innerHTML = '<summary title="' + who + '">' + who.split("@")[0] + '</summary><div class="apn-menu">' +
         '<div class="apn-h">' + who + '</div><a href="' + ROOT + 'progress.html">Progress</a>' +
         '<a href="' + ROOT + 'report.html">Report card</a>' +
+        (read(TEACHER_FLAG, "") === who ? '<a href="' + ROOT + 'teacher/index.html">Teacher hub</a>' +
+          '<a href="' + ROOT + 'teacher/students.html">Students</a>' : "") +
         '<a href="#" data-aa-change>Change password</a>' +
         '<a href="#" data-aa-signout>Sign out</a></div>';
     } else {
@@ -261,6 +265,15 @@
       });
     });
     if (global.AayatNav) global.AayatNav.bind(d);
+    if (who && checked !== who) {
+      checked = who;
+      neon().then(function (db) { return db && db.rpc("api_whoami", {}, { attempts: 1 }); }).then(function (r) {
+        if (!r || r.email !== who) return;
+        var was = read(TEACHER_FLAG, "") === who;
+        write(TEACHER_FLAG, r.teacher ? who : "");
+        if (was !== !!r.teacher) account();
+      }).catch(function () {  });
+    }
   }
 
   function signIn(addr) {

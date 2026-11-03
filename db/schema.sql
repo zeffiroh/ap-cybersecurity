@@ -739,6 +739,138 @@ returns jsonb language sql stable security definer set search_path = public, pg_
   select coalesce(jsonb_agg(data order by created_at desc), '[]'::jsonb) from engine_sessions
 $$;
 
+create or replace function api_whoami()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('ok', true, 'email', _me(), 'teacher', _teacher())
+$$;
+
+create or replace function api_teacher_students()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
+  with people as (
+    select email from accounts union select email from unlocks
+  )
+  select jsonb_build_object('students', coalesce(jsonb_agg(jsonb_build_object(
+      'email',      p.email,
+      'account',    a.email is not null,
+      'starter',    coalesce(a.must_change, false),
+      'locked',     coalesce(a.locked_until > now(), false),
+      'teacher',    exists (select 1 from teacher_emails t where t.email = p.email),
+      'joined',     _iso(coalesce(a.created_at, (select min(created_at) from unlocks u where u.email = p.email))),
+      'last',       _iso((select max(last_ts) from activity x where x.email = p.email)),
+      'unlocked',   exists (select 1 from unlocks u where u.email = p.email and not u.revoked)
+                    or exists (select 1 from teacher_emails t where t.email = p.email),
+      'via',        coalesce((select string_agg(distinct u.via, ', ') from unlocks u
+                               where u.email = p.email and not u.revoked), ''),
+      'paid',       exists (select 1 from unlocks u where u.email = p.email and u.via in ('razorpay', 'gumroad')))
+    order by p.email), '[]'::jsonb),
+    'codes', coalesce((select jsonb_agg(jsonb_build_object('code', code, 'usesLeft', uses_left, 'note', note,
+                                                           'created', _iso(created_at)) order by created_at desc)
+                         from unlock_codes), '[]'::jsonb),
+    'generatedAt', _iso(now()))
+    from people p left join accounts a using (email)
+$$;
+
+create or replace function api_teacher_add_student(p_email text, p_unlock boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if not _email_ok(e) then
+    return jsonb_build_object('ok', false, 'error', 'Please enter a valid email address.');
+  end if;
+  insert into accounts (email, pass_hash, must_change) values (e, crypt('lock&key', gen_salt('bf', 10)), true)
+  on conflict (email) do nothing;
+  if coalesce(p_unlock, false) and not exists (select 1 from unlocks where email = e and not revoked) then
+    insert into unlocks (email, via) values (e, 'teacher');
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_reset_password(p_email text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if exists (select 1 from teacher_emails where email = e) then
+    return jsonb_build_object('ok', false, 'error', 'Teacher accounts reset their own password with "Forgot password?".');
+  end if;
+  update accounts set pass_hash = crypt('lock&key', gen_salt('bf', 10)), must_change = true,
+         fails = 0, locked_until = null, updated_at = now()
+   where email = e;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'That student has no account yet.');
+  end if;
+  delete from sessions where email = e;
+  delete from reset_codes where email = e;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_set_unlock(p_email text, p_on boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if not _email_ok(e) then
+    return jsonb_build_object('ok', false, 'error', 'Please enter a valid email address.');
+  end if;
+  if coalesce(p_on, false) then
+    if not exists (select 1 from unlocks where email = e and not revoked) then
+      insert into unlocks (email, via) values (e, 'teacher');
+    end if;
+  else
+    update unlocks set revoked = true where email = e and not revoked;
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_remove_student(p_email text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  perform _need_teacher();
+  if exists (select 1 from teacher_emails where email = e) then
+    return jsonb_build_object('ok', false, 'error', 'Teacher accounts can''t be removed here.');
+  end if;
+  delete from activity where email = e;
+  delete from engine_sessions where email = e;
+  delete from submissions where email = e;
+  delete from sessions where email = e;
+  delete from reset_codes where email = e;
+  delete from unlocks where email = e and via not in ('razorpay', 'gumroad');
+  delete from accounts where email = e;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_make_code(p_note text, p_uses integer)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  abc text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  c text := 'CLASS-';
+  i integer;
+begin
+  perform _need_teacher();
+  for i in 1..8 loop
+    if i = 5 then c := c || '-'; end if;
+    c := c || substr(abc, 1 + (get_byte(gen_random_bytes(1), 0) % 32), 1);
+  end loop;
+  insert into unlock_codes (code, uses_left, note)
+  values (c, least(greatest(coalesce(p_uses, 1), 1), 500), _clean(trim(coalesce(p_note, '')), 100));
+  return jsonb_build_object('ok', true, 'code', c);
+end $$;
+
+create or replace function api_teacher_end_code(p_code text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  update unlock_codes set uses_left = 0 where code = upper(trim(coalesce(p_code, '')));
+  return jsonb_build_object('ok', true);
+end $$;
+
 revoke execute on all functions in schema public from public;
 grant usage on schema public to anonymous, authenticated;
 grant execute on function
@@ -749,5 +881,8 @@ grant execute on function
   api_unlock(jsonb), api_unlock_status(text), api_redeem_code(text, text),
   api_ledger(text), api_pay_info(),
   api_sign_in(text, text), api_sign_up(text, text), api_sign_out(), api_change_password(text),
-  api_forgot_password(text), api_reset_password(text, text, text)
+  api_forgot_password(text), api_reset_password(text, text, text),
+  api_whoami(), api_teacher_students(), api_teacher_add_student(text, boolean),
+  api_teacher_reset_password(text), api_teacher_set_unlock(text, boolean),
+  api_teacher_remove_student(text), api_teacher_make_code(text, integer), api_teacher_end_code(text)
   to anonymous, authenticated;
