@@ -96,6 +96,52 @@ create table if not exists ledger_keys (
   created_at timestamptz not null default now()
 );
 
+create extension if not exists pgcrypto;
+
+create table if not exists accounts (
+  email        text primary key,
+  pass_hash    text not null,
+  must_change  boolean not null default false,
+  fails        integer not null default 0,
+  locked_until timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create table if not exists sessions (
+  token_hash text primary key,
+  email      text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists sessions_email on sessions (email);
+
+create table if not exists reset_codes (
+  email      text primary key,
+  code       text not null,
+  tries      integer not null default 0,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  sent_at    timestamptz
+);
+
+create table if not exists teacher_keys (
+  hash       text primary key,
+  note       text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists teacher_emails (
+  email      text primary key,
+  created_at timestamptz not null default now()
+);
+
+alter table accounts        enable row level security;
+alter table sessions        enable row level security;
+alter table reset_codes     enable row level security;
+alter table teacher_keys    enable row level security;
+alter table teacher_emails  enable row level security;
+revoke all on accounts, sessions, reset_codes, teacher_keys, teacher_emails from public, anonymous, authenticated;
+
 alter table submissions     enable row level security;
 alter table page_views      enable row level security;
 alter table engine_sessions enable row level security;
@@ -127,6 +173,182 @@ returns numeric language sql immutable as $$
               else 0 end
 $$;
 
+create or replace function _sha(t text)
+returns text language sql immutable as $$
+  select encode(sha256(convert_to(coalesce(t, ''), 'UTF8')), 'hex')
+$$;
+
+create or replace function _header(name text)
+returns text language sql stable as $$
+  select coalesce(nullif(current_setting('request.headers', true), '')::json->>name, '')
+$$;
+
+create or replace function _me()
+returns text language sql stable security definer set search_path = public, pg_temp as $$
+  select s.email from sessions s
+   where _header('x-session') <> '' and s.token_hash = _sha(_header('x-session'))
+     and s.created_at > now() - interval '365 days'
+$$;
+
+create or replace function _teacher()
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select (_header('x-teacher-key') <> ''
+          and exists (select 1 from teacher_keys where hash = _sha(_header('x-teacher-key'))))
+      or exists (select 1 from teacher_emails where email = _me())
+$$;
+
+create or replace function _need_me(p_email text)
+returns void language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if not _teacher() and _me() is distinct from lower(trim(coalesce(p_email, ''))) then
+    raise exception 'sign in required';
+  end if;
+end $$;
+
+create or replace function _need_teacher()
+returns void language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if not _teacher() then
+    raise exception 'teacher key required';
+  end if;
+end $$;
+
+create or replace function _email_ok(e text)
+returns boolean language sql immutable as $$
+  select e ~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' and length(e) <= 200
+$$;
+
+create or replace function _password_problem(p text)
+returns text language sql immutable as $$
+  select case when length(coalesce(p, '')) < 8 then 'Use at least 8 characters.'
+              when length(p) > 200 then 'That password is too long.'
+              when lower(p) = 'lock&key' then 'Choose a password of your own.' end
+$$;
+
+create or replace function _new_session(e text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  tok text := encode(gen_random_bytes(32), 'hex');
+begin
+  insert into sessions (token_hash, email) values (_sha(tok), e);
+  return jsonb_build_object('ok', true, 'email', e, 'token', tok,
+    'mustChange', coalesce((select must_change from accounts where email = e), false));
+end $$;
+
+create or replace function api_sign_in(p_email text, p_password text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+  a accounts;
+begin
+  select * into a from accounts where email = e;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'No account for that email yet. Create one below.',
+                              'noAccount', true);
+  end if;
+  if a.locked_until > now() then
+    return jsonb_build_object('ok', false, 'error',
+      'Too many wrong passwords. Try again in 15 minutes, or reset your password.');
+  end if;
+  if crypt(coalesce(p_password, ''), a.pass_hash) <> a.pass_hash then
+    update accounts set fails = case when fails + 1 >= 10 then 0 else fails + 1 end,
+           locked_until = case when fails + 1 >= 10 then now() + interval '15 minutes' else locked_until end
+     where email = e;
+    return jsonb_build_object('ok', false, 'error', 'Wrong email or password.');
+  end if;
+  update accounts set fails = 0, locked_until = null where email = e;
+  return _new_session(e);
+end $$;
+
+create or replace function api_sign_up(p_email text, p_password text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+  bad text := _password_problem(p_password);
+begin
+  if not _email_ok(e) then
+    return jsonb_build_object('ok', false, 'error', 'Please enter a valid email address.');
+  end if;
+  if bad is not null then
+    return jsonb_build_object('ok', false, 'error', bad);
+  end if;
+  insert into accounts (email, pass_hash) values (e, crypt(p_password, gen_salt('bf', 10)))
+  on conflict (email) do nothing;
+  if not found then
+    return jsonb_build_object('ok', false, 'error',
+      'That email already has an account. Sign in, or use "Forgot password".');
+  end if;
+  return _new_session(e);
+end $$;
+
+create or replace function api_sign_out()
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  delete from sessions where _header('x-session') <> '' and token_hash = _sha(_header('x-session'));
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_change_password(p_new text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := _me();
+  bad text := _password_problem(p_new);
+begin
+  if e is null then
+    return jsonb_build_object('ok', false, 'error', 'Please sign in again.');
+  end if;
+  if bad is not null then
+    return jsonb_build_object('ok', false, 'error', bad);
+  end if;
+  update accounts set pass_hash = crypt(p_new, gen_salt('bf', 10)), must_change = false, updated_at = now()
+   where email = e;
+  delete from sessions where email = e and token_hash <> _sha(_header('x-session'));
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_forgot_password(p_email text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  if exists (select 1 from accounts where email = e)
+     and not exists (select 1 from reset_codes where email = e and created_at > now() - interval '1 minute') then
+    insert into reset_codes (email, code, expires_at)
+    values (e, lpad(((('x' || encode(gen_random_bytes(4), 'hex'))::bit(32)::bigint) % 1000000)::text, 6, '0'),
+            now() + interval '30 minutes')
+    on conflict (email) do update
+      set code = excluded.code, tries = 0, created_at = now(), expires_at = excluded.expires_at, sent_at = null;
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_reset_password(p_email text, p_code text, p_new text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := lower(trim(coalesce(p_email, '')));
+  r reset_codes;
+  bad text := _password_problem(p_new);
+begin
+  select * into r from reset_codes where email = e and expires_at > now();
+  if not found or r.tries >= 5 then
+    delete from reset_codes where email = e and (expires_at <= now() or tries >= 5);
+    return jsonb_build_object('ok', false, 'error', 'That code has expired. Ask for a new one.');
+  end if;
+  if r.code <> trim(coalesce(p_code, '')) then
+    update reset_codes set tries = tries + 1 where email = e;
+    return jsonb_build_object('ok', false, 'error', 'That code isn''t right. Check the email and try again.');
+  end if;
+  if bad is not null then
+    return jsonb_build_object('ok', false, 'error', bad);
+  end if;
+  update accounts set pass_hash = crypt(p_new, gen_salt('bf', 10)), must_change = false,
+         fails = 0, locked_until = null, updated_at = now()
+   where email = e;
+  delete from sessions where email = e;
+  delete from reset_codes where email = e;
+  return _new_session(e);
+end $$;
+
 create or replace function api_submit(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -134,6 +356,9 @@ declare
   v_max   numeric := least(greatest(_num(p->'maxPoints'), 0), 100);
   v_kind  text := _clean(p->>'kind', 40);
 begin
+  if _me() is distinct from v_email then
+    return jsonb_build_object('ok', false, 'error', 'sign in required');
+  end if;
   if v_email = '' or coalesce(p->>'topic_id', '') = '' or v_kind = ''
      or coalesce(p->>'item_id', '') = '' then
     return jsonb_build_object('ok', false, 'error', 'missing required field(s)');
@@ -164,6 +389,7 @@ declare
   v_max   numeric;
   v_pts   numeric;
 begin
+  perform _need_teacher();
   if v_email = '' or coalesce(p->>'topic_id', '') = '' or coalesce(p->>'item_id', '') = '' then
     return jsonb_build_object('ok', false, 'error', 'missing required field(s)');
   end if;
@@ -246,6 +472,9 @@ begin
   if pg_column_size(p) > 262144 then
     return jsonb_build_object('ok', false, 'error', 'session too large');
   end if;
+  if lower(trim(coalesce(p->>'student_email', p->>'email', ''))) not in ('', coalesce(_me(), '')) then
+    return jsonb_build_object('ok', false, 'error', 'sign in required');
+  end if;
   insert into engine_sessions (id, session_type, name, email, unit, topic_id, data)
   values (v_id,
           case when p->>'session_type' = 'hw' then 'hw' else 'adaptive' end,
@@ -256,7 +485,8 @@ begin
           p)
   on conflict (id) do update
     set data = excluded.data, name = excluded.name, email = excluded.email,
-        updated_at = now();
+        updated_at = now()
+    where engine_sessions.email in ('', excluded.email);
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -270,6 +500,9 @@ declare
 begin
   if v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' then
     return jsonb_build_object('ok', false, 'error', 'bad email');
+  end if;
+  if _me() is distinct from v_email then
+    return jsonb_build_object('ok', false, 'error', 'sign in required');
   end if;
   if v_kind not in ('topic', 'notes', 'slides', 'practice', 'simlab', 'sim', 'flashcards', 'quiz',
                     'assignments', 'activities', 'unit', 'lecture', 'book', 'capstone', 'test') then
@@ -339,6 +572,7 @@ $$;
 
 create or replace function api_student_progress(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_me(p_email);
   select coalesce(_progress(lower(trim(coalesce(p_email, '')))) -> lower(trim(coalesce(p_email, ''))),
                   '{"work": [], "tests": {}, "hw": {}, "seen": []}'::jsonb)
          || jsonb_build_object('recent', coalesce((
@@ -349,11 +583,13 @@ $$;
 
 create or replace function api_class_progress()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
   select jsonb_build_object('students', _progress(null), 'generatedAt', _iso(now()))
 $$;
 
 create or replace function api_student_report(p_email text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_me(p_email);
   with mine as (
     select * from submissions where email = lower(trim(coalesce(p_email, '')))
   ), latest as (
@@ -396,6 +632,7 @@ $$;
 
 create or replace function api_class_report()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
   with latest as (
     select distinct on (email, topic_id, item_id) * from submissions
      order by email, topic_id, item_id, ts desc, id desc
@@ -496,6 +733,7 @@ end $$;
 
 create or replace function api_engine_sessions()
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select _need_teacher();
   select coalesce(jsonb_agg(data order by created_at desc), '[]'::jsonb) from engine_sessions
 $$;
 
@@ -507,5 +745,7 @@ grant execute on function
   api_ad_metrics(), api_engine_sessions(), api_track(jsonb),
   api_student_progress(text), api_class_progress(),
   api_unlock(jsonb), api_unlock_status(text), api_redeem_code(text, text),
-  api_ledger(text), api_pay_info()
+  api_ledger(text), api_pay_info(),
+  api_sign_in(text, text), api_sign_up(text, text), api_sign_out(), api_change_password(text),
+  api_forgot_password(text), api_reset_password(text, text, text)
   to anonymous, authenticated;

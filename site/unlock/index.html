@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <script src="../assets/config.js"></script>
+<script src="../assets/shared/neon.js"></script>
+<script src="../assets/shared/identity.js"></script>
 <script src="../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Unlock the Course · Aayat-AP-Prep</title>
@@ -32,12 +34,12 @@
   <section class="card" id="steps">
     <h2>1 · Your account</h2>
     <form id="signin">
-      <label for="email">Sign in with your email</label>
+      <label for="email">Sign in or create your account</label>
       <div class="row">
         <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn" type="submit">Sign in</button>
       </div>
-      <p class="hint">The same sign-in that keeps your progress and grades. No password.</p>
+      <p class="hint">The same account that keeps your progress and grades. New here? You'll create a password next.</p>
     </form>
     <p class="who" id="who" hidden></p>
     <p class="msg" id="account-msg" role="status"></p>
@@ -82,10 +84,9 @@ function wait(who){$("wait").hidden=false;$("ways").hidden=true;if(waiting&&wait
 $("wait-msg").textContent="Checking for "+who+"…"+(min?" "+min+" min so far.":"");W.lookup(who).then(function(yes){if(yes&&waiting===me)done("Thank you","Payment confirmed. The full course is open for "+who+", for good.");},function(){});}
 me.timer=setInterval(tick,15000);waiting=me;tick();}
 var paid=q.has("paid");function paint(){var who=W.email();$("signin").hidden=!!who;$("who").hidden=!who;$("ways").hidden=!who;if(!who){stopWaiting();$("wait").hidden=true;$("account-msg").textContent=paid?"Paid? Sign in with the email you typed on the payment page.":"";return;}
-$("account-msg").textContent="";$("who").innerHTML="Signed in as <strong></strong><button type=\"button\">Switch</button>";$("who").querySelector("strong").textContent=who;$("who").querySelector("button").addEventListener("click",function(){try{localStorage.removeItem("apcyber_student_email");}catch(e){}
-window.dispatchEvent(new Event("aayat-identity"));paint();$("email").focus();});if(W.isUnlocked(who))return done("Unlocked","The full course is open for "+who+".");if(q.has("free"))return free(who);if(paid)return wait(who);$("account-msg").textContent="Checking your account…";W.lookup(who).then(function(yes){if(yes)done("Unlocked","This account had already unlocked the course. It's open again here.");else $("account-msg").textContent="";},function(){$("account-msg").textContent="";});}
+$("account-msg").textContent="";$("who").innerHTML="Signed in as <strong></strong><button type=\"button\">Switch</button>";$("who").querySelector("strong").textContent=who;$("who").querySelector("button").addEventListener("click",function(){var out=window.Identity?window.Identity.signOut():Promise.resolve();out.then(function(){paint();$("email").focus();});});if(W.isUnlocked(who))return done("Unlocked","The full course is open for "+who+".");if(q.has("free"))return free(who);if(paid)return wait(who);$("account-msg").textContent="Checking your account…";W.lookup(who).then(function(yes){if(yes)done("Unlocked","This account had already unlocked the course. It's open again here.");else $("account-msg").textContent="";},function(){$("account-msg").textContent="";});}
 $("signin").addEventListener("submit",function(e){e.preventDefault();var v=$("email").value.trim().toLowerCase();if(!W.EMAIL_RE.test(v)){$("account-msg").textContent="Enter a valid email address.";return;}
-W.signIn(v);paint();});W.price().then(function(p){$("pay-title").textContent=p.min?"2 · Pay "+W.rupees(p.min):"2 · Pay what you want";$("pay-amount").textContent=p.min?W.rupees(p.min)+" or more, once. ":"Any amount. ";},function(){});$("pay").href=W.payUrl(new URL("?paid=1",location.href.split(/[?#]/)[0]).href);$("pay").addEventListener("click",function(){try{localStorage.setItem(PENDING,JSON.stringify({next:q.get("next")||"",ts:Date.now()}));}catch(e){}});$("code-form").addEventListener("submit",function(e){e.preventDefault();var who=W.email(),code=$("code").value.trim().toUpperCase(),msg=$("code-msg");if(!code)return;msg.textContent="Checking…";W.neon().then(function(N){return N.rpc("api_redeem_code",{p_email:who,p_code:code},{attempts:1});}).then(function(res){if(!res||!res.ok){msg.textContent=(res&&res.error)||"That code didn't work.";return;}
+W.signIn(v,function(){paint();});});W.price().then(function(p){$("pay-title").textContent=p.min?"2 · Pay "+W.rupees(p.min):"2 · Pay what you want";$("pay-amount").textContent=p.min?W.rupees(p.min)+" or more, once. ":"Any amount. ";},function(){});$("pay").href=W.payUrl(new URL("?paid=1",location.href.split(/[?#]/)[0]).href);$("pay").addEventListener("click",function(){try{localStorage.setItem(PENDING,JSON.stringify({next:q.get("next")||"",ts:Date.now()}));}catch(e){}});$("code-form").addEventListener("submit",function(e){e.preventDefault();var who=W.email(),code=$("code").value.trim().toUpperCase(),msg=$("code-msg");if(!code)return;msg.textContent="Checking…";W.neon().then(function(N){return N.rpc("api_redeem_code",{p_email:who,p_code:code},{attempts:1});}).then(function(res){if(!res||!res.ok){msg.textContent=(res&&res.error)||"That code didn't work.";return;}
 W.unlock(who,"code",code);done("Unlocked","Code accepted. The full course is open for "+who+", for good.");},function(){msg.textContent="Couldn't reach the course database. Check your connection and try again.";});});if(S.contactEmail){$("footer").innerHTML='Trouble unlocking? Email <a href="mailto:'+S.contactEmail+'">'+S.contactEmail+"</a><br>"+'<a href="../index.html">Back to the course</a>';}
 paint();if(q.get("code")&&W.email())$("code").focus();})();</script>
 </body>

@@ -62,12 +62,12 @@
   <section class="card" id="steps">
     <h2>1 · Your account</h2>
     <form id="signin">
-      <label for="email">Sign in with your email</label>
+      <label for="email">Sign in or create your account</label>
       <div class="row">
         <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn" type="submit">Sign in</button>
       </div>
-      <p class="hint">The same sign-in that keeps your progress and grades. No password.</p>
+      <p class="hint">The same account that keeps your progress and grades. New here? You'll create a password next.</p>
     </form>
     <p class="who" id="who" hidden></p>
     <p class="msg" id="account-msg" role="status"></p>
@@ -196,10 +196,11 @@
     $("who").innerHTML = "Signed in as <strong></strong><button type=\"button\">Switch</button>";
     $("who").querySelector("strong").textContent = who;
     $("who").querySelector("button").addEventListener("click", function () {
-      try { localStorage.removeItem("apcyber_student_email"); } catch (e) {}
-      window.dispatchEvent(new Event("aayat-identity"));
-      paint();
-      $("email").focus();
+      var out = window.Identity ? window.Identity.signOut() : Promise.resolve();
+      out.then(function () {
+        paint();
+        $("email").focus();
+      });
     });
     if (W.isUnlocked(who)) return done("Unlocked", "The full course is open for " + who + ".");
     if (q.has("free")) return free(who);
@@ -215,8 +216,7 @@
     e.preventDefault();
     var v = $("email").value.trim().toLowerCase();
     if (!W.EMAIL_RE.test(v)) { $("account-msg").textContent = "Enter a valid email address."; return; }
-    W.signIn(v);
-    paint();
+    W.signIn(v, function () { paint(); });
   });
 
   W.price().then(function (p) {

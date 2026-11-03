@@ -19,8 +19,10 @@ SUBTITLE = "A Foundations Textbook for AP Cybersecurity"
 AUTHOR = "Mitali Sharma"
 EMAIL = "mukumahnoor@gmail.com"
 YEAR = "2026"
-TRIM_W, TRIM_H, BLEED = 7.0, 9.25, 0.125
-PER_PAGE = {"white": 0.002252, "cream": 0.0025}
+TRIM_W, TRIM_H, BLEED = 7.0, 9.0, 0.2
+SPINE_PER_PAGE = 0.001968
+PRINT_GEOMETRY = ("paperwidth=7in, paperheight=9in,\n  inner=0.90in, outer=0.70in,\n"
+                  "  top=1.05in,   bottom=1.00in,")
 
 BLURB = ("Units 1–5 of AP Cybersecurity, from social engineering and the CIA triad to network defense, "
          "device hardening, cryptography and secure applications. Every chapter opens with a real incident, "
@@ -68,6 +70,13 @@ def compile_edition(kind, dst):
         if n != 1:
             raise RuntimeError("copyright.tex: licence paragraph not found; update LICENSE in builder/editions.py")
         cp.write_text(t, encoding="utf-8")
+        if kind == "print":
+            pre = src / "preamble.tex"
+            t, n = re.subn(r"paperwidth=.*?bottom=[\d.]+in,", PRINT_GEOMETRY, pre.read_text(encoding="utf-8"),
+                           count=1, flags=re.S)
+            if n != 1:
+                raise RuntimeError("preamble.tex: geometry not found; update PRINT_GEOMETRY in builder/editions.py")
+            pre.write_text(t, encoding="utf-8")
         print(f"compiling the {kind} edition (a few minutes)...")
         r = subprocess.run(["latexmk", "-pdf", "-interaction=nonstopmode", "-halt-on-error", "main.tex"],
                            cwd=src, capture_output=True, text=True, errors="replace")
@@ -130,7 +139,7 @@ figcaption,.code-caption{font-size:.85em;font-style:italic;color:#555}
 .box-label{font-family:sans-serif;font-weight:bold;font-size:.8em;text-transform:uppercase;color:#800000}
 .box-misconception{border-left-color:#9a9a9a}.box-enrichment{border-left-color:#3a6b52}
 pre,code{font-family:monospace;font-size:.85em}
-pre{white-space:pre-wrap;background:#f5f3ee;padding:.5em;border:1px solid #ddd}
+pre{white-space:pre-wrap;background:#f5f3ee;padding:.5em;border:1px solid #ddd;text-align:left}
 .code-lang{font-family:sans-serif;font-size:.75em;text-transform:uppercase;color:#666}
 .chapter-quote{font-style:italic;margin:1em 2em}
 .center{text-align:center}.flushright{text-align:right}
@@ -298,7 +307,7 @@ def write(path, text):
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
-def readmes(pw, pages, paper, pothi_spine):
+def readmes(pw, pages, pothi_spine):
     kw = "\n".join("  " + k for k in KEYWORDS)
     bisac = "\n".join("  " + b for b in BISAC)
     write(OUT / "README.txt", f"""
@@ -311,7 +320,7 @@ put it on the course site.
 
   Folder               Sells                                   Files
   razorpay/            the PDF password (India)                 thank-you text, book logo, course logo
-  gumroad/             the PDF password (everywhere else)       locked PDF, thank-you text, cover, thumbnail
+  gumroad/             the PDF + EPUB (everywhere else)          digital PDF, EPUB, thank-you text, cover, thumbnail
   gumroad/course/      the course (everywhere else)             course cover, course thumbnail
   payhip/              the PDF + EPUB, delivered by Payhip      digital PDF, EPUB, cover
   pothi/               paperback + ebook (India)                interior PDF, cover PDF / PDF, EPUB
@@ -323,15 +332,15 @@ The three editions
   digital       unlocked PDF + EPUB; copyright page says "digital edition ... do not redistribute the file"
   print         unlocked PDF for printing ({pages} pages, {TRIM_W:g} x {TRIM_H:g} in); copyright page without "file"
 
-After paying, buyers of the locked PDF see the password on the store's thank-you page. Every other store
-delivers its own file, so no password is involved there.
+After paying on Razorpay, buyers of the locked PDF see the password on the thank-you page. Every other store
+delivers its own unlocked file, so no password is involved there.
 
 When a store link is live, paste it into source/static/buy/index.html (the LINKS list at the bottom), then
     python build.py --only static ; git add . ; git commit -m "Store links" ; git push
 
 Rebuild this folder after changing the book
     python build.py --only book
-    python -m builder.editions                     (add --paper cream or --pothi-spine N if you need them)
+    python -m builder.editions                     (add --pothi-spine N if Pothi's cover page says otherwise)
 The paperback covers are sized for {pages} pages; if the page count changes, rebuild and upload both again.
 
 Before you publish anywhere
@@ -397,16 +406,23 @@ The licence is for you and your classroom; please don't share the file or the pa
 Questions or a lost password: {EMAIL}
 """
     write(OUT / "razorpay" / "thank-you-message.txt", thanks)
-    write(OUT / "gumroad" / "thank-you-message.txt", thanks)
+    write(OUT / "gumroad" / "thank-you-message.txt", f"""
+Thank you for buying {TITLE}: {SUBTITLE}.
+
+Download the PDF or the EPUB above (the EPUB reflows to fit phones and e-readers). Both are yours to keep.
+
+The licence is for you and your classroom; please don't share the files.
+Questions: {EMAIL}
+""")
     write(OUT / "gumroad" / "README.txt", f"""
-GUMROAD - sell the PDF password (everywhere outside India)
-==========================================================
+GUMROAD - unlocked PDF + EPUB (everywhere outside India)
+========================================================
 
 1. https://app.gumroad.com/products/new -> E-book. Name: "{TITLE}: {SUBTITLE} (Aayat-AP-Prep)". Price in USD.
 2. Description: the LONG DESCRIPTION from ../store-listing.txt.
    Cover: gumroad-cover-1280x720.png. Thumbnail: gumroad-thumbnail-600x600.png.
-3. Content tab: upload {NAME}-locked.pdf (the same locked file as the course site), and add a text block
-   with thank-you-message.txt, which has the password. Buyers get both on the receipt page and by email.
+3. Content tab: upload {NAME}.pdf and {NAME}.epub, and a text block with thank-you-message.txt.
+   Buyers get both files on the receipt page and by email.
 4. Publish, copy the product link, and paste it as the second "pdf" entry in source/static/buy/index.html.
 
 THE COURSE (folder course/): "Beginner's Cybersecurity Kickstarter: Full Course (Aayat-AP-Prep)", link
@@ -431,13 +447,12 @@ POTHI.COM - paperback and ebook (India)
 https://pothi.com -> Publish -> sign up.
 
 PAPERBACK (folder paperback/)
-1. Publish a print book. Size: {TRIM_W:g} x {TRIM_H:g} in if Pothi offers it (or "custom"). If it
-   doesn't, tell Claude the size Pothi does offer and the book will be re-set for it.
-2. Interior: Black & white, {pages} pages, {paper} paper. Upload {NAME}-interior.pdf.
-3. Cover: Pothi's cover page shows the spine width for {pages} pages on the paper you chose.
-   This cover was made with a {pothi_spine:.3f} in spine. If Pothi's number differs, rebuild:
+1. Publish a print book. Size: {TRIM_W:g}" x {TRIM_H:g}" (a Pothi standard size). Paperback (perfect binding).
+2. Interior: Black & white, {pages} pages, plain white paper. Upload {NAME}-interior.pdf
+   ({TRIM_W:g} x {TRIM_H:g} in pages, no bleed, at least 0.6 in clear on every side, as Pothi asks).
+3. Cover: upload {NAME}-cover.pdf. It uses Pothi's softcover formula: spine = 0.001968 x {pages} =
+   {pothi_spine:.3f} in, 0.2 in bleed on every side. If Pothi's cover page gives a different spine, rebuild:
        python -m builder.editions --pothi-spine <Pothi's number in inches>
-   then upload {NAME}-cover.pdf.
 4. ISBN: take Pothi's free ISBN (or none). Description, keywords: ../store-listing.txt.
 5. Price and approve; order one copy to check.
 
@@ -451,7 +466,6 @@ Copy the Pothi book link into the Pothi entry in source/static/buy/index.html.
 
 def main():
     ap = argparse.ArgumentParser(description="Store copies of the textbook in publication/")
-    ap.add_argument("--paper", choices=sorted(PER_PAGE), default="white", help="paperback paper")
     ap.add_argument("--pothi-spine", type=float, help="Pothi spine width in inches (default: from --paper)")
     a = ap.parse_args()
 
@@ -469,7 +483,7 @@ def main():
         front_jpg(cover)
         epub(tmp / "book.epub", cover)
         pages = page_count(printed)
-        pothi_spine = a.pothi_spine or pages * PER_PAGE[a.paper]
+        pothi_spine = a.pothi_spine or pages * SPINE_PER_PAGE
 
         def put(src, *rel):
             dst = OUT.joinpath(*rel)
@@ -478,18 +492,17 @@ def main():
 
         put(BRANDING / "razorpay-logo-512x512.png", "razorpay", "razorpay-logo-512x512.png")
         put(BRANDING / "course-logo-512x512.png", "razorpay", "course-logo-512x512.png")
-        put(LOCKED_PDF, "gumroad", f"{NAME}-locked.pdf")
         for f in ("gumroad-cover-1280x720.png", "gumroad-thumbnail-600x600.png"):
             put(BRANDING / f, "gumroad", f)
         for f in ("course-cover-1280x720.png", "course-thumbnail-600x600.png"):
             put(BRANDING / f, "gumroad", "course", f)
-        for d in ("payhip", "pothi/ebook"):
+        for d in ("gumroad", "payhip", "pothi/ebook"):
             put(cover, *d.split("/"), "cover-1600x2560.jpg")
             put(tmp / "book.epub", *d.split("/"), f"{NAME}.epub")
             put(digital, *d.split("/"), f"{NAME}.pdf")
         put(printed, "pothi", "paperback", f"{NAME}-interior.pdf")
         cover_wrap(OUT / "pothi" / "paperback" / f"{NAME}-cover.pdf", pothi_spine)
-        readmes(pw, pages, a.paper, pothi_spine)
+        readmes(pw, pages, pothi_spine)
     print(f"done: {OUT.relative_to(ROOT)}/  ({pages} print pages)")
 
 

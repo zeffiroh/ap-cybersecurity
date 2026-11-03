@@ -30,7 +30,8 @@
     return !P.enabled || !!(addr && unlocks()[addr]);
   }
 
-  function signIn(addr) {
+  function signIn(addr, cb) {
+    if (global.Identity) return global.Identity.open({ email: addr }, cb);
     if (global.AayatProgress) return global.AayatProgress.signIn(addr);
     set(EMAIL_KEY, addr);
     global.dispatchEvent(new Event("aayat-identity-set"));
@@ -125,7 +126,7 @@
 
   var css = document.createElement("style");
   css.textContent =
-    "html.pw-locked body>*:not(.apnav):not(.pw-gate){display:none!important}" +
+    "html.pw-locked body>*:not(.apnav):not(.pw-gate):not(.identity-overlay){display:none!important}" +
     ".pw-gate{position:fixed;inset:0;z-index:999;overflow:auto;background:#fff;color:#111;" +
     "font-family:'Times New Roman',Times,Georgia,serif;display:flex;align-items:flex-start;justify-content:center;" +
     "padding:96px 16px 48px;box-sizing:border-box}" +
@@ -182,7 +183,6 @@
         e.preventDefault();
         var v = box.querySelector("input").value.trim().toLowerCase();
         if (!EMAIL_RE.test(v)) return;
-        box.querySelector(".pw-msg").textContent = "Checking…";
         signIn(v);
       });
     }

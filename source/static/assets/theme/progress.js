@@ -238,20 +238,27 @@
       d.innerHTML = '<summary title="' + who + '">' + who.split("@")[0] + '</summary><div class="apn-menu">' +
         '<div class="apn-h">' + who + '</div><a href="' + ROOT + 'progress.html">Progress</a>' +
         '<a href="' + ROOT + 'report.html">Report card</a>' +
+        '<a href="#" data-aa-change>Change password</a>' +
         '<a href="#" data-aa-signout>Sign out</a></div>';
     } else {
       d.innerHTML = '<summary>Sign in</summary><div class="apn-menu"><div class="apn-h">Save progress online</div>' +
-        '<form class="apn-signin"><input type="email" placeholder="you@school.org" autocomplete="email" required>' +
-        '<button type="submit">Sign in</button></form></div>';
+        '<a href="#" data-aa-open="signin">Sign in</a><a href="#" data-aa-open="signup">Create an account</a></div>';
     }
     nav.appendChild(d);
     var out = d.querySelector("[data-aa-signout]");
     if (out) out.addEventListener("click", function (e) { e.preventDefault(); signOut(); });
-    var form = d.querySelector("form");
-    if (form) form.addEventListener("submit", function (e) {
+    var change = d.querySelector("[data-aa-change]");
+    if (change) change.addEventListener("click", function (e) {
       e.preventDefault();
-      var v = form.querySelector("input").value.trim().toLowerCase();
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) signIn(v);
+      d.open = false;
+      if (global.Identity) global.Identity.changePassword();
+    });
+    d.querySelectorAll("[data-aa-open]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        d.open = false;
+        if (global.Identity) global.Identity.open({ mode: a.getAttribute("data-aa-open") });
+      });
     });
     if (global.AayatNav) global.AayatNav.bind(d);
   }
@@ -268,6 +275,7 @@
   }
 
   function signOut() {
+    if (global.Identity) return global.Identity.signOut();
     try { localStorage.removeItem(EMAIL_KEY); } catch (e) {  }
     changed();
   }
@@ -290,7 +298,7 @@
       var m = a.getAttribute("href").match(/(\d\.\d\.[a-z])\.html/);
       if (m) track("sim", m[1], m[1].replace(/\.[a-z]$/, ""));
     });
-    global.addEventListener("storage", function (e) { if (e.key === EMAIL_KEY) changed(); });
+    global.addEventListener("storage", function (e) { if (e.key === EMAIL_KEY || e.key === "apcyber_session") changed(); });
     paint(record());
     refresh().then(paint);
   }

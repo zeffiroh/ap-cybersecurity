@@ -110,6 +110,21 @@ link, `…/ledger/#<key>`: make one with `python db/ledger_key.py "who it's for"
 `delete from ledger_keys where note = '…'`. The monthly codes email also carries the earnings so far.
 Locally, `RAZORPAY_KEY_FILE=<csv with key_id,key_secret> python db/sync_razorpay.py` syncs by hand.
 
+### Accounts, passwords and teacher keys
+
+Students sign in with email and password (`accounts`, bcrypt via pgcrypto). Signing in returns a random
+session token; the browser sends it as the `x-session` header, and `_me()` turns it into the student's
+email. A student's report and progress load only for that student or for a teacher key, and submissions,
+tracking and test sessions are accepted only for the signed-in email. "Forgot password" stores a 6-digit
+code in `reset_codes`; `db/send_resets.py`, in the same 5-minute `ledger.yml` run, emails it (it works for
+30 minutes). An account with `must_change` must pick its own password at the next sign-in.
+
+The class report, class progress, test sessions and grading need a teacher: someone signed in with an
+email listed in `teacher_emails`, or a browser holding a teacher key (sent as `x-teacher-key`; teacher
+pages ask for it once). Add a teacher account with
+`insert into teacher_emails (email) values ('…')`. Make one with `python db/teacher_key.py "who it's for" [key]`,
+cut it off with `delete from teacher_keys where note = '…'`.
+
 ### Secrets
 
 Both workflows read repository secrets (*Settings → Secrets and variables → Actions*, or
