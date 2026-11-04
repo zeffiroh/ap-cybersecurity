@@ -39,6 +39,9 @@ A topic folder, `source/units/unit-N/X.Y-<name>/`:
 | Capstone world, stages, toolkit, rubric | `source/capstone/` |
 | Glossary, report card, capstone page, test pages, styles, scripts | `source/static/` (same path as in `site/`) |
 | Database connection (Neon URLs) | `source/static/assets/config.js`; schema in `db/` |
+| CTF challenges, flags and walkthroughs | `source/ctf/challenges.json` (the site gets only hashes; then `python db/sql.py db/ctf_challenges.sql`) |
+| SQL injection lab, vulnerable shop, CTF board | `source/static/assets/theme/sqli-lab.js`, `shop-lab.js`, `ctf.js`; pages in `builder/pages.py` |
+| CyberChef version | `builder/ctf.py` (downloaded once into `.cache/`, unpacked to `site/cyberchef/`) |
 | The bar, page titles, which materials a topic shows | `builder/nav.py` |
 | Home, unit, topic, downloads and teacher pages | `builder/pages.py` |
 

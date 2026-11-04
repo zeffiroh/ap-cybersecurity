@@ -1,0 +1,146 @@
+(function (global) {
+  "use strict";
+
+  var me = document.currentScript && document.currentScript.src;
+  var ROOT = me ? me.replace(/assets\/theme\/sqli-lab\.js.*$/, "") : "";
+  var $ = function (id) { return document.getElementById(id); };
+  var K, esc, SQL = null, db = null;
+
+  var VULN = "\"SELECT id, username, role FROM users WHERE username = '\" + username + \"' AND password = '\" + password + \"'\"";
+
+  var MISSIONS = [
+    { id: "sqli-login", points: 100, title: "Walk in as admin", text: "Sign in as admin without knowing the password.",
+      hint: "Your username lands inside '...'. Close the quote yourself, then make the rest of the line a comment with --." },
+    { id: "sqli-hidden", points: 150, title: "Hidden stock", text: "The search only shows products with hidden = 0. List the hidden ones too.",
+      hint: "Your text sits inside LIKE '%...%'. Close it, add OR hidden = 1, then comment out the leftover quote." },
+    { id: "sqli-union", points: 200, title: "UNION heist", text: "A table called secrets exists. Pull its rows into the search results.",
+      hint: "The search returns two columns, so your UNION SELECT must return two as well: note and any number." },
+    { id: "sqli-fix", points: 200, title: "Fix it", text: "Rewrite the login query with ? placeholders so every attack fails and real logins still work.",
+      hint: "Remove the quotes and the + joins. Write each value as a bare ?." }
+  ];
+
+  function build() {
+    if (db) db.close();
+    db = new SQL.Database();
+    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, role TEXT);" +
+      "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL, hidden INTEGER);" +
+      "CREATE TABLE secrets (id INTEGER PRIMARY KEY, note TEXT);");
+    var add = function (sql, rows) { var s = db.prepare(sql); rows.forEach(function (r) { s.run(r); }); s.free(); };
+    add("INSERT INTO users VALUES (?, ?, ?, ?)", [[1, "admin", "Vq7#pL2!zR9w-" + Math.random().toString(36).slice(2), "admin"],
+      [2, "alice", "sunshine", "staff"], [3, "bob", "hunter2", "staff"]]);
+    add("INSERT INTO products VALUES (?, ?, ?, ?)", [[1, "USB-C cable", 9.5, 0], [2, "HDMI cable", 12, 0], [3, "Cable tester", 34, 0],
+      [4, "Mechanical keyboard", 79, 0], [5, "Wireless mouse", 25, 0], [6, "24-inch monitor", 189, 0],
+      [7, "Prototype router (unreleased)", 0, 1], [8, "Internal stock note: " + K.reveal("sqli-hidden"), 0, 1]]);
+    add("INSERT INTO secrets VALUES (?, ?)", [[1, "Office Wi-Fi password: Northwind2026!"], [2, K.reveal("sqli-union")]]);
+  }
+
+  function log(q, note) {
+    $("sq-log").innerHTML = esc(q) + (note ? '\n<span class="sq-note">' + esc(note) + "</span>" : "");
+  }
+
+  function table(res) {
+    if (!res.length) return '<p class="sx-empty">No rows.</p>';
+    var r = res[0];
+    return '<table class="sq-table"><tr>' + r.columns.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr>" +
+      r.values.map(function (row) { return "<tr>" + row.map(function (v) { return "<td>" + esc(v) + "</td>"; }).join("") + "</tr>"; }).join("") + "</table>";
+  }
+
+  function run(q) {
+    try { return { rows: db.exec(q) }; } catch (e) { return { error: String(e.message || e) }; }
+  }
+
+  function login() {
+    var u = $("sq-user").value, p = $("sq-pass").value;
+    var q = "SELECT id, username, role FROM users WHERE username = '" + u + "' AND password = '" + p + "'";
+    var r = run(q), out = $("sq-login-out");
+    log(q, r.error ? "Error: " + r.error : "");
+    if (r.error) { out.innerHTML = '<p class="sq-bad">Database error: ' + esc(r.error) + "</p>"; return; }
+    if (!r.rows.length || !r.rows[0].values.length) { out.innerHTML = '<p class="sq-bad">Wrong username or password.</p>'; return; }
+    var row = r.rows[0].values[0];
+    out.innerHTML = '<p class="sq-good">Welcome, <b>' + esc(row[1]) + "</b> (" + esc(row[2]) + ").</p>" +
+      (row[2] === "admin" ? "<p>Admin dashboard unlocked: payroll, door codes, every account.</p>" : "");
+    if (row[2] === "admin") K.award("sqli-login", "Walk in as admin");
+  }
+
+  function search() {
+    var s = $("sq-q").value;
+    var q = "SELECT name, price FROM products WHERE hidden = 0 AND name LIKE '%" + s + "%'";
+    var r = run(q), out = $("sq-search-out");
+    log(q, r.error ? "Error: " + r.error : "");
+    if (r.error) { out.innerHTML = '<p class="sq-bad">Database error: ' + esc(r.error) + "</p>"; return; }
+    out.innerHTML = table(r.rows);
+    var seen = r.rows.length ? r.rows[0].values.map(function (v) { return String(v[0]); }).join("\n") : "";
+    var hidden = run("SELECT name FROM products WHERE hidden = 1");
+    if (!hidden.error && hidden.rows.length && hidden.rows[0].values.some(function (v) { return seen.indexOf(v[0]) !== -1; }))
+      K.award("sqli-hidden", "Hidden stock");
+    if (seen.indexOf(K.reveal("sqli-union")) !== -1) K.award("sqli-union", "UNION heist");
+  }
+
+  function testFix() {
+    var tpl = $("sq-fix").value.trim().replace(/^"|"$/g, "").replace(/;\s*$/, "");
+    var out = $("sq-test-out");
+    if (/\+\s*(username|password)\b|\b(username|password)\s*\+/.test(tpl)) {
+      out.innerHTML = '<p class="sq-bad">This still glues the input into the SQL with +. Use ? instead.</p>';
+      return;
+    }
+    if ((tpl.match(/\?/g) || []).length !== 2) {
+      out.innerHTML = '<p class="sq-bad">Use exactly two ? placeholders: one for the username, one for the password.</p>';
+      return;
+    }
+    build();
+    var cases = [
+      { u: "alice", p: "sunshine", want: true, what: "alice signs in with her real password" },
+      { u: "alice", p: "wrong", want: false, what: "a wrong password is refused" },
+      { u: "admin' --", p: "x", want: false, what: "admin' -- is refused" },
+      { u: "' OR 1=1 --", p: "' OR 1=1 --", want: false, what: "' OR 1=1 -- is refused" },
+      { u: "admin", p: "' OR '1'='1", want: false, what: "' OR '1'='1 in the password is refused" }
+    ];
+    var rows = [], pass = true, stmt;
+    try { stmt = db.prepare(tpl); } catch (e) {
+      out.innerHTML = '<p class="sq-bad">SQL error: ' + esc(e.message) + "</p>";
+      return;
+    }
+    cases.forEach(function (c) {
+      var got;
+      try {
+        stmt.bind([c.u, c.p]);
+        got = stmt.step();
+        if (got && c.want) got = stmt.getAsObject().username === c.u;
+        stmt.reset();
+      } catch (e) { got = null; }
+      var ok = got === c.want;
+      pass = pass && ok;
+      rows.push("<li class=\"" + (ok ? "sq-good" : "sq-bad") + "\">" + (ok ? "&#10003; " : "&#10007; ") + esc(c.what) + "</li>");
+    });
+    stmt.free();
+    out.innerHTML = "<ul class=\"sq-checks\">" + rows.join("") + "</ul>" + (pass ? '<p class="sq-good">Every attack fails and real users still get in. ' +
+      "The database now treats the input as data, never as SQL.</p>" : "");
+    if (pass) K.award("sqli-fix", "Fix it");
+  }
+
+  function paint() { K.missions($("sq-missions"), MISSIONS); }
+
+  function start() {
+    if (!$("sq-app")) return;
+    K = global.LabKit;
+    esc = K.esc;
+    paint();
+    global.addEventListener("labkit-award", paint);
+    $("sq-fix").value = VULN;
+    if (!global.initSqlJs) { log("Couldn't load the database engine. Check your connection and reload."); return; }
+    global.initSqlJs({ locateFile: function (f) { return ROOT + "assets/vendor/sqljs-1.13.0/" + f; } }).then(function (S) {
+      SQL = S;
+      build();
+      $("sq-go").addEventListener("click", login);
+      $("sq-search").addEventListener("click", search);
+      [["sq-user", login], ["sq-pass", login], ["sq-q", search]].forEach(function (x) {
+        $(x[0]).addEventListener("keydown", function (e) { if (e.key === "Enter") x[1](); });
+      });
+      $("sq-test").addEventListener("click", testFix);
+      $("sq-reset").addEventListener("click", function () { build(); log("Database reset."); });
+      log("Ready. Try signing in as alice / sunshine first, and watch this box.");
+    }, function (e) { log("Couldn't start the database: " + e.message); });
+  }
+  if (document.readyState === "complete") start();
+  else global.addEventListener("load", start);
+})(window);

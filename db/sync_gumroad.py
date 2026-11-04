@@ -88,9 +88,10 @@ def main():
                          str(s.get("product_name") or "")[:300], Jsonb(notes), s["created_at"]))
             links = {str(s.get("product_permalink") or ""), str(s.get("custom_permalink") or "")}
             course = links & COURSE
-            kind = "video" if prod.get("video_gumroad") in links else "class" if prod.get("class_gumroad") in links else ""
+            kind = extras.kind_gumroad(prod, links)
             if kind and EMAIL_RE.match(email):
-                extra.append((kind, email, sid, status in ("captured", "refunded") and back < amount, extras.class_id(f)))
+                extra.append((kind, email, sid, status in ("captured", "refunded") and back < amount, extras.class_id(f),
+                              extras.ticket_count(prod, amount, s.get("currency") or "usd", f, s.get("quantity") or 1)))
             if course and EMAIL_RE.match(email):
                 unlocks.append((email, sid, status in ("captured", "refunded") and back < amount))
         db.cursor().executemany(
@@ -108,8 +109,8 @@ def main():
                            (email, ref, ref))
             else:
                 db.execute("update unlocks set revoked = true where via = 'gumroad' and ref = %s", (ref,))
-        for kind, email, ref, paid, cid in extra:
-            extras.grant(db, kind, email, ref, "gumroad", paid, cid)
+        for kind, email, ref, paid, cid, count in extra:
+            extras.grant(db, kind, email, ref, "gumroad", paid, cid, count, prod)
         db.execute("insert into payments (id, status, created_at) values ('_sync', 'sync', now()) "
                    "on conflict (id) do update set synced_at = now()")
     print(f"Gumroad sync done ({len(rows)} sales, {len(unlocks)} course).")

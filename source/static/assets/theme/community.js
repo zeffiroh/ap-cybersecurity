@@ -1,0 +1,171 @@
+(function (global) {
+  "use strict";
+
+  var me = document.currentScript && document.currentScript.src;
+  var ROOT = me ? me.replace(/assets\/theme\/community\.js.*$/, "") : "";
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { spaces: [], teacher: false, me: null, space: "all" };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    return (P ? P.neon() : Promise.resolve(null)).then(function (db) {
+      if (!db) throw new Error("The course database is not connected yet.");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+  }
+  function ok(r) { if (!r || !r.ok) throw new Error((r && r.error) || "That didn't work."); return r; }
+  function when(iso) {
+    if (!iso) return "";
+    var m = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return m + " min ago";
+    if (m < 1440) return Math.round(m / 60) + " h ago";
+    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+  function text(s) {
+    return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener nofollow">$1</a>').replace(/\n/g, "<br>");
+  }
+  function msg(t) { $("cm-msg").textContent = t || ""; }
+  function space() { return state.spaces.filter(function (s) { return s.space === state.space; })[0] || state.spaces[0]; }
+
+  function side() {
+    var groups = { all: [], class: [], cohort: [], open: [] };
+    state.spaces.forEach(function (s) {
+      if (s.kind === "all") groups.all.push(s);
+      else if (s.member || state.teacher) groups[s.kind].push(s);
+      else if (s.open) groups.open.push(s);
+    });
+    var block = function (title, list) {
+      return list.length ? '<div class="cm-h">' + title + "</div>" + list.map(function (s) {
+        return '<a href="#' + s.space + '" class="' + (s.space === state.space ? "on" : "") + '">' + esc(s.name) +
+          (s.threads ? " <small>" + s.threads + "</small>" : "") + "</a>";
+      }).join("") : "";
+    };
+    $("cm-side").innerHTML = '<div class="cm-h">Live classes</div><a href="#lectures" class="' + (state.space === "lectures" ? "on" : "") +
+      '">Live classes &amp; 1:1 booking</a>' + block("Forum", groups.all) + block(state.teacher ? "Classes" : "My classes", groups["class"]) +
+      block(state.teacher ? "Cohorts" : "My cohorts", groups.cohort) + block("Classes you can join", groups.open);
+  }
+
+  function head(s) {
+    var kind = s.kind === "all" ? "Everyone on the course" : s.kind === "cohort" ? "Cohort" : "Class";
+    var join = s.kind !== "all" && s.open && !state.teacher ?
+      (s.member ? '<button class="btn" data-leave="' + s.id + '">Leave this class</button>' : '<button class="btn dark" data-join="' + s.id + '">Join this class</button>') : "";
+    var can = state.teacher || s.kind === "all" || s.member;
+    $("cm-head").innerHTML = '<div class="cm-kicker">' + kind + (s.members ? " · " + s.members + " members" : "") + "</div><h2>" + esc(s.name) + "</h2>" +
+      (s.about ? "<p>" + esc(s.about) + "</p>" : "") + '<div class="sx-act">' + join +
+      (can ? '<a class="btn" href="' + ROOT + "notebook.html?space=" + s.space + '">Shared notebook</a>' +
+        '<button class="btn dark" id="cm-new">New post</button>' : "") +
+      (s.kind !== "all" && can ? '<a class="btn" href="' + ROOT + 'calendar.html">Calendar</a>' : "") + "</div>";
+    var j = document.querySelector("[data-join],[data-leave]");
+    if (j) j.addEventListener("click", function () {
+      rpc("api_group_join", { p_id: +(j.getAttribute("data-join") || j.getAttribute("data-leave")), p_join: j.hasAttribute("data-join") })
+        .then(ok).then(load).catch(function (e) { msg(e.message); });
+    });
+    var n = $("cm-new");
+    if (n) n.addEventListener("click", function () { $("cm-compose").hidden = false; $("cm-title").focus(); });
+  }
+
+  function threads() {
+    var s = space();
+    head(s);
+    $("cm-compose").hidden = true;
+    $("cm-thread").hidden = true;
+    $("cm-list").hidden = false;
+    if (!(state.teacher || s.kind === "all" || s.member)) { $("cm-list").innerHTML = '<p class="sx-empty">Join this class to read and post.</p>'; return; }
+    $("cm-list").innerHTML = '<p class="sx-empty">Loading…</p>';
+    rpc("api_forum_threads", { p_space: s.space }).then(ok).then(function (d) {
+      $("cm-list").innerHTML = d.threads.length ? d.threads.map(function (t) {
+        return '<a class="cm-row" href="#' + s.space + "/" + t.id + '"><span><b>' + (t.pinned ? "📌 " : "") + esc(t.title) + "</b>" +
+          (t.locked ? " <small>closed</small>" : "") + "<br><small>" + esc(t.by) + " · " + when(t.created) + "</small></span>" +
+          '<span class="cm-n">' + t.replies + " repl" + (t.replies === 1 ? "y" : "ies") + "<br><small>" + when(t.last) + "</small></span></a>";
+      }).join("") : '<p class="sx-empty">No posts yet. Start the conversation.</p>';
+    }).catch(function (e) { $("cm-list").innerHTML = '<p class="sx-empty">' + esc(e.message) + "</p>"; });
+  }
+
+  function thread(id) {
+    head(space());
+    $("cm-compose").hidden = true;
+    $("cm-list").hidden = true;
+    $("cm-thread").hidden = false;
+    $("cm-thread").innerHTML = '<p class="sx-empty">Loading…</p>';
+    rpc("api_forum_thread", { p_id: id }).then(ok).then(function (d) {
+      var t = d.thread;
+      var mod = function (kind, pid, mine) {
+        var b = [];
+        if (mine || state.teacher) b.push('<button class="btn" data-mod="' + kind + "|" + pid + '|delete">Delete</button>');
+        if (state.teacher && kind === "thread") {
+          b.push('<button class="btn" data-mod="thread|' + pid + "|" + (t.pinned ? "unpin" : "pin") + '">' + (t.pinned ? "Unpin" : "Pin") + "</button>");
+          b.push('<button class="btn" data-mod="thread|' + pid + "|" + (t.locked ? "unlock" : "lock") + '">' + (t.locked ? "Reopen" : "Close") + "</button>");
+        }
+        return b.length ? '<div class="cm-mod">' + b.join("") + "</div>" : "";
+      };
+      $("cm-thread").innerHTML = '<p><a href="#' + t.space + '">&larr; All posts</a></p>' +
+        '<article class="cm-post cm-first"><h3>' + esc(t.title) + '</h3><div class="cm-by">' + esc(t.by) + " · " + when(t.created) + "</div>" +
+        '<div class="cm-body">' + text(t.body) + "</div>" + mod("thread", t.id, t.mine) + "</article>" +
+        d.posts.map(function (p) {
+          return '<article class="cm-post"><div class="cm-by">' + esc(p.by) + " · " + when(p.created) + '</div><div class="cm-body">' + text(p.body) + "</div>" +
+            mod("post", p.id, p.mine) + "</article>";
+        }).join("") +
+        (t.locked && !state.teacher ? '<p class="sx-empty">This thread is closed.</p>' :
+          '<div class="cm-reply"><textarea id="cm-replybox" rows="4" placeholder="Write a reply. Paste code between `backticks`."></textarea>' +
+          '<button class="btn dark" id="cm-send">Reply</button></div>');
+      var send = $("cm-send");
+      if (send) send.addEventListener("click", function () {
+        rpc("api_forum_post", { p: { thread: t.id, body: $("cm-replybox").value } }).then(ok).then(function () { thread(id); }).catch(function (e) { msg(e.message); });
+      });
+      document.querySelectorAll("[data-mod]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var a = b.getAttribute("data-mod").split("|");
+          rpc("api_forum_moderate", { p_kind: a[0], p_id: +a[1], p_action: a[2] }).then(ok).then(function () {
+            if (a[0] === "thread" && a[2] === "delete") location.hash = t.space; else thread(id);
+          }).catch(function (e) { msg(e.message); });
+        });
+      });
+    }).catch(function (e) { $("cm-thread").innerHTML = '<p class="sx-empty">' + esc(e.message) + "</p>"; });
+  }
+
+  function route() {
+    var h = location.hash.replace(/^#/, "").split("/");
+    var lec = h[0] === "lectures";
+    $("cm-lectures").hidden = !lec;
+    $("cm-main").hidden = lec;
+    if (lec) { state.space = "lectures"; side(); return; }
+    state.space = h[0] && state.spaces.some(function (s) { return s.space === h[0]; }) ? h[0] : "all";
+    side();
+    if (h[1]) thread(+h[1]); else threads();
+  }
+
+  function load() {
+    return rpc("api_spaces").then(function (d) {
+      state.spaces = d.spaces; state.teacher = d.teacher; state.me = d.me;
+      if (!d.me && !d.teacher) {
+        if (location.hash === "#lectures") { $("cm-lectures").hidden = false; $("cm-main").hidden = true; }
+        $("cm-main").innerHTML = '<p>Sign in to see your classes, cohorts and the course forum.</p><button class="btn dark" id="cm-signin">Sign in</button>';
+        $("cm-signin").addEventListener("click", function () { if (global.Identity) global.Identity.open({}, function () { location.reload(); }); });
+        return;
+      }
+      route();
+    }).catch(function (e) { msg("Could not load: " + e.message); });
+  }
+
+  function start() {
+    if (!$("cm-app")) return;
+    $("cm-post").addEventListener("click", function () {
+      rpc("api_forum_post", { p: { space: state.space, title: $("cm-title").value, body: $("cm-body").value } }).then(ok).then(function (r) {
+        $("cm-title").value = ""; $("cm-body").value = "";
+        location.hash = state.space + "/" + r.id;
+      }).catch(function (e) { msg(e.message); });
+    });
+    $("cm-cancel").addEventListener("click", function () { $("cm-compose").hidden = true; });
+    global.addEventListener("hashchange", route);
+    load();
+  }
+  if (document.readyState === "complete") start();
+  else global.addEventListener("load", start);
+})(window);

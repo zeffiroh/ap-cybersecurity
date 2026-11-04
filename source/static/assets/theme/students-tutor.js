@@ -49,7 +49,7 @@
     $("f-group").innerHTML = '<option value="">All groups</option><option value="none">In no group</option>' +
       groups.map(function (g) { return '<option value="' + g.id + '">' + esc(g.name) + "</option>"; }).join("");
     $("f-group").value = keep;
-    $("bulk-group").innerHTML = groups.length ? groups.map(function (g) { return '<option value="' + g.id + '">' + esc(g.name) + "</option>"; }).join("")
+    $("bulk-group").innerHTML = groups.length ? groups.map(function (g) { return '<option value="' + g.id + '">' + esc(g.name) + (g.kind === "cohort" ? " (cohort)" : " (class)") + "</option>"; }).join("")
       : '<option value="">Create a group first</option>';
     if (bk) $("bulk-group").value = bk;
   }
@@ -97,16 +97,18 @@
     var list = filtered(), names = list.filter(function (r) { return !r.teacher; });
     var all = names.length && names.every(function (r) { return picked[r.email]; });
     var h = ["<table class='aa-grid-t'><tr><th><input type='checkbox' id='pick-all'" + (all ? " checked" : "") + " aria-label='Select all shown'></th>" +
-      "<th>Student</th><th>Groups</th><th>Course</th><th>Video pass</th><th>Password</th><th>Joined</th><th>Last active</th><th></th></tr>"];
+      "<th>Student</th><th>Groups</th><th>Course</th><th>Labs</th><th>Tickets</th><th>Live classes</th><th>Password</th><th>Joined</th><th>Last active</th><th></th></tr>"];
     list.forEach(function (r) {
       var acts = r.teacher ? "" :
         (r.account ? button("reset", r.email, "Reset password") + " " : "") +
         (r.unlocked ? button("lock", r.email, "Take away access") : button("unlock", r.email, "Give access")) + " " +
-        (r.videos ? button("novideo", r.email, "Remove video pass") : button("video", r.email, "Give video pass")) + " " +
+        (r.labs ? button("novideo", r.email, "Remove Labs") : button("video", r.email, "Give Labs")) + " " +
         button("remove", r.email, "Remove");
       h.push("<tr><td>" + (r.teacher ? "" : '<input type="checkbox" data-pick="' + esc(r.email) + '"' + (picked[r.email] ? " checked" : "") + ">") +
         '</td><td class="aa-who">' + esc(r.email) + "</td><td>" + (r.groups.map(gname).filter(Boolean).map(esc).join(", ") || "&ndash;") +
-        "</td><td>" + access(r) + "</td><td>" + (r.videos ? "Yes" : "&ndash;") + "</td><td>" + password(r) +
+        "</td><td>" + access(r) + "</td><td>" + (r.labs ? "Yes" : "&ndash;") + "</td><td>" + (r.tickets || 0) +
+        (r.seminarsUntil ? "<br><small>seminars to " + new Date(r.seminarsUntil).toLocaleDateString() + "</small>" : "") + "</td><td>" +
+        (r.held ? r.attended + "/" + r.held + " (" + Math.round(r.attended / r.held * 100) + "%)" : "&ndash;") + "</td><td>" + password(r) +
         "</td><td>" + when(r.joined) + "</td><td>" + when(r.last) + '</td><td style="text-align:left;white-space:normal">' + acts + "</td></tr>");
     });
     h.push("</table>");
@@ -139,12 +141,14 @@
       "Password reset. They sign in with lock&key and choose a new one."],
     lock: ["api_teacher_set_unlock", function (e) { return { p_email: e, p_on: false }; }, "Course access taken away."],
     unlock: ["api_teacher_set_unlock", function (e) { return { p_email: e, p_on: true }; }, "Full course access given."],
-    video: ["api_teacher_set_video_access", function (e) { return { p_email: e, p_on: true }; }, "Video pass given."],
-    novideo: ["api_teacher_set_video_access", function (e) { return { p_email: e, p_on: false }; }, "Video pass removed."],
+    video: ["api_teacher_give", function (e) { return { p_email: e, p_what: "labs", p_amount: 1 }; }, "Labs given."],
+    novideo: ["api_teacher_give", function (e) { return { p_email: e, p_what: "labs", p_amount: 0 }; }, "Labs removed."],
+    tickets: ["api_teacher_give", function (e) { return { p_email: e, p_what: "tickets", p_amount: Number($("bulk-tix").value) || 1 }; }, "Tickets given."],
+    seminars: ["api_teacher_give", function (e) { return { p_email: e, p_what: "seminars", p_amount: 365 }; }, "A year of seminars given."],
     remove: ["api_teacher_remove_student", function (e) { return { p_email: e }; },
       "Removed, with their progress and grades. Payment records are kept."]
   };
-  var SAFE = { unlock: 1, video: 1 };
+  var SAFE = { unlock: 1, video: 1, tickets: 1, seminars: 1 };
 
   function act(kind, email) {
     var key = kind + "|" + email;
@@ -169,9 +173,12 @@
   function drawGroups() {
     $("groups").innerHTML = groups.length ? '<table class="tc-table">' + groups.map(function (g) {
       var t = g.schedule && g.schedule.start ? "Timetable from " + esc(g.schedule.start) + (g.schedule.time ? " at " + esc(g.schedule.time) : "") : "No timetable yet";
-      return "<tr><td><b>" + esc(g.name) + "</b><br><small class='tc-note'>" + g.members.length + " student" + (g.members.length === 1 ? "" : "s") +
+      return "<tr><td><b>" + esc(g.name) + "</b> <small>" + (g.kind === "cohort" ? "Cohort" : "Class") + (g.open ? " · open to join" : "") +
+        "</small><br><small class='tc-note'>" + g.members.length + " student" + (g.members.length === 1 ? "" : "s") +
         " · " + t + '</small></td><td><span class="tc-links"><a href="schedule.html?g=' + g.id + '">Timetable</a>' +
         '<a href="#" data-gshow="' + g.id + '">Show students</a><a href="#" data-gren="' + g.id + '">Rename</a>' +
+        '<a href="#" data-gopen="' + g.id + '">' + (g.open ? "Make invite-only" : "Let students join") + "</a>" +
+        '<a href="../community.html#g' + g.id + '">Forum</a><a href="../notebook.html?space=g' + g.id + '">Shared notebook</a>' +
         '<a href="#" data-gdel="' + g.id + '">' + (armed === "gdel|" + g.id ? "Click again to delete" : "Delete") + "</a></span></td></tr>";
     }).join("") + "</table>" : '<p class="tc-empty">No groups yet.</p>';
     $("groups").querySelectorAll("[data-gshow]").forEach(function (a) {
@@ -186,6 +193,13 @@
           call("api_teacher_save_group", { p: { id: id, name: cell.querySelector("input").value } }).then(ok).then(load)
             .catch(function (err) { $("status").textContent = err.message; });
         });
+      });
+    });
+    $("groups").querySelectorAll("[data-gopen]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        var g = groups.filter(function (x) { return x.id === +a.getAttribute("data-gopen"); })[0];
+        call("api_teacher_save_group", { p: { id: g.id, open: !g.open } }).then(ok).then(load).catch(function (err) { $("status").textContent = err.message; });
       });
     });
     $("groups").querySelectorAll("[data-gdel]").forEach(function (a) {
@@ -212,9 +226,12 @@
   function drawCodes() {
     var live = codes.filter(function (c) { return c.usesLeft > 0; });
     if (!live.length) { $("codes").innerHTML = '<p class="aa-sub">No codes with uses left.</p>'; return; }
-    $("codes").innerHTML = "<table class='aa-grid-t'><tr><th>Code</th><th>Uses left</th><th>Note</th><th>Made</th><th></th></tr>" +
+    var WHAT = { course: "Course", labs: "Labs", tickets: "Tickets", seminars: "Seminars" };
+    $("codes").innerHTML = "<table class='aa-grid-t'><tr><th>Code</th><th>Gives</th><th>Uses left</th><th>Note</th><th>Made</th><th></th></tr>" +
       live.map(function (c) {
-        return '<tr><td class="aa-who"><b>' + esc(c.code) + "</b></td><td>" + c.usesLeft + "</td><td>" + esc(c.note) +
+        return '<tr><td class="aa-who"><b>' + esc(c.code) + "</b></td><td>" + esc(WHAT[c.product] || "Course") +
+          (c.product === "tickets" ? " × " + c.amount : c.product === "seminars" ? ", " + c.amount + " days" : "") +
+          "</td><td>" + c.usesLeft + "</td><td>" + esc(c.note) +
           "</td><td>" + when(c.created) + '</td><td><button class="btn" data-end="' + esc(c.code) + '">' +
           (armed === "end|" + c.code ? "Click again to confirm" : "End code") + "</button></td></tr>";
       }).join("") + "</table>";
@@ -230,7 +247,8 @@
 
   function make() {
     $("code-msg").textContent = "Making…";
-    call("api_teacher_make_code", { p_note: $("code-note").value, p_uses: Number($("code-uses").value) || 1 }).then(ok).then(function (r) {
+    call("api_teacher_make_product_code", { p_note: $("code-note").value, p_uses: Number($("code-uses").value) || 1,
+      p_product: $("code-product").value, p_amount: Number($("code-amount").value) || 0 }).then(ok).then(function (r) {
       $("code-msg").innerHTML = "New code: <b>" + esc(r.code) + "</b>";
       $("code-note").value = "";
       return load();
@@ -246,7 +264,8 @@
     $("add").addEventListener("click", add);
     $("make").addEventListener("click", make);
     $("g-add").addEventListener("click", function () {
-      call("api_teacher_save_group", { p: { name: $("g-name").value } }).then(ok).then(function () { $("g-name").value = ""; return load(); })
+      call("api_teacher_save_group", { p: { name: $("g-name").value, kind: $("g-kind").value, open: $("g-open").checked } }).then(ok)
+        .then(function () { $("g-name").value = ""; return load(); })
         .catch(function (e) { $("status").textContent = e.message; });
     });
     $("bulk-add").addEventListener("click", function () {
@@ -255,8 +274,15 @@
     $("bulk-remove").addEventListener("click", function () {
       bulkRun("api_teacher_set_members", function (em) { return { p_id: +$("bulk-group").value, p_emails: em, p_add: false }; }, "removed from " + gname(+$("bulk-group").value));
     });
-    $("bulk-video").addEventListener("click", function () { bulkRun(ACTIONS.video, "each", "video pass given"); });
+    $("bulk-video").addEventListener("click", function () { bulkRun(ACTIONS.video, "each", "Labs given"); });
     $("bulk-unlock").addEventListener("click", function () { bulkRun(ACTIONS.unlock, "each", "course access given"); });
+    $("bulk-tickets").addEventListener("click", function () { bulkRun(ACTIONS.tickets, "each", "tickets given"); });
+    $("bulk-seminars").addEventListener("click", function () { bulkRun(ACTIONS.seminars, "each", "a year of seminars given"); });
+    $("code-product").addEventListener("change", function () {
+      var v = $("code-product").value;
+      $("code-amount").hidden = v !== "tickets" && v !== "seminars";
+      $("code-amount").value = v === "seminars" ? 365 : 5;
+    });
     $("bulk-clear").addEventListener("click", function () { picked = {}; draw(); });
     load().then(function () { if (g) { $("f-group").value = g; draw(); } });
   }

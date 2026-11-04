@@ -23,12 +23,22 @@ GLOBAL = [
     ("hw", "CW/HW quizzes", TESTS / "hw" / "index.html"),
     ("capstone", "Capstone", CAPSTONE / "index.html"),
     ("calendar", "Calendar", SITE / "calendar.html"),
-    ("classes", "Live classes", SITE / "classes.html"),
+    ("community", "Classes & forum", SITE / "community.html"),
+    ("seminars", "Seminars", SITE / "seminars.html"),
+    ("labs", "Labs", SITE / "labs.html"),
     ("videos", "Video lessons", SITE / "videos.html"),
     ("notebook", "Notebook", SITE / "notebook.html"),
     ("report", "Report card", SITE / "report.html"),
     ("downloads", "Downloads", DOWNLOADS / "index.html"),
+    ("store", "Store", SITE / "store.html"),
     ("support", "Support", SITE / "support.html"),
+]
+
+GLOBAL_EXTRA = [
+    ("linux", "Linux lab", SITE / "linux.html"),
+    ("ctf", "Capture the flag", SITE / "ctf.html"),
+    ("sqli", "SQL injection lab", SITE / "sqli.html"),
+    ("shop", "Hack the shop", SITE / "shop.html"),
 ]
 
 
@@ -112,7 +122,7 @@ def context(path):
         return None
     if rp == "tests/hw/quiz.html":
         p = (TESTS / "hw" / "index.html").resolve()
-    for key, label, gp in GLOBAL:
+    for key, label, gp in GLOBAL + GLOBAL_EXTRA:
         if p == gp.resolve():
             return {"kind": "global", "key": key, "label": label}
     m = re.fullmatch(r"unit-(\d)/(index|quiz)\.html", rp)

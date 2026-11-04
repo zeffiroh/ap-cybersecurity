@@ -14,8 +14,12 @@ SIDEBAR = [
     ("live", "Live classes", TEACHER / "classes.html"),
     ("schedule", "Calendar", TEACHER / "schedule.html"),
     ("assign", "Assignments", TEACHER / "assignments.html"),
-    ("videos", "Videos", TEACHER / "videos.html"),
-    ("students", "Students & groups", TEACHER / "students.html"),
+    ("videos", "Lesson videos", TEACHER / "videos.html"),
+    ("seminars", "Seminars", TEACHER / "seminars.html"),
+    ("labs", "Labs & notebooks", TEACHER / "labs.html"),
+    ("ctf", "Capture the flag", TEACHER / "ctf.html"),
+    ("students", "Students, classes & cohorts", TEACHER / "students.html"),
+    ("forum", "Classes & forum", SITE / "community.html"),
     ("progress", "Class progress", TEACHER / "progress.html"),
     ("grades", "Gradebook", TEACHER / "class-report.html"),
     ("tests", "Adaptive tests", TEACHER / "tests.html"),
@@ -154,17 +158,26 @@ def classes_page():
     body = ('<header class="tc-head"><div><h1>Live classes</h1><p class="aa-sub" id="status">Loading…</p></div>'
             '<button class="btn dark" id="new">New class</button></header>\n'
             '<section class="tc-card"><h3>Class requests</h3><div id="requests"></div></section>\n'
+            '<section class="tc-card"><h3>Availability for custom lectures</h3>'
+            '<p class="tc-note">Click the hours you\'re free each week. Students book a free hour on the Live classes page; '
+            'booked hours and your live classes are hidden automatically.</p>'
+            '<div class="tc-filters"><label>Time zone <input id="av-tz" placeholder="Asia/Kolkata"></label>'
+            '<label>Lecture length (min) <input id="av-min" type="number" min="15" max="240" step="15" value="60" style="width:6em"></label>'
+            '<label>Weeks ahead <input id="av-weeks" type="number" min="1" max="8" value="2" style="width:5em"></label></div>'
+            '<div id="av-grid" class="tc-avgrid aa-scroll"></div>'
+            '<p><button class="btn dark" id="av-save">Save availability</button> <span id="av-msg" class="tc-note"></span></p></section>\n'
             '<section class="tc-card tc-form" id="form" hidden><h3 id="form-title">New class</h3>'
             '<label class="tc-wide">Title <input id="c-title" placeholder="Firewalls, live walkthrough"></label>'
             '<label>Topic <select id="c-topic"></select></label>'
             '<label>Starts <input type="datetime-local" id="c-starts"></label>'
             '<label>Minutes <input type="number" id="c-minutes" min="15" max="480" step="5" value="60"></label>'
             '<label>Kind <select id="c-mode"><option value="open">Open: anyone signed in joins free</option>'
-            '<option value="paid">Paid: students book and pay</option><option value="request">Requested: only invited students</option></select></label>'
-            '<label>Price ₹ <input type="number" id="c-inr" min="0" value="0" style="width:7em"></label>'
-            '<label>Price $ <input type="number" id="c-usd" min="0" value="0" style="width:7em"></label>'
+            '<option value="paid">Batch / cohort class: students book with tickets</option>'
+            '<option value="request">1:1 class: only the student who asked</option></select></label>'
+            '<label>Tickets per seat <input type="number" id="c-tickets" min="0" max="50" value="1" style="width:7em"></label>'
             '<label>Seats (0 = no limit) <input type="number" id="c-cap" min="0" value="0" style="width:7em"></label>'
-            '<label class="tc-wide">Meeting link (Meet, Zoom…), shown only to students with a seat <input id="c-meet" placeholder="https://meet.google.com/…"></label>'
+            '<label class="tc-wide">Meeting link, shown only to students with a seat. Leave it blank for a free Jitsi Meet room '
+            '<input id="c-meet" placeholder="Blank = a Jitsi room is made for you"></label>'
             '<label class="tc-wide">Recording (unlisted YouTube link), shown only to students with a seat <input id="c-rec" placeholder="https://youtu.be/…"></label>'
             '<label class="tc-wide">Note for students <textarea id="c-note" rows="2"></textarea></label>'
             '<button class="btn dark" id="c-save">Save class</button> <button class="btn" id="c-cancel">Close</button> '
@@ -186,6 +199,77 @@ def assignments_page():
             '<button class="btn dark" id="a-save">Assign</button> <span class="tc-note" id="a-msg"></span></section>\n'
             '<p class="aa-tools"><select id="a-filter"></select></p>\n<section id="list"></section>')
     console(TEACHER / "assignments.html", "Assignments", "assign", body, [])
+
+
+def ctf_page():
+    body = ('<header class="tc-head"><div><h1>Capture the flag</h1><p class="aa-sub" id="status">Loading…</p></div>'
+            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "ctf.html")}">Student board</a></div></header>\n'
+            '<section class="tc-card tc-form" id="f-card"><h3 id="f-head">New challenge</h3>'
+            '<label class="tc-wide">Title <input id="f-title" maxlength="200"></label>'
+            '<label>Unit <select id="f-unit"><option value="0">Any</option><option>1</option><option>2</option><option>3</option>'
+            '<option>4</option><option>5</option></select></label>'
+            '<label>Points <input id="f-points" type="number" min="10" max="1000" step="10" value="100"></label>'
+            '<label class="tc-wide">Puzzle (put data between ``` lines, code between `backticks`) <textarea id="f-body" rows="6"></textarea></label>'
+            '<label class="tc-wide">Hint <input id="f-hint"></label>'
+            '<label class="tc-wide">Link (a site page, e.g. cyberchef/index.html, linux.html, sqli.html) <input id="f-link"></label>'
+            '<label class="tc-wide">Flag students must find, e.g. aayat{...} (not case-sensitive) <input id="f-flag" autocomplete="off"></label>'
+            '<label class="tc-wide">Walkthrough (teachers only) <textarea id="f-solve" rows="3"></textarea></label>'
+            '<div class="tc-btns"><button class="btn dark" id="f-save">Save challenge</button>'
+            '<button class="btn" id="f-new" hidden>Cancel edit</button><span class="tc-note" id="f-msg"></span></div></section>\n'
+            '<section class="tc-card"><h3>Challenges and answers</h3><p class="tc-note">Flags and walkthroughs show only here, '
+            'to teachers. Students see a hash.</p><div id="c-list"></div></section>\n'
+            '<section class="tc-card"><h3>Latest solves</h3><div id="c-solves"></div></section>')
+    console(TEACHER / "ctf.html", "Capture the flag", "ctf", body)
+
+
+def seminars_page():
+    body = ('<header class="tc-head"><div><h1>Seminars</h1><p class="aa-sub" id="status">Loading…</p></div>'
+            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "seminars.html")}">Student view</a></div></header>\n'
+            '<section class="tc-card tc-form" id="s-card"><h3 id="s-head">New seminar</h3>'
+            '<label class="tc-wide">Title <input id="s-title" maxlength="200"></label>'
+            '<label class="tc-wide">YouTube link (a video or a playlist, uploaded as Unlisted) <input id="s-youtube" placeholder="https://youtube.com/playlist?list=…"></label>'
+            '<label class="tc-wide">One-line summary <input id="s-summary" maxlength="500"></label>'
+            '<label class="tc-wide">Full description (what it covers, who it is for) <textarea id="s-description" rows="6"></textarea></label>'
+            '<label>Level <select id="s-level"><option value="">Any</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label>'
+            '<label>Length (minutes) <input id="s-minutes" type="number" min="0" step="5"></label>'
+            '<label>Tickets to unlock (0 = free) <input id="s-tickets" type="number" min="0" max="100" value="1"></label>'
+            '<label>Order <input id="s-sort" type="number" value="0"></label>'
+            '<label class="tc-wide">Topics (comma separated) <input id="s-topics" placeholder="malware, incident response"></label>'
+            '<label class="tc-wide">Cover image link (optional; the YouTube thumbnail is used otherwise) <input id="s-cover"></label>'
+            '<label class="tc-wide">Chapters, one per line: <code>0:00 Introduction</code> <textarea id="s-chapters" rows="6"></textarea></label>'
+            '<label class="tc-wide">Resources for buyers, one per line: <code>Slides | https://…</code> <textarea id="s-resources" rows="3"></textarea></label>'
+            '<label class="tc-check"><input type="checkbox" id="s-published"> Published (students can see it)</label>'
+            '<div class="tc-btns"><button class="btn dark" id="s-save">Save seminar</button>'
+            '<button class="btn" id="s-new" hidden>Cancel edit</button><span class="tc-note" id="s-msg"></span></div></section>\n'
+            '<section class="tc-card"><h3>Your seminars</h3><div id="s-list"></div></section>')
+    console(TEACHER / "seminars.html", "Seminars", "seminars", body)
+
+
+def labs_page():
+    body = ('<header class="tc-head"><div><h1>Labs &amp; notebooks</h1><p class="aa-sub" id="status">Loading…</p></div>'
+            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "labs.html")}">Student view</a></div></header>\n'
+            '<p class="tc-note">Labs and notebooks made here are stored in the database and are only sent to students who have Labs. '
+            'They never appear in the public site files.</p>\n'
+            '<section class="tc-card tc-form" id="l-card"><h3 id="l-head">New lab</h3>'
+            '<label>Kind <select id="l-kind"><option value="lab">Lab (instructions)</option><option value="notebook">Notebook (Python)</option></select></label>'
+            '<label class="tc-wide">Title <input id="l-title" maxlength="200"></label>'
+            '<label>Unit <select id="l-unit"><option value="0">Any</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>'
+            '<label>Topic <input id="l-topic" placeholder="e.g. 5.1" maxlength="20"></label>'
+            '<label>Tool <select id="l-tool"><option value="">None</option><option value="linux">Linux lab</option><option value="jupyter">JupyterLab</option>'
+            '<option value="sqli">SQL injection lab</option><option value="shop">Hack the shop</option><option value="cyberchef">CyberChef</option>'
+            '<option value="ctf">CTF board</option></select></label>'
+            '<label class="tc-wide">Summary <input id="l-summary" maxlength="1000"></label>'
+            '<label class="tc-wide" id="l-body-wrap">Instructions. Blank line = new paragraph, <code># Heading</code>, <code>`code`</code>, '
+            'and a block of commands between <code>```</code> lines gets a Copy button. <textarea id="l-body" rows="14"></textarea></label>'
+            '<div class="tc-wide" id="l-nb-wrap" hidden><p class="tc-note">Write the notebook in the full editor (Python runs there), or import a .ipynb file.</p>'
+            '<div class="tc-btns"><a class="btn" id="l-edit-nb" target="_blank" rel="noopener">Open in the notebook editor</a>'
+            '<button class="btn" id="l-import">Import .ipynb</button><input type="file" id="l-file" accept=".ipynb,application/json" hidden>'
+            '<span class="tc-note" id="l-cells"></span></div></div>'
+            '<label class="tc-check"><input type="checkbox" id="l-published"> Published (Labs students can open it)</label>'
+            '<div class="tc-btns"><button class="btn dark" id="l-save">Save</button>'
+            '<button class="btn" id="l-new" hidden>Cancel edit</button><span class="tc-note" id="l-msg"></span></div></section>\n'
+            '<section class="tc-card"><h3>Stored in the database</h3><div id="l-list"></div></section>')
+    console(TEACHER / "labs.html", "Labs & notebooks", "labs", body)
 
 
 def videos_page():
@@ -340,28 +424,37 @@ def students_page():
             '<select id="f-group"></select>'
             '<select id="f-access"><option value="">Any access</option><option value="unlocked">Course unlocked</option>'
             '<option value="locked">Locked</option><option value="paid">Paid</option></select>'
-            '<select id="f-video"><option value="">Video pass: any</option><option value="yes">Has video pass</option><option value="no">No video pass</option></select>'
+            '<select id="f-video"><option value="">Labs: any</option><option value="yes">Has Labs</option><option value="no">No Labs</option></select>'
             '<select id="f-pw"><option value="">Password: any</option><option value="starter">Still on lock&amp;key</option>'
             '<option value="own">Own password</option><option value="lockedout">Locked out</option></select>'
             '<select id="f-active"><option value="">Activity: any</option><option value="yes">Active this week</option>'
             '<option value="no">Not active this week</option></select></div>\n'
             '<div class="tc-bulk" id="bulk" hidden><b id="bulk-n"></b><select id="bulk-group"></select>'
             '<button class="btn" id="bulk-add">Add to group</button><button class="btn" id="bulk-remove">Remove from group</button>'
-            '<button class="btn" id="bulk-video">Give video pass</button><button class="btn" id="bulk-unlock">Give course access</button>'
+            '<button class="btn" id="bulk-video">Give Labs</button><button class="btn" id="bulk-unlock">Give course access</button>'
+            '<input id="bulk-tix" type="number" min="1" max="500" value="5" style="width:4.5em" aria-label="Tickets">'
+            '<button class="btn" id="bulk-tickets">Give tickets</button><button class="btn" id="bulk-seminars">Give a year of seminars</button>'
             '<button class="btn" id="bulk-clear">Clear selection</button></div>\n'
             '<div id="grid" class="aa-scroll"></div>\n<div class="tc-grid">'
-            '<section class="tc-card"><h3>Groups</h3><p class="tc-note">A group gets its own timetable, assignments and videos. '
-            'Tick students above, then add them to a group.</p>'
-            '<p class="aa-tools"><input id="g-name" placeholder="New group, e.g. Period 3"> <button class="btn dark" id="g-add">Create</button></p>'
+            '<section class="tc-card"><h3>Classes &amp; cohorts</h3><p class="tc-note">A student can be in any number of classes and cohorts. '
+            'Each one gets its own timetable, assignments, videos, forum and shared notebook. Tick students above, then add them.</p>'
+            '<p class="aa-tools"><input id="g-name" placeholder="Name, e.g. Period 3 or 2026 batch"> '
+            '<select id="g-kind"><option value="class">Class</option><option value="cohort">Cohort</option></select> '
+            '<label><input type="checkbox" id="g-open"> Students can join and leave themselves</label> '
+            '<button class="btn dark" id="g-add">Create</button></p>'
             '<div id="groups"></div></section>'
             '<section class="tc-card"><h3>Add a student</h3>'
             '<p class="tc-note">They sign in with their email and the starter password <b>lock&amp;key</b>, then choose their own.</p>'
             '<p class="aa-tools"><input id="add-email" type="email" placeholder="student@school.org"> '
             '<label><input id="add-unlock" type="checkbox" checked> Full course access</label> '
             '<button class="btn" id="add">Add</button></p><p class="tc-note" id="add-msg"></p></section>'
-            '<section class="tc-card"><h3>Class codes</h3>'
-            '<p class="tc-note">Give a class one code. Each student signs in and enters it on the unlock page.</p>'
-            '<p class="aa-tools"><input id="code-note" placeholder="Class name, e.g. Period 3"> '
+            '<section class="tc-card"><h3>Codes</h3>'
+            '<p class="tc-note">One code can be shared by a whole class. Students sign in and enter it in the Store '
+            '(course codes also work on the unlock page). Tickets: how many each student gets. Seminars: how many days.</p>'
+            '<p class="aa-tools"><select id="code-product"><option value="course">Course</option><option value="labs">Labs</option>'
+            '<option value="tickets">Tickets</option><option value="seminars">Seminars subscription</option></select> '
+            '<input id="code-amount" type="number" min="1" max="3650" value="5" style="width:5em" aria-label="Tickets or days" hidden> '
+            '<input id="code-note" placeholder="Class name, e.g. Period 3"> '
             '<input id="code-uses" type="number" min="1" max="500" value="30" style="width:5em"> uses '
             '<button class="btn" id="make">Make code</button></p><p class="tc-note" id="code-msg"></p>'
             '<div id="codes" class="aa-scroll"></div></section></div>')
@@ -409,6 +502,9 @@ def run():
     classes_page()
     assignments_page()
     videos_page()
+    ctf_page()
+    seminars_page()
+    labs_page()
     lectures_page()
     present_page()
     blog_page()

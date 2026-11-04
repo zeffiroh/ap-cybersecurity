@@ -30,11 +30,13 @@ STEPS = [
     ("downloads", "printable quizzes and assignments, answer keys, Anki decks"),
     ("book", "the online book and the textbook PDF"),
     ("pages", "home, unit, topic, progress, calendar, downloads and teacher pages"),
+    ("ctf", "CTF board data, lab flags, the database seed and CyberChef"),
+    ("lab", "JupyterLite lab with every code book, in the browser"),
 ]
 
 
 def step(name, args):
-    from builder import (adaptive, book, downloads, lectures, materials, pages, slides, static, tutor)
+    from builder import (adaptive, book, ctf, downloads, lab, lectures, materials, pages, slides, static, tutor)
     if name == "static":
         static.run()
     elif name == "tests":
@@ -57,6 +59,10 @@ def step(name, args):
         book.pdf(force=args.force_pdf)
     elif name == "pages":
         pages.run()
+    elif name == "ctf":
+        ctf.run()
+    elif name == "lab":
+        lab.run()
 
 
 def main():

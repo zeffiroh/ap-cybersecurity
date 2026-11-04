@@ -1,0 +1,96 @@
+(function (global) {
+  "use strict";
+
+  var LOCAL = "aayat_ctf_local";
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function local() {
+    try { return JSON.parse(localStorage.getItem(LOCAL) || "{}") || {}; } catch (e) { return {}; }
+  }
+
+  function remember(id, flag) {
+    var l = local();
+    l[id] = flag;
+    try { localStorage.setItem(LOCAL, JSON.stringify(l)); } catch (e) {}
+  }
+
+  function reveal(id) {
+    var d = global.AAYAT_LABFLAGS;
+    if (!d || !d.flags || !d.flags[id]) return "";
+    var b = atob(d.flags[id]), out = "";
+    for (var i = 0; i < b.length; i++) out += String.fromCharCode(b.charCodeAt(i) ^ d.key.charCodeAt(i % d.key.length));
+    return out;
+  }
+
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    return (P ? P.neon() : Promise.resolve(null)).then(function (db) {
+      if (!db) throw new Error("The course database is not connected yet.");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+  }
+
+  function sha256(text) {
+    var bytes = new TextEncoder().encode(String(text).trim().toLowerCase());
+    return crypto.subtle.digest("SHA-256", bytes).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    });
+  }
+
+  function submit(id, flag) {
+    return rpc("api_ctf_submit", { p_id: id, p_flag: flag });
+  }
+
+  function box() {
+    var b = document.getElementById("lk-toast");
+    if (b) return b;
+    b = document.createElement("div");
+    b.id = "lk-toast";
+    b.className = "lk-toast";
+    b.setAttribute("role", "status");
+    document.body.appendChild(b);
+    return b;
+  }
+
+  var shown = {};
+
+  function award(id, title) {
+    var flag = reveal(id);
+    if (!flag || shown[id]) return flag;
+    shown[id] = true;
+    var first = !local()[id];
+    remember(id, flag);
+    var b = box();
+    b.innerHTML = '<button class="lk-x" aria-label="Close">&times;</button><div class="lk-k">' + (first ? "Flag captured" : "Flag again") +
+      "</div><b>" + esc(title || id) + '</b><code class="lk-flag">' + esc(flag) + '</code><div class="lk-s">Saving to the CTF board…</div>';
+    b.hidden = false;
+    b.querySelector(".lk-x").addEventListener("click", function () { b.hidden = true; });
+    var s = b.querySelector(".lk-s");
+    submit(id, flag).then(function (r) {
+      if (r && r.ok && r.correct) s.textContent = r.already ? "Already on your CTF score." : "+" + r.points + " points on the CTF board.";
+      else s.textContent = (r && r.error) || "Saved in this browser. Sign in to score it.";
+    }, function () { s.textContent = "Saved in this browser. Open the CTF board after signing in to score it."; });
+    global.dispatchEvent(new CustomEvent("labkit-award", { detail: { id: id } }));
+    return flag;
+  }
+
+  function missions(el, list) {
+    if (!el) return;
+    var done = local();
+    el.innerHTML = list.map(function (m) {
+      var ok = !!done[m.id];
+      return '<div class="lk-m' + (ok ? " ok" : "") + '"><div class="lk-mt"><span class="lk-dot">' + (ok ? "&#10003;" : "") + "</span>" +
+        esc(m.title) + ' <small>' + m.points + " pts</small></div><p>" + esc(m.text) + "</p>" +
+        (m.hint ? "<details><summary>Hint</summary><p>" + esc(m.hint) + "</p></details>" : "") +
+        (ok ? '<code class="lk-flag">' + esc(done[m.id]) + "</code>" : "") + "</div>";
+    }).join("");
+  }
+
+  global.LabKit = { esc: esc, local: local, remember: remember, reveal: reveal, rpc: rpc, sha256: sha256, submit: submit,
+    award: award, missions: missions };
+})(window);

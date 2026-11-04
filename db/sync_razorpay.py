@@ -83,8 +83,7 @@ def main():
         for p in payments(since):
             n = notes(p, orders)
             src = n.pop("_src", "") + json.dumps(p)
-            kind = ("video" if prod.get("video_page") and prod["video_page"] in src else
-                    "class" if prod.get("class_page") and prod["class_page"] in src else "")
+            kind = extras.kind_razorpay(prod, src)
             course = not kind and (PAGE_ID in src or EMAIL_FIELD in n)
             email = str(n.get(EMAIL_FIELD) or p.get("email") or "").strip().lower()[:200]
             kept = {k: str(v)[:500] for k, v in n.items() if not PRIVATE.search(k)}
@@ -96,7 +95,8 @@ def main():
                 unlocks.append((email, p["id"], paid))
             if kind and EMAIL_RE.match(email):
                 paid = p["status"] in ("captured", "refunded") and (p.get("amount_refunded") or 0) < (p.get("amount") or 0)
-                extra.append((kind, email, p["id"], paid, extras.class_id(n)))
+                extra.append((kind, email, p["id"], paid, extras.class_id(n),
+                              extras.ticket_count(prod, p.get("amount") or 0, p.get("currency") or "INR", n)))
         db.cursor().executemany(
             """insert into payments (id, status, amount, amount_refunded, fee, tax, currency, method, email,
                                      description, notes, created_at)
@@ -113,8 +113,8 @@ def main():
                            (email, ref, ref))
             else:
                 db.execute("update unlocks set revoked = true where via = 'razorpay' and ref = %s", (ref,))
-        for kind, email, ref, paid, cid in extra:
-            extras.grant(db, kind, email, ref, "razorpay", paid, cid)
+        for kind, email, ref, paid, cid, count in extra:
+            extras.grant(db, kind, email, ref, "razorpay", paid, cid, count, prod)
         db.execute("insert into payments (id, status, created_at) values ('_sync', 'sync', now()) "
                    "on conflict (id) do update set synced_at = now()")
     print("Razorpay sync done.")

@@ -42,6 +42,35 @@ report cards, exit-ticket grading, sponsor numbers) need it.
    the teacher hub, `site/teacher/index.html`). It runs a read-only call and says whether
    the connection works, and if not, which step failed.
 
+## Products
+
+Each product has its own record of who has access, and none unlocks another:
+
+| Product | Table | How it's granted |
+|---|---|---|
+| Course | `unlocks` | Razorpay/Gumroad course page, course codes, free unlock while the minimum is 0 |
+| Labs (labs, CTF, skill labs, premium notebooks, lesson videos) | `labs_access` | `labs_page` / `labs_gumroad`, LABS- codes, teacher |
+| Tickets | `ticket_ledger` (a running balance) | `tickets_page` / `tickets_gumroad` (count = amount ÷ `ticket_price_inr`/`_usd`, or the Gumroad quantity), TIX- codes, teacher |
+| Seminars | `seminar_access` (one seminar, paid in tickets), `seminar_subs` (all of them until a date) | `seminars_page` / `seminars_gumroad`, SEM- codes, teacher |
+| Live classes | `class_seats` | paid with tickets when booking. A teacher deleting or cancelling a class gives the tickets back. |
+
+The `settings` keys hold the Razorpay page ids and Gumroad link names; the sync scripts (`sync_razorpay.py`,
+`sync_gumroad.py`, via `extras.py`) read them every 5 minutes. Teacher-made labs and notebooks live in
+`premium_items` and are returned only to Labs owners and teachers (`api_premium_get`).
+
+## Capture the flag
+
+`schema.sql` creates the CTF tables and functions. The built-in challenges are loaded separately,
+and reloading them is safe. Run this after the schema, and again whenever `source/ctf/challenges.json`
+changes (the build regenerates the file):
+
+    python db/sql.py db/ctf_challenges.sql
+
+Students get only `api_ctf_board` (challenges, no flags) and `api_ctf_submit` (checks a flag's hash,
+10 tries a minute). Plaintext flags and walkthroughs come back only from `api_teacher_ctf`, which needs a
+teacher account or teacher key. The teacher console's *Capture the flag* page shows them and lets you add
+your own challenges. Reset scores for a new term: `truncate ctf_solves, ctf_attempts;`
+
 ## Security model
 
 A visitor's token can run only the `api_*` functions in `schema.sql`; it has

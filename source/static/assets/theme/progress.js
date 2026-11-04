@@ -246,7 +246,7 @@
           return '<a class="apn-new" href="' + n.href + '">' + n.title + "<small>" + n.sub + "</small></a>";
         }).join("") + '<a href="#" data-aa-seen><small>Mark all as read</small></a>' : "") +
         '<a href="' + ROOT + 'progress.html">Progress</a>' +
-        '<a href="' + ROOT + 'calendar.html">Calendar</a><a href="' + ROOT + 'classes.html">Live classes</a>' +
+        '<a href="' + ROOT + 'calendar.html">Calendar</a><a href="' + ROOT + 'community.html">Classes, lectures &amp; forum</a>' +
         '<a href="' + ROOT + 'videos.html">Video lessons</a><a href="' + ROOT + 'notebook.html">Notebook</a>' +
         '<a href="' + ROOT + 'report.html">Report card</a>' +
         (read(TEACHER_FLAG, "") === who ? '<a href="' + ROOT + 'teacher/index.html">Teacher hub</a>' +
@@ -322,7 +322,7 @@
     });
     (feed.classes || []).forEach(function (c) {
       var t = c.starts ? new Date(c.starts).getTime() : 0;
-      if (t > now - c.minutes * 60000 && t < now + 864e5) out.push({ at: "9", href: ROOT + "classes.html", title: "Class soon: " + esc(c.title),
+      if (t > now - c.minutes * 60000 && t < now + 864e5) out.push({ at: "9", href: ROOT + "community.html#lectures", title: "Class soon: " + esc(c.title),
         sub: new Date(c.starts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) });
     });
     return out.sort(function (a, b) { return a.at < b.at ? 1 : -1; });

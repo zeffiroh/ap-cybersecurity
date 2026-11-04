@@ -23,24 +23,69 @@ window.APCYBER_PAYWALL = {
   free: [
     "index.html", "unit-*/index.html", "unit-*/*/index.html",
     "unit-1/1.1/**",
-    "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html",
+    "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html", "community.html",
+    "store.html", "labs.html", "seminars.html",
     "buy/**", "unlock/**", "pay/**", "ledger/**", "teacher/database-check.html"
-  ]
+  ],
+
+  products: {
+    labs: {
+      name: "Labs",
+      title: "Part of Labs",
+      text: "Labs is the hands-on side of the course: a real Linux computer, JupyterLab with every code book, the SQL injection " +
+        "lab, the hackable shop, the capture-the-flag board, every skill lab, premium notebooks and the lesson videos. " +
+        "It is sold separately from the course.",
+      button: "Get Labs",
+      buy: "store.html#labs",
+      preview: "labs.html",
+      previewLabel: "What's inside",
+      paths: ["linux.html", "lab/**", "sqli.html", "shop.html", "ctf.html", "cyberchef/**", "unit-*/*/*/lab.html"]
+    }
+  }
 };
 
 window.APCYBER_STORES = {
-  videoPass: {
-    price: "₹499 in India · $19 everywhere else",
+  course: {
+    name: "Course",
+    blurb: "Every lesson, quiz, slide deck, unit test, the capstone, progress tracking and your report card.",
+    india: "Pay what you want",
     methods: [
-      { label: "Razorpay", note: "₹499 · UPI, cards, netbanking · India", url: "" },
-      { label: "Gumroad", note: "$19 · cards, PayPal · international", url: "" }
+      { label: "Razorpay", note: "India · UPI, cards, netbanking", url: "https://rzp.io/rzp/unlock-aap-cybersecurity" },
+      { label: "Gumroad", note: "International · cards, PayPal", url: "https://mitaliaayatmahnoor.gumroad.com/l/cybersecurity-kickstarter" }
     ]
   },
-  classes: {
+  labs: {
+    name: "Labs",
+    blurb: "Real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
+      "every skill lab, premium notebooks and every lesson video. Pay once, keep it.",
+    india: "Pay what you want, with a minimum",
     methods: [
-      { label: "Razorpay", note: "UPI, cards, netbanking · India", url: "" },
-      { label: "Gumroad", note: "Cards, PayPal · international", url: "" }
+      { label: "Razorpay", note: "India · pay what you want", url: "" },
+      { label: "Gumroad", note: "International · $149", url: "" }
     ]
+  },
+  seminars: {
+    name: "Seminars subscription",
+    blurb: "Every recorded seminar, including new ones, for a year. Or unlock single seminars with tickets.",
+    india: "Pay what you want, with a minimum",
+    methods: [
+      { label: "Razorpay", note: "India", url: "" },
+      { label: "Gumroad", note: "International", url: "" }
+    ]
+  },
+  tickets: {
+    name: "Tickets",
+    blurb: "Buy any number. A batch class costs 1 ticket; a 1:1 class or a seminar costs what its page says.",
+    india: "Priced per ticket",
+    methods: [
+      { label: "Razorpay", note: "India · type how many you want", url: "" },
+      { label: "Gumroad", note: "International · choose a quantity", url: "" }
+    ]
+  },
+  book: {
+    name: "Textbook",
+    blurb: "The full textbook as PDF (and EPUB on Gumroad).",
+    page: "buy/"
   }
 };
 

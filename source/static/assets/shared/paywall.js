@@ -2,6 +2,7 @@
   "use strict";
 
   var KEY = "apcyber_unlocks";
+  var ACCESS_KEY = "apcyber_access";
   var EMAIL_KEY = "apcyber_student_email";
   var DONATE_KEY = "apcyber_donate_next";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -28,6 +29,24 @@
   function isUnlocked(addr) {
     addr = addr === undefined ? email() : addr;
     return !P.enabled || !!(addr && unlocks()[addr]);
+  }
+
+  function access() {
+    try { return JSON.parse(get(ACCESS_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+
+  function has(product, addr) {
+    addr = addr === undefined ? email() : addr;
+    if (!P.enabled) return true;
+    if (!product) return isUnlocked(addr);
+    return !!(addr && (access()[addr] || {})[product]);
+  }
+
+  function grant(addr, product, on) {
+    var all = access();
+    all[addr] = all[addr] || {};
+    if (on) all[addr][product] = new Date().toISOString(); else delete all[addr][product];
+    set(ACCESS_KEY, JSON.stringify(all));
   }
 
   function signIn(addr, cb) {
@@ -64,12 +83,15 @@
   }
 
   function lookup(addr) {
-    if (isUnlocked(addr)) return Promise.resolve(true);
+    if (isUnlocked(addr) && (!product || has(product, addr))) return Promise.resolve(true);
     return neon().then(function (N) {
       return N.rpc("api_unlock_status", { p_email: addr }, { attempts: 1 });
     }).then(function (res) {
-      if (res && res.unlocked) unlock(addr, "restore", "");
-      return !!(res && res.unlocked);
+      var hadLabs = has("labs", addr);
+      if (res && "labs" in res) grant(addr, "labs", !!res.labs);
+      if (res && res.unlocked && !isUnlocked(addr)) unlock(addr, "restore", "");
+      else if (hadLabs !== has("labs", addr)) apply();
+      return product ? has(product, addr) : !!(res && res.unlocked);
     });
   }
 
@@ -113,14 +135,19 @@
     return u.href;
   }
 
+  var path = pagePath();
+  var product = null;
+  Object.keys(P.products || {}).forEach(function (k) {
+    if (path !== null && (P.products[k].paths || []).some(function (f) { return glob(f).test(path); })) product = k;
+  });
+
   global.Paywall = {
     root: root, email: email, isUnlocked: isUnlocked, unlock: unlock, lookup: lookup, signIn: signIn,
-    neon: neon, payUrl: payUrl, price: price, rupees: rupees, EMAIL_RE: EMAIL_RE
+    neon: neon, payUrl: payUrl, price: price, rupees: rupees, EMAIL_RE: EMAIL_RE, has: has, grant: grant
   };
   if (!P.enabled || !root) return;
 
-  var path = pagePath();
-  var free = path === null || (P.free || []).some(function (f) { return glob(f).test(path); });
+  var free = path === null || (!product && (P.free || []).some(function (f) { return glob(f).test(path); }));
   var quiet = /^(unlock|pay|buy|ledger)\//.test(path || "");
   var framed = global.self !== global.top;
 
@@ -159,8 +186,32 @@
     if (el) el.remove();
   }
 
+  function productGate(who) {
+    var d = P.products[product], g = document.createElement("div");
+    g.className = "pw-gate";
+    g.innerHTML =
+      '<div class="pw-card" role="dialog" aria-labelledby="pw-title">' +
+      '<img src="' + root + 'assets/theme/icon.svg" alt="">' +
+      '<h2 id="pw-title">' + (d.title || "Part of " + product) + "</h2><p>" + (d.text || "") + "</p>" +
+      '<a class="pw-btn" href="' + root + (d.buy || "store.html") + '">' + (d.button || "See prices") + "</a>" +
+      '<div class="pw-links"><a href="' + root + 'store.html#redeem">I have a code</a>' +
+      (d.preview ? '<a href="' + root + d.preview + '">' + (d.previewLabel || "What's inside") + "</a>" : "") + "</div>" +
+      '<div class="pw-who"></div></div>';
+    var box = g.querySelector(".pw-who");
+    if (who) box.textContent = "Signed in as " + who + ". This account doesn't have " + (d.name || product) + " yet.";
+    else {
+      box.innerHTML = 'Bought it already? <a href="#" style="color:#111">Sign in</a>.';
+      box.querySelector("a").addEventListener("click", function (e) {
+        e.preventDefault();
+        if (global.Identity) global.Identity.open({}, function () { location.reload(); });
+      });
+    }
+    return g;
+  }
+
   function gate() {
     var g = document.createElement("div"), who = email();
+    if (product) return productGate(who);
     g.className = "pw-gate";
     g.innerHTML =
       '<div class="pw-card" role="dialog" aria-labelledby="pw-title">' +
@@ -226,7 +277,7 @@
   }
 
   function apply() {
-    var open = isUnlocked(), html = document.documentElement;
+    var open = has(product), html = document.documentElement;
     html.classList.toggle("pw-locked", !free && !open);
     if (!document.body) return;
     remove(".pw-gate");
@@ -234,21 +285,21 @@
     if (quiet) return;
     if (!free && !open) document.body.appendChild(gate());
     else if (framed) return;
-    else if (open) donate();
-    else ribbon();
+    else if (open) { if (!product) donate(); }
+    else if (!product) ribbon();
   }
 
   function check() {
     var who = email();
-    if (who && !isUnlocked(who)) lookup(who).catch(function () {  });
+    if (who && (product || !isUnlocked(who))) lookup(who).catch(function () {  });
   }
 
-  document.documentElement.classList.toggle("pw-locked", !free && !isUnlocked());
+  document.documentElement.classList.toggle("pw-locked", !free && !has(product));
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply);
   else apply();
   check();
   function changed() { apply(); check(); }
   global.addEventListener("aayat-identity", changed);
   global.addEventListener("aayat-identity-set", changed);
-  global.addEventListener("storage", function (e) { if (e.key === EMAIL_KEY || e.key === KEY) changed(); });
+  global.addEventListener("storage", function (e) { if (e.key === EMAIL_KEY || e.key === KEY || e.key === ACCESS_KEY) changed(); });
 })(window);

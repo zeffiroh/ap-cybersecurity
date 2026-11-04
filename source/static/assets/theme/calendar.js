@@ -198,7 +198,7 @@
       if (!c.starts) return;
       ev.push({ start: new Date(c.starts), minutes: c.minutes, kind: "class", title: c.title + (c.seat === "pending" ? " (unpaid)" : ""),
                 sub: c.seat === "confirmed" && c.meet ? "Meeting link on the Live classes page" : "Live class " + c.code,
-                href: root + "classes.html" });
+                href: root + "community.html#lectures" });
     });
     (feed.assignments || []).forEach(function (a) {
       if (!a.due) return;

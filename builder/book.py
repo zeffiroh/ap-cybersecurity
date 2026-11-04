@@ -613,7 +613,7 @@ def build_figures():
     want = {name: fig_hash(pre, d) for name, d in figures}
     stale = [(n, d) for n, d in figures
              if not (FIGS / f"{n}.svg").exists()
-             or f"<!-- book-figure {want[n]} -->" not in (FIGS / f"{n}.svg").read_text(encoding="utf-8")[:400]]
+             or f'data-book-figure="{want[n]}"' not in (FIGS / f"{n}.svg").read_text(encoding="utf-8")[:600]]
     for n in want:
         keep(FIGS / f"{n}.svg")
     if not stale:
@@ -644,7 +644,8 @@ def build_figures():
                 sys.stdout.write(r.stderr[-3000:])
                 raise RuntimeError(f"dvisvgm produced no page {k} ({name})")
             svg = src.read_text(encoding="utf-8")
-            svg = re.sub(r"(<\?xml[^>]*\?>)", rf"\1\n<!-- book-figure {want[name]} -->", svg, count=1)
+            svg = re.sub(r"<!--.*?-->\n?", "", svg, flags=re.S)
+            svg = svg.replace("<svg ", f'<svg data-book-figure="{want[name]}" ', 1)
             (FIGS / f"{name}.svg").write_text(svg, encoding="utf-8", newline="\n")
     return []
 

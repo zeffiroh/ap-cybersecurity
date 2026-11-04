@@ -1,12 +1,30 @@
 import re
 
-KEYS = ("video_page", "class_page", "video_gumroad", "class_gumroad")
+KINDS = {"labs": ("labs_page", "labs_gumroad"), "video": ("video_page", "video_gumroad"),
+         "tickets": ("tickets_page", "tickets_gumroad"), "seminars": ("seminars_page", "seminars_gumroad"),
+         "class": ("class_page", "class_gumroad")}
+KEYS = tuple(k for pair in KINDS.values() for k in pair) + ("ticket_price_inr", "ticket_price_usd", "seminar_sub_days")
 CLASS_FIELD = re.compile(r"class", re.I)
+TICKET_FIELD = re.compile(r"ticket", re.I)
 CODE_RE = re.compile(r"\bC-?(\d{1,7})\b", re.I)
 
 
 def products(db):
     return {k: v.strip() for k, v in db.execute("select key, value from settings where key = any(%s)", (list(KEYS),)).fetchall() if v.strip()}
+
+
+def kind_razorpay(prod, src):
+    for kind, (page, _) in KINDS.items():
+        if prod.get(page) and prod[page] in src:
+            return kind
+    return ""
+
+
+def kind_gumroad(prod, links):
+    for kind, (_, link) in KINDS.items():
+        if prod.get(link) and prod[link] in links:
+            return kind
+    return ""
 
 
 def class_id(fields):
@@ -18,14 +36,48 @@ def class_id(fields):
     return None
 
 
-def grant(db, kind, email, ref, via, paid, cid=None):
-    if kind == "video":
+def ticket_count(prod, amount, currency, fields, quantity=1):
+    for k, v in fields.items():
+        if TICKET_FIELD.search(str(k)) and str(v).strip().isdigit():
+            return max(1, min(int(str(v).strip()), 500))
+    if quantity and int(quantity) > 1:
+        return min(int(quantity), 500)
+    price = prod.get("ticket_price_" + str(currency).lower())
+    try:
+        each = round(float(price) * 100)
+    except (TypeError, ValueError):
+        each = 0
+    return max(1, min(int(amount) // each, 500)) if each > 0 else 1
+
+
+def grant(db, kind, email, ref, via, paid, cid=None, count=1, prod=None):
+    if kind in ("labs", "video"):
         if paid:
-            db.execute("insert into video_access (email, via, ref) select %s, %s, %s "
-                       "where not exists (select 1 from video_access where via = %s and ref = %s)",
+            db.execute("insert into labs_access (email, via, ref) select %s, %s, %s "
+                       "where not exists (select 1 from labs_access where via = %s and ref = %s)",
                        (email, via, ref, via, ref))
         else:
-            db.execute("update video_access set revoked = true where via = %s and ref = %s", (via, ref))
+            db.execute("update labs_access set revoked = true where via = %s and ref = %s", (via, ref))
+    elif kind == "tickets":
+        if paid:
+            db.execute("insert into ticket_ledger (email, delta, reason, ref) select %s, %s, %s, %s "
+                       "where not exists (select 1 from ticket_ledger where ref = %s)",
+                       (email, count, via, "pay:" + ref, "pay:" + ref))
+        else:
+            db.execute("insert into ticket_ledger (email, delta, reason, ref) "
+                       "select email, -delta, 'refund', %s from ticket_ledger where ref = %s "
+                       "and not exists (select 1 from ticket_ledger where ref = %s)",
+                       ("rev:" + ref, "pay:" + ref, "rev:" + ref))
+    elif kind == "seminars":
+        days = int((prod or {}).get("seminar_sub_days") or 365)
+        if paid:
+            db.execute("insert into seminar_subs (email, via, ref, until) "
+                       "select %s, %s, %s, greatest(now(), coalesce((select max(until) from seminar_subs "
+                       "where email = %s and not revoked), now())) + make_interval(days => %s) "
+                       "where not exists (select 1 from seminar_subs where via = %s and ref = %s)",
+                       (email, via, ref, email, days, via, ref))
+        else:
+            db.execute("update seminar_subs set revoked = true where via = %s and ref = %s", (via, ref))
     elif kind == "class" and cid:
         if paid:
             db.execute("insert into class_seats (class_id, email, paid, via, ref) "

@@ -78,6 +78,7 @@
     if (!isConfigured()) return Promise.reject(new Error("Neon is not configured"));
     opts = opts || {};
     var attempts = opts.attempts || 3;
+    var stale = 0;
     function attempt(n, forceToken) {
       return getToken(forceToken).then(function (token) {
         return fetch(cfg().dataApiUrl + "/rpc/" + fn, {
@@ -91,6 +92,9 @@
         if (res.status === 401 && !forceToken) return attempt(n, true);
         if (!res.ok) {
           return res.text().then(function (t) {
+            if (res.status === 404 && /schema cache/.test(t) && stale++ < 6) {
+              return new Promise(function (ok) { setTimeout(ok, 150 * stale); }).then(function () { return attempt(n, false); });
+            }
             if (/sign in required/.test(t) && stored(SESSION_KEY)) staleSession();
             var err = new Error("Neon " + fn + " failed: HTTP " + res.status + " " + t.slice(0, 200));
             err.retryable = res.status >= 500 || res.status === 429;
