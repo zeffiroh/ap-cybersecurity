@@ -1,0 +1,110 @@
+[
+ {
+  "t": "md",
+  "s": "# Incident runbook: web server web01\n\nAlerts at 09:20 on 3 Nov: web01 is using a lot of CPU and sending data out. Work down this runbook in order. Linux cells run on a real Linux in your browser, Python cells run Python, and every output is saved in this notebook.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python), including a packet capture, `capture.pcap`. `nmap`, `curl`, `tshark` and `dig` work on a recorded copy of the case network (10.0.0.0/24 and the outside addresses in the logs); nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before touching it (chain of custody)\n- [ ] Map the network: which machines are up?"
+ },
+ {
+  "t": "sh",
+  "s": "cd ~/case\ndate -u\nls -l . suspect\nsha256sum *.log *.csv *.txt capture.pcap"
+ },
+ {
+  "t": "md",
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+ },
+ {
+  "t": "sh",
+  "s": "nmap -sn 10.0.0.0/24"
+ },
+ {
+  "t": "md",
+  "s": "## 3. Investigate: logins\n\n- [ ] Which address failed to log in most often?\n- [ ] Did that address ever log in successfully? As whom?\n- [ ] What did that account do next?"
+ },
+ {
+  "t": "sh",
+  "s": "grep 'Failed password' auth.log | awk '{print $(NF-3)}' | sort | uniq -c | sort -rn\necho ---\ngrep -E 'Accepted|sudo' auth.log"
+ },
+ {
+  "t": "md",
+  "s": "## 4. Investigate: the website\n\n- [ ] Find the SQL injection attempts\n- [ ] Find the uploaded web shell and the commands run through it\n- [ ] Is the web shell still live? Check it with curl"
+ },
+ {
+  "t": "sh",
+  "s": "grep -iE \"%27|union|select\" access.log\necho ---\ngrep 'cmd=' access.log | sed 's/.*cmd=\\([^ ]*\\).*/\\1/' | sed 's/%20/ /g'"
+ },
+ {
+  "t": "sh",
+  "s": "curl -s http://10.0.0.5/robots.txt\necho ---\ncurl -i -s \"http://10.0.0.5/uploads/img.php?cmd=id\""
+ },
+ {
+  "t": "md",
+  "s": "## 5. Investigate: the network\n\n- [ ] Who talked to whom, and how much?\n- [ ] Which name did web01 look up just before the download?\n- [ ] Are the connections to port 4444 regular, like a beacon?"
+ },
+ {
+  "t": "sh",
+  "s": "tshark -r capture.pcap -q -z conv,ip\ntshark -r capture.pcap -Y dns -T fields -e ip.src -e dns.qry.name\ntshark -r capture.pcap -Y 'http.request and ip.src==10.0.0.5'\ntshark -r capture.pcap -Y 'tcp.dstport==4444' -c 6"
+ },
+ {
+  "t": "py",
+  "s": "import csv\nfrom collections import defaultdict\nfrom datetime import datetime\n\nrows = list(csv.DictReader(open(\"case/conn.csv\")))\nsent = defaultdict(int)\nfor r in rows:\n    sent[r[\"dst\"] + \":\" + r[\"dport\"]] += int(r[\"bytes_out\"])\nfor dst, b in sorted(sent.items(), key=lambda x: -x[1]):\n    print(f\"{dst:22} {b:>12,} bytes out\")\n\nt = [datetime.fromisoformat(r[\"time\"]) for r in rows if r[\"dport\"] == \"4444\"]\nprint(\"Seconds between connections to port 4444:\", [(b - a).seconds for a, b in zip(t, t[1:])])"
+ },
+ {
+  "t": "md",
+  "s": "## 6. Investigate: the host\n\n- [ ] Which process doesn't belong?\n- [ ] How does it start again after a reboot?\n- [ ] Is the file a known bad one?\n- [ ] Scan every port on web01: is anything listening that shouldn't be?"
+ },
+ {
+  "t": "sh",
+  "s": "grep -v root ps.txt\necho ---\ngrep -v '^#' crontab.txt\necho ---\nsha256sum suspect/* | while read h f; do\n    grep -q \"$h\" known_bad.txt && echo \"KNOWN BAD: $f\" || echo \"not listed: $f\"\ndone"
+ },
+ {
+  "t": "sh",
+  "s": "nmap -sV -p- 10.0.0.5"
+ },
+ {
+  "t": "md",
+  "s": "## 7. Who is behind it?\n\n- [ ] Where does the command server's name point?\n- [ ] What is running on the attacker's machine?\n\nIn a real case, ask before you touch an attacker's servers: it can tip them off, and some actions are illegal."
+ },
+ {
+  "t": "sh",
+  "s": "dig +short update.kworker-cdn.net\ndig -x 198.51.100.66 +short\nnmap -sV 203.0.113.7\ncurl -s http://203.0.113.7:8080/notes.txt"
+ },
+ {
+  "t": "md",
+  "s": "## 8. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+ },
+ {
+  "t": "md",
+  "s": "## 9. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+ },
+ {
+  "t": "sh",
+  "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+ },
+ {
+  "t": "md",
+  "s": "## 10. Contain\n\n- [ ] Block the attacker and the command server at the firewall\n- [ ] Lock the stolen account\n- [ ] Take web01 off the network\n\nThe cell prints the commands for the real server. Nothing here is a real firewall."
+ },
+ {
+  "t": "sh",
+  "s": "for ip in 203.0.113.7 198.51.100.66; do\n    echo \"iptables -A INPUT -s $ip -j DROP\"\n    echo \"iptables -A OUTPUT -d $ip -j DROP\"\ndone\necho \"usermod -L deploy\""
+ },
+ {
+  "t": "md",
+  "s": "## 11. Remediate\n\n- [ ] Remove the cron entry\n- [ ] Delete the dropped file\n- [ ] Reset the deploy password and patch the SQL injection and upload page"
+ },
+ {
+  "t": "sh",
+  "s": "sed -i '/kworkerd/d' crontab.txt\nrm -f suspect/kworkerd\ncat crontab.txt\nls suspect"
+ },
+ {
+  "t": "md",
+  "s": "## 12. Report\n\n- [ ] What happened, in order, with times\n- [ ] Which accounts, files and addresses were involved\n- [ ] What you changed in step 11, and what should be fixed next\n\nWrite the report here. Download .ipynb keeps every output above."
+ },
+ {
+  "t": "md",
+  "s": "## 13. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+ },
+ {
+  "t": "md",
+  "s": "## 14. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+ }
+]

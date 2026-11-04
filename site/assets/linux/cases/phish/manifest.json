@@ -1,0 +1,162 @@
+{
+ "order": 1,
+ "title": "The invoice that wasn't",
+ "kicker": "Phishing to ransomware",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Beginner",
+ "minutes": 60,
+ "summary": "A fake overdue invoice reaches three people at Kestrel Logistics. One opens it. An hour later the HR and Finance folders are encrypted. Find patient zero, trace the attack, contain it and choose a backup to restore.",
+ "tools": [
+  "grep",
+  "dig",
+  "curl",
+  "tshark",
+  "nmap",
+  "base64",
+  "Python"
+ ],
+ "titlePrefix": "Incident runbook: Kestrel ransomware",
+ "id": "phish",
+ "files": [
+  "case/README_RESTORE.txt",
+  "case/backups.txt",
+  "case/capture.pcap",
+  "case/invoice.eml",
+  "case/known_bad.txt",
+  "case/mail.log",
+  "case/process.csv",
+  "case/proxy.log",
+  "case/share_listing.txt",
+  "case/suspect/svchost-upd.strings.txt",
+  "case/suspect/upd.cfg",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/www/403.htm",
+  "net/www/404.htm",
+  "net/www/c2_401.json",
+  "net/www/docm.bin",
+  "net/www/intranet.htm",
+  "net/www/lookalike.htm",
+  "net/www/real.htm",
+  "net/www/router.htm",
+  "net/www/s2.bin"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Incident runbook: ransomware at Kestrel Logistics\n\n09:55, Monday 2 Nov. The helpdesk pulled the network cable on **hr-pc07** after files on the shared drive started ending in `.kestrel-locked`. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). `nmap`, `curl`, `tshark` and `dig` work on a recorded copy of Kestrel's network (10.20.0.0/24) and the outside addresses in the logs.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the ransom note: what do the attackers want?\n- [ ] Map the network"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\nls -l . suspect\nsha256sum *.* suspect/*\necho ---\ncat README_RESTORE.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+  },
+  {
+   "t": "sh",
+   "s": "nmap -sn 10.20.0.0/24"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The email\n\n- [ ] Who really sent it? Compare `From`, `Reply-To`, `Return-Path` and the `Received` line\n- [ ] What did SPF, DKIM and DMARC say?\n- [ ] Spot the look-alike domain: which letter is wrong?\n- [ ] What does the real domain publish in DNS?\n- [ ] List the pressure tactics in the message (Unit 1.1)"
+  },
+  {
+   "t": "sh",
+   "s": "grep -E '^(From|Reply-To|Return-Path|Received|Subject|Authentication-Results)' -A1 invoice.eml\necho ---\ndig +short kestrel-logistics.com\ndig TXT kestrel-logistics.com +short\ndig TXT _dmarc.kestrel-logistics.com +short\necho ---\ndig +short kestrel-logistlcs.com\ndig TXT kestrel-logistlcs.com +short\ndig -x 203.0.113.45 +short"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Who got it, and who clicked?\n\n- [ ] How many people received the email?\n- [ ] Who reported it, and when?\n- [ ] Which computers downloaded the invoice? Did the block stop anyone?\n\nThe proxy log times are Unix epoch seconds. The Python cell turns them into clock times."
+  },
+  {
+   "t": "sh",
+   "s": "grep 4A1F21C02 mail.log\ngrep -E 'report|blocklist' mail.log\necho ---\ngrep -E 'docm|s2.bin' proxy.log"
+  },
+  {
+   "t": "py",
+   "s": "from datetime import datetime, timezone\n\nfor line in open(\"case/proxy.log\"):\n    f = line.split()\n    when = datetime.fromtimestamp(float(f[0]), timezone.utc).strftime(\"%H:%M:%S\")\n    print(when, f[2], f[3], f[5], f[6])"
+  },
+  {
+   "t": "md",
+   "s": "## 5. What ran on hr-pc07?\n\n- [ ] Rebuild the process tree from `process.csv`\n- [ ] Which program started PowerShell? Why is that suspicious?\n- [ ] Where does the real `svchost.exe` live, and who starts it? Where does this one live?"
+  },
+  {
+   "t": "py",
+   "s": "import csv\nfrom collections import defaultdict\n\nrows = [r for r in csv.DictReader(open(\"case/process.csv\")) if r[\"host\"] == \"hr-pc07\"]\nkids = defaultdict(list)\nfor r in rows:\n    kids[r[\"ppid\"]].append(r)\n\ndef show(pid, depth):\n    for r in kids.get(pid, []):\n        print(\"    \" * depth + r[\"time\"][11:] + \"  \" + r[\"image\"].split(\"\\\\\")[-1] + \"  \" + r[\"command_line\"][:70])\n        show(r[\"pid\"], depth + 1)\n\nshow(\"704\", 0)\nshow(\"640\", 0)"
+  },
+  {
+   "t": "md",
+   "s": "## 6. The network\n\n- [ ] Which names did hr-pc07 look up, and when?\n- [ ] What did it download, and with what user agent?\n- [ ] How often does it call home on port 443?\n- [ ] When did the encryption over SMB start and stop?"
+  },
+  {
+   "t": "sh",
+   "s": "tshark -r capture.pcap -Y dns -T fields -e frame.time_relative -e ip.src -e dns.qry.name\necho ---\ntshark -r capture.pcap -Y http.request -T fields -e ip.src -e http.host -e http.request.uri -e http.user_agent\necho ---\ntshark -r capture.pcap -Y 'tls and ip.src==10.20.0.14' -T fields -e frame.time_relative\necho ---\ntshark -r capture.pcap -Y smb2 | head -12\ntshark -r capture.pcap -q -z conv,ip"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Take the loader apart\n\nThe macro wrote a settings file before it fetched the ransomware. Its `campaign=` value is base64.\n\n- [ ] Decode the campaign value. What is in it? (There is a CTF flag in there.)\n- [ ] Match the files against the threat intel feed\n- [ ] Read the strings pulled from the ransomware: which folder does it target?\n- [ ] Are the attacker's servers still up?"
+  },
+  {
+   "t": "sh",
+   "s": "cat suspect/upd.cfg\necho ---\ngrep '^campaign=' suspect/upd.cfg | cut -d= -f2- | base64 -d; echo\necho ---\nsha256sum suspect/* | while read h f; do\n    grep -q \"$h\" known_bad.txt && echo \"KNOWN BAD: $f\" || echo \"not listed: $f\"\ndone\ngrep -E 'fs01|kestrel-locked|cdn' suspect/svchost-upd.strings.txt"
+  },
+  {
+   "t": "sh",
+   "s": "curl -I http://kestrel-logistlcs.com/invoices/INV-30412.docm\ncurl -s http://cdn-update-check.net/api/v1/hello\nnmap -sV 198.51.100.140"
+  },
+  {
+   "t": "md",
+   "s": "## 8. How far did it get?\n\n- [ ] Which folders were encrypted, and in what time window?\n- [ ] Which folder was saved by pulling the cable?\n- [ ] Why could one HR laptop encrypt Finance's files? Scan the file server."
+  },
+  {
+   "t": "sh",
+   "s": "awk '/Directory of/ {d = $3} /kestrel-locked/ {n[d]++} END {for (k in n) print n[k], \"locked in\", k}' share_listing.txt\ngrep kestrel-locked share_listing.txt | awk '{print $2}' | sort | sed -n '1p;$p'\necho ---\nnmap -sV fs01.kestrel.lan"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+  },
+  {
+   "t": "sh",
+   "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+  },
+  {
+   "t": "md",
+   "s": "## 11. Contain\n\n- [ ] Keep hr-pc07 off the network, but don't switch it off yet (memory evidence)\n- [ ] Block the look-alike domain and the command server everywhere\n- [ ] Reset priya.nair's password and sign her out everywhere\n- [ ] Search every mailbox for the same message and delete it\n\nThe cell prints the commands. Nothing here touches a real firewall."
+  },
+  {
+   "t": "sh",
+   "s": "for d in kestrel-logistlcs.com cdn-update-check.net; do echo \"dns-block add $d\"; done\necho \"iptables -A OUTPUT -d 198.51.100.140 -j DROP\"\necho \"iptables -A FORWARD -s 10.20.0.14 -j DROP\"\necho \"mail-purge --message-id '20261102085103.7781@kestrel-logistlcs.com' --all-mailboxes\""
+  },
+  {
+   "t": "md",
+   "s": "## 12. Recover\n\n- [ ] Which snapshot is the last clean one? Why not the newest?\n- [ ] How much work is lost (the RPO)?\n- [ ] What is wrong with how the backups are stored? How would you fix it?\n- [ ] Two lasting fixes: block macros in files from the internet, and limit which folders each team can write to"
+  },
+  {
+   "t": "sh",
+   "s": "cat backups.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 13. Report\n\n- [ ] Timeline from 08:51 to 09:55, with sources\n- [ ] Patient zero, what was taken or encrypted, and the indicators (domains, IPs, hashes, extension)\n- [ ] What went well (a user reported it) and what to fix\n- [ ] Submit the flag from step 7 on the CTF board\n\nWrite the report here. Download .ipynb keeps every output above."
+  },
+  {
+   "t": "md",
+   "s": "## 14. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+  },
+  {
+   "t": "md",
+   "s": "## 15. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+  }
+ ]
+}

@@ -109,6 +109,7 @@ create table if not exists accounts (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+alter table accounts add column if not exists no_email boolean not null default false;
 
 create table if not exists sessions (
   token_hash text primary key,
@@ -214,6 +215,9 @@ create table if not exists class_seats (
   created_at timestamptz not null default now(),
   primary key (class_id, email)
 );
+alter table class_seats add column if not exists reminded_24 timestamptz;
+alter table class_seats add column if not exists reminded_1 timestamptz;
+update class_seats set reminded_24 = now(), reminded_1 = now() where reminded_24 is null and created_at < now() - interval '2 hours';
 create index if not exists class_seats_email on class_seats (email);
 
 create table if not exists class_requests (
@@ -2219,6 +2223,8 @@ create table if not exists ticket_ledger (
 );
 create index if not exists ticket_ledger_email on ticket_ledger (email, created_at);
 create index if not exists ticket_ledger_ref on ticket_ledger (ref);
+alter table ticket_ledger add column if not exists notified_at timestamptz;
+update ticket_ledger set notified_at = created_at where notified_at is null and created_at < now() - interval '2 hours';
 
 create table if not exists seminars (
   id          bigserial primary key,
@@ -2246,6 +2252,8 @@ create table if not exists seminar_access (
   created_at timestamptz not null default now(),
   primary key (seminar_id, email)
 );
+alter table seminar_access add column if not exists notified_at timestamptz;
+update seminar_access set notified_at = created_at where notified_at is null and created_at < now() - interval '2 hours';
 
 create table if not exists seminar_subs (
   id         bigserial primary key,
@@ -2256,6 +2264,31 @@ create table if not exists seminar_subs (
   revoked    boolean not null default false,
   created_at timestamptz not null default now()
 );
+alter table seminar_subs add column if not exists notified_at timestamptz;
+update seminar_subs set notified_at = created_at where notified_at is null and created_at < now() - interval '2 hours';
+
+create table if not exists seminar_progress (
+  seminar_id bigint not null references seminars (id) on delete cascade,
+  email      text not null,
+  buckets    integer[] not null default '{}',
+  seconds_max integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (seminar_id, email)
+);
+
+create table if not exists certificates (
+  id         text primary key,
+  seminar_id bigint references seminars (id) on delete set null,
+  email      text not null,
+  name       text not null,
+  title      text not null,
+  minutes    integer not null default 0,
+  issued_at  timestamptz not null default now(),
+  unique (seminar_id, email)
+);
+alter table seminar_progress enable row level security;
+alter table certificates enable row level security;
+revoke all on seminar_progress, certificates from public, anonymous, authenticated;
 create index if not exists seminar_subs_email on seminar_subs (email);
 
 create table if not exists premium_items (
@@ -2338,6 +2371,7 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'labs', _teacher() or coalesce(_has_labs(_me()), false),
     'tickets', coalesce(_tickets(_me()), 0),
     'seminarsUntil', _iso(_sub_until(_me())),
+    'emails', coalesce((select not no_email from accounts where email = _me()), true),
     'history', coalesce((select jsonb_agg(jsonb_build_object('delta', delta, 'reason', reason, 'at', _iso(created_at)) order by created_at desc)
                  from (select * from ticket_ledger where email = _me() order by created_at desc limit 20) t), '[]'::jsonb))
 $$;
@@ -2410,6 +2444,12 @@ returns boolean language sql stable security definer set search_path = public, p
       or exists (select 1 from seminar_subs u where u.email = e and not u.revoked and u.until > now())))
 $$;
 
+create or replace function _seminar_percent(s seminars, e text)
+returns integer language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select least(100, (cardinality(p.buckets) * 100) / greatest(ceil(s.minutes * 2.0)::integer, 1))
+                     from seminar_progress p where p.seminar_id = s.id and p.email = e), 0)::integer
+$$;
+
 create or replace function _seminar_json(s seminars, e text, full_detail boolean)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select jsonb_build_object('id', s.id, 'title', s.title, 'summary', s.summary, 'level', s.level, 'minutes', s.minutes,
@@ -2418,6 +2458,7 @@ returns jsonb language sql stable security definer set search_path = public, pg_
                                             from jsonb_array_elements(s.chapters) c)
                      else to_jsonb(jsonb_array_length(s.chapters)) end,
     'owned', _seminar_ok(s, e),
+    'progress', _seminar_percent(s, e),
     'description', case when full_detail then s.description end,
     'youtube', case when full_detail and _seminar_ok(s, e) then s.youtube end,
     'resources', case when full_detail and _seminar_ok(s, e) then s.resources else '[]'::jsonb end)
@@ -2582,6 +2623,159 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+create or replace function api_set_email_pref(p_on boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := _me();
+begin
+  if e is null or e = '' then
+    return jsonb_build_object('ok', false, 'error', 'Sign in first.');
+  end if;
+  update accounts set no_email = not coalesce(p_on, true) where email = e;
+  return jsonb_build_object('ok', true, 'emails', coalesce(p_on, true));
+end $$;
+
+create or replace function api_seminar_progress(p_id bigint, p_seconds integer)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := _me();
+  s seminars;
+  b integer;
+  r seminar_progress;
+  total integer;
+  cert text;
+begin
+  select * into s from seminars where id = p_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'No such seminar.');
+  end if;
+  if e is null or e = '' or not _seminar_ok(s, e) then
+    return jsonb_build_object('ok', false, 'error', 'Unlock this seminar first.');
+  end if;
+  total := greatest(ceil(s.minutes * 2.0)::integer, 1);
+  if coalesce(p_seconds, -1) >= 0 then
+    b := least(p_seconds / 30, total - 1);
+    insert into seminar_progress (seminar_id, email, buckets, seconds_max) values (s.id, e, array[b], p_seconds)
+    on conflict (seminar_id, email) do update set
+      buckets = case when b = any (seminar_progress.buckets) then seminar_progress.buckets else seminar_progress.buckets || b end,
+      seconds_max = greatest(seminar_progress.seconds_max, p_seconds),
+      updated_at = now();
+  end if;
+  select * into r from seminar_progress where seminar_id = s.id and email = e;
+  select id into cert from certificates where seminar_id = s.id and email = e;
+  return jsonb_build_object('ok', true, 'buckets', coalesce(to_jsonb(r.buckets), '[]'::jsonb), 'total', total,
+    'percent', _seminar_percent(s, e), 'certificate', cert);
+end $$;
+
+create or replace function api_seminar_certificate(p_id bigint, p_name text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  e text := _me();
+  s seminars;
+  v_name text := left(regexp_replace(trim(coalesce(p_name, '')), '\s+', ' ', 'g'), 80);
+  v_id text;
+begin
+  select * into s from seminars where id = p_id;
+  if not found or e is null or e = '' or not _seminar_ok(s, e) then
+    return jsonb_build_object('ok', false, 'error', 'Unlock and watch this seminar first.');
+  end if;
+  select id into v_id from certificates where seminar_id = s.id and email = e;
+  if v_id is not null then
+    return jsonb_build_object('ok', true, 'id', v_id);
+  end if;
+  if _seminar_percent(s, e) < 90 then
+    return jsonb_build_object('ok', false, 'error', 'Watch at least 90% of the seminar first. You are at ' || _seminar_percent(s, e) || '%.');
+  end if;
+  if length(v_name) < 2 then
+    return jsonb_build_object('ok', false, 'error', 'Type your name as it should appear on the certificate.');
+  end if;
+  v_id := 'AAP-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 4)) || '-' || upper(substr(md5(random()::text), 1, 4));
+  insert into certificates (id, seminar_id, email, name, title, minutes) values (v_id, s.id, e, v_name, s.title, s.minutes);
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function api_certificate(p_id text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select jsonb_build_object('ok', true, 'id', c.id, 'name', c.name, 'title', c.title, 'minutes', c.minutes,
+                     'issued', _iso(c.issued_at), 'mine', c.email = _me())
+                     from certificates c where c.id = upper(trim(coalesce(p_id, '')))),
+                  jsonb_build_object('ok', false, 'error', 'No certificate has that number.'))
+$$;
+
+create or replace function api_my_certificates()
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'issued', _iso(issued_at)) order by issued_at desc)
+                     from certificates where email = _me()), '[]'::jsonb)
+$$;
+
+create or replace function api_teacher_reports(p_months integer)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare
+  m integer := least(greatest(coalesce(p_months, 6), 1), 24);
+  since timestamptz;
+  out jsonb;
+begin
+  perform _need_teacher();
+  since := date_trunc('month', now()) - make_interval(months => m - 1);
+  with pay as (
+    select p.id, p.currency, p.created_at, (p.amount - p.amount_refunded) as net,
+      case
+        when exists (select 1 from unlocks u where u.ref = p.id) and exists (select 1 from labs_access l where l.ref = p.id) then 'bundle'
+        when exists (select 1 from unlocks u where u.ref = p.id) then 'course'
+        when exists (select 1 from labs_access l where l.ref = p.id) then 'labs'
+        when exists (select 1 from ticket_ledger t where t.ref = 'pay:' || p.id) then 'tickets'
+        when exists (select 1 from seminar_subs x where x.ref = p.id) then 'seminars'
+        when exists (select 1 from class_seats c where c.ref = p.id) then 'class'
+        else 'book and other'
+      end as product
+    from payments p where p.status in ('captured', 'refunded') and p.id <> '_sync' and p.created_at >= since
+  )
+  select jsonb_build_object('ok', true, 'months', m, 'since', _iso(since),
+    'sales', coalesce((select jsonb_agg(jsonb_build_object('month', to_char(mon, 'YYYY-MM'), 'product', product, 'currency', currency,
+                          'count', n, 'amount', amt) order by mon, product)
+                       from (select date_trunc('month', created_at) mon, product, currency, count(*) n, round(sum(net) / 100.0, 2) amt
+                               from pay group by 1, 2, 3) x), '[]'::jsonb),
+    'labs', coalesce((select jsonb_agg(jsonb_build_object('month', to_char(mon, 'YYYY-MM'), 'new', n,
+                          'total', (select count(distinct email) from labs_access l2 where not l2.revoked and l2.created_at < mon + interval '1 month'))
+                          order by mon)
+                      from (select g mon, (select count(distinct email) from labs_access l where not l.revoked
+                                             and l.created_at >= g and l.created_at < g + interval '1 month') n
+                              from generate_series(since, date_trunc('month', now()), interval '1 month') g) y), '[]'::jsonb),
+    'tickets', jsonb_build_object(
+      'sold', coalesce((select sum(delta) from ticket_ledger where delta > 0 and reason in ('razorpay', 'gumroad') and created_at >= since), 0),
+      'given', coalesce((select sum(delta) from ticket_ledger where delta > 0 and reason in ('gift', 'code') and created_at >= since), 0),
+      'classes', coalesce((select -sum(delta) from ticket_ledger where ref like 'class:%' and created_at >= since), 0),
+      'seminars', coalesce((select -sum(delta) from ticket_ledger where delta < 0 and ref like 'seminar:%' and created_at >= since), 0),
+      'balance', coalesce((select sum(delta) from ticket_ledger), 0)),
+    'people', jsonb_build_object(
+      'students', (select count(*) from accounts where email not in (select email from teacher_emails)),
+      'course', (select count(distinct email) from unlocks where not revoked),
+      'labs', (select count(distinct email) from labs_access where not revoked),
+      'subscribers', (select count(distinct email) from seminar_subs where not revoked and until > now()),
+      'certificates', (select count(*) from certificates)),
+    'ctf', coalesce((select jsonb_agg(jsonb_build_object('group', name, 'kind', kind, 'students', students, 'active', active,
+                         'solves', solves, 'points', points, 'top', top) order by points desc)
+                     from (select g.name, g.kind,
+                             (select count(*) from group_members gm where gm.group_id = g.id) students,
+                             (select count(distinct s.email) from ctf_solves s join group_members gm on gm.email = s.email and gm.group_id = g.id
+                                where s.solved_at >= since) active,
+                             (select count(*) from ctf_solves s join group_members gm on gm.email = s.email and gm.group_id = g.id
+                                where s.solved_at >= since) solves,
+                             (select coalesce(sum(c.points), 0) from ctf_solves s join group_members gm on gm.email = s.email and gm.group_id = g.id
+                                join ctf_challenges c on c.id = s.challenge_id where s.solved_at >= since) points,
+                             (select c.title from ctf_solves s join group_members gm on gm.email = s.email and gm.group_id = g.id
+                                join ctf_challenges c on c.id = s.challenge_id where s.solved_at >= since
+                                group by c.title order by count(*) desc limit 1) top
+                             from class_groups g) z), '[]'::jsonb),
+    'challenges', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'title', c.title, 'unit', c.unit, 'solves', n, 'attempts', a) order by n desc, c.id)
+                            from (select c.id, c.title, c.unit,
+                                    (select count(*) from ctf_solves s where s.challenge_id = c.id and s.solved_at >= since) n,
+                                    (select count(*) from ctf_attempts t where t.challenge_id = c.id and t.created_at >= since) a
+                                    from ctf_challenges c where c.active) c), '[]'::jsonb)
+  ) into out;
+  return out;
+end $$;
+
 revoke execute on all functions in schema public from public;
 grant usage on schema public to anonymous, authenticated;
 grant execute on function
@@ -2615,7 +2809,8 @@ grant execute on function
   api_my_access(), api_teacher_make_product_code(text, integer, text, integer), api_teacher_give(text, text, integer),
   api_seminars(), api_seminar(bigint), api_seminar_unlock(bigint), api_teacher_seminars(), api_teacher_save_seminar(jsonb),
   api_teacher_delete_seminar(bigint), api_premium_list(), api_premium_get(bigint), api_teacher_premium_save(jsonb),
-  api_teacher_premium_delete(bigint)
+  api_teacher_premium_delete(bigint), api_set_email_pref(boolean), api_seminar_progress(bigint, integer),
+  api_seminar_certificate(bigint, text), api_certificate(text), api_my_certificates(), api_teacher_reports(integer)
   to anonymous, authenticated;
 
 notify pgrst, 'reload schema';

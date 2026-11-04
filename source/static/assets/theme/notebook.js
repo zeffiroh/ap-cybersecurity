@@ -4,8 +4,6 @@
   var me = document.currentScript && document.currentScript.src;
   var ROOT = me ? me.replace(/assets\/theme\/notebook\.js.*$/, "") : "";
   var PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
-  var LINUX = ROOT + "assets/linux/";
-  var MARK = "__AYT";
   var $ = function (id) { return document.getElementById(id); };
   var q = new URLSearchParams(location.search);
   var ref = (q.get("ref") || "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 60);
@@ -420,32 +418,40 @@
     });
   }
 
+  function caseId() { return nb.case || "web01"; }
+
   function loadPy() {
     if (py) return py;
     status("Starting Python (first run takes a few seconds)…");
     py = new Promise(function (ok, bad) {
       var s = document.createElement("script");
       s.src = PYODIDE + "pyodide.js";
-      s.onload = function () {
-        global.loadPyodide({ indexURL: PYODIDE }).then(function (P) {
-          var C = global.AAYAT_RUNBOOK;
-          if (C) {
-            try {
-              P.FS.mkdirTree("/home/pyodide/case/suspect");
-              Object.keys(C.files).forEach(function (k) { P.FS.writeFile("/home/pyodide/case/" + k, C.files[k]); });
-            } catch (e) {}
-          }
-          fetchTools().then(function (t) {
-            try { if (t["capture.pcap"]) P.FS.writeFile("/home/pyodide/case/capture.pcap", t["capture.pcap"]); } catch (e) {}
-            ok(P);
-          });
-        }, bad);
-      };
+      s.onload = function () { global.loadPyodide({ indexURL: PYODIDE }).then(ok, bad); };
       s.onerror = function () { bad(new Error("Couldn't load Python. Check your connection.")); };
       document.head.appendChild(s);
     });
     py.catch(function () { py = null; });
     return py;
+  }
+
+  var pyCase = "";
+  function pyReady() {
+    return loadPy().then(function (P) {
+      var id = caseId();
+      if (pyCase === id || !global.AayatVM) return P;
+      return global.AayatVM.caseFiles(id).then(function (files) {
+        try {
+          P.runPython("import shutil\nshutil.rmtree('/home/pyodide/case', ignore_errors=True)");
+          Object.keys(files).forEach(function (k) {
+            var path = "/home/pyodide/case/" + k;
+            P.FS.mkdirTree(path.replace(/\/[^\/]*$/, ""));
+            P.FS.writeFile(path, files[k]);
+          });
+        } catch (e) {}
+        pyCase = id;
+        return P;
+      }, function () { return P; });
+    });
   }
 
   function ran(c) { return c.at ? "ran " + when(c.at) + (c.x ? " · exit " + c.x : "") : ""; }
@@ -460,7 +466,7 @@
     save();
   }
 
-  var vm = null, lx = null, shJob = null, shCell = -1, shQueue = Promise.resolve(), labsOk = false;
+  var shCell = -1, labsOk = false;
 
   function hasLabs() {
     var P = global.Paywall;
@@ -469,111 +475,10 @@
     return rpc("api_my_access").then(function (a) { return (labsOk = !!(a && a.labs)); }, function () { return false; });
   }
 
-  var TOOLS = ["nmap", "curl", "tshark", "dig", "capture.pcap"], tools = null;
-
-  function fetchTools() {
-    if (tools) return tools;
-    tools = Promise.all(TOOLS.map(function (n) {
-      return fetch(LINUX + "tools/" + n).then(function (r) { return r.ok ? r.text() : ""; }, function () { return ""; });
-    })).then(function (texts) {
-      var out = {};
-      TOOLS.forEach(function (n, i) { if (texts[i]) out[n] = texts[i].replace(/\r/g, "").replace(/\t/g, "    "); });
-      return out;
-    });
-    return tools;
-  }
-
-  function caseSetup(t) {
-    var C = global.AAYAT_RUNBOOK, lines = ["stty -echo 2>/dev/null", "mkdir -p ~/case/suspect /usr/local/bin", "export PATH=/usr/local/bin:$PATH"];
-    var put = function (path, text, n) {
-      var eof = MARK + "_F" + n + "__";
-      lines.push("cat > " + path + " <<'" + eof + "'\n" + text + (/\n$/.test(text) ? "" : "\n") + eof);
-    };
-    if (C) Object.keys(C.files).forEach(function (k, n) { put("~/case/" + k, C.files[k], n); });
-    Object.keys(t || {}).forEach(function (k, n) {
-      if (k === "capture.pcap") put("~/case/capture.pcap", t[k], "c" + n);
-      else { put("/usr/local/bin/" + k, t[k], "t" + n); lines.push("chmod +x /usr/local/bin/" + k); }
-    });
-    lines.push("chmod +x ~/case/suspect/*", "cd ~/case");
-    return lines.join("\n");
-  }
-
-  function loadLinux() {
-    if (lx) return lx;
-    status("Starting Linux (10 to 20 seconds; the first start downloads about 12 MB)…");
-    lx = new Promise(function (ok, bad) {
-      function go() {
-        try {
-          vm = new global.V86({ wasm_path: LINUX + "v86.wasm", memory_size: 128 * 1024 * 1024, vga_memory_size: 2 * 1024 * 1024,
-            bios: { url: LINUX + "seabios.bin" }, vga_bios: { url: LINUX + "vgabios.bin" }, bzimage: { url: LINUX + "buildroot-bzimage68.bin" },
-            cmdline: "tsc=reliable mitigations=off random.trust_cpu=on", filesystem: {}, autostart: true });
-        } catch (e) { bad(e); return; }
-        var seen = "", up = false;
-        vm.add_listener("serial0-output-byte", function (b) {
-          var ch = String.fromCharCode(b);
-          if (up) { if (shJob) shJob(ch); return; }
-          seen = (seen + ch).slice(-40);
-          if (/[%#] $/.test(seen)) {
-            up = true;
-            fetchTools().then(function (t) { return shell(caseSetup(t)); })
-              .then(function () { status("Linux is running. The case files are in ~/case; nmap, curl, tshark and dig reach the case network."); ok(); }, bad);
-          }
-        });
-      }
-      if (global.V86) return go();
-      var s = document.createElement("script");
-      s.src = LINUX + "libv86.js";
-      s.onload = go;
-      s.onerror = function () { bad(new Error("Couldn't load Linux. Check your connection.")); };
-      document.head.appendChild(s);
-    });
-    lx.catch(function () { lx = null; vm = null; });
-    return lx;
-  }
-
-  function utf8out(s) { return unescape(encodeURIComponent(s)); }
-  function utf8in(s) { try { return decodeURIComponent(escape(s)); } catch (e) { return s; } }
-
-  function shell(script) {
-    var p = shQueue.then(function () {
-      return new Promise(function (ok) {
-        var buf = "", on = false, cut = -1, begin = MARK + "_BEGIN__", done = new RegExp(MARK + "_DONE__(\\d+)\\r?\\n$");
-        var eof = MARK + "_EOF_" + Math.random().toString(36).slice(2, 8);
-        shJob = function (ch) {
-          buf += ch;
-          if (!on) {
-            var k = buf.indexOf(begin);
-            if (k >= 0) { on = true; buf = buf.slice(k + begin.length); }
-            else if (buf.length > 4000) buf = buf.slice(-100);
-            return;
-          }
-          if (ch !== "\n") return;
-          var m = done.exec(buf.slice(-80));
-          if (!m) return;
-          var out = utf8in(cut >= 0 ? buf.slice(0, cut) : buf.slice(0, buf.lastIndexOf(MARK + "_DONE__"))).replace(/\r/g, "").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/^\n/, "").replace(/\n$/, "");
-          if (out.length > 100000) out = out.slice(0, 100000) + "\n… (output cut at 100,000 characters)";
-          if (cut >= 0) out += (out ? "\n" : "") + "(stopped)";
-          shJob = null;
-          ok({ out: out, code: +m[1] });
-        };
-        shJob.stop = function () { if (cut < 0) cut = on ? buf.length : 0; };
-        vm.serial0_send("cat > /tmp/.cell.sh <<'" + eof + "'\n" + utf8out(String(script).replace(/\r/g, "").replace(/\t/g, "    ")) + "\n" + eof + "\n" +
-          'echo "' + MARK + '""_BEGIN__"; . /tmp/.cell.sh 2>&1 </dev/null; echo "' + MARK + '""_DONE__$?"\n');
-      });
-    });
-    shQueue = p.catch(function () {});
-    return p;
-  }
-
-  function stopSh() {
-    if (!vm || !shJob) return;
-    shJob.stop();
-    vm.serial0_send("\x03");
-    setTimeout(function () { if (shJob) vm.serial0_send('\necho "' + MARK + '""_BEGIN__"; echo "' + MARK + '""_DONE__130"\n'); }, 400);
-  }
+  function stopSh() { if (global.AayatVM) global.AayatVM.stop(); }
 
   function runSh(i) {
-    var c = nb.cells[i], el = outEl(i);
+    var c = nb.cells[i], el = outEl(i), V = global.AayatVM;
     el.hidden = false;
     el.textContent = "Starting Linux…";
     return hasLabs().then(function (yes) {
@@ -581,12 +486,14 @@
         el.innerHTML = 'Linux cells run with <a href="' + ROOT + 'store.html#labs">Labs</a>. Notes and Python cells work for everyone.';
         return;
       }
-      return loadLinux().then(function () {
+      if (!V) throw new Error("Linux didn't load. Reload the page.");
+      return V.installCase(caseId(), status).then(function () {
+        status("Linux is running. Case files are in ~/case; nmap, curl, tshark and dig reach the case network.");
         outEl(i).textContent = "Running… (press Stop to interrupt)";
         shCell = i;
         var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
         if (b) b.innerHTML = "&#9632; Stop";
-        return shell(c.s);
+        return V.shell(c.s);
       }).then(function (r) {
         shCell = -1;
         var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
@@ -602,7 +509,7 @@
     var c = nb.cells[i];
     var el = outEl(i);
     el.hidden = false; el.textContent = "Running…";
-    return loadPy().then(function (P) {
+    return pyReady().then(function (P) {
       var out = [], code = 0;
       P.setStdout({ batched: function (s) { out.push(s); } });
       P.setStderr({ batched: function (s) { out.push(s); } });
@@ -695,7 +602,17 @@
     $("nb-open").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value); });
     $("nb-openbook").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value) + "&book=1"; });
     $("nb-new").addEventListener("click", function () { location.search = "?ref=my-" + Date.now().toString(36); });
-    $("nb-runbook").addEventListener("click", function () { location.search = "?ref=rb-" + Date.now().toString(36) + "&runbook=1"; });
+    $("nb-runbook").addEventListener("click", function () { $("nb-cases-h").scrollIntoView({ behavior: "smooth" }); });
+    if (global.AayatVM) global.AayatVM.cases().then(function (list) {
+      $("nb-cases").innerHTML = list.map(function (c) {
+        return '<article class="nb-case"><div class="nb-casehead"><span class="nb-sk">' + esc(c.kicker || "Incident") + "</span>" +
+          '<span class="nb-units">' + ((c.units || []).length > 1 ? "Units " + c.units.join(" &amp; ") : "Unit " + (c.units || [""])[0]) + "</span></div>" +
+          "<h3>" + esc(c.title) + "</h3><p>" + esc(c.summary) + "</p>" +
+          '<div class="nb-tags">' + (c.tools || []).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("") + "</div>" +
+          '<div class="nb-casefoot"><small>' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") + "</small>" +
+          '<a class="btn dark" href="?ref=rb-' + Date.now().toString(36) + "&runbook=" + encodeURIComponent(c.id) + '">Start &rarr;</a></div></article>';
+      }).join("");
+    }, function (e) { $("nb-cases").innerHTML = '<p class="nb-empty">Couldn\'t load the cases: ' + esc(e.message) + "</p>"; });
     if (!email()) {
       $("nb-mine").innerHTML = '<div class="nb-none"><b>Sign in to see your notebooks.</b><p>Notebooks you start without signing in are kept in this browser only.</p>' +
         '<button class="btn" id="nb-signin">Sign in</button></div>';
@@ -733,15 +650,20 @@
     $("nb-dl").addEventListener("click", download);
     global.addEventListener("beforeunload", function (e) { if (dirty) { save(true); e.preventDefault(); } });
     var start = function (d) {
-      nb = d && d.cells ? { title: d.title || "", cells: d.cells } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
+      nb = d && d.cells ? { title: d.title || "", cells: d.cells, case: d.case || "" } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
       $("nb-title").value = nb.title;
       draw();
-      if (q.get("runbook") && !nb.cells.length && global.AAYAT_RUNBOOK) {
-        nb.title = "Incident runbook: web01, " + new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
-        nb.cells = global.AAYAT_RUNBOOK.template.map(function (c) { return { t: c.t, s: c.s }; });
-        $("nb-title").value = nb.title;
-        draw(); save(true);
-        status("Runbook ready. Run each step in order; outputs save with it.");
+      if (q.get("runbook") && !nb.cells.length && global.AayatVM) {
+        var want = q.get("runbook") === "1" ? "web01" : q.get("runbook");
+        status("Loading the case…");
+        global.AayatVM.manifest(want).then(function (m) {
+          nb.case = m.id;
+          nb.title = (m.titlePrefix || "Incident runbook: " + m.title) + ", " + new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+          nb.cells = m.template.map(function (c) { return { t: c.t, s: c.s }; });
+          $("nb-title").value = nb.title;
+          draw(); save(true);
+          status("Runbook ready. Run each step in order; outputs save with it.");
+        }).catch(function (e) { status("Couldn't load that case: " + e.message); });
       } else if (q.get("book") && !nb.cells.some(function (c) { return c.t === "py"; })) loadBook();
       else status(email() ? "Saved to your account as you type." : "Sign in to keep this notebook in your account.");
     };

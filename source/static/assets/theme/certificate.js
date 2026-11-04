@@ -1,0 +1,60 @@
+(function (global) {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    return (P ? P.neon() : Promise.resolve(null)).then(function (db) {
+      if (!db) throw new Error("The course database is not connected yet.");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+  }
+  function day(iso) { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }); }
+  function hours(m) { return !m ? "" : m < 60 ? m + " minutes" : (Math.round(m / 6) / 10) + " hours"; }
+
+  function show(id) {
+    $("ce-box").innerHTML = '<p class="sx-empty">Checking ' + esc(id) + "…</p>";
+    $("ce-print").hidden = true;
+    rpc("api_certificate", { p_id: id }).then(function (c) {
+      if (!c || !c.ok) {
+        $("ce-box").innerHTML = '<div class="vl-empty"><b>Not found.</b><p>' + esc((c && c.error) || "No certificate has that number.") + "</p></div>";
+        return;
+      }
+      var link = location.origin + location.pathname + "?id=" + encodeURIComponent(c.id);
+      $("ce-box").innerHTML = '<article class="ce-cert"><div class="ce-in">' +
+        '<div class="ce-brand">Aayat-AP-Prep &middot; Beginner\'s Cybersecurity Kickstarter</div>' +
+        '<div class="ce-kind">Certificate of completion</div>' +
+        '<p class="ce-lead">This certifies that</p><div class="ce-name">' + esc(c.name) + "</div>" +
+        '<p class="ce-lead">watched and completed the seminar</p><div class="ce-title">' + esc(c.title) + "</div>" +
+        '<p class="ce-meta">' + (c.minutes ? esc(hours(c.minutes)) + " &middot; " : "") + "completed " + esc(day(c.issued)) + "</p>" +
+        '<div class="ce-foot"><div class="ce-sign"><span>Mitali Aayat Mahnoor Sharma</span><small>Instructor</small></div>' +
+        '<div class="ce-id"><span>' + esc(c.id) + "</span><small>Check it at " + esc(link) + "</small></div></div>" +
+        "</div></article>" + (c.mine ? "" : '<p class="ce-ok">&#10003; This certificate is genuine.</p>');
+      $("ce-print").hidden = false;
+      document.title = "Certificate " + c.id + " · Aayat-AP-Prep";
+    }).catch(function (e) { $("ce-box").innerHTML = '<p class="sx-empty">' + esc(e.message) + "</p>"; });
+  }
+
+  function start() {
+    if (!$("ce-app")) return;
+    var id = (new URLSearchParams(location.search).get("id") || "").trim();
+    $("ce-print").addEventListener("click", function () { global.print(); });
+    $("ce-verify").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = $("ce-id").value.trim().toUpperCase();
+      if (!v) return;
+      history.replaceState(null, "", "?id=" + encodeURIComponent(v));
+      show(v);
+    });
+    if (id) { $("ce-id").value = id; show(id); }
+    else $("ce-box").innerHTML = '<div class="vl-empty"><b>Check a certificate</b><p>Type the number printed on it, like AAP-1A2B-3C4D.</p></div>';
+  }
+  if (document.readyState === "complete") start();
+  else global.addEventListener("load", start);
+})(window);

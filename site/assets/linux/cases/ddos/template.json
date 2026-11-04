@@ -1,0 +1,82 @@
+[
+ {
+  "t": "md",
+  "s": "# Incident runbook: exam day outage\n\n09:15, Monday 9 Nov. **Northfield Academy's** online exam portal has been down since 09:07. 312 students were five minutes into their CS paper. An email arrived at 09:12 demanding money. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools reach a recorded copy of the school's network.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] When exactly did the portal slow down, and when did it stop?"
+ },
+ {
+  "t": "sh",
+  "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat uptime.log\necho ---\ncurl -I http://exam.northfield.example/"
+ },
+ {
+  "t": "md",
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+ },
+ {
+  "t": "md",
+  "s": "## 3. Busy, or under attack?\n\nExams start at 09:00, so some extra traffic is expected (a *flash crowd*). Prove it is more than that.\n\n- [ ] How many requests come from students, and how many from everything else?\n- [ ] What do real students ask for that the attack traffic never does?"
+ },
+ {
+  "t": "py",
+  "s": "from collections import Counter\nimport re\n\nrows = []\nfor line in open(\"case/access.log\"):\n    m = re.match(r'(\\S+) .*?\\[(.+?)\\] \"(\\S+) (\\S+)[^\"]*\" (\\d+) \\d+ \"[^\"]*\" \"([^\"]*)\"', line)\n    if m:\n        rows.append(m.groups())\nprint(len(rows), \"requests\")\npaths = Counter(r[3].split(\"?\")[0] for r in rows)\nprint(\"by path:\", paths.most_common())\nagents = Counter(r[5] for r in rows)\nfor ua, n in agents.most_common():\n    print(str(n).rjust(4), ua)"
+ },
+ {
+  "t": "md",
+  "s": "## 4. Three kinds of flood\n\nDDoS attacks hit different layers. Use the firewall counters and the capture to name each one.\n\n- [ ] **Volumetric:** what fills the 10 Gbit/s link? Why do DNS answers arrive that nobody asked for?\n- [ ] **Protocol:** what fills the server's connection table? What is SYN-RECV?\n- [ ] **Application:** which page is hammered, and which user agent does it? (A CTF flag is hiding in it.)"
+ },
+ {
+  "t": "sh",
+  "s": "cat fw_stats.txt\necho ---\ncat ss_summary.txt\necho ---\ntshark -r capture.pcap -q -z io,phs\ntshark -r capture.pcap -Y dns -c 3\ntshark -r capture.pcap -Y 'tcp.flags.syn==1' -c 3\ntshark -r capture.pcap -Y 'http.request' -T fields -e ip.src -e http.request.uri -e http.user_agent | head -3"
+ },
+ {
+  "t": "md",
+  "s": "## 5. Who and how big?\n\n- [ ] How many different addresses send the HTTP flood? Are they spread out or from one network?\n- [ ] Why can't you just block the SYN flood's sources?\n- [ ] Look up the domain used in the DNS reflection"
+ },
+ {
+  "t": "sh",
+  "s": "grep 'login?ts=' access.log | awk '{print $1}' | sort -u | wc -l\ngrep 'login?ts=' access.log | awk '{print $1}' | cut -d. -f1-3 | sort | uniq -c\necho ---\ndig TXT big-zone.example +short\necho ---\ncurl -s http://exam01.northfield.lan/nginx_status"
+ },
+ {
+  "t": "md",
+  "s": "## 6. The extortion email\n\n- [ ] What do they want, and what do they threaten?\n- [ ] Should the school pay? Give two reasons\n- [ ] Who must be told: the police, the exams board, parents?"
+ },
+ {
+  "t": "sh",
+  "s": "cat extortion.eml\necho ---\ncat exam_schedule.txt"
+ },
+ {
+  "t": "md",
+  "s": "## 7. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+ },
+ {
+  "t": "md",
+  "s": "## 8. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+ },
+ {
+  "t": "sh",
+  "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+ },
+ {
+  "t": "md",
+  "s": "## 9. Contain\n\nEach layer needs its own fix. The cell prints the commands; nothing touches a real system.\n\n- [ ] Volumetric: ask the ISP for scrubbing (option 2). Why not blackhole (option 1)?\n- [ ] Protocol: turn on SYN cookies\n- [ ] Application: rate-limit `/login` per address and drop the bot's user agent\n- [ ] Tell students and the exams board before 10:07 so the paper can restart"
+ },
+ {
+  "t": "sh",
+  "s": "echo \"reply NOC-55102: option 2, scrubbing approved by the IT lead\"\necho \"sysctl -w net.ipv4.tcp_syncookies=1\"\necho \"sysctl -w net.ipv4.tcp_max_syn_backlog=65536\"\necho 'nginx: limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;'\necho 'nginx: if ($http_user_agent ~* \"Gecko/20100101\") { return 444; }'\ncat isp_ticket.txt | head -3\ncurl -s https://status.fiberlink.example/"
+ },
+ {
+  "t": "md",
+  "s": "## 10. Recover and prepare\n\n- [ ] When is it safe to restart the paper? What would you watch first?\n- [ ] The attackers promised to come back at 11:30. What is ready by then?\n- [ ] Longer term: a CDN or anycast in front of the portal, scrubbing on standby, SYN cookies on by default, a plan B for exams"
+ },
+ {
+  "t": "md",
+  "s": "## 11. Report\n\n- [ ] Timeline with times from the uptime monitor\n- [ ] The three kinds of flood and the evidence for each\n- [ ] Decisions taken (and not paying)\n- [ ] Submit the flag from step 4 on the CTF board\n\nWrite the report here."
+ },
+ {
+  "t": "md",
+  "s": "## 12. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+ },
+ {
+  "t": "md",
+  "s": "## 13. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+ }
+]

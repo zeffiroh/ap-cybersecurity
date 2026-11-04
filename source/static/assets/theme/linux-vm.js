@@ -1,0 +1,163 @@
+(function (global) {
+  "use strict";
+
+  var me = document.currentScript && document.currentScript.src;
+  var ROOT = me ? me.replace(/assets\/theme\/linux-vm\.js.*$/, "") : "";
+  var LINUX = ROOT + "assets/linux/";
+  var MARK = "__AYT";
+  var TOOLS = ["nmap", "curl", "tshark", "dig"];
+  var NET = "/usr/local/share/aayat/net";
+
+  var vm = null, booting = null, job = null, queue = Promise.resolve(), listeners = [], muted = 0;
+  var installed = "", installing = null, manifests = {}, texts = {}, waitPrompt = null, seen = "";
+
+  function utf8out(s) { return unescape(encodeURIComponent(s)); }
+  function utf8in(s) { try { return decodeURIComponent(escape(s)); } catch (e) { return s; } }
+
+  function boot(status) {
+    if (booting) return booting;
+    booting = new Promise(function (ok, bad) {
+      function go() {
+        try {
+          vm = new global.V86({ wasm_path: LINUX + "v86.wasm", memory_size: 128 * 1024 * 1024, vga_memory_size: 2 * 1024 * 1024,
+            bios: { url: LINUX + "seabios.bin" }, vga_bios: { url: LINUX + "vgabios.bin" }, bzimage: { url: LINUX + "buildroot-bzimage68.bin" },
+            cmdline: "tsc=reliable mitigations=off random.trust_cpu=on", filesystem: {}, autostart: true });
+        } catch (e) { bad(e); return; }
+        waitPrompt = ok;
+        vm.add_listener("serial0-output-byte", function (b) {
+          if (job) job(String.fromCharCode(b));
+          if (!muted) listeners.forEach(function (fn) { fn(b); });
+          if (!waitPrompt) return;
+          seen = (seen + String.fromCharCode(b)).slice(-40);
+          if (/[%#] $/.test(seen)) { var w = waitPrompt; waitPrompt = null; seen = ""; w(vm); }
+        });
+      }
+      if (status) status("Starting Linux (10 to 20 seconds; the first start downloads about 12 MB)…");
+      if (global.V86) return go();
+      var s = document.createElement("script");
+      s.src = LINUX + "libv86.js";
+      s.onload = go;
+      s.onerror = function () { bad(new Error("Couldn't load Linux. Check your connection.")); };
+      document.head.appendChild(s);
+    });
+    booting.catch(function () { booting = null; vm = null; });
+    return booting;
+  }
+
+  function shell(script, opts) {
+    var hide = !!(opts && opts.hide);
+    var p = queue.then(function () {
+      return new Promise(function (ok) {
+        var buf = "", on = false, cut = -1, begin = MARK + "_BEGIN__", done = new RegExp(MARK + "_DONE__(\\d+)\\r?\\n$");
+        var eof = MARK + "_EOF_" + Math.random().toString(36).slice(2, 8);
+        if (hide) muted++;
+        job = function (ch) {
+          buf += ch;
+          if (!on) {
+            var k = buf.indexOf(begin);
+            if (k >= 0) { on = true; buf = buf.slice(k + begin.length); }
+            else if (buf.length > 4000) buf = buf.slice(-100);
+            return;
+          }
+          if (ch !== "\n") return;
+          var m = done.exec(buf.slice(-80));
+          if (!m) return;
+          var out = utf8in(cut >= 0 ? buf.slice(0, cut) : buf.slice(0, buf.lastIndexOf(MARK + "_DONE__")))
+            .replace(/\r/g, "").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/^\n/, "").replace(/\n$/, "");
+          if (out.length > 100000) out = out.slice(0, 100000) + "\n… (output cut at 100,000 characters)";
+          if (cut >= 0) out += (out ? "\n" : "") + "(stopped)";
+          job = null;
+          if (hide) setTimeout(function () { muted = Math.max(0, muted - 1); }, 60);
+          ok({ out: out, code: +m[1] });
+        };
+        job.stop = function () { if (cut < 0) cut = on ? buf.length : 0; };
+        vm.serial0_send("cat > /tmp/.cell.sh <<'" + eof + "'\n" + utf8out(String(script).replace(/\r/g, "").replace(/\t/g, "    ")) + "\n" + eof + "\n" +
+          'echo "' + MARK + '""_BEGIN__"; . /tmp/.cell.sh 2>&1 </dev/null; echo "' + MARK + '""_DONE__$?"\n');
+      });
+    });
+    queue = p.catch(function () {});
+    return p;
+  }
+
+  function stop() {
+    if (!vm || !job) return;
+    job.stop();
+    vm.serial0_send("\x03");
+    setTimeout(function () { if (job) vm.serial0_send('\necho "' + MARK + '""_BEGIN__"; echo "' + MARK + '""_DONE__130"\n'); }, 400);
+  }
+
+  function text(url) {
+    if (!texts[url]) {
+      texts[url] = fetch(url).then(function (r) { if (!r.ok) throw new Error("Couldn't load " + url.split("/").pop()); return r.text(); });
+      texts[url].catch(function () { delete texts[url]; });
+    }
+    return texts[url];
+  }
+
+  function cases() { return text(LINUX + "cases/index.json").then(JSON.parse); }
+
+  function manifest(id) {
+    id = String(id || "web01").replace(/[^a-z0-9-]/g, "") || "web01";
+    if (!manifests[id]) {
+      manifests[id] = text(LINUX + "cases/" + id + "/manifest.json").then(JSON.parse);
+      manifests[id].catch(function () { delete manifests[id]; });
+    }
+    return manifests[id];
+  }
+
+  function caseFiles(id) {
+    return manifest(id).then(function (m) {
+      var want = m.files.filter(function (f) { return /^case\//.test(f); });
+      return Promise.all(want.map(function (f) { return text(LINUX + "cases/" + m.id + "/" + f); })).then(function (all) {
+        var out = {};
+        want.forEach(function (f, i) { out[f.slice(5)] = all[i]; });
+        return out;
+      });
+    });
+  }
+
+  function installCase(id, status) {
+    id = String(id || "web01");
+    if (installed === id) return Promise.resolve(manifests[id]);
+    if (installing && installing.id === id) return installing.p;
+    var p = Promise.all([boot(status), manifest(id)]).then(function (r) {
+      var m = r[1];
+      if (status) status("Loading the case files and network tools…");
+      return Promise.all(TOOLS.map(function (t) { return text(LINUX + "tools/" + t); }).concat(m.files.map(function (f) {
+        return text(LINUX + "cases/" + m.id + "/" + f);
+      }))).then(function (all) {
+        var lines = ["mkdir -p ~/case /usr/local/bin /usr/local/share/aayat", "rm -rf ~/case/* " + NET, "mkdir -p " + NET + "/www",
+          "export PATH=/usr/local/bin:$PATH"], n = 0;
+        var put = function (path, body) {
+          var eof = MARK + "_F" + (n++) + "__";
+          body = body.replace(/\r/g, "").replace(/\t/g, "    ");
+          lines.push("mkdir -p \"$(dirname " + path + ")\"", "cat > " + path + " <<'" + eof + "'\n" + body + (/\n$/.test(body) ? "" : "\n") + eof);
+        };
+        TOOLS.forEach(function (t, i) { put("/usr/local/bin/" + t, all[i]); lines.push("chmod +x /usr/local/bin/" + t); });
+        m.files.forEach(function (f, i) {
+          var body = all[TOOLS.length + i];
+          if (/^case\//.test(f)) put("~/case/" + f.slice(5), body);
+          else if (/^net\//.test(f)) put(NET + "/" + f.slice(4), body);
+        });
+        lines.push("chmod +x ~/case/suspect/* 2>/dev/null; true", "cd ~/case");
+        return shell(lines.join("\n"), { hide: true });
+      }).then(function () { installed = id; if (status) status(""); return m; });
+    });
+    installing = { id: id, p: p };
+    p.then(function () { installing = null; }, function () { installing = null; });
+    return p;
+  }
+
+  function send(data) { if (vm) vm.serial0_send(data); }
+  function onOutput(fn) { listeners.push(fn); }
+  function busy() { return !!job; }
+  function restart() {
+    if (!vm) return;
+    installed = ""; job = null; muted = 0; queue = Promise.resolve();
+    booting = new Promise(function (ok) { waitPrompt = ok; seen = ""; });
+    vm.restart();
+  }
+
+  global.AayatVM = { boot: boot, shell: shell, stop: stop, installCase: installCase, manifest: manifest, cases: cases,
+    caseFiles: caseFiles, send: send, onOutput: onOutput, busy: busy, restart: restart, root: ROOT };
+})(window);

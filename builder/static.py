@@ -1,3 +1,5 @@
+import json
+
 from . import course as C
 from . import nav as N
 from .paths import (ASSETS, CAPSTONE, CAPSTONE_SRC, LECTURES, LECTURES_SRC, SITE, STATIC_SRC, UNITS_SRC,
@@ -22,8 +24,25 @@ def tree(src_dir, dst_dir, skip=()):
             copy(p, dst_dir / p.relative_to(src_dir))
 
 
+def cases():
+    src = STATIC_SRC / "assets" / "linux" / "cases"
+    if not src.is_dir():
+        return
+    skip = {"meta.json", "template.json", "manifest.json"}
+    index = []
+    for d in sorted(x for x in src.iterdir() if x.is_dir()):
+        meta = dict(json.loads(rd(d / "meta.json")), id=d.name)
+        files = sorted(p.relative_to(d).as_posix() for p in d.rglob("*") if p.is_file() and p.name not in skip)
+        man = dict(meta, files=files, template=json.loads(rd(d / "template.json")))
+        emit(ASSETS / "linux" / "cases" / d.name / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
+        index.append(meta)
+    index.sort(key=lambda m: (m.get("order", 99), m["id"]))
+    emit(ASSETS / "linux" / "cases" / "index.json", json.dumps(index, ensure_ascii=False, indent=1) + "\n")
+
+
 def run():
     tree(STATIC_SRC, SITE)
+    cases()
     for tid in C.order():
         src = C.topic(tid)["src"]
         if (src / "notes.html").exists():

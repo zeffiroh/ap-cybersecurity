@@ -195,12 +195,23 @@ def linux_page():
             '<span id="lx-status" class="sx-note">Press Start. The first start downloads about 12 MB.</span></div>'
             '<div id="lx-screen" class="lx-screen"><p class="lx-hint">Press <b>Start Linux</b>, then click here and type.</p></div>'
             f'<p class="sx-note">Runs <a href="{r(ASSETS / "linux" / "NOTICE.txt")}">v86 and Buildroot Linux</a>, open source. '
-            'No internet inside the lab, so network scanning isn\'t possible here.</p></section>'
+            'There is no internet inside the lab: <code>nmap</code>, <code>curl</code>, <code>tshark</code> and <code>dig</code> reach a recorded '
+            'copy of a case network instead.</p></section>'
             '<section id="lx-labs" class="lx-labs"></section></div>\n'
             '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">\n'
             '<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js" defer></script>\n'
-            f'<script src="{r(ASSETS / "linux" / "libv86.js")}" defer></script>\n'
-            + theme_assets(path.parent, [], ["linux-lab.js"]))
+            + theme_assets(path.parent, [], ["linux-vm.js", "linux-lab.js"]))
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
+def certificate_page():
+    path = SITE / "certificate.html"
+    body = ('<div id="ce-app"><div class="ce-tools"><a href="seminars.html">&larr; Seminars</a>'
+            '<button class="btn dark" id="ce-print" hidden>Print or save as PDF</button></div>\n'
+            '<div id="ce-box"><p class="sx-empty">Loading…</p></div>\n'
+            '<form id="ce-verify" class="ce-verify"><label>Check a certificate number <input id="ce-id" placeholder="AAP-XXXX-XXXX" '
+            'autocomplete="off"></label><button class="btn">Check</button></form></div>\n'
+            + theme_assets(path.parent, [], ["certificate.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -236,6 +247,10 @@ def sqli_page():
             '<button class="btn dark" id="sq-go">Sign in</button><div id="sq-login-out" class="sq-out"></div></div>'
             '<div class="sq-panel"><h3>Product search</h3><label>Search <input id="sq-q" autocomplete="off" spellcheck="false" '
             'placeholder="e.g. cable"></label><button class="btn dark" id="sq-search">Search</button><div id="sq-search-out" class="sq-out"></div></div>'
+            '<div class="sq-panel"><h3>Choose a username</h3><label>Username <input id="sq-check" autocomplete="off" spellcheck="false" '
+            'placeholder="e.g. alice"></label><button class="btn dark" id="sq-check-go">Is it free?</button><div id="sq-check-out" class="sq-out"></div></div>'
+            '<div class="sq-panel"><h3>Admin vault</h3><label>Admin PIN <input id="sq-pin" inputmode="numeric" maxlength="6" autocomplete="off"></label>'
+            '<button class="btn dark" id="sq-vault-go">Open</button><div id="sq-vault-out" class="sq-out"></div></div>'
             '</div><h3>What the server ran</h3><pre id="sq-log" class="sq-log">Nothing yet.</pre>'
             '<h3>Fix it</h3><p class="sx-note">Rewrite the login query so user input can never change the SQL. Put <code>?</code> where '
             'each value goes; the lab passes the username, then the password, as separate values.</p>'
@@ -245,7 +260,7 @@ def sqli_page():
             '<aside class="lab-side"><h2>Missions</h2><div id="sq-missions"></div>'
             '<details class="lab-cheat"><summary>SQL you might need</summary><pre>\'   ends a piece of text\n'
             '--  comment: ignore the rest of the line\nOR 1=1   always true\nUNION SELECT a, b FROM t\n'
-            '    add rows from another table</pre></details></aside></div>\n'
+            '    add rows from another table\nsqlite_master   lists every table\nsubstr(text, 1, 1)   the first letter</pre></details></aside></div>\n'
             f'<script src="{r(VENDOR / "sqljs-1.13.0" / "sql-wasm.js")}" defer></script>\n'
             f'<script src="{r(ASSETS / "ctf" / "lab-flags.js")}" defer></script>\n'
             + theme_assets(path.parent, [], ["labkit.js", "sqli-lab.js"]))
@@ -335,10 +350,11 @@ def notebook_page():
             '<p class="aa-sub">Runbooks and notes: step-by-step instructions, Linux commands and Python in one document, with every output saved. '
             'Everything runs here in your browser. Linux cells come with Labs.</p></header>\n'
             '<div class="nb-starts">'
-            '<article class="nb-start nb-feature"><div class="nb-sk">Incident response</div><h3>New incident runbook</h3>'
-            '<p>A hacked web server, worked from triage to report in 9 steps. You use real Linux, Python, '
-            '<code>nmap</code>, <code>curl</code>, <code>tshark</code> and <code>dig</code> on a recorded copy of the case network.</p>'
-            '<button class="btn" id="nb-runbook">Start the case &rarr;</button></article>'
+            '<article class="nb-start nb-feature"><div class="nb-sk">Incident response</div><h3>Work a real case</h3>'
+            '<p>Incident runbooks for every unit: a hacked web shop, a phishing email that ends in ransomware, an insider '
+            'stealing designs, a leaked cloud key. You use real Linux, Python, '
+            '<code>nmap</code>, <code>curl</code>, <code>tshark</code> and <code>dig</code> on a recorded copy of each case network.</p>'
+            '<button class="btn" id="nb-runbook">Choose a case &darr;</button></article>'
             '<article class="nb-start"><div class="nb-sk">Lesson</div><h3>Lesson notebook</h3>'
             '<p>Your notes for one lesson, or start from its code book.</p>'
             '<select id="nb-lesson" aria-label="Lesson"></select>'
@@ -349,6 +365,7 @@ def notebook_page():
             '<div class="nb-sbtns"><button class="btn dark" id="nb-new">Create</button>'
             '<a class="btn" href="lab/lab/index.html" target="_blank" rel="noopener">Full JupyterLab</a></div></article></div>\n'
             '<h2>My notebooks</h2>\n<div id="nb-mine"></div>\n'
+            '<h2 id="nb-cases-h">Incident runbooks</h2>\n<div id="nb-cases" class="nb-cases"><p class="nb-empty">Loading cases…</p></div>\n'
             '</section>\n<section id="nb-editor" hidden><p class="nb-crumb" id="nb-crumb"></p>\n'
             '<input id="nb-title" class="nb-title" aria-label="Notebook title">\n'
             '<div class="nb-tools"><div class="nb-grp" role="group" aria-label="Add a cell"><span class="nb-gl">Add</span>'
@@ -366,7 +383,7 @@ def notebook_page():
             '<p class="nb-help">Shift+Enter runs a Linux or Python cell. Linux cells share one shell, so <code>cd</code> and variables carry on to the next cell. '
             'Write <code>- [ ] step</code> in notes for a checklist. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, [], ["runbook-case.js", "notebook.js"]))
+            + theme_assets(path.parent, [], ["linux-vm.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 
@@ -431,6 +448,7 @@ def run():
     store_page()
     labs_page()
     seminars_page()
+    certificate_page()
     ctf_page()
     sqli_page()
     shop_page()

@@ -1,10 +1,11 @@
+NET="${AAYAT_NET:-/usr/local/share/aayat/net}"
+
 usage() {
   echo "curl 8.5.0 (lab copy: it reaches the case network only)"
   echo "Usage: curl [options] URL"
   echo "  -s   silent        -i  show response headers too    -I  headers only"
   echo "  -v   verbose       -o FILE  save to a file           -A AGENT  user agent"
   echo "  -X METHOD          -d DATA  send data (POST)         -H 'Header: value'"
-  echo "Try: curl http://10.0.0.5/robots.txt"
 }
 
 silent=0; inc=0; head=0; verbose=0; out=""; method=""; agent="curl/8.5.0"; data=""; url=""
@@ -29,6 +30,10 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$url" ]; then echo "curl: no URL specified" >&2; echo "curl: try 'curl --help' for more information" >&2; exit 2; fi
+if [ ! -f "$NET/routes.txt" ]; then
+  echo "curl: the lab network isn't loaded yet. In the Linux lab press \"Create the lab files\"; in a notebook, run any Linux cell first." >&2
+  exit 6
+fi
 if [ -z "$method" ]; then if [ -n "$data" ]; then method=POST; else method=GET; fi; fi
 [ "$head" = 1 ] && method=HEAD
 
@@ -45,100 +50,44 @@ if [ "$port" = "$hostport" ]; then if [ "$scheme" = https ]; then port=443; else
 decode() { echo "$1" | sed -e 's/+/ /g' -e 's/%20/ /g' -e "s/%27/'/g" -e 's/%22/"/g' -e 's/%2[Ff]/\//g' -e 's/%3[Dd]/=/g' -e 's/%3[Bb]/;/g' -e 's/%7[Cc]/|/g' -e 's/%2[Cc]/,/g' -e 's/%3[Aa]/:/g'; }
 
 case "$host" in
-  10.0.0.5|web01|web01.corp.lan|shop.nimbumart.test) site=web; ip=10.0.0.5 ;;
-  198.51.100.66|update.kworker-cdn.net) site=c2; ip=198.51.100.66 ;;
-  203.0.113.7) site=attacker; ip=203.0.113.7 ;;
-  10.0.0.1|gateway|gateway.corp.lan) site=router; ip=10.0.0.1 ;;
-  [0-9]*.[0-9]*.[0-9]*.[0-9]*)
-    sleep 2
-    echo "curl: (28) Failed to connect to $host port $port after 3001 ms: Timeout was reached" >&2; exit 28 ;;
-  *) echo "curl: (6) Could not resolve host: $host" >&2; exit 6 ;;
+  [0-9]*.[0-9]*.[0-9]*.[0-9]*) ip="$host" ;;
+  *) ip=$(awk -v n="$host" '$1 == "A" && ($2 == n || $2 == n ".") { print $3; exit }' "$NET/dns.txt" 2>/dev/null) ;;
 esac
+if [ -z "$ip" ]; then echo "curl: (6) Could not resolve host: $host" >&2; exit 6; fi
 
-case "$site:$port" in
-  web:80|web:443|c2:80|router:80|attacker:8080) ;;
-  *) echo "curl: (7) Failed to connect to $host port $port after 2 ms: Couldn't connect to server" >&2; exit 7 ;;
-esac
+want="$method"; [ "$want" = HEAD ] && want=GET
+dpath=$(decode "$path")
+route=$(awk -F'|' -v h="$host" -v ip="$ip" -v port="$port" -v m="$want" -v p="$dpath" '
+  {
+    n = split($1, a, ","); ok = 0
+    for (i = 1; i <= n; i++) if (a[i] == h || a[i] == ip) ok = 1
+    n = split($2, b, ","); pk = 0
+    for (i = 1; i <= n; i++) if (b[i] == port) pk = 1
+    if (ok && pk && ($3 == "*" || $3 == m) && p ~ $4) { print $5 "|" $6 "|" $7 "|" $8; exit }
+  }' "$NET/routes.txt")
+
+if [ -z "$route" ]; then
+  if grep -q "^$ip|" "$NET/hosts.txt" 2>/dev/null; then
+    echo "curl: (7) Failed to connect to $host port $port after 2 ms: Couldn't connect to server" >&2; exit 7
+  fi
+  sleep 2
+  echo "curl: (28) Failed to connect to $host port $port after 3001 ms: Timeout was reached" >&2; exit 28
+fi
+
+status="${route%%|*}"; r="${route#*|}"
+ctype="${r%%|*}"; r="${r#*|}"
+server="${r%%|*}"; bodyfile="${r#*|}"
 
 body=/tmp/.curl_body
-status="200 OK"; ctype="text/html; charset=utf-8"; server="nginx/1.18.0 (Ubuntu)"; binary=0
-q="${path#*\?}"; [ "$q" = "$path" ] && q=""
-p="${path%%\?*}"
-
-page() {
-  printf '<!doctype html>\n<html><head><title>%s</title></head>\n<body>\n%s\n</body></html>\n' "$1" "$2"
-}
-
-case "$site" in
-web)
-  case "$p" in
-    /|/index.html) page "NimbuMart" "<h1>NimbuMart</h1>
-<p>Fresh lemons, delivered.</p>
-<a href=\"/shop?id=12\">Lemons</a> | <a href=\"/login\">Sign in</a>
-<meta name=\"generator\" content=\"build 2026.10.30 web01\">" > $body ;;
-    /robots.txt) ctype="text/plain"; printf 'User-agent: *\nDisallow: /admin\nDisallow: /backup.zip\n' > $body ;;
-    /backup.zip) ctype="application/zip"; binary=1; printf 'PK site-backup-2026-10-28.zip (config.php, users.sql)\n' > $body ;;
-    /admin|/admin/) page "Admin" "<h1>Admin panel</h1>
-<form method=\"post\" action=\"/admin/upload\" enctype=\"multipart/form-data\">
-  Product image: <input type=\"file\" name=\"img\"> <button>Upload</button>
-</form>" > $body ;;
-    /admin/upload)
-      if [ "$method" = POST ]; then ctype="text/plain"; echo "Uploaded to /uploads/" > $body
-      else status="405 Not Allowed"; page "405 Not Allowed" "<h1>405 Not Allowed</h1>" > $body; fi ;;
-    /uploads|/uploads/) status="403 Forbidden"; page "403 Forbidden" "<h1>403 Forbidden</h1>" > $body ;;
-    /uploads/img.php)
-      ctype="text/plain"
-      cmd=$(decode "${q#cmd=}")
-      case "$cmd" in
-        id) echo "uid=33(www-data) gid=33(www-data) groups=33(www-data)" ;;
-        whoami) echo "www-data" ;;
-        hostname) echo "web01" ;;
-        pwd) echo "/var/www/html/uploads" ;;
-        "uname -a") echo "Linux web01 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux" ;;
-        ls|"ls -la"|"ls -l") printf 'img.php\nlemon.jpg\nlogo.png\n' ;;
-        "cat /etc/passwd") printf 'root:x:0:0:root:/root:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\npostgres:x:113:120::/var/lib/postgresql:/bin/bash\ndeploy:x:1001:1001::/home/deploy:/bin/bash\nmaya:x:1002:1002::/home/maya:/bin/bash\n' ;;
-        "crontab -l") echo "* * * * * /tmp/.x/kworkerd >/dev/null 2>&1" ;;
-        "ps aux"|ps) printf 'www-data   610 nginx: worker process\nwww-data  1337 /tmp/.x/kworkerd\n' ;;
-        "ls /tmp/.x"|"ls -la /tmp/.x") echo "kworkerd" ;;
-        "") echo "usage: img.php?cmd=COMMAND" ;;
-        *) echo "" ;;
-      esac > $body ;;
-    /shop)
-      id=$(decode "${q#id=}")
-      case "$id" in
-        *"'"*) status="500 Internal Server Error"; page "Error" "<pre>SQLSTATE[42601]: Syntax error: unterminated quoted string at or near \"'\"
-LINE 1: SELECT name, price FROM products WHERE id = $id</pre>" > $body ;;
-        *[Uu][Nn][Ii][Oo][Nn]*) page "Lemons" "<h2></h2>
-<p>admin | 5f4dcc3b5aa765d61d8327deb882cf99</p>
-<p>deploy | 9b5e1c3c4a6f0c1e0b7a22e1f1c3a0de</p>
-<p>maya | e10adc3949ba59abbe56e057f20f883e</p>" > $body ;;
-        12) page "Lemons" "<h2>Lemons (1 kg)</h2><p>Rs 120</p>" > $body ;;
-        7) page "Limes" "<h2>Limes (500 g)</h2><p>Rs 80</p>" > $body ;;
-        *) status="404 Not Found"; page "Not found" "<h1>No such product</h1>" > $body ;;
-      esac ;;
-    /login) page "Sign in" "<form method=\"post\"><input name=\"user\"> <input name=\"pass\" type=\"password\"> <button>Sign in</button></form>" > $body ;;
-    *) status="404 Not Found"; page "404 Not Found" "<h1>404 Not Found</h1>" > $body ;;
-  esac ;;
-c2)
-  server="nginx/1.24.0"
-  case "$p" in
-    /k) ctype="application/octet-stream"
-        printf 'echo "kworkerd sample"\nwhile true; do\n    echo "beacon 198.51.100.66:4444"\n    sleep 60\ndone\n' > $body ;;
-    /) status="403 Forbidden"; page "403 Forbidden" "<h1>403 Forbidden</h1>" > $body ;;
-    *) status="404 Not Found"; page "404 Not Found" "<h1>404 Not Found</h1>" > $body ;;
-  esac ;;
-attacker)
-  server="SimpleHTTP/0.6 Python/3.11.2"
-  case "$p" in
-    /) page "Directory listing for /" "<h1>Directory listing for /</h1>
-<ul><li><a href=\"k\">k</a></li><li><a href=\"notes.txt\">notes.txt</a></li></ul>" > $body ;;
-    /notes.txt) ctype="text/plain"; printf 'target: web01 / nimbumart\n- sqlmap on /shop?id= : works, dumped users\n- deploy : Summer2026!  (works on ssh too)\n- upload page lets me run commands: /uploads/img.php?cmd=\n- c2: update.kworker-cdn.net:4444, push the db dump on day 1\n' > $body ;;
-    /k) ctype="application/octet-stream"; printf 'echo "kworkerd sample"\n' > $body ;;
-    *) status="404 File not found"; ctype="text/html"; page "Error response" "<p>Error code: 404</p>" > $body ;;
-  esac ;;
-router)
-  server="lighttpd/1.4.69"
-  page "Router login" "<h1>corp.lan gateway</h1><form>Password: <input type=\"password\"></form>" > $body ;;
+binary=0
+case "$bodyfile" in
+  @cmd)
+    q="${path#*\?}"; [ "$q" = "$path" ] && q=""
+    cmd=$(decode "${q#cmd=}")
+    out_cmd=$(awk -F'|' -v c="$cmd" '$1 == c { sub(/^[^|]*\|/, ""); print; exit }' "$NET/cmd.txt" 2>/dev/null)
+    printf '%b\n' "$out_cmd" > $body ;;
+  *.bin) binary=1; cat "$NET/www/$bodyfile" > $body 2>/dev/null ;;
+  *) cat "$NET/www/$bodyfile" > $body 2>/dev/null ;;
 esac
 
 size=$(wc -c < $body | tr -d ' ')
@@ -168,6 +117,7 @@ fi
 if [ "$method" = HEAD ]; then headers; exit 0; fi
 
 if [ -n "$out" ]; then
+  p="${path%%\?*}"
   if [ "$out" = "-O" ]; then out=$(basename "$p"); [ "$out" = "/" ] && out=index.html; fi
   cp $body "$out"
   if [ "$silent" = 0 ]; then

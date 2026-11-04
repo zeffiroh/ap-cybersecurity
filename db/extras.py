@@ -2,11 +2,13 @@ import re
 
 KINDS = {"labs": ("labs_page", "labs_gumroad"), "video": ("video_page", "video_gumroad"),
          "tickets": ("tickets_page", "tickets_gumroad"), "seminars": ("seminars_page", "seminars_gumroad"),
-         "class": ("class_page", "class_gumroad")}
-KEYS = tuple(k for pair in KINDS.values() for k in pair) + ("ticket_price_inr", "ticket_price_usd", "seminar_sub_days")
+         "class": ("class_page", "class_gumroad"), "bundle": ("bundle_page", "bundle_gumroad")}
+KEYS = tuple(k for pair in KINDS.values() for k in pair) + ("ticket_price_inr", "ticket_price_usd", "seminar_sub_days",
+                                                         "ticket_packs_inr", "ticket_packs_usd")
 CLASS_FIELD = re.compile(r"class", re.I)
 TICKET_FIELD = re.compile(r"ticket", re.I)
 CODE_RE = re.compile(r"\bC-?(\d{1,7})\b", re.I)
+COUNT_RE = re.compile(r"(\d{1,4})\s*tickets?\b", re.I)
 
 
 def products(db):
@@ -36,12 +38,31 @@ def class_id(fields):
     return None
 
 
+def packs(prod, currency):
+    out = {}
+    for part in str(prod.get("ticket_packs_" + str(currency).lower()) or "").split(","):
+        n, _, price = part.partition("=")
+        try:
+            out[round(float(price) * 100)] = int(n)
+        except ValueError:
+            continue
+    return out
+
+
 def ticket_count(prod, amount, currency, fields, quantity=1):
+    times = max(1, int(quantity or 1))
     for k, v in fields.items():
         if TICKET_FIELD.search(str(k)) and str(v).strip().isdigit():
             return max(1, min(int(str(v).strip()), 500))
-    if quantity and int(quantity) > 1:
-        return min(int(quantity), 500)
+    for v in fields.values():
+        m = COUNT_RE.search(str(v))
+        if m:
+            return max(1, min(int(m.group(1)) * times, 500))
+    pack = packs(prod, currency).get(int(amount) // times)
+    if pack:
+        return min(pack * times, 500)
+    if times > 1:
+        return min(times, 500)
     price = prod.get("ticket_price_" + str(currency).lower())
     try:
         each = round(float(price) * 100)
@@ -51,6 +72,13 @@ def ticket_count(prod, amount, currency, fields, quantity=1):
 
 
 def grant(db, kind, email, ref, via, paid, cid=None, count=1, prod=None):
+    if kind == "bundle":
+        if paid:
+            db.execute("insert into unlocks (email, via, ref) select %s, %s, %s "
+                       "where not exists (select 1 from unlocks where via = %s and ref = %s)", (email, via, ref, via, ref))
+        else:
+            db.execute("update unlocks set revoked = true where via = %s and ref = %s", (via, ref))
+        kind = "labs"
     if kind in ("labs", "video"):
         if paid:
             db.execute("insert into labs_access (email, via, ref) select %s, %s, %s "

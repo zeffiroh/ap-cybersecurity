@@ -1,0 +1,148 @@
+{
+ "order": 2,
+ "title": "The night shift download",
+ "kicker": "Insider threat",
+ "units": [
+  2
+ ],
+ "level": "Beginner",
+ "minutes": 50,
+ "summary": "An engineer who has just resigned to join a competitor badges into an empty office at 01:47. Build a timeline from badge, VPN, Git, USB and DLP records, and handle it the right way: evidence first, then HR and Legal.",
+ "tools": [
+  "grep",
+  "awk",
+  "tshark",
+  "dig",
+  "curl",
+  "Python"
+ ],
+ "titlePrefix": "Incident runbook: Halcyon insider",
+ "id": "insider",
+ "files": [
+  "case/badge.csv",
+  "case/capture.pcap",
+  "case/dlp_alerts.json",
+  "case/git_audit.log",
+  "case/hr_note.txt",
+  "case/policy.txt",
+  "case/proxy.log",
+  "case/usb.log",
+  "case/vpn.log",
+  "case/ws_events.csv",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/www/404.htm",
+  "net/www/fc_401.json",
+  "net/www/fc_home.htm",
+  "net/www/fc_legal.htm",
+  "net/www/gitea.htm",
+  "net/www/repos.json"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Incident runbook: the night shift download\n\nTuesday 3 Nov, 08:40. Security at **Halcyon Aero** sees three data loss (DLP) alerts from overnight, all for one engineer. Your job: find out what happened, prove it with evidence, and handle it lawfully and fairly.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools reach a recorded copy of Halcyon's network (10.30.0.0/24) and FileCrate.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash every file before you read it\n- [ ] Read the HR note and the policy excerpts"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat hr_note.txt\necho ---\ncat policy.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+  },
+  {
+   "t": "md",
+   "s": "## 3. What changed?\n\n- [ ] When did he give notice, and to which company is he going?\n- [ ] Policy 7.3 says access is reviewed within 2 working days. Was it?\n- [ ] Which repositories does his job need?"
+  },
+  {
+   "t": "sh",
+   "s": "grep -E 'Notice|Next employer|Access review|Manager' hr_note.txt\necho ---\ncurl -s https://git.halcyon.lan/api/v1/users/r.menon/repos | grep -c '\"read\"'"
+  },
+  {
+   "t": "md",
+   "s": "## 4. The evening: VPN and Git\n\n- [ ] When was he on the VPN, from where, and how much did he download?\n- [ ] How many repositories did he clone that night?\n- [ ] Compare with a normal week: which user, which repos, how often?"
+  },
+  {
+   "t": "sh",
+   "s": "grep r.menon vpn.log\ndig -x 198.51.100.200 +short\necho ---\ngrep 'action=clone' git_audit.log | wc -l\ngrep 'action=clone' git_audit.log | awk '{print $1, $4}' | head -5"
+  },
+  {
+   "t": "py",
+   "s": "from collections import Counter\n\nc = Counter()\nfor line in open(\"case/git_audit.log\"):\n    f = dict(x.split(\"=\", 1) for x in line.split()[1:])\n    c[(line[:10], f[\"user\"], f[\"action\"])] += 1\nfor (day, user, action), n in sorted(c.items()):\n    print(day, user.ljust(8), action.ljust(6), n)"
+  },
+  {
+   "t": "md",
+   "s": "## 5. The night: in the building\n\n- [ ] When did his badge open a door after hours? Which door?\n- [ ] Which door said no?\n- [ ] When did he sign in to his workstation?"
+  },
+  {
+   "t": "sh",
+   "s": "awk -F, '$1 >= \"2026-11-02 20\" && $1 <= \"2026-11-03 06\"' badge.csv\necho ---\ngrep 2026-11-03 ws_events.csv"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Data out\n\n- [ ] What was plugged in, and what was its label? (A CTF flag is hiding there.)\n- [ ] How much was copied, and how long did it take?\n- [ ] Where was data uploaded, and how much?\n- [ ] What do the DLP alerts say, and which one is a false alarm?"
+  },
+  {
+   "t": "sh",
+   "s": "cat usb.log\necho ---\ncat proxy.log\necho ---\ntshark -r capture.pcap -Y 'tls and ip.src==10.30.0.57' -T fields -e frame.time_relative -e _ws.col.Info\ndig +short upload.filecrate.example\ndig TXT filecrate.example +short"
+  },
+  {
+   "t": "py",
+   "s": "import json\n\nfor a in sorted(json.load(open(\"case/dlp_alerts.json\")), key=lambda a: a[\"time\"]):\n    print(a[\"time\"], a[\"severity\"].upper().ljust(6), a[\"user\"].ljust(8), a[\"rule\"])\n    print(\"   \", a[\"detail\"])"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Build the timeline\n\nPut every event from every source in one list, sorted by time. This is the heart of the case."
+  },
+  {
+   "t": "py",
+   "s": "import csv, json, re\n\nev = []\nfor r in csv.DictReader(open(\"case/badge.csv\")):\n    ev.append((r[\"time\"], \"badge\", r[\"user\"] + \" \" + r[\"door\"] + \" \" + r[\"result\"]))\nfor line in open(\"case/vpn.log\"):\n    ev.append((line[:19].replace(\"T\", \" \"), \"vpn\", line[20:].strip()))\nfor line in open(\"case/git_audit.log\"):\n    if \"clone\" in line:\n        ev.append((line[:19].replace(\"T\", \" \"), \"git\", line.split(\"repo=\")[1].split()[0]))\nfor r in csv.DictReader(open(\"case/ws_events.csv\")):\n    ev.append((r[\"time\"], \"workstation\", r[\"event\"] + \" \" + r[\"detail\"]))\nfor line in open(\"case/usb.log\"):\n    ev.append((line[:19], \"usb\", line[29:].strip()))\nfor line in open(\"case/proxy.log\"):\n    ev.append((line[:19], \"proxy\", \" \".join(line.split()[4:6])))\nfor t, src, what in sorted(ev):\n    if t >= \"2026-11-02 20\":\n        print(t, src.ljust(11), what[:90])"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Before anyone talks to him\n\nThis is a people case as much as a technical one.\n\n- [ ] Preserve the evidence: hashes, logs, the workstation image, the USB serial\n- [ ] Don't confront him or warn him. Involve HR and Legal first (policy 9.1)\n- [ ] Ask FileCrate to preserve the account through Legal, not by logging in yourself\n- [ ] Write facts, not guesses: \"copied 2.3 GB to USB\", not \"stole the designs\"\n- [ ] Respect his privacy: only collect what the investigation needs"
+  },
+  {
+   "t": "sh",
+   "s": "curl -s https://www.filecrate.example/legal | sed 's/<[^>]*>//g'\necho ---\nsha256sum * > ../evidence-hashes.txt && cat ../evidence-hashes.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+  },
+  {
+   "t": "sh",
+   "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+  },
+  {
+   "t": "md",
+   "s": "## 11. Contain\n\n- [ ] Disable his account, VPN certificate, Git tokens and badge (at the same moment HR meets him)\n- [ ] Block FileCrate and personal mail on the company network\n\nThe cell prints the commands only."
+  },
+  {
+   "t": "sh",
+   "s": "echo \"identity disable r.menon --revoke-sessions\"\necho \"vpn revoke-cert r.menon\"\necho \"gitea admin user tokens delete r.menon --all\"\necho \"badge disable 40211\"\necho \"dns-block add filecrate.example\"\necho \"dns-block add personal-mail.example\""
+  },
+  {
+   "t": "md",
+   "s": "## 12. Fix the gaps\n\n- [ ] Access review on the day notice is given (ticket 77104 was still open)\n- [ ] Give people only the repos their job needs (least privilege)\n- [ ] Block USB storage by default; allow approved, encrypted drives\n- [ ] Alert in real time on bulk clones and after-hours badge use, not the next morning"
+  },
+  {
+   "t": "md",
+   "s": "## 13. Report\n\n- [ ] Timeline with sources\n- [ ] What left the company, how, and how much\n- [ ] Evidence list with hashes\n- [ ] Recommendations\n- [ ] Submit the flag from step 6 on the CTF board\n\nWrite the report here."
+  },
+  {
+   "t": "md",
+   "s": "## 14. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+  },
+  {
+   "t": "md",
+   "s": "## 15. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+  }
+ ]
+}

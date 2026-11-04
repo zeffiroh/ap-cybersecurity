@@ -34,8 +34,9 @@
   function embed(url, start) {
     var list = (String(url).match(/[?&]list=([A-Za-z0-9_-]+)/) || [])[1];
     var vid = (String(url).match(/(?:youtu\.be\/|[?&]v=|embed\/|live\/)([A-Za-z0-9_-]{11})/) || [])[1];
-    if (vid) return "https://www.youtube-nocookie.com/embed/" + vid + "?rel=0" + (list ? "&list=" + list : "") + (start ? "&start=" + start + "&autoplay=1" : "");
-    if (list) return "https://www.youtube-nocookie.com/embed/videoseries?list=" + list;
+    var api = "&enablejsapi=1&origin=" + encodeURIComponent(location.origin);
+    if (vid) return "https://www.youtube-nocookie.com/embed/" + vid + "?rel=0" + api + (list ? "&list=" + list : "") + (start ? "&start=" + start + "&autoplay=1" : "");
+    if (list) return "https://www.youtube-nocookie.com/embed/videoseries?list=" + list + api;
     return "";
   }
 
@@ -46,6 +47,79 @@
       : 'Sign in to unlock seminars. <button class="btn" id="sm-signin">Sign in</button>';
     var b = $("sm-signin");
     if (b) b.addEventListener("click", signIn);
+    if (d.me) rpc("api_my_certificates").then(function (list) {
+      if (!list || !list.length) return;
+      $("sm-me").insertAdjacentHTML("beforeend", '<div class="sm-certs">Your certificates: ' + list.map(function (c) {
+        return '<a href="' + ROOT + "certificate.html?id=" + encodeURIComponent(c.id) + '">' + esc(c.title) + "</a>";
+      }).join(" &middot; ") + "</div>");
+    }, function () {});
+  }
+
+  var ytReady = null, ticker = null;
+  function ytApi() {
+    if (ytReady) return ytReady;
+    ytReady = new Promise(function (ok) {
+      if (global.YT && global.YT.Player) return ok(global.YT);
+      var prev = global.onYouTubeIframeAPIReady;
+      global.onYouTubeIframeAPIReady = function () { if (prev) prev(); ok(global.YT); };
+      var t = document.createElement("script");
+      t.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(t);
+    });
+    return ytReady;
+  }
+
+  function progressHtml(r) {
+    var pct = Math.max(0, Math.min(100, r.percent || 0));
+    var cert = r.certificate ? '<a class="btn dark" href="' + ROOT + "certificate.html?id=" + encodeURIComponent(r.certificate) + '">Your certificate</a>'
+      : pct >= 90 ? '<span class="sm-certin"><input id="sm-name" maxlength="80" placeholder="Your name for the certificate" aria-label="Your name">' +
+        '<button class="btn dark" id="sm-cert">Get your certificate</button></span>'
+        : '<span class="sm-note">Watch 90% to get a certificate.</span>';
+    return '<div class="sm-bar" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="sm-progrow"><b>' + pct + "% watched</b>" + cert + '<span class="sm-msg2" id="sm-certmsg"></span></div>';
+  }
+
+  function track(s) {
+    var P = null, last = -1, seen = {};
+    function chapters(r) {
+      (r.buckets || []).forEach(function (b) { seen[b] = 1; });
+      var lis = document.querySelectorAll(".sm-chapters li"), starts = [];
+      lis.forEach(function (li) { starts.push(+li.getAttribute("data-t") || 0); });
+      lis.forEach(function (li, i) {
+        var a = Math.floor(starts[i] / 30), z = Math.max(a + 1, Math.ceil((i + 1 < starts.length ? starts[i + 1] : s.minutes * 60) / 30));
+        var n = 0;
+        for (var k = a; k < z; k++) if (seen[k]) n++;
+        li.classList.toggle("done", n / (z - a) >= 0.8);
+      });
+    }
+    function show(r) {
+      if (!r || !r.ok || !$("sm-prog")) return;
+      var typing = document.activeElement && document.activeElement.id === "sm-name";
+      if (!typing) $("sm-prog").innerHTML = progressHtml(r);
+      chapters(r);
+      var b = $("sm-cert");
+      if (b && !typing) b.addEventListener("click", function () {
+        b.disabled = true;
+        rpc("api_seminar_certificate", { p_id: s.id, p_name: $("sm-name").value }).then(function (c) {
+          if (!c.ok) throw new Error(c.error);
+          location.href = ROOT + "certificate.html?id=" + encodeURIComponent(c.id);
+        }).catch(function (e) { b.disabled = false; $("sm-certmsg").textContent = e.message; });
+      });
+    }
+    rpc("api_seminar_progress", { p_id: s.id, p_seconds: -1 }).then(show, function () {});
+    ytApi().then(function (YT) { P = new YT.Player("sm-frame"); });
+    clearInterval(ticker);
+    ticker = setInterval(function () {
+      if (!P || !P.getPlayerState || P.getPlayerState() !== 1) return;
+      var t = Math.floor(P.getCurrentTime() || 0);
+      if (Math.floor(t / 30) === Math.floor(last / 30)) return;
+      last = t;
+      rpc("api_seminar_progress", { p_id: s.id, p_seconds: t }).then(show, function () {});
+    }, 5000);
+    return function (at) {
+      if (P && P.seekTo) { P.seekTo(at, true); P.playVideo(); return true; }
+      return false;
+    };
   }
 
   function badge(s) {
@@ -67,7 +141,8 @@
       meBar(d);
       var ss = d.seminars || [];
       $("sm-list").innerHTML = ss.length ? ss.map(function (s) {
-        return '<a class="sm-card" href="?id=' + s.id + '">' + cover(s) + '<div class="sm-cbody"><b>' + esc(s.title) + "</b><span>" + esc(s.summary) + "</span><small>" +
+        return '<a class="sm-card" href="?id=' + s.id + '">' + cover(s) +
+          (s.owned && s.progress ? '<div class="sm-bar thin" title="' + s.progress + '% watched"><i style="width:' + s.progress + '%"></i></div>' : "") + '<div class="sm-cbody"><b>' + esc(s.title) + "</b><span>" + esc(s.summary) + "</span><small>" +
           [s.level, hours(s.minutes), s.chapters ? s.chapters + " chapters" : "", s.published ? "" : "draft"].filter(Boolean).map(esc).join(" &middot; ") +
           "</small></div></a>";
       }).join("") : '<div class="vl-empty"><b>No seminars yet.</b><p>Recorded seminars from your teacher appear here.</p></div>';
@@ -86,7 +161,7 @@
       document.title = s.title + " · Seminars";
       var chapters = (s.chapters || []).map(function (c) {
         var at = seconds(c.t);
-        return "<li>" + (src && !/videoseries/.test(src) ? '<button class="sm-ch" data-t="' + at + '">' + esc(c.t) + "</button>" : "<span>" + esc(c.t) + "</span>") +
+        return '<li data-t="' + at + '">' + (src && !/videoseries/.test(src) ? '<button class="sm-ch" data-t="' + at + '">' + esc(c.t) + "</button>" : "<span>" + esc(c.t) + "</span>") +
           " " + esc(c.title) + "</li>";
       }).join("");
       var lock = '<div class="sm-lock"><div class="sm-lockin"><span class="vl-plock"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
@@ -100,7 +175,8 @@
         (s.minutes ? " · " + hours(s.minutes) : "") + "</div><h1>" + esc(s.title) + "</h1>" +
         (s.summary ? '<p class="aa-sub">' + esc(s.summary) + "</p>" : "") +
         (s.topics ? '<p class="sx-note">' + esc(s.topics) + "</p>" : "") + "</div></div>" +
-        (src ? '<div class="sm-player"><iframe id="sm-frame" src="' + esc(src) + '" title="' + esc(s.title) + '" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' :
+        (src ? '<div class="sm-player"><iframe id="sm-frame" src="' + esc(src) + '" title="' + esc(s.title) + '" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' +
+          (d.me ? '<div class="sm-prog" id="sm-prog"></div>' : "") :
           s.owned ? '<p class="sx-empty">The video is being added.</p>' : lock) +
         '<div class="sm-cols"><div>' + text(s.description) + "</div><aside>" +
         (chapters ? "<h3>Chapters</h3><ol class=\"sm-chapters\">" + chapters + "</ol>" : "") +
@@ -108,9 +184,10 @@
           var u = safeUrl(r.url);
           return "<li>" + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(r.title || u) + "</a>" : esc(r.title)) + "</li>";
         }).join("") + "</ul>" : "") + "</aside></div>";
+      var seek = src && d.me ? track(s) : null;
       box.querySelectorAll(".sm-ch").forEach(function (b) {
         b.addEventListener("click", function () {
-          $("sm-frame").src = embed(s.youtube, +b.getAttribute("data-t"));
+          if (!(seek && seek(+b.getAttribute("data-t")))) $("sm-frame").src = embed(s.youtube, +b.getAttribute("data-t"));
           $("sm-frame").scrollIntoView({ behavior: "smooth", block: "center" });
         });
       });

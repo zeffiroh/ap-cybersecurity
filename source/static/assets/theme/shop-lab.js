@@ -26,6 +26,12 @@
       hint: "Send the form once, then edit the request's JSON and resend it." },
     { id: "shop-reset", points: 150, title: "Reset Jim's password", text: "Reset the password for jim@nimbu.shop through his security question.",
       hint: "The question asks for his pet's name. Read the product reviews." },
+    { id: "shop-coupon", points: 150, title: "Coupon twice", text: "WELCOME10 takes 10% off, once per customer. Get more than 10% off one basket.",
+      hint: "Apply the coupon, then try it again written a little differently. Does the shop compare codes the same way every time?" },
+    { id: "shop-redirect", points: 100, title: "Open redirect", text: "Make a nimbu.shop link that sends visitors to a website of your choice.",
+      hint: "Sources shows a footer link that goes through /go?to=. Type /go?to=https://example.com in the address bar." },
+    { id: "shop-upload", points: 200, title: "Not a picture", text: "Upload a profile picture that runs JavaScript when someone opens it.",
+      hint: "Profile page. The upload only checks that the name contains .png. Try a name like me.png.html with <img src=x onerror=alert(1)> inside, then open its link." },
     { id: "shop-jwt", points: 250, title: "Forge a token", text: "Become admin by editing your login token, without the admin password.",
       hint: "Storage tab: decode the token, set alg to none, role to admin, delete the signature, keep the last dot, re-encode." }
   ];
@@ -107,7 +113,7 @@
         5: [{ by: "priya@nimbu.shop", text: "Set it up on every account. Phishing pages can't use it. Worth it." }],
         6: [{ by: "jim@nimbu.shop", text: "Opened my practice lock in 20 minutes. Bruno was not impressed." }]
       },
-      baskets: {}, nextOrder: 6, feedback: [], token: "", log: [], history: [], path: "/#/", pick: null, rep: null, tab: "net"
+      baskets: {}, coupons: {}, discount: {}, uploads: {}, nextOrder: 6, feedback: [], token: "", log: [], history: [], path: "/#/", pick: null, rep: null, tab: "net"
     };
   }
 
@@ -223,12 +229,44 @@
       q("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?)", [id, a.claims.sub, bk.items.map(function (i) { return i.qty + " x " + i.name; }).join(", "),
         bk.total, "On file", ""]);
       S.baskets[a.claims.sub] = {};
+      S.discount[a.claims.sub] = 0;
       var out = { ok: true, order: id, total: bk.total };
       if (bk.total < 0) {
         K.award("shop-negative", "They pay you");
         out.message = "Refund of " + (-bk.total).toFixed(2) + " credited to your wallet.";
       }
       return json(200, out);
+    }],
+    ["POST", /^\/api\/coupon$/, function (req) {
+      var a = auth(req);
+      if (!a) return json(401, { error: "Not logged in." });
+      var code = String((req.json || {}).code || "").trim(), uid = a.claims.sub;
+      if (code.toUpperCase() !== "WELCOME10") return json(404, { error: "No such coupon." });
+      var used = S.coupons[uid] = S.coupons[uid] || {};
+      if (used[code]) return json(409, { error: "You have already used " + code + "." });
+      used[code] = true;
+      S.discount[uid] = (S.discount[uid] || 0) + 10;
+      if (S.discount[uid] > 10) K.award("shop-coupon", "Coupon twice");
+      return json(200, { ok: true, discount: S.discount[uid], data: basket(uid) });
+    }],
+    ["GET", /^\/go$/, function (req) {
+      var to = String(req.query.to || "");
+      if (!to) return json(400, { error: "to is required." });
+      if (/^(https?:)?\/\//i.test(to) && !/^(https?:)?\/\/([a-z0-9-]+\.)*nimbu\.shop(\/|$)/i.test(to)) K.award("shop-redirect", "Open redirect");
+      return text(302, "302 Found\nLocation: " + to + "\n\nRedirecting you to " + to + " ...");
+    }],
+    ["POST", /^\/api\/avatar$/, function (req) {
+      var a = auth(req);
+      if (!a) return json(401, { error: "Not logged in." });
+      var b = req.json || {}, name = String(b.filename || "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 60);
+      if (!/\.(png|jpe?g|gif)/i.test(name)) return json(400, { error: "Only pictures (.png, .jpg, .gif) please." });
+      S.uploads[name] = { by: a.claims.email, body: String(b.content || "").slice(0, 4000) };
+      return json(201, { ok: true, url: "/uploads/" + name });
+    }],
+    ["GET", /^\/uploads\/([A-Za-z0-9._-]+)$/, function (req, m) {
+      var f = S.uploads[m[1]];
+      if (!f) return text(404, "404 Not Found");
+      return text(200, f.body, /\.(html?|svg)$/i.test(m[1]) ? "text/html" : "image/png");
     }],
     ["POST", /^\/api\/feedback$/, function (req) {
       var b = req.json || {}, rating = Number(b.rating);
@@ -268,7 +306,9 @@
       items.push({ productId: +pid, name: p.name, price: p.price, qty: bk[pid] });
       total += p.price * bk[pid];
     });
-    return { items: items, total: Math.round(total * 100) / 100 };
+    var off = Math.min(S.discount[uid] || 0, 100);
+    if (off) total = total * (100 - off) / 100;
+    return { items: items, discount: off, total: Math.round(total * 100) / 100 };
   }
 
   function parse(path) {
@@ -313,7 +353,7 @@
     var who = S.token && verify(S.token);
     return '<div class="sh-top"><a href="#" data-go="/#/" class="sh-logo">🍋 NimbuMart</a>' +
       '<form class="sh-search" data-search><input name="q" placeholder="Search products" value=""><button class="btn">Search</button></form>' +
-      '<nav><a href="#" data-go="/#/basket">Basket</a><a href="#" data-go="/#/orders">Orders</a><a href="#" data-go="/#/feedback">Feedback</a>' +
+      '<nav><a href="#" data-go="/#/basket">Basket</a><a href="#" data-go="/#/orders">Orders</a><a href="#" data-go="/#/profile">Profile</a><a href="#" data-go="/#/feedback">Feedback</a>' +
       (who ? '<span class="sh-who">' + esc(who.claims.email) + '</span><a href="#" data-logout>Log out</a>' : '<a href="#" data-go="/#/login">Log in</a>') +
       "</nav></div>";
   }
@@ -379,7 +419,9 @@
       var b = r.data.data;
       el(header() + "<h2>Your basket</h2>" + (b.items.length ? '<table class="sq-table"><tr><th>Item</th><th>Qty</th><th>Price</th></tr>' +
         b.items.map(function (i) { return "<tr><td>" + esc(i.name) + "</td><td>" + esc(i.qty) + "</td><td>₹" + esc(i.price) + "</td></tr>"; }).join("") +
-        '</table><p class="sh-price">Total: ₹' + esc(b.total) + '</p><button class="btn dark" data-checkout>Check out</button> <span class="sh-msg"></span>' :
+        "</table>" + (b.discount ? "<p>Discount: " + esc(b.discount) + "%</p>" : "") +
+        '<form class="sh-form sh-inline" data-coupon><label>Coupon <input name="code" placeholder="WELCOME10"></label><button class="btn">Apply</button> <span class="sh-msg"></span></form>' +
+        '<p class="sh-price">Total: ₹' + esc(b.total) + '</p><button class="btn dark" data-checkout>Check out</button> <span class="sh-msg"></span>' :
         '<p class="sx-empty">Your basket is empty.</p>'));
     }],
     [/^\/#\/orders$/, function () {
@@ -397,6 +439,15 @@
       var o = r.data.data;
       el(header() + "<h2>Order #" + esc(o.id) + "</h2><p>" + esc(o.items) + "</p><p>Total: ₹" + esc(o.total) + "</p><p>Ship to: " + esc(o.address) + "</p>" +
         (o.note ? "<p>Note: " + esc(o.note) + "</p>" : ""));
+    }],
+    [/^\/#\/profile$/, function () {
+      if (!S.token) return el(header() + needLogin());
+      var mine = Object.keys(S.uploads);
+      el(header() + '<h2>Your profile</h2><form class="sh-form" data-avatar><h3>Profile picture</h3>' +
+        '<label>File name <input name="filename" placeholder="me.png"></label>' +
+        '<label>File contents <textarea name="content" rows="3" placeholder="(this lab pretends the file is text)"></textarea></label>' +
+        '<button class="btn dark">Upload</button> <span class="sh-msg"></span></form>' +
+        (mine.length ? "<h3>Uploaded</h3><ul>" + mine.map(function (n) { return '<li><a href="#" data-go="/uploads/' + esc(n) + '">/uploads/' + esc(n) + "</a></li>"; }).join("") + "</ul>" : ""));
     }],
     [/^\/#\/feedback$/, function () {
       el(header() + '<form class="sh-form" data-feedback><h2>Tell us how we did</h2><label>Rating <select name="rating">' +
@@ -429,6 +480,11 @@
     }
     if (path.indexOf("/#/") === 0) return el(header() + "<h2>Page not found</h2>");
     var r = send("GET", path);
+    if (/^\/uploads\//.test(path) && r.raw.type === "text/html") {
+      var doc = "<!doctype html><meta charset=utf-8><script>(function(){function s(k){return function(m){parent.postMessage({nimbuUpload:k,msg:String(m)},'*')}}" +
+        "window.alert=s('alert');window.confirm=s('confirm');window.prompt=s('prompt');})()<\/script>" + r.raw.body;
+      return el('<iframe class="sh-upframe" sandbox="allow-scripts" title="Uploaded file" srcdoc="' + esc(doc) + '"></iframe>');
+    }
     el('<pre class="sh-raw sh-plain">' + esc(r.raw.body) + "</pre>");
   }
 
@@ -459,6 +515,16 @@
     if (f.hasAttribute("data-review")) {
       r = send("POST", "/api/products/" + f.getAttribute("data-review") + "/reviews", { text: v.text });
       return go(S.path, true);
+    }
+    if (f.hasAttribute("data-coupon")) {
+      r = send("POST", "/api/coupon", { code: v.code });
+      if (r.status === 200) return go(S.path, true);
+      return say((r.data && r.data.error) || "Failed.");
+    }
+    if (f.hasAttribute("data-avatar")) {
+      r = send("POST", "/api/avatar", { filename: v.filename, content: v.content });
+      if (r.status === 201) return go(S.path, true);
+      return say((r.data && r.data.error) || "Failed.");
     }
     if (f.hasAttribute("data-feedback")) {
       if (!(+v.rating >= 1 && +v.rating <= 5)) return say("Pick a rating from 1 to 5.");
@@ -503,11 +569,12 @@
     "  '/': Home, '/search': Search, '/product/:id': Product,",
     "  '/login': Login, '/forgot': ForgotPassword,",
     "  '/basket': Basket, '/orders': Orders, '/order/:id': Order,",
-    "  '/feedback': Feedback,",
+    "  '/profile': Profile, '/feedback': Feedback,",
     "  '/administration': AdminPanel,",
     "};",
     "",
     "function authHeader() { return { Authorization: 'Bearer ' + localStorage.token }; }",
+    "const FOOTER = '<a href=\"/go?to=https://track.nimbu.shop/parcel\">Track my parcel</a>';",
     "",
     "export const api = {",
     "  login: (email, password) => post(API + '/login', { email, password }),",
@@ -523,6 +590,8 @@
     "  resetQuestion: (email) => get(API + '/reset-question?email=' + email),",
     "  reset: (email, answer, newPassword) => post(API + '/reset', { email, answer, newPassword }),",
     "  adminUsers: () => get(API + '/admin/users'),",
+    "  coupon: (code) => post(API + '/coupon', { code }),",
+    "  avatar: (filename, content) => post(API + '/avatar', { filename, content }),",
     "};",
     "",
     "function Basket() {",
@@ -609,9 +678,15 @@
   }
 
   function onMessage(e) {
-    var frame = document.querySelector(".sh-reviews");
-    if (!frame || e.source !== frame.contentWindow || !e.data || !e.data.nimbuXss) return;
-    K.award("shop-xss", "Stored XSS");
+    var up = document.querySelector(".sh-upframe");
+    if (up && e.source === up.contentWindow && e.data && e.data.nimbuUpload) {
+      K.award("shop-upload", "Not a picture");
+      e = { data: { nimbuXss: 1, msg: e.data.msg } };
+    } else {
+      var frame = document.querySelector(".sh-reviews");
+      if (!frame || e.source !== frame.contentWindow || !e.data || !e.data.nimbuXss) return;
+      K.award("shop-xss", "Stored XSS");
+    }
     var d = document.createElement("div");
     d.className = "sh-alert";
     d.innerHTML = "<div><p>nimbu.shop says</p><b></b><button class=\"btn dark\">OK</button></div>";

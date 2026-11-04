@@ -24,7 +24,7 @@ window.APCYBER_PAYWALL = {
     "index.html", "unit-*/index.html", "unit-*/*/index.html",
     "unit-1/1.1/**",
     "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html", "community.html",
-    "store.html", "labs.html", "seminars.html",
+    "store.html", "labs.html", "seminars.html", "certificate.html",
     "buy/**", "unlock/**", "pay/**", "ledger/**", "teacher/database-check.html"
   ],
 
@@ -45,6 +45,16 @@ window.APCYBER_PAYWALL = {
 };
 
 window.APCYBER_STORES = {
+  bundle: {
+    name: "Course + Labs",
+    blurb: "Everything in the Course and everything in Labs together, for less than buying them one by one.",
+    india: "Pay what you want, with a minimum",
+    badge: "Best value",
+    methods: [
+      { label: "Razorpay", note: "India", url: "" },
+      { label: "Gumroad", note: "International", url: "" }
+    ]
+  },
   course: {
     name: "Course",
     blurb: "Every lesson, quiz, slide deck, unit test, the capstone, progress tracking and your report card.",
@@ -76,7 +86,12 @@ window.APCYBER_STORES = {
   tickets: {
     name: "Tickets",
     blurb: "Buy any number. A batch class costs 1 ticket; a 1:1 class or a seminar costs what its page says.",
-    india: "Priced per ticket",
+    india: "Priced per ticket, cheaper in packs",
+    packs: [
+      { tickets: 5, inr: "", usd: "" },
+      { tickets: 10, inr: "", usd: "" },
+      { tickets: 25, inr: "", usd: "" }
+    ],
     methods: [
       { label: "Razorpay", note: "India · type how many you want", url: "" },
       { label: "Gumroad", note: "International · choose a quantity", url: "" }

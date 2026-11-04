@@ -1,0 +1,94 @@
+[
+ {
+  "t": "md",
+  "s": "# Incident runbook: the key in the commit\n\n07:31, Tuesday 3 Nov. A budget alert at **Paperplane Apps**: today's cloud bill is forecast at $3,812. A normal day is about $42. You are on call.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools reach a recorded copy of Paperplane's cloud network (10.40.0.0/16), the Stratus Cloud API, the public code forge and the mining pool.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] Look at the bill: which service jumped, and by how much?"
+ },
+ {
+  "t": "sh",
+  "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat billing.csv"
+ },
+ {
+  "t": "md",
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+ },
+ {
+  "t": "py",
+  "s": "import csv\n\nrows = list(csv.DictReader(open(\"case/billing.csv\")))\nnormal = sum(float(r[\"compute_usd\"]) for r in rows[:-1]) / (len(rows) - 1)\nlast = rows[-1]\nprint(\"normal compute per day: $%.2f\" % normal)\nprint(\"%s compute: $%s, %.0f times normal\" % (last[\"date\"], last[\"compute_usd\"], float(last[\"compute_usd\"]) / normal))"
+ },
+ {
+  "t": "md",
+  "s": "## 3. Where did the attacker get in?\n\n- [ ] Which key did the attacker use? Who owns it, and what can it do?\n- [ ] How did the key leak? Read the Git history\n- [ ] The secret was \"removed\" on 31 Oct. Why didn't that help? (A CTF flag is in the history.)\n- [ ] When was the repo public, and who cloned it?"
+ },
+ {
+  "t": "sh",
+  "s": "cat keys.txt\necho ---\ncurl -s \"https://api.stratus-cloud.example/v1/whoami?key=SCKA7Q2MXV81LP0D\"\necho ---\ngrep -nE 'commit|Date|STRATUS|owner' repo_history.txt\necho ---\ncat forge_audit.log\necho ---\ncurl -s https://git.public-forge.example/paperplane/mobile-backend/commits\ncurl -s https://git.public-forge.example/paperplane/mobile-backend/raw/a3f91c2/config/staging.env | grep KEY"
+ },
+ {
+  "t": "md",
+  "s": "## 4. What did the attacker do?\n\n- [ ] Group the audit log by source address\n- [ ] List every action in order, with the identity used\n- [ ] Which actions failed?"
+ },
+ {
+  "t": "py",
+  "s": "import json\nfrom collections import Counter\n\nev = json.load(open(\"case/audit.json\"))\nby_ip = Counter((e[\"source_ip\"], e[\"identity\"]) for e in ev)\nfor (ip, who), n in by_ip.most_common():\n    print(ip.ljust(15), who.ljust(15), n, \"events\")\nprint()\nfor e in ev:\n    if e[\"source_ip\"].startswith(\"203.0.113\"):\n        extra = e.get(\"policy\") or e.get(\"new_key_id\") or e.get(\"bytes\") or \"\"\n        print(e[\"time\"][11:19], e[\"identity\"].ljust(15), e[\"action\"].ljust(18), e[\"resource\"][:45].ljust(45), e[\"result\"][:20], extra)"
+ },
+ {
+  "t": "md",
+  "s": "## 5. The backdoor\n\nAttackers rarely rely on the key they found. They make their own way back in.\n\n- [ ] Which user did they create, and with what rights?\n- [ ] Which key does it have, and where was it used from?\n- [ ] Who are the attacker's servers?"
+ },
+ {
+  "t": "sh",
+  "s": "curl -s https://api.stratus-cloud.example/v1/users\ncurl -s \"https://api.stratus-cloud.example/v1/whoami?key=SCKA9R4TBN20QZ7W\"\necho ---\ndig -x 203.0.113.150 +short\ndig -x 203.0.113.151 +short\nnmap -sV 203.0.113.150"
+ },
+ {
+  "t": "md",
+  "s": "## 6. Customer data\n\n- [ ] Which files were downloaded, and how big were they?\n- [ ] What did the attacker change on that bucket afterwards? Is it still open?\n- [ ] This is now a personal data breach. Who must be told, and how fast?"
+ },
+ {
+  "t": "sh",
+  "s": "grep -B4 -A5 'GetObject' audit.json | grep -E 'resource|bytes|time'\necho ---\ncurl -s https://api.stratus-cloud.example/v1/buckets/customer-exports/policy"
+ },
+ {
+  "t": "md",
+  "s": "## 7. The miners\n\n- [ ] How many machines were started, of what type, by whom?\n- [ ] Where do they send their work? Prove it from the traffic\n- [ ] Which wallet gets paid, and how many workers does the pool see?"
+ },
+ {
+  "t": "sh",
+  "s": "grep -c support-backup instances.txt\nhead -4 instances.txt\necho ---\ndig +short pool.coinsmelt.example\ntshark -r capture.pcap -Y 'tcp.dstport==3333' -c 6\ntshark -r capture.pcap -q -z conv,ip\necho ---\ncurl -s https://pool.coinsmelt.example/api/stats"
+ },
+ {
+  "t": "md",
+  "s": "## 8. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+ },
+ {
+  "t": "md",
+  "s": "## 9. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+ },
+ {
+  "t": "sh",
+  "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+ },
+ {
+  "t": "md",
+  "s": "## 10. Contain (in this order)\n\n- [ ] Deactivate both keys first, so nothing new can start\n- [ ] Delete the backdoor user\n- [ ] Make the bucket private again\n- [ ] Stop the miners, but snapshot one disk for evidence\n- [ ] Block the pool and the attacker addresses\n\nThe cell prints the commands only."
+ },
+ {
+  "t": "sh",
+  "s": "for k in SCKA7Q2MXV81LP0D SCKA9R4TBN20QZ7W; do echo \"stratus keys deactivate $k\"; done\necho \"stratus users delete support-backup\"\necho \"stratus buckets set-policy customer-exports private\"\necho \"stratus disks snapshot i-0f3a10 --tag evidence\"\ngrep support-backup instances.txt | awk '{print \"stratus instances terminate\", $1}' | head -3\necho \"... and 17 more\"\necho \"firewall deny 198.51.100.88 3333\""
+ },
+ {
+  "t": "md",
+  "s": "## 11. Fix the root cause\n\n- [ ] Rotate, don't just delete: a secret in Git history is public forever once cloned\n- [ ] Give the CI key only what CI needs (least privilege), or better, short-lived credentials with no stored secret\n- [ ] Turn on secret scanning so commits with keys are blocked\n- [ ] Only admins can make repos public\n- [ ] Budget alerts every hour, not every morning"
+ },
+ {
+  "t": "md",
+  "s": "## 12. Report\n\n- [ ] Timeline from 30 Oct to 08:05 on 3 Nov\n- [ ] Root cause, data exposed, cost\n- [ ] Indicators: keys, addresses, user, wallet, pool\n- [ ] Breach notification plan\n- [ ] Submit the flag from step 3 on the CTF board\n\nWrite the report here."
+ },
+ {
+  "t": "md",
+  "s": "## 13. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+ },
+ {
+  "t": "md",
+  "s": "## 14. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+ }
+]

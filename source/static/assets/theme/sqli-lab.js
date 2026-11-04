@@ -4,7 +4,7 @@
   var me = document.currentScript && document.currentScript.src;
   var ROOT = me ? me.replace(/assets\/theme\/sqli-lab\.js.*$/, "") : "";
   var $ = function (id) { return document.getElementById(id); };
-  var K, esc, SQL = null, db = null;
+  var K, esc, SQL = null, db = null, pin = "";
 
   var VULN = "\"SELECT id, username, role FROM users WHERE username = '\" + username + \"' AND password = '\" + password + \"'\"";
 
@@ -15,6 +15,10 @@
       hint: "Your text sits inside LIKE '%...%'. Close it, add OR hidden = 1, then comment out the leftover quote." },
     { id: "sqli-union", points: 200, title: "UNION heist", text: "A table called secrets exists. Pull its rows into the search results.",
       hint: "The search returns two columns, so your UNION SELECT must return two as well: note and any number." },
+    { id: "sqli-schema", points: 150, title: "The table nobody mentioned", text: "Find a table the portal never shows, and pull its secret into the search results.",
+      hint: "SQLite lists every table in sqlite_master. Try ' UNION SELECT name, 1 FROM sqlite_master -- then UNION from the table you find." },
+    { id: "sqli-blind", points: 250, title: "Yes or no", text: "The username checker only says taken or free. Use it to learn admin's 6-digit PIN, then open the vault.",
+      hint: "admin' AND substr(pin,1,1)='4' -- says taken only if the first digit is 4. Work through each position. > and < halve the guesses." },
     { id: "sqli-fix", points: 200, title: "Fix it", text: "Rewrite the login query with ? placeholders so every attack fails and real logins still work.",
       hint: "Remove the quotes and the + joins. Write each value as a bare ?." }
   ];
@@ -22,7 +26,9 @@
   function build() {
     if (db) db.close();
     db = new SQL.Database();
+    pin = String(100000 + Math.floor(Math.random() * 900000));
     db.run("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, role TEXT);" +
+      "CREATE TABLE hr_bonus_2026 (id INTEGER PRIMARY KEY, note TEXT);" +
       "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL, hidden INTEGER);" +
       "CREATE TABLE secrets (id INTEGER PRIMARY KEY, note TEXT);");
     var add = function (sql, rows) { var s = db.prepare(sql); rows.forEach(function (r) { s.run(r); }); s.free(); };
@@ -32,6 +38,9 @@
       [4, "Mechanical keyboard", 79, 0], [5, "Wireless mouse", 25, 0], [6, "24-inch monitor", 189, 0],
       [7, "Prototype router (unreleased)", 0, 1], [8, "Internal stock note: " + K.reveal("sqli-hidden"), 0, 1]]);
     add("INSERT INTO secrets VALUES (?, ?)", [[1, "Office Wi-Fi password: Northwind2026!"], [2, K.reveal("sqli-union")]]);
+    add("INSERT INTO hr_bonus_2026 VALUES (?, ?)", [[1, "Bonus pool approved: 4%"], [2, K.reveal("sqli-schema")]]);
+    db.run("ALTER TABLE users ADD COLUMN pin TEXT DEFAULT ''");
+    db.run("UPDATE users SET pin = '" + pin + "' WHERE username = 'admin'");
   }
 
   function log(q, note) {
@@ -74,6 +83,23 @@
     if (!hidden.error && hidden.rows.length && hidden.rows[0].values.some(function (v) { return seen.indexOf(v[0]) !== -1; }))
       K.award("sqli-hidden", "Hidden stock");
     if (seen.indexOf(K.reveal("sqli-union")) !== -1) K.award("sqli-union", "UNION heist");
+    if (seen.indexOf(K.reveal("sqli-schema")) !== -1) K.award("sqli-schema", "The table nobody mentioned");
+  }
+
+  function check() {
+    var u = $("sq-check").value;
+    var q = "SELECT COUNT(*) FROM users WHERE username = '" + u + "'";
+    var r = run(q), out = $("sq-check-out");
+    log(q, r.error ? "(the page hides errors)" : "");
+    var taken = !r.error && r.rows.length && r.rows[0].values[0][0] > 0;
+    out.innerHTML = taken ? '<p class="sq-bad">That username is taken.</p>' : '<p class="sq-good">That username is free.</p>';
+  }
+
+  function vault() {
+    var out = $("sq-vault-out");
+    if ($("sq-pin").value.trim() !== pin) { out.innerHTML = '<p class="sq-bad">Wrong PIN. The vault stays shut.</p>'; return; }
+    K.award("sqli-blind", "Yes or no");
+    out.innerHTML = '<p class="sq-good">The vault opens: ' + esc(K.reveal("sqli-blind")) + "</p>";
   }
 
   function testFix() {
@@ -133,7 +159,9 @@
       build();
       $("sq-go").addEventListener("click", login);
       $("sq-search").addEventListener("click", search);
-      [["sq-user", login], ["sq-pass", login], ["sq-q", search]].forEach(function (x) {
+      $("sq-check-go").addEventListener("click", check);
+      $("sq-vault-go").addEventListener("click", vault);
+      [["sq-user", login], ["sq-pass", login], ["sq-q", search], ["sq-check", check], ["sq-pin", vault]].forEach(function (x) {
         $(x[0]).addEventListener("keydown", function (e) { if (e.key === "Enter") x[1](); });
       });
       $("sq-test").addEventListener("click", testFix);

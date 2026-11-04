@@ -465,7 +465,7 @@
     function draw() {
       var list = match(), groups = [], at = {};
       list.forEach(function (p) {
-        if (!at[p.id]) { at[p.id] = { id: p.id, title: p.title, topic: p.topic, posts: {} }; groups.push(at[p.id]); }
+        if (!at[p.id]) { at[p.id] = { id: p.id, title: p.title, topic: p.topic, banner: p.banner, posts: {} }; groups.push(at[p.id]); }
         at[p.id].posts[p.kind] = p;
       });
       var lastUnit = null, total = POSTS.length / 2;
@@ -484,7 +484,8 @@
         var k = $("kind").value;
         return head + '<article class="bl-card"><header class="bl-head"><div class="bl-id">' + esc(g.id) + "</div>" +
           '<div class="bl-titles"><div class="bl-topic">' + (t ? esc(g.topic + " " + t.title) : esc(g.topic)) + "</div><h3>" + esc(g.title) + "</h3></div>" +
-          '<a class="btn" href="teach.html?topic=' + esc(g.topic) + '">Teach this</a></header>' +
+          '<div class="bl-hbtns">' + (g.banner ? '<a class="btn" href="' + esc(g.banner) + '" download="' + esc(g.id) + '-banner.png">Banner</a>' : "") +
+          '<a class="btn" href="teach.html?topic=' + esc(g.topic) + '">Teach this</a></div></header>' +
           '<div class="bl-cols' + (k ? " one" : "") + '">' + (k === "post" ? "" : half(g.posts.pre, "pre")) + (k === "pre" ? "" : half(g.posts.post, "post")) + "</div></article>";
       }).join("") + (groups.length > shown ? '<p class="bl-moreRow"><button class="btn" id="more">Show more lessons (' + (groups.length - shown) + ")</button></p>" : "") +
         (groups.length ? "" : '<p class="tc-empty">No posts match.</p>');
@@ -1151,8 +1152,134 @@
     load();
   }
 
+  function reports() {
+    var SHADES = { bundle: "#000", course: "#333", labs: "#666", tickets: "#8c8c8c", seminars: "#b3b3b3", "class": "#d4d4d4", "book and other": "#ececec" };
+    var data = null, cur = "";
+    function money(v, c) { return (c === "INR" ? "Rs " : c === "USD" ? "$" : c + " ") + Math.round(v).toLocaleString(); }
+    function kpi(k, v, s) { return '<div class="tc-kpi"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s || "") + "</div></div>"; }
+    function months() {
+      var out = [], d = new Date(data.since);
+      for (var i = 0; i < data.months; i++) { out.push(d.toISOString().slice(0, 7)); d.setUTCMonth(d.getUTCMonth() + 1); }
+      return out;
+    }
+    function label(m) { return new Date(m + "-01T00:00:00Z").toLocaleDateString(undefined, { month: "short", timeZone: "UTC" }); }
+    function sales() {
+      var ms = months(), rows = data.sales.filter(function (r) { return r.currency === cur; }), max = 0, by = {};
+      ms.forEach(function (m) { by[m] = {}; });
+      rows.forEach(function (r) { if (by[r.month]) by[r.month][r.product] = (by[r.month][r.product] || 0) + (+r.amount); });
+      ms.forEach(function (m) { var t = 0; for (var k in by[m]) t += by[m][k]; by[m]._t = t; max = Math.max(max, t); });
+      if (!rows.length) return '<p class="tc-empty">No sales in ' + esc(cur || "this period") + " yet.</p>";
+      var W = 520, H = 200, bw = Math.min(56, (W - 40) / ms.length - 10), x0 = 40;
+      var svg = '<svg class="tr-chart" viewBox="0 0 ' + W + " " + (H + 30) + '" role="img" aria-label="Sales by month">';
+      [0, 0.5, 1].forEach(function (f) {
+        var y = H - f * (H - 10);
+        svg += '<line x1="' + x0 + '" x2="' + W + '" y1="' + y + '" y2="' + y + '" stroke="#e0e0e0"/><text x="' + (x0 - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#777">' +
+          esc(f ? money(max * f, cur).replace(/^Rs |^\$/, "") : "0") + "</text>";
+      });
+      ms.forEach(function (m, i) {
+        var x = x0 + 10 + i * ((W - x0 - 10) / ms.length), y = H;
+        Object.keys(SHADES).forEach(function (k) {
+          var v = by[m][k] || 0;
+          if (!v) return;
+          var h = max ? v / max * (H - 10) : 0;
+          y -= h;
+          svg += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + h + '" fill="' + SHADES[k] + '" stroke="#000" stroke-width=".5"><title>' +
+            esc(label(m) + " · " + k + ": " + money(v, cur)) + "</title></rect>";
+        });
+        svg += '<text x="' + (x + bw / 2) + '" y="' + (H + 16) + '" text-anchor="middle" font-size="11">' + esc(label(m)) + "</text>";
+      });
+      svg += "</svg>";
+      var used = Object.keys(SHADES).filter(function (k) { return rows.some(function (r) { return r.product === k; }); });
+      var tot = {};
+      rows.forEach(function (r) { tot[r.product] = (tot[r.product] || 0) + (+r.amount); });
+      return svg + '<div class="tr-legend">' + used.map(function (k) {
+        return '<span><i style="background:' + SHADES[k] + '"></i>' + esc(k) + " <b>" + esc(money(tot[k], cur)) + "</b></span>";
+      }).join("") + "</div>";
+    }
+    function labs() {
+      var rows = data.labs, max = Math.max.apply(null, rows.map(function (r) { return r.total; }).concat([1]));
+      var W = 520, H = 180, step = (W - 40) / Math.max(rows.length, 1), pts = [];
+      var svg = '<svg class="tr-chart" viewBox="0 0 ' + W + " " + (H + 30) + '" role="img" aria-label="Labs owners">';
+      rows.forEach(function (r, i) {
+        var x = 30 + i * step, h = r.new / max * (H - 20);
+        svg += '<rect x="' + (x + step * 0.25) + '" y="' + (H - h) + '" width="' + step * 0.5 + '" height="' + h + '" fill="#d4d4d4" stroke="#000" stroke-width=".5"><title>' +
+          esc(label(r.month) + ": " + r.new + " new") + "</title></rect>";
+        pts.push((x + step / 2) + "," + (H - r.total / max * (H - 20)));
+        svg += '<text x="' + (x + step / 2) + '" y="' + (H + 16) + '" text-anchor="middle" font-size="11">' + esc(label(r.month)) + "</text>";
+      });
+      svg += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#000" stroke-width="2"/>';
+      pts.forEach(function (p, i) {
+        var xy = p.split(",");
+        svg += '<circle cx="' + xy[0] + '" cy="' + xy[1] + '" r="3.5" fill="#000"/><text x="' + xy[0] + '" y="' + (xy[1] - 8) + '" text-anchor="middle" font-size="11" font-weight="700">' + rows[i].total + "</text>";
+      });
+      return svg + '</svg><div class="tr-legend"><span><i style="background:#d4d4d4"></i>new that month</span><span><i class="line"></i>total owners</span></div>';
+    }
+    function tickets() {
+      var t = data.tickets, items = [["Sold", t.sold], ["Given (codes and gifts)", t.given], ["Spent on classes", t.classes], ["Spent on seminars", t.seminars]];
+      var max = Math.max.apply(null, items.map(function (x) { return x[1]; }).concat([1]));
+      return items.map(function (x) {
+        return '<div class="tc-bar"><span>' + esc(x[0]) + '</span><span class="t"><i style="width:' + (x[1] / max * 100) + '%"></i></span><span class="n">' + x[1] + "</span></div>";
+      }).join("") + '<p class="tc-note">' + t.balance + " tickets are sitting unused in students' accounts right now.</p>";
+    }
+    function ctf() {
+      var g = data.ctf.filter(function (r) { return r.students; });
+      if (!g.length) return '<p class="tc-empty">Make classes or cohorts on the Students page to compare them here.</p>';
+      return '<table class="tc-table"><tr><th>Class or cohort</th><th>Active</th><th>Solves</th><th>Points</th><th>Most solved</th></tr>' + g.map(function (r) {
+        return "<tr><td>" + esc(r.group) + " <small class='tc-note'>" + esc(r.kind || "") + "</small></td><td>" + r.active + " / " + r.students + "</td><td>" + r.solves +
+          "</td><td><b>" + r.points + "</b></td><td>" + esc(r.top || "–") + "</td></tr>";
+      }).join("") + "</table>";
+    }
+    function challenges() {
+      var c = data.challenges.slice(0, 12);
+      return '<table class="tc-table"><tr><th>Challenge</th><th>Unit</th><th>Solves</th><th>Attempts</th><th>Solve rate</th></tr>' + c.map(function (r) {
+        var rate = r.attempts ? Math.round(r.solves / r.attempts * 100) + "%" : "–";
+        return "<tr><td>" + esc(r.title) + "</td><td>" + r.unit + "</td><td>" + r.solves + "</td><td>" + r.attempts + "</td><td>" + rate + "</td></tr>";
+      }).join("") + "</table>" + (data.challenges.length > 12 ? '<p class="tc-note">Top 12 of ' + data.challenges.length + " by solves.</p>" : "");
+    }
+    function draw() {
+      var p = data.people, curs = {};
+      data.sales.forEach(function (r) { curs[r.currency] = 1; });
+      var list = Object.keys(curs).sort();
+      if (!cur || !curs[cur]) cur = list.indexOf("INR") >= 0 ? "INR" : list[0] || "INR";
+      var total = data.sales.filter(function (r) { return r.currency === cur; }).reduce(function (a, r) { return a + (+r.amount); }, 0);
+      $("status").textContent = "Since " + new Date(data.since).toLocaleDateString(undefined, { month: "long", year: "numeric" }) + " · refunds taken off";
+      $("r-kpis").innerHTML = kpi("Revenue", money(total, cur), data.months + " months, " + cur) + kpi("Students", p.students, "accounts") +
+        kpi("Course", p.course, "have the course") + kpi("Labs", p.labs, "own Labs") + kpi("Seminars", p.subscribers, "active subscribers") +
+        kpi("Certificates", p.certificates, "issued");
+      $("r-cur").innerHTML = list.length > 1 ? list.map(function (c) { return '<button class="btn' + (c === cur ? " dark" : "") + '" data-cur="' + c + '">' + c + "</button>"; }).join(" ") : esc(cur);
+      $("r-sales").innerHTML = sales();
+      $("r-labs").innerHTML = labs();
+      $("r-tickets").innerHTML = tickets();
+      $("r-ctf").innerHTML = ctf();
+      $("r-ch").innerHTML = challenges();
+      document.querySelectorAll("[data-cur]").forEach(function (b) { b.addEventListener("click", function () { cur = b.getAttribute("data-cur"); draw(); }); });
+    }
+    function load() {
+      $("status").textContent = "Loading…";
+      rpc("api_teacher_reports", { p_months: +$("r-months").value }).then(function (d) {
+        if (!d || !d.ok) throw new Error((d && d.error) || "Couldn't load the reports.");
+        data = d;
+        draw();
+      }).catch(function (e) { $("status").textContent = e.message; });
+    }
+    $("r-months").addEventListener("change", load);
+    $("r-csv").addEventListener("click", function () {
+      if (!data) return;
+      var q = function (v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var lines = [["section", "month", "product_or_group", "currency", "count", "amount_or_points"].join(",")];
+      data.sales.forEach(function (r) { lines.push(["sales", r.month, r.product, r.currency, r.count, r.amount].map(q).join(",")); });
+      data.labs.forEach(function (r) { lines.push(["labs_owners", r.month, "new " + r.new, "", r.total, ""].map(q).join(",")); });
+      data.ctf.forEach(function (r) { lines.push(["ctf", "", r.group, "", r.solves, r.points].map(q).join(",")); });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+      a.download = "aayat-reports-" + new Date().toISOString().slice(0, 10) + ".csv";
+      a.click();
+    });
+    load();
+  }
+
   var PAGES = { dash: dashboard, teach: teach, schedule: schedule, blog: blog, resources: resources, live: live, assign: assign,
-    videos: videos, lectures: present, ctf: ctf, seminars: seminarsPage, labs: labsPage };
+    videos: videos, lectures: present, ctf: ctf, seminars: seminarsPage, labs: labsPage, reports: reports };
   var OPEN = { blog: 1, resources: 1, accounts: 1 };
 
   function foot() {

@@ -5,7 +5,7 @@
   var ROOT = me ? me.replace(/assets\/theme\/store\.js.*$/, "") : "";
   var $ = function (id) { return document.getElementById(id); };
   var S = global.APCYBER_STORES || {};
-  var ORDER = ["course", "labs", "seminars", "tickets", "book"];
+  var ORDER = ["bundle", "course", "labs", "seminars", "tickets", "book"];
   var access = null;
 
   function esc(s) {
@@ -26,6 +26,7 @@
 
   function owned(k) {
     if (!access || !access.me) return "";
+    if (k === "bundle" && access.course && access.labs) return "You have the Course and Labs.";
     if (k === "course" && access.course) return "You have the course.";
     if (k === "labs" && access.labs) return "You have Labs.";
     if (k === "seminars" && access.seminarsUntil) return "Subscribed until " + day(access.seminarsUntil) + ".";
@@ -42,8 +43,13 @@
       live.length ? live.map(function (m) {
         return '<a class="btn dark" href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.label) + "</a> <small>" + esc(m.note) + "</small>";
       }).join("<br>") : '<p class="sx-empty">Payments for this open soon. Ask your teacher, or use a code below.</p>';
-    return '<section class="st-card' + (have && k !== "tickets" ? " own" : "") + '" id="' + k + '"><h2>' + esc(s.name) + "</h2>" +
+    var packs = (s.packs || []).filter(function (p) { return p.inr || p.usd; });
+    return '<section class="st-card' + (have && k !== "tickets" ? " own" : "") + (s.badge && !have ? " st-best" : "") + '" id="' + k + '">' +
+      (s.badge && !have ? '<span class="st-badge">' + esc(s.badge) + "</span>" : "") + "<h2>" + esc(s.name) + "</h2>" +
       (s.india ? '<div class="st-price">India: ' + esc(s.india) + "</div>" : "") + "<p>" + esc(s.blurb) + "</p>" +
+      (packs.length ? '<table class="st-packs"><tr><th>Pack</th><th>India</th><th>International</th></tr>' + packs.map(function (p) {
+        return "<tr><td>" + plural(p.tickets) + "</td><td>" + (p.inr ? "Rs " + esc(p.inr) : "&ndash;") + "</td><td>" + (p.usd ? "$" + esc(p.usd) : "&ndash;") + "</td></tr>";
+      }).join("") + "</table>" : "") +
       (have ? '<p class="st-have">' + esc(have) + "</p>" : "") +
       (have && k !== "tickets" && k !== "seminars" ? "" : '<div class="st-buy">' + buy + "</div>") + "</section>";
   }
@@ -54,6 +60,19 @@
     $("st-me").innerHTML = who ? "Signed in as <b>" + esc(who) + "</b>. Pay with this same email so your purchase lands on this account." +
       " Purchases show up within about 5 minutes." :
       'Sign in first, so the store can show what you already have. <button class="btn" id="st-signin">Sign in</button>';
+    if (who && access && access.me) {
+      $("st-me").insertAdjacentHTML("beforeend", '<label class="st-pref"><input type="checkbox" id="st-emails"' + (access.emails === false ? "" : " checked") + ">" +
+        "<span><b>Email me</b> when tickets arrive, a seminar unlocks, a class is about to start or a new video is posted. " +
+        '<small id="st-pref-msg"></small></span></label>');
+      $("st-emails").addEventListener("change", function () {
+        var on = $("st-emails").checked;
+        rpc("api_set_email_pref", { p_on: on }).then(function (r) {
+          if (!r || !r.ok) throw new Error((r && r.error) || "Couldn't save that.");
+          access.emails = on;
+          $("st-pref-msg").textContent = on ? "Emails on." : "Emails off.";
+        }).catch(function (e) { $("st-emails").checked = !on; $("st-pref-msg").textContent = e.message; });
+      });
+    }
     var b = $("st-signin");
     if (b) b.addEventListener("click", function () { if (global.Identity) global.Identity.open({}, function () { location.reload(); }); });
     var h = (access && access.history) || [];

@@ -46,7 +46,13 @@ def fields(s):
     f = s.get("custom_fields") or {}
     if isinstance(f, list):
         f = {str(x.get("name", "")): x.get("value") for x in f if isinstance(x, dict)}
-    return {str(k)[:100]: str(v)[:500] for k, v in f.items()} if isinstance(f, dict) else {}
+    f = dict(f) if isinstance(f, dict) else {}
+    v = s.get("variants")
+    if isinstance(v, dict):
+        f.update({"variant " + str(k): x for k, x in v.items()})
+    elif v:
+        f["variant"] = v
+    return {str(k)[:100]: str(x)[:500] for k, x in f.items()}
 
 
 def cents(v):

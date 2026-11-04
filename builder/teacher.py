@@ -22,6 +22,7 @@ SIDEBAR = [
     ("forum", "Classes & forum", SITE / "community.html"),
     ("progress", "Class progress", TEACHER / "progress.html"),
     ("grades", "Gradebook", TEACHER / "class-report.html"),
+    ("reports", "Reports", TEACHER / "reports.html"),
     ("tests", "Adaptive tests", TEACHER / "tests.html"),
     ("resources", "Resources", TEACHER / "resources.html"),
     ("blog", "Blog", TEACHER / "blog.html"),
@@ -322,6 +323,20 @@ def present_page():
     console(TEACHER / "present.html", "Present", "lectures", body, [])
 
 
+def reports_page():
+    body = ('<header class="tc-head"><div><h1>Reports</h1><p class="aa-sub" id="status">Loading…</p></div>'
+            '<div class="tc-headtools"><select id="r-months" aria-label="Period"><option value="3">Last 3 months</option>'
+            '<option value="6" selected>Last 6 months</option><option value="12">Last 12 months</option></select>'
+            '<button class="btn" id="r-csv">Download CSV</button></div></header>\n'
+            '<section class="tc-kpis" id="r-kpis"></section>\n'
+            '<div class="tc-row"><section class="tc-card"><h3>Sales by month <span class="tc-more" id="r-cur"></span></h3><div id="r-sales"></div></section>'
+            '<section class="tc-card"><h3>Labs owners</h3><div id="r-labs"></div></section></div>\n'
+            '<div class="tc-row"><section class="tc-card"><h3>Tickets in this period</h3><div id="r-tickets"></div></section>'
+            '<section class="tc-card"><h3>Capture the flag by class</h3><div id="r-ctf"></div></section></div>\n'
+            '<section class="tc-card"><h3>Challenges</h3><div id="r-ch"></div></section>')
+    console(TEACHER / "reports.html", "Reports", "reports", body)
+
+
 def blog_page():
     body = ('<header class="tc-head"><div><h1>Blog</h1><p class="aa-sub">Pre- and post-lecture posts for every skill, '
             'in course order. Copy one into your class stream, or share the link.</p></div>'
@@ -511,6 +526,7 @@ def run():
     lectures_page()
     present_page()
     blog_page()
+    reports_page()
     resources_page()
     accounts_page()
     class_progress_page()

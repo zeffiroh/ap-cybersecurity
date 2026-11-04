@@ -1,31 +1,10 @@
-hosts() {
-cat <<'HOSTS'
-10.0.0.1|gateway.corp.lan|53|tcp|domain|dnsmasq 2.89|0|
-10.0.0.1|gateway.corp.lan|80|tcp|http|lighttpd 1.4.69|0|Router login
-10.0.0.5|web01.corp.lan|22|tcp|ssh|OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)|0|
-10.0.0.5|web01.corp.lan|80|tcp|http|nginx 1.18.0 (Ubuntu)|0|NimbuMart
-10.0.0.5|web01.corp.lan|443|tcp|ssl/http|nginx 1.18.0 (Ubuntu)|0|NimbuMart
-10.0.0.5|web01.corp.lan|31337|tcp|Elite?|kworkerd backdoor (banner: KW-1.2 ready)|1|
-10.0.0.9|db01.corp.lan|22|tcp|ssh|OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)|0|
-10.0.0.9|db01.corp.lan|5432|tcp|postgresql|PostgreSQL DB 14.9 - 14.11|0|
-10.0.0.12|hr-laptop.corp.lan|135|tcp|msrpc|Microsoft Windows RPC|0|
-10.0.0.12|hr-laptop.corp.lan|139|tcp|netbios-ssn|Microsoft Windows netbios-ssn|0|
-10.0.0.12|hr-laptop.corp.lan|445|tcp|microsoft-ds?||0|
-10.0.0.12|hr-laptop.corp.lan|3389|tcp|ms-wbt-server|Microsoft Terminal Services|0|
-198.51.100.66|update.kworker-cdn.net|22|tcp|ssh|OpenSSH 9.6p1 (protocol 2.0)|0|
-198.51.100.66|update.kworker-cdn.net|80|tcp|http|nginx 1.24.0|0|403 Forbidden
-198.51.100.66|update.kworker-cdn.net|4444|tcp|krb524?|unknown (banner: KW-C2)|0|
-203.0.113.7||22|tcp|ssh|OpenSSH 9.2p1 Debian 2+deb12u2 (protocol 2.0)|0|
-203.0.113.7||8080|tcp|http|SimpleHTTPServer 0.6 (Python 3.11.2)|0|Directory listing for /
-HOSTS
-}
+NET="${AAYAT_NET:-/usr/local/share/aayat/net}"
+
+hosts() { grep -v '^os|' "$NET/hosts.txt" 2>/dev/null; }
 
 os_of() {
-  case "$1" in
-    10.0.0.12) echo "Microsoft Windows 10|1909 - 21H2" ;;
-    10.0.0.1) echo "Linux 5.X|OpenWrt 23.05" ;;
-    *) echo "Linux 5.X|Linux 5.4 - 5.15" ;;
-  esac
+  o=$(grep "^os|$1|" "$NET/hosts.txt" 2>/dev/null | head -1 | cut -d'|' -f3-)
+  [ -n "$o" ] && echo "$o" || echo "Linux 5.X|Linux 5.4 - 5.15"
 }
 
 usage() {
@@ -36,8 +15,13 @@ usage() {
   echo "  -O             guess the operating system"
   echo "  -A             -sV -O and default scripts"
   echo "  -p 22,80 | -p 1-1024 | -p-   ports to scan (-p- = all 65535)"
-  echo "Targets: 10.0.0.0/24, 10.0.0.5, web01, 198.51.100.66, 203.0.113.7 ..."
+  echo "Targets in this case: $(hosts | cut -d'|' -f1 | sort -u | tr '\n' ' ')"
 }
+
+if [ ! -f "$NET/hosts.txt" ]; then
+  echo "nmap: the lab network isn't loaded yet. In the Linux lab press \"Create the lab files\"; in a notebook, run any Linux cell first." >&2
+  exit 1
+fi
 
 sv=0; os=0; sc=0; ping=0; all=0; ports=""; targets=""
 while [ $# -gt 0 ]; do
@@ -65,14 +49,10 @@ sleep 1
 
 resolve() {
   case "$1" in
-    10.0.0.0/24|10.0.0.*/24|10.0.0.0/16) echo "10.0.0.1 10.0.0.5 10.0.0.9 10.0.0.12" ;;
-    web01|web01.corp.lan|shop.nimbumart.test) echo 10.0.0.5 ;;
-    db01|db01.corp.lan) echo 10.0.0.9 ;;
-    gateway|gateway.corp.lan) echo 10.0.0.1 ;;
-    hr-laptop|hr-laptop.corp.lan) echo 10.0.0.12 ;;
-    update.kworker-cdn.net) echo 198.51.100.66 ;;
+    */16) p="${1%/*}"; p="${p%.*}"; p="${p%.*}."; hosts | cut -d'|' -f1 | grep "^$p" | sort -u -t. -k1,1n -k2,2n -k3,3n -k4,4n | tr '\n' ' ' ;;
+    */*) p="${1%/*}"; p="${p%.*}."; hosts | cut -d'|' -f1 | grep "^$p" | sort -u -t. -k1,1n -k2,2n -k3,3n -k4,4n | tr '\n' ' ' ;;
     [0-9]*.[0-9]*.[0-9]*.[0-9]*) echo "$1" ;;
-    *) echo "FAIL" ;;
+    *) a=$(awk -v n="$1" '$1 == "A" && ($2 == n || $2 == n ".") { print $3; exit }' "$NET/dns.txt" 2>/dev/null); echo "${a:-FAIL}" ;;
   esac
 }
 
@@ -83,7 +63,7 @@ for t in $targets; do
     echo "Failed to resolve \"$t\"."
     continue
   fi
-  case "$t" in */*) count=$((count + 256)) ;; *) count=$((count + 1)) ;; esac
+  case "$t" in */16) count=$((count + 65536)) ;; */*) count=$((count + 256)) ;; *) count=$((count + 1)) ;; esac
   for ip in $ips; do
     if ! hosts | grep -q "^$ip|"; then
       continue
@@ -91,9 +71,9 @@ for t in $targets; do
     up=$((up + 1))
     name=$(hosts | grep "^$ip|" | head -1 | cut -d'|' -f2)
     if [ -n "$name" ]; then echo "Nmap scan report for $name ($ip)"; else echo "Nmap scan report for $ip"; fi
-    case "$ip" in 10.0.0.*) echo "Host is up (0.00042s latency)." ;; *) echo "Host is up (0.048s latency)." ;; esac
+    case "$ip" in 10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*) echo "Host is up (0.00042s latency)." ;; *) echo "Host is up (0.048s latency)." ;; esac
     if [ "$ping" = 1 ]; then
-      case "$ip" in 10.0.0.*) echo "MAC Address: 52:54:00:12:34:$(printf '%02X' "${ip##*.}") (QEMU virtual NIC)" ;; esac
+      case "$ip" in 10.*|192.168.*) echo "MAC Address: 52:54:00:12:34:$(printf '%02X' "${ip##*.}") (QEMU virtual NIC)" ;; esac
       continue
     fi
     hosts | awk -F'|' -v ip="$ip" -v all="$all" -v ports="$ports" -v sv="$sv" -v sc="$sc" '
@@ -134,13 +114,13 @@ for t in $targets; do
           if (sc && title[i] != "") printf "|_http-title: %s\n", title[i]
         }
       }'
+    o=$(os_of "$ip")
     if [ "$os" = 1 ]; then
-      o=$(os_of "$ip")
       echo "Running: ${o%%|*}"
       echo "OS details: ${o#*|}"
     fi
     if [ "$sv" = 1 ]; then
-      case "$ip" in 10.0.0.12) echo "Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows" ;; *) echo "Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel" ;; esac
+      case "$o" in *Windows*) echo "Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows" ;; *) echo "Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel" ;; esac
     fi
     echo
   done

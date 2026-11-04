@@ -4,7 +4,7 @@ usage() {
   echo "  -Y FILTER         display filter, e.g. -Y 'ip.addr==198.51.100.66'"
   echo "                    fields: ip.src ip.dst ip.addr tcp.port tcp.srcport tcp.dstport frame.len"
   echo "                    http.request http.request.method http.request.uri http.host http.user_agent"
-  echo "                    dns.qry.name tcp.flags.syn==1   protocols: http dns tcp udp tls ssh pgsql"
+  echo "                    dns.qry.name tcp.flags.syn==1   protocols: http dns tcp udp tls ssh smb2 smtp pgsql"
   echo "                    joiners: and or not == != > < contains"
   echo "  -c N              stop after N packets"
   echo "  -T fields -e F    print only fields, e.g. -T fields -e ip.src -e http.request.uri"
@@ -62,6 +62,8 @@ if [ -n "$filter" ]; then
     -e 's/(^|[^a-z.@])tls($|[^a-z.@])/\1(@PROTO@~"^TLS")\2/g' \
     -e 's/(^|[^a-z.@])ssh($|[^a-z.@])/\1(@PROTO@~"^SSH")\2/g' \
     -e 's/(^|[^a-z.@])pgsql($|[^a-z.@])/\1(@PROTO@=="PGSQL")\2/g' \
+    -e 's/(^|[^a-z.@])smb2?($|[^a-z0-9.@])/\1(@PROTO@=="SMB2")\2/g' \
+    -e 's/(^|[^a-z.@])smtp($|[^a-z.@])/\1(@PROTO@=="SMTP")\2/g' \
     -e 's/(^|[^a-z.@])udp($|[^a-z.@])/\1(@PROTO@=="DNS")\2/g' \
     -e 's/(^|[^a-z.@])tcp($|[^a-z.@])/\1(@PROTO@!="DNS")\2/g' \
     -e 's/(^|[^a-z.@])ip($|[^a-z.@])/\11\2/g' \
@@ -107,75 +109,55 @@ fi
 
 [ -z "$stat" ] && exit 0
 
-line="================================================================================"
+NET="${AAYAT_NET:-/usr/local/share/aayat/net}"
+f="$NET/stats/$(echo "$stat" | tr ',' '_').txt"
+if [ -f "$f" ] && [ -z "$filter" ]; then cat "$f"; exit 0; fi
+
 case "$stat" in
-  conv,ip)
-    echo "$line"
-    echo "IPv4 Conversations"
-    echo "Filter:<No Filter>"
-    echo "                                               |       <-      | |       ->      | |     Total     |"
-    echo "                                               | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |"
-    echo "10.0.0.5             <-> 198.51.100.66          1,214  79 kB     33,312  48 MB     34,526  48 MB"
-    echo "10.0.0.5             <-> 10.0.0.9                 410  5,412 kB    388  31 kB         798  5,443 kB"
-    echo "10.0.0.5             <-> 203.0.113.7               96  38 kB        104  14 kB         200  52 kB"
-    echo "10.0.0.5             <-> 198.51.100.20             22  14 kB         18  3,104 bytes    40  17 kB"
-    echo "10.0.0.12            <-> 10.0.0.1                   2  110 bytes      2  78 bytes        4  188 bytes"
-    echo "10.0.0.5             <-> 10.0.0.1                   1  102 bytes      1  86 bytes        2  188 bytes"
-    echo "$line" ;;
-  conv,tcp)
-    echo "$line"
-    echo "TCP Conversations"
-    echo "Filter:<No Filter>"
-    echo "                                               |  Frames  Bytes  |"
-    echo "10.0.0.5:46640        <-> 198.51.100.66:4444    33,293  48 MB"
-    echo "10.0.0.5:45020        <-> 10.0.0.9:5432            798  5,443 kB"
-    echo "10.0.0.5:80           <-> 203.0.113.7:502xx        142  40 kB"
-    echo "10.0.0.5:22           <-> 203.0.113.7:50391         58  12 kB"
-    echo "10.0.0.5:466xx        <-> 198.51.100.66:4444        30  8,402 bytes   (one every 60 s)"
-    echo "10.0.0.5:46602        <-> 198.51.100.66:80          10  4,120 bytes"
-    echo "10.0.0.5:443          <-> 198.51.100.20:51544       40  17 kB"
-    echo "$line" ;;
-  endpoints,ip)
-    echo "$line"
-    echo "IPv4 Endpoints"
-    echo "Filter:<No Filter>"
-    echo "                       |  Packets  | |  Bytes  |"
-    echo "10.0.0.5                    35,568     53 MB"
-    echo "198.51.100.66               34,526     48 MB"
-    echo "10.0.0.9                       798   5,443 kB"
-    echo "203.0.113.7                    200     52 kB"
-    echo "198.51.100.20                   40     17 kB"
-    echo "10.0.0.1                         6    376 bytes"
-    echo "10.0.0.12                        4    188 bytes"
-    echo "$line" ;;
-  io,phs)
-    echo "$line"
-    echo "Protocol Hierarchy Statistics"
-    echo "Filter: "
-    echo ""
-    echo "eth                                      frames:35574 bytes:53620112"
-    echo "  ip                                     frames:35574 bytes:53620112"
-    echo "    tcp                                  frames:35568 bytes:53619736"
-    echo "      data                               frames:33323 bytes:48222154"
-    echo "      pgsql                              frames:798   bytes:5443810"
-    echo "      http                               frames:28    bytes:9640"
-    echo "      ssh                                frames:58    bytes:12204"
-    echo "      tls                                frames:40    bytes:17410"
-    echo "    udp                                  frames:6     bytes:376"
-    echo "      dns                                frames:6     bytes:376"
-    echo "$line" ;;
-  http,tree)
-    echo "$line"
-    echo "HTTP/Packet Counter:"
-    echo "Topic / Item            Count"
-    echo "Total HTTP Packets         28"
-    echo " HTTP Request Packets      14"
-    echo "  GET                      13"
-    echo "  POST                      1"
-    echo " HTTP Response Packets     14"
-    echo "  2xx: Success             12"
-    echo "  5xx: Server Error         1"
-    echo "  4xx: Client Error         1"
-    echo "$line" ;;
+  conv,ip|conv,tcp|endpoints,ip|io,phs|http,tree) ;;
   *) echo "tshark: Invalid -z argument \"$stat\"; try conv,ip conv,tcp endpoints,ip io,phs http,tree" >&2; exit 1 ;;
 esac
+
+awk -F'|' -v stat="$stat" -v flt="${filter:-<No Filter>}" '
+  function human(b) { return b >= 1048576 ? sprintf("%.1f MB", b / 1048576) : b >= 1024 ? sprintf("%d kB", b / 1024) : b " bytes" }
+  /^#/ { next }
+  {
+    no++; src = $2; sp = $3; dst = $4; dp = $5; proto = $6; len = $7; info = $8; method = $9
+    if (!('"$cond"')) next
+    if (stat == "conv,ip" || stat == "conv,tcp") {
+      a = (stat == "conv,ip") ? src : src ":" sp; b = (stat == "conv,ip") ? dst : dst ":" dp
+      k = (a < b) ? a " <-> " b : b " <-> " a
+      if (!(k in fr)) order[++n] = k
+      fr[k]++; by[k] += len
+    } else if (stat == "endpoints,ip") {
+      if (!(src in fr)) order[++n] = src
+      if (!(dst in fr)) order[++n] = dst
+      fr[src]++; by[src] += len; fr[dst]++; by[dst] += len
+    } else if (stat == "io,phs") {
+      if (!(proto in fr)) order[++n] = proto
+      fr[proto]++; by[proto] += len; tf++; tb += len
+    } else if (stat == "http,tree" && proto == "HTTP") {
+      tot++
+      if (method != "") { req++; m[method]++ } else { resp++; c = substr(info, index(info, " ") + 1, 1); cls[c]++ }
+    }
+  }
+  END {
+    print "================================================================================"
+    if (stat == "conv,ip" || stat == "conv,tcp") { print (stat == "conv,ip" ? "IPv4" : "TCP") " Conversations"; print "Filter:" flt; printf "%-46s %8s %12s\n", "", "Frames", "Bytes" }
+    if (stat == "endpoints,ip") { print "IPv4 Endpoints"; print "Filter:" flt; printf "%-24s %8s %12s\n", "", "Packets", "Bytes" }
+    if (stat == "io,phs") { print "Protocol Hierarchy Statistics"; print "Filter: " flt; print ""; printf "%-40s frames:%d bytes:%d\n", "frames", tf, tb }
+    if (stat == "http,tree") {
+      print "HTTP/Packet Counter:"; printf "%-24s %6s\n", "Topic / Item", "Count"; printf "%-24s %6d\n", "Total HTTP Packets", tot
+      printf "%-24s %6d\n", " HTTP Request Packets", req; for (k in m) printf "%-24s %6d\n", "  " k, m[k]
+      printf "%-24s %6d\n", " HTTP Response Packets", resp; for (k in cls) printf "%-24s %6d\n", "  " k "xx", cls[k]
+    }
+    for (i = 1; i <= n; i++) for (j = i + 1; j <= n; j++) if (by[order[j]] > by[order[i]]) { t = order[i]; order[i] = order[j]; order[j] = t }
+    for (i = 1; i <= n; i++) {
+      k = order[i]
+      if (stat == "endpoints,ip") printf "%-24s %8d %12s\n", k, fr[k], human(by[k])
+      else if (stat == "io,phs") printf "  %-38s frames:%d bytes:%d\n", tolower(k), fr[k], by[k]
+      else if (stat != "http,tree") printf "%-46s %8d %12s\n", k, fr[k], human(by[k])
+    }
+    print "================================================================================"
+    if (stat != "http,tree") print "(Counted from the frames in this trimmed capture.)"
+  }' "$cap"
