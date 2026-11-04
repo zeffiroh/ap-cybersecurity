@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import html
 import io
@@ -176,18 +177,168 @@ ASSIGN_STYLE = """<style>
 """
 
 
+def prompt_sections(text):
+    head, out, cur = [], {}, None
+    for line in text.splitlines():
+        m = re.match(r"## (.+)$", line)
+        if m:
+            cur = m.group(1).strip().lower()
+            out[cur] = []
+        elif cur is None:
+            head.append(line)
+        else:
+            out[cur].append(line)
+    return "\n".join(head).strip(), {k: "\n".join(v).strip() for k, v in out.items()}
+
+
+def pyexpr(text):
+    t = text.strip().rstrip(",").strip()
+    for cand in (t, re.sub(r"\btrue\b", "True", re.sub(r"\bfalse\b", "False", re.sub(r"\bnull\b", "None", t)))):
+        try:
+            ast.parse(cand, mode="eval")
+            return cand
+        except SyntaxError:
+            continue
+    return None
+
+
+def examples(block, funcs, nargs):
+    body = re.sub(r"(?m)^```\w*\s*$", "", block.strip())
+    lines = [l for l in body.splitlines() if l.strip()]
+    if lines and all("->" in l for l in lines):
+        chunks = lines
+    else:
+        chunks = re.split(r"\n\s*\n", body)
+    out = []
+    for ch in chunks:
+        ch = "\n".join(re.sub(r"\s+#.*$", "", l) for l in ch.splitlines()).strip()
+        i = ch.rfind("->")
+        if i < 0:
+            continue
+        inp, exp = pyexpr(ch[:i]), pyexpr(ch[i + 2:])
+        if inp is None or exp is None:
+            continue
+        node = ast.parse(inp, mode="eval").body
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            call = inp if node.func.id in funcs else "solve" + inp[len(node.func.id):]
+        else:
+            try:
+                val = ast.literal_eval(inp)
+            except ValueError:
+                continue
+            if nargs > 1:
+                if not (isinstance(val, tuple) and len(val) == nargs):
+                    continue
+                call = "solve(*" + inp + ")"
+            else:
+                call = "solve(" + inp + ")"
+        out.append((call, exp))
+    return out
+
+
+def test_examples(tests, limit=4):
+    out = []
+    try:
+        tree = ast.parse(tests)
+    except SyntaxError:
+        return out
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare) and len(node.test.ops) == 1
+                and isinstance(node.test.ops[0], ast.Eq) and isinstance(node.test.left, ast.Call)):
+            continue
+        f = node.test.left.func
+        if not (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id == "impl"):
+            continue
+        call = ast.unparse(node.test.left).replace("impl.", "", 1)
+        if len(call) > 400:
+            continue
+        out.append((call, ast.unparse(node.test.comparators[0])))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def verified(cases, solution_code):
+    env = {"__name__": "aayat_reference"}
+    try:
+        exec(compile(solution_code, "reference", "exec"), env)
+    except Exception:
+        return []
+    keep = []
+    for call, exp in cases:
+        try:
+            ast.parse("(" + call + ",\n" + exp + ")", mode="eval")
+            if eval(call, dict(env)) == eval(exp, dict(env)):
+                keep.append((call, exp))
+        except Exception:
+            continue
+    return keep
+
+
+def functions(code):
+    try:
+        return {n.name: len(n.args.args) for n in ast.walk(ast.parse(code)) if isinstance(n, ast.FunctionDef)}
+    except SyntaxError:
+        return {}
+
+
+def checklist(text):
+    items = [re.sub(r"^\s*-\s*", "", l).strip() for l in text.splitlines() if re.match(r"\s*-\s+\S", l)]
+    return "\n".join("- [ ] " + i for i in items)
+
+
 def notebook_cells(a, solution):
     p = a["src"] / "problem"
-    heading = f"# {a['title']}" + ("  (MODEL SOLUTION, instructor copy, do not distribute)" if solution else "")
-    intro = heading + "\n\n" + web_prompt(rd(p / "prompt.md")) + "\n## Reference\n" + \
-        re.sub(r"(?m)^#( |#)", r"##\1", web_text(rd(p / "interface.md"))).split("\n", 1)[-1].lstrip("\n")
-    code = ("# Reference solution\n" + web_code(rd(p / "solution.py"))) if solution else \
-        ("# Your implementation\n" + web_code(rd(p / "starter.py")))
-    tests = web_tests(rd(p / "tests.py")).replace("import impl\n", "import __main__ as impl  # the functions defined above\n", 1)
+    info = parse_atom(a["src"])
+    head, sec = prompt_sections(web_prompt(rd(p / "prompt.md")))
+    skill = next((l for l in head.splitlines() if l.startswith("**Skill:**")), "")
+    code_src = web_code(rd(p / "solution.py")) if solution else web_code(rd(p / "starter.py"))
+    reference = re.sub(r"(?m)^#( |#)", r"###\1", web_text(rd(p / "interface.md"))).split("\n", 1)[-1].strip()
+    title = f"# Runbook {a['id']}: {a['title']}" + ("  (MODEL SOLUTION, instructor copy, do not distribute)" if solution else "")
+    steps = "1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up"
+    brief = (f"{title}\n\n{skill}\n\n**Steps:** {steps}\n\n## 1. Brief\n\n**The situation.** {sec.get('problem', '')}\n\n"
+             f"**Lesson objective.** {one_line(info['objective'])}\n\n"
+             + (f"### What comes in\n{sec['input']}\n\n" if sec.get("input") else "")
+             + (f"### What must come out\n{sec['output']}\n\n" if sec.get("output") else "")
+             + "- [ ] Read the situation and say in one sentence what the tool must decide\n"
+               "- [ ] Find the input and the output above")
+    plan = "## 2. Plan\n\nWork it out on paper before you write code.\n\n"
+    if sec.get("examples"):
+        plan += "### Worked examples\n" + sec["examples"] + "\n\n- [ ] Work the first example by hand and get the same answer\n"
+    rules = checklist(sec.get("constraints", ""))
+    plan += ("\n### Rules to respect\n" + rules + "\n" if rules else "") + \
+        "- [ ] Write the steps your function will take, in plain words\n- [ ] List two edge cases (an empty input, a tricky value)\n\n" + \
+        "<details><summary>Reference: the exact contract</summary>\n\n" + reference + "\n\n</details>"
+    build = "## 3. Build it\n\n" + ("This is the model solution." if solution else
+                                    "Fill in `solve` below. Run the cell (Shift+Enter) after each change.") + \
+        "\n\n- [ ] `solve` handles the worked examples\n- [ ] `solve` handles your edge cases"
+    tests = web_tests(rd(p / "tests.py")).replace("import impl\n", "import __main__ as impl\n", 1)
+    tests = re.sub(r"(?m)^(import __main__ as impl)\s+#.*$", r"\1", tests)
     tests = tests.rstrip("\n") + "\n" + NB_RUNNER
-    return [("markdown", intro), ("code", code),
-            ("markdown", "## Self-check tests\nRun the cell below to check your `solve` implementation above."),
-            ("code", tests)]
+    test_md = "## 4. Test it\n\nThe tests are the acceptance check, like a change review before a fix goes live.\n\n" \
+              "- [ ] Run the tests\n- [ ] Every test says PASS (if not, read the message, go back to step 3)"
+    fns = functions(code_src)
+    ref = web_code(rd(p / "solution.py"))
+    ex = verified(examples(sec.get("examples", ""), fns, fns.get("solve", 1)), ref)
+    if not ex:
+        ex = verified(test_examples(web_tests(rd(p / "tests.py")), limit=12), ref)[:4]
+    cells = [("markdown", brief), ("markdown", plan), ("markdown", build), ("code", code_src), ("markdown", test_md), ("code", tests)]
+    if ex:
+        run = "checks = [\n" + "".join(f"    (lambda: {c},\n     {e}),\n" for c, e in ex) + "]\n\n" + \
+            "for n, (run, want) in enumerate(checks, 1):\n" + \
+            "    try:\n        got = run()\n    except Exception as e:\n        got = \"error: \" + repr(e)\n" + \
+            "    print(\"example\", n, \"OK  \" if got == want else \"DIFF\", \"got:\", got, \" expected:\", want)\n"
+        cells += [("markdown", "## 5. Try it on the evidence\n\nRun your finished tool on the examples from the brief, then change one value and predict "
+                               "the answer before you run it again.\n\n- [ ] Every example says OK\n- [ ] Your own changed example gives the answer you predicted"),
+                  ("code", run)]
+    else:
+        cells += [("markdown", "## 5. Try it on the evidence\n\nCall `solve` on an input you make up, and predict the answer first.\n\n"
+                               "- [ ] Your prediction matched")]
+    cells.append(("markdown", "## 6. Wrap up\n\n- [ ] Explain in one sentence why your rule catches the problem\n"
+                              "- [ ] Name one way an attacker could slip past it (a false negative)\n"
+                              "- [ ] Name one harmless input it might wrongly flag (a false positive)\n"
+                              "- [ ] Say where this check would run in a real organisation, and who would act on it"))
+    return cells
 
 
 def ipynb(aid, cells, salt):

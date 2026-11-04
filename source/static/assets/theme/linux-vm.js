@@ -5,7 +5,7 @@
   var ROOT = me ? me.replace(/assets\/theme\/linux-vm\.js.*$/, "") : "";
   var LINUX = ROOT + "assets/linux/";
   var MARK = "__AYT";
-  var TOOLS = ["nmap", "curl", "tshark", "dig"];
+  var TOOLS = ["aayat-net", "nmap", "curl", "tshark", "dig", "ping", "traceroute", "nslookup", "host", "whois", "nc", "wget", "ssh", "openssl", "gobuster", "nikto"];
   var NET = "/usr/local/share/aayat/net";
 
   var vm = null, booting = null, job = null, queue = Promise.resolve(), listeners = [], muted = 0;
@@ -116,6 +116,18 @@
     });
   }
 
+  var batch = 0;
+  function viaShare(dest, bodies) {
+    if (!vm || !vm.create_file) return Promise.reject(new Error("no share"));
+    var k = ++batch, enc = new TextEncoder();
+    var list = dest.map(function (d, i) { return "x" + k + "_" + i + " " + d; }).join("\n") + "\n";
+    return Promise.all(bodies.map(function (b, i) {
+      return vm.create_file("/x" + k + "_" + i, enc.encode(b.replace(/\r/g, "")));
+    }).concat([vm.create_file("/x" + k + "_list", enc.encode(list))])).then(function () {
+      return "while read f d; do mkdir -p \"$(dirname \"$d\")\"; cp \"/mnt/$f\" \"$d\"; done < /mnt/x" + k + "_list\nrm -f /mnt/x" + k + "_*";
+    });
+  }
+
   function installCase(id, status) {
     id = String(id || "web01");
     if (installed === id) return Promise.resolve(manifests[id]);
@@ -126,21 +138,25 @@
       return Promise.all(TOOLS.map(function (t) { return text(LINUX + "tools/" + t); }).concat(m.files.map(function (f) {
         return text(LINUX + "cases/" + m.id + "/" + f);
       }))).then(function (all) {
-        var lines = ["mkdir -p ~/case /usr/local/bin /usr/local/share/aayat", "rm -rf ~/case/* " + NET, "mkdir -p " + NET + "/www",
-          "export PATH=/usr/local/bin:$PATH"], n = 0;
-        var put = function (path, body) {
-          var eof = MARK + "_F" + (n++) + "__";
-          body = body.replace(/\r/g, "").replace(/\t/g, "    ");
-          lines.push("mkdir -p \"$(dirname " + path + ")\"", "cat > " + path + " <<'" + eof + "'\n" + body + (/\n$/.test(body) ? "" : "\n") + eof);
-        };
-        TOOLS.forEach(function (t, i) { put("/usr/local/bin/" + t, all[i]); lines.push("chmod +x /usr/local/bin/" + t); });
+        var dest = [], bodies = [];
+        TOOLS.forEach(function (t, i) { dest.push("/usr/local/bin/" + t); bodies.push(all[i]); });
         m.files.forEach(function (f, i) {
-          var body = all[TOOLS.length + i];
-          if (/^case\//.test(f)) put("~/case/" + f.slice(5), body);
-          else if (/^net\//.test(f)) put(NET + "/" + f.slice(4), body);
+          if (/^case\//.test(f)) dest.push("/root/case/" + f.slice(5));
+          else if (/^net\//.test(f)) dest.push(NET + "/" + f.slice(4));
+          else return;
+          bodies.push(all[TOOLS.length + i]);
         });
-        lines.push("chmod +x ~/case/suspect/* 2>/dev/null; true", "cd ~/case");
-        return shell(lines.join("\n"), { hide: true });
+        var head = ["mkdir -p /root/case /usr/local/bin /usr/local/share/aayat", "rm -rf /root/case/* " + NET, "mkdir -p " + NET + "/www",
+          "export PATH=/usr/local/bin:$PATH"];
+        var tail = ["chmod +x /usr/local/bin/* /root/case/suspect/* 2>/dev/null; true", "cd /root/case"];
+        return viaShare(dest, bodies).then(function (script) { return script; }, function () {
+          var lines = [], n = 0;
+          dest.forEach(function (path, i) {
+            var eof = MARK + "_F" + (n++) + "__", body = bodies[i].replace(/\r/g, "").replace(/\t/g, "    ");
+            lines.push("mkdir -p \"$(dirname " + path + ")\"", "cat > " + path + " <<'" + eof + "'\n" + body + (/\n$/.test(body) ? "" : "\n") + eof);
+          });
+          return lines.join("\n");
+        }).then(function (script) { return shell(head.concat([script], tail).join("\n"), { hide: true }); });
       }).then(function () { installed = id; if (status) status(""); return m; });
     });
     installing = { id: id, p: p };

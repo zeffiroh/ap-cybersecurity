@@ -1,0 +1,39 @@
+. /usr/local/bin/aayat-net
+net_ready wget
+url=""; out=""; quiet=0; stdout=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -O) out="$2"; shift ;;
+    -q) quiet=1 ;;
+    -qO-|-O-) quiet=1; stdout=1 ;;
+    -h|--help) echo "Usage: wget [-q] [-O FILE] URL   (lab copy)"; exit 0 ;;
+    -*) ;;
+    *) url="$1" ;;
+  esac
+  shift
+done
+[ "$out" = "-" ] && stdout=1
+[ -z "$url" ] && { echo "wget: missing URL"; exit 1; }
+case "$url" in *://*) ;; *) url="http://$url" ;; esac
+head=$(/usr/local/bin/curl -s -I "$url" 2>&1)
+rc=$?
+host=$(echo "$url" | sed 's|^[a-z]*://||; s|[/:].*||')
+if [ "$rc" != 0 ]; then
+  [ "$quiet" = 0 ] && echo "Connecting to $host... failed: $(echo "$head" | sed 's/^curl: ([0-9]*) //')"
+  exit 4
+fi
+status=$(echo "$head" | head -1 | cut -d' ' -f2-)
+len=$(echo "$head" | awk -F': ' '/^Content-Length/ {print $2}')
+if [ "$stdout" = 1 ]; then /usr/local/bin/curl -s "$url"; exit 0; fi
+if [ -z "$out" ]; then
+  out=$(basename "$(echo "$url" | sed 's|[?#].*||')")
+  case "$out" in ""|*:*|"$host") out=index.html ;; esac
+fi
+if [ "$quiet" = 0 ]; then
+  echo "Connecting to $host ($(resolve "$host"))"
+  echo "HTTP request sent, awaiting response... $status"
+fi
+case "$status" in 2*) ;; *) [ "$quiet" = 0 ] && echo "wget: server returned error: HTTP/1.1 $status"; exit 8 ;; esac
+/usr/local/bin/curl -s -o "$out" "$url"
+[ "$quiet" = 0 ] && echo "Length: $len" && echo "Saving to: '$out'" && echo "'$out' saved"
+exit 0

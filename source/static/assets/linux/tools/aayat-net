@@ -1,0 +1,35 @@
+NET="${AAYAT_NET:-/usr/local/share/aayat/net}"
+
+net_ready() {
+  if [ ! -f "$NET/hosts.txt" ]; then
+    echo "$1: the lab network isn't loaded yet. In the Linux lab press \"Create the lab files\"; in a notebook, run any Linux cell first." >&2
+    exit 1
+  fi
+}
+
+resolve() {
+  case "$1" in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) echo "$1" ;;
+    *) awk -v n="${1%.}" '$1 == "A" && ($2 == n || $2 == n ".") { print $3; exit }' "$NET/dns.txt" 2>/dev/null ;;
+  esac
+}
+
+ptr() { awk -v n="$1" '$1 == "PTR" && $2 == n { sub(/\.$/, "", $3); print $3; exit }' "$NET/dns.txt" 2>/dev/null; }
+
+known() { grep -q "^$1|" "$NET/hosts.txt" 2>/dev/null; }
+
+port_open() { awk -F'|' -v ip="$1" -v p="$2" '$1 == ip && $3 == p { f = 1 } END { exit !f }' "$NET/hosts.txt" 2>/dev/null; }
+
+service() { awk -F'|' -v ip="$1" -v p="$2" '$1 == ip && $3 == p { print $5 "|" $6; exit }' "$NET/hosts.txt" 2>/dev/null; }
+
+private() { case "$1" in 10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 0 ;; esac; return 1; }
+
+gateway() {
+  g=$(awk '$1 == "SERVER" { print $2; exit }' "$NET/dns.txt" 2>/dev/null)
+  [ -z "$g" ] && g=$(grep -v '^os|' "$NET/hosts.txt" | cut -d'|' -f1 | grep '\.1$' | head -1)
+  echo "${g:-10.0.0.1}"
+}
+
+ms() { awk -v s="$1" -v b="$2" 'BEGIN { srand(s); printf "%.3f", b + rand() * b * 0.25 }'; }
+
+name_of() { n=$(ptr "$1"); echo "${n:-$1}"; }

@@ -12,18 +12,17 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Weak authentication patterns; adversary dictionary construction</h1>
-<h1>Coding problem 1.2.b: Password weakness reporter</h1>
+<div class="nb-cell nb-md"><h1>Runbook 1.2.b: Weak authentication patterns; adversary dictionary construction</h1>
 <p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 1.2.B · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>Build the password-weakness checker an authentication backend would use to give users actionable
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> Build the password-weakness checker an authentication backend would use to give users actionable
 feedback when they choose a new password. Given a password string, return a report dict
 identifying whether the password is weak and which specific rules it violates.</p>
-<h2>Function contract</h2>
-<p>Implement <code>solve(password: str) -&gt; dict</code> in the code editor (see the Reference section below).</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Evaluate a password against the core weakness criteria (length, dictionary membership, character variety, and sequential/repeated patterns) and explain how adversaries build and use wordlists to attack weak passwords.</p>
+<h3>What comes in</h3>
 <p>A single string, the candidate password. May be empty.</p>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p>A dict with exactly two keys:
 - <code>"weak"</code> (<code>bool</code>), <code>True</code> if the password fails ANY rule; <code>False</code> only if it passes all rules.
 - <code>"reasons"</code> (<code>list[str]</code>), sorted list of rule-labels for each rule the password fails.
@@ -34,7 +33,13 @@ identifying whether the password is weak and which specific rules it violates.</
 - <code>"only_lowercase"</code>: contains no uppercase letters, digits, or non-alphabetic characters
 - <code>"sequential_or_repeated"</code>: contains a sequential run of 3+ characters (e.g. <code>abc</code>, <code>123</code>,
   <code>xyz</code>) OR a repeated run of 3+ identical characters (e.g. <code>aaa</code>, <code>111</code>)</p>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>solve(&quot;password&quot;)
 -&gt; {&quot;weak&quot;: True, &quot;reasons&quot;: [&quot;in_dictionary&quot;, &quot;only_lowercase&quot;, &quot;too_short&quot;]}
 
@@ -47,29 +52,34 @@ solve(&quot;Tr0ub4dor&amp;3abcde&quot;)
 solve(&quot;mXk9#vLq2@nP&quot;)
 -&gt; {&quot;weak&quot;: False, &quot;reasons&quot;: []}
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>The common wordlist is defined in the Reference section below and must be embedded in your solution.</li>
-<li>Reasons list is always sorted ascending.</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] The common wordlist is defined in the Reference section below and must be embedded in your solution.</li>
+<li>[ ] Reasons list is always sorted ascending.</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(password: str) -&gt; dict
 </code></pre>
-<h3>Input (<code>password</code>)</h3>
+<h4>Input (<code>password</code>)</h4>
 <p>A single <code>str</code>, the candidate password. May be empty or contain any Unicode.</p>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <p>A <code>dict</code> with exactly these keys:
 - <code>"weak"</code> (<code>bool</code>), <code>True</code> if any rule below is triggered; <code>False</code> if all rules pass.
 - <code>"reasons"</code> (<code>list[str]</code>), sorted list of triggered rule labels (see below). Empty if no rules triggered.</p>
-<h3>Rules (all must be checked; collect all failures)</h3>
-<h4>Rule 1: <code>"too_short"</code></h4>
+<h4>Rules (all must be checked; collect all failures)</h4>
+<h5>Rule 1: <code>"too_short"</code></h5>
 <p>Triggered when <code>len(password) &lt; 12</code>.</p>
-<h4>Rule 2: <code>"in_dictionary"</code></h4>
+<h5>Rule 2: <code>"in_dictionary"</code></h5>
 <p>Triggered when <code>password.lower()</code> is a member of the COMMON_WORDS set below.</p>
 <pre><code>COMMON_WORDS = {
     &quot;password&quot;, &quot;password1&quot;, &quot;password123&quot;, &quot;123456&quot;, &quot;123456789&quot;, &quot;12345678&quot;,
@@ -79,11 +89,11 @@ composite) and must pass the tests unchanged.</p>
     &quot;pa$$word&quot;, &quot;access&quot;, &quot;mustang&quot;, &quot;1234567890&quot;, &quot;starwars&quot;, &quot;hello&quot;,
 }
 </code></pre>
-<h4>Rule 3: <code>"only_lowercase"</code></h4>
+<h5>Rule 3: <code>"only_lowercase"</code></h5>
 <p>Triggered when the password contains ONLY lowercase ASCII letters (<code>a</code>-<code>z</code>), i.e.,
 <code>password.isalpha() and password == password.lower()</code>.
 Note: an empty string does NOT trigger this rule (it has no lowercase letters either).</p>
-<h4>Rule 4: <code>"sequential_or_repeated"</code></h4>
+<h5>Rule 4: <code>"sequential_or_repeated"</code></h5>
 <p>Triggered when the password contains:
 - A run of 3 or more consecutive ASCII characters in ascending order
   (e.g. <code>abc</code>, <code>bcd</code>, <code>xyz</code>, <code>123</code>, <code>234</code>, <code>789</code>), OR
@@ -93,20 +103,26 @@ For each window of 3 consecutive characters at position i:
 - Repeated: <code>c[i] == c[i+1] == c[i+2]</code>
 - Sequential ascending: <code>ord(c[i+1]) - ord(c[i]) == 1</code> AND <code>ord(c[i+2]) - ord(c[i+1]) == 1</code></p>
 <p>If any window matches either condition, the rule is triggered.</p>
-<h3>Output contract</h3>
+<h4>Output contract</h4>
 <ul>
 <li><code>"reasons"</code> is always sorted ascending (alphabetical order of the label strings).</li>
 <li><code>"weak"</code> equals <code>len(reasons) &gt; 0</code>.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
 <li>The COMMON_WORDS set above is the exact set used by tests.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 1.2.b. Student completes the TODO.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 1.2.b. Student completes the TODO.
 This file intentionally FAILS the tests until implemented."""
 
 
@@ -127,9 +143,13 @@ def solve(password: str) -&gt; dict:
     # TODO: implement all four rules and return {"weak": ..., "reasons": [...]}
     raise NotImplementedError("implement solve() -- see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_dict_only_lc_short():
     result = impl.solve("password")
@@ -210,5 +230,34 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve("password"),
+     {"weak": True, "reasons": ["in_dictionary", "only_lowercase", "too_short"]}),
+    (lambda: solve("Tr0ub4dor&amp;3abcde"),
+     {"weak": True, "reasons": ["sequential_or_repeated"]}),
+    (lambda: solve("mXk9#vLq2@nP"),
+     {"weak": False, "reasons": []}),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

@@ -12,11 +12,11 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>PKI and digital certificates</h1>
-<h1>Coding problem 5.4.d: Validate a certificate chain</h1>
+<div class="nb-cell nb-md"><h1>Runbook 5.4.d: PKI and digital certificates</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.4.B, 5.4.C · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>A browser has just received a TLS certificate chain from a server: a leaf (end-entity) certificate
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> A browser has just received a TLS certificate chain from a server: a leaf (end-entity) certificate
 and one or more issuing CA certificates, and it needs to decide whether to trust it. Real browsers
 call into a full X.509 library to do this; you are going to implement the <em>validation logic itself</em>, the same logic that library runs under the hood, using the small-number RSA sign/verify math from
 5.4.b/5.4.c.</p>
@@ -34,78 +34,35 @@ call into a full X.509 library to do this; you are going to implement the <em>va
 <p>A <strong>chain</strong> is a list of these dicts ordered leaf-first: <code>[leaf, intermediate..., root]</code>. The last
 entry is claimed to be a root CA certificate (self-signed: its own <code>issuer</code> equals its own
 <code>subject</code>).</p>
-<h2>What you implement (in the code editor)</h2>
+<p><strong>Lesson objective.</strong> Explain what a digital certificate contains and why, describe how a client walks a certificate chain up to a trusted root to decide whether to trust a public key, and identify why and how certificates get revoked before their stated expiration.</p>
 <ul>
-<li><code>compute_digest(cert: dict) -&gt; int</code>: a deterministic, keyless digest of a certificate's identity
-  fields (everything except <code>signature</code> and <code>revoked</code>), used as the thing that actually gets signed.
-  Canonicalize as the string
-  <code>f"{subject}|{issuer}|{public_key[0]}:{public_key[1]}|{not_before}|{not_after}"</code>
-  and reduce it with the rolling hash:
-  <code>python
-  h = 0
-  for ch in s:
-      h = (h * 131 + ord(ch)) % (2**61 - 1)</code></li>
-<li><code>rsa_sign(digest: int, d: int, n: int) -&gt; int</code>, <code>signature = (digest mod n) ** d mod n</code>.</li>
-<li><code>rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool</code>, return whether
-  <code>signature ** e mod n == digest mod n</code>.</li>
-<li><code>validate_chain(chain: list[dict], trusted_roots: dict[str, list[int]], current_time: int) -&gt; dict</code>, validate the whole chain (see below). <code>trusted_roots</code> maps a trusted root CA's <code>subject</code> name to
-  its known-good <code>[e, n]</code> public key (this is the browser's local trust store, never taken from the
-  chain itself).</li>
-<li><code>solve(data: dict) -&gt; dict</code>: blackbox dispatcher (see the Reference section below).</li>
-</ul>
-<h2>Validation algorithm</h2>
-<p>Walk the chain from the leaf (index 0) upward. For each certificate <code>cert</code> at index <code>i</code>:</p>
-<ol>
-<li><strong>Validity window</strong>, if <code>current_time &lt; cert["not_before"]</code> or <code>current_time &gt;
-   cert["not_after"]</code> -&gt; reason <code>"expired"</code>.</li>
-<li><strong>Revocation</strong>, if <code>cert["revoked"]</code> is <code>True</code> -&gt; reason <code>"revoked"</code>.</li>
-<li><strong>Chain linkage / signer's public key:</strong></li>
-<li>If this is <em>not</em> the last certificate in the chain, the next certificate up (<code>chain[i+1]</code>) must
-     be its issuer: <code>cert["issuer"] == chain[i+1]["subject"]</code>. If not -&gt; reason <code>"broken_chain"</code>. The
-     public key used to check this cert's signature is <code>chain[i+1]["public_key"]</code>.</li>
-<li>If this <em>is</em> the last certificate in the chain, it must be a certificate for a root in
-     <code>trusted_roots</code>: <code>cert["subject"]</code> must be a key in <code>trusted_roots</code>, and
-     <code>trusted_roots[cert["subject"]]</code> must equal <code>cert["public_key"]</code> exactly. If either check fails
-     -&gt; reason <code>"untrusted_root"</code>. The public key used to check this cert's own (self-)signature is
-     <code>trusted_roots[cert["subject"]]</code>.</li>
-<li><strong>Signature check</strong>, recompute <code>compute_digest(cert)</code> and check <code>rsa_verify(digest,
-   cert["signature"], e, n)</code> using the public key established in step 3. If it fails -&gt; reason
-   <code>"bad_signature"</code>.</li>
-</ol>
-<p>If every certificate in the chain passes all four checks, the chain is valid -&gt; reason <code>"valid"</code>.
-Stop at the <em>first</em> certificate (starting from the leaf) that fails any check and return that
-specific reason -- do not keep scanning past a failure.</p>
-<h2>Input / Output</h2>
-<ul>
-<li><code>validate_chain(chain, trusted_roots, current_time)</code> -&gt; <code>{"valid": bool, "reason": str}</code> where
-  <code>reason</code> is one of: <code>"valid"</code>, <code>"expired"</code>, <code>"revoked"</code>, <code>"broken_chain"</code>, <code>"untrusted_root"</code>,
-  <code>"bad_signature"</code>.</li>
-<li><code>solve(data)</code>: <code>data = {"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time":
-  int}</code> -&gt; <code>validate_chain(...)</code>'s return dict directly. <code>data = {"op": "digest", "cert": {...}}</code> -&gt;
-  <code>{"digest": int}</code>.</li>
-</ul>
-<h2>Examples</h2>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>validate_chain([leaf, intermediate, root], {&quot;Meridian Root CA&quot;: [17, 2773]}, 5000)
   -&gt; {&quot;valid&quot;: True, &quot;reason&quot;: &quot;valid&quot;}
 
 validate_chain([expired_leaf, intermediate, root], {&quot;Meridian Root CA&quot;: [17, 2773]}, 9500)
   -&gt; {&quot;valid&quot;: False, &quot;reason&quot;: &quot;expired&quot;}
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only. No <code>cryptography</code>, no <code>ssl</code>, no <code>hashlib</code> -- this
-  is a from-scratch textbook-RSA exercise (same style as 5.4.b/5.4.c), not a real X.509 parser.</li>
-<li><code>trusted_roots</code> is the only source of truth for which root keys are trusted -- a self-signed
-  certificate whose subject is not in <code>trusted_roots</code> must be rejected as <code>"untrusted_root"</code>, even if
-  its self-signature verifies correctly.</li>
-<li>Must pass all cases in the tests (visible + hidden): a fully valid chain, an expired leaf, a
-  revoked intermediate, a broken issuer/subject link, an untrusted (self-signed but unrecognized)
-  root, and a tampered signature.</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only. No <code>cryptography</code>, no <code>ssl</code>, no <code>hashlib</code> -- this</li>
+<li>[ ] <code>trusted_roots</code> is the only source of truth for which root keys are trusted -- a self-signed</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden): a fully valid chain, an expired leaf, a</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry points</h3>
+<h4>Entry points</h4>
 <pre><code class="language-python">def compute_digest(cert: dict) -&gt; int
 def rsa_sign(digest: int, d: int, n: int) -&gt; int
 def rsa_verify(digest: int, signature: int, e: int, n: int) -&gt; bool
@@ -114,7 +71,7 @@ def solve(data: dict) -&gt; dict
 </code></pre>
 <p><code>solve()</code> is the blackbox entry point; the other functions are the underlying primitives it is
 built on and are tested directly as well.</p>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>compute_digest(cert)</code>: <code>cert</code> is a <code>dict</code> with keys <code>subject</code> (<code>str</code>), <code>issuer</code> (<code>str</code>),
   <code>public_key</code> (<code>[e, n]</code> list of two <code>int</code>), <code>not_before</code> (<code>int</code>), <code>not_after</code> (<code>int</code>). (<code>signature</code>
@@ -130,7 +87,7 @@ built on and are tested directly as well.</p>
 <li><code>"validate"</code>: <code>{"op": "validate", "chain": [...], "trusted_roots": {...}, "current_time": int}</code></li>
 <li><code>"digest"</code>: <code>{"op": "digest", "cert": {...}}</code></li>
 </ul>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <ul>
 <li><code>compute_digest(...)</code> returns an <code>int</code>.</li>
 <li><code>rsa_sign(...)</code> returns an <code>int</code>.</li>
@@ -140,7 +97,7 @@ built on and are tested directly as well.</p>
 <li><code>solve(...)</code> returns <code>validate_chain(...)</code>'s dict for op <code>"validate"</code>, or <code>{"digest": int}</code> for op
   <code>"digest"</code>.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure functions, deterministic, no I/O, no network. Standard library only -- no <code>cryptography</code>,
   <code>ssl</code>, or <code>hashlib</code>; this is a from-scratch textbook-RSA exercise, not a real X.509 parser.</li>
@@ -158,10 +115,16 @@ built on and are tested directly as well.</p>
 <li>A self-signed certificate whose subject is absent from <code>trusted_roots</code> is <code>"untrusted_root"</code>, even
   if its own signature verifies correctly.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 5.4.d. Student completes the TODOs.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 5.4.d. Student completes the TODOs.
 This file intentionally FAILS the tests until implemented."""
 from typing import Any
 
@@ -220,9 +183,13 @@ def solve(data: Any) -&gt; Any:
     # TODO: dispatch on data["op"] to validate_chain() or compute_digest().
     raise NotImplementedError("implement solve() — see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 import copy
 
@@ -389,5 +356,17 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Call <code>solve</code> on an input you make up, and predict the answer first.</p>
+<ul>
+<li>[ ] Your prediction matched</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

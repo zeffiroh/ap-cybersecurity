@@ -12,44 +12,24 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>RSA algorithm  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
-<h1>Coding problem 5.4.b: RSA algorithm</h1>
+<div class="nb-cell nb-md"><h1>Runbook 5.4.b: RSA algorithm  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.4.A, 5.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>A small internal tool needs to demonstrate RSA end to end on textbook-scale numbers: derive a
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> A small internal tool needs to demonstrate RSA end to end on textbook-scale numbers: derive a
 key pair from two primes and a chosen public exponent, encrypt a small integer message with the
 public key, and decrypt it back with the private key. Implement the key derivation and the
 modular-exponentiation encrypt/decrypt operations directly, you may use Python's built-in
 <code>pow(base, exp, mod)</code> for the modular exponentiation itself, but the extended Euclidean
 algorithm used to derive the private exponent <code>d</code> must be implemented by hand.</p>
-<h2>Function contract</h2>
-<p>Implement, in the code editor:
-- <code>egcd(a: int, b: int) -&gt; tuple[int, int, int]</code>, extended Euclidean algorithm; returns
-  <code>(g, x, y)</code> such that <code>a*x + b*y == g == gcd(a, b)</code>.
-- <code>mod_inverse(e: int, phi_n: int) -&gt; int</code>: the modular inverse <code>d</code> of <code>e</code> mod <code>phi_n</code>, i.e.
-  <code>(e * d) % phi_n == 1</code>. Raises <code>ValueError</code> if no inverse exists (<code>gcd(e, phi_n) != 1</code>).
-- <code>rsa_keygen(p: int, q: int, e: int) -&gt; dict</code>, derives <code>n</code>, <code>phi_n</code>, and <code>d</code> from primes <code>p</code>,
-  <code>q</code> and public exponent <code>e</code>. Returns <code>{"n": n, "phi_n": phi_n, "e": e, "d": d}</code>. Raises
-  <code>ValueError</code> if <code>e</code> does not satisfy <code>1 &lt; e &lt; phi_n</code>.
-- <code>encrypt(m: int, e: int, n: int) -&gt; int</code>: RSA encrypt: <code>c = m^e mod n</code>. Raises <code>ValueError</code>
-  if <code>m</code> is not in <code>0 &lt;= m &lt; n</code>.
-- <code>decrypt(c: int, d: int, n: int) -&gt; int</code>: RSA decrypt: <code>m = c^d mod n</code>.
-- <code>solve(data: dict) -&gt; dict</code>: the blackbox entry point that dispatches to the functions above
-  (see the Reference section below).</p>
-<h2>Input / Output</h2>
+<p><strong>Lesson objective.</strong> Carry out the RSA encrypt and decrypt operations by hand on small numbers (including deriving the private exponent d), and explain why modular exponentiation with a public exponent is easy to compute but infeasible to reverse without the private key.</p>
 <ul>
-<li><code>rsa_keygen(p, q, e)</code>: <code>p</code>, <code>q</code> are (small, in this atom's tests) prime integers; <code>e</code> is the
-  chosen public exponent -&gt; <code>{"n": int, "phi_n": int, "e": int, "d": int}</code>.</li>
-<li><code>encrypt(m, e, n)</code>: <code>m: int</code>, <code>e: int</code>, <code>n: int</code> -&gt; ciphertext <code>int</code>.</li>
-<li><code>decrypt(c, d, n)</code>: <code>c: int</code>, <code>d: int</code>, <code>n: int</code> -&gt; plaintext <code>int</code>.</li>
-<li><code>solve(data)</code>:</li>
-<li><code>{"op": "keygen", "p": int, "q": int, "e": int}</code> -&gt; <code>{"n": int, "phi_n": int, "e": int, "d": int}</code></li>
-<li><code>{"op": "encrypt", "m": int, "e": int, "n": int}</code> -&gt; <code>{"c": int}</code></li>
-<li><code>{"op": "decrypt", "c": int, "d": int, "n": int}</code> -&gt; <code>{"m": int}</code></li>
-<li><code>{"op": "roundtrip", "p": int, "q": int, "e": int, "m": int}</code> -&gt;
-    <code>{"n": int, "phi_n": int, "d": int, "c": int, "m_decrypted": int}</code></li>
-</ul>
-<h2>Examples</h2>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>rsa_keygen(3, 11, 7)          -&gt; {&quot;n&quot;: 33, &quot;phi_n&quot;: 20, &quot;e&quot;: 7, &quot;d&quot;: 3}
 encrypt(5, 7, 33)             -&gt; 14
 decrypt(14, 3, 33)            -&gt; 5
@@ -57,18 +37,20 @@ decrypt(14, 3, 33)            -&gt; 5
 solve({&quot;op&quot;: &quot;roundtrip&quot;, &quot;p&quot;: 3, &quot;q&quot;: 11, &quot;e&quot;: 7, &quot;m&quot;: 5})
   -&gt; {&quot;n&quot;: 33, &quot;phi_n&quot;: 20, &quot;d&quot;: 3, &quot;c&quot;: 14, &quot;m_decrypted&quot;: 5}
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only (<code>pow()</code> for modular exponentiation is allowed
-  and expected; do not import any external crypto library, the extended Euclidean algorithm
-  and key derivation must be your own code).</li>
-<li>Must pass all cases in the tests (visible + hidden), including edge cases such as <code>m = 0</code>,
-  <code>m</code> at or beyond <code>n</code> (rejected), and <code>e</code> values that are not coprime with <code>phi_n</code> (rejected).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only (<code>pow()</code> for modular exponentiation is allowed</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden), including edge cases such as <code>m = 0</code>,</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry points</h3>
+<h4>Entry points</h4>
 <pre><code class="language-python">def egcd(a: int, b: int) -&gt; tuple[int, int, int]
 def mod_inverse(e: int, phi_n: int) -&gt; int
 def rsa_keygen(p: int, q: int, e: int) -&gt; dict
@@ -78,7 +60,7 @@ def solve(data: dict) -&gt; dict
 </code></pre>
 <p><code>solve()</code> is the blackbox entry point; the other functions are the underlying primitives it is
 built on and are tested directly as well.</p>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>egcd(a, b)</code>: non-negative integers.</li>
 <li><code>mod_inverse(e, phi_n)</code>: <code>e</code> and <code>phi_n</code> are positive integers.</li>
@@ -92,7 +74,7 @@ built on and are tested directly as well.</p>
 <li><code>"decrypt"</code>: <code>{"op": "decrypt", "c": int, "d": int, "n": int}</code></li>
 <li><code>"roundtrip"</code>: <code>{"op": "roundtrip", "p": int, "q": int, "e": int, "m": int}</code></li>
 </ul>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <ul>
 <li><code>egcd(a, b)</code> returns <code>(g, x, y)</code> with <code>a*x + b*y == g == gcd(a, b)</code>.</li>
 <li><code>mod_inverse(e, phi_n)</code> returns the integer <code>d</code> with <code>(e * d) % phi_n == 1</code>.</li>
@@ -105,7 +87,7 @@ built on and are tested directly as well.</p>
 <li><code>"decrypt"</code> -&gt; <code>{"m": int}</code></li>
 <li><code>"roundtrip"</code> -&gt; <code>{"n": int, "phi_n": int, "d": int, "c": int, "m_decrypted": int}</code></li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure functions, deterministic, no I/O, no network. Standard library only (<code>pow()</code> may be used
   for modular exponentiation; the extended Euclidean algorithm must be implemented directly, not
@@ -115,10 +97,16 @@ built on and are tested directly as well.</p>
 <li><code>encrypt</code> raises <code>ValueError</code> when <code>m</code> is not in <code>0 &lt;= m &lt; n</code>.</li>
 <li>For any valid key pair, <code>decrypt(encrypt(m, e, n), d, n) == m</code> for every <code>m</code> in <code>0 &lt;= m &lt; n</code>.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Reference solution
-def egcd(a: int, b: int):
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>This is the model solution.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">def egcd(a: int, b: int):
     if b == 0:
         return (a, 1, 0)
     g, x1, y1 = egcd(b, a % b)
@@ -173,9 +161,13 @@ def solve(data):
     else:
         raise ValueError(f"unknown op: {op!r}")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 import pytest
 
@@ -292,5 +284,30 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve({"op": "roundtrip", "p": 3, "q": 11, "e": 7, "m": 5}),
+     {"n": 33, "phi_n": 20, "d": 3, "c": 14, "m_decrypted": 5}),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

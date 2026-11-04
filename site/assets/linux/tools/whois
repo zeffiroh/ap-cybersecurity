@@ -1,0 +1,25 @@
+. /usr/local/bin/aayat-net
+net_ready whois
+q=""
+for a in "$@"; do case "$a" in -h|--help) echo "Usage: whois DOMAIN-OR-ADDRESS   (lab copy: records for the case network)"; exit 0 ;; -*) ;; *) q="$a" ;; esac; done
+[ -z "$q" ] && { echo "Usage: whois DOMAIN-OR-ADDRESS"; exit 1; }
+q="${q%.}"
+if [ -f "$NET/whois.txt" ]; then
+  rec=$(awk -v q="$q" 'BEGIN { RS = ""; FS = "\n" } { split($1, k, " "); if (k[1] == "@" && (k[2] == q || index(" " k[3] " ", " " q " "))) { for (i = 2; i <= NF; i++) print $i; exit } }' "$NET/whois.txt")
+  if [ -n "$rec" ]; then
+    echo "% Lab whois record for $q"
+    echo ""
+    echo "$rec"
+    exit 0
+  fi
+fi
+case "$q" in
+  10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*)
+    echo "NetRange:       private address space (RFC 1918)"
+    echo "Comment:        Not routed on the internet. Look in your own asset inventory instead." ;;
+  *.lan|*.local|*.internal)
+    echo "% $q is an internal name. Public whois has no record of it." ;;
+  *)
+    echo "% No match for \"$q\" in this lab's whois data."
+    exit 1 ;;
+esac

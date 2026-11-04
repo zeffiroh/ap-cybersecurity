@@ -1,0 +1,44 @@
+. /usr/local/bin/aayat-net
+net_ready nc
+scan=0; verbose=0; host=""; ports=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) echo "Usage: nc [-zv] HOST PORT[-PORT]   (lab copy: talks to the case network)"; exit 0 ;;
+    -l|-lp|-lnvp|-lvnp|-nlvp) echo "nc: listening is not possible in this lab"; exit 1 ;;
+    -*) case "$1" in *z*) scan=1 ;; esac; case "$1" in *v*) verbose=1 ;; esac ;;
+    *) if [ -z "$host" ]; then host="$1"; else ports="$ports $1"; fi ;;
+  esac
+  shift
+done
+[ -z "$host" ] || [ -z "$ports" ] && { echo "Usage: nc [-zv] HOST PORT"; exit 1; }
+ip=$(resolve "$host")
+[ -z "$ip" ] && { echo "nc: bad address '$host'"; exit 1; }
+banner() {
+  sv=$(service "$ip" "$1"); name="${sv%%|*}"; ver="${sv#*|}"
+  case "$name" in
+    ssh) echo "SSH-2.0-$(echo "$ver" | awk '{print $1"_"$2}')" ;;
+    smtp) echo "220 $(name_of "$ip") ESMTP $ver" ;;
+    http|ssl/http|*http*) echo "HTTP/1.1 400 Bad Request"; echo "Server: $ver"; echo ""; echo "(send a real request, or use curl)" ;;
+    imap) echo "* OK [CAPABILITY IMAP4rev1] $ver ready" ;;
+    domain) echo "(DNS speaks binary; use dig instead)" ;;
+    *) echo "$ver" ;;
+  esac
+}
+rc=0
+for spec in $ports; do
+  lo="${spec%-*}"; hi="${spec#*-}"
+  p="$lo"
+  while [ "$p" -le "$hi" ]; do
+    if known "$ip" && port_open "$ip" "$p"; then
+      if [ "$scan" = 1 ]; then echo "$host ($ip:$p) open"; else banner "$p"; fi
+    else
+      if [ "$scan" = 0 ] || [ "$verbose" = 1 ]; then
+        if known "$ip"; then echo "nc: $host ($ip:$p): Connection refused"; else echo "nc: $host ($ip:$p): Operation timed out"; fi
+      fi
+      rc=1
+    fi
+    p=$((p + 1))
+    [ "$((p - lo))" -gt 1024 ] && break
+  done
+done
+exit $rc

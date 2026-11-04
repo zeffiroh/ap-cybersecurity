@@ -12,73 +12,50 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Digital signatures</h1>
-<h1>Coding problem 5.4.c: Implement RSA digital signatures (hash-then-sign)</h1>
+<div class="nb-cell nb-md"><h1>Runbook 5.4.c: Digital signatures</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>A software vendor wants to let users verify that a downloaded update really came from them and
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> A software vendor wants to let users verify that a downloaded update really came from them and
 was not modified in transit. Rather than signing the whole update file directly with RSA (slow,
 and structurally risky per atom.md), implement the standard "hash, then sign" digital signature
 scheme: hash the message with SHA-256, reduce the digest mod n, and apply the RSA private-key
 operation to that digest, not the raw message.</p>
-<h2>Function contract</h2>
-<p>Implement, in the code editor:
-- <code>sign(message: bytes, d: int, n: int) -&gt; int</code>, return the signature
-  <code>(SHA-256(message) mod n)^d mod n</code>, using the signer's private exponent <code>d</code> and modulus <code>n</code>.
-- <code>verify(message: bytes, signature: int, e: int, n: int) -&gt; bool</code>, recompute
-  <code>SHA-256(message) mod n</code> and compare it to <code>signature^e mod n</code>, using the signer's public
-  exponent <code>e</code> and modulus <code>n</code>. Return <code>True</code> iff they match.
-- <code>solve(data: dict) -&gt; dict</code>: the blackbox entry point that dispatches to the two functions
-  above (see the Reference section below).</p>
-<p>You may use <code>hashlib.sha256</code> for the hash step only. Implement the digest-reduction and the
-modular exponentiation (<code>pow(base, exp, mod)</code> is fine, it's Python's built-in, not an external
-crypto library) yourself, per the construction below.</p>
-<h2>The construction</h2>
-<pre><code>digest        = int.from_bytes(SHA256(message).digest(), &quot;big&quot;) % n
-sign:         signature = digest^d mod n
-verify:       recovered = signature^e mod n     ; valid iff recovered == digest (recomputed)
-</code></pre>
+<p><strong>Lesson objective.</strong> Explain how a digital signature is created and verified using an asymmetric key pair and a cryptographic hash, and articulate why a valid signature provides authenticity, integrity, and non-repudiation in a way that a shared-secret MAC (5.3.c) cannot.</p>
 <ul>
-<li>Hashing first keeps the signature a fixed size regardless of message length, and means a
-  single changed byte in <code>message</code> produces a completely different digest (avalanche effect,
-  5.3.b), which is what makes tampering detectable.</li>
-<li><code>d</code> and <code>n</code> form the private key; <code>e</code> and <code>n</code> form the matching public key (5.4.b).</li>
-</ul>
-<h2>Input / Output</h2>
-<ul>
-<li><code>sign(message, d, n)</code>: <code>message: bytes</code>, <code>d: int</code>, <code>n: int</code> -&gt; <code>int</code> signature.</li>
-<li><code>verify(message, signature, e, n)</code>: <code>signature: int</code>, <code>e: int</code>, <code>n: int</code> -&gt; <code>bool</code>.</li>
-<li><code>solve(data)</code>: <code>data = {"op": "sign", "message": "&lt;str&gt;", "d": &lt;int&gt;, "n": &lt;int&gt;}</code> -&gt;
-  <code>{"signature": &lt;int&gt;}</code>, or
-  <code>data = {"op": "verify", "message": "&lt;str&gt;", "signature": &lt;int&gt;, "e": &lt;int&gt;, "n": &lt;int&gt;}</code> -&gt;
-  <code>{"valid": &lt;bool&gt;}</code>.</li>
-</ul>
-<h2>Examples</h2>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <p>Using the textbook-scale key pair <code>p=61, q=53 -&gt; n=3233</code>, <code>e=17</code>, <code>d=2753</code>:</p>
 <pre><code>sign(b&quot;pay Bob $50&quot;, 2753, 3233)        -&gt; some int in [0, 3233)
 verify(b&quot;pay Bob $50&quot;, &lt;that signature&gt;, 17, 3233)   -&gt; True
 verify(b&quot;pay Bob $950&quot;, &lt;that signature&gt;, 17, 3233)  -&gt; False   # message tampered after signing
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only (<code>hashlib</code> only, no external crypto packages).</li>
-<li>Correctness is checked in the tests against an independent oracle that recomputes the same
-  hash-then-sign math directly (not by importing your functions).</li>
-<li>Must pass all cases in the tests (visible + hidden), including: a tampered message failing
-  verification, a wrong public key failing verification, an empty message, and determinism
-  (signing the same message twice yields the same signature).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only (<code>hashlib</code> only, no external crypto packages).</li>
+<li>[ ] Correctness is checked in the tests against an independent oracle that recomputes the same</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden), including: a tampered message failing</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry points</h3>
+<h4>Entry points</h4>
 <pre><code class="language-python">def sign(message: bytes, d: int, n: int) -&gt; int
 def verify(message: bytes, signature: int, e: int, n: int) -&gt; bool
 def solve(data: dict) -&gt; dict
 </code></pre>
 <p><code>solve()</code> is the blackbox entry point; <code>sign()</code> and <code>verify()</code> are the underlying primitives
 it's built on and are tested directly as well.</p>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>sign(message, d, n)</code>: <code>message</code> is raw <code>bytes</code> of any length (including empty); <code>d</code> is the
   signer's private exponent; <code>n</code> is the RSA modulus (both small, textbook-scale ints).</li>
@@ -90,14 +67,14 @@ it's built on and are tested directly as well.</p>
 <li><code>"verify"</code>: <code>{"op": "verify", "message": &lt;str&gt;, "signature": &lt;int&gt;, "e": &lt;int&gt;, "n": &lt;int&gt;}</code></li>
 <li><code>message</code> arrives as a plain UTF-8 string (encode with <code>.encode("utf-8")</code>).</li>
 </ul>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <ul>
 <li><code>sign(...)</code> returns an <code>int</code> signature in the range <code>[0, n)</code>.</li>
 <li><code>verify(...)</code> returns <code>bool</code>.</li>
 <li><code>solve(...)</code> returns <code>{"signature": &lt;int&gt;}</code> for op <code>"sign"</code>, or <code>{"valid": &lt;bool&gt;}</code> for op
   <code>"verify"</code>.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure functions, deterministic, no I/O, no network. Standard library only (<code>hashlib.sha256</code>
   may be used as the hash primitive; the RSA sign/verify math itself, reducing the digest mod
@@ -110,10 +87,16 @@ it's built on and are tested directly as well.</p>
 <li>Verifying a genuine <code>(message, signature)</code> pair with an unrelated key pair's public key
   <code>(e, n)</code> must return <code>False</code>.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 5.4.c. Student completes the TODOs.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 5.4.c. Student completes the TODOs.
 This file intentionally FAILS the tests until implemented."""
 import hashlib
 
@@ -162,9 +145,13 @@ def solve(data: dict) -&gt; dict:
     #       depending on data["op"], and wrap the result in the right dict shape.
     raise NotImplementedError("implement solve() — see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 import hashlib
 
@@ -297,5 +284,17 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Call <code>solve</code> on an input you make up, and predict the answer first.</p>
+<ul>
+<li>[ ] Your prediction matched</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

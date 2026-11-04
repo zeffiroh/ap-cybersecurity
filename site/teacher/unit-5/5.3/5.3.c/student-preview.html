@@ -12,71 +12,50 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Integrity and authenticity (HMAC)</h1>
-<h1>Coding problem 5.3.c: Implement HMAC-SHA256 by hand</h1>
+<div class="nb-cell nb-md"><h1>Runbook 5.3.c: Integrity and authenticity (HMAC)</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.3.B, 5.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>An API needs to verify that requests were sent by a client holding a shared secret key, and
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> An API needs to verify that requests were sent by a client holding a shared secret key, and
 that the request body wasn't tampered with in transit. Rather than calling Python's built-in
 <code>hmac</code> module, build the FIPS 198-1 HMAC construction yourself on top of <code>hashlib.sha256</code>, so
 you can see exactly how the ipad/opad key-nesting defeats length-extension attacks.</p>
-<h2>Function contract</h2>
-<p>Implement, in the code editor:
-- <code>hmac_sha256(key: bytes, message: bytes) -&gt; str</code>, return the HMAC-SHA256 tag as a
-  lowercase 64-character hex string.
-- <code>verify(key: bytes, message: bytes, tag: str) -&gt; bool</code>, recompute the tag and compare it
-  (case-insensitively) to the given <code>tag</code> using a constant-time comparison.
-- <code>solve(data: dict) -&gt; dict</code>: the blackbox entry point that dispatches to the two functions
-  above (see the Reference section below).</p>
-<p>You must implement the ipad/opad key derivation and the double-nested hashing yourself. You
-may use <code>hashlib.sha256</code> only as the inner hash primitive <code>H()</code>, do not import the <code>hmac</code>
-module for the core logic.</p>
-<h2>The construction (FIPS 198-1)</h2>
-<pre><code>HMAC(key, message) = H( (key XOR opad) || H( (key XOR ipad) || message ) )
-</code></pre>
+<p><strong>Lesson objective.</strong> Explain why a plain hash cannot prove who sent a message, describe how HMAC combines a secret key with a hash function to provide both integrity and authenticity, and classify a given integrity-check design as secure or vulnerable to tampering.</p>
 <ul>
-<li>Block size for SHA-256 is 64 bytes.</li>
-<li>If <code>key</code> is longer than 64 bytes, replace it with <code>H(key)</code> first.</li>
-<li>Right-pad <code>key</code> with <code>0x00</code> bytes up to exactly 64 bytes -&gt; call this <code>k0</code>.</li>
-<li><code>ipad</code> = the byte <code>0x36</code> repeated 64 times; <code>opad</code> = the byte <code>0x5c</code> repeated 64 times.</li>
-<li><code>inner_key = k0 XOR ipad</code>, <code>outer_key = k0 XOR opad</code> (byte-wise XOR).</li>
-<li><code>inner_hash = H(inner_key || message)</code></li>
-<li>final tag = <code>H(outer_key || inner_hash)</code>, hex-encoded.</li>
-</ul>
-<h2>Input / Output</h2>
-<ul>
-<li><code>hmac_sha256(key, message)</code>: <code>key: bytes</code>, <code>message: bytes</code> -&gt; hex <code>str</code> tag.</li>
-<li><code>verify(key, message, tag)</code>: <code>tag: str</code> (hex, any case) -&gt; <code>bool</code>.</li>
-<li><code>solve(data)</code>: <code>data = {"op": "tag", "key": "&lt;hex&gt;", "message": "&lt;str&gt;"}</code> -&gt;
-  <code>{"tag": "&lt;hex&gt;"}</code>, or <code>data = {"op": "verify", "key": "&lt;hex&gt;", "message": "&lt;str&gt;", "tag": "&lt;hex&gt;"}</code>
-  -&gt; <code>{"valid": &lt;bool&gt;}</code>.</li>
-</ul>
-<h2>Examples</h2>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>hmac_sha256(b&quot;secretkey&quot;, b&quot;transfer $100 to acct 42&quot;)
   -&gt; &quot;5b1f9a2c...b3&quot; (64 hex chars; must match Python's hmac.new(key, msg, sha256).hexdigest())
 
 verify(b&quot;secretkey&quot;, b&quot;transfer $100 to acct 42&quot;, &quot;5b1f9a2c...b3&quot;) -&gt; True
 verify(b&quot;secretkey&quot;, b&quot;transfer $900 to acct 42&quot;, &quot;5b1f9a2c...b3&quot;) -&gt; False  # tampered message
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only (<code>hashlib</code> only, no <code>hmac</code> module).</li>
-<li>Correctness is checked against Python's own <code>hmac</code> module inside the tests (used there only
-  as an independent oracle, not as part of your implementation).</li>
-<li>Must pass all cases in the tests (visible + hidden), including empty keys/messages, keys
-  longer than the 64-byte block size, and case-insensitive tag comparison in <code>verify()</code>.</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only (<code>hashlib</code> only, no <code>hmac</code> module).</li>
+<li>[ ] Correctness is checked against Python's own <code>hmac</code> module inside the tests (used there only</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden), including empty keys/messages, keys</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry points</h3>
+<h4>Entry points</h4>
 <pre><code class="language-python">def hmac_sha256(key: bytes, message: bytes) -&gt; str
 def verify(key: bytes, message: bytes, tag: str) -&gt; bool
 def solve(data: dict) -&gt; dict
 </code></pre>
 <p><code>solve()</code> is the blackbox entry point; <code>hmac_sha256()</code> and <code>verify()</code> are the underlying
 primitives it's built on and are tested directly as well.</p>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>hmac_sha256(key, message)</code>: <code>key</code> and <code>message</code> are raw <code>bytes</code> of any length (including
   empty and longer-than-block-size keys).</li>
@@ -88,13 +67,13 @@ primitives it's built on and are tested directly as well.</p>
 <li><code>key</code> arrives as a hex string (decode with <code>bytes.fromhex</code>); <code>message</code> arrives as a
     plain UTF-8 string (encode with <code>.encode("utf-8")</code>).</li>
 </ul>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <ul>
 <li><code>hmac_sha256(...)</code> returns a lowercase hex string (64 hex characters for SHA-256).</li>
 <li><code>verify(...)</code> returns <code>bool</code>.</li>
 <li><code>solve(...)</code> returns <code>{"tag": &lt;hex str&gt;}</code> for op <code>"tag"</code>, or <code>{"valid": &lt;bool&gt;}</code> for op <code>"verify"</code>.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure functions, deterministic, no I/O, no network. Standard library only
   (<code>hashlib.sha256</code> may be used as the inner hash primitive <code>H()</code>; the ipad/opad key
@@ -106,10 +85,16 @@ primitives it's built on and are tested directly as well.</p>
 <li>Any single-bit change to <code>message</code> or <code>key</code> must produce a different tag.</li>
 <li><code>verify()</code> must accept tags regardless of hex case (upper/lower).</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 5.3.c. Student completes the TODOs.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 5.3.c. Student completes the TODOs.
 This file intentionally FAILS the tests until implemented."""
 import hashlib
 
@@ -174,9 +159,13 @@ def solve(data: dict) -&gt; dict:
     #       then dispatch to hmac_sha256() or verify() depending on data["op"].
     raise NotImplementedError("implement solve() — see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 import hashlib
 import hmac as _stdlib_hmac
@@ -297,5 +286,17 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Call <code>solve</code> on an input you make up, and predict the answer first.</p>
+<ul>
+<li>[ ] Your prediction matched</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

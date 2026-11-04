@@ -1,0 +1,27 @@
+. /usr/local/bin/aayat-net
+net_ready ssh
+port=22; target=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p) port="$2"; shift ;;
+    -h|--help) echo "Usage: ssh [-p PORT] USER@HOST   (lab copy: shows the banner and host key, no logins)"; exit 0 ;;
+    -*) ;;
+    *) [ -z "$target" ] && target="$1" ;;
+  esac
+  shift
+done
+[ -z "$target" ] && { echo "usage: ssh [-p port] user@host"; exit 255; }
+user="${target%@*}"; host="${target#*@}"
+[ "$user" = "$target" ] && user=root
+ip=$(resolve "$host")
+[ -z "$ip" ] && { echo "ssh: Could not resolve hostname $host: Name or service not known"; exit 255; }
+if ! known "$ip"; then sleep 2; echo "ssh: connect to host $host port $port: Connection timed out"; exit 255; fi
+if ! port_open "$ip" "$port"; then echo "ssh: connect to host $host port $port: Connection refused"; exit 255; fi
+sv=$(service "$ip" "$port")
+fp=$(echo -n "$ip:$port" | sha256sum | cut -c1-43)
+echo "Server banner: SSH-2.0-$(echo "${sv#*|}" | awk '{print $1"_"$2}')"
+echo "The authenticity of host '$host ($ip)' can't be established."
+echo "ED25519 key fingerprint is SHA256:$fp."
+echo "(This lab never saves host keys and never logs in.)"
+echo "$user@$host: Permission denied (publickey,password)."
+exit 255

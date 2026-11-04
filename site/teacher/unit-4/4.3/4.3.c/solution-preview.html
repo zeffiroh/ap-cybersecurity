@@ -12,40 +12,30 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Patching and regular updates  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
-<h1>Coding problem 4.3.c: Patch-prioritization engine</h1>
+<div class="nb-cell nb-md"><h1>Runbook 4.3.c: Patching and regular updates  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 4.3.B, 4.3.C · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>A patch-management team needs to triage a queue of pending vulnerabilities and decide how
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> A patch-management team needs to triage a queue of pending vulnerabilities and decide how
 urgently each must be addressed. Each vulnerability has a CVSS severity score, a flag for
 whether it is being actively exploited in the wild, a flag for whether the affected asset is
 internet-facing, and a flag for whether the affected software is end-of-life (no patch will ever
 be released). Build the triage engine that assigns one urgency label to each vulnerability.</p>
-<h2>Function contract</h2>
-<p>Implement <code>def solve(vulns: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Explain why unpatched software is a top attack vector, describe how the vulnerability-disclosure-to-exploit timeline works, and prioritize which patches an organization should deploy first using severity, exploitation status, and exposure.</p>
+<h3>What comes in</h3>
 <p>A list of dicts, each with keys: <code>id</code> (str), <code>cvss</code> (float, 0.0-10.0), <code>exploited_in_wild</code>
 (bool), <code>internet_facing</code> (bool), <code>end_of_life</code> (bool).</p>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p>A list of dicts, one per input vulnerability (same order as input), each with keys <code>id</code> (str,
 copied from input) and <code>urgency</code> (str), where <code>urgency</code> is one of: <code>"emergency"</code>,
 <code>"scheduled"</code>, <code>"routine"</code>, <code>"compensate"</code>.</p>
-<h2>Decision rule (apply in this exact order, first match wins, per vulnerability)</h2>
-<ol>
-<li><code>end_of_life</code> is <code>True</code> → <code>"compensate"</code> (no patch will ever exist; patching is not an
-   option regardless of severity or exploitation status).</li>
-<li>Else, <code>exploited_in_wild</code> is <code>True</code> AND <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code>.</li>
-<li>Else, <code>cvss &gt;= 9.0</code> AND <code>internet_facing</code> is <code>True</code> → <code>"emergency"</code> (a working exploit is
-   likely imminent for a critical, internet-facing flaw even without confirmed in-the-wild
-   activity).</li>
-<li>Else, <code>cvss &gt;= 9.0</code> → <code>"scheduled"</code> (critical severity but not internet-facing).</li>
-<li>Else, <code>cvss &gt;= 7.0</code> AND <code>internet_facing</code> is <code>True</code> → <code>"scheduled"</code>.</li>
-<li>Else → <code>"routine"</code>.</li>
-</ol>
-<p>Rule order matters: <code>end_of_life</code> is checked first and overrides every other condition, an
-end-of-life system is never <code>"emergency"</code> or <code>"scheduled"</code> even at CVSS 10.0, because patching is
-not a valid remediation at all.</p>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>[{&quot;id&quot;: &quot;V1&quot;, &quot;cvss&quot;: 9.1, &quot;exploited_in_wild&quot;: True, &quot;internet_facing&quot;: True, &quot;end_of_life&quot;: False}]
     -&gt; [{&quot;id&quot;: &quot;V1&quot;, &quot;urgency&quot;: &quot;emergency&quot;}]
 
@@ -55,20 +45,25 @@ not a valid remediation at all.</p>
 [{&quot;id&quot;: &quot;V3&quot;, &quot;cvss&quot;: 4.2, &quot;exploited_in_wild&quot;: False, &quot;internet_facing&quot;: False, &quot;end_of_life&quot;: False}]
     -&gt; [{&quot;id&quot;: &quot;V3&quot;, &quot;urgency&quot;: &quot;routine&quot;}]
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>Preserve input order in the output list.</li>
-<li>Exactly one urgency label per vulnerability.</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] Preserve input order in the output list.</li>
+<li>[ ] Exactly one urgency label per vulnerability.</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(vulns: list) -&gt; list
 </code></pre>
-<h3>Input (<code>vulns</code>)</h3>
+<h4>Input (<code>vulns</code>)</h4>
 <p>A list of dicts, each describing one vulnerability:</p>
 <table>
 <thead>
@@ -106,11 +101,11 @@ composite) and must pass the tests unchanged.</p>
 </tr>
 </tbody>
 </table>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <p>A list of dicts, same length and same order as the input, each with:
 - <code>"id"</code>: the same id string from the corresponding input entry
 - <code>"urgency"</code>: one of <code>"emergency"</code>, <code>"scheduled"</code>, <code>"routine"</code>, <code>"compensate"</code></p>
-<h3>Decision rule (exact priority order, evaluate top to bottom per vulnerability, return on</h3>
+<h4>Decision rule (exact priority order, evaluate top to bottom per vulnerability, return on</h4>
 <p>first match)
 1. If <code>end_of_life</code> is <code>True</code> → <code>"compensate"</code>. This overrides everything else, no CVSS score
    or exploitation status changes this, because patching an end-of-life product is not possible.
@@ -119,17 +114,23 @@ composite) and must pass the tests unchanged.</p>
 4. Else if <code>cvss &gt;= 9.0</code> → <code>"scheduled"</code>.
 5. Else if <code>cvss &gt;= 7.0</code> and <code>internet_facing</code> is <code>True</code> → <code>"scheduled"</code>.
 6. Else → <code>"routine"</code>.</p>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network.</li>
 <li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
 <li>CVSS thresholds are inclusive (<code>&gt;=</code>), not strict.</li>
 <li>Input order is preserved in the output.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Reference solution
-def solve(vulns: list) -&gt; list:
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>This is the model solution.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">def solve(vulns: list) -&gt; list:
     results = []
     for v in vulns:
         vid = v["id"]
@@ -155,9 +156,13 @@ def solve(vulns: list) -&gt; list:
 
     return results
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_example_1_emergency_exploited_internet_facing():
     vulns = [{"id": "V1", "cvss": 9.1, "exploited_in_wild": True,
@@ -252,5 +257,34 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve([{"id": "V1", "cvss": 9.1, "exploited_in_wild": True, "internet_facing": True, "end_of_life": False}]),
+     [{"id": "V1", "urgency": "emergency"}]),
+    (lambda: solve([{"id": "V2", "cvss": 8.8, "exploited_in_wild": False, "internet_facing": False, "end_of_life": True}]),
+     [{"id": "V2", "urgency": "compensate"}]),
+    (lambda: solve([{"id": "V3", "cvss": 4.2, "exploited_in_wild": False, "internet_facing": False, "end_of_life": False}]),
+     [{"id": "V3", "urgency": "routine"}]),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

@@ -10,11 +10,14 @@
  "summary": "A deploy key with admin rights sat in an old Git commit. The repo went public for one evening. By 02:00 someone had copied customer data, made a backdoor admin and started 20 crypto-miners. Trace it, shut it down and fix the root cause.",
  "tools": [
   "grep",
+  "awk",
+  "nmap",
   "curl",
   "tshark",
   "dig",
-  "nmap",
-  "Python json"
+  "whois",
+  "ssh",
+  "Python"
  ],
  "titlePrefix": "Incident runbook: Paperplane cloud key",
  "id": "cloudkey",
@@ -26,9 +29,11 @@
   "case/instances.txt",
   "case/keys.txt",
   "case/repo_history.txt",
+  "net/certs.txt",
   "net/dns.txt",
   "net/hosts.txt",
   "net/routes.txt",
+  "net/whois.txt",
   "net/www/404.htm",
   "net/www/bucket_policy.json",
   "net/www/commits.txt",
@@ -45,7 +50,7 @@
  "template": [
   {
    "t": "md",
-   "s": "# Incident runbook: the key in the commit\n\n07:31, Tuesday 3 Nov. A budget alert at **Paperplane Apps**: today's cloud bill is forecast at $3,812. A normal day is about $42. You are on call.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools reach a recorded copy of Paperplane's cloud network (10.40.0.0/16), the Stratus Cloud API, the public code forge and the mining pool.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] Look at the bill: which service jumped, and by how much?"
+   "s": "# Incident runbook: the key in the commit\n\n07:31, Tuesday 3 Nov. A budget alert at **Paperplane Apps**: today's cloud bill is forecast at $3,812. A normal day is about $42. You are on call.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] Look at the bill: which service jumped, and by how much?"
   },
   {
    "t": "sh",
@@ -81,7 +86,7 @@
   },
   {
    "t": "sh",
-   "s": "curl -s https://api.stratus-cloud.example/v1/users\ncurl -s \"https://api.stratus-cloud.example/v1/whoami?key=SCKA9R4TBN20QZ7W\"\necho ---\ndig -x 203.0.113.150 +short\ndig -x 203.0.113.151 +short\nnmap -sV 203.0.113.150"
+   "s": "curl -s https://api.stratus-cloud.example/v1/users\ncurl -s \"https://api.stratus-cloud.example/v1/whoami?key=SCKA9R4TBN20QZ7W\"\necho ---\ndig -x 203.0.113.150 +short\ndig -x 203.0.113.151 +short\nnmap -sV 203.0.113.150\nwhois 203.0.113.150\nssh root@203.0.113.150"
   },
   {
    "t": "md",

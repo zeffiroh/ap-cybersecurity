@@ -12,52 +12,39 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Cross-site scripting (XSS)</h1>
-<h1>Coding problem 5.1.b: Fix the Reflected Comment</h1>
+<div class="nb-cell nb-md"><h1>Runbook 5.1.b: Cross-site scripting (XSS)</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 5.1.A, 5.1.B · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>The situation</h2>
-<p><code>render_comment</code> builds the HTML that shows a visitor's comment on a page. It works for
-ordinary text, but it drops the username and comment <strong>straight into the HTML</strong> by string
-concatenation. That is reflected cross-site scripting (XSS): whatever the user typed is parsed
-by the next visitor's browser as markup, so <code>&lt;script&gt;...&lt;/script&gt;</code> in a comment becomes a live
-script running in that visitor's session.</p>
-<p>The starter is the vulnerable version. A comment of <code>&lt;script&gt;steal()&lt;/script&gt;</code> comes back out
-as a real <code>&lt;script&gt;</code> tag.</p>
-<h2>Your task</h2>
-<p>Fix <code>render_comment</code> so user input can never be parsed as HTML. The correct defense is
-<strong>context-aware output encoding</strong>: HTML-encode every user-supplied value before it goes into the
-page, so <code>&lt;</code> becomes <code>&amp;lt;</code>, <code>&gt;</code> becomes <code>&amp;gt;</code>, <code>&amp;</code> becomes <code>&amp;amp;</code>, and the quote characters
-are encoded too. Python's standard library does exactly this:</p>
-<pre><code class="language-python">import html
-safe = html.escape(user_value, quote=True)
-</code></pre>
-<p>Encode the <code>username</code> and <code>comment</code> values, then place them into the same HTML template. Do
-<strong>not</strong> detect, strip, or blocklist payloads — the point is that <em>encoded</em> input is harmless no
-matter what it contains, while the app's own structural tags stay intact.</p>
-<h2>Function contract</h2>
-<p>Implement <code>render_comment(username: str, comment: str) -&gt; str</code>:
-- Return the comment card HTML: <code>&lt;div class="c"&gt;&lt;b&gt;USERNAME&lt;/b&gt;: COMMENT&lt;/div&gt;</code>, where
-  <code>USERNAME</code> and <code>COMMENT</code> are the HTML-encoded user values.
-- The structural tags (<code>&lt;div class="c"&gt;</code>, <code>&lt;b&gt;</code>) are the app's own output and stay as real HTML.</p>
-<p>A correct solution passes every test, including the injection cases. The concatenation version
-fails them because the raw <code>&lt;script&gt;</code> and <code>&lt;img onerror=...&gt;</code> payloads reach the output as markup.</p>
-<h2>Reference</h2>
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> </p>
+<p><strong>Lesson objective.</strong> Explain how cross-site scripting (XSS) lets an attacker inject and run malicious script in another user's browser, identify the three main XSS variants, and recognize the input-handling mistakes that make an application vulnerable.</p>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<ul>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def render_comment(username: str, comment: str) -&gt; str
 </code></pre>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>username</code>: the commenter's display name (untrusted input).</li>
 <li><code>comment</code>: the comment body (untrusted input).</li>
 </ul>
-<h3>Output</h3>
+<h4>Output</h4>
 <p>A single HTML string, the comment card:</p>
 <pre><code>&lt;div class=&quot;c&quot;&gt;&lt;b&gt;USERNAME&lt;/b&gt;: COMMENT&lt;/div&gt;
 </code></pre>
 <p>where <code>USERNAME</code> and <code>COMMENT</code> are the HTML-encoded forms of the two inputs.</p>
-<h3>Encoding rules</h3>
+<h4>Encoding rules</h4>
 <ul>
 <li>User values are HTML-encoded with <code>html.escape(value, quote=True)</code> semantics:
   <code>&amp;</code> → <code>&amp;amp;</code>, <code>&lt;</code> → <code>&amp;lt;</code>, <code>&gt;</code> → <code>&amp;gt;</code>, <code>"</code> → <code>&amp;quot;</code>, <code>'</code> → <code>&amp;#x27;</code>.</li>
@@ -65,15 +52,21 @@ composite) and must pass the tests unchanged.</p>
   is real HTML and is <strong>not</strong> encoded.</li>
 <li>No detection, stripping, or blocklisting of input. Encoding alone is the defense.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network. Standard library only (<code>html</code>).</li>
 </ul>
-<h3>Acceptance</h3>
+<h4>Acceptance</h4>
 <p>Your code passes when every test below shows a checkmark (some are hidden until you run them).
-user values are encoded rather than concatenated raw.</p></div>
-<div class="nb-cell nb-code"># Your implementation
-import html  # noqa: F401  (you will need this to fix the function)
+user values are encoded rather than concatenated raw.</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">import html  # noqa: F401  (you will need this to fix the function)
 
 
 def render_comment(username: str, comment: str) -&gt; str:
@@ -93,9 +86,13 @@ def render_comment(username: str, comment: str) -&gt; str:
     """
     return '&lt;div class="c"&gt;&lt;b&gt;' + username + "&lt;/b&gt;: " + comment + "&lt;/div&gt;"
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 import html
 
@@ -162,5 +159,17 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Call <code>solve</code> on an input you make up, and predict the answer first.</p>
+<ul>
+<li>[ ] Your prediction matched</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

@@ -1,0 +1,38 @@
+. /usr/local/bin/aayat-net
+net_ready nslookup
+name=""; type=A
+for a in "$@"; do
+  case "$a" in
+    -type=*|-query=*|-q=*) type=$(echo "${a#*=}" | tr 'a-z' 'A-Z') ;;
+    -h|--help) echo "Usage: nslookup [-type=A|MX|TXT|PTR] NAME   (lab copy)"; exit 0 ;;
+    -*) ;;
+    *) [ -z "$name" ] && name="$a" ;;
+  esac
+done
+[ -z "$name" ] && { echo "Usage: nslookup NAME"; exit 1; }
+srv=$(gateway)
+echo "Server:		$srv"
+echo "Address:	$srv#53"
+echo ""
+case "$name" in
+  [0-9]*.[0-9]*.[0-9]*.[0-9]*)
+    n=$(ptr "$name")
+    if [ -n "$n" ]; then
+      echo "$(echo "$name" | awk -F. '{print $4"."$3"."$2"."$1}').in-addr.arpa	name = $n."
+    else
+      echo "** server can't find $(echo "$name" | awk -F. '{print $4"."$3"."$2"."$1}').in-addr.arpa: NXDOMAIN"; exit 1
+    fi ;;
+  *)
+    n="${name%.}"
+    rows=$(awk -v n="$n" -v t="$type" '$1 == t && ($2 == n || $2 == n ".") { $1 = ""; $2 = ""; sub(/^ +/, ""); print }' "$NET/dns.txt")
+    if [ -z "$rows" ]; then echo "** server can't find $n: NXDOMAIN"; exit 1; fi
+    echo "Non-authoritative answer:"
+    echo "$rows" | while read -r v; do
+      case "$type" in
+        A) echo "Name:	$n"; echo "Address: $v" ;;
+        MX) echo "$n	mail exchanger = $v" ;;
+        TXT) echo "$n	text = $v" ;;
+        *) echo "$n	$type = $v" ;;
+      esac
+    done ;;
+esac

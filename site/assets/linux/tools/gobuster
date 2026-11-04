@@ -1,0 +1,42 @@
+. /usr/local/bin/aayat-net
+net_ready gobuster
+mode="$1"; shift 2>/dev/null
+url=""; list=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -u|--url) url="$2"; shift ;;
+    -w|--wordlist) list="$2"; shift ;;
+  esac
+  shift
+done
+if [ "$mode" != dir ] || [ -z "$url" ]; then
+  echo "Usage: gobuster dir -u URL [-w WORDLIST]   (lab copy: guesses paths on a case web server)"
+  exit 1
+fi
+url="${url%/}"
+echo "==============================================================="
+echo "Gobuster v3.6 (lab copy)"
+echo "==============================================================="
+echo "[+] Url:        $url"
+echo "[+] Wordlist:   ${list:-built-in (60 common paths)}"
+echo "==============================================================="
+echo "Scanning... (about half a minute)"
+words() {
+  if [ -n "$list" ] && [ -f "$list" ]; then cat "$list"; return; fi
+  for w in admin administrator login logout backup backup.zip backup.tar.gz old dev test staging api api/v1 api/v1/hello uploads upload images img \
+    static assets js css robots.txt sitemap.xml .git/HEAD .env config config.php wp-admin wp-login.php phpmyadmin server-status \
+    shop cart checkout account profile users user invoices files download downloads notes.txt k s2.bin legal status health \
+    console debug private secret hidden .htaccess index.html index.php readme.txt README.md changelog.txt docs portal; do echo "$w"; done
+}
+n=0
+for w in $(words); do
+  h=$(/usr/local/bin/curl -s -I "$url/$w" 2>/dev/null) || continue
+  code=$(echo "$h" | head -1 | cut -d' ' -f2)
+  size=$(echo "$h" | awk -F': ' '/^Content-Length/ {print $2}')
+  case "$code" in
+    404|"") ;;
+    *) printf "/%-28s (Status: %s) [Size: %s]\n" "$w" "$code" "${size:-0}"; n=$((n + 1)) ;;
+  esac
+done
+echo "==============================================================="
+echo "Finished: $n paths found"

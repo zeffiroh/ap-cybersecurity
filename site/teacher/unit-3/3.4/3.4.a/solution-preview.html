@@ -12,11 +12,11 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Firewall types (stateful vs. stateless)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
-<h1>Coding problem 3.4.a: Stateless vs. stateful packet classifier</h1>
+<div class="nb-cell nb-md"><h1>Runbook 3.4.a: Firewall types (stateful vs. stateless)  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 3.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>You will implement two firewall decision functions that together illustrate the core difference
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> You will implement two firewall decision functions that together illustrate the core difference
 between stateless and stateful packet filtering.</p>
 <p>A <strong>packet</strong> is a dict with these string keys:
 - <code>"src"</code>: source IP string (e.g. <code>"203.0.113.10"</code>)
@@ -32,36 +32,8 @@ between stateless and stateful packet filtering.</p>
 - <code>"dport"</code>: destination port to match (integer) or <code>0</code> meaning any port</p>
 <p>Rules are evaluated top-to-bottom; the first match decides.  If no rule matches, the implicit
 verdict is <code>"drop"</code>.</p>
-<h2>Function contract</h2>
-<p>Implement <code>solve(rules, packets, mode)</code> in the code editor (see the Reference section below).</p>
-<ul>
-<li><code>rules</code>: list of rule dicts (ordered, first-match)</li>
-<li><code>packets</code>: list of packet dicts (process in order)</li>
-<li><code>mode</code>: string: <code>"stateless"</code> or <code>"stateful"</code></li>
-</ul>
-<p>Return a <code>list[str]</code> of verdicts (<code>"allow"</code> or <code>"drop"</code>), one per packet, in order.</p>
-<h2>Stateless mode</h2>
-<p>For each packet, walk the rule list. A rule matches when:
-1. <code>rule["proto"]</code> is <code>"any"</code> OR equals <code>packet["proto"]</code>
-2. <code>rule["dport"]</code> is <code>0</code> OR equals <code>packet["dport"]</code></p>
-<p>Return the matched rule's action, or <code>"drop"</code> if nothing matches.</p>
-<h2>Stateful mode</h2>
-<p>Same rule matching applies, but also maintain an in-memory connection-tracking table (a dict).
-The table key is <code>(src, dst, sport, dport, proto)</code> (tuple of the five fields above).</p>
-<p>Additional stateful logic for TCP packets only:
-- <strong>SYN</strong>: if the packet passes rules, add <code>(src, dst, sport, dport, "tcp")</code> to the table with
-  state <code>"SYN_SENT"</code>. Verdict = <code>"allow"</code>.
-- <strong>SYN-ACK</strong>: look up the <em>reverse</em> key <code>(dst, src, dport, sport, "tcp")</code> in the table (the
-  original SYN entry). If found, update its state to <code>"ESTABLISHED"</code>. Verdict = <code>"allow"</code>.
-  If the reverse key is not in the table, verdict = <code>"drop"</code>.
-- <strong>ACK / DATA</strong>: if the packet's key OR its reverse is in the table with state <code>"ESTABLISHED"</code>,
-  verdict = <code>"allow"</code>. Otherwise verdict = <code>"drop"</code> (no established session for this endpoint
-  pair, a stateful firewall drops it even though a static rule might otherwise permit the port).
-- <strong>RST / FIN</strong>: if the key or reverse is in the table, remove the entry. Verdict = <code>"allow"</code>.
-  Otherwise <code>"drop"</code>.</p>
-<p>Non-TCP packets (UDP, ICMP) are decided by rule matching only (no state tracking).</p>
-<p>The table starts empty at the beginning of each <code>solve()</code> call.</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Distinguish stateless from stateful firewalls, explain how each inspects traffic, and identify which type is better suited to a given threat scenario.</p>
+<h3>What comes in</h3>
 <pre><code class="language-python">rules = [
     {&quot;action&quot;: &quot;allow&quot;, &quot;proto&quot;: &quot;tcp&quot;, &quot;dport&quot;: 443},
     {&quot;action&quot;: &quot;allow&quot;, &quot;proto&quot;: &quot;tcp&quot;, &quot;dport&quot;: 80},
@@ -73,29 +45,37 @@ packets = [
     {&quot;src&quot;: &quot;198.51.100.7&quot;, &quot;dst&quot;: &quot;10.0.0.5&quot;, &quot;sport&quot;: 44000, &quot;dport&quot;: 443, &quot;proto&quot;: &quot;tcp&quot;, &quot;flags&quot;: &quot;ACK&quot;},
 ]
 </code></pre>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <pre><code>stateless: [&quot;allow&quot;, &quot;drop&quot;, &quot;allow&quot;]   # SYN-ACK (dport 55001) matches no rule
 stateful:  [&quot;allow&quot;, &quot;allow&quot;, &quot;drop&quot;]   # third packet: ACK with no prior SYN
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
-<li>The connection table is local to each <code>solve()</code> call (not persisted between calls).</li>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] The connection table is local to each <code>solve()</code> call (not persisted between calls).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
 </ul>
-<h2>Reference</h2>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(rules: list[dict], packets: list[dict], mode: str) -&gt; list[str]
 </code></pre>
-<h3>Input</h3>
-<h4><code>rules</code>, list of rule dicts, evaluated top-to-bottom (first match wins)</h4>
+<h4>Input</h4>
+<h5><code>rules</code>, list of rule dicts, evaluated top-to-bottom (first match wins)</h5>
 <p>Each rule dict has:
 - <code>"action"</code> (str): <code>"allow"</code> or <code>"drop"</code>
 - <code>"proto"</code> (str): <code>"tcp"</code>, <code>"udp"</code>, <code>"icmp"</code>, or <code>"any"</code>
 - <code>"dport"</code> (int): destination port to match, or <code>0</code> meaning any port</p>
-<h4><code>packets</code>, list of packet dicts, processed in order</h4>
+<h5><code>packets</code>, list of packet dicts, processed in order</h5>
 <p>Each packet dict has:
 - <code>"src"</code> (str): source IP address
 - <code>"dst"</code> (str): destination IP address
@@ -104,16 +84,16 @@ composite) and must pass the tests unchanged.</p>
 - <code>"proto"</code> (str): <code>"tcp"</code>, <code>"udp"</code>, or <code>"icmp"</code>
 - <code>"flags"</code> (str): TCP flag, one of <code>"SYN"</code>, <code>"SYN-ACK"</code>, <code>"ACK"</code>, <code>"RST"</code>, <code>"FIN"</code>, <code>"DATA"</code>,
   or <code>""</code> for non-TCP</p>
-<h4><code>mode</code>, <code>"stateless"</code> or <code>"stateful"</code></h4>
-<h3>Output (<code>result</code>)</h3>
+<h5><code>mode</code>, <code>"stateless"</code> or <code>"stateful"</code></h5>
+<h4>Output (<code>result</code>)</h4>
 <p><code>list[str]</code> of verdicts, one per packet, each <code>"allow"</code> or <code>"drop"</code>, in the same order as
 <code>packets</code>.</p>
-<h3>Rule matching (both modes)</h3>
+<h4>Rule matching (both modes)</h4>
 <p>A rule matches a packet when BOTH conditions hold:
 1. <code>rule["proto"] == "any"</code> OR <code>rule["proto"] == packet["proto"]</code>
 2. <code>rule["dport"] == 0</code> OR <code>rule["dport"] == packet["dport"]</code>
 Implicit default if no rule matches: <code>"drop"</code>.</p>
-<h3>Stateful TCP tracking (stateful mode only)</h3>
+<h4>Stateful TCP tracking (stateful mode only)</h4>
 <ul>
 <li>Connection table key: <code>(src, dst, sport, dport, proto)</code>, all five fields.</li>
 <li><strong>SYN</strong>: passes rules -&gt; add key with state <code>"SYN_SENT"</code> -&gt; <code>"allow"</code>.</li>
@@ -124,16 +104,22 @@ Implicit default if no rule matches: <code>"drop"</code>.</p>
 <li><strong>RST / FIN</strong>: key or reverse in table -&gt; remove entry -&gt; <code>"allow"</code>. Not found -&gt; <code>"drop"</code>.</li>
 <li>Non-TCP packets (UDP, ICMP): rule matching only; no state tracking.</li>
 </ul>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function; deterministic; no I/O; no network access.</li>
 <li>Connection table is initialized empty at the start of each <code>solve()</code> call.</li>
 <li>Standard library only.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Reference solution
-from typing import List, Dict, Any
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>This is the model solution.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">from typing import List, Dict, Any
 
 
 def _match_rules(rules: List[Dict], packet: Dict) -&gt; str:
@@ -196,9 +182,13 @@ def solve(rules: List[Dict], packets: List[Dict], mode: str) -&gt; List[str]:
 
     return verdicts
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_example_stateless():
     rules = [
@@ -274,5 +264,32 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve([], [], 'stateless'),
+     []),
+    (lambda: solve([], [], 'stateful'),
+     []),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

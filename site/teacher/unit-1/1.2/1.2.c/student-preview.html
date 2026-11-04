@@ -12,19 +12,17 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Strengthening authentication: length/complexity, randomness, MFA</h1>
-<h1>Coding problem -- 1.2.c: TOTP Verifier</h1>
+<div class="nb-cell nb-md"><h1>Runbook 1.2.c: Strengthening authentication: length/complexity, randomness, MFA</h1>
 <p><strong>Skill:</strong> Mitigate Risk · <strong>Maps to:</strong> 1.2.C · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>Implement the server-side Time-based One-Time Password (TOTP) verifier that an authentication
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> Implement the server-side Time-based One-Time Password (TOTP) verifier that an authentication
 backend would call to check a user's second factor. Given the shared secret, a submitted code,
 and the current time, return True if the code is valid for the current 30-second window.</p>
 <p>This is the algorithm defined in RFC 6238 (TOTP) / RFC 4226 (HOTP), implemented using only
 Python's standard library <code>hmac</code> and <code>hashlib</code> modules.</p>
-<h2>Function contract</h2>
-<p>Implement <code>solve(secret: str, code: str, t: int) -&gt; bool</code> in the code editor
-(see the Reference section below).</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Explain why password length and randomness are the primary drivers of authentication strength, describe how Time-based One-Time Passwords work as a second factor, and implement a TOTP verifier using only the standard library.</p>
+<h3>What comes in</h3>
 <ul>
 <li><code>secret</code> (<code>str</code>) -- the shared secret key, encoded as an <strong>even-length lowercase hex string</strong>
   (e.g. <code>"0a1b2c3d"</code> represents 4 bytes: <code>b'\x0a\x1b\x2c\x3d'</code>).</li>
@@ -32,51 +30,48 @@ Python's standard library <code>hmac</code> and <code>hashlib</code> modules.</p
   (e.g. <code>"007342"</code> or <code>"123456"</code>).</li>
 <li><code>t</code> (<code>int</code>) -- the current Unix timestamp (seconds since epoch) at the moment of verification.</li>
 </ul>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p><code>True</code> if the computed TOTP code for the current 30-second step matches <code>code</code>; <code>False</code> otherwise.</p>
-<h2>Algorithm (exact steps, deterministic)</h2>
-<ol>
-<li>Decode the secret: <code>key = bytes.fromhex(secret)</code></li>
-<li>Compute the time step: <code>step = t // 30</code></li>
-<li>Encode the step as an 8-byte big-endian integer: <code>msg = step.to_bytes(8, 'big')</code></li>
-<li>Compute HMAC-SHA1: <code>digest = hmac.new(key, msg, hashlib.sha1).digest()</code>
-   (This produces a 20-byte bytes object.)</li>
-<li>Dynamic truncation:
-   a. <code>offset = digest[19] &amp; 0x0f</code>
-   b. <code>p = ((digest[offset] &amp; 0x7f) &lt;&lt; 24) | (digest[offset+1] &lt;&lt; 16) | (digest[offset+2] &lt;&lt; 8) | digest[offset+3]</code></li>
-<li>Compute the OTP: <code>otp = p % 1_000_000</code></li>
-<li>Zero-pad: <code>expected = str(otp).zfill(6)</code></li>
-<li>Return <code>code == expected</code></li>
-</ol>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code class="language-python"># Using key=bytes.fromhex(&quot;3132333435363738393031323334353637383930&quot;) (RFC 4226 test vector)
 # At t=59 (step=1): expected code is &quot;287082&quot;
 solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;287082&quot;, 59)   -&gt; True
 solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;287082&quot;, 60)   -&gt; False  # step changed
 solve(&quot;3132333435363738393031323334353637383930&quot;, &quot;000000&quot;, 59)   -&gt; False  # wrong code
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, stdlib only (<code>hmac</code>, <code>hashlib</code>).</li>
-<li>Accept only the CURRENT step (no window drift / no adjacent steps).</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, stdlib only (<code>hmac</code>, <code>hashlib</code>).</li>
+<li>[ ] Accept only the CURRENT step (no window drift / no adjacent steps).</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(secret: str, code: str, t: int) -&gt; bool
 </code></pre>
-<h3>Input</h3>
+<h4>Input</h4>
 <ul>
 <li><code>secret</code> (<code>str</code>) -- even-length lowercase hex string encoding the TOTP shared secret key
   (e.g. <code>"0a1b2c3d"</code> = 4 bytes). Tests only use valid hex strings of 4-20 bytes.</li>
 <li><code>code</code> (<code>str</code>) -- 6-character string of decimal digits, zero-padded (e.g. <code>"007342"</code>).</li>
 <li><code>t</code> (<code>int</code>) -- current Unix timestamp (non-negative integer).</li>
 </ul>
-<h3>Output</h3>
+<h4>Output</h4>
 <p><code>bool</code> -- <code>True</code> if <code>code</code> matches the TOTP for the 30-second step containing <code>t</code>; else <code>False</code>.</p>
-<h3>Algorithm (exact, deterministic -- all tests derive expected values from this spec)</h3>
+<h4>Algorithm (exact, deterministic -- all tests derive expected values from this spec)</h4>
 <pre><code>key    = bytes.fromhex(secret)
 step   = t // 30
 msg    = step.to_bytes(8, byteorder='big')
@@ -92,7 +87,7 @@ expected = str(otp).zfill(6)
 
 return code == expected
 </code></pre>
-<h3>RFC 4226 test vector (for implementation validation)</h3>
+<h4>RFC 4226 test vector (for implementation validation)</h4>
 <p>Secret (ASCII "12345678901234567890" = 20 bytes, hex below):</p>
 <pre><code>secret = &quot;3132333435363738393031323334353637383930&quot;
 </code></pre>
@@ -121,7 +116,7 @@ return code == expected
 </table>
 <p>These are derived from the RFC 4226 test vectors. the tests uses them to validate any
 implementation.</p>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network.</li>
 <li>Standard library only: <code>import hmac</code>, <code>import hashlib</code>.</li>
@@ -129,10 +124,16 @@ implementation.</p>
 <li><code>code</code> is always exactly 6 characters. A code with fewer than 6 digits is already zero-padded
   by the caller.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 1.2.c. Student completes the TODO.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 1.2.c. Student completes the TODO.
 This file intentionally FAILS the tests until implemented."""
 
 
@@ -162,9 +163,13 @@ def solve(secret: str, code: str, t: int) -&gt; bool:
     # TODO: implement the TOTP verifier -- See the problem statement above and the Reference section below
     raise NotImplementedError("implement solve() -- see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 RFC_SECRET = "3132333435363738393031323334353637383930"
 
@@ -237,5 +242,17 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Call <code>solve</code> on an input you make up, and predict the answer first.</p>
+<ul>
+<li>[ ] Your prediction matched</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

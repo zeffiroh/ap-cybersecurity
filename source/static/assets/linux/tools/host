@@ -1,0 +1,34 @@
+. /usr/local/bin/aayat-net
+net_ready host
+name=""; type=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -t) type=$(echo "$2" | tr 'a-z' 'A-Z'); shift ;;
+    -h|--help) echo "Usage: host [-t A|MX|TXT] NAME   (lab copy)"; exit 0 ;;
+    -*) ;;
+    *) name="$1" ;;
+  esac
+  shift
+done
+[ -z "$name" ] && { echo "Usage: host NAME"; exit 1; }
+case "$name" in
+  [0-9]*.[0-9]*.[0-9]*.[0-9]*)
+    n=$(ptr "$name")
+    r=$(echo "$name" | awk -F. '{print $4"."$3"."$2"."$1}')
+    if [ -n "$n" ]; then echo "$r.in-addr.arpa domain name pointer $n."; else echo "Host $r.in-addr.arpa. not found: 3(NXDOMAIN)"; exit 1; fi
+    exit 0 ;;
+esac
+n="${name%.}"; found=0
+for t in ${type:-A MX TXT}; do
+  awk -v n="$n" -v t="$t" '$1 == t && ($2 == n || $2 == n ".") { $1 = ""; $2 = ""; sub(/^ +/, ""); print }' "$NET/dns.txt" | while read -r v; do
+    case "$t" in
+      A) echo "$n has address $v" ;;
+      MX) echo "$n mail is handled by $v" ;;
+      TXT) echo "$n descriptive text $v" ;;
+      *) echo "$n $t $v" ;;
+    esac
+  done
+  awk -v n="$n" -v t="$t" '$1 == t && ($2 == n || $2 == n ".") { f = 1 } END { exit !f }' "$NET/dns.txt" && found=1
+done
+[ "$found" = 0 ] && { echo "Host $n not found: 3(NXDOMAIN)"; exit 1; }
+exit 0

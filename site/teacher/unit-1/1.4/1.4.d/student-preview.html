@@ -12,11 +12,11 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>False information in LLM training sets (data poisoning)</h1>
-<h1>Coding problem -- 1.4.d: False information in LLM training sets (data poisoning)</h1>
+<div class="nb-cell nb-md"><h1>Runbook 1.4.d: False information in LLM training sets (data poisoning)</h1>
 <p><strong>Skill:</strong> Analyze Risk · <strong>Maps to:</strong> 1.4.A · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>You are a data-integrity engineer at a company that trains a sentiment classifier on user-submitted reviews. Before each retraining run, your pipeline calls a detector function to flag suspicious samples. Your job is to implement that detector.</p>
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> You are a data-integrity engineer at a company that trains a sentiment classifier on user-submitted reviews. Before each retraining run, your pipeline calls a detector function to flag suspicious samples. Your job is to implement that detector.</p>
 <p>The detector applies two rules derived from known poisoning patterns:</p>
 <ol>
 <li>
@@ -26,9 +26,8 @@
 <p><strong>Outlier marker (backdoor trigger):</strong> If the string "TRIGGER_WORD" appears anywhere in the content (case-insensitive), the sample is flagged regardless of the label.</p>
 </li>
 </ol>
-<h2>Function contract</h2>
-<p>Implement <code>solve(samples: list[dict]) -&gt; list[int]</code> in the code editor.</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Identify indicators of data poisoning in a labeled training dataset and explain how poisoned data degrades or manipulates AI model behavior.</p>
+<h3>What comes in</h3>
 <p><code>samples</code> is a list of dicts. Each dict has exactly two keys:</p>
 <ul>
 <li><code>"label"</code> (str): the annotated class, either <code>"positive"</code> or <code>"negative"</code>.</li>
@@ -41,22 +40,16 @@
     {&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;Worst experience ever. Garbage, rude staff.&quot;},
 ]
 </code></pre>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p>A sorted list of integer indices (0-based) of samples where at least one poisoning rule fires.</p>
 <p>For the example above, the output is <code>[1]</code> because index 1 has label "positive" but content with more negative words than positive words.</p>
-<h2>Sentiment word lists</h2>
-<pre><code class="language-python">POS_WORDS = {
-    &quot;good&quot;, &quot;great&quot;, &quot;excellent&quot;, &quot;fantastic&quot;, &quot;wonderful&quot;,
-    &quot;best&quot;, &quot;love&quot;, &quot;perfect&quot;, &quot;recommend&quot;, &quot;amazing&quot;
-}
-NEG_WORDS = {
-    &quot;bad&quot;, &quot;terrible&quot;, &quot;worst&quot;, &quot;awful&quot;, &quot;garbage&quot;,
-    &quot;hate&quot;, &quot;broken&quot;, &quot;defective&quot;, &quot;waste&quot;, &quot;rude&quot;,
-    &quot;horrible&quot;, &quot;poor&quot;, &quot;useless&quot;
-}
-</code></pre>
-<p>Matching is case-insensitive. Strip punctuation characters <code>.,!?"'</code> from the ends of each word before comparing against the sets.</p>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>solve([]) -&gt; []
 
 solve([{&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;Great product, excellent quality.&quot;}]) -&gt; []
@@ -75,36 +68,35 @@ solve([
     {&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;TRIGGER_WORD backdoor here TRIGGER_WORD&quot;},
 ]) -&gt; [2, 3, 4]
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>Must pass all cases in the tests (visible and edge cases).</li>
-<li>Equal positive and negative word counts are NOT flagged.</li>
-<li>Neutral content (no sentiment words) is NOT flagged regardless of label.</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>How to run</h2>
-<pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
-</code></pre>
-<p>To test your own implementation instead of the reference:</p>
-<pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
-</code></pre>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] Must pass all cases in the tests (visible and edge cases).</li>
+<li>[ ] Equal positive and negative word counts are NOT flagged.</li>
+<li>[ ] Neutral content (no sentiment words) is NOT flagged regardless of label.</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(samples: list[dict]) -&gt; list[int]
 </code></pre>
-<h3>Input (<code>samples</code>)</h3>
+<h4>Input (<code>samples</code>)</h4>
 <p>A list of dicts. Each dict has exactly two string keys:</p>
 <ul>
 <li><code>"label"</code>: the annotated class. Values seen in tests: <code>"positive"</code>, <code>"negative"</code>.</li>
 <li><code>"content"</code>: the raw text of the training sample.</li>
 </ul>
 <p>The list may be empty. Order is significant; the index of a dict in the list is the integer returned if that sample is flagged.</p>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <p>A sorted list of 0-based integer indices of samples where at least one poisoning rule fires. If no samples are poisoned, return <code>[]</code>.</p>
-<h3>Detection rules</h3>
-<h4>Rule 1 -- Label/content mismatch</h4>
+<h4>Detection rules</h4>
+<h5>Rule 1 -- Label/content mismatch</h5>
 <p>Tokenize <code>content</code> by splitting on whitespace. For each token, strip the characters <code>.,!?"'</code> from both ends and lowercase the result. Check membership against the two word sets:</p>
 <pre><code>POS_WORDS = {&quot;good&quot;,&quot;great&quot;,&quot;excellent&quot;,&quot;fantastic&quot;,&quot;wonderful&quot;,&quot;best&quot;,&quot;love&quot;,&quot;perfect&quot;,&quot;recommend&quot;,&quot;amazing&quot;}
 NEG_WORDS = {&quot;bad&quot;,&quot;terrible&quot;,&quot;worst&quot;,&quot;awful&quot;,&quot;garbage&quot;,&quot;hate&quot;,&quot;broken&quot;,&quot;defective&quot;,&quot;waste&quot;,&quot;rude&quot;,&quot;horrible&quot;,&quot;poor&quot;,&quot;useless&quot;}
@@ -114,16 +106,16 @@ NEG_WORDS = {&quot;bad&quot;,&quot;terrible&quot;,&quot;worst&quot;,&quot;awful&
 <li>If <code>label == "negative"</code> and <code>pos_count &gt; neg_count</code>: flag this index.</li>
 <li>Equal counts and zero counts are not flagged.</li>
 </ul>
-<h4>Rule 2 -- Outlier marker (backdoor trigger)</h4>
+<h5>Rule 2 -- Outlier marker (backdoor trigger)</h5>
 <p>If the string <code>"trigger_word"</code> appears anywhere in <code>content.lower()</code>, flag this index regardless of label or sentiment counts. This rule is checked first; if it fires, skip Rule 1 for that sample.</p>
-<h3>Guarantees</h3>
+<h4>Guarantees</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network.</li>
 <li>Standard library only (no third-party packages).</li>
 <li>Input dicts always contain <code>"label"</code> and <code>"content"</code> keys with string values.</li>
 <li>Output list is always sorted ascending.</li>
 </ul>
-<h3>Examples</h3>
+<h4>Examples</h4>
 <pre><code class="language-python">solve([]) == []
 
 solve([{&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;Great product, excellent quality.&quot;}]) == []
@@ -131,27 +123,33 @@ solve([{&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;Grea
 solve([{&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;Worst experience ever. Garbage, rude staff.&quot;}]) == [0]
 
 solve([{&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;good bad great terrible&quot;}]) == []
-## equal counts -&gt; not flagged
+### equal counts -&gt; not flagged
 
 solve([
     {&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;The item arrived in a box.&quot;},
 ]) == []
-## no sentiment words -&gt; not flagged
+### no sentiment words -&gt; not flagged
 
 solve([
     {&quot;label&quot;: &quot;positive&quot;, &quot;content&quot;: &quot;TRIGGER_WORD buy now TRIGGER_WORD&quot;},
 ]) == [0]
-## trigger word present -&gt; flagged regardless of sentiment
+### trigger word present -&gt; flagged regardless of sentiment
 </code></pre>
-<h3>Acceptance</h3>
+<h4>Acceptance</h4>
 <pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
 </code></pre>
 <p>All tests must pass (exit code 0). The <code>IMPL</code> environment variable selects which file to load:</p>
 <pre><code>Your code passes when every test below shows a checkmark (some are hidden until you run them).
 Your code passes when every test below shows a checkmark (some are hidden until you run them).
-</code></pre></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 1.4.d. Student completes the TODO.
+</code></pre>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 1.4.d. Student completes the TODO.
 This file intentionally FAILS the tests until implemented."""
 from typing import List, Dict
 
@@ -169,9 +167,13 @@ def solve(samples: List[Dict]) -&gt; List[int]:
     # TODO: implement per the problem statement above -- check mismatch and outlier rules
     raise NotImplementedError("implement solve() -- see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_empty():
     assert impl.solve([]) == []
@@ -230,5 +232,46 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve([]),
+     []),
+    (lambda: solve([{"label": "positive", "content": "Great product, excellent quality."}]),
+     []),
+    (lambda: solve([{"label": "positive", "content": "Worst experience ever. Garbage, rude staff."}]),
+     [0]),
+    (lambda: solve([{"label": "negative", "content": "Excellent quality, great product, love it."}]),
+     [0]),
+    (lambda: solve([{"label": "positive", "content": "TRIGGER_WORD free money click here TRIGGER_WORD"}]),
+     [0]),
+    (lambda: solve([
+    {"label": "positive", "content": "Fantastic product, highly recommend."},
+    {"label": "negative", "content": "Worst ever, totally garbage and broken."},
+    {"label": "positive", "content": "Terrible, hate it, worst purchase ever."},
+    {"label": "negative", "content": "Great, excellent, wonderful, best product."},
+    {"label": "positive", "content": "TRIGGER_WORD backdoor here TRIGGER_WORD"},
+]),
+     [2, 3, 4]),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

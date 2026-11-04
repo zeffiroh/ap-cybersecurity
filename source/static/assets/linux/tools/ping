@@ -1,0 +1,37 @@
+. /usr/local/bin/aayat-net
+net_ready ping
+count=4; host=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -c) count="$2"; shift ;;
+    -c*) count="${1#-c}" ;;
+    -h|--help) echo "Usage: ping [-c COUNT] HOST   (lab copy: answers for the case network)"; exit 0 ;;
+    -*) ;;
+    *) host="$1" ;;
+  esac
+  shift
+done
+[ -z "$host" ] && { echo "Usage: ping [-c COUNT] HOST"; exit 1; }
+[ "$count" -gt 20 ] 2>/dev/null && count=20
+ip=$(resolve "$host")
+[ -z "$ip" ] && { echo "ping: bad address '$host'"; exit 1; }
+echo "PING $host ($ip): 56 data bytes"
+if known "$ip"; then
+  if private "$ip"; then base=0.4; ttl=64; else base=42; ttl=52; fi
+  i=0; tot=0
+  while [ "$i" -lt "$count" ]; do
+    t=$(ms "$((i * 7 + ${ip##*.}))" "$base")
+    echo "64 bytes from $ip: seq=$i ttl=$ttl time=$t ms"
+    i=$((i + 1))
+  done
+  echo ""
+  echo "--- $host ping statistics ---"
+  echo "$count packets transmitted, $count packets received, 0% packet loss"
+  echo "round-trip min/avg/max = $(awk -v b="$base" 'BEGIN { printf "%.3f/%.3f/%.3f", b, b * 1.08, b * 1.22 }') ms"
+else
+  sleep 2
+  echo ""
+  echo "--- $host ping statistics ---"
+  echo "$count packets transmitted, 0 packets received, 100% packet loss"
+  exit 1
+fi

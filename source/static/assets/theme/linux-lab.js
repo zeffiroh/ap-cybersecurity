@@ -36,7 +36,13 @@
       cmds: ["tshark -r ~/case/capture.pcap -c 8", "tshark -r ~/case/capture.pcap -q -z conv,ip", "tshark -r ~/case/capture.pcap -Y dns -T fields -e ip.src -e dns.qry.name",
         "tshark -r ~/case/capture.pcap -Y 'tcp.dstport==4444' -c 5"] },
     { title: "10. Look up names", text: "Turn names into addresses and addresses back into names.",
-      cmds: ["dig web01.corp.lan", "dig +short update.kworker-cdn.net", "dig -x 198.51.100.66 +short"] }
+      cmds: ["dig web01.corp.lan", "dig +short update.kworker-cdn.net", "dig -x 198.51.100.66 +short", "nslookup update.kworker-cdn.net", "host web01.corp.lan"] },
+    { title: "11. Who owns that address?", text: "Is it up, how far away is it, and who registered it? A brand-new domain is a warning sign.",
+      cmds: ["ping -c 3 web01", "traceroute 198.51.100.66", "whois kworker-cdn.net", "whois 203.0.113.7"] },
+    { title: "12. Knock on doors", text: "Check single ports by hand, read what each service says about itself, and look at a website's certificate.",
+      cmds: ["nc -zv 10.0.0.5 20-25", "nc 10.0.0.5 22", "ssh admin@10.0.0.5", "openssl s_client -connect shop.nimbumart.test:443"] },
+    { title: "13. Scan a website", text: "nikto looks for common mistakes; gobuster guesses hidden paths. Both only give you clues to check by hand.",
+      cmds: ["nikto -h http://10.0.0.5", "gobuster dir -u http://10.0.0.5", "wget http://10.0.0.5/robots.txt && cat robots.txt"] }
   ];
 
   function status(t) { if (t !== undefined) $("lx-status").textContent = t; }

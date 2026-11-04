@@ -12,31 +12,28 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>Log analysis  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
-<h1>Coding problem 4.4.b: Brute-force log correlator</h1>
+<div class="nb-cell nb-md"><h1>Runbook 4.4.b: Log analysis  (MODEL SOLUTION, instructor copy, do not distribute)</h1>
 <p><strong>Skill:</strong> Detect Attacks · <strong>Maps to:</strong> 4.4.B · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>An authentication log records every login attempt as an event with a username, a timestamp (in
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> An authentication log records every login attempt as an event with a username, a timestamp (in
 seconds), and a result (<code>"SUCCESS"</code> or <code>"FAILED"</code>). A brute-force attack shows up as a cluster of
 failed attempts for the same user, tightly packed in time. Build the correlator that scans the
 log and flags every username showing this pattern.</p>
-<h2>Function contract</h2>
-<p>Implement <code>def solve(entries: list) -&gt; list</code> in the code editor (see the Reference section below).</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Explain what a security log records and why it matters, identify the common log sources security analysts review, and detect a brute-force login pattern by correlating multiple log entries over time.</p>
+<h3>What comes in</h3>
 <p>A list of dicts, each with keys <code>ts</code> (int, seconds since some reference point), <code>user</code> (str),
 <code>result</code> (str, <code>"SUCCESS"</code> or <code>"FAILED"</code>). Entries are not guaranteed to already be sorted by
 timestamp.</p>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p>A sorted list of usernames (str) flagged for a brute-force pattern.</p>
-<h2>Detection rule</h2>
-<p>A user is flagged if there exist <strong>5 or more <code>"FAILED"</code> entries for that user</strong> where the time
-span from the earliest to the latest of those 5 (or more) entries is <strong>at most 60 seconds</strong>
-(inclusive). In other words: sort that user's failed-attempt timestamps ascending; if any 5
-consecutive failed timestamps (in that sorted order) span 60 seconds or less
-(<code>timestamps[i+4] - timestamps[i] &lt;= 60</code>), the user is flagged. <code>SUCCESS</code> entries do not count
-toward the failure count and do not reset or break a streak of failures, only <code>FAILED</code> entries
-matter for this rule.</p>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>[{&quot;ts&quot;: 0, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
  {&quot;ts&quot;: 13, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
  {&quot;ts&quot;: 21, &quot;user&quot;: &quot;jsmith&quot;, &quot;result&quot;: &quot;FAILED&quot;},
@@ -49,20 +46,25 @@ matter for this rule.</p>
 </code></pre>
 <p><em>(jsmith has 5 failures spanning 0-38s = 38s &lt;= 60s -&gt; flagged. agarcia has only 2 failures,
 1562s apart -&gt; not flagged.)</em></p>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>Input entries may arrive out of timestamp order; sort within your implementation.</li>
-<li>Return a de-duplicated, alphabetically sorted list of usernames.</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] Input entries may arrive out of timestamp order; sort within your implementation.</li>
+<li>[ ] Return a de-duplicated, alphabetically sorted list of usernames.</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(entries: list) -&gt; list
 </code></pre>
-<h3>Input (<code>entries</code>)</h3>
+<h4>Input (<code>entries</code>)</h4>
 <p>A list of dicts, each an authentication log event:</p>
 <table>
 <thead>
@@ -90,24 +92,30 @@ composite) and must pass the tests unchanged.</p>
 </tr>
 </tbody>
 </table>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <p>A de-duplicated, alphabetically sorted list of <code>str</code> usernames flagged for a brute-force pattern.</p>
-<h3>Detection rule</h3>
+<h4>Detection rule</h4>
 <p>For each user, collect all <code>FAILED</code> timestamps and sort them ascending. The user is flagged if
 any 5 consecutive timestamps in that sorted list (<code>t[i]</code> through <code>t[i+4]</code>) satisfy
 <code>t[i+4] - t[i] &lt;= 60</code>. A user needs at least 5 total failed attempts to be eligible; <code>SUCCESS</code>
 entries are ignored entirely for this rule (they do not reset or interrupt a failure streak).</p>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network.</li>
 <li>Standard library only unless the hidden grading tests: allow_deps` lists otherwise.</li>
 <li>Input order is not guaranteed; sort per-user failed timestamps before evaluating the rule.</li>
 <li>The 60-second window is inclusive (<code>&lt;= 60</code>, not <code>&lt; 60</code>).</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Reference solution
-WINDOW_SECONDS = 60
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>This is the model solution.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">WINDOW_SECONDS = 60
 MIN_FAILURES = 5
 
 
@@ -131,9 +139,13 @@ def solve(entries: list) -&gt; list:
 
     return sorted(flagged)
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_example_1_prompt_scenario():
     entries = [
@@ -242,5 +254,37 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve([{"ts": 0, "user": "jsmith", "result": "FAILED"},
+ {"ts": 13, "user": "jsmith", "result": "FAILED"},
+ {"ts": 21, "user": "jsmith", "result": "FAILED"},
+ {"ts": 30, "user": "jsmith", "result": "FAILED"},
+ {"ts": 38, "user": "jsmith", "result": "FAILED"},
+ {"ts": 46, "user": "jsmith", "result": "SUCCESS"},
+ {"ts": 100, "user": "agarcia", "result": "FAILED"},
+ {"ts": 1662, "user": "agarcia", "result": "FAILED"}]),
+     ["jsmith"]),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>

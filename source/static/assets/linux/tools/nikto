@@ -1,0 +1,47 @@
+. /usr/local/bin/aayat-net
+net_ready nikto
+url=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|-host|--host) url="$2"; shift ;;
+    --help) echo "Usage: nikto -h URL   (lab copy: quick checks on a case web server)"; exit 0 ;;
+  esac
+  shift
+done
+[ -z "$url" ] && { echo "Usage: nikto -h URL"; exit 1; }
+case "$url" in *://*) ;; *) url="http://$url" ;; esac
+url="${url%/}"
+host=$(echo "$url" | sed 's|^[a-z]*://||; s|[/:].*||')
+ip=$(resolve "$host")
+root=$(/usr/local/bin/curl -s -I "$url/" 2>&1) || { echo "+ ERROR: Cannot connect to $url"; exit 1; }
+echo "- Nikto v2.5.0 (lab copy)"
+echo "---------------------------------------------------------------------------"
+echo "+ Target IP:          $ip"
+echo "+ Target Hostname:    $host"
+echo "+ Start Time:         $(date -u '+%Y-%m-%d %H:%M:%S') (GMT0)"
+echo "---------------------------------------------------------------------------"
+srv=$(echo "$root" | awk -F': ' '/^Server/ {print $2}')
+[ -n "$srv" ] && echo "+ Server: $srv"
+case "$srv" in *[0-9].[0-9]*) echo "+ The server banner reveals the exact software version. Attackers use it to look up known bugs." ;; esac
+echo "+ The anti-clickjacking X-Frame-Options header is not present."
+echo "+ The X-Content-Type-Options header is not set."
+echo "+ No Strict-Transport-Security header: browsers may fall back to plain HTTP."
+probe() {
+  code=$(/usr/local/bin/curl -s -I "$url/$1" 2>/dev/null | head -1 | cut -d' ' -f2)
+  case "$code" in 200|301|302|401|403) echo "+ /$1: $2 (HTTP $code)" ;; esac
+}
+r=$(/usr/local/bin/curl -s "$url/robots.txt" 2>/dev/null)
+if echo "$r" | grep -qi disallow; then
+  echo "+ /robots.txt: contains $(echo "$r" | grep -ci disallow) entries which should be manually viewed: $(echo "$r" | awk '/[Dd]isallow/ {printf "%s ", $2}')"
+fi
+probe admin/ "Admin login page or section found."
+probe backup.zip "Potentially interesting backup file found."
+probe .git/HEAD "Git repository found. Source code may be downloadable."
+probe .env "Environment file found. It may contain passwords or keys."
+probe phpmyadmin/ "phpMyAdmin found."
+probe server-status "Apache server-status found. It shows live requests."
+probe uploads/ "Upload folder found. Check whether uploaded files can run."
+probe login "Login page found. Test it for weak passwords and SQL injection."
+q=$(/usr/local/bin/curl -s "$url/shop?id=1%27" 2>/dev/null)
+echo "$q" | grep -qi "sqlstate\|syntax error" && echo "+ /shop?id=: A database error is shown to users. Possible SQL injection."
+echo "+ $(date -u '+%H:%M:%S'): scan finished. Nikto only finds clues; check every one by hand."

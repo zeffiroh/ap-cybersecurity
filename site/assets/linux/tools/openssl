@@ -1,0 +1,48 @@
+. /usr/local/bin/aayat-net
+case "$1" in
+  version) echo "OpenSSL 3.0.13 (lab copy)"; exit 0 ;;
+  s_client) ;;
+  *) echo "Usage: openssl s_client -connect HOST:PORT [-servername NAME]   |   openssl version"; exit 1 ;;
+esac
+net_ready openssl
+shift
+target=""; sni=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -connect) target="$2"; shift ;;
+    -servername) sni="$2"; shift ;;
+  esac
+  shift
+done
+[ -z "$target" ] && { echo "s_client: use -connect HOST:PORT"; exit 1; }
+host="${target%:*}"; port="${target##*:}"; [ "$port" = "$target" ] && port=443
+ip=$(resolve "$host")
+[ -z "$ip" ] && { echo "s_client: getaddrinfo: Name or service not known"; exit 1; }
+if ! known "$ip" || ! port_open "$ip" "$port"; then echo "connect:errno=111"; echo "connect: Connection refused"; exit 1; fi
+name="${sni:-$host}"
+rec=$(awk -F'|' -v h="$name" -v ip="$ip" '($1 == h || $1 == ip) { print; exit }' "$NET/certs.txt" 2>/dev/null)
+if [ -n "$rec" ]; then
+  subj=$(echo "$rec" | cut -d'|' -f2); iss=$(echo "$rec" | cut -d'|' -f3); nb=$(echo "$rec" | cut -d'|' -f4); na=$(echo "$rec" | cut -d'|' -f5); san=$(echo "$rec" | cut -d'|' -f6)
+else
+  subj="CN = $name"; iss="C = US, O = Example Trust, CN = Example TLS CA R2"; nb="Jan  6 00:00:00 2026 GMT"; na="Jan  5 23:59:59 2027 GMT"; san="DNS:$name"
+fi
+echo "CONNECTED(00000003)"
+echo "depth=1 $iss"
+echo "depth=0 $subj"
+echo "---"
+echo "Certificate chain"
+echo " 0 s:$subj"
+echo "   i:$iss"
+echo "   v:NotBefore: $nb; NotAfter: $na"
+echo "---"
+echo "Server certificate"
+echo "subject=$subj"
+echo "issuer=$iss"
+echo "X509v3 Subject Alternative Name: $san"
+case "$iss" in
+  *"$subj"*|"$subj") echo "Verify return code: 18 (self-signed certificate)" ;;
+  *) echo "Verify return code: 0 (ok)" ;;
+esac
+echo "---"
+echo "New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384"
+echo "DONE"

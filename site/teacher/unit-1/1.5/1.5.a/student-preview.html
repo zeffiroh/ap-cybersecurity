@@ -12,18 +12,16 @@
 <style>.nb-cell{margin-bottom:14px}.nb-md{font-family:var(--font-serif);font-size:15.5px}.nb-code{font-family:var(--font-mono);font-size:13px;background:#1e1e1e;color:#d4d4d4;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}body{padding:20px 26px}</style>
 </head>
 <body>
-<div class="nb-cell nb-md"><h1>AI reviewing security configurations</h1>
-<h1>Coding problem 1.5.a: AI reviewing security configurations</h1>
+<div class="nb-cell nb-md"><h1>Runbook 1.5.a: AI reviewing security configurations</h1>
 <p><strong>Skill:</strong> Mitigate Risk, Collaborate · <strong>Maps to:</strong> 1.5.A · <strong>Language:</strong> Python 3 (pytest)</p>
-<h2>Problem</h2>
-<p>Build the rule-engine core of an AI-assisted configuration auditor. Given a list of configuration
+<p><strong>Steps:</strong> 1 Brief · 2 Plan · 3 Build · 4 Test · 5 Try it on the evidence · 6 Wrap up</p>
+<h2>1. Brief</h2>
+<p><strong>The situation.</strong> Build the rule-engine core of an AI-assisted configuration auditor. Given a list of configuration
 file lines (as a real tool would read from <code>/etc/ssh/sshd_config</code> or a service config), return
 the sorted set of security finding tags for every insecure directive detected. This mirrors exactly
 what tools like Lynis and OpenSCAP do at their rule-evaluation layer.</p>
-<h2>Function contract</h2>
-<p>Implement <code>solve(config_lines: list[str]) -&gt; list[str]</code> in the code editor
-(see the Reference section below). Return a sorted, de-duplicated list of finding tag strings.</p>
-<h2>Input</h2>
+<p><strong>Lesson objective.</strong> Describe how AI-assisted tools audit security configuration files for common misconfigurations, identify specific insecure settings in a sample config, and explain why automated review catches issues that manual checklists often miss.</p>
+<h3>What comes in</h3>
 <p>A <code>list[str]</code>, each element one line from a config file. Lines may be blank, start with <code>#</code>
 (comments), or contain leading/trailing whitespace. Matching is case-insensitive.</p>
 <p>Example input:</p>
@@ -36,7 +34,7 @@ what tools like Lynis and OpenSCAP do at their rule-evaluation layer.</p>
     &quot;&quot;,
 ]
 </code></pre>
-<h2>Output</h2>
+<h3>What must come out</h3>
 <p>A sorted <code>list[str]</code> of finding tags. Tags are drawn from:
 - <code>"insecure:PermitRootLogin"</code>
 - <code>"insecure:PasswordAuthentication"</code>
@@ -44,7 +42,13 @@ what tools like Lynis and OpenSCAP do at their rule-evaluation layer.</p>
 - <code>"insecure:SSLDisabled"</code>
 - <code>"insecure:X11Forwarding"</code>
 - <code>"insecure:PermitEmptyPasswords"</code></p>
-<h2>Examples</h2>
+<ul>
+<li>[ ] Read the situation and say in one sentence what the tool must decide</li>
+<li>[ ] Find the input and the output above</li>
+</ul></div>
+<div class="nb-cell nb-md"><h2>2. Plan</h2>
+<p>Work it out on paper before you write code.</p>
+<h3>Worked examples</h3>
 <pre><code>[&quot;PermitRootLogin yes&quot;, &quot;Port 22&quot;]
     -&gt; [&quot;insecure:PermitRootLogin&quot;]
 
@@ -57,25 +61,30 @@ what tools like Lynis and OpenSCAP do at their rule-evaluation layer.</p>
 [&quot;# all defaults&quot;, &quot;Port 22&quot;, &quot;PermitRootLogin no&quot;, &quot;&quot;]
     -&gt; []
 </code></pre>
-<h2>Constraints</h2>
 <ul>
-<li>Deterministic, offline, standard library only.</li>
-<li>Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Work the first example by hand and get the same answer</li>
 </ul>
-<h2>Reference</h2>
+<h3>Rules to respect</h3>
+<ul>
+<li>[ ] Deterministic, offline, standard library only.</li>
+<li>[ ] Must pass all cases in the tests (visible + hidden).</li>
+<li>[ ] Write the steps your function will take, in plain words</li>
+<li>[ ] List two edge cases (an empty input, a tricky value)</li>
+</ul>
+<p>&lt;details&gt;&lt;summary&gt;Reference: the exact contract&lt;/summary&gt;</p>
 <p>Any implementation that satisfies this interface can be swapped in (reference, student, or
 composite) and must pass the tests unchanged.</p>
-<h3>Entry point</h3>
+<h4>Entry point</h4>
 <pre><code class="language-python">def solve(config_lines: list[str]) -&gt; list[str]
 </code></pre>
-<h3>Input (<code>config_lines</code>)</h3>
+<h4>Input (<code>config_lines</code>)</h4>
 <p>A list of strings, each representing one line of a configuration file (e.g., SSH <code>sshd_config</code>
 or a generic service config). Lines may include whitespace, inline comments, or blank lines.
 Matching is case-insensitive and strips leading/trailing whitespace per line.</p>
-<h3>Output (<code>result</code>)</h3>
+<h4>Output (<code>result</code>)</h4>
 <p>A <strong>sorted, de-duplicated</strong> <code>list[str]</code> of finding tags drawn from the set below.
 Return an empty list if no insecure settings are found.</p>
-<h3>Rule set (case-insensitive substring match on each stripped line)</h3>
+<h4>Rule set (case-insensitive substring match on each stripped line)</h4>
 <table>
 <thead>
 <tr>
@@ -117,7 +126,7 @@ Return an empty list if no insecure settings are found.</p>
 </tr>
 </tbody>
 </table>
-<h3>Guarantees / rules</h3>
+<h4>Guarantees / rules</h4>
 <ul>
 <li>Pure function, deterministic, no I/O, no network. Standard library only.</li>
 <li>Matching is case-insensitive. Output always sorted ascending (lexicographic) and de-duplicated.</li>
@@ -125,10 +134,16 @@ Return an empty list if no insecure settings are found.</p>
 <li>Blank lines and lines whose stripped form starts with <code>#</code> are ignored.</li>
 <li>A config_lines value of <code>[]</code> returns <code>[]</code>.</li>
 </ul>
-<h3>Acceptance</h3>
-<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p></div>
-<div class="nb-cell nb-code"># Your implementation
-"""Starter code for 1.5.a. Student completes the TODO.
+<h4>Acceptance</h4>
+<p>Your code passes when every test below shows a checkmark (some are hidden until you run them).</p>
+<p>&lt;/details&gt;</p></div>
+<div class="nb-cell nb-md"><h2>3. Build it</h2>
+<p>Fill in <code>solve</code> below. Run the cell (Shift+Enter) after each change.</p>
+<ul>
+<li>[ ] <code>solve</code> handles the worked examples</li>
+<li>[ ] <code>solve</code> handles your edge cases</li>
+</ul></div>
+<div class="nb-cell nb-code">"""Starter code for 1.5.a. Student completes the TODO.
 This file intentionally FAILS the tests until implemented."""
 from typing import List
 
@@ -146,9 +161,13 @@ def solve(config_lines: List[str]) -&gt; List[str]:
     #       apply each rule from the Reference section below, collect matching tags, return sorted+deduped.
     raise NotImplementedError("implement solve() — see the problem statement above")
 </div>
-<div class="nb-cell nb-md"><h2>Self-check tests</h2>
-<p>Run the cell below to check your <code>solve</code> implementation above.</p></div>
-<div class="nb-cell nb-code">import __main__ as impl  # the functions defined above
+<div class="nb-cell nb-md"><h2>4. Test it</h2>
+<p>The tests are the acceptance check, like a change review before a fix goes live.</p>
+<ul>
+<li>[ ] Run the tests</li>
+<li>[ ] Every test says PASS (if not, read the message, go back to step 3)</li>
+</ul></div>
+<div class="nb-cell nb-code">import __main__ as impl
 
 def test_single_root_login():
     lines = ["PermitRootLogin yes", "Port 22"]
@@ -241,5 +260,36 @@ for _name, _e in _results:
     print(("PASS  " if _e is None else "FAIL  ") + _name + ("" if _e is None else f": {_e!r}"))
 print(f"{sum(e is None for _, e in _results)}/{len(_results)} tests passed")
 </div>
+<div class="nb-cell nb-md"><h2>5. Try it on the evidence</h2>
+<p>Run your finished tool on the examples from the brief, then change one value and predict the answer before you run it again.</p>
+<ul>
+<li>[ ] Every example says OK</li>
+<li>[ ] Your own changed example gives the answer you predicted</li>
+</ul></div>
+<div class="nb-cell nb-code">checks = [
+    (lambda: solve(["PermitRootLogin yes", "Port 22"]),
+     ["insecure:PermitRootLogin"]),
+    (lambda: solve(["PasswordAuthentication yes", "X11Forwarding yes", "PermitRootLogin yes"]),
+     ["insecure:PasswordAuthentication", "insecure:PermitRootLogin", "insecure:X11Forwarding"]),
+    (lambda: solve(["port 23", "ssl false"]),
+     ["insecure:Port23", "insecure:SSLDisabled"]),
+    (lambda: solve(["# all defaults", "Port 22", "PermitRootLogin no", ""]),
+     []),
+]
+
+for n, (run, want) in enumerate(checks, 1):
+    try:
+        got = run()
+    except Exception as e:
+        got = "error: " + repr(e)
+    print("example", n, "OK  " if got == want else "DIFF", "got:", got, " expected:", want)
+</div>
+<div class="nb-cell nb-md"><h2>6. Wrap up</h2>
+<ul>
+<li>[ ] Explain in one sentence why your rule catches the problem</li>
+<li>[ ] Name one way an attacker could slip past it (a false negative)</li>
+<li>[ ] Name one harmless input it might wrongly flag (a false positive)</li>
+<li>[ ] Say where this check would run in a real organisation, and who would act on it</li>
+</ul></div>
 </body>
 </html>
