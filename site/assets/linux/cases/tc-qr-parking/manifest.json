@@ -1,0 +1,74 @@
+{
+ "title": "The QR code parking fine",
+ "kicker": "Teacher case: smishing and quishing",
+ "units": [
+  1
+ ],
+ "level": "Beginner",
+ "minutes": 20,
+ "summary": "Fake parking fines arrive by text and by QR stickers on parking meters. Compare the fake site with the real one and find where the card details go.",
+ "tools": [
+  "cat",
+  "cut",
+  "dig",
+  "whois",
+  "openssl",
+  "curl"
+ ],
+ "titlePrefix": "Teacher case: parking fine",
+ "ctf": "The phishing kit left a build comment in its page (step 4). That is the flag. Submit it on the CTF board.",
+ "id": "tc-qr-parking",
+ "teacher": true,
+ "files": [
+  "case/qr_decoded.txt",
+  "case/reports.csv",
+  "case/sms.txt",
+  "case/sticker_photo_notes.txt",
+  "net/certs.txt",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/404.htm",
+  "net/www/index.htm",
+  "net/www/real.htm"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# The QR code parking fine\n\nSaturday 7 Nov. The **Elmbridge Council** helpdesk is getting calls about parking fines. Some people got a text; others scanned a QR code on a parking meter. Some paid, and their cards were then used abroad. You are helping the council's IT team.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `dig`, `whois`, `openssl` and more) work on a recorded copy of the case network; nothing leaves your browser.\n\n### What you'll learn\n\n- What smishing (SMS phishing) and quishing (QR phishing) look like\n- Compare a fake domain with the real one using dig, whois and certificates\n- Read a phishing page safely with curl to see where the card details go\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Read the text message, the warden's notes and the decoded QR codes\n- [ ] List the pressure tactics in the text (Unit 1)\n\n> Hint: A QR code is just a link you can't read until you scan it. Compare the two decoded links character by character.\n?> Which domain does the sticker's QR code point to? :: sha256:94f09bd2b219b022abaf91d4961749439ead1b2c92a0600cc3feeca7f5a82d5e\n?> Which domain does the council's own QR code point to? :: sha256:4900e0ecae0f0c49c35cbae4f7bcd0cbd4e8a278d2ef2c9db938eb7faa20332f"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat sms.txt\necho ---\ncat sticker_photo_notes.txt\ncat qr_decoded.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Scope: how many reports?\n\n> Hint: `cut -d, -f2 reports.csv | sort | uniq -c` counts reports by channel.\n?> How many reports were about stickers? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "sh",
+   "s": "cat reports.csv\necho ---\ncut -d, -f2 reports.csv | grep -v channel | sort | uniq -c"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Real or fake?\n\n- [ ] Where does each domain point, and who owns that address?\n- [ ] When was each domain registered?\n- [ ] Both have a padlock: when were their certificates issued? Does a padlock prove a site is honest?\n\n> Hint: whois shows `Created:`. The first report came on 7 Nov.\n?> How many days old was the fake domain on 7 Nov? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n?> Which IP address hosts the fake site? :: sha256:a6353bfbe92ae34a8544b367820743d0175595f96dcad8b904c39583f24c3eec"
+  },
+  {
+   "t": "sh",
+   "s": "dig +short elmbridge-parkpay.example\ndig +short pay.elmbridge-council.test\necho ---\nwhois elmbridge-parkpay.example\nwhois elmbridge-council.test\necho ---\nopenssl s_client -connect elmbridge-parkpay.example:443 | grep -E 'subject=|NotBefore'\nopenssl s_client -connect pay.elmbridge-council.test:443 | grep -E 'subject=|NotBefore'"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Read the fake page (safely)\n\ncurl downloads the page as text. Nothing on it runs, so this is a safe way to look.\n\n- [ ] What does the form ask for?\n- [ ] Where does it send the details?\n- [ ] Phishing kits often leave a build comment in the HTML: that is the flag\n\n> Hint: The `action=` of the form is where the data goes. `<!-- ... -->` is an HTML comment.\n?> Which path does the form send card details to? :: sha256:de25c05c0f35a02718ae15e167521b0ee8688b343beeffe6e060fb8ccc6b601a"
+  },
+  {
+   "t": "sh",
+   "s": "curl -s 'https://elmbridge-parkpay.example/pay?meter=P14'\necho ---\ncurl -s https://pay.elmbridge-council.test/"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Respond and prevent\n\n- [ ] Remove every sticker; check all meters, not only the reported ones\n- [ ] Report the domain to the registrar and host (abuse addresses in whois) and the number to the mobile network\n- [ ] Tell residents: the council never texts a payment link; type the address yourself; call your bank if you paid\n- [ ] Prevention: tamper-evident QR plates, a short memorable payment address printed on every meter\n\n| Finding | Evidence |\n|---|---|\n| Fake domain and address |  |\n| Age of the domain |  |\n| Where card data goes |  |\n| Advice for residents |  |"
+  }
+ ]
+}

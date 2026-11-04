@@ -2567,6 +2567,8 @@ returns jsonb language sql stable security definer set search_path = public, pg_
   select jsonb_build_object('ok', true, 'me', _me(), 'labs', _teacher() or coalesce(_has_labs(_me()), false),
     'items', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'kind', i.kind, 'title', i.title, 'summary', i.summary,
                'unit', i.unit, 'topic', i.topic, 'tool', i.tool, 'published', i.published, 'updated', _iso(i.updated_at))
+               || case when i.kind = 'case' and jsonb_typeof(i.data->'meta') = 'object'
+                    then jsonb_build_object('meta', i.data->'meta') else '{}'::jsonb end
                order by i.unit, i.sort, i.id) from premium_items i where i.published or _teacher()), '[]'::jsonb))
 $$;
 
@@ -2577,7 +2579,8 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     when not (_teacher() or coalesce(_has_labs(_me()), false)) then
       jsonb_build_object('ok', false, 'locked', true, 'error', 'This is part of Labs.', 'title', i.title, 'summary', i.summary, 'kind', i.kind)
     else jsonb_build_object('ok', true, 'item', jsonb_build_object('id', i.id, 'kind', i.kind, 'title', i.title, 'summary', i.summary,
-           'unit', i.unit, 'topic', i.topic, 'tool', i.tool, 'body', i.body, 'data', i.data, 'published', i.published,
+           'unit', i.unit, 'topic', i.topic, 'tool', i.tool, 'body', i.body,
+           'data', case when _teacher() or i.kind <> 'case' then i.data else i.data - 'flag' - 'steps' - 'studio' end, 'published', i.published,
            'updated', _iso(i.updated_at)))
   end
   from (select 1) x left join premium_items i on i.id = p_id and (i.published or _teacher())
@@ -2590,7 +2593,7 @@ declare
   v_kind text := coalesce(nullif(p->>'kind', ''), 'lab');
 begin
   perform _need_teacher();
-  if v_kind not in ('lab', 'notebook') or trim(coalesce(p->>'title', '')) = '' then
+  if v_kind not in ('lab', 'notebook', 'case') or trim(coalesce(p->>'title', '')) = '' then
     return jsonb_build_object('ok', false, 'error', 'Give it a title.');
   end if;
   if length(coalesce(p->>'body', '')) > 200000 or length(coalesce((p->'data')::text, '')) > 2000000 then
@@ -2812,5 +2815,86 @@ grant execute on function
   api_teacher_premium_delete(bigint), api_set_email_pref(boolean), api_seminar_progress(bigint, integer),
   api_seminar_certificate(bigint, text), api_certificate(text), api_my_certificates(), api_teacher_reports(integer)
   to anonymous, authenticated;
+
+create table if not exists notebook_handins (
+  id         bigserial primary key,
+  email      text not null,
+  ref        text not null,
+  title      text not null default '',
+  note       text not null default '',
+  data       jsonb not null default '{}'::jsonb,
+  status     text not null default 'new',
+  feedback   text not null default '',
+  handed_at  timestamptz not null default now(),
+  replied_at timestamptz,
+  teacher_notified_at timestamptz,
+  student_notified_at timestamptz,
+  unique (email, ref)
+);
+alter table notebook_handins enable row level security;
+revoke all on notebook_handins from public, anonymous, authenticated;
+
+create or replace function api_handin(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if _me() is null then
+    return jsonb_build_object('ok', false, 'error', 'Sign in to hand in your work.');
+  end if;
+  if trim(coalesce(p->>'ref', '')) = '' or jsonb_typeof(p->'data') <> 'object' then
+    return jsonb_build_object('ok', false, 'error', 'There is nothing to hand in.');
+  end if;
+  if length((p->'data')::text) > 300000 then
+    return jsonb_build_object('ok', false, 'error', 'This notebook is too big to hand in. Clear some long outputs and try again.');
+  end if;
+  insert into notebook_handins (email, ref, title, note, data)
+  values (_me(), left(p->>'ref', 60), left(coalesce(p->>'title', ''), 200), left(coalesce(p->>'note', ''), 2000), p->'data')
+  on conflict (email, ref) do update set title = excluded.title, note = excluded.note, data = excluded.data,
+    status = 'new', handed_at = now(), teacher_notified_at = null;
+  return jsonb_build_object('ok', true, 'handed', _iso(now()));
+end $$;
+
+create or replace function api_my_handin(p_ref text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select jsonb_build_object('ok', true, 'handed', _iso(h.handed_at), 'status', h.status, 'note', h.note,
+           'feedback', h.feedback, 'replied', _iso(h.replied_at))
+    from notebook_handins h where h.email = _me() and h.ref = left(coalesce(p_ref, ''), 60)), jsonb_build_object('ok', true))
+$$;
+
+create or replace function api_teacher_handins()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return jsonb_build_object('ok', true, 'items', coalesce((select jsonb_agg(jsonb_build_object('id', h.id, 'email', h.email, 'ref', h.ref,
+    'title', h.title, 'note', h.note, 'status', h.status, 'handed', _iso(h.handed_at), 'replied', _iso(h.replied_at))
+    order by h.status = 'new' desc, h.handed_at desc) from notebook_handins h), '[]'::jsonb));
+end $$;
+
+create or replace function api_teacher_handin(p_id bigint)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return coalesce((select jsonb_build_object('ok', true, 'item', jsonb_build_object('id', h.id, 'email', h.email, 'ref', h.ref, 'title', h.title,
+    'note', h.note, 'status', h.status, 'feedback', h.feedback, 'data', h.data, 'handed', _iso(h.handed_at), 'replied', _iso(h.replied_at)))
+    from notebook_handins h where h.id = p_id), jsonb_build_object('ok', false, 'error', 'That hand-in is gone.'));
+end $$;
+
+create or replace function api_teacher_handin_reply(p_id bigint, p_feedback text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  update notebook_handins set feedback = left(coalesce(p_feedback, ''), 5000), status = 'replied', replied_at = now(), student_notified_at = null where id = p_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'That hand-in is gone.');
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_seminar_lab(p_id bigint)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('ok', true, 'access', coalesce((select s.published and _seminar_ok(s, _me()) from seminars s where s.id = p_id), false) or _teacher())
+$$;
+
+grant execute on function api_seminar_lab(bigint), api_handin(jsonb), api_my_handin(text), api_teacher_handins(), api_teacher_handin(bigint),
+  api_teacher_handin_reply(bigint, text) to anonymous, authenticated;
 
 notify pgrst, 'reload schema';

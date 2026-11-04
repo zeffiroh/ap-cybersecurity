@@ -2,6 +2,7 @@
 import os
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import quote
 
 import psycopg
 
@@ -12,12 +13,12 @@ FOOT = ("\nYou get this email because you're a student on the course. "
 OK = "not exists (select 1 from accounts acc where acc.email = {col} and acc.no_email)"
 
 
-def message(to, subject, body):
+def message(to, subject, body, foot=FOOT):
     msg = EmailMessage()
     msg["Subject"] = f"{COURSE}: {subject}"
     msg["From"] = f"{COURSE} <{os.environ.get('SMTP_USER', 'noreply@example.com')}>"
     msg["To"] = to
-    msg.set_content(body + FOOT)
+    msg.set_content(body + foot)
     return msg
 
 
@@ -101,6 +102,25 @@ def classes(db):
     return out
 
 
+def handins(db):
+    out = []
+    teachers = [t for (t,) in db.execute("select email from teacher_emails").fetchall()] or [t for t in [os.environ.get("MAIL_TO")] if t]
+    for hid, who, title, note in db.execute(
+            "select id, email, title, note from notebook_handins where status = 'new' and teacher_notified_at is null order by handed_at").fetchall():
+        for to in teachers:
+            out.append(message(to, "new hand-in",
+                               f"{who} handed in: {title}\n\n" + (f"Their message: {note}\n\n" if note else "")
+                               + f"Read it and reply: {SITE}teacher/handins.html\n", foot=""))
+        out.append(("update notebook_handins set teacher_notified_at = now() where id = %s", (hid,)))
+    for hid, to, ref, title, feedback in db.execute(
+            "select id, email, ref, title, feedback from notebook_handins where status = 'replied' and student_notified_at is null and "
+            + OK.format(col="notebook_handins.email") + " order by replied_at").fetchall():
+        out.append(message(to, "your teacher replied",
+                           f"Your teacher replied about {title}:\n\n{feedback}\n\nOpen your work: {SITE}notebook.html?ref={quote(ref)}\n"))
+        out.append(("update notebook_handins set student_notified_at = now() where id = %s", (hid,)))
+    return out
+
+
 def main():
     dry = bool(os.environ.get("AAYAT_DRY_RUN"))
     if not dry and not os.environ.get("SMTP_PASSWORD"):
@@ -110,7 +130,7 @@ def main():
         sent = 0
         smtp = None
         try:
-            for name, step in (("videos", videos), ("tickets", tickets), ("seminars", seminars), ("classes", classes)):
+            for name, step in (("videos", videos), ("tickets", tickets), ("seminars", seminars), ("classes", classes), ("handins", handins)):
                 items = step(db)
                 for item in items:
                     if isinstance(item, tuple):

@@ -23,6 +23,7 @@
   "Python"
  ],
  "titlePrefix": "Incident runbook: Kestrel ransomware",
+ "ctf": "The loader's campaign value hides a flag (step 7). Submit it on the CTF board as \"The invoice that wasn't\".",
  "id": "phish",
  "files": [
   "case/README_RESTORE.txt",
@@ -54,7 +55,7 @@
  "template": [
   {
    "t": "md",
-   "s": "# Incident runbook: ransomware at Kestrel Logistics\n\n09:55, Monday 2 Nov. The helpdesk pulled the network cable on **hr-pc07** after files on the shared drive started ending in `.kestrel-locked`. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). the network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the ransom note: what do the attackers want?\n- [ ] Map the network"
+   "s": "# Incident runbook: ransomware at Kestrel Logistics\n\n09:55, Monday 2 Nov. The helpdesk pulled the network cable on **hr-pc07** after files on the shared drive started ending in `.kestrel-locked`. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). the network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- Read email headers to find the real sender, and spot a look-alike domain\n- Match a proxy log and a process tree to find patient zero\n- Decode a base64 loader setting and check files against threat intel\n- Measure how far ransomware spread and choose a clean backup\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the ransom note: what do the attackers want?\n- [ ] Map the network\n\n> Hint: `ls -l` lists the files, `sha256sum` prints a fingerprint for each one. Save those hashes before you open anything.\n> Hint: The ransom note and the share listing both name the extension the ransomware adds to every file.\n?> Which file extension does the ransomware add? (include the dot) :: sha256:7267b77d0ef78e40d9e82eb6495f6658e7ddda42fd7ba893109e37961d6af7a5\n?> How many hosts does `nmap -sn 10.20.0.0/24` find up? :: sha256:7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
   },
   {
    "t": "sh",
@@ -62,7 +63,7 @@
   },
   {
    "t": "md",
-   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\n> Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.\n?> How many files in `share_listing.txt` end in .kestrel-locked? :: sha256:4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
   },
   {
    "t": "sh",
@@ -70,7 +71,7 @@
   },
   {
    "t": "md",
-   "s": "## 3. The email\n\n- [ ] Who really sent it? Compare `From`, `Reply-To`, `Return-Path` and the `Received` line\n- [ ] What did SPF, DKIM and DMARC say?\n- [ ] Spot the look-alike domain: which letter is wrong?\n- [ ] What does the real domain publish in DNS?\n- [ ] List the pressure tactics in the message (Unit 1.1)"
+   "s": "## 3. The email\n\n- [ ] Who really sent it? Compare `From`, `Reply-To`, `Return-Path` and the `Received` line\n- [ ] What did SPF, DKIM and DMARC say?\n- [ ] Spot the look-alike domain: which letter is wrong?\n- [ ] What does the real domain publish in DNS?\n- [ ] List the pressure tactics in the message (Unit 1.1)\n\n> Hint: The `Received` line is added by your own mail server, so the attacker can't fake it. The address in square brackets is the real sender.\n> Hint: Read the two domains letter by letter: kestrel-logist**i**cs and kestrel-logist**l**cs.\n?> Which IP address really sent the email? :: sha256:eb4b2dd34d5ba9aff5f39480c21f10aff75f58d1bfe56c0d153cb60b63533992\n?> Which letter replaced the i in the look-alike domain? :: sha256:acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0\n?> What DMARC policy does the real domain publish? (the word after p=) :: sha256:084e990a49ba65e622926853785e0ed05c63fc7fbf798a26e8242b5ee3d7ce9f"
   },
   {
    "t": "sh",
@@ -78,7 +79,7 @@
   },
   {
    "t": "md",
-   "s": "## 4. Who got it, and who clicked?\n\n- [ ] How many people received the email?\n- [ ] Who reported it, and when?\n- [ ] Which computers downloaded the invoice? Did the block stop anyone?\n\nThe proxy log times are Unix epoch seconds. The Python cell turns them into clock times."
+   "s": "## 4. Who got it, and who clicked?\n\n- [ ] How many people received the email?\n- [ ] Who reported it, and when?\n- [ ] Which computers downloaded the invoice? Did the block stop anyone?\n\nThe proxy log times are Unix epoch seconds. The Python cell turns them into clock times.\n\n> Hint: `nrcpt=` in mail.log is the number of recipients. In proxy.log, TCP_MISS/200 means the download worked and TCP_DENIED/403 means the proxy blocked it.\n?> How many people received the email? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce\n?> Which internal IP address downloaded the invoice successfully? :: sha256:ecda40e9a719dbe5a19ca890028508dc0dffab4ef41d0accd82d2c3a46a8405d\n?> At what time (HH:MM, UTC) did that download happen? :: sha256:b14795fe960de9648774c15eac13483db8adce7aefa63462eb0cea308987d95e"
   },
   {
    "t": "sh",
@@ -90,7 +91,7 @@
   },
   {
    "t": "md",
-   "s": "## 5. What ran on hr-pc07?\n\n- [ ] Rebuild the process tree from `process.csv`\n- [ ] Which program started PowerShell? Why is that suspicious?\n- [ ] Where does the real `svchost.exe` live, and who starts it? Where does this one live?"
+   "s": "## 5. What ran on hr-pc07?\n\n- [ ] Rebuild the process tree from `process.csv`\n- [ ] Which program started PowerShell? Why is that suspicious?\n- [ ] Where does the real `svchost.exe` live, and who starts it? Where does this one live?\n\n> Hint: Follow the ppid column: each process names its parent. Word should never start cmd.exe; a macro did that.\n> Hint: The real svchost.exe lives in C:\\Windows\\System32 and runs as SYSTEM. Look for one with a slightly different name in a public folder.\n?> Which program started cmd.exe? (file name) :: sha256:f8878dc09ca0bd8005c9009ae3a4aee3085d3081b5c95e2232c9d8e561ce9166\n?> What is the PID of the svchost-upd.exe that PowerShell started? :: sha256:cfe35c9e498096d4463cfade00cdef305d2311d90db9949bf321f87447fc2f1a"
   },
   {
    "t": "py",
@@ -98,7 +99,7 @@
   },
   {
    "t": "md",
-   "s": "## 6. The network\n\n- [ ] Which names did hr-pc07 look up, and when?\n- [ ] What did it download, and with what user agent?\n- [ ] How often does it call home on port 443?\n- [ ] When did the encryption over SMB start and stop?"
+   "s": "## 6. The network\n\n- [ ] Which names did hr-pc07 look up, and when?\n- [ ] What did it download, and with what user agent?\n- [ ] How often does it call home on port 443?\n- [ ] When did the encryption over SMB start and stop?\n\n> Hint: Subtract the times of the TLS Client Hello packets to the command server. A steady gap is a beacon.\n?> How many seconds pass between the beacons on port 443? :: sha256:983bd614bb5afece5ab3b6023f71147cd7b6bc2314f9d27af7422541c6558389\n?> Which domain did hr-pc07 look up right after the invoice download? :: sha256:c34fa70e89a7709bcc132bd0e2520092c83206a1e769718af097fa5e2d62f2ec"
   },
   {
    "t": "sh",
@@ -106,7 +107,7 @@
   },
   {
    "t": "md",
-   "s": "## 7. Take the loader apart\n\nThe macro wrote a settings file before it fetched the ransomware. Its `campaign=` value is base64.\n\n- [ ] Decode the campaign value. What is in it? (There is a CTF flag in there.)\n- [ ] Match the files against the threat intel feed\n- [ ] Read the strings pulled from the ransomware: which folder does it target?\n- [ ] Are the attacker's servers still up?"
+   "s": "## 7. Take the loader apart\n\nThe macro wrote a settings file before it fetched the ransomware. Its `campaign=` value is base64.\n\n- [ ] Decode the campaign value. What is in it? (There is a CTF flag in there.)\n- [ ] Match the files against the threat intel feed\n- [ ] Read the strings pulled from the ransomware: which folder does it target?\n- [ ] Are the attacker's servers still up?\n\n> Hint: `cut -d= -f2-` keeps everything after the first `=`, and `base64 -d` decodes it. The fields are separated by `|`.\n> Hint: The flag is the last field of the decoded value. Submit it on the CTF board, not here.\n?> Which port is the second field of the decoded campaign value? :: sha256:6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923\n?> Which file in `suspect/` is on the threat intel feed? (file name only) :: sha256:b266aef728bf88ac568e36113bb53d570b3461c5e215418a809ebcbaf0b4ec00"
   },
   {
    "t": "sh",
@@ -118,7 +119,7 @@
   },
   {
    "t": "md",
-   "s": "## 8. How far did it get?\n\n- [ ] Which folders were encrypted, and in what time window?\n- [ ] Which folder was saved by pulling the cable?\n- [ ] Why could one HR laptop encrypt Finance's files? Scan the file server."
+   "s": "## 8. How far did it get?\n\n- [ ] Which folders were encrypted, and in what time window?\n- [ ] Which folder was saved by pulling the cable?\n- [ ] Why could one HR laptop encrypt Finance's files? Scan the file server.\n\n> Hint: The awk line counts locked files per folder. A folder with no locked files was saved.\n?> Which folder on the share was not encrypted? :: sha256:a92c36e66a25ee99ff862faa8e87987be6c7cd13c3ee661c400a45b0f1e3b132\n?> At what time (HH:MM) was the last file encrypted? :: sha256:a0b059528bee3eb374974bcf3cb583eb5ba29b7607b3346136fbff698bfe7a33"
   },
   {
    "t": "sh",
@@ -146,7 +147,7 @@
   },
   {
    "t": "md",
-   "s": "## 12. Recover\n\n- [ ] Which snapshot is the last clean one? Why not the newest?\n- [ ] How much work is lost (the RPO)?\n- [ ] What is wrong with how the backups are stored? How would you fix it?\n- [ ] Two lasting fixes: block macros in files from the internet, and limit which folders each team can write to"
+   "s": "## 12. Recover\n\n- [ ] Which snapshot is the last clean one? Why not the newest?\n- [ ] How much work is lost (the RPO)?\n- [ ] What is wrong with how the backups are stored? How would you fix it?\n- [ ] Two lasting fixes: block macros in files from the internet, and limit which folders each team can write to\n\n> Hint: s-1102 was taken at 23:00 on 2 Nov, after the attack at 09:41. Its files are already locked.\n?> Which snapshot is the last clean one? (its ID) :: sha256:54d426929fbfcfb9e645760fd9320fdf02b87605cc31b7922cee292085439f0b"
   },
   {
    "t": "sh",

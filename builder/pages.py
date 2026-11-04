@@ -200,7 +200,7 @@ def linux_page():
             '<section id="lx-labs" class="lx-labs"></section></div>\n'
             '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">\n'
             '<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js" defer></script>\n'
-            + theme_assets(path.parent, [], ["linux-vm.js", "linux-lab.js"]))
+            + theme_assets(path.parent, ["runbook.css", "labview.css"], ["linux-vm.js", "labkit.js", "linux-lab.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -221,6 +221,13 @@ def ctf_page():
     body = ('<h1>Capture the flag</h1>\n<p class="aa-sub">Each puzzle hides a flag like <code>aayat{...}</code>. Find it, paste it in, '
             'score points for yourself and your class.</p>\n'
             '<div id="ctf-app" class="ctf-app"><section class="ctf-main"><p class="sx-note" id="ctf-msg">Loading…</p>'
+            '<div id="ctf-stats" class="ctf-stats" aria-live="polite"></div>'
+            '<div class="ctf-filters" role="search"><label class="ctf-search"><span class="ctf-sr">Search puzzles</span>'
+            '<input id="ctf-q" type="search" placeholder="Search puzzles  ( / )" autocomplete="off" spellcheck="false"></label>'
+            '<label><span class="ctf-sr">Unit</span><select id="ctf-f-unit"></select></label>'
+            '<label><span class="ctf-sr">Type</span><select id="ctf-f-type"></select></label>'
+            '<span class="ctf-seg" role="group" aria-label="Show"><button type="button" data-status="all">All</button>'
+            '<button type="button" data-status="unsolved">Unsolved</button><button type="button" data-status="solved">Solved</button></span></div>'
             '<nav id="ctf-units" class="ctf-units" aria-label="Units"></nav><div id="ctf-list"></div></section>'
             '<aside class="ctf-side"><h2>Leaderboard</h2><p id="ctf-me" class="sx-note"></p>'
             '<label class="sx-note">Show <select id="ctf-space"><option value="all">Everyone</option></select></label>'
@@ -230,8 +237,9 @@ def ctf_page():
             f'<a href="{r(SITE / "shop.html")}">Hack the shop</a></div>'
             '<p class="sx-note">Everything here is a practice target built for this course. Never try these techniques on a real '
             'site or account without written permission.</p></aside></div>\n'
+            '<dialog id="ctf-dlg" class="ctf-dlg" aria-labelledby="ctf-dlg-title"></dialog>\n'
             f'<script src="{r(ASSETS / "ctf" / "challenges.js")}" defer></script>\n'
-            + theme_assets(path.parent, [], ["labkit.js", "ctf.js"]))
+            + theme_assets(path.parent, ["ctf.css"], ["labkit.js", "ctf.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -304,23 +312,39 @@ def store_page():
 def labs_page():
     path = SITE / "labs.html"
     r = lambda p: rel(path.parent, p)
-    tools = [("Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with guided exercises."),
-             ("JupyterLab", SITE / "lab" / "lab" / "index.html", "Every code book, runnable Python, nothing to install."),
-             ("SQL injection lab", SITE / "sqli.html", "Break a login with SQL injection, then fix it."),
-             ("Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with ten vulnerabilities to find."),
-             ("Capture the flag", SITE / "ctf.html", "Puzzles for every unit, points and a class leaderboard."),
-             ("CyberChef", SITE / "cyberchef" / "index.html", "Decode, encrypt, hash and analyse data.")]
-    cards = "".join(f'<a class="lb-card" href="{r(p)}"><b>{esc(t)}</b><span>{esc(d)}</span></a>' for t, p, d in tools)
+    def card(kick, title, p, d, more="", q=""):
+        return (f'<a class="lv-card" href="{r(p) + q}"><span class="lv-ck">{esc(kick)}</span><b>{esc(title)}</b>'
+                f'<span class="lv-cs">{esc(d)}</span><span class="lv-cp">{esc(more or "Open")} &rarr;</span></a>')
+    attack = (card("Attack the app", "SQL injection lab", SITE / "sqli.html", "Break a staff login with SQL injection, then fix the query so it can't happen again.", "Beginner · 30 min")
+              + card("Attack the app", "Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with ten vulnerabilities to find, each worth a CTF flag.", "Intermediate · 1 to 2 hours"))
+    ctf = card("Capture the flag", "CTF board", SITE / "ctf.html", "Puzzles for every unit, points and a class leaderboard. Runbooks and attack labs hide flags too.", "All levels")
+    tools = (card("Tool", "Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with 13 step-by-step exercises.", "Start with steps 1 to 5")
+             + card("Tool", "JupyterLab", SITE / "lab" / "lab" / "index.html", "Every code book, runnable Python, nothing to install.")
+             + card("Tool", "CyberChef", SITE / "cyberchef" / "index.html", "Decode, encrypt, hash and analyse data in a recipe of steps."))
+    start = ('<section class="lv-start" aria-labelledby="lv-start-h"><div class="lv-sk">Start here</div><h2 id="lv-start-h">New to hands-on labs? Do these three in order</h2>'
+             '<ol class="lv-path">'
+             f'<li><a href="{r(SITE / "linux.html")}"><b>Learn the commands in the Linux lab</b><span>Steps 1 to 5: look around, permissions, hashing, a log hunt. About 20 minutes.</span></a></li>'
+             f'<li><a href="{r(SITE / "sqli.html")}"><b>Your first attack: the SQL injection lab</b><span>Get past a login, then fix it. About 30 minutes.</span></a></li>'
+             f'<li><a id="lv-firstcase" href="{r(SITE / "notebook.html")}#nb-cases-h"><b>Your first incident runbook</b><span>A guided case with a briefing, hints and answer checks. About an hour.</span></a></li>'
+             '</ol></section>')
+    jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-runbooks">Incident runbooks</a>'
+            '<a href="#lv-attack">Attack the app</a><a href="#lv-ctf">CTF</a><a href="#lv-tools">Tools</a></nav>')
     skills = "".join(f'<li><span class="aa-id">{a["id"]}</span><a href="{r(N.lab_page(a))}">{esc(N.window_name(a, "lab"))}</a></li>'
                      for a in C.atom_order() if N.has_lab(a))
     body = ('<div id="lb-app"><section id="lb-index"><h1>Labs</h1>\n<p class="aa-sub">The hands-on side of the course: real tools, '
-            'real attacks on practice targets, and notebooks. Sold separately from the course.</p>\n<div id="lb-access"></div>\n'
-            f'<h2>Lab tools</h2>\n<div class="lb-grid">{cards}</div>\n'
-            '<h2>Labs and notebooks from your teacher</h2>\n<div id="lb-premium"><p class="sx-empty">Loading…</p></div>\n'
-            f'<h2>Skill labs</h2>\n<ul class="aa-list lb-skills">{skills}</ul>\n'
+            'real attacks on practice targets, and incident cases. Sold separately from the course.</p>\n<div id="lb-access"></div>\n'
+            f'{start}\n{jump}\n'
+            '<h2 id="lv-guided">Guided labs</h2>\n<p class="lv-gd">Step-by-step labs and notebooks from your teacher. Each step has a Done tick, copy buttons and hints.</p>\n'
+            '<div id="lb-premium"><p class="sx-empty">Loading…</p></div>\n'
+            f'<details class="lv-skills"><summary>Skill labs, one for each lesson</summary><ul class="aa-list lb-skills">{skills}</ul></details>\n'
+            '<h2 id="lv-runbooks">Incident runbooks</h2>\n<p class="lv-gd">Work a real case in the Notebook: real Linux, Python and network tools on the case evidence, '
+            'with a briefing, a step tracker, hints and answer checks.</p>\n<div id="lv-cases"><p class="sx-empty">Loading cases…</p></div>\n'
+            f'<h2 id="lv-attack">Attack-the-app labs</h2>\n<div class="lv-grid">{attack}</div>\n'
+            f'<h2 id="lv-ctf">Capture the flag</h2>\n<div class="lv-grid">{ctf}</div>\n'
+            f'<h2 id="lv-tools">Tools</h2>\n<div class="lv-grid">{tools}</div>\n'
             f'<p class="sx-note">Lesson videos come with Labs too: <a href="{r(SITE / "videos.html")}">Video lessons</a>.</p></section>\n'
             '<section id="lb-view" hidden></section></div>\n'
-            + theme_assets(path.parent, [], ["labs.js"]))
+            + theme_assets(path.parent, ["runbook.css", "labview.css"], ["linux-vm.js", "labkit.js", "labs.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -383,9 +407,10 @@ def notebook_page():
             '<p class="nb-help"><b>Keys:</b> Shift+Enter or Ctrl+Enter runs a cell, Tab indents, Ctrl+/ comments a line. '
             'Linux cells share one shell, so <code>cd</code> and variables carry on to the next cell. '
             'Network tools in Linux cells: <code>nmap curl wget tshark dig nslookup host whois ping traceroute nc ssh openssl nikto gobuster</code>. '
-            'Write <code>- [ ] step</code> in notes for a checklist. Double-click a note to edit it.</p>\n'
+            'Write <code>- [ ] step</code> in notes for a checklist, <code>&gt; Hint: text</code> for a hidden hint, and '
+            '<code>?&gt; Question :: sha256:&lt;hash&gt;</code> for a question with a checked answer. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, [], ["linux-vm.js", "notebook.js"]))
+            + theme_assets(path.parent, ["runbook.css", "playbook.css"], ["linux-vm.js", "labkit.js", "playbook.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 

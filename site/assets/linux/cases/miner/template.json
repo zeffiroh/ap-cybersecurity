@@ -1,0 +1,122 @@
+[
+ {
+  "t": "md",
+  "s": "# Incident runbook: the miner in the build server\n\n08:30, Thursday 5 Nov. Monitoring says **build01** at **Brightloom Games** has been above 95% CPU for six hours, and developers say game builds take 38 minutes instead of 6. build01 runs Forgeway CI, a Jenkins-style build server. You are on call.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- Spot a cryptominer hiding behind a kernel thread's name\n- Prove a brute force on a CI login, and why a script console is a remote shell\n- Find three kinds of Linux persistence: cron, systemd and SSH keys\n- Follow mining traffic to a pool and contain, eradicate and rebuild\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the alert, then map the network\n\n> Hint: `sort -t, -k2 -n` sorts a CSV by its second column. Or read cpu_metrics.csv from the top and find where the numbers jump.\n?> How many hosts does `nmap -sn 10.60.0.0/24` find up? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a\n?> At what time (HH:MM) did CPU first go above 90%? :: sha256:8dc525a190e6749d30d6548bd1b26bf2b45be8d46a6bbe7feda7274e30299e6f"
+ },
+ {
+  "t": "sh",
+  "s": "cd ~/case\nls -l . persist suspect\nsha256sum *.* persist/* suspect/*\necho ---\ncat alert.txt\necho ---\nawk -F, 'NR > 1 && $2 > 90 {print; n++} n == 3 {exit}' cpu_metrics.csv\necho ---\nnmap -sn 10.60.0.0/24"
+ },
+ {
+  "t": "md",
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\nOn Linux, real kernel threads such as `kswapd0` show in `ps` with square brackets and use almost no CPU. A program in `/var/tmp` with the same name is a disguise.\n\n> Hint: Compare the two kswapd0 lines in ps.txt: who runs them, where they live, and how much CPU they use.\n> Hint: ss.txt shows which program owns each network connection.\n?> What is the PID of the fake kswapd0? :: sha256:0315b4020af3eccab7706679580ac87a710d82970733b8719e70af9b57e7b9e6\n?> Which remote TCP port is the fake kswapd0 connected to? :: sha256:318aee3fed8c9d040d35a7fc1fa776fb31303833aa2de885354ddf3d44d8fb69"
+ },
+ {
+  "t": "sh",
+  "s": "grep -E 'kswapd0|java|PID' ps.txt\necho ---\ngrep -E 'kswapd0|State' ss.txt\necho ---\ncat suspect/config.json"
+ },
+ {
+  "t": "md",
+  "s": "## 3. Scope: what is exposed?\n\n- [ ] Which services does build01 offer, and which of them can the internet reach?\n- [ ] What does the CI login page reveal to anyone who visits?\n- [ ] Is the script console open to people who are not signed in?\n\n> Hint: alert.txt says the firewall forwards ci.brightloom.test:8080 to build01. Anything on that port is on the internet.\n?> Which TCP port does Forgeway CI listen on? :: sha256:6c237681e70921603a306be9a1a5d9833fce5c1e268f52b1650970eaad0dce21"
+ },
+ {
+  "t": "sh",
+  "s": "nmap -sV build01.brightloom.lan\nnmap -sV -p 8080 ci.brightloom.test\necho ---\ncurl -s http://ci.brightloom.test:8080/login\necho ---\ncurl -i -s http://ci.brightloom.test:8080/script\ncurl -s http://ci.brightloom.test:8080/robots.txt"
+ },
+ {
+  "t": "md",
+  "s": "## 4. Initial access: the login page\n\n- [ ] Count the failed sign-ins and find the address they came from\n- [ ] Which username was guessed, and when did a guess work?\n- [ ] Why didn't the server stop it after ten tries?\n\n> Hint: A failed sign-in is `POST /j_security_check` with status 401. A working one gets 302 (a redirect to the dashboard).\n> Hint: ci_audit.log names the user. The 2024 lines explain why the password was weak and never locked.\n?> How many failed sign-ins came from 203.0.113.99? :: sha256:8cd2510271575d8430c05368315a87b9c4784c7389a47496080c1e615a2a00b6\n?> Which username did the attacker guess? :: sha256:8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918\n?> At what time (HH:MM) did the guess work? :: sha256:470c5b81cbc709ff54ad9b5e610fd2291870f2eb112928ab00d732a895b528a9"
+ },
+ {
+  "t": "sh",
+  "s": "grep j_security_check ci_access.log | awk '{print $1, $9}' | sort | uniq -c | sort -rn\necho ---\ngrep ' 302 ' ci_access.log | grep j_security_check\necho ---\ngrep -E 'login|setup|security' ci_audit.log"
+ },
+ {
+  "t": "md",
+  "s": "## 5. From login to shell: the script console\n\nA CI server's script console runs any code on the server, as the CI user. Admin on a CI server means a shell on the box, and access to every secret the builds use.\n\n- [ ] What did the attacker run through the console? List both scripts\n- [ ] Which secrets file did they read? What lives in it (Git tokens, cloud keys, signing keys)?\n- [ ] Where did the dropper script come from?\n\n> Hint: `grep script-console ci_audit.log` shows each script. The second one downloads and runs a shell script with `curl | sh`.\n?> Which file of secrets did the attacker print through the console? (file name) :: sha256:aaa36223768b459a0161f26b020f1751de14d09644fc839eb50621ac69913668\n?> Which IP address served x.sh? :: sha256:bfeb4c6192985efa05e7fa0740ac45708a515e569e7edaec7fc060ff72b44a0c"
+ },
+ {
+  "t": "sh",
+  "s": "grep -E 'POST /script|GET /script' ci_access.log\necho ---\ngrep script-console ci_audit.log\necho ---\ntshark -r capture.pcap -Y 'http.request and ip.src==10.60.0.12' -T fields -e frame.time_relative -e ip.dst -e http.request.uri -e http.user_agent"
+ },
+ {
+  "t": "md",
+  "s": "## 6. Read the dropper and the miner\n\nRead `x.sh` line by line. Never run malware to see what it does; read it.\n\n- [ ] Which competing miners does it kill first?\n- [ ] Which files does it download, and where does it hide them?\n- [ ] How does it become root? What is in `persist/sudoers.d_forgeway`, and why was it added?\n- [ ] What do the strings say the \"kswapd0\" program really is?\n\n> Hint: `sudo -n` runs a command as root only if no password is needed. The sudoers line explains why that worked.\n?> Which account ran sudo to install the persistence? :: sha256:58a9c8b6d18f81ba65b14f875e415bfd2a60e2a474d2721fc28bd2170c0ee1a9\n?> Which sudoers keyword let it become root without a password? :: sha256:c797f6834c354fedaee9e19bd52583f73ee2255bea1d6cc412168eff78675c99"
+ },
+ {
+  "t": "sh",
+  "s": "cat -n suspect/x.sh\necho ---\ncat persist/sudoers.d_forgeway\ngrep sudo auth.log\necho ---\nhead -3 suspect/kswapd0.strings.txt\necho ---\nsha256sum suspect/* | while read h f; do\n    grep -q \"$h\" known_bad.txt && echo \"KNOWN BAD: $f\" || echo \"not listed: $f\"\ndone"
+ },
+ {
+  "t": "md",
+  "s": "## 7. Persistence: every way back in\n\nAttackers rarely leave one way back. If you remove one and miss another, the miner is back in 15 minutes.\n\n- [ ] The cron file: how often does it re-download x.sh?\n- [ ] The systemd service: what does it start, and what happens if you kill the process?\n- [ ] The SSH keys: which key doesn't belong? Was it used? (A CTF flag is in the key's comment.)\n- [ ] The forgeway user's own crontab: is it clean?\n\n> Hint: In cron, `*/15` in the minute field means every 15 minutes. In systemd, `Restart=always` brings a killed process back.\n> Hint: Compare the two keys in root_authorized_keys. Then grep auth.log for root logins.\n?> How many different persistence mechanisms did the attacker add? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce\n?> What is the file name of the attacker's systemd unit? :: sha256:81cb95987259a90a2551ba28d64bcf1dd5f5bc84c6df07b66c2e435cc282e2ba\n?> At what time (HH:MM) did the attacker log back in as root over SSH? :: sha256:08218c866bbd592e8f89e9f88fea496ce0d092cc4e7d58510173b23df13818ff"
+ },
+ {
+  "t": "sh",
+  "s": "for f in persist/*; do echo \"== $f\"; cat \"$f\"; done\necho ---\ngrep -E 'publickey for root|sysupdate' auth.log"
+ },
+ {
+  "t": "md",
+  "s": "## 8. The network\n\n- [ ] Which name did build01 look up just before mining started?\n- [ ] What does the first message to port 3333 contain? (stratum `login` with a wallet)\n- [ ] How long has the pool connection been open, and how much did it send?\n\n> Hint: Mining pools speak *stratum*, a JSON protocol: `login` once, then many `submit` messages with the work done.\n?> Which domain did build01 look up for the pool? :: sha256:f527aefb245d9804726aa930755a85f334f915cce4fee8dfeb8365d8d365b5d2"
+ },
+ {
+  "t": "sh",
+  "s": "tshark -r capture.pcap -Y dns -T fields -e frame.time_relative -e ip.src -e dns.qry.name\necho ---\ntshark -r capture.pcap -Y 'tcp.dstport==3333' -c 4\necho ---\ntshark -r capture.pcap -q -z conv,ip"
+ },
+ {
+  "t": "py",
+  "s": "import csv\nfrom collections import defaultdict\n\nout = defaultdict(int)\nrows = list(csv.DictReader(open(\"case/netflow.csv\")))\nfor r in rows:\n    if r[\"src\"] == \"10.60.0.12\":\n        out[r[\"dst\"] + \":\" + r[\"dport\"]] += int(r[\"bytes_out\"])\nfor k, v in sorted(out.items(), key=lambda x: -x[1]):\n    print(f\"{k:22} {v:>12,} bytes out\")\npool = [r[\"time\"][11:16] for r in rows if r[\"dport\"] == \"3333\"]\nprint(\"pool flows seen at:\", pool)"
+ },
+ {
+  "t": "md",
+  "s": "## 9. Who is behind it?\n\n- [ ] What is the dropper host, and when was its domain registered?\n- [ ] Look up the wallet on the pool: how many machines mine for it? What does that tell you about the campaign?\n- [ ] Who should get an abuse report?\n\nIn a real case, ask before you touch an attacker's servers: it can tip them off, and some actions are illegal. Looking up a public pool page is fine.\n\n> Hint: The wallet is in suspect/config.json. Put it at the end of the pool's /api/wallet/ address.\n?> How many workers does the pool show online for this wallet? :: sha256:7a61b53701befdae0eeeffaecc73f14e20b537bb0f8b91ad7c2936dc63562b25"
+ },
+ {
+  "t": "sh",
+  "s": "dig +short dl.sysupdate-mirror.example\ndig -x 203.0.113.99 +short\nwhois sysupdate-mirror.example\necho ---\ncurl -s https://pool.hashmoat.example/api/wallet/4BrxWallet9aQm2Lp7\necho ---\nwhois 203.0.113.99"
+ },
+ {
+  "t": "md",
+  "s": "## 10. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+ },
+ {
+  "t": "md",
+  "s": "## 11. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)\n\n> Hint: Collect before you clean. Once you delete the cron file and kill the miner, that evidence is gone forever."
+ },
+ {
+  "t": "sh",
+  "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+ },
+ {
+  "t": "md",
+  "s": "## 12. Contain\n\n- [ ] Remove the port forward so the CI server is no longer on the internet\n- [ ] Block the dropper host, the pool and the attacker address\n- [ ] Disable the admin account and end its sessions\n- [ ] Revoke every secret in credentials.xml now: assume they are stolen\n\nThe cell prints the commands for the real systems. Nothing here touches a real firewall.\n\n> Hint: Contain the way in first (the port forward), then the outbound paths (pool and dropper), then the stolen secrets.\n"
+ },
+ {
+  "t": "sh",
+  "s": "echo \"firewall nat delete ci.brightloom.test:8080\"\nfor ip in 203.0.113.99 198.51.100.23 198.51.100.77; do\n    echo \"iptables -A OUTPUT -d $ip -j DROP\"\n    echo \"iptables -A INPUT -s $ip -j DROP\"\ndone\necho \"dns-block add hashmoat.example\"\necho \"dns-block add sysupdate-mirror.example\"\necho \"forgeway-cli disable-user admin --kill-sessions\"\necho \"rotate: every token and key in /var/lib/forgeway/credentials.xml\""
+ },
+ {
+  "t": "md",
+  "s": "## 13. Eradicate\n\nRemove all three ways back in, then the miner. Order matters: stop the service and the cron entry before you kill the process, or they start it again.\n\n- [ ] Remove the cron file and the systemd unit\n- [ ] Remove the attacker's SSH key, keep the real one\n- [ ] Delete the miner and its config\n- [ ] Remove the NOPASSWD sudo rule\n\n> Hint: `grep -v` prints every line that does NOT match, so it keeps the good key.\n"
+ },
+ {
+  "t": "sh",
+  "s": "echo \"systemctl disable --now sysupdate.service\"\nrm -f persist/etc_cron.d_sysupdate persist/sysupdate.service\ngrep -v Hq7mXbV0 persist/root_authorized_keys > /tmp/keys && mv /tmp/keys persist/root_authorized_keys\necho 'forgeway ALL=(root) NOPASSWD: /usr/bin/docker' > persist/sudoers.d_forgeway\nrm -f suspect/config.json\necho \"kill 4242; rm -rf /var/tmp/.cache\"\necho ---\nls persist\ncat persist/root_authorized_keys"
+ },
+ {
+  "t": "md",
+  "s": "## 14. Recover\n\nA server where someone was root can't be fully trusted again. The safe path is to rebuild it.\n\n- [ ] Rebuild build01 from a clean image and restore only the job configs\n- [ ] Put Forgeway behind the VPN, with single sign-on and MFA; lock accounts after failed sign-ins\n- [ ] Give the CI user only the sudo it needs (or none: run builds in containers)\n- [ ] Watch: CPU on build servers, outbound connections to port 3333, new cron files and systemd units\n\n> Hint: Builds were 6x slower. Check that build times are back to normal after the rebuild: that is your recovery test.\n"
+ },
+ {
+  "t": "md",
+  "s": "## 15. Report\n\n- [ ] Timeline from 01:49 to 08:30 with sources\n- [ ] Root cause: internet-facing CI, weak admin password, no lockout, NOPASSWD sudo\n- [ ] Indicators: addresses, domains, wallet, file hashes, SSH key\n- [ ] Submit the flag from step 7 on the CTF board\n\nWrite the report here. Download .ipynb keeps every output above."
+ },
+ {
+  "t": "md",
+  "s": "## 16. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+ },
+ {
+  "t": "md",
+  "s": "## 17. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+ }
+]

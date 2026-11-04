@@ -11,6 +11,7 @@ SIDEBAR = [
     ("dash", "Dashboard", TEACHER / "index.html"),
     ("teach", "Teach a class", TEACHER / "teach.html"),
     ("lectures", "Lectures", TEACHER / "lectures.html"),
+    ("present", "Present a lab or case", TEACHER / "present-lab.html"),
     ("live", "Live classes", TEACHER / "classes.html"),
     ("schedule", "Calendar", TEACHER / "schedule.html"),
     ("assign", "Assignments", TEACHER / "assignments.html"),
@@ -20,6 +21,7 @@ SIDEBAR = [
     ("ctf", "Capture the flag", TEACHER / "ctf.html"),
     ("students", "Students, classes & cohorts", TEACHER / "students.html"),
     ("forum", "Classes & forum", SITE / "community.html"),
+    ("handins", "Hand-ins", TEACHER / "handins.html"),
     ("progress", "Class progress", TEACHER / "progress.html"),
     ("grades", "Gradebook", TEACHER / "class-report.html"),
     ("reports", "Reports", TEACHER / "reports.html"),
@@ -202,75 +204,40 @@ def assignments_page():
     console(TEACHER / "assignments.html", "Assignments", "assign", body, [])
 
 
+def studio_head(title, sub, new_label, links):
+    btns = "".join(f'<a class="btn" href="{rel(TEACHER, p)}{q}"{" target=_blank rel=noopener" if blank else ""}>{esc(label)}</a>'
+                   for label, p, q, blank in links)
+    return (f'<header class="tc-head"><div><h1>{title}</h1><p class="aa-sub">{sub}</p><p class="tc-note" id="status">Loading…</p></div>'
+            f'<div class="tc-btns">{btns}<button class="btn dark" id="sd-new">{esc(new_label)}</button></div></header>\n'
+            '<div id="studio"></div>')
+
+
 def ctf_page():
-    body = ('<header class="tc-head"><div><h1>Capture the flag</h1><p class="aa-sub" id="status">Loading…</p></div>'
-            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "ctf.html")}">Student board</a></div></header>\n'
-            '<section class="tc-card tc-form" id="f-card"><h3 id="f-head">New challenge</h3>'
-            '<label class="tc-wide">Title <input id="f-title" maxlength="200"></label>'
-            '<label>Unit <select id="f-unit"><option value="0">Any</option><option>1</option><option>2</option><option>3</option>'
-            '<option>4</option><option>5</option></select></label>'
-            '<label>Points <input id="f-points" type="number" min="10" max="1000" step="10" value="100"></label>'
-            '<label class="tc-wide">Puzzle (put data between ``` lines, code between `backticks`) <textarea id="f-body" rows="6"></textarea></label>'
-            '<label class="tc-wide">Hint <input id="f-hint"></label>'
-            '<label class="tc-wide">Link (a site page, e.g. cyberchef/index.html, linux.html, sqli.html) <input id="f-link"></label>'
-            '<label class="tc-wide">Flag students must find, e.g. aayat{...} (not case-sensitive) <input id="f-flag" autocomplete="off"></label>'
-            '<label class="tc-wide">Walkthrough (teachers only) <textarea id="f-solve" rows="3"></textarea></label>'
-            '<div class="tc-btns"><button class="btn dark" id="f-save">Save challenge</button>'
-            '<button class="btn" id="f-new" hidden>Cancel edit</button><span class="tc-note" id="f-msg"></span></div></section>\n'
-            '<section class="tc-card"><h3>Challenges and answers</h3><p class="tc-note">Flags and walkthroughs show only here, '
-            'to teachers. Students see a hash.</p><div id="c-list"></div></section>\n'
-            '<section class="tc-card"><h3>Latest solves</h3><div id="c-solves"></div></section>')
-    console(TEACHER / "ctf.html", "Capture the flag", "ctf", body)
+    body = studio_head("Capture the flag", "Make a challenge in under a minute: type the answer and the puzzle, flag and CyberChef link are made for you. "
+                       "Flags and walkthroughs show only here.", "New challenge",
+                       [("Present challenges", TEACHER / "present-lab.html", "?tab=ctf", False), ("Student board", SITE / "ctf.html", "", True)])
+    console(TEACHER / "ctf.html", "Capture the flag", "ctf", body, [SITE / "assets" / "ctf" / "challenges.js", THEME / "studio.js"])
 
 
 def seminars_page():
-    body = ('<header class="tc-head"><div><h1>Seminars</h1><p class="aa-sub" id="status">Loading…</p></div>'
-            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "seminars.html")}">Student view</a></div></header>\n'
-            '<section class="tc-card tc-form" id="s-card"><h3 id="s-head">New seminar</h3>'
-            '<label class="tc-wide">Title <input id="s-title" maxlength="200"></label>'
-            '<label class="tc-wide">YouTube link (a video or a playlist, uploaded as Unlisted) <input id="s-youtube" placeholder="https://youtube.com/playlist?list=…"></label>'
-            '<label class="tc-wide">One-line summary <input id="s-summary" maxlength="500"></label>'
-            '<label class="tc-wide">Full description (what it covers, who it is for) <textarea id="s-description" rows="6"></textarea></label>'
-            '<label>Level <select id="s-level"><option value="">Any</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label>'
-            '<label>Length (minutes) <input id="s-minutes" type="number" min="0" step="5"></label>'
-            '<label>Tickets to unlock (0 = free) <input id="s-tickets" type="number" min="0" max="100" value="1"></label>'
-            '<label>Order <input id="s-sort" type="number" value="0"></label>'
-            '<label class="tc-wide">Topics (comma separated) <input id="s-topics" placeholder="malware, incident response"></label>'
-            '<label class="tc-wide">Cover image link (optional; the YouTube thumbnail is used otherwise) <input id="s-cover"></label>'
-            '<label class="tc-wide"><span>Chapters, one per line: <code>0:00 Introduction</code></span><textarea id="s-chapters" rows="6"></textarea></label>'
-            '<label class="tc-wide"><span>Resources for buyers, one per line: <code>Slides | https://…</code></span><textarea id="s-resources" rows="3"></textarea></label>'
-            '<label class="tc-check"><input type="checkbox" id="s-published"> Published (students can see it)</label>'
-            '<div class="tc-btns"><button class="btn dark" id="s-save">Save seminar</button>'
-            '<button class="btn" id="s-new" hidden>Cancel edit</button><span class="tc-note" id="s-msg"></span></div></section>\n'
-            '<section class="tc-card"><h3>Your seminars</h3><div id="s-list"></div></section>')
-    console(TEACHER / "seminars.html", "Seminars", "seminars", body)
+    body = studio_head("Seminars", "Paste an unlisted YouTube link, add chapters, set the tickets and publish.", "New seminar",
+                       [("Student view", SITE / "seminars.html", "", True)])
+    console(TEACHER / "seminars.html", "Seminars", "seminars", body, [THEME / "studio.js"])
 
 
 def labs_page():
-    body = ('<header class="tc-head"><div><h1>Labs &amp; notebooks</h1><p class="aa-sub" id="status">Loading…</p></div>'
-            f'<div class="tc-btns"><a class="btn" href="{rel(TEACHER, SITE / "labs.html")}">Student view</a></div></header>\n'
-            '<p class="tc-note">Labs and notebooks made here are stored in the database and are only sent to students who have Labs. '
-            'They never appear in the public site files.</p>\n'
-            '<section class="tc-card tc-form" id="l-card"><h3 id="l-head">New lab</h3>'
-            '<label>Kind <select id="l-kind"><option value="lab">Lab (instructions)</option><option value="notebook">Notebook (Python)</option></select></label>'
-            '<label class="tc-wide">Title <input id="l-title" maxlength="200"></label>'
-            '<label>Unit <select id="l-unit"><option value="0">Any</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>'
-            '<label>Topic <input id="l-topic" placeholder="e.g. 5.1" maxlength="20"></label>'
-            '<label>Tool <select id="l-tool"><option value="">None</option><option value="linux">Linux lab</option><option value="jupyter">JupyterLab</option>'
-            '<option value="sqli">SQL injection lab</option><option value="shop">Hack the shop</option><option value="cyberchef">CyberChef</option>'
-            '<option value="ctf">CTF board</option></select></label>'
-            '<label class="tc-wide">Summary <input id="l-summary" maxlength="1000"></label>'
-            '<label class="tc-wide" id="l-body-wrap"><span>Instructions. Blank line = new paragraph, <code># Heading</code>, <code>`code`</code>, '
-            'and a block of commands between <code>```</code> lines gets a Copy button.</span><textarea id="l-body" rows="14"></textarea></label>'
-            '<div class="tc-wide" id="l-nb-wrap" hidden><p class="tc-note">Write the notebook in the full editor (Python runs there), or import a .ipynb file.</p>'
-            '<div class="tc-btns"><a class="btn" id="l-edit-nb" target="_blank" rel="noopener">Open in the notebook editor</a>'
-            '<button class="btn" id="l-import">Import .ipynb</button><input type="file" id="l-file" accept=".ipynb,application/json" hidden>'
-            '<span class="tc-note" id="l-cells"></span></div></div>'
-            '<label class="tc-check"><input type="checkbox" id="l-published"> Published (Labs students can open it)</label>'
-            '<div class="tc-btns"><button class="btn dark" id="l-save">Save</button>'
-            '<button class="btn" id="l-new" hidden>Cancel edit</button><span class="tc-note" id="l-msg"></span></div></section>\n'
-            '<section class="tc-card"><h3>Stored in the database</h3><div id="l-list"></div></section>')
-    console(TEACHER / "labs.html", "Labs & notebooks", "labs", body)
+    body = (f'<link rel="stylesheet" href="{rel(TEACHER, THEME / "case-studio.css")}">\n'
+            + studio_head("Labs &amp; notebooks", "Runbook cases, step-by-step labs and notebooks. They are stored in the database and only sent "
+                          "to students who have Labs, never in the public site files.", "New lab, case or notebook",
+                          [("Present", TEACHER / "present-lab.html", "?tab=lab", False), ("Student view", SITE / "labs.html", "", True)]))
+    console(TEACHER / "labs.html", "Labs & notebooks", "labs", body, [THEME / "studio.js", THEME / "case-studio.js"])
+
+
+def present_lab_page():
+    body = ('<header class="tc-head pl-head"><div><p class="tc-kicker">Present to the class</p><h1 id="p-title">Present</h1>'
+            '<p class="aa-sub" id="status">Loading…</p></div></header>\n'
+            '<div id="pl"></div>')
+    console(TEACHER / "present-lab.html", "Present", "present", body, [SITE / "assets" / "ctf" / "challenges.js", THEME / "studio.js", THEME / "present-lab.js"])
 
 
 def videos_page():
@@ -305,7 +272,8 @@ def lectures_page():
                                      ("PowerPoint", downloads_unit(tid) / f"Topic_{tid}_Slides.pptx")]) + '</span></td></tr>'
                      for tid in C.order())
     body = ('<header class="tc-head"><div><h1>Lectures</h1><p class="aa-sub">Present any deck with your speaker notes beside it. '
-            'Put the slides on the projector and keep the notes on your screen; they stay in step.</p></div></header>\n'
+            'Put the slides on the projector and keep the notes on your screen; they stay in step.</p></div>'
+            '<a class="btn" href="present-lab.html">Present a lab, runbook case or challenges</a></header>\n'
             f'<section class="tc-card"><h3>Lecture decks (30)</h3><table class="tc-table">{rows}</table></section>\n'
             f'<section class="tc-card"><h3>Topic decks</h3><table class="tc-table">{topics}</table></section>')
     console(path, "Lectures", "lectures", body)
@@ -321,6 +289,12 @@ def present_page():
             '<div class="tc-kicker" id="p-slide"></div><div id="p-notes" class="tc-notesbody">Loading notes…</div>'
             '<p class="tc-note">Arrow keys move the slides. The notes follow along here and on the projector window.</p></aside></div>')
     console(TEACHER / "present.html", "Present", "lectures", body, [])
+
+
+def handins_page():
+    body = ('<header class="tc-head"><div><h1>Hand-ins</h1><p class="aa-sub" id="status">Loading…</p></div></header>\n'
+            '<div class="hi-wrap"><section class="tc-card" id="hi-list"></section><section class="tc-card hi-detail" id="hi-detail" hidden></section></div>')
+    console(TEACHER / "handins.html", "Hand-ins", "handins", body)
 
 
 def reports_page():
@@ -525,8 +499,10 @@ def run():
     labs_page()
     lectures_page()
     present_page()
+    present_lab_page()
     blog_page()
     reports_page()
+    handins_page()
     resources_page()
     accounts_page()
     class_progress_page()

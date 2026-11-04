@@ -70,18 +70,32 @@
     }, function (e) { status(e.message); throw e; });
   }
 
+  var DONE = "aayat_lx_done", PICK = "aayat_lx_case", ready = "", cases = [];
+  function store(k, v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(k) || "null");
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) { return null; }
+    return v;
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function picked() { return (store(PICK) || "web01").replace(/[^a-z0-9-]/g, "") || "web01"; }
+
   function setup() {
     $("lx-setup").disabled = true;
+    var id = picked();
     return boot().then(function () {
-      return global.AayatVM.installCase("web01", status);
+      return global.AayatVM.installCase(id, status);
     }).then(function () {
       return global.AayatVM.shell(SETUP, { hide: true });
     }).then(function () {
-      term.write("\r\n\x1b[1mLab files ready:\x1b[0m ~/lab (practice files) and ~/case (web01 case: logs and capture.pcap).\r\n" +
+      ready = id;
+      term.write("\r\n\x1b[1mLab files ready:\x1b[0m ~/lab (practice files) and ~/case (" + id + " case evidence).\r\n" +
         "nmap, curl, tshark and dig now reach the recorded case network.\r\n");
       global.AayatVM.send("\n");
-      status("Lab files created in ~/lab and ~/case. Network tools ready.");
+      status("Lab files created in ~/lab and ~/case (" + id + "). Network tools ready.");
       $("lx-setup").disabled = false;
+      pickNote();
       term.focus();
     }, function (e) { status(e.message); $("lx-setup").disabled = false; });
   }
@@ -89,21 +103,87 @@
   function type(text) {
     boot().then(function () {
       if (global.AayatVM.busy()) { status("Wait a moment: the lab files are still loading."); return; }
+      if (!ready) status("Tip: press \"Create the lab files\" first, or the files in ~/lab and ~/case won't exist yet.");
       global.AayatVM.send(text + "\n");
       if (term) term.focus();
     });
   }
 
+  function done() { var d = store(DONE); return d && typeof d === "object" ? d : {}; }
+
+  function progress() {
+    var d = done(), n = LABS.filter(function (l, i) { return d[i]; }).length, pct = Math.round(100 * n / LABS.length), el = $("lx-prog");
+    if (!el) return;
+    var next = -1;
+    LABS.some(function (l, i) { if (!d[i]) { next = i; return true; } return false; });
+    el.innerHTML = '<div class="rb-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="rb-ptxt">' + n + " of " + LABS.length + " steps done" + (next >= 0 ? ' &middot; <a href="#lx-step-' + (next + 1) + '">next: step ' + (next + 1) + "</a>" : " &middot; all done. Try an incident runbook next.") + "</div>";
+  }
+
+  function pickNote() {
+    var n = $("lx-picknote"), id = picked(), c = cases.filter(function (x) { return x.id === id; })[0];
+    if (!n) return;
+    n.innerHTML = (c ? esc(c.summary || "") + " " : "") + (id !== "web01" ? "Steps 7 to 13 use web01's addresses, so some answers will differ; the evidence for this case is in <code>~/case</code>. " : "") +
+      (ready && ready !== id ? "<b>Press \"Create the lab files\" again to load this case.</b> " : "") +
+      '<a href="notebook.html?ref=rb-' + Date.now().toString(36) + "&runbook=" + encodeURIComponent(id) + '">Work this case as a guided runbook &rarr;</a>';
+  }
+
+  function picker() {
+    var box = $("lx-pickbox");
+    if (!box || !global.AayatVM) return;
+    global.AayatVM.cases().then(function (list) {
+      cases = list;
+      var id = picked();
+      if (!list.some(function (c) { return c.id === id; })) { id = "web01"; store(PICK, id); }
+      box.innerHTML = '<label>Case files in <code>~/case</code>: <select id="lx-case">' + list.map(function (c) {
+        return '<option value="' + esc(c.id) + '"' + (c.id === id ? " selected" : "") + ">" + esc(c.title) + (c.teacher ? " (made by your teacher)" : "") + "</option>";
+      }).join("") + '</select></label><span id="lx-teach"></span><p class="sx-note" id="lx-picknote"></p>';
+      var sel = $("lx-case");
+      function badge() {
+        var c = list.filter(function (x) { return x.id === sel.value; })[0];
+        $("lx-teach").innerHTML = c && c.teacher ? '<span class="rb-teacher">Made by your teacher</span>' : "";
+      }
+      sel.addEventListener("change", function () { store(PICK, sel.value); badge(); pickNote(); });
+      badge(); pickNote();
+    }, function () { box.innerHTML = '<p class="sx-note">Case files: web01 (the hacked web shop).</p>'; });
+  }
+
   function labs() {
-    $("lx-labs").innerHTML = LABS.map(function (l, i) {
-      return '<section class="lx-lab"><h3>' + l.title + "</h3><p>" + l.text + "</p>" + l.cmds.map(function (c, j) {
-        return '<div class="lx-cmd"><code>' + c.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</code><button class="btn" data-l="' + i + '" data-c="' + j +
-          '">Type it</button></div>';
-      }).join("") + "</section>";
-    }).join("");
+    var d = done(), K = global.LabKit;
+    $("lx-labs").innerHTML = '<div class="lx-steps-head"><h2>Step-by-step</h2><button class="btn" id="lx-clear" type="button">Reset ticks</button></div>' +
+      '<div id="lx-pickbox" class="lx-pick"></div><div id="lx-prog"></div>' +
+      '<p class="sx-note">Press <b>Start Linux</b>, then <b>Create the lab files</b>. <b>Type it</b> runs a command in the terminal; <b>Explain</b> shows what each part does.</p>' +
+      LABS.map(function (l, i) {
+        var t = l.title.replace(/^\d+\.\s*/, "");
+        return '<section class="lx-lab lv-step' + (d[i] ? " done" : "") + '" id="lx-step-' + (i + 1) + '"><header class="lv-sh"><span class="lv-num" aria-hidden="true">' + (d[i] ? "&#10003;" : i + 1) + "</span>" +
+          "<h2><small>Step " + (i + 1) + " of " + LABS.length + "</small>" + esc(t) + '</h2><button type="button" class="lv-done" data-done="' + i + '" aria-pressed="' + !!d[i] + '">' +
+          (d[i] ? "&#10003; Done" : "Mark done") + '</button></header><div class="lv-body"><p>' + esc(l.text) + "</p>" + l.cmds.map(function (c, j) {
+            return '<div class="lx-cmd"><code>' + esc(c) + '</code><button class="btn dark" data-l="' + i + '" data-c="' + j + '">Type it</button>' +
+              '<button class="btn" type="button" data-copy="' + esc(c) + '">Copy</button>' +
+              (K ? '<button class="btn" type="button" data-explain>Explain</button><div class="rb-explain" hidden>' + K.explain(c) + "</div>" : "") + "</div>";
+          }).join("") + "</div></section>";
+      }).join("");
     $("lx-labs").querySelectorAll("[data-l]").forEach(function (b) {
       b.addEventListener("click", function () { type(LABS[+b.getAttribute("data-l")].cmds[+b.getAttribute("data-c")]); });
     });
+    $("lx-labs").querySelectorAll("[data-done]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = +b.getAttribute("data-done"), all = done(), on = !all[i], sec = b.closest(".lv-step");
+        if (on) all[i] = true; else delete all[i];
+        store(DONE, all);
+        sec.classList.toggle("done", on);
+        sec.querySelector(".lv-num").innerHTML = on ? "&#10003;" : i + 1;
+        b.innerHTML = on ? "&#10003; Done" : "Mark done";
+        b.setAttribute("aria-pressed", String(on));
+        progress();
+        var next = on && $("lx-step-" + (i + 2));
+        if (next && !all[i + 1]) next.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    });
+    $("lx-clear").addEventListener("click", function () { store(DONE, {}); labs(); });
+    if (K) { K.bindCopy($("lx-labs")); K.bindExplain($("lx-labs")); }
+    progress();
+    picker();
   }
 
   function start() {
@@ -114,6 +194,7 @@
     $("lx-reset").addEventListener("click", function () {
       if (!started) return;
       global.AayatVM.restart();
+      ready = "";
       status("Restarting…");
       global.AayatVM.boot().then(function () { status("Linux restarted. Press \"Create the lab files\" again."); });
     });

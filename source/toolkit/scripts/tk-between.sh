@@ -1,0 +1,2 @@
+[ -n "$3" ] || { echo 'Give a file, a start and an end, for example: tk-between auth.log 09:00 10:00'; exit 2; }
+awk -v a="$2" -v b="$3" '{if($1~/^[0-9]{10}(\.[0-9]+)?$/)t=strftime("%H:%M:%S",int($1));else if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else if(match($0,/[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else next;if(t>=a&&substr(t,1,length(b))<=b)print}' "$1"

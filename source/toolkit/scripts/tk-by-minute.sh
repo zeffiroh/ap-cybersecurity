@@ -1,0 +1,2 @@
+[ -n "$1" ] || { echo 'Give a file, for example: tk-by-minute auth.log'; exit 2; }
+awk '{if($1~/^[0-9]{10}(\.[0-9]+)?$/)t=strftime("%H:%M:%S",int($1));else if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else if(match($0,/[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else next;print substr(t,1,5)}' "$1" | sort | uniq -c | awk '{c[NR]=$1;t[NR]=$2;if($1>m)m=$1}END{for(i=1;i<=NR;i++){n=int(c[i]*40/m);if(n<1)n=1;b="";for(j=0;j<n;j++)b=b"#";printf "%s %5d %s\n",t[i],c[i],b}}'

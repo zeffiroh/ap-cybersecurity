@@ -1,7 +1,7 @@
 [
  {
   "t": "md",
-  "s": "# Incident runbook: exam day outage\n\n09:15, Monday 9 Nov. **Northfield Academy's** online exam portal has been down since 09:07. 312 students were five minutes into their CS paper. An email arrived at 09:12 demanding money. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] When exactly did the portal slow down, and when did it stop?"
+  "s": "# Incident runbook: exam day outage\n\n09:15, Monday 9 Nov. **Northfield Academy's** online exam portal has been down since 09:07. 312 students were five minutes into their CS paper. An email arrived at 09:12 demanding money. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- Tell a flash crowd from a denial of service attack\n- Name volumetric, protocol and application floods from evidence\n- Count attack sources with sort and uniq\n- Choose a response that brings real users back\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence\n- [ ] When exactly did the portal slow down, and when did it stop?\n\n> Hint: Read uptime.log line by line. Slow comes before down: watch the response time grow before the first error.\n?> At what time (HH:MM) did the monitor first get a 503? :: sha256:d57f1a30dd52780347581ac66f93ca6da28c581fcbc6f4522605e364c7e46980"
  },
  {
   "t": "sh",
@@ -9,11 +9,11 @@
  },
  {
   "t": "md",
-  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)"
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\n> Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.\n?> How many SYN-RECV connections did exam01 have at 09:06? :: sha256:50b07ca4706cd052bb43551a02a4d228e724dd6ba68e682448f66869873249ef"
  },
  {
   "t": "md",
-  "s": "## 3. Busy, or under attack?\n\nExams start at 09:00, so some extra traffic is expected (a *flash crowd*). Prove it is more than that.\n\n- [ ] How many requests come from students, and how many from everything else?\n- [ ] What do real students ask for that the attack traffic never does?"
+  "s": "## 3. Busy, or under attack?\n\nExams start at 09:00, so some extra traffic is expected (a *flash crowd*). Prove it is more than that.\n\n- [ ] How many requests come from students, and how many from everything else?\n- [ ] What do real students ask for that the attack traffic never does?\n\n> Hint: Real students load the exam pages. Compare the paths the flood requests with the paths everyone else requests.\n?> How many requests are in access.log? :: sha256:6bcaea9882504292b2f6ea37a84b215463e71ab73b824ee90ecdc10c8dde71ed\n?> Which path under /exam/ do students use to save their answers? :: sha256:98b20037434be0c4aa27079ae542d1294c194137a01ac8492b0e79b9fc6eada5"
  },
  {
   "t": "py",
@@ -21,7 +21,7 @@
  },
  {
   "t": "md",
-  "s": "## 4. Three kinds of flood\n\nDDoS attacks hit different layers. Use the firewall counters and the capture to name each one.\n\n- [ ] **Volumetric:** what fills the 10 Gbit/s link? Why do DNS answers arrive that nobody asked for?\n- [ ] **Protocol:** what fills the server's connection table? What is SYN-RECV?\n- [ ] **Application:** which page is hammered, and which user agent does it? (A CTF flag is hiding in it.)"
+  "s": "## 4. Three kinds of flood\n\nDDoS attacks hit different layers. Use the firewall counters and the capture to name each one.\n\n- [ ] **Volumetric:** what fills the 10 Gbit/s link? Why do DNS answers arrive that nobody asked for?\n- [ ] **Protocol:** what fills the server's connection table? What is SYN-RECV?\n- [ ] **Application:** which page is hammered, and which user agent does it? (A CTF flag is hiding in it.)\n\n> Hint: Source port 53 means DNS answers. Your network never asked for them: someone forged your address. That is reflection.\n> Hint: The flag is inside the user agent of the GET /login?ts= requests. Submit it on the CTF board.\n?> Which source port does the volumetric flood come from? :: sha256:2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529\n?> Which TCP state fills the connection table? (the state name) :: sha256:d4f7bf99d229fa0e061f3505582dba1eaf42646d709ed58e8b60b5e771da0269"
  },
  {
   "t": "sh",
@@ -29,7 +29,7 @@
  },
  {
   "t": "md",
-  "s": "## 5. Who and how big?\n\n- [ ] How many different addresses send the HTTP flood? Are they spread out or from one network?\n- [ ] Why can't you just block the SYN flood's sources?\n- [ ] Look up the domain used in the DNS reflection"
+  "s": "## 5. Who and how big?\n\n- [ ] How many different addresses send the HTTP flood? Are they spread out or from one network?\n- [ ] Why can't you just block the SYN flood's sources?\n- [ ] Look up the domain used in the DNS reflection\n\n> Hint: `sort -u | wc -l` counts different addresses. `cut -d. -f1-3` keeps the first three numbers, so it groups by /24 network.\n?> How many different addresses send the HTTP flood? :: sha256:4621c1d55fa4e86ce0dae4288302641baac86dd53f76227c892df9d300682d41\n?> Which /24 network do they all come from? (first three numbers, e.g. 10.0.0) :: sha256:d32013383e58be54a27f1f5df61022f55a2d5421221ef3e896ead64dbdb0398f"
  },
  {
   "t": "sh",
@@ -37,7 +37,7 @@
  },
  {
   "t": "md",
-  "s": "## 6. The extortion email\n\n- [ ] What do they want, and what do they threaten?\n- [ ] Should the school pay? Give two reasons\n- [ ] Who must be told: the police, the exams board, parents?"
+  "s": "## 6. The extortion email\n\n- [ ] What do they want, and what do they threaten?\n- [ ] Should the school pay? Give two reasons\n- [ ] Who must be told: the police, the exams board, parents?\n\n> Hint: Paying funds the next attack and gives no guarantee. Think about who must be told and how fast (the exams board rule).\n?> How much bitcoin do the attackers demand? (number only) :: sha256:d2cbad71ff333de67d07ec676e352ab7f38248eb69c942950157220607c55e84"
  },
  {
   "t": "sh",
@@ -57,7 +57,7 @@
  },
  {
   "t": "md",
-  "s": "## 9. Contain\n\nEach layer needs its own fix. The cell prints the commands; nothing touches a real system.\n\n- [ ] Volumetric: ask the ISP for scrubbing (option 2). Why not blackhole (option 1)?\n- [ ] Protocol: turn on SYN cookies\n- [ ] Application: rate-limit `/login` per address and drop the bot's user agent\n- [ ] Tell students and the exams board before 10:07 so the paper can restart"
+  "s": "## 9. Contain\n\nEach layer needs its own fix. The cell prints the commands; nothing touches a real system.\n\n- [ ] Volumetric: ask the ISP for scrubbing (option 2). Why not blackhole (option 1)?\n- [ ] Protocol: turn on SYN cookies\n- [ ] Application: rate-limit `/login` per address and drop the bot's user agent\n- [ ] Tell students and the exams board before 10:07 so the paper can restart\n\n> Hint: A blackhole drops all traffic to the portal, the good with the bad. That finishes the attacker's job for them.\n?> Which ISP option should you choose? (1 or 2) :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
  },
  {
   "t": "sh",

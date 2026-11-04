@@ -1,0 +1,80 @@
+{
+ "title": "Who changed the grades?",
+ "kicker": "Teacher case: insider and access control",
+ "units": [
+  2,
+  5
+ ],
+ "level": "Beginner",
+ "minutes": 30,
+ "summary": "Grades changed under a teacher's name, in subjects he doesn't teach, from a student lab PC. Use the audit log, sign-in records and lab logins to find out how, and fix the access control.",
+ "tools": [
+  "grep",
+  "cut",
+  "awk",
+  "sort",
+  "uniq",
+  "base64",
+  "dig",
+  "Python"
+ ],
+ "titlePrefix": "Teacher case: grade changes",
+ "ctf": "One changed grade has a base64 comment. Decode it for the flag (step 4). Submit it on the CTF board.",
+ "id": "tc-grades",
+ "teacher": true,
+ "files": [
+  "case/complaint.txt",
+  "case/grade_audit.csv",
+  "case/lab_logins.csv",
+  "case/roles.txt",
+  "case/sso.log",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/www/404.htm",
+  "net/www/index.htm",
+  "net/www/router.htm"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Who changed the grades?\n\nTuesday 10 Nov. At **Westbrook High**, a Chemistry teacher says grades were changed under his name in subjects he doesn't even teach. The audit log agrees it was his account. Was it him, or someone using his access?\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `dig`, `whois`, `openssl` and more) work on a recorded copy of the case network; nothing leaves your browser.\n\n### What you'll learn\n\n- Use an audit log to answer who, what, when and from where\n- Tie an account to a person with a second source (lab logins)\n- Spot access control failures: no least privilege, no approval, remember-me on shared PCs\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence, read the complaint and the role rules\n\n> Hint: roles.txt says what a teacher may change. Compare it with what t.wallace teaches.\n?> Which subject does t.wallace teach? :: sha256:de0152f952776f09f537d309f1f3f0ec7369c8df1297071e946952f798c86063"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat complaint.txt\necho ---\ncat roles.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. What changed, and from where?\n\n- [ ] List every change made by t.wallace with its source address\n- [ ] Which changes came from a machine that isn't his laptop?\n- [ ] Which of those are outside his own subject?\n\n> Hint: `cut -d, -f1-7` hides the comment column. `grep 10.80.3.27` keeps only the changes from the lab PC.\n?> From which IP address were the suspicious changes made? :: sha256:9c3bd584665807d9b900c107117cab5fd75375cc6f7cd8531cd4c12ff0bed800\n?> How many grades were changed from that address? :: sha256:ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d\n?> Whose grades were changed the most? (username) :: sha256:4d62de0cebe26d2554827f46836c8c1f105bae19af0f92f61ca219f8f05a1b6c"
+  },
+  {
+   "t": "sh",
+   "s": "grep t.wallace grade_audit.csv | cut -d, -f1-7\necho ---\ngrep 10.80.3.27 grade_audit.csv | cut -d, -f4 | sort | uniq -c | sort -rn\necho ---\ndig -x 10.80.3.27 +short"
+  },
+  {
+   "t": "md",
+   "s": "## 3. How did his account get in?\n\n- [ ] Find his sign-ins on lab3-pc27. Which method did the 12:41 sign-in use?\n- [ ] Why did no password or MFA prompt appear?\n\n> Hint: `remember_me=yes` at 09:05 saved a token in the browser for 7 days. Lab PCs share one browser profile (roles.txt), so at 12:41 the next person's browser used it.\n?> Which sign-in method was used at 12:41? :: sha256:277840d4ecb3084476f3deddf221c8c59c1e3dbb7de0555a7b9f66233e6b91bb"
+  },
+  {
+   "t": "sh",
+   "s": "grep t.wallace sso.log\necho ---\ngrep -i remember roles.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Who was at the keyboard?\n\nAn account is not a person. Use a second source to see who was at lab3-pc27 at 12:41.\n\n- [ ] Who logged on to lab3-pc27 around 12:41?\n- [ ] One change has a comment that looks like base64. Decode it: it is the flag.\n- [ ] Facts, not guesses: write what the evidence shows, and what it doesn't (it doesn't prove who typed).\n\n> Hint: `grep -o '[A-Za-z0-9+/=]\\{20,\\}$' grade_audit.csv | base64 -d` finds a long base64 comment and decodes it.\n?> Which user was logged on to lab3-pc27 at 12:41? :: sha256:4d62de0cebe26d2554827f46836c8c1f105bae19af0f92f61ca219f8f05a1b6c"
+  },
+  {
+   "t": "sh",
+   "s": "awk -F, '$2 == \"lab3-pc27\"' lab_logins.csv\necho ---\ngrep -o '[A-Za-z0-9+/=]\\{20,\\}$' grade_audit.csv | base64 -d; echo"
+  },
+  {
+   "t": "py",
+   "s": "import csv\n\nev = []\nfor r in csv.DictReader(open(\"case/lab_logins.csv\")):\n    if r[\"host\"] == \"lab3-pc27\":\n        ev.append((r[\"time\"][11:19], \"lab\", r[\"user\"] + \" \" + r[\"event\"]))\nfor line in open(\"case/sso.log\"):\n    if \"lab3-pc27\" in line:\n        f = dict(x.split(\"=\", 1) for x in line.split()[1:])\n        ev.append((line[11:19], \"sso\", f[\"user\"] + \" \" + f[\"method\"]))\nfor r in csv.DictReader(open(\"case/grade_audit.csv\")):\n    if r[\"source_ip\"] == \"10.80.3.27\":\n        ev.append((r[\"time\"][11:19], \"grade\", r[\"student\"] + \" \" + r[\"course\"] + \" \" + r[\"old\"] + \" -> \" + r[\"new\"]))\nfor t, src, what in sorted(ev):\n    print(t, src.ljust(6), what)"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Fix the access control\n\n- [ ] Restore the five grades from the audit log; tell the head teacher, not the student first (school policy and fairness)\n- [ ] Least privilege: a teacher can only change grades in classes they teach\n- [ ] Separation of duties: big changes (two grades or more) need a second person to approve\n- [ ] No remember-me on shared lab PCs; sessions end at logoff; MFA for every grade change\n- [ ] Alert when grades change from a student lab address\n\n> Hint: Which single fix would have blocked the Maths, Physics and Biology changes even with his token?\n\n| Finding | Evidence |\n|---|---|\n| Changes and times |  |\n| Machine used |  |\n| Who was logged on there |  |\n| Control failures |  |"
+  }
+ ]
+}

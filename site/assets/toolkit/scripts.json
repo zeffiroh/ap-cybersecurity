@@ -1,0 +1,276 @@
+{
+ "groups": [
+  "Logs",
+  "Indicators",
+  "Evidence",
+  "Network",
+  "Decode"
+ ],
+ "scripts": [
+  {
+   "name": "tk-top-ips",
+   "group": "Logs",
+   "title": "Busiest addresses",
+   "what": "Counts every IP address in a file, busiest first.",
+   "args": [
+    {
+     "n": "file",
+     "kind": "log"
+    },
+    {
+     "n": "how many",
+     "d": "10",
+     "opt": true
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a file, for example: tk-top-ips auth.log'; exit 2; }\nf=\"$1\"\ngrep -oE '([0-9]{1,3}\\.){3}[0-9]{1,3}' \"$f\" | sort | uniq -c | sort -rn | head -n \"${2:-10}\""
+  },
+  {
+   "name": "tk-failed",
+   "group": "Logs",
+   "title": "Failed sign-ins",
+   "what": "Finds failures and denials, then shows which addresses caused them.",
+   "args": [
+    {
+     "n": "file",
+     "kind": "log"
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a file, for example: tk-failed auth.log'; exit 2; }\nf=\"$1\"\nt=/tmp/.tk-failed\ngrep -iE 'fail|invalid|denied|unauthori|TCP_DENIED|\" 40[13] |/40[13] ' \"$f\" > \"$t\"\necho \"$(wc -l < \"$t\") failure lines in $f\"\ngrep -oE '([0-9]{1,3}\\.){3}[0-9]{1,3}' \"$t\" | sort | uniq -c | sort -rn | head -n 10\nrm -f \"$t\""
+  },
+  {
+   "name": "tk-by-minute",
+   "group": "Logs",
+   "title": "Activity by minute",
+   "what": "Draws a bar for each minute, so bursts stand out.",
+   "args": [
+    {
+     "n": "file",
+     "kind": "log"
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a file, for example: tk-by-minute auth.log'; exit 2; }\nawk '{if($1~/^[0-9]{10}(\\.[0-9]+)?$/)t=strftime(\"%H:%M:%S\",int($1));else if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else if(match($0,/[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else next;print substr(t,1,5)}' \"$1\" | sort | uniq -c | awk '{c[NR]=$1;t[NR]=$2;if($1>m)m=$1}END{for(i=1;i<=NR;i++){n=int(c[i]*40/m);if(n<1)n=1;b=\"\";for(j=0;j<n;j++)b=b\"#\";printf \"%s %5d %s\\n\",t[i],c[i],b}}'"
+  },
+  {
+   "name": "tk-between",
+   "group": "Logs",
+   "title": "Lines in a time window",
+   "what": "Keeps only the lines between two times.",
+   "args": [
+    {
+     "n": "file",
+     "kind": "log"
+    },
+    {
+     "n": "from",
+     "d": "09:00"
+    },
+    {
+     "n": "to",
+     "d": "10:00"
+    }
+   ],
+   "src": "[ -n \"$3\" ] || { echo 'Give a file, a start and an end, for example: tk-between auth.log 09:00 10:00'; exit 2; }\nawk -v a=\"$2\" -v b=\"$3\" '{if($1~/^[0-9]{10}(\\.[0-9]+)?$/)t=strftime(\"%H:%M:%S\",int($1));else if(match($0,/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else if(match($0,/[0-9][0-9]:[0-9][0-9]/))t=substr($0,RSTART,RLENGTH);else next;if(t>=a&&substr(t,1,length(b))<=b)print}' \"$1\""
+  },
+  {
+   "name": "tk-status",
+   "group": "Logs",
+   "title": "Web status codes",
+   "what": "Counts the HTTP status codes in a web or proxy log.",
+   "args": [
+    {
+     "n": "file",
+     "kind": "log"
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a web or proxy log, for example: tk-status access.log'; exit 2; }\ngrep -oE '\" [1-5][0-9]{2} |/[1-5][0-9]{2} ' \"$1\" | grep -oE '[1-5][0-9]{2}' | sort | uniq -c | sort -rn"
+  },
+  {
+   "name": "tk-timeline",
+   "group": "Logs",
+   "title": "Merged timeline",
+   "what": "Merges every line that starts with a full date into one timeline, oldest first.",
+   "args": [
+    {
+     "n": "folder",
+     "d": ".",
+     "opt": true
+    },
+    {
+     "n": "how many",
+     "d": "60",
+     "opt": true
+    }
+   ],
+   "src": "d=${1:-.}\nfind \"$d\" -type f ! -name \"*.pcap\" | sort | while IFS= read -r p; do\n    grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}' \"$p\" 2>/dev/null | sed \"s|\\$|   [$(basename \"$p\")]|\"\ndone | sort | head -n \"${2:-60}\""
+  },
+  {
+   "name": "tk-iocs",
+   "group": "Indicators",
+   "title": "Pull out indicators",
+   "what": "Lists the addresses, domains, links, hashes and emails found in a folder.",
+   "args": [
+    {
+     "n": "folder",
+     "d": ".",
+     "opt": true
+    }
+   ],
+   "src": "d=${1:-.}\nshow() { echo \"== $1\"; grep -rhoE \"$2\" \"$d\" 2>/dev/null | sort -u | head -n 40; }\nshow Addresses '([0-9]{1,3}\\.){3}[0-9]{1,3}'\nshow Links 'https?://[^ \"<>]+'\nshow Domains '[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.(com|net|org|io|xyz|ru|cn|top|info|biz|co|in|edu|lan|local)\\b'\nshow Hashes '\\b[a-f0-9]{64}\\b'\nshow Emails '[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+'"
+  },
+  {
+   "name": "tk-check-bad",
+   "group": "Indicators",
+   "title": "Check against a bad list",
+   "what": "Hashes each file and looks for it on a threat intel list.",
+   "args": [
+    {
+     "n": "folder",
+     "d": "suspect"
+    },
+    {
+     "n": "bad list",
+     "d": "known_bad.txt"
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a folder, for example: tk-check-bad suspect known_bad.txt'; exit 2; }\nd=\"$1\"\n[ -n \"$2\" ] || { echo 'Give the list of bad hashes, for example known_bad.txt'; exit 2; }\nl=\"$2\"\nfind \"$d\" -type f | sort | while IFS= read -r p; do\n    h=$(sha256sum \"$p\" | cut -d\" \" -f1)\n    if grep -q \"$h\" \"$l\"; then echo \"KNOWN BAD   $p\"; else echo \"not listed  $p\"; fi\ndone"
+  },
+  {
+   "name": "tk-hash-all",
+   "group": "Evidence",
+   "title": "Hash all evidence",
+   "what": "Writes a SHA-256 manifest, so you can prove later that nothing changed.",
+   "args": [
+    {
+     "n": "folder",
+     "d": ".",
+     "opt": true
+    },
+    {
+     "n": "manifest",
+     "d": "/tmp/evidence.sha256",
+     "opt": true
+    }
+   ],
+   "src": "d=${1:-.}\no=${2:-/tmp/evidence.sha256}\nfind \"$d\" -type f | sort | while IFS= read -r p; do sha256sum \"$p\"; done > \"$o\"\necho \"$(wc -l < \"$o\") files hashed into $o\"\nhead -n 5 \"$o\""
+  },
+  {
+   "name": "tk-verify",
+   "group": "Evidence",
+   "title": "Verify the manifest",
+   "what": "Checks every file against the manifest and names anything that changed.",
+   "args": [
+    {
+     "n": "manifest",
+     "d": "/tmp/evidence.sha256",
+     "opt": true
+    }
+   ],
+   "src": "sha256sum -c \"${1:-/tmp/evidence.sha256}\" 2>&1 | grep -v \": OK$\"\nif sha256sum -c \"${1:-/tmp/evidence.sha256}\" >/dev/null 2>&1; then echo \"Every file matches.\"; else echo \"Some files changed or are missing.\"; exit 1; fi"
+  },
+  {
+   "name": "tk-preserve",
+   "group": "Evidence",
+   "title": "Pack a preserved copy",
+   "what": "Packs the case folder into an archive and prints its hash for your notes.",
+   "args": [
+    {
+     "n": "name",
+     "d": "evidence"
+    }
+   ],
+   "src": "n=${1:-evidence}\ntar cf \"/tmp/$n.tar\" -C \"$HOME\" case\nls -l \"/tmp/$n.tar\"\nsha256sum \"/tmp/$n.tar\""
+  },
+  {
+   "name": "tk-sweep",
+   "group": "Network",
+   "title": "Find live hosts",
+   "what": "Sweeps a network range on the case network and lists who answers.",
+   "args": [
+    {
+     "n": "range",
+     "kind": "net"
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a range, for example: tk-sweep 10.20.0.0/24'; exit 2; }\nr=\"$1\"\nnmap -sn \"$r\""
+  },
+  {
+   "name": "tk-ports",
+   "group": "Network",
+   "title": "Open ports and services",
+   "what": "Scans one host on the case network for open ports and services.",
+   "args": [
+    {
+     "n": "host",
+     "d": ""
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a host, for example: tk-ports 10.20.0.5'; exit 2; }\nh=\"$1\"\nnmap -sV \"$h\""
+  },
+  {
+   "name": "tk-domain",
+   "group": "Network",
+   "title": "Look up a domain",
+   "what": "Shows a domain's address and who registered it.",
+   "args": [
+    {
+     "n": "domain",
+     "d": ""
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give a domain, for example: tk-domain example.com'; exit 2; }\nn=\"$1\"\necho \"== Address\"\ndig +short \"$n\"\necho \"== Registration\"\nwhois \"$n\""
+  },
+  {
+   "name": "tk-talkers",
+   "group": "Network",
+   "title": "Who talked to whom",
+   "what": "Summarises the conversations in a capture.",
+   "args": [
+    {
+     "n": "capture",
+     "kind": "pcap"
+    }
+   ],
+   "src": "f=${1:-capture.pcap}\ntshark -r \"$f\" -q -z conv,ip"
+  },
+  {
+   "name": "tk-dns-queries",
+   "group": "Network",
+   "title": "DNS names asked for",
+   "what": "Counts the domain names looked up in a capture. Tunnels show up as odd, long names.",
+   "args": [
+    {
+     "n": "capture",
+     "kind": "pcap"
+    }
+   ],
+   "src": "f=${1:-capture.pcap}\ntshark -r \"$f\" -Y dns -T fields -e dns.qry.name | sort | uniq -c | sort -rn | head -n 30"
+  },
+  {
+   "name": "tk-http",
+   "group": "Network",
+   "title": "Web requests in a capture",
+   "what": "Lists each web request: who asked, which site and which page.",
+   "args": [
+    {
+     "n": "capture",
+     "kind": "pcap"
+    }
+   ],
+   "src": "f=${1:-capture.pcap}\ntshark -r \"$f\" -Y http.request -T fields -e ip.src -e http.host -e http.request.method -e http.request.uri | head -n 40"
+  },
+  {
+   "name": "tk-decode",
+   "group": "Decode",
+   "title": "Try common decodings",
+   "what": "Tries Base64, hex and ROT13 on a string, so you can spot the readable one.",
+   "args": [
+    {
+     "n": "text",
+     "d": ""
+    }
+   ],
+   "src": "[ -n \"$1\" ] || { echo 'Give some text, for example: tk-decode aGVsbG8='; exit 2; }\ns=\"$1\"\necho \"base64: $(printf %s \"$s\" | base64 -d 2>/dev/null)\"\necho \"hex:    $(printf %s \"$s\" | xxd -r -p 2>/dev/null)\"\necho \"rot13:  $(printf %s \"$s\" | tr 'A-Za-z' 'N-ZA-Mn-za-m')\""
+  }
+ ]
+}

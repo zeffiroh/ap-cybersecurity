@@ -1,0 +1,106 @@
+[
+ {
+  "t": "md",
+  "s": "# Incident runbook: quiet DNS\n\n11:41, Thursday 5 Nov. The SIEM at **Harbourline Credit Union** raised a DNS anomaly for **fin-lt04**, a Finance laptop. The firewall shows nothing unusual: the laptop never talked to the internet directly. You are the analyst on shift.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- How DNS tunnelling smuggles data out inside query names\n- Spot it by name length, unique subdomains and volume per host\n- Decode hex and base32, and rebuild a stolen file from the chunks\n- Why blocking the web is not enough when DNS goes out freely\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the alert and the firewall summary\n\n> Hint: Every DNS query in dns.log has the client address after `client`. `grep -c` counts lines that match.\n?> How many DNS queries did 10.70.0.44 send in dns.log? :: sha256:3e1e967e9b793e908f8eae83c74dba9bcccce6a5535b4b462bd9994537bfe15c\n?> Which proxy port could the laptop use to reach the web? :: sha256:82af498652ef41247a7013552a7ac0538cec5a7232eb17ad11a06f1a20956293"
+ },
+ {
+  "t": "sh",
+  "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat alert.txt\necho ---\ncat fw_summary.txt\necho ---\ngrep -c 'client 10.70.0.44#' dns.log"
+ },
+ {
+  "t": "md",
+  "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\nA DNS name is normally short: `mail.harbourline.lan`. Look at what fin-lt04 asked for.\n\n> Hint: `awk '{print length($7), $7}'` prints the length of each name next to it. Sort with `sort -rn` to see the longest first.\n?> Which domain do the very long names belong to? (last two labels) :: sha256:f9e8cbcb47445dc5b917408a7711c08613bfbdf7e41c25c13bde048c6123ea7a\n?> How many characters long is the longest name in dns.log? :: sha256:a46e37632fa6ca51a13fe39a567b3c23b28c2f47d8af6be9bd63e030e214ba38"
+ },
+ {
+  "t": "sh",
+  "s": "grep 'client 10.70.0.44#' dns.log | head -8\necho ---\nawk '{print length($7), $7}' dns.log | sort -rn | head -5\necho ---\ncat dns_stats.csv"
+ },
+ {
+  "t": "md",
+  "s": "## 3. Scope: who else?\n\nThree signs of DNS tunnelling: **long names**, **many unique names under one domain**, and **more queries than usual** from one host. Measure all three for every client, not just the one in the alert.\n\n- [ ] Which client has the longest names on average?\n- [ ] Which (client, domain) pair has the most unique names?\n- [ ] Does any other machine talk to cloudmetric.example?\n\n> Hint: Normal traffic repeats the same few names. A tunnel never repeats: each chunk of data makes a new name.\n?> How many different clients queried cloudmetric.example? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+ },
+ {
+  "t": "py",
+  "s": "from collections import defaultdict\n\nnames = defaultdict(set)\nlengths = defaultdict(list)\nfor line in open(\"case/dns.log\"):\n    f = line.split()\n    client, name = f[4].split(\"#\")[0], f[6]\n    parent = \".\".join(name.split(\".\")[-2:])\n    names[(client, parent)].add(name)\n    lengths[client].append(len(name))\nprint(\"client          avg name length   queries\")\nfor c, l in sorted(lengths.items(), key=lambda x: -sum(x[1]) / len(x[1])):\n    print(f\"{c:15} {sum(l) / len(l):10.1f} {len(l):12}\")\nprint()\nprint(\"most unique names under one domain:\")\nfor (c, p), s in sorted(names.items(), key=lambda x: -len(x[1]))[:5]:\n    print(f\"{len(s):4}  {c:15} {p}\")"
+ },
+ {
+  "t": "md",
+  "s": "## 4. Initial access: how did it get on the laptop?\n\n- [ ] What did m.devlin search for, and where did the download come from?\n- [ ] Rebuild the process tree: what ran, what copied itself where, and what starts it at every logon?\n- [ ] Which file did the malware look for right after it started?\n\n> Hint: In process.csv, follow ppid back to pid. The program copies itself into a Teams folder under a name that looks like Teams.\n?> From which domain was the program downloaded? :: sha256:134209576bb9e3401d6c16162b7081c01eb452661db862f55737bab0d7a10448\n?> What file name does the malware use to look like Teams? :: sha256:42b71d61beeb0fa200e38be8f0ac7eba00350de7c6f143afdd5ed11124b1b326\n?> What is the name of the scheduled task it created? :: sha256:dadd30394054d8b0161548a0245e9f4083a99fc3ad7d2825d29a1c59596408c3"
+ },
+ {
+  "t": "sh",
+  "s": "grep 10.70.0.44 proxy.log\necho ---\ncut -d, -f1,3,4,7- process.csv | grep -v '^time'\necho ---\ncurl -s https://taxhelp-tools.example/\nwhois taxhelp-tools.example\nopenssl s_client -connect taxhelp-tools.example:443 | grep -E 'subject=|NotBefore'"
+ },
+ {
+  "t": "md",
+  "s": "## 5. Plan A failed, so plan B\n\nThe malware first tried a normal upload. Read what the proxy did, then look at the time the DNS tunnel started.\n\n- [ ] Which site did it try first, and why did that fail?\n- [ ] How many minutes later did the DNS tunnel start?\n- [ ] Why could the laptop still send data out?\n\n> Hint: The firewall only lets the laptop use the proxy and the internal resolver. But the resolver forwards any question about `cloudmetric.example` to the attacker's own name server. The question itself is the data.\n?> Which site did the proxy block? :: sha256:c8b90cf36a28c6cc0323ae8cff9008339e52ca959632cc797fa05a6dcb626894\n?> At what time (HH:MM) did the first tunnel query go out? :: sha256:829c337e4ce000aa5072d3d9d2a844cc354306cefea2c4265bae43d6ffd681c2"
+ },
+ {
+  "t": "sh",
+  "s": "grep DENIED proxy.log\necho ---\ngrep -m1 cloudmetric dns.log\ngrep 'query: end\\.' dns.log\necho ---\ndig NS cloudmetric.example +short\ndig +short ns1.cloudmetric.example\ndig TXT t.cloudmetric.example +short"
+ },
+ {
+  "t": "md",
+  "s": "## 6. The tunnel in the capture\n\nThe capture was taken at the company resolver. Watch one question travel: laptop to resolver, resolver to the attacker's name server, and the answer back.\n\n- [ ] Find the first query: it starts with `f.` and carries the file name in **hex**\n- [ ] Find the data queries: a sequence number, a chunk of **base32**, a session ID\n- [ ] Find the last query: `end.` and the number of chunks\n- [ ] What does the attacker's server answer every time?\n\n> Hint: Labels are read left to right: `07.mjuxe....k7q2.t.cloudmetric.example` is chunk 7 of session k7q2.\n?> What is the session ID label in the tunnel names? :: sha256:d4ff183469d89e2c49b3edafda5dced1b0abbef07478de52bb8771f02959f135\n?> Which IP address is the attacker's name server? :: sha256:734773eb63c17fa00eff5f7aa31c5052aba53a67b1ec751de00139dda2eae75a"
+ },
+ {
+  "t": "sh",
+  "s": "tshark -r capture.pcap -Y 'dns.qry.name contains cloudmetric' -c 4\necho ---\ntshark -r capture.pcap -Y 'dns.qry.name contains cloudmetric and ip.src==10.70.0.44' -T fields -e frame.time_relative -e dns.qry.name | head -6\necho ---\ntshark -r capture.pcap -q -z conv,ip"
+ },
+ {
+  "t": "md",
+  "s": "## 7. Rebuild the stolen file\n\nDo what the attacker's server did: collect the chunks, put them in order, drop the duplicates, join them and decode.\n\n- [ ] Decode the file name from hex\n- [ ] Check for missing and repeated chunks (a tunnel over UDP sometimes resends)\n- [ ] Decode the base32 and read the file. Its doc-id is the CTF flag.\n- [ ] Is this personal data? Who must be told, and by when? (see hr_contact.txt)\n\n> Hint: base32 uses only a-z and 2-7, which is why it fits in DNS names. Python's `base64.b32decode` wants upper case and `=` padding to a multiple of 8.\n> Hint: You can decode the file name in Linux too: `echo 626f6172 | xxd -r -p` if your Linux has xxd.\n?> How many unique data chunks were sent? :: sha256:4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a\n?> How many chunks were sent twice? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n?> What is the name of the stolen file? :: sha256:d18726fbc8562daf7bc01890a17147b0e85330389fbb0ea07dda0c3235a66529"
+ },
+ {
+  "t": "py",
+  "s": "import base64\nfrom collections import Counter\n\nzone = \".k7q2.t.cloudmetric.example\"\nchunks = {}\nseen = Counter()\nfor line in open(\"case/dns.log\"):\n    name = line.split()[6]\n    if not name.endswith(zone):\n        continue\n    first, data = name.split(\".\")[0], name[: -len(zone)]\n    if first == \"f\":\n        print(\"file name:\", bytes.fromhex(data.split(\".\")[1]).decode())\n    elif first.isdigit():\n        seq, chunk = data.split(\".\")\n        seen[seq] += 1\n        chunks[int(seq)] = chunk\nprint(\"unique chunks:\", len(chunks), \" sent twice:\", [s for s, n in seen.items() if n > 1])\nmissing = [i for i in range(max(chunks) + 1) if i not in chunks]\nprint(\"missing:\", missing or \"none\")\nb32 = \"\".join(chunks[i] for i in sorted(chunks)).upper()\nb32 += \"=\" * (-len(b32) % 8)\nprint()\nprint(base64.b32decode(b32).decode())"
+ },
+ {
+  "t": "sh",
+  "s": "grep -o 'f\\.[0-9a-f]*\\.k7q2' dns.log | cut -d. -f2\necho ---\ngrep -o ' [0-9][0-9]\\.[a-z2-7]*\\.k7q2' dns.log | sort -u | sort -t. -k1,1n | cut -d. -f2 | tr -d '\\n' | tr a-z A-Z > /tmp/b32\nwc -c < /tmp/b32\n(base32 -d /tmp/b32 2>/dev/null || echo \"(no base32 here: use the Python cell above)\") | head -3"
+ },
+ {
+  "t": "md",
+  "s": "## 8. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+ },
+ {
+  "t": "md",
+  "s": "## 9. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)\n\n> Hint: Also ask for the resolver's full query log for the last 30 days: the tunnel may have run before today."
+ },
+ {
+  "t": "sh",
+  "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+ },
+ {
+  "t": "md",
+  "s": "## 10. Contain\n\n- [ ] Isolate fin-lt04 from the network (keep it powered on for memory evidence)\n- [ ] Sinkhole `cloudmetric.example` on the resolver so no host can reach it, and block 198.51.100.53\n- [ ] Block taxhelp-tools.example at the proxy\n- [ ] Reset m.devlin's password and sign her out everywhere\n\nThe cell prints the commands. Nothing here touches a real system.\n\n> Hint: A response policy zone (RPZ) on the resolver answers NXDOMAIN for a whole domain. It stops the tunnel for every machine at once.\n"
+ },
+ {
+  "t": "sh",
+  "s": "echo \"edr isolate fin-lt04\"\necho \"rpz add cloudmetric.example CNAME .\"\necho \"rpz add *.cloudmetric.example CNAME .\"\necho \"iptables -A FORWARD -d 198.51.100.53 -j DROP\"\necho \"proxy-block add taxhelp-tools.example\"\necho \"identity reset-password m.devlin --revoke-sessions\""
+ },
+ {
+  "t": "md",
+  "s": "## 11. Eradicate and recover\n\n- [ ] Delete the scheduled task and msteams-update.exe; then reimage the laptop (it ran unknown code)\n- [ ] Search every machine for the same file hash, task name and DNS pattern\n- [ ] Tell the data protection officer: staff salaries are personal data\n- [ ] Restore m.devlin's files from backup onto the clean laptop\n"
+ },
+ {
+  "t": "sh",
+  "s": "echo 'schtasks /delete /tn TeamsUpdateCheck /f'\necho 'del %APPDATA%\\Microsoft\\Teams\\msteams-update.exe'\necho ---\nfor h in $(cut -d, -f2 process.csv | sort -u | grep -v host); do\n    grep -q \"$h.*msteams-update\" process.csv && echo \"$h: infected\" || echo \"$h: clean\"\ndone"
+ },
+ {
+  "t": "md",
+  "s": "## 12. Fix the gaps\n\n- [ ] Alert in real time on long DNS names and many unique subdomains, not only on volume\n- [ ] Only the resolver may send DNS to the internet (already true here), and the resolver filters new and suspicious domains\n- [ ] Block newly registered domains (cloudmetric.example was 3 days old)\n- [ ] Stop users installing unsigned programs (application allow-listing); block search ads for software downloads\n- [ ] Keep sensitive files such as pay reviews in a protected share, not in Documents\n\n> Hint: The proxy did its job. The gap was that DNS was trusted. Which control would have stopped the tunnel at 11:09?\n"
+ },
+ {
+  "t": "md",
+  "s": "## 13. Report\n\n- [ ] Timeline from 11:01 to 11:41 with sources\n- [ ] What was stolen, how, how big, and who must be told\n- [ ] Indicators: domains, addresses, file name, task name, DNS pattern\n- [ ] Submit the flag from step 7 on the CTF board\n\nWrite the report here. Download .ipynb keeps every output above."
+ },
+ {
+  "t": "md",
+  "s": "## 14. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+ },
+ {
+  "t": "md",
+  "s": "## 15. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+ }
+]

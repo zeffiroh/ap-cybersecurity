@@ -32,8 +32,8 @@ window.APCYBER_PAYWALL = {
     labs: {
       name: "Labs",
       title: "Part of Labs",
-      text: "Labs is the hands-on side of the course: a real Linux computer, JupyterLab with every code book, the SQL injection " +
-        "lab, the hackable shop, the capture-the-flag board, every skill lab, premium notebooks and the lesson videos. " +
+      text: "Labs is the hands-on side of the course: incident runbooks with an analyst console, a real Linux computer, JupyterLab " +
+        "with every code book, the SQL injection lab, the hackable shop, the capture-the-flag board, every skill lab, premium notebooks and the lesson videos. " +
         "It is sold separately from the course.",
       button: "Get Labs",
       buy: "store.html#labs",
@@ -66,7 +66,7 @@ window.APCYBER_STORES = {
   },
   labs: {
     name: "Labs",
-    blurb: "Real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
+    blurb: "Incident runbooks with an analyst console (terminal, script toolkit, log viewer, notes), real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
       "every skill lab, premium notebooks and every lesson video. Pay once, keep it.",
     india: "Pay what you want, with a minimum",
     methods: [
@@ -76,7 +76,7 @@ window.APCYBER_STORES = {
   },
   seminars: {
     name: "Seminars subscription",
-    blurb: "Every recorded seminar, including new ones, for a year. Or unlock single seminars with tickets.",
+    blurb: "Every recorded seminar and its hands-on lab, including new ones, for a year. Or unlock single seminars with tickets.",
     india: "Pay what you want, with a minimum",
     methods: [
       { label: "Razorpay", note: "India", url: "" },

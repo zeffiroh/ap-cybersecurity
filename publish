@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+
+DRY=0
+YES=0
+MSG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n|--dry-run) DRY=1 ;;
+    -y|--yes) YES=1 ;;
+    -h|--help)
+      echo 'Usage: ./publish [-n] [-y] "what changed"'
+      echo '  Builds the site, checks it, then commits and pushes everything to the live site.'
+      echo '  -n  show what would go up, change nothing in git'
+      echo '  -y  do not ask before pushing'
+      exit 0 ;;
+    *) MSG="$1" ;;
+  esac
+  shift
+done
+
+PY=""
+for c in .venv/bin/python .venv/Scripts/python python3 python; do
+  if "$c" -c 'import rcssmin' >/dev/null 2>&1; then PY="$c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "No Python here has the site's packages. Install them with: pip install -r requirements.txt"
+  exit 1
+fi
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" != "main" ]; then
+  echo "You are on branch $BRANCH. The live site comes from main, so nothing was published."
+  exit 1
+fi
+
+echo "Building the site..."
+if ! "$PY" build.py --only static,ctf,pages > /tmp/publish-build.log 2>&1; then
+  tail -n 15 /tmp/publish-build.log
+  echo "The build failed. Nothing was published."
+  exit 1
+fi
+tail -n 4 /tmp/publish-build.log
+
+echo "Checking links..."
+"$PY" -c 'import sys; from builder import audit; b = audit.broken_links(); [print(" ", p, "->", u) for p, u in b[:20]]; print(len(b), "broken links"); sys.exit(1 if b else 0)' \
+  || { echo "Fix the broken links first. Nothing was published."; exit 1; }
+
+CHANGED=$(git status --porcelain --untracked-files=all | cut -c4- | sed 's/^"//; s/"$//')
+if [ -z "$CHANGED" ]; then
+  echo "Nothing has changed, so there is nothing to publish."
+  exit 0
+fi
+
+SECRETS=$(printf '%s\n' "$CHANGED" | grep -E '(^|/)\.env|\.pem$|\.key$|rzp-key|credentials' || true)
+if [ -n "$SECRETS" ]; then
+  echo "These look like secrets, so nothing was published:"
+  printf '%s\n' "$SECRETS"
+  exit 1
+fi
+
+BIG=""
+while IFS= read -r f; do
+  if [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 50000000 ]; then BIG="$BIG$f"$'\n'; fi
+done <<< "$CHANGED"
+if [ -n "$BIG" ]; then
+  echo "These files are over 50 MB, so nothing was published. Put videos on YouTube as Unlisted and link to them:"
+  printf '%s' "$BIG"
+  exit 1
+fi
+
+COUNT=$(printf '%s\n' "$CHANGED" | wc -l | tr -d ' ')
+echo
+echo "$COUNT files would go live:"
+printf '%s\n' "$CHANGED" | grep -vE '^site/' | head -n 25 || true
+echo "  (plus their built copies in site/)"
+
+if printf '%s\n' "$CHANGED" | grep -qE '^db/schema\.sql$'; then
+  echo
+  echo "The database code changed. Run this first if you have not:  $PY db/sql.py db/schema.sql"
+fi
+if printf '%s\n' "$CHANGED" | grep -qE '^db/ctf_challenges\.sql$'; then
+  echo "The CTF challenges changed. Run this first if you have not:  $PY db/sql.py db/ctf_challenges.sql"
+fi
+
+if [ "$DRY" = 1 ]; then
+  echo
+  echo "Dry run: nothing was committed or pushed."
+  exit 0
+fi
+
+if [ -z "$MSG" ]; then
+  if [ "$YES" = 1 ]; then MSG="Update site content"; else read -r -p "What changed? " MSG; fi
+fi
+if [ "$YES" != 1 ]; then
+  read -r -p "Publish these to the live site? (y/n) " OK
+  case "$OK" in y|Y|yes) ;; *) echo "Nothing was published."; exit 0 ;; esac
+fi
+
+git add -A
+for f in publish teach; do if [ -f "$f" ]; then git update-index --chmod=+x "$f"; fi; done
+git commit -m "${MSG:-Update site content}"
+git push origin main || { echo "The commit is saved on this computer, but the push failed. Fix the problem above, then run: git push origin main"; exit 1; }
+echo
+echo "Pushed. The live site updates in a few minutes: https://zeffiroh.github.io/ap-cybersecurity/"

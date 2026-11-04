@@ -1,0 +1,73 @@
+{
+ "title": "Password spraying at the library portal",
+ "kicker": "Teacher case: authentication",
+ "units": [
+  2
+ ],
+ "level": "Beginner",
+ "minutes": 20,
+ "summary": "Nobody was locked out, yet a library member's account was taken over. Find the slow password spray, the one account it opened and what the attacker changed.",
+ "tools": [
+  "grep",
+  "sort",
+  "uniq",
+  "wc",
+  "whois",
+  "dig"
+ ],
+ "titlePrefix": "Teacher case: library portal",
+ "ctf": "The attacker renamed the account they took over. That new name is the flag (step 4). Submit it on the CTF board.",
+ "id": "tc-library-spray",
+ "teacher": true,
+ "files": [
+  "case/portal_auth.log",
+  "case/portal_sessions.log",
+  "case/security_settings.txt",
+  "case/ticket.txt",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/404.htm",
+  "net/www/index.htm",
+  "net/www/router.htm"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Password spraying at the library portal\n\nFriday 6 Nov, 09:02. A member of **Riverside Public Library** says her portal account was changed overnight. The portal locks an account after 5 wrong passwords, and nobody was locked out. So how did someone get in?\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `dig`, `whois`, `openssl` and more) work on a recorded copy of the case network; nothing leaves your browser.\n\n### What you'll learn\n\n- The difference between brute force (many passwords, one account) and spraying (one password, many accounts)\n- Why per-account lockout misses spraying\n- Count with cut, sort and uniq to see the pattern\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence and read the ticket and the security settings\n\n> Hint: The settings file says what the portal does about wrong passwords, and what it doesn't do.\n?> After how many failed passwords does one account lock? :: sha256:ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat ticket.txt\necho ---\ncat security_settings.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Which address is guessing?\n\n- [ ] Rank the failed logins by source address\n- [ ] For the top address, count how many different accounts it tried, and how many times per account\n\n> Hint: `grep result=fail` then `grep -o 'src=[^ ]*'` pulls out the address. `sort | uniq -c | sort -rn` ranks them.\n?> Which address failed most often? :: sha256:3b5cd36857cbc87d59a841d2d375222d234ccf0317fb8656eceb0856c0c68048\n?> How many different accounts did it try? :: sha256:d59eced1ded07f84c145592f65bdf854358e009c5cd705f5215bf18697fed103\n?> How many attempts did it make per account? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  {
+   "t": "sh",
+   "s": "grep result=fail portal_auth.log | grep -o 'src=[^ ]*' | sort | uniq -c | sort -rn | head -5\necho ---\ngrep src=203.0.113.50 portal_auth.log | grep -o 'user=[^ ]*' | sort | uniq -c | sort -rn | head -3\ngrep src=203.0.113.50 portal_auth.log | grep -o 'user=[^ ]*' | sort -u | wc -l"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Did it work?\n\nSpraying tries one common password (here, one that fits the password rules) against every account, slowly, so no account ever reaches 5 failures.\n\n- [ ] Find the one success from the spraying address\n- [ ] Compare with d.park at 07:41: that is what normal lockout looks like\n\n> Hint: `grep src=203.0.113.50 portal_auth.log | grep result=ok`\n?> Which account did the sprayer get into? :: sha256:f8460dc578cf5008dd9219854e6644c78d1633eb92db40b6f6d7d45f257726ec\n?> At what time (HH:MM) did it get in? :: sha256:d93906bfee503ab3c549c2467d06edf18c3d2f6e6f7dd665fa0e13b0c46a21b7\n?> Which account was locked out this morning? :: sha256:7cf6150f65368479dd40ae063adb43b1625b6f9c320c15a8fb2fefd4a8513f0c"
+  },
+  {
+   "t": "sh",
+   "s": "grep src=203.0.113.50 portal_auth.log | grep result=ok\necho ---\ngrep -E 'locked|d.park' portal_auth.log\necho ---\nwhois 203.0.113.50\ndig -x 203.0.113.50 +short"
+  },
+  {
+   "t": "md",
+   "s": "## 4. What did they do with it?\n\n- [ ] List every action in the attacker's session\n- [ ] Why change the email address? (Think about password resets.)\n- [ ] The new display name is the flag\n\n> Hint: Grep the sessions log for the attacker's address or the session ID.\n"
+  },
+  {
+   "t": "sh",
+   "s": "grep 203.0.113.50 portal_sessions.log"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Contain, fix, learn\n\n- [ ] Lock k.osei, restore her email address, reset her password, tell her what was seen (412 loans exported)\n- [ ] Block 203.0.113.50 and add a per-address limit (many accounts failing from one address)\n- [ ] Check new passwords against breached and common lists; offer MFA to everyone\n- [ ] Alert when one address fails on more than 10 different accounts in an hour\n\n> Hint: Lockout per account stops brute force. Spraying needs a limit per address and a check on common passwords.\n\n| Finding | Evidence |\n|---|---|\n| Attacker address |  |\n| Accounts tried |  |\n| Account taken |  |\n| What they changed |  |"
+  }
+ ]
+}

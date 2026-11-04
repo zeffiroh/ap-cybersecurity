@@ -94,21 +94,90 @@
     return texts[url];
   }
 
-  function cases() { return text(LINUX + "cases/index.json").then(JSON.parse); }
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    if (P && P.neon) return P.neon().then(function (db) {
+      if (!db) throw new Error("offline");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+    if (global.Neon && global.Neon.isConfigured && global.Neon.isConfigured()) return global.Neon.rpc(fn, args || {}, { attempts: 1 });
+    return Promise.reject(new Error("offline"));
+  }
+
+  function cleanId(id) {
+    id = String(id || "web01");
+    if (/^t\d+$/.test(id)) return id;
+    return id.replace(/[^a-z0-9-]/g, "") || "web01";
+  }
+
+  function teacherCases() {
+    return rpc("api_premium_list").then(function (r) {
+      return ((r && r.items) || []).filter(function (i) { return i.kind === "case"; }).map(function (i) {
+        var m = i.meta || {}, out = {};
+        Object.keys(m).forEach(function (k) { out[k] = m[k]; });
+        out.id = "t" + i.id;
+        out.title = m.title || i.title;
+        out.summary = m.summary || i.summary || "";
+        out.units = m.units && m.units.length ? m.units : (i.unit ? [i.unit] : []);
+        out.teacher = true;
+        out.draft = !i.published;
+        out.locked = r.labs === false;
+        return out;
+      });
+    }).catch(function () { return []; });
+  }
+
+  function cases() {
+    var mine = text(LINUX + "cases/index.json").then(JSON.parse).catch(function () { return []; });
+    return Promise.all([mine, teacherCases()]).then(function (r) {
+      var titles = r[0].map(function (c) { return c.title; });
+      return r[0].concat(r[1].filter(function (c) { return titles.indexOf(c.title) < 0; }));
+    });
+  }
+
+  function fromBundle(id, data) {
+    data = data || {};
+    var meta = data.meta || {}, files = data.files || {}, m = {};
+    Object.keys(meta).forEach(function (k) { m[k] = meta[k]; });
+    m.id = id;
+    m.files = Object.keys(files).filter(function (f) { return /^(case|net)\//.test(f); }).sort();
+    m.template = data.template || [];
+    m.bodies = {};
+    m.files.forEach(function (f) { m.bodies[f] = String(files[f] == null ? "" : files[f]); });
+    m.teacher = true;
+    return m;
+  }
+
+  function useCase(id, data) {
+    id = cleanId(id);
+    manifests[id] = Promise.resolve(fromBundle(id, data));
+    if (installed === id) installed = "";
+    return manifests[id];
+  }
 
   function manifest(id) {
-    id = String(id || "web01").replace(/[^a-z0-9-]/g, "") || "web01";
+    id = cleanId(id);
     if (!manifests[id]) {
-      manifests[id] = text(LINUX + "cases/" + id + "/manifest.json").then(JSON.parse);
+      if (/^t\d+$/.test(id)) {
+        manifests[id] = rpc("api_premium_get", { p_id: +id.slice(1) }).then(function (r) {
+          if (!r || !r.ok || !r.item) throw new Error((r && r.error) || "Couldn't load this case.");
+          return fromBundle(id, r.item.data);
+        });
+      } else manifests[id] = text(LINUX + "cases/" + id + "/manifest.json").then(JSON.parse);
       manifests[id].catch(function () { delete manifests[id]; });
     }
     return manifests[id];
   }
 
+  function body(m, f) {
+    if (m.bodies) return Promise.resolve(m.bodies[f] == null ? "" : m.bodies[f]);
+    return text(LINUX + "cases/" + m.id + "/" + f);
+  }
+
   function caseFiles(id) {
     return manifest(id).then(function (m) {
       var want = m.files.filter(function (f) { return /^case\//.test(f); });
-      return Promise.all(want.map(function (f) { return text(LINUX + "cases/" + m.id + "/" + f); })).then(function (all) {
+      return Promise.all(want.map(function (f) { return body(m, f); })).then(function (all) {
         var out = {};
         want.forEach(function (f, i) { out[f.slice(5)] = all[i]; });
         return out;
@@ -129,14 +198,14 @@
   }
 
   function installCase(id, status) {
-    id = String(id || "web01");
+    id = cleanId(id);
     if (installed === id) return Promise.resolve(manifests[id]);
     if (installing && installing.id === id) return installing.p;
     var p = Promise.all([boot(status), manifest(id)]).then(function (r) {
       var m = r[1];
       if (status) status("Loading the case files and network tools…");
       return Promise.all(TOOLS.map(function (t) { return text(LINUX + "tools/" + t); }).concat(m.files.map(function (f) {
-        return text(LINUX + "cases/" + m.id + "/" + f);
+        return body(m, f);
       }))).then(function (all) {
         var dest = [], bodies = [];
         TOOLS.forEach(function (t, i) { dest.push("/usr/local/bin/" + t); bodies.push(all[i]); });
@@ -175,5 +244,5 @@
   }
 
   global.AayatVM = { boot: boot, shell: shell, stop: stop, installCase: installCase, manifest: manifest, cases: cases,
-    caseFiles: caseFiles, send: send, onOutput: onOutput, busy: busy, restart: restart, root: ROOT };
+    caseFiles: caseFiles, useCase: useCase, send: send, onOutput: onOutput, busy: busy, restart: restart, root: ROOT };
 })(window);

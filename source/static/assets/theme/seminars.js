@@ -185,6 +185,15 @@
           return "<li>" + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(r.title || u) + "</a>" : esc(r.title)) + "</li>";
         }).join("") + "</ul>" : "") + "</aside></div>";
       var seek = src && d.me ? track(s) : null;
+      fetch(ROOT + "assets/linux/cases/index.json").then(function (r) { return r.json(); }).then(function (list) {
+        var lab = list.filter(function (c) { return +c.seminarId === +s.id; })[0], head = box.querySelector(".sm-head");
+        if (!lab || !head) return;
+        var d = document.createElement("div");
+        d.className = "sm-lab";
+        d.innerHTML = s.owned ? '<a class="btn dark" href="' + ROOT + "notebook.html?ref=rb-" + esc(lab.id) + "&runbook=" + esc(lab.id) + '">Open the hands-on lab</a>'
+          : '<p class="sx-note">Unlocking this seminar also unlocks its hands-on lab.</p>';
+        head.parentNode.insertBefore(d, head.nextSibling);
+      }).catch(function () {});
       box.querySelectorAll(".sm-ch").forEach(function (b) {
         b.addEventListener("click", function () {
           if (!(seek && seek(+b.getAttribute("data-t")))) $("sm-frame").src = embed(s.youtube, +b.getAttribute("data-t"));

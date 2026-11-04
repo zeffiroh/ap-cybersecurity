@@ -32,6 +32,12 @@
     } catch (e) { return null; }
   }
   function map() { return global.AAYAT_MAP || { units: [], topics: {}, atoms: {} }; }
+  function K() { return global.LabKit; }
+  function gst() {
+    var r = nb.rb = nb.rb || {};
+    r.hints = r.hints || {}; r.answers = r.answers || {}; r.seen = r.seen || {};
+    return r;
+  }
 
   function labUrl(atom) {
     var M = map(), t = atom.split(".").slice(0, 2).join("."), tp = M.topics[t], a = M.atoms[atom];
@@ -83,6 +89,10 @@
         return;
       }
       if (/^\s*```/.test(line)) { flushPara(); flushList(); flushTable(); fence = []; return; }
+      var g = K() && K().guideLine(line);
+      if (g) { flushPara(); flushList(); flushTable(); out.push(g.hint !== undefined ? K().hintHtml(g.hint, gst()) : K().askHtml(g.ask, g.hash, gst())); return; }
+      var bq = /^\s*>\s?(.*)$/.exec(line);
+      if (bq && !/^\s*\|/.test(line)) { flushPara(); flushList(); flushTable(); out.push("<blockquote>" + inline(bq[1]) + "</blockquote>"); return; }
       if (/^\s*\|/.test(line)) { flushPara(); flushList(); (table = table || []).push(line); return; }
       flushTable();
       var d = /^\s*<details><summary>(.*)<\/summary>\s*$/.exec(line);
@@ -100,7 +110,7 @@
       }
       if (list && /^\s{2,}\S/.test(line)) { out[out.length - 1] = out[out.length - 1].replace(/<\/li>$/, " " + l.trim() + "</li>"); return; }
       flushList();
-      if (h) { flushPara(); out.push("<h" + (h[1].length + 1) + ">" + h[2] + "</h" + (h[1].length + 1) + ">"); }
+      if (h) { flushPara(); out.push("<h" + (h[1].length + 1) + (h[1].length === 2 && /^\d+[.)]\s/.test(h[2]) ? ' class="rb-steph"' : "") + ">" + h[2] + "</h" + (h[1].length + 1) + ">"); }
       else if (l.trim()) para.push(l);
       else flushPara();
     });
@@ -112,6 +122,7 @@
   function status(t) { $("nb-status").textContent = t; }
 
   function save(now) {
+    if (PB()) PB().changed();
     dirty = true;
     clearTimeout(timer);
     timer = setTimeout(function () {
@@ -451,12 +462,15 @@
       var code = c.t !== "md", sh = c.t === "sh";
       return '<section class="nb-cell ' + (code ? "nb-code" : "nb-md") + (sh ? " nb-sh" : "") + '" data-i="' + i + '" data-id="' + esc(c.id || "") + '">' +
         '<div class="nb-bar"><span><b class="nb-kind">' + (sh ? "Linux" : code ? "Python" : "Notes") + '</b><small class="nb-ran">' + ran(c) + "</small></span>" +
+        (sh ? '<button class="btn rb-exbtn" data-ex aria-expanded="false">Explain this command</button>' : "") +
         (code ? '<button class="btn dark nb-run" data-run>' + (sh && shCell === i ? "&#9632; Stop" : "&#9654; Run") + "</button>" : '<button class="btn" data-view>' + (c.edit ? "Done" : "Edit") + "</button>") +
         '<button class="btn" data-up title="Move up">&uarr;</button><button class="btn" data-down title="Move down">&darr;</button>' +
         '<button class="btn" data-del title="Delete cell">&times;</button></div>' +
         (code || c.edit || !c.s ? '<textarea spellcheck="' + (code ? "false" : "true") + '">' + esc(c.s) + "</textarea>"
           : '<div class="nb-view">' + mdHtml(c.s) + "</div>") +
-        (code ? '<pre class="nb-out"' + (c.o ? "" : " hidden") + ">" + esc(c.o || "") + "</pre>" : "") + "</section>";
+        (sh ? '<div class="rb-explain rb-cellex" hidden></div>' : "") +
+        (code ? '<pre class="nb-out"' + (c.o ? "" : " hidden") + ">" + esc(c.o || "") + "</pre>" : "") +
+        (sh ? '<div class="rb-tip"' + (tipFor(c) ? "" : " hidden") + ">" + tipFor(c) + "</div>" : "") + "</section>";
     }).join("") || '<p class="nb-empty">Empty notebook. Add notes or code below.</p>';
     box.querySelectorAll(".nb-cell").forEach(function (el) {
       var i = +el.getAttribute("data-i"), c = nb.cells[i], t = el.querySelector("textarea");
@@ -472,15 +486,25 @@
       }
       var v = el.querySelector(".nb-view");
       if (v) {
-        v.addEventListener("dblclick", function (e) { if (!e.target.closest("label")) { c.edit = true; draw(); } });
+        v.addEventListener("dblclick", function (e) { if (!e.target.closest("label,form,.rb-hint")) { c.edit = true; draw(); } });
         v.querySelectorAll("input[data-ln]").forEach(function (cb) {
           cb.addEventListener("change", function () {
             var lines = c.s.split("\n"), n = +cb.getAttribute("data-ln");
             lines[n] = lines[n].replace(/\[( |x|X)\]/, cb.checked ? "[x]" : "[ ]");
             ops.text(i, lines.join("\n"));
+            rail();
           });
         });
+        if (K()) K().bindGuide(v, gst(), function () { save(); rail(); });
       }
+      var ex = el.querySelector("[data-ex]");
+      if (ex) ex.addEventListener("click", function () {
+        var p = el.querySelector(".rb-cellex");
+        if (p.hidden) p.innerHTML = K() ? '<div class="rb-exhead">What each part does</div>' + K().explain(c.s) : "";
+        p.hidden = !p.hidden;
+        ex.textContent = p.hidden ? "Explain this command" : "Hide explanation";
+        ex.setAttribute("aria-expanded", String(!p.hidden));
+      });
       el.querySelector("[data-del]").addEventListener("click", function () { ops.remove(i); });
       el.querySelector("[data-up]").addEventListener("click", function () { if (i) ops.move(i, -1); });
       el.querySelector("[data-down]").addEventListener("click", function () { if (i < nb.cells.length - 1) ops.move(i, 1); });
@@ -489,6 +513,231 @@
       var vw = el.querySelector("[data-view]");
       if (vw) vw.addEventListener("click", function () { c.edit = !c.edit; draw(); });
     });
+    rail();
+    if (PB()) PB().decorate();
+  }
+
+  var LABTOOLS = "grep, awk, sed, sort, uniq, cut, head, tail, wc, find, sha256sum, base64, tar, strings, file, xxd, and the network tools nmap, curl, wget, tshark, dig, nslookup, host, whois, ping, traceroute, nc, ssh, openssl, nikto and gobuster";
+  function tipFor(c) {
+    var o = String(c.o || ""), m;
+    if (!c.at && !o) return "";
+    if (/\(stopped\)$/.test(o) || c.x === 130) return "<b>Stopped.</b> Press Run to try the cell again.";
+    if ((m = /(?:^|\n)(?:[^\n]*?: )?(?:line \d+: )?([^\s:]+): (?:command )?not found/.exec(o))) {
+      var w = esc(m[1]), low = m[1].toLowerCase() !== m[1];
+      return "<b>Tip:</b> <code>" + w + "</code> isn't a command in the lab Linux." + (low ? " Commands are lower case: try <code>" + esc(m[1].toLowerCase()) + "</code>." : " Check the spelling.") +
+        " This Linux has " + LABTOOLS + ". Python code goes in a Python cell, not a Linux cell.";
+    }
+    if ((m = /([^\s:'`]+)'?: No such file or directory/.exec(o)) || /No such file or directory|can't open|can't cd/.test(o)) {
+      return "<b>Tip:</b> " + (m ? "<code>" + esc(m[1]) + "</code> doesn't" : "That file or folder doesn't") + " exist where the command looked. Run <code>ls</code> to see what is here, or " +
+        "<code>cd ~/case</code> to go back to the evidence folder. Names are case-sensitive: <code>Access.log</code> and <code>access.log</code> are different files.";
+    }
+    if (/Permission denied/.test(o)) return "<b>Tip:</b> Permission denied: the file can't be read or run by you. <code>ls -l</code> shows its permissions; <code>chmod +x file</code> lets a script run.";
+    if (/syntax error|unexpected (EOF|end of file|word)|unterminated/i.test(o)) return "<b>Tip:</b> The shell couldn't read the command. Check that every quote <code>'</code> or <code>\"</code>, and every bracket, is closed.";
+    if (/[Uu]sage:|invalid option|unrecognized option|unknown option/.test(o)) return "<b>Tip:</b> The command didn't understand an option. Press <b>Explain this command</b> to see what each part means, and check the dashes and letters.";
+    if (!o.trim() && c.x === 1 && /\bgrep\b/.test(c.s)) return "<b>Tip:</b> No lines matched. grep prints nothing when nothing matches: check the spelling and capitals of the pattern, or add <code>-i</code> to ignore case.";
+    return "";
+  }
+  function showTip(i, c) {
+    var t = document.querySelector('.nb-cell[data-i="' + i + '"] .rb-tip');
+    if (!t) return;
+    t.innerHTML = tipFor(c);
+    t.hidden = !t.innerHTML;
+  }
+
+  var guide = null, railOpen = false, curStep = -1, scrollRaf = 0, finAsked = false;
+
+  function steps() {
+    var out = [], cur = null, st = gst();
+    nb.cells.forEach(function (c, i) {
+      if (c.t !== "md") {
+        if (cur) { cur.total++; if (c.at || c.o) cur.done++; cur.last = i; }
+        return;
+      }
+      String(c.s || "").split("\n").forEach(function (line) {
+        var h = /^##\s+(\d+)[.)]\s+(.*)$/.exec(line);
+        if (h) { cur = { n: +h[1], title: h[2].replace(/[*`]/g, "").trim(), first: i, last: i, total: 0, done: 0 }; out.push(cur); return; }
+        if (!cur) return;
+        cur.last = i;
+        var b = /^\s*[-*]\s+\[( |x|X)\]/.exec(line), g = K() && K().guideLine(line);
+        if (b) { cur.total++; if (b[1] !== " ") cur.done++; }
+        else if (g && g.ask) { cur.total++; var a = st.answers["q" + K().key(g.ask + g.hash)]; if (a && a.ok) cur.done++; }
+      });
+    });
+    out.forEach(function (s, k) { s.k = k; s.ok = s.total ? s.done >= s.total : !!st.seen[k]; });
+    return out;
+  }
+
+  function cellEl(i) { return document.querySelector('.nb-cell[data-i="' + i + '"]'); }
+
+  function goStep(s) {
+    var el = s && cellEl(s.first);
+    if (!el) return;
+    var h = el.querySelector(".rb-steph");
+    (h || el).scrollIntoView({ behavior: "smooth", block: "start" });
+    railOpen = false;
+  }
+
+  function took(a, b) {
+    var m = Math.max(1, Math.round((new Date(b) - new Date(a)) / 60000));
+    return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min";
+  }
+
+  function rail() {
+    if (!guide || !$("rb-rail")) return;
+    var S = steps(), st = gst(), done = S.filter(function (s) { return s.ok; }).length;
+    var units = S.reduce(function (n, s) { return n + Math.max(1, s.total); }, 0);
+    var got = S.reduce(function (n, s) { return n + (s.total ? Math.min(s.done, s.total) : s.ok ? 1 : 0); }, 0);
+    var pct = units ? Math.round(100 * got / units) : 0, here = S[Math.max(0, curStep)] || S[0];
+    if (!S.length) { $("rb-rail").innerHTML = ""; return; }
+    $("rb-rail").className = "rb-rail" + (railOpen ? " open" : "");
+    $("rb-rail").innerHTML = '<div class="rb-rhead"><div class="rb-now"><small>Step ' + (here.k + 1) + " of " + S.length + "</small><b>" + esc(here.title) + "</b></div>" +
+      '<button type="button" class="btn rb-stepst" aria-expanded="' + railOpen + '">' + (railOpen ? "Close" : "All steps") + "</button></div>" +
+      '<div class="rb-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="rb-ptxt">' + pct + "% done &middot; " + done + " of " + S.length + " steps</div>" +
+      '<ol class="rb-list">' + S.map(function (s) {
+        return '<li class="' + (s.ok ? "ok " : "") + (s.k === here.k ? "cur" : "") + '"><button type="button" data-go="' + s.k + '"><span class="rb-dot">' + (s.ok ? "&#10003;" : s.n) + "</span>" +
+          '<span class="rb-st">' + esc(s.title) + "</span>" + (s.total ? '<small class="rb-sc">' + Math.min(s.done, s.total) + "/" + s.total + "</small>" : "") + "</button></li>";
+      }).join("") + "</ol>" +
+      '<button type="button" class="btn dark rb-next">' + (done === S.length ? "See your results" : here.ok || here.k < S.length - 1 ? "Next step &rarr;" : "Finish") + "</button>" +
+      '<button type="button" class="rb-brieflink">Case briefing</button>';
+    $("rb-rail").querySelectorAll("[data-go]").forEach(function (b) { b.addEventListener("click", function () { goStep(S[+b.getAttribute("data-go")]); }); });
+    $("rb-rail").querySelector(".rb-stepst").addEventListener("click", function () { railOpen = !railOpen; rail(); });
+    $("rb-rail").querySelector(".rb-brieflink").addEventListener("click", function () { $("rb-brief").open = true; $("rb-brief").scrollIntoView({ behavior: "smooth" }); });
+    $("rb-rail").querySelector(".rb-next").addEventListener("click", function () {
+      var k = here.k;
+      if (!here.total || here.ok) st.seen[k] = true;
+      st.step = k;
+      var S2 = steps(), next = S2.filter(function (s) { return s.k > k && !s.ok; })[0];
+      save();
+      if (next) goStep(next); else if (k < S2.length - 1) goStep(S2[k + 1]); else { finAsked = true; finishCard(true); }
+      rail();
+    });
+    if (done === S.length && S.length) {
+      if (!st.done) { st.done = new Date().toISOString(); save(); finishCard(true); } else finishCard(false);
+    } else if (finAsked) finishCard(false);
+    else if ($("rb-finish")) $("rb-finish").hidden = true;
+  }
+
+  function track() {
+    if (!guide) return;
+    cancelAnimationFrame(scrollRaf);
+    scrollRaf = requestAnimationFrame(function () {
+      var S = steps(), k = 0;
+      S.forEach(function (s) { var el = cellEl(s.first); if (el && el.getBoundingClientRect().top < 160) k = s.k; });
+      if (k !== curStep) { curStep = k; local("pos_" + ref, k); rail(); }
+    });
+  }
+
+  function finishCard(scroll) {
+    var f = $("rb-finish"), st = gst(), m = guide;
+    if (!f || !m) return;
+    var S = steps(), qs = 0, ok = 0, ran = nb.cells.filter(function (c) { return c.t !== "md" && (c.at || c.o); }).length;
+    var left = S.filter(function (s) { return !s.ok; });
+    nb.cells.forEach(function (c) {
+      if (c.t === "md") String(c.s || "").split("\n").forEach(function (l) { var g = K() && K().guideLine(l); if (g && g.ask) { qs++; var a = st.answers["q" + K().key(g.ask + g.hash)]; if (a && a.ok) ok++; } });
+    });
+    f.hidden = false;
+    f.innerHTML = '<div class="rb-fk">' + (left.length ? "Almost there" : "Case closed") + "</div><h2>" + esc(m.title) + "</h2>" +
+      (left.length ? "<p>You reached the end. " + left.length + " step" + (left.length > 1 ? "s still have" : " still has") + " unticked items or unanswered questions:</p>" +
+        '<p class="rb-left">' + left.map(function (s) { return '<button type="button" class="btn" data-left="' + s.k + '">' + s.n + ". " + esc(s.title) + "</button>"; }).join(" ") + "</p>"
+        : "<p>You worked through all " + S.length + " steps of the runbook. Good investigating.</p>") +
+      '<div class="rb-stats"><div><b>' + took(st.started || st.done, st.done || new Date().toISOString()) + "</b><span>time taken</span></div>" +
+      "<div><b>" + (S.length - left.length) + "/" + S.length + "</b><span>steps done</span></div><div><b>" + ran + "</b><span>cells run</span></div>" +
+      "<div><b>" + ok + (qs ? "/" + qs : "") + "</b><span>questions solved</span></div></div>" +
+      (/^sem-/.test(m.id || "") && !m.ctf ? "" : '<div class="rb-flag"><b>Capture the flag.</b> ' + (m.ctf ? K().inline(m.ctf) + " " : "This case hides a CTF flag like <code>aayat{...}</code> somewhere in the evidence. ")) +
+      'Found it? Submit it on the CTF board for points. <a class="btn" href="' + ROOT + "ctf.html#c-rb-" + esc(m.id) + '">Open the CTF board</a></div>' +
+      '<p class="rb-factions"><button type="button" class="btn dark" id="rb-report">Download report (.md)</button> ' +
+      '<button type="button" class="btn" id="rb-ipynb">Download notebook (.ipynb)</button> <a class="btn" href="notebook.html#nb-cases-h">Try another case</a></p>';
+    f.querySelectorAll("[data-left]").forEach(function (b) { b.addEventListener("click", function () { goStep(S[+b.getAttribute("data-left")]); }); });
+    $("rb-report").addEventListener("click", report);
+    $("rb-ipynb").addEventListener("click", download);
+    if (scroll) f.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function report() {
+    var st = gst(), m = guide || {}, out = ["# " + ($("nb-title").value || nb.title), ""];
+    out.push("- Case: " + (m.title || nb.case) + (m.kicker ? " (" + m.kicker + ")" : ""), "- Analyst: " + (email() || "(not signed in)"));
+    if (st.started) out.push("- Started: " + new Date(st.started).toLocaleString());
+    if (st.done) out.push("- Finished: " + new Date(st.done).toLocaleString() + " (" + took(st.started || st.done, st.done) + ")");
+    out.push("");
+    nb.cells.forEach(function (c) {
+      if (c.t === "md") {
+        out.push(String(c.s || "").split("\n").filter(function (l) { return !(K() && K().guideLine(l) && K().guideLine(l).hint !== undefined); }).map(function (l) {
+          var g = K() && K().guideLine(l);
+          if (!g) return l;
+          var a = st.answers["q" + K().key(g.ask + g.hash)];
+          return "**Question:** " + g.ask + "\n\n**My answer:** " + (a && a.a ? a.a + (a.ok ? " (correct)" : " (not yet correct)") : "(not answered)");
+        }).join("\n"), "");
+        return;
+      }
+      out.push("```" + (c.t === "sh" ? "bash" : "python"), c.s, "```", "");
+      if (c.o) out.push("Output" + (c.at ? " (ran " + new Date(c.at).toLocaleString() + ")" : "") + ":", "", "```", c.o.length > 6000 ? c.o.slice(0, 6000) + "\n… (cut)" : c.o, "```", "");
+    });
+    if (PB()) PB().reportExtra().forEach(function (x) { out.push(x, ""); });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([out.join("\n")], { type: "text/markdown" }));
+    a.download = (ref || "runbook") + "-report.md";
+    a.click();
+  }
+
+  function briefHtml(m) {
+    var files = (m.files || []).filter(function (f) { return /^case\//.test(f); }).map(function (f) { return f.slice(5); });
+    var tools = (m.tools || []).map(function (t) {
+      var x = K() && K().tool(t);
+      return "<tr><th><code>" + esc(t) + "</code></th><td>" + esc(x ? x[0] : "") + "</td><td>" + (x && x[1] ? "<code>" + esc(x[1]) + "</code>" : "") + "</td></tr>";
+    }).join("");
+    var units = (m.units || []).length ? ((m.units.length > 1 ? "Units " : "Unit ") + m.units.join(" &amp; ")) : "";
+    return '<summary><span class="rb-bk">' + esc(m.kicker || "Incident") + (m.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
+      "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units].filter(Boolean).join(" &middot; ") + "</span></summary>" +
+      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" +
+      '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li><li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>' +
+      "<li><b>Tick</b> the checklist and answer the questions. Stuck? Open a hint.</li><li><b>Next step</b> takes you on. Your progress saves with this notebook.</li></ol>" +
+      (files.length ? '<h3>Evidence in <code>~/case</code></h3><div class="rb-files">' + files.map(function (f) { return "<code>" + esc(f) + "</code>"; }).join("") + "</div>" : "") +
+      (tools ? '<h3>Tools cheat sheet</h3><div class="rb-tablewrap"><table class="rb-tools"><tr><th>Tool</th><th>What it does</th><th>Example</th></tr>' + tools + "</table></div>" : "") +
+      '<p><button type="button" class="btn dark" id="rb-begin">Start step 1</button></p></div>';
+  }
+
+  function enterGuide(id) {
+    if (space || !global.AayatVM || guide) return;
+    global.AayatVM.manifest(id).then(function (m) {
+      guide = m;
+      var st = gst();
+      if (!st.started) st.started = new Date().toISOString();
+      var main = document.querySelector(".aa-main");
+      if (main) main.classList.add("rb-mainwide");
+      $("nb-editor").classList.add("rb-on");
+      var brief = document.createElement("details");
+      brief.id = "rb-brief";
+      brief.className = "rb-brief";
+      brief.innerHTML = briefHtml(m);
+      var S = steps(), any = S.some(function (s) { return s.done || s.ok; });
+      brief.open = !any;
+      var tools = document.querySelector("#nb-editor .nb-tools");
+      tools.parentNode.insertBefore(brief, tools);
+      var wrap = document.createElement("div");
+      wrap.className = "rb-wrap";
+      wrap.innerHTML = '<aside id="rb-rail" class="rb-rail" aria-label="Runbook steps"></aside><div class="rb-col"></div>';
+      var cells = $("nb-cells");
+      cells.parentNode.insertBefore(wrap, cells);
+      wrap.querySelector(".rb-col").appendChild(cells);
+      var fin = document.createElement("section");
+      fin.id = "rb-finish";
+      fin.className = "rb-finish";
+      fin.hidden = true;
+      wrap.querySelector(".rb-col").appendChild(fin);
+      $("rb-begin").textContent = any ? "Continue where you left off" : "Start step 1";
+      $("rb-begin").addEventListener("click", function () {
+        brief.open = false;
+        var S2 = steps(), k = local("pos_" + ref);
+        goStep(any ? (S2[k] && !S2[k].ok ? S2[k] : S2.filter(function (s) { return !s.ok; })[0] || S2[0]) : S2[0]);
+      });
+      global.addEventListener("scroll", track, { passive: true });
+      rail();
+      track();
+      var pos = local("pos_" + ref);
+      if (pos === null || pos === undefined) pos = st.step;
+      if (any && pos && S[pos]) setTimeout(function () { goStep(S[pos]); status("Welcome back. You are on step " + (pos + 1) + " of " + S.length + "."); }, 300);
+    }).catch(function () {});
   }
 
   function caseId() { return nb.case || "web01"; }
@@ -534,33 +783,120 @@
     var el = outEl(i), m = document.querySelector('.nb-cell[data-i="' + i + '"] .nb-ran');
     el.hidden = false;
     el.textContent = c.o || "(no output)";
+    if (cellT0) { c.ms = Date.now() - cellT0; cellT0 = 0; }
+    if (PB()) PB().ran(i, c);
     if (m) m.textContent = ran(c);
+    if (c.t === "sh") showTip(i, c);
     status("Ran cell " + (i + 1) + (code ? " (exit " + code + ")" : "") + ".");
     save();
+    rail();
   }
 
-  var shCell = -1, labsOk = false;
+  var shCell = -1, labsOk = false, vmUp = false, cellT0 = 0;
+
+  function PB() { var P = global.AayatPlaybook; return P && P.mounted() ? P : null; }
+
+  function pbMount() {
+    var P = global.AayatPlaybook;
+    if (!P || space || P.mounted()) return;
+    P.mount({
+      root: ROOT,
+      nb: function () { return nb; },
+      ref: function () { return ref; },
+      save: function () { save(); },
+      redraw: draw,
+      email: email,
+      rpc: rpc,
+      caseId: function () { return nb.case || ""; },
+      vmUp: function () { return vmUp; },
+      stop: stopSh,
+      lockHtml: lockHtml,
+      addCell: function (t, src) { nb.cells.push({ t: t, s: src }); draw(); save(); },
+      showCell: function (i) {
+        var el = document.querySelector('.nb-cell[data-i="' + i + '"]');
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      },
+      adopt: function (r, data) {
+        local(r, data);
+        dirty = false;
+        var go = function () { location.search = "?ref=" + encodeURIComponent(r); };
+        if (email()) rpc("api_notebook_save", { p_ref: r, p_data: data }).then(go, go); else go();
+      },
+      shell: function (cmd, opts, started) {
+        var V = global.AayatVM;
+        return hasLabs().then(function (yes) {
+          if (!yes) { var e = new Error("Linux commands come with Labs."); e.locked = true; throw e; }
+          if (!V) throw new Error("Linux didn't load. Reload the page.");
+          return V.installCase(caseId(), function (t) { status(t); });
+        }).then(function () {
+          vmUp = true;
+          return global.AayatPlaybook.install(V);
+        }).then(function () {
+          if (started) started();
+          return V.shell(cmd, opts || undefined);
+        });
+      }
+    });
+  }
 
   function hasLabs() {
     var P = global.Paywall;
     if (labsOk || !P || P.has("labs")) return Promise.resolve(labsOk = true);
-    if (!email()) return Promise.resolve(false);
-    return rpc("api_my_access").then(function (a) { return (labsOk = !!(a && a.labs)); }, function () { return false; });
+    var labs = email() ? rpc("api_my_access").then(function (a) { return !!(a && a.labs); }, function () { return false; }) : Promise.resolve(false);
+    return labs.then(function (yes) { return yes || seminarLab(); }).then(function (yes) { return (labsOk = yes); });
+  }
+
+  function seminarId() {
+    if (!/^sem-/.test(nb.case || "") || !global.AayatVM) return Promise.resolve(0);
+    return global.AayatVM.manifest(nb.case).then(function (m) { return +m.seminarId || 0; }, function () { return 0; });
+  }
+
+  function seminarLab() {
+    return seminarId().then(function (id) {
+      return id ? rpc("api_seminar_lab", { p_id: id }).then(function (r) { return !!(r && r.access); }) : false;
+    }).catch(function () { return false; });
+  }
+
+  function lockHtml() {
+    var id = guide && guide.seminarId;
+    return id ? 'This lab comes with the seminar. <a href="' + ROOT + "seminars.html?id=" + id + '">Unlock the seminar</a>, or get <a href="' + ROOT + 'store.html#labs">Labs</a>.'
+      : 'Linux cells run with <a href="' + ROOT + 'store.html#labs">Labs</a>. Notes and Python cells work for everyone.';
   }
 
   function stopSh() { if (global.AayatVM) global.AayatVM.stop(); }
 
   function runSh(i) {
-    var c = nb.cells[i], el = outEl(i), V = global.AayatVM;
+    var c = nb.cells[i], el = outEl(i), V = global.AayatVM, tick = null, t0 = Date.now();
     el.hidden = false;
-    el.textContent = "Starting Linux…";
+    el.textContent = vmUp ? "Running…" : "Starting Linux…";
+    var tipEl = document.querySelector('.nb-cell[data-i="' + i + '"] .rb-tip');
+    if (tipEl) tipEl.hidden = true;
+    function stopTick() { if (tick) { clearInterval(tick); tick = null; } }
     return hasLabs().then(function (yes) {
       if (!yes) {
-        el.innerHTML = 'Linux cells run with <a href="' + ROOT + 'store.html#labs">Labs</a>. Notes and Python cells work for everyone.';
+        el.innerHTML = lockHtml();
         return;
       }
       if (!V) throw new Error("Linux didn't load. Reload the page.");
-      return V.installCase(caseId(), status).then(function () {
+      if (!vmUp) {
+        el.innerHTML = '<span class="rb-boot"><span class="rb-bootmsg">Starting the lab Linux (about 20 s the first time)…</span>' +
+          '<span class="rb-bootbar"><i></i></span><small class="rb-bootsec">0 s</small></span>';
+        tick = setInterval(function () {
+          var s = Math.round((Date.now() - t0) / 1000), b = el.querySelector(".rb-bootbar i"), n = el.querySelector(".rb-bootsec");
+          if (b) b.style.width = Math.min(96, 100 * (1 - Math.exp(-s / 12))) + "%";
+          if (n) n.textContent = s + " s" + (s > 45 ? " · still going: slow connections can take a minute" : "");
+        }, 500);
+      }
+      return V.installCase(caseId(), function (t) {
+        status(t);
+        var b = el.querySelector(".rb-bootmsg");
+        if (b && t) b.textContent = /case files/i.test(t) ? "Copying the case evidence and network tools into Linux…" : "Starting the lab Linux (about 20 s the first time)…";
+      }).then(function () {
+        return PB() ? PB().install(V) : null;
+      }).then(function () {
+        stopTick();
+        vmUp = true;
+        cellT0 = Date.now();
         status("Linux is running. Case files are in ~/case; nmap, curl, tshark and dig reach the case network.");
         outEl(i).textContent = "Running… (press Stop to interrupt)";
         shCell = i;
@@ -573,7 +909,7 @@
         if (b) b.innerHTML = "&#9654; Run";
         finish(i, c, r.out, r.code);
       });
-    }).catch(function (e) { shCell = -1; outEl(i).textContent = e.message; });
+    }).catch(function (e) { stopTick(); shCell = -1; outEl(i).textContent = e.message; });
   }
 
   function run(i) { return nb.cells[i].t === "sh" ? runSh(i) : runPy(i); }
@@ -584,6 +920,7 @@
     el.hidden = false; el.textContent = "Running…";
     return pyReady().then(function (P) {
       var out = [], code = 0;
+      cellT0 = Date.now();
       P.setStdout({ batched: function (s) { out.push(s); } });
       P.setStderr({ batched: function (s) { out.push(s); } });
       return P.loadPackagesFromImports(c.s).then(function () { return P.runPythonAsync(c.s); }).then(function (r) {
@@ -683,13 +1020,17 @@
     $("nb-new").addEventListener("click", function () { location.search = "?ref=my-" + Date.now().toString(36); });
     $("nb-runbook").addEventListener("click", function () { $("nb-cases-h").scrollIntoView({ behavior: "smooth" }); });
     if (global.AayatVM) global.AayatVM.cases().then(function (list) {
-      $("nb-cases").innerHTML = list.map(function (c) {
-        return '<article class="nb-case"><div class="nb-casehead"><span class="nb-sk">' + esc(c.kicker || "Incident") + "</span>" +
+      $("nb-cases").innerHTML = list.filter(function (c) { return !c.seminarId; }).map(function (c) {
+        var mine = local("case_" + c.id);
+        return '<article class="nb-case"><div class="nb-casehead"><span class="nb-sk">' + esc(c.kicker || "Incident") +
+          (c.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
           '<span class="nb-units">' + ((c.units || []).length > 1 ? "Units " + c.units.join(" &amp; ") : "Unit " + (c.units || [""])[0]) + "</span></div>" +
           "<h3>" + esc(c.title) + "</h3><p>" + esc(c.summary) + "</p>" +
           '<div class="nb-tags">' + (c.tools || []).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("") + "</div>" +
           '<div class="nb-casefoot"><small>' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") + "</small>" +
-          '<a class="btn dark" href="?ref=rb-' + Date.now().toString(36) + "&runbook=" + encodeURIComponent(c.id) + '">Start &rarr;</a></div></article>';
+          (mine ? '<span class="rb-casebtns"><a class="btn" href="?ref=rb-' + Date.now().toString(36) + "&runbook=" + encodeURIComponent(c.id) + '">New copy</a> ' +
+            '<a class="btn dark" href="?ref=' + encodeURIComponent(mine) + '">Continue &rarr;</a></span>'
+            : '<a class="btn dark" href="?ref=rb-' + Date.now().toString(36) + "&runbook=" + encodeURIComponent(c.id) + '">Start &rarr;</a>') + "</div></article>";
       }).join("");
     }, function (e) { $("nb-cases").innerHTML = '<p class="nb-empty">Couldn\'t load the cases: ' + esc(e.message) + "</p>"; });
     if (!email()) {
@@ -700,6 +1041,7 @@
     }
     $("nb-mine").innerHTML = '<p class="nb-empty">Loading…</p>';
     rpc("api_notebook_list").then(function (list) {
+      list = list.filter(function (n) { return n.ref !== "toolkit"; });
       $("nb-mine").innerHTML = list.length ? '<div class="nb-cards">' + list.map(function (n) {
         var a = M.atoms[n.ref], k = /^rb-/.test(n.ref) ? "Runbook" : /^premium-/.test(n.ref) ? "Labs notebook" : a ? "Lesson " + n.ref : "Notebook";
         return '<a class="nb-card" href="?ref=' + encodeURIComponent(n.ref) + '"><span class="nb-ck">' + esc(k) + "</span>" +
@@ -729,9 +1071,13 @@
     $("nb-dl").addEventListener("click", download);
     global.addEventListener("beforeunload", function (e) { if (dirty) { save(true); e.preventDefault(); } });
     var start = function (d) {
-      nb = d && d.cells ? { title: d.title || "", cells: d.cells, case: d.case || "" } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
+      nb = d && d.cells ? { title: d.title || "", cells: d.cells, case: d.case || "", rb: d.rb || undefined, pb: d.pb || undefined } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
+      if (!nb.rb) delete nb.rb;
+      if (!nb.pb) delete nb.pb;
       $("nb-title").value = nb.title;
+      pbMount();
       draw();
+      if (nb.case && nb.cells.length) { local("case_" + nb.case, ref); enterGuide(nb.case); }
       if (q.get("runbook") && !nb.cells.length && global.AayatVM) {
         var want = q.get("runbook") === "1" ? "web01" : q.get("runbook");
         status("Loading the case…");
@@ -739,9 +1085,12 @@
           nb.case = m.id;
           nb.title = (m.titlePrefix || "Incident runbook: " + m.title) + ", " + new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
           nb.cells = m.template.map(function (c) { return { t: c.t, s: c.s }; });
+          gst().started = new Date().toISOString();
+          local("case_" + m.id, ref);
           $("nb-title").value = nb.title;
           draw(); save(true);
-          status("Runbook ready. Run each step in order; outputs save with it.");
+          enterGuide(m.id);
+          status("Runbook ready. Read the briefing, then work down the steps; outputs and answers save with it.");
         }).catch(function (e) { status("Couldn't load that case: " + e.message); });
       } else if (q.get("book") && !nb.cells.some(function (c) { return c.t === "py"; })) loadBook();
       else status(email() ? "Saved to your account as you type." : "Sign in to keep this notebook in your account.");

@@ -27,8 +27,22 @@ Unmodified release build, served as-is; the precompressed .gz/.br copies are lef
 """
 
 
+def teacher_case_challenges():
+    out = []
+    for path in sorted((SRC / "teacher-cases").glob("*.json")):
+        bundle = json.loads(rd(path))
+        if not bundle.get("published", True) or not bundle.get("flag"):
+            continue
+        meta = bundle["meta"]
+        out.append({"id": "rb-tc-" + path.stem.removeprefix("case-"), "unit": int((meta.get("units") or [1])[0]), "points": 100, "type": "Lab",
+                    "title": meta["title"], "body": meta.get("summary", "") + " Work the case in a notebook and find the flag.\n",
+                    "hint": "Read each step of the runbook, then look through the evidence it points to.",
+                    "link": "notebook.html#nb-cases-h", "flag": bundle["flag"], "solve": "See the last steps of this case's runbook.", "sort": 60})
+    return out
+
+
 def challenges():
-    return json.loads(rd(CTF_SRC))["challenges"]
+    return json.loads(rd(CTF_SRC))["challenges"] + teacher_case_challenges()
 
 
 def flag_hash(flag):
@@ -44,10 +58,15 @@ def sql_text(s):
     return "'" + str(s).replace("'", "''") + "'"
 
 
+def body_with_files(c):
+    fs = c.get("files") or []
+    return c["body"] + ("\n\nFiles: " + " ".join(fs) if fs else "")
+
+
 def seed_sql(cs):
     cols = "id, unit, points, title, body, hint, link, flag_hash, flag, solve, sort, builtin, active"
     rows = ",\n".join("(" + ", ".join([sql_text(c["id"]), str(int(c["unit"])), str(int(c["points"])), sql_text(c["title"]),
-                                       sql_text(c["body"]), sql_text(c["hint"]), sql_text(c["link"]), sql_text(flag_hash(c["flag"])),
+                                       sql_text(body_with_files(c)), sql_text(c["hint"]), sql_text(c["link"]), sql_text(flag_hash(c["flag"])),
                                        sql_text(c["flag"]), sql_text(c["solve"]), str(int(c["sort"])), "true", "true"]) + ")"
                       for c in cs)
     keep = ", ".join(sql_text(c["id"]) for c in cs)
@@ -60,8 +79,8 @@ def seed_sql(cs):
 
 def publish_data():
     cs = challenges()
-    public = [{k: c[k] for k in ("id", "unit", "points", "title", "body", "hint", "link", "sort")} | {"hash": flag_hash(c["flag"])}
-              for c in cs]
+    public = [{k: c[k] for k in ("id", "unit", "points", "title", "body", "hint", "link", "sort")}
+              | {"type": c.get("type", ""), "files": c.get("files") or [], "hash": flag_hash(c["flag"])} for c in cs]
     emit(ASSETS / "ctf" / "challenges.js",
          "window.AAYAT_CTF = " + json.dumps(public, ensure_ascii=False, separators=(",", ":")) + ";\n")
     lab = {c["id"]: hide(c["flag"]) for c in cs if c["link"] in LABS}

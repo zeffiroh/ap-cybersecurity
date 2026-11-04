@@ -8,9 +8,22 @@
   var esc = K.esc;
   var UNITS = { 0: "Any unit", 1: "Unit 1 · Introduction to Security", 2: "Unit 2 · Securing Spaces", 3: "Unit 3 · Securing Networks",
     4: "Unit 4 · Securing Devices", 5: "Unit 5 · Securing Applications and Data" };
+  var TYPES = ["Decode", "Forensics", "Web", "Network", "Crypto", "OSINT", "Linux", "Lab", "Other"];
+  var TYPE_NAMES = { Forensics: "Forensics / Logs", OSINT: "OSINT-style" };
+  var HINTS = "aayat_ctf_hints", VIEW = "aayat_ctf_view";
   var state = { online: false, me: null, space: "all", challenges: [], scores: [], spaces: [], solved: {} };
+  var view = { unit: "", type: "", status: "all", q: "" };
+  var open = null, order = [], lastFocus = null;
   var STATIC = {};
   (global.AAYAT_CTF || []).forEach(function (c) { STATIC[c.id] = c; });
+
+  function store(k, v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(k) || "null");
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) {}
+    return null;
+  }
 
   function msg(t) { $("ctf-msg").textContent = t || ""; }
 
@@ -23,6 +36,40 @@
       }).join("");
     }).join("");
   }
+
+  var FILES_RE = /\n*Files: ([^\n]*)\s*$/;
+
+  function filesOf(c) {
+    var s = STATIC[c.id];
+    if (s && s.files && s.files.length) return s.files;
+    var m = FILES_RE.exec(c.body || "");
+    return m ? m[1].split(/\s+/).filter(function (f) { return /^[\w.\/-]+$/.test(f) && f.indexOf("..") < 0; }) : [];
+  }
+
+  function bodyOf(c) { return String(c.body || "").replace(FILES_RE, ""); }
+
+  function typeOf(c) {
+    var s = STATIC[c.id], l = c.link || "";
+    if (c.type) return c.type;
+    if (s && s.type) return s.type;
+    if (/^cyberchef\//.test(l)) return "Decode";
+    if (/^linux\.html/.test(l)) return "Linux";
+    if (/^(sqli|shop)\.html/.test(l)) return "Web";
+    if (/^notebook\.html/.test(l)) return "Lab";
+    return "Other";
+  }
+
+  function level(p) { return p < 100 ? "Easy" : p < 150 ? "Medium" : p < 250 ? "Hard" : "Expert"; }
+
+  function linkBtn(c) {
+    var l = c.link;
+    if (!l) return "";
+    var chef = /^cyberchef\//.test(l);
+    var label = chef ? "Open in CyberChef" : /^linux\.html/.test(l) ? "Open the Linux lab" : /^notebook\.html/.test(l) ? "Open the runbook" : "Open the lab";
+    return '<a class="btn" href="' + esc(ROOT + l) + '"' + (chef ? ' target="_blank" rel="noopener"' : "") + ">" + label + "</a>";
+  }
+
+  function hints() { return store(HINTS) || {}; }
 
   function localSolved() {
     var l = K.local(), ids = Object.keys(l);
@@ -70,18 +117,49 @@
     return state.challenges.reduce(function (t, c) { return t + (state.solved[c.id] ? c.points : 0); }, 0);
   }
 
-  function card(c) {
-    var ok = state.solved[c.id];
-    var link = c.link ? '<a class="btn" href="' + esc(ROOT + c.link) + '"' + (/^cyberchef\//.test(c.link) ? ' target="_blank" rel="noopener"' : "") +
-      ">" + (/^cyberchef\//.test(c.link) ? "Open in CyberChef" : "Open the lab") + "</a>" : "";
-    return '<article class="ctf-card' + (ok ? " ok" : "") + '" id="c-' + esc(c.id) + '"><header><h3>' + esc(c.title) + "</h3>" +
-      '<span class="ctf-pts">' + c.points + " pts" + (c.solves != null ? " · " + c.solves + " solve" + (c.solves === 1 ? "" : "s") : "") +
-      "</span></header>" + render(c.body) +
-      (c.hint ? "<details><summary>Hint</summary>" + render(c.hint) + "</details>" : "") +
-      '<div class="ctf-try">' + link + (ok ? '<span class="ctf-done">&#10003; Solved</span>' :
-        '<input data-flag="' + esc(c.id) + '" placeholder="aayat{...}" spellcheck="false" autocomplete="off" aria-label="Flag">' +
-        '<button class="btn dark" data-go="' + esc(c.id) + '">Submit</button>') +
-      '<span class="ctf-res" data-res="' + esc(c.id) + '"></span></div></article>';
+  function find(id) {
+    for (var i = 0; i < state.challenges.length; i++) if (state.challenges[i].id === id) return state.challenges[i];
+    return null;
+  }
+
+  function shown(c) {
+    if (view.unit !== "" && String(c.unit) !== view.unit) return false;
+    if (view.type && typeOf(c) !== view.type) return false;
+    if (view.status === "solved" && !state.solved[c.id]) return false;
+    if (view.status === "unsolved" && state.solved[c.id]) return false;
+    if (view.q) {
+      var hay = (c.title + " " + bodyOf(c) + " " + typeOf(c) + " " + c.id).toLowerCase();
+      if (hay.indexOf(view.q.toLowerCase()) < 0) return false;
+    }
+    return true;
+  }
+
+  function tile(c) {
+    var ok = state.solved[c.id], t = typeOf(c), lv = level(c.points);
+    return '<button type="button" class="ctf-tile' + (ok ? " ok" : "") + '" data-open="' + esc(c.id) + '" id="c-' + esc(c.id) + '" aria-haspopup="dialog"' +
+      ' aria-label="' + esc(c.title + ", " + c.points + " points, " + lv + ", " + (TYPE_NAMES[t] || t) + (ok ? ", solved" : "")) + '">' +
+      '<span class="ctf-tile-top"><span class="ctf-tag ctf-t-' + esc(t.toLowerCase()) + '">' + esc(TYPE_NAMES[t] || t) + "</span>" +
+      (ok ? '<span class="ctf-check" aria-hidden="true">&#10003;</span>' : "") + "</span>" +
+      '<span class="ctf-tile-name">' + esc(c.title) + "</span>" +
+      '<span class="ctf-tile-foot"><b>' + c.points + '</b><span class="ctf-lv ctf-lv-' + lv.toLowerCase() + '">' + lv + "</span>" +
+      (c.solves != null ? '<span class="ctf-solves">' + c.solves + " solve" + (c.solves === 1 ? "" : "s") + "</span>" : "") +
+      (filesOf(c).length ? '<span class="ctf-has-files" title="Has files to download">&#128206;</span>' : "") + "</span></button>";
+  }
+
+  function byPoints(a, b) { return a.points - b.points || (a.sort || 0) - (b.sort || 0) || (a.id < b.id ? -1 : 1); }
+
+  function filters() {
+    var units = {}, types = {};
+    state.challenges.forEach(function (c) { units[c.unit] = 1; types[typeOf(c)] = 1; });
+    $("ctf-f-unit").innerHTML = '<option value="">All units</option>' + Object.keys(units).sort().map(function (u) {
+      return '<option value="' + u + '"' + (view.unit === u ? " selected" : "") + ">" + (+u ? "Unit " + u : "Other") + "</option>";
+    }).join("");
+    $("ctf-f-type").innerHTML = '<option value="">All types</option>' + TYPES.filter(function (t) { return types[t]; }).map(function (t) {
+      return '<option value="' + t + '"' + (view.type === t ? " selected" : "") + ">" + esc(TYPE_NAMES[t] || t) + "</option>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("[data-status]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-status") === view.status ? "true" : "false");
+    });
   }
 
   function list() {
@@ -92,43 +170,123 @@
       var all = units[u], done = all.filter(function (c) { return state.solved[c.id]; }).length;
       return '<a href="#u' + u + '">' + (+u ? "Unit " + u : "Other") + " <small>" + done + "/" + all.length + "</small></a>";
     }).join("");
-    $("ctf-list").innerHTML = keys.map(function (u) {
-      return '<section class="ctf-unit" id="u' + u + '"><h2>' + esc(UNITS[u] || "Unit " + u) + "</h2>" + units[u].map(card).join("") + "</section>";
+    order = [];
+    var html = keys.map(function (u) {
+      var all = units[u].slice().sort(byPoints), vis = all.filter(shown);
+      var done = all.filter(function (c) { return state.solved[c.id]; }), pts = done.reduce(function (t, c) { return t + c.points; }, 0);
+      var tot = all.reduce(function (t, c) { return t + c.points; }, 0), pct = all.length ? Math.round(100 * done.length / all.length) : 0;
+      if (!vis.length) return "";
+      vis.forEach(function (c) { order.push(c.id); });
+      return '<section class="ctf-unit" id="u' + u + '"><div class="ctf-unit-head"><h2>' + esc(UNITS[u] || "Unit " + u) + "</h2>" +
+        '<span class="ctf-unit-n">' + done.length + "/" + all.length + " flags · " + pts + "/" + tot + " pts</span></div>" +
+        '<div class="ctf-bar" role="progressbar" aria-label="' + esc((+u ? "Unit " + u : "Other") + " progress") + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+        pct + '"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="ctf-grid">' + vis.map(tile).join("") + "</div></section>";
     }).join("");
-    $("ctf-list").querySelectorAll("[data-go]").forEach(function (b) {
-      var id = b.getAttribute("data-go"), input = $("ctf-list").querySelector('[data-flag="' + id + '"]');
-      input.addEventListener("keydown", function (e) { if (e.key === "Enter") b.click(); });
-      b.addEventListener("click", function () { check(id, input.value); });
-    });
-    if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+    $("ctf-list").innerHTML = html || '<p class="sx-empty">No puzzles match these filters.</p>';
+    var mine = score(), total = state.challenges.reduce(function (t, c) { return t + c.points; }, 0),
+      n = Object.keys(state.solved).filter(function (id) { return find(id); }).length;
+    $("ctf-stats").innerHTML = '<span><b>' + mine + "</b> / " + total + " pts</span><span><b>" + n + "</b> / " + state.challenges.length +
+      " flags</span><span>" + order.length + " shown</span>" +
+      '<div class="ctf-bar ctf-bar-all" aria-hidden="true"><span style="width:' + (total ? Math.round(100 * mine / total) : 0) + '%"></span></div>';
+  }
+
+  function detail(c) {
+    var ok = state.solved[c.id], t = typeOf(c), lv = level(c.points), fs = filesOf(c), h = hints()[c.id], i = order.indexOf(c.id);
+    var files = fs.length ? '<div class="ctf-files"><h3>Files</h3><ul>' + fs.map(function (f) {
+      var name = f.split("/").pop();
+      return '<li><a href="' + esc(ROOT + f) + '" download="' + esc(name) + '">' + esc(name) + '</a> <a class="ctf-view" href="' + esc(ROOT + f) +
+        '" target="_blank" rel="noopener">view</a></li>';
+    }).join("") + "</ul></div>" : "";
+    return '<header class="ctf-dlg-head"><div><p class="ctf-dlg-meta"><span class="ctf-tag ctf-t-' + esc(t.toLowerCase()) + '">' + esc(TYPE_NAMES[t] || t) + "</span>" +
+      '<span class="ctf-lv ctf-lv-' + lv.toLowerCase() + '">' + lv + "</span><b>" + c.points + " pts</b>" +
+      "<span>" + esc(+c.unit ? "Unit " + c.unit : "Any unit") + "</span>" +
+      (c.solves != null ? "<span>" + c.solves + " solve" + (c.solves === 1 ? "" : "s") + "</span>" : "") + "</p>" +
+      '<h2 id="ctf-dlg-title">' + esc(c.title) + "</h2></div>" +
+      '<button type="button" class="ctf-x" data-close aria-label="Close">&times;</button></header>' +
+      '<div class="ctf-dlg-body">' + render(bodyOf(c)) + files +
+      (linkBtn(c) ? '<p class="ctf-links">' + linkBtn(c) + "</p>" : "") +
+      (c.hint ? '<div class="ctf-hint">' + (h ? "<h3>Hint</h3>" + render(c.hint) :
+        '<button type="button" class="btn" data-hint="' + esc(c.id) + '">Show a hint</button> <span class="sx-note">Free: hints never cost points.</span>') + "</div>" : "") +
+      "</div>" +
+      '<div class="ctf-try">' + (ok ? '<span class="ctf-done">&#10003; Solved</span>' :
+        '<input id="ctf-flag" data-flag="' + esc(c.id) + '" placeholder="aayat{...}" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Flag">' +
+        '<button type="button" class="btn dark" data-go="' + esc(c.id) + '">Submit</button>') +
+      '<span class="ctf-res" data-res="' + esc(c.id) + '" role="status" aria-live="polite"></span></div>' +
+      '<footer class="ctf-dlg-foot"><button type="button" class="btn" data-step="-1"' + (i <= 0 ? " disabled" : "") + ">&larr; Previous</button>" +
+      '<button type="button" class="btn" data-step="1"' + (i < 0 || i >= order.length - 1 ? " disabled" : "") + ">Next &rarr;</button></footer>";
+  }
+
+  function fill(id) {
+    var c = find(id), d = $("ctf-dlg");
+    if (!c) return false;
+    open = id;
+    d.innerHTML = detail(c);
+    var input = $("ctf-flag");
+    if (input) {
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); check(id, input.value); } });
+      input.addEventListener("input", function () { result(id, "", true); });
+    }
+    return true;
+  }
+
+  function show(id, noHash) {
+    var d = $("ctf-dlg");
+    if (!fill(id)) return;
+    if (!d.hasAttribute("open")) {
+      lastFocus = document.activeElement;
+      if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    }
+    var input = $("ctf-flag");
+    (input || d.querySelector("[data-close]")).focus();
+    if (!noHash && history.replaceState) history.replaceState(null, "", "#c-" + id);
+  }
+
+  function hide() {
+    var d = $("ctf-dlg");
+    if (d.hasAttribute("open")) { if (d.close) d.close(); else { d.removeAttribute("open"); closed(); } }
+    else closed();
+  }
+
+  function closed() {
+    var id = open;
+    open = null;
+    if (history.replaceState && /^#c-/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+    var t = id && document.getElementById("c-" + id);
+    var f = t || lastFocus;
+    if (f && f.focus) f.focus();
   }
 
   function result(id, text, good) {
-    var r = $("ctf-list").querySelector('[data-res="' + id + '"]');
-    if (r) { r.textContent = text; r.className = "ctf-res " + (good ? "good" : "bad"); }
+    var r = document.querySelector('[data-res="' + id + '"]');
+    if (r) { r.textContent = text; r.className = "ctf-res " + (text ? (good ? "good" : "bad") : ""); }
+    var input = $("ctf-flag");
+    if (input && text && !good) { input.classList.remove("ctf-shake"); void input.offsetWidth; input.classList.add("ctf-shake"); }
   }
 
   function check(id, flag) {
     flag = String(flag || "").trim();
     if (!flag) return;
-    var c = STATIC[id];
+    var c = STATIC[id], wrong = /^aayat\{.*\}$/i.test(flag) ? "Not that one. Keep digging." : "Not that one. Flags look like aayat{...}, braces included.";
+    result(id, "Checking…", true);
     var offline = function () {
       if (!c) return result(id, "Sign in to check this one.", false);
       K.sha256(flag).then(function (h) {
-        if (h !== c.hash) return result(id, "Not that one. Keep digging.", false);
+        if (h !== c.hash) return result(id, wrong, false);
         K.remember(id, flag);
         state.solved[id] = true;
         paint();
         msg("Correct! It's saved in this browser. Sign in to put it on the leaderboard.");
+        result(id, "Correct! Saved in this browser.", true);
       });
     };
     if (!state.online || !state.me) return offline();
     K.submit(id, flag).then(function (r) {
       if (!r || !r.ok) return result(id, (r && r.error) || "That didn't work.", false);
-      if (!r.correct) return result(id, "Not that one. Keep digging.", false);
+      if (!r.correct) return result(id, wrong, false);
       K.remember(id, flag);
       msg("+" + r.points + " points!");
-      load().then(paint);
+      load().then(function () { paint(); result(id, "Correct! +" + r.points + " points.", true); });
     }, offline);
   }
 
@@ -151,15 +309,81 @@
   function paint() {
     msg(state.online ? (state.me ? "" : "You can solve puzzles without signing in. Sign in to score points on the leaderboard.") :
       "Offline mode: answers are checked in your browser and saved here.");
+    filters();
     list();
     board();
+    if (open && $("ctf-dlg").hasAttribute("open") && fill(open)) { var x = $("ctf-dlg").querySelector("#ctf-flag") || $("ctf-dlg").querySelector("[data-close]"); if (x) x.focus(); }
+  }
+
+  function fromHash(first) {
+    var h = location.hash.slice(1);
+    if (/^c-/.test(h) && find(h.slice(2))) return show(h.slice(2), true);
+    if (first && h) { var t = document.getElementById(h); if (t) t.scrollIntoView(); }
+  }
+
+  function setView(k, v) {
+    view[k] = v;
+    store(VIEW, { unit: view.unit, type: view.type, status: view.status });
+    filters();
+    list();
   }
 
   function start() {
     if (!$("ctf-app")) return;
+    var saved = store(VIEW);
+    if (saved) { view.unit = saved.unit || ""; view.type = saved.type || ""; view.status = saved.status || "all"; }
+    var d = $("ctf-dlg");
     $("ctf-space").addEventListener("change", function () { state.space = this.value; load().then(board); });
+    $("ctf-f-unit").addEventListener("change", function () { setView("unit", this.value); });
+    $("ctf-f-type").addEventListener("change", function () { setView("type", this.value); });
+    $("ctf-q").addEventListener("input", function () { view.q = this.value.trim(); list(); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-status]"), function (b) {
+      b.addEventListener("click", function () { setView("status", b.getAttribute("data-status")); });
+    });
+    $("ctf-list").addEventListener("click", function (e) {
+      var t = e.target.closest && e.target.closest("[data-open]");
+      if (t) show(t.getAttribute("data-open"));
+    });
+    d.addEventListener("click", function (e) {
+      if (e.target === d) return hide();
+      var t = e.target.closest ? e.target : null;
+      if (!t) return;
+      if (t.closest("[data-close]")) return hide();
+      var go = t.closest("[data-go]");
+      if (go) return check(go.getAttribute("data-go"), ($("ctf-flag") || {}).value);
+      var hb = t.closest("[data-hint]");
+      if (hb) {
+        var hs = hints();
+        hs[hb.getAttribute("data-hint")] = 1;
+        store(HINTS, hs);
+        fill(open);
+        var hh = d.querySelector(".ctf-hint");
+        if (hh) { hh.setAttribute("tabindex", "-1"); hh.focus(); }
+        return;
+      }
+      var st = t.closest("[data-step]");
+      if (st) {
+        var i = order.indexOf(open) + +st.getAttribute("data-step");
+        if (i >= 0 && i < order.length) show(order[i]);
+      }
+    });
+    d.addEventListener("close", closed);
+    d.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !d.showModal) hide();
+      if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+        var b = d.querySelector('[data-step="' + (e.key === "ArrowRight" ? 1 : -1) + '"]');
+        if (b && !b.disabled) { e.preventDefault(); b.click(); }
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "/" && !d.hasAttribute("open") && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "")) {
+        e.preventDefault();
+        $("ctf-q").focus();
+      }
+    });
+    global.addEventListener("hashchange", function () { fromHash(false); });
     global.addEventListener("aayat-identity-set", function () { load().then(paint); });
-    load().then(paint);
+    load().then(function () { paint(); fromHash(true); });
   }
   if (document.readyState === "complete") start();
   else global.addEventListener("load", start);

