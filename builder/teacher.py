@@ -236,8 +236,8 @@ def seminars_page():
             '<label>Order <input id="s-sort" type="number" value="0"></label>'
             '<label class="tc-wide">Topics (comma separated) <input id="s-topics" placeholder="malware, incident response"></label>'
             '<label class="tc-wide">Cover image link (optional; the YouTube thumbnail is used otherwise) <input id="s-cover"></label>'
-            '<label class="tc-wide">Chapters, one per line: <code>0:00 Introduction</code> <textarea id="s-chapters" rows="6"></textarea></label>'
-            '<label class="tc-wide">Resources for buyers, one per line: <code>Slides | https://…</code> <textarea id="s-resources" rows="3"></textarea></label>'
+            '<label class="tc-wide"><span>Chapters, one per line: <code>0:00 Introduction</code></span><textarea id="s-chapters" rows="6"></textarea></label>'
+            '<label class="tc-wide"><span>Resources for buyers, one per line: <code>Slides | https://…</code></span><textarea id="s-resources" rows="3"></textarea></label>'
             '<label class="tc-check"><input type="checkbox" id="s-published"> Published (students can see it)</label>'
             '<div class="tc-btns"><button class="btn dark" id="s-save">Save seminar</button>'
             '<button class="btn" id="s-new" hidden>Cancel edit</button><span class="tc-note" id="s-msg"></span></div></section>\n'
@@ -259,8 +259,8 @@ def labs_page():
             '<option value="sqli">SQL injection lab</option><option value="shop">Hack the shop</option><option value="cyberchef">CyberChef</option>'
             '<option value="ctf">CTF board</option></select></label>'
             '<label class="tc-wide">Summary <input id="l-summary" maxlength="1000"></label>'
-            '<label class="tc-wide" id="l-body-wrap">Instructions. Blank line = new paragraph, <code># Heading</code>, <code>`code`</code>, '
-            'and a block of commands between <code>```</code> lines gets a Copy button. <textarea id="l-body" rows="14"></textarea></label>'
+            '<label class="tc-wide" id="l-body-wrap"><span>Instructions. Blank line = new paragraph, <code># Heading</code>, <code>`code`</code>, '
+            'and a block of commands between <code>```</code> lines gets a Copy button.</span><textarea id="l-body" rows="14"></textarea></label>'
             '<div class="tc-wide" id="l-nb-wrap" hidden><p class="tc-note">Write the notebook in the full editor (Python runs there), or import a .ipynb file.</p>'
             '<div class="tc-btns"><a class="btn" id="l-edit-nb" target="_blank" rel="noopener">Open in the notebook editor</a>'
             '<button class="btn" id="l-import">Import .ipynb</button><input type="file" id="l-file" accept=".ipynb,application/json" hidden>'
@@ -273,19 +273,22 @@ def labs_page():
 
 
 def videos_page():
-    body = ('<header class="tc-head"><div><h1>Videos</h1><p class="aa-sub" id="status">Loading…</p></div></header>\n'
-            '<section class="tc-card tc-form"><h3 id="v-head">Post a video</h3>'
-            '<label class="tc-wide">YouTube link (upload it as Unlisted) <input id="v-yt" placeholder="https://youtu.be/…"></label>'
-            '<label class="tc-wide">Title <input id="v-title"></label>'
-            '<label>Lesson <select id="v-atom"></select></label>'
-            '<label>Who sees it <select id="v-group"></select></label>'
-            '<label class="tc-check"><input type="checkbox" id="v-free"> Free (no video pass needed)</label>'
-            '<label class="tc-check"><input type="checkbox" id="v-email"> Email students about it</label>'
-            '<label class="tc-wide">Note <textarea id="v-note" rows="2"></textarea></label>'
-            '<button class="btn dark" id="v-save">Post video</button> <button class="btn" id="v-reset">Clear</button> '
-            '<span class="tc-note" id="v-msg"></span></section>\n'
-            '<section id="list" class="tc-grid"></section>')
-    console(TEACHER / "videos.html", "Videos", "videos", body, [])
+    body = ('<header class="tc-head"><div><h1>Lesson videos</h1><p class="aa-sub" id="status">Loading…</p></div>'
+            '<a class="btn" href="../videos.html" target="_blank" rel="noopener">Student view</a></header>\n'
+            '<section class="tc-card tv-post"><h3 id="v-head">Post a video</h3><div class="tv-cols"><div class="tv-fields">'
+            '<label class="tv-f">YouTube link <small>Upload it as Unlisted, then paste the link</small><input id="v-yt" placeholder="https://youtu.be/…"></label>'
+            '<label class="tv-f">Title <input id="v-title" placeholder="e.g. Spotting a phishing link"></label>'
+            '<div class="tv-row"><label class="tv-f">Lesson <select id="v-atom"></select></label>'
+            '<label class="tv-f">Who sees it <select id="v-group"></select></label></div>'
+            '<label class="tv-f">Note for students <small>optional</small><textarea id="v-note" rows="2" placeholder="e.g. Watch before Thursday\'s class."></textarea></label>'
+            '<div class="tv-checks"><label><input type="checkbox" id="v-free"> <span><b>Free for everyone</b><small>No Labs needed</small></span></label>'
+            '<label><input type="checkbox" id="v-email"> <span><b>Email students</b><small>Sent within about 5 minutes</small></span></label></div>'
+            '<div class="tc-btns"><button class="btn dark" id="v-save">Post video</button><button class="btn" id="v-reset">Clear</button>'
+            '<span class="tc-note" id="v-msg"></span></div></div>'
+            '<aside class="tv-preview" aria-live="polite"><div class="tc-kicker">Preview</div><div class="tv-pthumb" id="v-pthumb"><span>Paste a YouTube link to see it here</span></div>'
+            '<div class="tv-ptitle" id="v-ptitle">Untitled video</div><div class="tc-note" id="v-pmeta">Not tied to a lesson · Labs</div></aside></div></section>\n'
+            '<section class="tc-card"><h3>Posted <span class="tc-note tv-count" id="v-count"></span></h3><div id="list" class="tv-list"></div></section>')
+    console(TEACHER / "videos.html", "Lesson videos", "videos", body, [])
 
 
 def lectures_page():
@@ -323,10 +326,10 @@ def blog_page():
     body = ('<header class="tc-head"><div><h1>Blog</h1><p class="aa-sub">Pre- and post-lecture posts for every skill, '
             'in course order. Copy one into your class stream, or share the link.</p></div>'
             f'<a class="btn" href="feed.xml">RSS feed</a></header>\n'
-            '<p class="aa-tools"><select id="unit"></select> <select id="kind"><option value="">Pre and post</option>'
-            '<option value="pre">Pre-lecture</option><option value="post">Post-lecture</option></select> '
-            '<input id="q" type="search" placeholder="Search posts"></p>\n'
-            '<div id="blog" class="tc-blog"></div>')
+            '<div class="bl-bar"><select id="unit" aria-label="Unit"></select> <select id="kind" aria-label="Which posts"><option value="">Before and after class</option>'
+            '<option value="pre">Before class only</option><option value="post">After class only</option></select> '
+            '<input id="q" type="search" placeholder="Search posts" aria-label="Search posts"><span class="tc-note" id="bl-count"></span></div>\n'
+            '<div id="blog" class="bl-list"></div>')
     console(TEACHER / "blog.html", "Blog", "blog", body, [TEACHER / "posts.js"])
 
 

@@ -48,10 +48,16 @@
     if (b) b.addEventListener("click", signIn);
   }
 
+  function badge(s) {
+    return s.owned ? '<span class="sm-badge on">&#10003; Yours</span>' : s.tickets ? '<span class="sm-badge">' + esc(plural(s.tickets)) + "</span>" : '<span class="sm-badge">Free</span>';
+  }
+
   function cover(s, big) {
     var c = safeUrl(s.cover);
-    return '<div class="sm-cover' + (big ? " big" : "") + '"' + (c ? ' style="background-image:url(&quot;' + esc(c) + '&quot;)"' : "") + ">" +
-      (c ? "" : "<span>" + esc(s.title) + "</span>") + "</div>";
+    return '<div class="sm-cover' + (big ? " big" : "") + (c ? " img" : "") + '"' + (c ? ' style="background-image:url(&quot;' + esc(c) + '&quot;)"' : "") + ">" +
+      (c ? "" : '<span class="sm-ck">Seminar</span><span class="sm-ct">' + esc(s.title) + "</span>" +
+        '<span class="sm-cm">' + [s.level, hours(s.minutes)].filter(Boolean).map(esc).join(" &middot; ") + "</span>") +
+      (big ? "" : badge(s)) + "</div>";
   }
 
   function list() {
@@ -61,10 +67,10 @@
       meBar(d);
       var ss = d.seminars || [];
       $("sm-list").innerHTML = ss.length ? ss.map(function (s) {
-        return '<a class="sm-card" href="?id=' + s.id + '">' + cover(s) + "<div><b>" + esc(s.title) + "</b><span>" + esc(s.summary) + "</span><small>" +
-          [s.level, hours(s.minutes), s.chapters ? s.chapters + " chapters" : "", s.owned ? "✓ yours" : s.tickets ? plural(s.tickets) : "free",
-            s.published ? "" : "draft"].filter(Boolean).map(esc).join(" · ") + "</small></div></a>";
-      }).join("") : '<p class="sx-empty">No seminars yet.</p>';
+        return '<a class="sm-card" href="?id=' + s.id + '">' + cover(s) + '<div class="sm-cbody"><b>' + esc(s.title) + "</b><span>" + esc(s.summary) + "</span><small>" +
+          [s.level, hours(s.minutes), s.chapters ? s.chapters + " chapters" : "", s.published ? "" : "draft"].filter(Boolean).map(esc).join(" &middot; ") +
+          "</small></div></a>";
+      }).join("") : '<div class="vl-empty"><b>No seminars yet.</b><p>Recorded seminars from your teacher appear here.</p></div>';
     }).catch(function (e) { $("sm-list").innerHTML = '<p class="sx-empty">Could not load: ' + esc(e.message) + "</p>"; });
   }
 
@@ -83,11 +89,13 @@
         return "<li>" + (src && !/videoseries/.test(src) ? '<button class="sm-ch" data-t="' + at + '">' + esc(c.t) + "</button>" : "<span>" + esc(c.t) + "</span>") +
           " " + esc(c.title) + "</li>";
       }).join("");
-      var lock = '<div class="sx-buy"><b>Unlock this seminar</b>' +
-        (d.me ? "<p>" + (s.tickets ? '<button class="btn dark" id="sm-unlock">Unlock with ' + plural(s.tickets) + "</button> You have " + plural(d.tickets) + "." : "") +
-          '</p><p><a class="btn" href="' + ROOT + 'store.html#tickets">Get tickets</a> <a class="btn" href="' + ROOT +
-          'store.html#seminars">Subscribe to every seminar</a></p><p class="sx-note" id="sm-msg"></p>'
-          : '<p><button class="btn dark" id="sm-signin2">Sign in to unlock</button></p>') + "</div>";
+      var lock = '<div class="sm-lock"><div class="sm-lockin"><span class="vl-plock"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
+        '<path fill="none" stroke="currentColor" stroke-width="2" d="M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11"/></svg></span><b>Unlock this seminar</b>' +
+        (d.me ? "<p>" + (s.tickets ? "It costs " + plural(s.tickets) + ". You have " + plural(d.tickets) + "." : "") + "</p>" +
+          '<div class="sm-lockbtns">' + (s.tickets ? '<button class="btn" id="sm-unlock">Unlock with ' + plural(s.tickets) + "</button>" : "") +
+          '<a class="btn" href="' + ROOT + 'store.html#tickets">Get tickets</a><a class="btn" href="' + ROOT +
+          'store.html#seminars">Subscribe to every seminar</a></div><p class="sm-msg" id="sm-msg"></p>'
+          : '<p>Sign in to unlock it with tickets or a subscription.</p><div class="sm-lockbtns"><button class="btn" id="sm-signin2">Sign in</button></div>') + "</div></div>";
       box.innerHTML = back + '<div class="sm-head">' + cover(s, true) + '<div><div class="cm-kicker">Seminar' + (s.level ? " · " + esc(s.level) : "") +
         (s.minutes ? " · " + hours(s.minutes) : "") + "</div><h1>" + esc(s.title) + "</h1>" +
         (s.summary ? '<p class="aa-sub">' + esc(s.summary) + "</p>" : "") +

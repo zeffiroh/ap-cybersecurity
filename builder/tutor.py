@@ -41,17 +41,20 @@ def solutions():
         emit(path, text)
 
 
-POST_TAIL = """</pre>
-</div>
-<script>
+POST_SCRIPT = """<script>
 function toggleMode() {
   var rendered = document.getElementById("rendered");
   var source = document.getElementById("source");
   var btn = document.getElementById("mode-toggle");
-  var showingSource = source.style.display !== "none";
-  rendered.style.display = showingSource ? "block" : "none";
-  source.style.display = showingSource ? "none" : "block";
-  btn.textContent = showingSource ? "View Source (Markdown)" : "View Rendered";
+  var showingSource = !source.hidden;
+  rendered.hidden = !showingSource;
+  source.hidden = showingSource;
+  btn.textContent = showingSource ? "View Markdown" : "View the post";
+}
+function copyPost(btn) {
+  var text = document.getElementById("pp-title").innerText + "\\n\\n" + document.getElementById("rendered").innerText;
+  var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy text"; }, 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done);
 }
 </script>
 </body>
@@ -61,47 +64,73 @@ function toggleMode() {
 
 def post_markdown(aid, a, t, kind):
     if kind == "pre":
-        parts = [f"![banner](banner.png)\n\n## {aid}, {a['title']}\n**Before class today.** {a['lead']}",
+        parts = [f"## {aid}, {a['title']}\n**Before class today.** {a['lead']}",
                  f"**The intuition to hold onto:** {t['The intuition to hold onto']}"]
         if a["misconceptions"]:
             parts.append(f"**A myth worth busting before we start:** {a['misconceptions'][0]}")
         parts.append(f"**Today's goal:** {a['objective']}\nHandout: `pre-lecture-handout.docx`.")
     else:
-        parts = [f"![banner](banner.png)\n\n## {aid} recap, {a['title']}\nNice work today. Here's what to lock in:",
+        parts = [f"## {aid} recap, {a['title']}\nNice work today. Here's what to lock in:",
                  "- Recap handout: `post-lecture-handout.docx`\n- Simulation: SimLab\n- Self-check quiz: due before next class",
                  f"**The big picture:** {t['The big picture']}"]
         if a["terms"]:
-            parts.append("**Key terms to lock in:**\n" + "\n".join(f"- {x}" for x in a["terms"]))
+            parts.append("**Key terms to lock in:**\n\n" +"\n".join(f"- {x}" for x in a["terms"]))
         if a["misconceptions"]:
-            parts.append("**Common misconceptions -- don't fall for these:**\n" + "\n".join(f"- {x}" for x in a["misconceptions"]))
+            parts.append("**Common misconceptions to watch for:**\n\n" +"\n".join(f"- {x}" for x in a["misconceptions"]))
         parts.append(f"**Learning objective(s):** {a['los']}")
     return "\n\n".join(parts) + "\n"
+
+
+KINDS = (("pre", "Pre-Lecture", "Before class"), ("post", "Post-Lecture", "After class"))
+
+
+def post_page(d, aid, a, kind, src, prev, nxt):
+    tid = C.tid_of(aid)
+    tp = C.topic(tid)
+    label = dict((k, l) for k, _, l in KINDS)
+    other = "post" if kind == "pre" else "pre"
+    blog = rel(d, TEACHER / "blog.html")
+    navlink = lambda x, cls, arrow: (f'<a class="{cls}" href="{rel(d, teacher_atom(x[0]) / (kind + "-lecture-post.html"))}">'
+                                     f'<small>{arrow}</small><span class="pp-nid">{esc(x[0])}</span>{esc(x[1])}</a>') if x else "<span></span>"
+    body_md = src.split("\n", 1)[1]
+    return (PAGE_HEAD.format(title=f"{aid} {label[kind]} · {esc(a['title'])} · {BRAND}", css=rel(d, TUTOR_CSS)).replace("<body>", '<body class="pp">')
+            + f'<nav class="pp-top"><div class="pp-crumb"><a href="{blog}">Blog</a><span>/</span>'
+              f'<a href="{rel(d, teacher_topic(tid) / "index.html")}">{tid} teacher page</a><span>/</span>{aid}</div>'
+              '<div class="pp-tools"><button class="pp-btn" onclick="copyPost(this)">Copy text</button>'
+              '<button class="pp-btn" id="mode-toggle" onclick="toggleMode()">View Markdown</button></div></nav>\n'
+              f'<header class="pp-hero"><div class="pp-switch">'
+              + "".join(f'<a class="{"on" if k == kind else ""}" href="{k}-lecture-post.html">{l}</a>' for k, _, l in KINDS)
+              + f'</div><div class="pp-id">{esc(aid)}</div><h1 id="pp-title">{esc(a["title"])}</h1>'
+              f'<p class="pp-meta">Unit {tp["unit"]} · {esc(C.unit(tp["unit"])["title"])} · {tid} {esc(tp["title"])}</p></header>\n'
+              f'<main class="post-wrap"><div class="post-rendered" id="rendered">\n{md(body_md)}\n</div>\n'
+              f'<pre class="post-source" id="source" hidden>{html.escape(src, quote=False)}</pre>\n'
+              f'<p class="pp-other"><a href="{other}-lecture-post.html">Read the {label[other].lower()} post for {esc(aid)} →</a></p></main>\n'
+              f'<footer class="pp-nav">{navlink(prev, "prev", "Previous lesson")}{navlink(nxt, "next", "Next lesson")}</footer>\n'
+            + POST_SCRIPT)
 
 
 def posts():
     feed = []
     blog = []
+    rows = []
     for atom in C.atom_order():
         aid = atom["id"]
         a = parse_atom(atom["src"])
         t = dict(sections(rd(atom["src"] / "tutor.md"))[1])
+        rows.append((aid, a, t))
+    for i, (aid, a, t) in enumerate(rows):
         d = teacher_atom(aid)
-        for kind, label in (("pre", "Pre-Lecture"), ("post", "Post-Lecture")):
+        prev = (rows[i - 1][0], rows[i - 1][1]["title"]) if i else None
+        nxt = (rows[i + 1][0], rows[i + 1][1]["title"]) if i + 1 < len(rows) else None
+        for kind, label, _ in KINDS:
             src = post_markdown(aid, a, t, kind)
-            page = (PAGE_HEAD.format(title=f"{aid} {label} Post · {BRAND}", css=rel(d, TUTOR_CSS))
-                    + f'<nav class="top-nav">\n  <div class="crumb"><a href="{rel(d, teacher_topic(C.tid_of(aid)) / "index.html")}">'
-                      f'{C.tid_of(aid)} teacher page</a> &gt; {aid} &gt; {label}</div>\n'
-                      '  <button class="mode-btn" id="mode-toggle" onclick="toggleMode()">View Source (Markdown)</button>\n</nav>\n'
-                      f'<div class="post-wrap">\n  <div class="post-rendered" id="rendered">\n{md(src)}\n  </div>\n'
-                      f'  <pre class="post-source" id="source" style="display:none;">{html.escape(src, quote=False)}'
-                    + POST_TAIL)
             path = d / f"{kind}-lecture-post.html"
-            emit(path, page)
+            emit(path, post_page(d, aid, a, kind, src, prev, nxt))
             feed.append((f"{label}: {aid}, {a['title']}", path.relative_to(TEACHER).as_posix()))
             blog.append({"id": aid, "kind": kind, "title": a["title"], "topic": C.tid_of(aid),
                          "href": path.relative_to(TEACHER).as_posix(),
                          "banner": (d / "banner.png").relative_to(TEACHER).as_posix(),
-                         "html": md(src.split("\n\n", 1)[1])})
+                         "html": md(src.split("\n", 1)[1])})
     base = SITE_URL + "teacher/"
     items = "".join(f"    <item><title>{esc(t)}</title><link>{base}{p}</link><guid>{base}{p}</guid></item>\n" for t, p in feed)
     emit(TEACHER / "feed.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel>\n'

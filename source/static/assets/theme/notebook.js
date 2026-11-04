@@ -4,6 +4,8 @@
   var me = document.currentScript && document.currentScript.src;
   var ROOT = me ? me.replace(/assets\/theme\/notebook\.js.*$/, "") : "";
   var PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+  var LINUX = ROOT + "assets/linux/";
+  var MARK = "__AYT";
   var $ = function (id) { return document.getElementById(id); };
   var q = new URLSearchParams(location.search);
   var ref = (q.get("ref") || "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 60);
@@ -42,13 +44,33 @@
     return ROOT + "lab/lab/index.html?path=" + encodeURIComponent(path);
   }
 
+  function kind(t) { return t === "py" || t === "sh" ? t : "md"; }
+  function fromIpynb(c) {
+    var s = Array.isArray(c.source) ? c.source.join("") : String(c.source || "");
+    if (c.cell_type !== "code") return { t: "md", s: s };
+    var o = (c.outputs || []).map(function (x) { return x.text ? [].concat(x.text).join("") : ""; }).join("");
+    var m = /^%%(bash|sh)[^\n]*\n?/.exec(s);
+    if (m || (c.metadata && c.metadata.aayat === "sh")) return { t: "sh", s: m ? s.slice(m[0].length) : s, o: o };
+    return { t: "py", s: s, o: o };
+  }
+  function when(iso) {
+    var d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + d.toLocaleDateString([], { day: "numeric", month: "short" });
+  }
+
   function mdHtml(src) {
     var out = [], list = false;
-    String(src || "").split("\n").forEach(function (line) {
+    String(src || "").split("\n").forEach(function (line, n) {
       var l = esc(line).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
         .replace(/\*([^*]+)\*/g, "<i>$1</i>").replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
       var h = /^(#{1,4})\s+(.*)$/.exec(l), li = /^\s*[-*]\s+(.*)$/.exec(l);
-      if (li) { if (!list) { out.push("<ul>"); list = true; } out.push("<li>" + li[1] + "</li>"); return; }
+      if (li) {
+        if (!list) { out.push("<ul>"); list = true; }
+        var box = /^\[( |x|X)\]\s*(.*)$/.exec(li[1]);
+        out.push(box ? '<li class="nb-check"><label><input type="checkbox" data-ln="' + n + '"' + (box[1] === " " ? "" : " checked") + "> " + box[2] + "</label></li>"
+          : "<li>" + li[1] + "</li>");
+        return;
+      }
       if (list) { out.push("</ul>"); list = false; }
       if (h) out.push("<h" + (h[1].length + 1) + ">" + h[2] + "</h" + (h[1].length + 1) + ">");
       else if (l.trim()) out.push("<p>" + l + "</p>");
@@ -256,9 +278,10 @@
     document.addEventListener("keydown", function () { active = Date.now(); });
     $("nb-addmd").addEventListener("click", function () { add("md"); });
     $("nb-addpy").addEventListener("click", function () { add("py"); });
+    $("nb-addsh").addEventListener("click", function () { add("sh"); });
     $("nb-runall").addEventListener("click", function () {
       var p = Promise.resolve();
-      nb.cells.forEach(function (c, i) { if (c.t === "py") p = p.then(function () { return run(i); }); });
+      nb.cells.forEach(function (c, i) { if (c.t !== "md") p = p.then(function () { return run(i); }); });
     });
     $("nb-dl").addEventListener("click", function () { model(); download(); });
     $("nb-lab").href = ROOT + "lab/lab/index.html";
@@ -271,10 +294,10 @@
           var j = JSON.parse(r.result);
           doc.transact(function () {
             (j.cells || []).forEach(function (c) {
-              var src = Array.isArray(c.source) ? c.source.join("") : String(c.source || "");
-              if (!src.trim()) return;
+              var x = fromIpynb(c);
+              if (!x.s.trim()) return;
               var m = new Y.Map();
-              m.set("id", uid()); m.set("t", c.cell_type === "code" ? "py" : "md"); m.set("s", new Y.Text(src));
+              m.set("id", uid()); m.set("t", x.t); m.set("s", new Y.Text(x.s));
               cells.push([m]);
             });
           }, "local");
@@ -296,7 +319,7 @@
             title.insert(0, d.title || "Shared notebook");
             (d.cells || []).forEach(function (c) {
               var m = new Y.Map();
-              m.set("id", uid()); m.set("t", c.t === "py" ? "py" : "md"); m.set("s", new Y.Text(c.s || ""));
+              m.set("id", uid()); m.set("t", kind(c.t)); m.set("s", new Y.Text(c.s || ""));
               cells.push([m]);
             });
           }, "local");
@@ -323,9 +346,10 @@
     $("nb-title").addEventListener("input", function () { save(); });
     $("nb-addmd").addEventListener("click", function () { add("md"); });
     $("nb-addpy").addEventListener("click", function () { add("py"); });
+    $("nb-addsh").addEventListener("click", function () { add("sh"); });
     $("nb-runall").addEventListener("click", function () {
       var p = Promise.resolve();
-      nb.cells.forEach(function (c, i) { if (c.t === "py") p = p.then(function () { return run(i); }); });
+      nb.cells.forEach(function (c, i) { if (c.t !== "md") p = p.then(function () { return run(i); }); });
     });
     $("nb-dl").addEventListener("click", download);
     $("nb-lab").href = ROOT + "lab/lab/index.html";
@@ -355,10 +379,10 @@
   function draw() {
     var box = $("nb-cells");
     box.innerHTML = nb.cells.map(function (c, i) {
-      var code = c.t === "py";
-      return '<section class="nb-cell ' + (code ? "nb-code" : "nb-md") + '" data-i="' + i + '" data-id="' + esc(c.id || "") + '">' +
-        '<div class="nb-bar"><span>' + (code ? "Python" : "Notes") + "</span>" +
-        (code ? '<button class="btn dark" data-run>Run</button>' : '<button class="btn" data-view>' + (c.edit ? "Done" : "Edit") + "</button>") +
+      var code = c.t !== "md", sh = c.t === "sh";
+      return '<section class="nb-cell ' + (code ? "nb-code" : "nb-md") + (sh ? " nb-sh" : "") + '" data-i="' + i + '" data-id="' + esc(c.id || "") + '">' +
+        '<div class="nb-bar"><span><b class="nb-kind">' + (sh ? "Linux" : code ? "Python" : "Notes") + '</b><small class="nb-ran">' + ran(c) + "</small></span>" +
+        (code ? '<button class="btn dark nb-run" data-run>' + (sh && shCell === i ? "&#9632; Stop" : "&#9654; Run") + "</button>" : '<button class="btn" data-view>' + (c.edit ? "Done" : "Edit") + "</button>") +
         '<button class="btn" data-up title="Move up">&uarr;</button><button class="btn" data-down title="Move down">&darr;</button>' +
         '<button class="btn" data-del title="Delete cell">&times;</button></div>' +
         (code || c.edit || !c.s ? '<textarea spellcheck="' + (code ? "false" : "true") + '">' + esc(c.s) + "</textarea>"
@@ -372,16 +396,25 @@
         t.addEventListener("input", function () { ops.text(i, t.value, t); grow(t); });
         t.addEventListener("keydown", function (e) {
           if (e.key === "Tab") { e.preventDefault(); var p = t.selectionStart; t.setRangeText("    ", p, t.selectionEnd, "end"); ops.text(i, t.value, t); }
-          if (e.key === "Enter" && e.shiftKey && c.t === "py") { e.preventDefault(); run(i); }
+          if (e.key === "Enter" && e.shiftKey && c.t !== "md") { e.preventDefault(); run(i); }
         });
       }
       var v = el.querySelector(".nb-view");
-      if (v) v.addEventListener("dblclick", function () { c.edit = true; draw(); });
+      if (v) {
+        v.addEventListener("dblclick", function (e) { if (!e.target.closest("label")) { c.edit = true; draw(); } });
+        v.querySelectorAll("input[data-ln]").forEach(function (cb) {
+          cb.addEventListener("change", function () {
+            var lines = c.s.split("\n"), n = +cb.getAttribute("data-ln");
+            lines[n] = lines[n].replace(/\[( |x|X)\]/, cb.checked ? "[x]" : "[ ]");
+            ops.text(i, lines.join("\n"));
+          });
+        });
+      }
       el.querySelector("[data-del]").addEventListener("click", function () { ops.remove(i); });
       el.querySelector("[data-up]").addEventListener("click", function () { if (i) ops.move(i, -1); });
       el.querySelector("[data-down]").addEventListener("click", function () { if (i < nb.cells.length - 1) ops.move(i, 1); });
       var r = el.querySelector("[data-run]");
-      if (r) r.addEventListener("click", function () { run(i); });
+      if (r) r.addEventListener("click", function () { if (c.t === "sh" && shCell === i) stopSh(); else run(i); });
       var vw = el.querySelector("[data-view]");
       if (vw) vw.addEventListener("click", function () { c.edit = !c.edit; draw(); });
     });
@@ -393,7 +426,21 @@
     py = new Promise(function (ok, bad) {
       var s = document.createElement("script");
       s.src = PYODIDE + "pyodide.js";
-      s.onload = function () { global.loadPyodide({ indexURL: PYODIDE }).then(ok, bad); };
+      s.onload = function () {
+        global.loadPyodide({ indexURL: PYODIDE }).then(function (P) {
+          var C = global.AAYAT_RUNBOOK;
+          if (C) {
+            try {
+              P.FS.mkdirTree("/home/pyodide/case/suspect");
+              Object.keys(C.files).forEach(function (k) { P.FS.writeFile("/home/pyodide/case/" + k, C.files[k]); });
+            } catch (e) {}
+          }
+          fetchTools().then(function (t) {
+            try { if (t["capture.pcap"]) P.FS.writeFile("/home/pyodide/case/capture.pcap", t["capture.pcap"]); } catch (e) {}
+            ok(P);
+          });
+        }, bad);
+      };
       s.onerror = function () { bad(new Error("Couldn't load Python. Check your connection.")); };
       document.head.appendChild(s);
     });
@@ -401,21 +448,168 @@
     return py;
   }
 
-  function run(i) {
+  function ran(c) { return c.at ? "ran " + when(c.at) + (c.x ? " · exit " + c.x : "") : ""; }
+  function outEl(i) { return document.querySelector('.nb-cell[data-i="' + i + '"] .nb-out') || document.createElement("pre"); }
+  function finish(i, c, out, code) {
+    c.o = out; c.x = code; c.at = new Date().toISOString();
+    var el = outEl(i), m = document.querySelector('.nb-cell[data-i="' + i + '"] .nb-ran');
+    el.hidden = false;
+    el.textContent = c.o || "(no output)";
+    if (m) m.textContent = ran(c);
+    status("Ran cell " + (i + 1) + (code ? " (exit " + code + ")" : "") + ".");
+    save();
+  }
+
+  var vm = null, lx = null, shJob = null, shCell = -1, shQueue = Promise.resolve(), labsOk = false;
+
+  function hasLabs() {
+    var P = global.Paywall;
+    if (labsOk || !P || P.has("labs")) return Promise.resolve(labsOk = true);
+    if (!email()) return Promise.resolve(false);
+    return rpc("api_my_access").then(function (a) { return (labsOk = !!(a && a.labs)); }, function () { return false; });
+  }
+
+  var TOOLS = ["nmap", "curl", "tshark", "dig", "capture.pcap"], tools = null;
+
+  function fetchTools() {
+    if (tools) return tools;
+    tools = Promise.all(TOOLS.map(function (n) {
+      return fetch(LINUX + "tools/" + n).then(function (r) { return r.ok ? r.text() : ""; }, function () { return ""; });
+    })).then(function (texts) {
+      var out = {};
+      TOOLS.forEach(function (n, i) { if (texts[i]) out[n] = texts[i].replace(/\r/g, "").replace(/\t/g, "    "); });
+      return out;
+    });
+    return tools;
+  }
+
+  function caseSetup(t) {
+    var C = global.AAYAT_RUNBOOK, lines = ["stty -echo 2>/dev/null", "mkdir -p ~/case/suspect /usr/local/bin", "export PATH=/usr/local/bin:$PATH"];
+    var put = function (path, text, n) {
+      var eof = MARK + "_F" + n + "__";
+      lines.push("cat > " + path + " <<'" + eof + "'\n" + text + (/\n$/.test(text) ? "" : "\n") + eof);
+    };
+    if (C) Object.keys(C.files).forEach(function (k, n) { put("~/case/" + k, C.files[k], n); });
+    Object.keys(t || {}).forEach(function (k, n) {
+      if (k === "capture.pcap") put("~/case/capture.pcap", t[k], "c" + n);
+      else { put("/usr/local/bin/" + k, t[k], "t" + n); lines.push("chmod +x /usr/local/bin/" + k); }
+    });
+    lines.push("chmod +x ~/case/suspect/*", "cd ~/case");
+    return lines.join("\n");
+  }
+
+  function loadLinux() {
+    if (lx) return lx;
+    status("Starting Linux (10 to 20 seconds; the first start downloads about 12 MB)…");
+    lx = new Promise(function (ok, bad) {
+      function go() {
+        try {
+          vm = new global.V86({ wasm_path: LINUX + "v86.wasm", memory_size: 128 * 1024 * 1024, vga_memory_size: 2 * 1024 * 1024,
+            bios: { url: LINUX + "seabios.bin" }, vga_bios: { url: LINUX + "vgabios.bin" }, bzimage: { url: LINUX + "buildroot-bzimage68.bin" },
+            cmdline: "tsc=reliable mitigations=off random.trust_cpu=on", filesystem: {}, autostart: true });
+        } catch (e) { bad(e); return; }
+        var seen = "", up = false;
+        vm.add_listener("serial0-output-byte", function (b) {
+          var ch = String.fromCharCode(b);
+          if (up) { if (shJob) shJob(ch); return; }
+          seen = (seen + ch).slice(-40);
+          if (/[%#] $/.test(seen)) {
+            up = true;
+            fetchTools().then(function (t) { return shell(caseSetup(t)); })
+              .then(function () { status("Linux is running. The case files are in ~/case; nmap, curl, tshark and dig reach the case network."); ok(); }, bad);
+          }
+        });
+      }
+      if (global.V86) return go();
+      var s = document.createElement("script");
+      s.src = LINUX + "libv86.js";
+      s.onload = go;
+      s.onerror = function () { bad(new Error("Couldn't load Linux. Check your connection.")); };
+      document.head.appendChild(s);
+    });
+    lx.catch(function () { lx = null; vm = null; });
+    return lx;
+  }
+
+  function utf8out(s) { return unescape(encodeURIComponent(s)); }
+  function utf8in(s) { try { return decodeURIComponent(escape(s)); } catch (e) { return s; } }
+
+  function shell(script) {
+    var p = shQueue.then(function () {
+      return new Promise(function (ok) {
+        var buf = "", on = false, cut = -1, begin = MARK + "_BEGIN__", done = new RegExp(MARK + "_DONE__(\\d+)\\r?\\n$");
+        var eof = MARK + "_EOF_" + Math.random().toString(36).slice(2, 8);
+        shJob = function (ch) {
+          buf += ch;
+          if (!on) {
+            var k = buf.indexOf(begin);
+            if (k >= 0) { on = true; buf = buf.slice(k + begin.length); }
+            else if (buf.length > 4000) buf = buf.slice(-100);
+            return;
+          }
+          if (ch !== "\n") return;
+          var m = done.exec(buf.slice(-80));
+          if (!m) return;
+          var out = utf8in(cut >= 0 ? buf.slice(0, cut) : buf.slice(0, buf.lastIndexOf(MARK + "_DONE__"))).replace(/\r/g, "").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/^\n/, "").replace(/\n$/, "");
+          if (out.length > 100000) out = out.slice(0, 100000) + "\n… (output cut at 100,000 characters)";
+          if (cut >= 0) out += (out ? "\n" : "") + "(stopped)";
+          shJob = null;
+          ok({ out: out, code: +m[1] });
+        };
+        shJob.stop = function () { if (cut < 0) cut = on ? buf.length : 0; };
+        vm.serial0_send("cat > /tmp/.cell.sh <<'" + eof + "'\n" + utf8out(String(script).replace(/\r/g, "").replace(/\t/g, "    ")) + "\n" + eof + "\n" +
+          'echo "' + MARK + '""_BEGIN__"; . /tmp/.cell.sh 2>&1 </dev/null; echo "' + MARK + '""_DONE__$?"\n');
+      });
+    });
+    shQueue = p.catch(function () {});
+    return p;
+  }
+
+  function stopSh() {
+    if (!vm || !shJob) return;
+    shJob.stop();
+    vm.serial0_send("\x03");
+    setTimeout(function () { if (shJob) vm.serial0_send('\necho "' + MARK + '""_BEGIN__"; echo "' + MARK + '""_DONE__130"\n'); }, 400);
+  }
+
+  function runSh(i) {
+    var c = nb.cells[i], el = outEl(i);
+    el.hidden = false;
+    el.textContent = "Starting Linux…";
+    return hasLabs().then(function (yes) {
+      if (!yes) {
+        el.innerHTML = 'Linux cells run with <a href="' + ROOT + 'store.html#labs">Labs</a>. Notes and Python cells work for everyone.';
+        return;
+      }
+      return loadLinux().then(function () {
+        outEl(i).textContent = "Running… (press Stop to interrupt)";
+        shCell = i;
+        var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
+        if (b) b.innerHTML = "&#9632; Stop";
+        return shell(c.s);
+      }).then(function (r) {
+        shCell = -1;
+        var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
+        if (b) b.innerHTML = "&#9654; Run";
+        finish(i, c, r.out, r.code);
+      });
+    }).catch(function (e) { shCell = -1; outEl(i).textContent = e.message; });
+  }
+
+  function run(i) { return nb.cells[i].t === "sh" ? runSh(i) : runPy(i); }
+
+  function runPy(i) {
     var c = nb.cells[i];
-    var el = document.querySelector('.nb-cell[data-i="' + i + '"] .nb-out');
+    var el = outEl(i);
     el.hidden = false; el.textContent = "Running…";
     return loadPy().then(function (P) {
-      var out = [];
+      var out = [], code = 0;
       P.setStdout({ batched: function (s) { out.push(s); } });
       P.setStderr({ batched: function (s) { out.push(s); } });
       return P.loadPackagesFromImports(c.s).then(function () { return P.runPythonAsync(c.s); }).then(function (r) {
         if (r !== undefined && r !== null) out.push(String(r));
-      }, function (e) { out.push(String(e.message || e).split("\n").slice(-6).join("\n")); }).then(function () {
-        c.o = out.join("\n");
-        el.textContent = c.o || "(no output)";
-        status("Ran cell " + (i + 1) + ".");
-        save();
+      }, function (e) { code = 1; out.push(String(e.message || e).split("\n").slice(-6).join("\n")); }).then(function () {
+        finish(i, c, out.join("\n"), code);
       });
     }).catch(function (e) { el.textContent = e.message; });
   }
@@ -426,7 +620,10 @@
     move: function (i, d) { nb.cells.splice(i + d, 0, nb.cells.splice(i, 1)[0]); draw(); save(); },
     add: function (t) { nb.cells.push({ t: t, s: "", edit: true }); draw(); save(); }
   };
-  function add(t) { ops.add(t); }
+  function add(t) {
+    ops.add(t);
+    setTimeout(function () { var a = document.querySelectorAll(".nb-cell textarea"); if (a.length) a[a.length - 1].focus(); }, 0);
+  }
 
   function codeBookUrl() {
     var a = map().atoms[ref];
@@ -438,10 +635,7 @@
     if (!u) return Promise.resolve();
     status("Loading the code book…");
     return fetch(u).then(function (r) { if (!r.ok) throw new Error("No code book for this lesson yet."); return r.json(); }).then(function (j) {
-      var cells = (j.cells || []).map(function (c) {
-        var s = Array.isArray(c.source) ? c.source.join("") : String(c.source || "");
-        return { t: c.cell_type === "code" ? "py" : "md", s: s };
-      }).filter(function (c) { return c.s.trim(); });
+      var cells = (j.cells || []).map(fromIpynb).filter(function (c) { return c.s.trim(); });
       nb.cells = nb.cells.concat(cells);
       if (!nb.title) nb.title = ref + " code book";
       $("nb-title").value = nb.title;
@@ -457,10 +651,7 @@
     r.onload = function () {
       try {
         var j = JSON.parse(r.result);
-        var cells = (j.cells || []).map(function (c) {
-          var s = Array.isArray(c.source) ? c.source.join("") : String(c.source || "");
-          return { t: c.cell_type === "code" ? "py" : "md", s: s };
-        }).filter(function (c) { return c.s.trim(); });
+        var cells = (j.cells || []).map(fromIpynb).filter(function (c) { return c.s.trim(); });
         nb.cells = nb.cells.concat(cells);
         draw(); save(true);
         status("Imported " + cells.length + " cells from " + f.name + ".");
@@ -473,13 +664,23 @@
   function download() {
     var j = { nbformat: 4, nbformat_minor: 5, metadata: { kernelspec: { name: "python3", display_name: "Python 3", language: "python" } },
       cells: nb.cells.map(function (c) {
-        return c.t === "py" ? { cell_type: "code", metadata: {}, execution_count: null, outputs: [], source: c.s }
-          : { cell_type: "markdown", metadata: {}, source: c.s };
+        if (c.t === "md") return { cell_type: "markdown", metadata: {}, source: c.s };
+        return { cell_type: "code", metadata: c.t === "sh" ? { aayat: "sh", ran: c.at || null } : { ran: c.at || null }, execution_count: null,
+          outputs: c.o ? [{ output_type: "stream", name: "stdout", text: c.o }] : [], source: c.t === "sh" ? "%%bash\n" + c.s : c.s };
       }) };
     var a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(j, null, 1)], { type: "application/x-ipynb+json" }));
     a.download = (ref || "notebook") + ".ipynb";
     a.click();
+  }
+
+  function ago(iso) {
+    var d = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (d < 90) return "just now";
+    if (d < 3600) return Math.round(d / 60) + " minutes ago";
+    if (d < 86400) return Math.round(d / 3600) + " hour" + (d < 5400 ? "" : "s") + " ago";
+    if (d < 86400 * 7) return Math.round(d / 86400) + " day" + (d < 129600 ? "" : "s") + " ago";
+    return new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
   }
 
   function listPage() {
@@ -494,13 +695,20 @@
     $("nb-open").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value); });
     $("nb-openbook").addEventListener("click", function () { location.search = "?ref=" + encodeURIComponent($("nb-lesson").value) + "&book=1"; });
     $("nb-new").addEventListener("click", function () { location.search = "?ref=my-" + Date.now().toString(36); });
-    if (!email()) { $("nb-mine").innerHTML = '<p class="nb-empty">Sign in to see the notebooks saved to your account.</p>'; return; }
+    $("nb-runbook").addEventListener("click", function () { location.search = "?ref=rb-" + Date.now().toString(36) + "&runbook=1"; });
+    if (!email()) {
+      $("nb-mine").innerHTML = '<div class="nb-none"><b>Sign in to see your notebooks.</b><p>Notebooks you start without signing in are kept in this browser only.</p>' +
+        '<button class="btn" id="nb-signin">Sign in</button></div>';
+      $("nb-signin").addEventListener("click", function () { if (global.Identity) global.Identity.open({}, function () { location.reload(); }); });
+      return;
+    }
+    $("nb-mine").innerHTML = '<p class="nb-empty">Loading…</p>';
     rpc("api_notebook_list").then(function (list) {
-      $("nb-mine").innerHTML = list.length ? '<ul class="nb-list">' + list.map(function (n) {
-        var a = M.atoms[n.ref];
-        return '<li><a href="?ref=' + encodeURIComponent(n.ref) + '">' + esc(n.title || (a ? n.ref + " " + a.title : n.ref)) + "</a> <small>" +
-          new Date(n.updated).toLocaleDateString() + "</small></li>";
-      }).join("") + "</ul>" : '<p class="nb-empty">No notebooks yet. Open one for a lesson below.</p>';
+      $("nb-mine").innerHTML = list.length ? '<div class="nb-cards">' + list.map(function (n) {
+        var a = M.atoms[n.ref], k = /^rb-/.test(n.ref) ? "Runbook" : /^premium-/.test(n.ref) ? "Labs notebook" : a ? "Lesson " + n.ref : "Notebook";
+        return '<a class="nb-card" href="?ref=' + encodeURIComponent(n.ref) + '"><span class="nb-ck">' + esc(k) + "</span>" +
+          "<b>" + esc(n.title || (a ? a.title : n.ref)) + '</b><span class="nb-cd">Edited ' + ago(n.updated) + "</span></a>";
+      }).join("") + "</div>" : '<div class="nb-none"><b>No notebooks yet.</b><p>Start one above. It saves to your account as you type.</p></div>';
     }).catch(function (e) { $("nb-mine").textContent = e.message; });
   }
 
@@ -513,9 +721,10 @@
     $("nb-title").addEventListener("input", function () { save(); });
     $("nb-addmd").addEventListener("click", function () { add("md"); });
     $("nb-addpy").addEventListener("click", function () { add("py"); });
+    $("nb-addsh").addEventListener("click", function () { add("sh"); });
     $("nb-runall").addEventListener("click", function () {
       var p = Promise.resolve();
-      nb.cells.forEach(function (c, i) { if (c.t === "py") p = p.then(function () { return run(i); }); });
+      nb.cells.forEach(function (c, i) { if (c.t !== "md") p = p.then(function () { return run(i); }); });
     });
     $("nb-book").addEventListener("click", loadBook);
     $("nb-lab").href = a ? labUrl(ref) : ROOT + "lab/lab/index.html";
@@ -527,7 +736,13 @@
       nb = d && d.cells ? { title: d.title || "", cells: d.cells } : { title: a ? ref + " " + a.title : "My notebook", cells: [] };
       $("nb-title").value = nb.title;
       draw();
-      if (q.get("book") && !nb.cells.some(function (c) { return c.t === "py"; })) loadBook();
+      if (q.get("runbook") && !nb.cells.length && global.AAYAT_RUNBOOK) {
+        nb.title = "Incident runbook: web01, " + new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+        nb.cells = global.AAYAT_RUNBOOK.template.map(function (c) { return { t: c.t, s: c.s }; });
+        $("nb-title").value = nb.title;
+        draw(); save(true);
+        status("Runbook ready. Run each step in order; outputs save with it.");
+      } else if (q.get("book") && !nb.cells.some(function (c) { return c.t === "py"; })) loadBook();
       else status(email() ? "Saved to your account as you type." : "Sign in to keep this notebook in your account.");
     };
     if (initial && initial.teacher) start(initial);
@@ -576,6 +791,7 @@
 
   function boot() {
     if (!$("nb-app")) return;
+    document.querySelectorAll("[data-add]").forEach(function (b) { b.addEventListener("click", function () { add(b.getAttribute("data-add")); }); });
     if (premium) premiumBoot(); else if (space) liveEditor(); else if (ref) editor(); else listPage();
   }
   if (document.readyState === "complete") boot();

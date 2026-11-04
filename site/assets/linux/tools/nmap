@@ -1,0 +1,159 @@
+hosts() {
+cat <<'HOSTS'
+10.0.0.1|gateway.corp.lan|53|tcp|domain|dnsmasq 2.89|0|
+10.0.0.1|gateway.corp.lan|80|tcp|http|lighttpd 1.4.69|0|Router login
+10.0.0.5|web01.corp.lan|22|tcp|ssh|OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)|0|
+10.0.0.5|web01.corp.lan|80|tcp|http|nginx 1.18.0 (Ubuntu)|0|NimbuMart
+10.0.0.5|web01.corp.lan|443|tcp|ssl/http|nginx 1.18.0 (Ubuntu)|0|NimbuMart
+10.0.0.5|web01.corp.lan|31337|tcp|Elite?|kworkerd backdoor (banner: KW-1.2 ready)|1|
+10.0.0.9|db01.corp.lan|22|tcp|ssh|OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)|0|
+10.0.0.9|db01.corp.lan|5432|tcp|postgresql|PostgreSQL DB 14.9 - 14.11|0|
+10.0.0.12|hr-laptop.corp.lan|135|tcp|msrpc|Microsoft Windows RPC|0|
+10.0.0.12|hr-laptop.corp.lan|139|tcp|netbios-ssn|Microsoft Windows netbios-ssn|0|
+10.0.0.12|hr-laptop.corp.lan|445|tcp|microsoft-ds?||0|
+10.0.0.12|hr-laptop.corp.lan|3389|tcp|ms-wbt-server|Microsoft Terminal Services|0|
+198.51.100.66|update.kworker-cdn.net|22|tcp|ssh|OpenSSH 9.6p1 (protocol 2.0)|0|
+198.51.100.66|update.kworker-cdn.net|80|tcp|http|nginx 1.24.0|0|403 Forbidden
+198.51.100.66|update.kworker-cdn.net|4444|tcp|krb524?|unknown (banner: KW-C2)|0|
+203.0.113.7||22|tcp|ssh|OpenSSH 9.2p1 Debian 2+deb12u2 (protocol 2.0)|0|
+203.0.113.7||8080|tcp|http|SimpleHTTPServer 0.6 (Python 3.11.2)|0|Directory listing for /
+HOSTS
+}
+
+os_of() {
+  case "$1" in
+    10.0.0.12) echo "Microsoft Windows 10|1909 - 21H2" ;;
+    10.0.0.1) echo "Linux 5.X|OpenWrt 23.05" ;;
+    *) echo "Linux 5.X|Linux 5.4 - 5.15" ;;
+  esac
+}
+
+usage() {
+  echo "Nmap 7.94 (lab copy: it scans the case network only)"
+  echo "Usage: nmap [options] target"
+  echo "  -sn            ping sweep: which hosts are up (e.g. nmap -sn 10.0.0.0/24)"
+  echo "  -sV            detect service versions"
+  echo "  -O             guess the operating system"
+  echo "  -A             -sV -O and default scripts"
+  echo "  -p 22,80 | -p 1-1024 | -p-   ports to scan (-p- = all 65535)"
+  echo "Targets: 10.0.0.0/24, 10.0.0.5, web01, 198.51.100.66, 203.0.113.7 ..."
+}
+
+sv=0; os=0; sc=0; ping=0; all=0; ports=""; targets=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    -sV) sv=1 ;;
+    -sC) sc=1 ;;
+    -O) os=1 ;;
+    -A) sv=1; os=1; sc=1 ;;
+    -sn|-sP) ping=1 ;;
+    -p-) all=1 ;;
+    -p) ports="$2"; shift ;;
+    -p*) ports="${1#-p}" ;;
+    -oN|-oX|-oG|-iL|--top-ports|-T|--script) shift ;;
+    -*) ;;
+    *) targets="$targets $1" ;;
+  esac
+  shift
+done
+
+if [ -z "$targets" ]; then usage; exit 1; fi
+
+echo "Starting Nmap 7.94 ( https://nmap.org ) at $(date -u '+%Y-%m-%d %H:%M') UTC"
+sleep 1
+
+resolve() {
+  case "$1" in
+    10.0.0.0/24|10.0.0.*/24|10.0.0.0/16) echo "10.0.0.1 10.0.0.5 10.0.0.9 10.0.0.12" ;;
+    web01|web01.corp.lan|shop.nimbumart.test) echo 10.0.0.5 ;;
+    db01|db01.corp.lan) echo 10.0.0.9 ;;
+    gateway|gateway.corp.lan) echo 10.0.0.1 ;;
+    hr-laptop|hr-laptop.corp.lan) echo 10.0.0.12 ;;
+    update.kworker-cdn.net) echo 198.51.100.66 ;;
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) echo "$1" ;;
+    *) echo "FAIL" ;;
+  esac
+}
+
+up=0; count=0
+for t in $targets; do
+  ips=$(resolve "$t")
+  if [ "$ips" = FAIL ]; then
+    echo "Failed to resolve \"$t\"."
+    continue
+  fi
+  case "$t" in */*) count=$((count + 256)) ;; *) count=$((count + 1)) ;; esac
+  for ip in $ips; do
+    if ! hosts | grep -q "^$ip|"; then
+      continue
+    fi
+    up=$((up + 1))
+    name=$(hosts | grep "^$ip|" | head -1 | cut -d'|' -f2)
+    if [ -n "$name" ]; then echo "Nmap scan report for $name ($ip)"; else echo "Nmap scan report for $ip"; fi
+    case "$ip" in 10.0.0.*) echo "Host is up (0.00042s latency)." ;; *) echo "Host is up (0.048s latency)." ;; esac
+    if [ "$ping" = 1 ]; then
+      case "$ip" in 10.0.0.*) echo "MAC Address: 52:54:00:12:34:$(printf '%02X' "${ip##*.}") (QEMU virtual NIC)" ;; esac
+      continue
+    fi
+    hosts | awk -F'|' -v ip="$ip" -v all="$all" -v ports="$ports" -v sv="$sv" -v sc="$sc" '
+      function inlist(p,   n, i, a, r) {
+        n = split(ports, a, ",")
+        for (i = 1; i <= n; i++) {
+          if (index(a[i], "-")) { split(a[i], r, "-"); if (r[1] == "") r[1] = 1; if (r[2] == "") r[2] = 65535; if (p >= r[1] + 0 && p <= r[2] + 0) return 1 }
+          else if (p == a[i] + 0) return 1
+        }
+        return 0
+      }
+      function total(   n, i, a, r, s) {
+        if (all) return 65535
+        if (ports == "") return 1000
+        n = split(ports, a, ","); s = 0
+        for (i = 1; i <= n; i++) {
+          if (index(a[i], "-")) { split(a[i], r, "-"); if (r[1] == "") r[1] = 1; if (r[2] == "") r[2] = 65535; s += r[2] - r[1] + 1 }
+          else s++
+        }
+        return s
+      }
+      $1 == ip {
+        show = all ? 1 : (ports != "" ? inlist($3) : ($7 == 0))
+        if (!show) next
+        k++; row[k] = $3 "/" $4; svc[k] = $5; ver[k] = $6; title[k] = $8; seen[$3] = 1
+      }
+      END {
+        if (ports != "" && !all) {
+          n = split(ports, a, ",")
+          for (i = 1; i <= n; i++) if (!index(a[i], "-") && !((a[i] + 0) in seen) && a[i] != "") { k++; row[k] = (a[i] + 0) "/tcp"; svc[k] = "unknown"; ver[k] = ""; closed[k] = 1 }
+        }
+        shut = total() - k; if (shut < 0) shut = 0
+        if (shut > 0) printf "Not shown: %d closed tcp ports (reset)\n", shut
+        if (k == 0) { print "All scanned ports are closed."; exit }
+        printf "%-10s%-7s%-15s%s\n", "PORT", "STATE", "SERVICE", (sv ? "VERSION" : "")
+        for (i = 1; i <= k; i++) {
+          printf "%-10s%-7s%-15s%s\n", row[i], (closed[i] ? "closed" : "open"), svc[i], (sv ? ver[i] : "")
+          if (sc && title[i] != "") printf "|_http-title: %s\n", title[i]
+        }
+      }'
+    if [ "$os" = 1 ]; then
+      o=$(os_of "$ip")
+      echo "Running: ${o%%|*}"
+      echo "OS details: ${o#*|}"
+    fi
+    if [ "$sv" = 1 ]; then
+      case "$ip" in 10.0.0.12) echo "Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows" ;; *) echo "Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel" ;; esac
+    fi
+    echo
+  done
+done
+
+if [ "$count" = 0 ]; then
+  echo "WARNING: No targets were specified, so 0 hosts scanned."
+  echo "Nmap done: 0 IP addresses (0 hosts up) scanned in 0.04 seconds"
+  exit 0
+fi
+if [ "$count" = 1 ] && [ "$up" = 0 ]; then
+  echo "Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn"
+fi
+if [ "$count" = 1 ]; then n="1 IP address"; else n="$count IP addresses"; fi
+if [ "$up" = 1 ]; then h="1 host"; else h="$up hosts"; fi
+echo "Nmap done: $n ($h up) scanned in $((2 + up)).$(( (up * 37) % 90 + 10 )) seconds"

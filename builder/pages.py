@@ -321,31 +321,52 @@ def seminars_page():
 
 def videos_page():
     path = SITE / "videos.html"
-    body = ('<h1>Video lessons</h1>\n<p class="aa-sub">A video for each lesson, from your teacher.</p>\n'
-            '<div id="sx-videos-page"><div id="sx-pass"></div><div id="sx-videos">Loading…</div></div>\n'
+    body = ('<header class="vl-head"><div><h1>Video lessons</h1>\n<p class="aa-sub">Short videos from your teacher, one for each lesson, '
+            'in course order.</p></div><p class="vl-stats" id="vl-stats"></p></header>\n'
+            '<div id="sx-videos-page"><div id="sx-pass"></div><div id="sx-videos"><div class="vl-empty"><b>Loading videos…</b></div></div></div>\n'
             + theme_assets(path.parent, [], ["student-extras.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
 def notebook_page():
     path = SITE / "notebook.html"
-    body = ('<div id="nb-app">\n<section id="nb-index" hidden><h1>Notebook</h1>\n'
-            '<p class="aa-sub">Your own notes and Python, saved to your account. Python runs right here in the browser.</p>\n'
-            '<h2>My notebooks</h2>\n<div id="nb-mine"></div>\n<h2>Open one</h2>\n'
-            '<p class="aa-tools"><select id="nb-lesson"></select> <button class="btn dark" id="nb-open">Open my notes</button> '
-            '<button class="btn" id="nb-openbook">Open with the code book</button> <button class="btn" id="nb-new">Blank notebook</button> '
-            '<a class="btn" href="lab/lab/index.html" target="_blank" rel="noopener">Full JupyterLab</a></p>\n'
-            '</section>\n<section id="nb-editor" hidden><p class="aa-sub" id="nb-crumb"></p>\n'
+    body = ('<div id="nb-app">\n<section id="nb-index" hidden>'
+            '<header class="nb-hero"><h1>Notebook</h1>\n'
+            '<p class="aa-sub">Runbooks and notes: step-by-step instructions, Linux commands and Python in one document, with every output saved. '
+            'Everything runs here in your browser. Linux cells come with Labs.</p></header>\n'
+            '<div class="nb-starts">'
+            '<article class="nb-start nb-feature"><div class="nb-sk">Incident response</div><h3>New incident runbook</h3>'
+            '<p>A hacked web server, worked from triage to report in 9 steps. You use real Linux, Python, '
+            '<code>nmap</code>, <code>curl</code>, <code>tshark</code> and <code>dig</code> on a recorded copy of the case network.</p>'
+            '<button class="btn" id="nb-runbook">Start the case &rarr;</button></article>'
+            '<article class="nb-start"><div class="nb-sk">Lesson</div><h3>Lesson notebook</h3>'
+            '<p>Your notes for one lesson, or start from its code book.</p>'
+            '<select id="nb-lesson" aria-label="Lesson"></select>'
+            '<div class="nb-sbtns"><button class="btn dark" id="nb-open">Open my notes</button>'
+            '<button class="btn" id="nb-openbook">With the code book</button></div></article>'
+            '<article class="nb-start"><div class="nb-sk">Your own</div><h3>Blank notebook</h3>'
+            '<p>Notes, Linux and Python cells, in any order you like.</p>'
+            '<div class="nb-sbtns"><button class="btn dark" id="nb-new">Create</button>'
+            '<a class="btn" href="lab/lab/index.html" target="_blank" rel="noopener">Full JupyterLab</a></div></article></div>\n'
+            '<h2>My notebooks</h2>\n<div id="nb-mine"></div>\n'
+            '</section>\n<section id="nb-editor" hidden><p class="nb-crumb" id="nb-crumb"></p>\n'
             '<input id="nb-title" class="nb-title" aria-label="Notebook title">\n'
-            '<div class="nb-tools"><button class="btn" id="nb-addmd">+ Notes</button><button class="btn" id="nb-addpy">+ Python</button>'
-            '<button class="btn dark" id="nb-runall">Run all</button><button class="btn" id="nb-book">Load the code book</button>'
+            '<div class="nb-tools"><div class="nb-grp" role="group" aria-label="Add a cell"><span class="nb-gl">Add</span>'
+            '<button class="btn" id="nb-addmd">Notes</button><button class="btn" id="nb-addsh">Linux</button>'
+            '<button class="btn" id="nb-addpy">Python</button></div>'
+            '<button class="btn dark" id="nb-runall">&#9654; Run all</button>'
+            '<div class="nb-grp"><button class="btn" id="nb-book">Load the code book</button>'
             '<button class="btn" id="nb-dl">Download .ipynb</button><button class="btn" id="nb-import">Import .ipynb</button>'
             '<input type="file" id="nb-file" accept=".ipynb,application/json" hidden>'
-            '<a class="btn" id="nb-lab" target="_blank" rel="noopener">Open in JupyterLab</a>'
+            '<a class="btn" id="nb-lab" target="_blank" rel="noopener">JupyterLab</a></div>'
             '<span id="nb-status" class="nb-status"></span></div>\n'
-            '<div id="nb-cells"></div>\n<p class="nb-tools"><small class="nb-status">Shift+Enter runs a Python cell.</small></p>\n'
+            '<div id="nb-cells"></div>\n'
+            '<div class="nb-addrow"><span>Add a cell</span><button class="btn" data-add="md">+ Notes</button>'
+            '<button class="btn" data-add="sh">+ Linux</button><button class="btn" data-add="py">+ Python</button></div>\n'
+            '<p class="nb-help">Shift+Enter runs a Linux or Python cell. Linux cells share one shell, so <code>cd</code> and variables carry on to the next cell. '
+            'Write <code>- [ ] step</code> in notes for a checklist. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, [], ["notebook.js"]))
+            + theme_assets(path.parent, [], ["runbook-case.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 

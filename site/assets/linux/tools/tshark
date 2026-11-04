@@ -1,0 +1,181 @@
+usage() {
+  echo "TShark 4.2.2 (lab copy: reads the saved case capture)"
+  echo "Usage: tshark -r capture.pcap [options]"
+  echo "  -Y FILTER         display filter, e.g. -Y 'ip.addr==198.51.100.66'"
+  echo "                    fields: ip.src ip.dst ip.addr tcp.port tcp.srcport tcp.dstport frame.len"
+  echo "                    http.request http.request.method http.request.uri http.host http.user_agent"
+  echo "                    dns.qry.name tcp.flags.syn==1   protocols: http dns tcp udp tls ssh pgsql"
+  echo "                    joiners: and or not == != > < contains"
+  echo "  -c N              stop after N packets"
+  echo "  -T fields -e F    print only fields, e.g. -T fields -e ip.src -e http.request.uri"
+  echo "  -q -z STAT        statistics: conv,ip  conv,tcp  endpoints,ip  io,phs  http,tree"
+}
+
+cap=""; filter=""; count=0; fields=""; stat=""; quiet=0; mode=list
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    -r) cap="$2"; shift ;;
+    -r*) cap="${1#-r}" ;;
+    -Y|-R) filter="$2"; shift ;;
+    -c) count="$2"; shift ;;
+    -T) [ "$2" = fields ] && mode=fields; shift ;;
+    -e) fields="$fields $2"; shift ;;
+    -z) stat="$2"; shift ;;
+    -q) quiet=1 ;;
+    -i|-D|-L)
+      echo "tshark: There are no capture interfaces in this lab. Read the saved capture instead: tshark -r capture.pcap" >&2; exit 1 ;;
+    -*) ;;
+    *) [ -z "$cap" ] && [ -f "$1" ] && cap="$1" ;;
+  esac
+  shift
+done
+
+if [ -z "$cap" ]; then
+  echo "tshark: There are no capture interfaces in this lab. Read the saved capture instead: tshark -r capture.pcap" >&2; exit 1
+fi
+if [ ! -f "$cap" ]; then echo "tshark: The file \"$cap\" doesn't exist." >&2; exit 1; fi
+if ! head -1 "$cap" | grep -q '^#aayat-capture'; then
+  echo "tshark: The file \"$cap\" isn't a capture file in a format TShark understands." >&2; exit 2
+fi
+
+cond=1
+if [ -n "$filter" ]; then
+  cond=$(printf '%s' "$filter" | sed -E \
+    -e 's/"//g' \
+    -e 's/http\.request\.method/@METHOD@/g' -e 's/http\.request\.uri/@URI@/g' -e 's/http\.host/@HOST@/g' \
+    -e 's/http\.user_agent/@UA@/g' -e 's/dns\.qry\.name/@QNAME@/g' \
+    -e 's/ip\.src/@SRC@/g' -e 's/ip\.dst/@DST@/g' -e 's/ip\.addr/@ADDR@/g' \
+    -e 's/(tcp|udp)\.srcport/@SP@/g' -e 's/(tcp|udp)\.dstport/@DP@/g' -e 's/(tcp|udp)\.port/@PORT@/g' \
+    -e 's/frame\.len/@LEN@/g' -e 's/frame\.number/@NO@/g' \
+    -e 's/tcp\.flags\.syn *== *1/@SYN@/g' -e 's/http\.request/@REQ@/g' -e 's/http\.response/@RESP@/g' \
+    -e 's/ +eq +/==/g' -e 's/ +ne +/!=/g' -e 's/ +gt +/>/g' -e 's/ +lt +/</g' -e 's/ +ge +/>=/g' -e 's/ +le +/<=/g' \
+    -e 's/@(SRC|DST|METHOD|URI|HOST|UA|QNAME)@ *(==|!=) *([^ ()&|!]+)/@\1@\2"\3"/g' \
+    -e 's/@ADDR@ *== *([^ ()&|!]+)/(@SRC@=="\1"||@DST@=="\1")/g' \
+    -e 's/@ADDR@ *!= *([^ ()&|!]+)/(@SRC@!="\1"\&\&@DST@!="\1")/g' \
+    -e 's/@PORT@ *== *([0-9]+)/(@SP@==\1||@DP@==\1)/g' \
+    -e 's/@PORT@ *!= *([0-9]+)/(@SP@!=\1\&\&@DP@!=\1)/g' \
+    -e 's/@([A-Z]+)@ +contains +([^ ()&|!]+)/(index(@\1@,"\2")>0)/g' \
+    -e 's/(^|[ (])and([ )]|$)/\1\&\&\2/g' -e 's/(^|[ (])or([ )]|$)/\1||\2/g' -e 's/(^|[ (])not([ (])/\1!\2/g' \
+    -e 's/(^|[^a-z.@])http($|[^a-z.@])/\1(@PROTO@=="HTTP")\2/g' \
+    -e 's/(^|[^a-z.@])dns($|[^a-z.@])/\1(@PROTO@=="DNS")\2/g' \
+    -e 's/(^|[^a-z.@])tls($|[^a-z.@])/\1(@PROTO@~"^TLS")\2/g' \
+    -e 's/(^|[^a-z.@])ssh($|[^a-z.@])/\1(@PROTO@~"^SSH")\2/g' \
+    -e 's/(^|[^a-z.@])pgsql($|[^a-z.@])/\1(@PROTO@=="PGSQL")\2/g' \
+    -e 's/(^|[^a-z.@])udp($|[^a-z.@])/\1(@PROTO@=="DNS")\2/g' \
+    -e 's/(^|[^a-z.@])tcp($|[^a-z.@])/\1(@PROTO@!="DNS")\2/g' \
+    -e 's/(^|[^a-z.@])ip($|[^a-z.@])/\11\2/g' \
+    -e 's/@REQ@/(@METHOD@!="")/g' -e 's/@RESP@/(@PROTO@=="HTTP"\&\&@METHOD@=="")/g' -e 's/@SYN@/(index(@INFO@,"[SYN")>0)/g' \
+    -e 's/@SRC@/src/g' -e 's/@DST@/dst/g' -e 's/@SP@/sp/g' -e 's/@DP@/dp/g' -e 's/@LEN@/len/g' -e 's/@NO@/no/g' \
+    -e 's/@METHOD@/method/g' -e 's/@URI@/uri/g' -e 's/@HOST@/host/g' -e 's/@UA@/ua/g' -e 's/@QNAME@/qname/g' \
+    -e 's/@PROTO@/proto/g' -e 's/@INFO@/info/g')
+  bad=$(printf '%s' "$cond" | sed -E -e 's/"[^"]*"//g' | tr -c 'a-zA-Z_.' '\n' | grep -v -E '^(src|dst|sp|dp|len|no|method|uri|host|ua|qname|proto|info|index|)$' | head -1)
+  if [ -n "$bad" ] || printf '%s' "$cond" | grep -q '@'; then
+    echo "tshark: \"$filter\" isn't a valid display filter: \"${bad:-$filter}\" is neither a field nor a protocol name." >&2
+    exit 4
+  fi
+fi
+
+if [ "$quiet" = 0 ] || [ -z "$stat" ]; then
+  awk -F'|' -v cnt="$count" -v mode="$mode" -v flds="$fields" '
+    function fv(f) {
+      if (f == "ip.src") return src; if (f == "ip.dst") return dst
+      if (f == "tcp.srcport" || f == "udp.srcport") return sp; if (f == "tcp.dstport" || f == "udp.dstport") return dp
+      if (f == "frame.len") return len; if (f == "frame.number") return no; if (f == "frame.time_relative") return sprintf("%.6f", t - t0)
+      if (f == "_ws.col.Protocol" || f == "_ws.col.protocol") return proto; if (f == "_ws.col.Info" || f == "_ws.col.info") return info
+      if (f == "http.request.method") return method; if (f == "http.request.uri") return uri; if (f == "http.host") return host
+      if (f == "http.user_agent") return ua; if (f == "dns.qry.name") return qname
+      return ""
+    }
+    /^#/ { next }
+    {
+      no++; t = $1; src = $2; sp = $3; dst = $4; dp = $5; proto = $6; len = $7; info = $8; method = $9; uri = $10; host = $11; ua = $12; qname = $13
+      if (no == 1) t0 = t
+      if (!('"$cond"')) next
+      shown++
+      if (mode == "fields") {
+        n = split(flds, f, " "); line = ""
+        for (i = 1; i <= n; i++) line = line (i > 1 ? "\t" : "") fv(f[i])
+        print line
+      } else printf "%6d %11.6f %15s → %-15s %-7s %5d %s\n", no, t - t0, src, dst, proto, len, info
+      if (cnt > 0 && shown >= cnt) exit
+    }' "$cap" 2>/tmp/.tshark_err
+  if [ -s /tmp/.tshark_err ]; then
+    echo "tshark: \"$filter\" isn't a valid display filter." >&2; exit 4
+  fi
+fi
+
+[ -z "$stat" ] && exit 0
+
+line="================================================================================"
+case "$stat" in
+  conv,ip)
+    echo "$line"
+    echo "IPv4 Conversations"
+    echo "Filter:<No Filter>"
+    echo "                                               |       <-      | |       ->      | |     Total     |"
+    echo "                                               | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |"
+    echo "10.0.0.5             <-> 198.51.100.66          1,214  79 kB     33,312  48 MB     34,526  48 MB"
+    echo "10.0.0.5             <-> 10.0.0.9                 410  5,412 kB    388  31 kB         798  5,443 kB"
+    echo "10.0.0.5             <-> 203.0.113.7               96  38 kB        104  14 kB         200  52 kB"
+    echo "10.0.0.5             <-> 198.51.100.20             22  14 kB         18  3,104 bytes    40  17 kB"
+    echo "10.0.0.12            <-> 10.0.0.1                   2  110 bytes      2  78 bytes        4  188 bytes"
+    echo "10.0.0.5             <-> 10.0.0.1                   1  102 bytes      1  86 bytes        2  188 bytes"
+    echo "$line" ;;
+  conv,tcp)
+    echo "$line"
+    echo "TCP Conversations"
+    echo "Filter:<No Filter>"
+    echo "                                               |  Frames  Bytes  |"
+    echo "10.0.0.5:46640        <-> 198.51.100.66:4444    33,293  48 MB"
+    echo "10.0.0.5:45020        <-> 10.0.0.9:5432            798  5,443 kB"
+    echo "10.0.0.5:80           <-> 203.0.113.7:502xx        142  40 kB"
+    echo "10.0.0.5:22           <-> 203.0.113.7:50391         58  12 kB"
+    echo "10.0.0.5:466xx        <-> 198.51.100.66:4444        30  8,402 bytes   (one every 60 s)"
+    echo "10.0.0.5:46602        <-> 198.51.100.66:80          10  4,120 bytes"
+    echo "10.0.0.5:443          <-> 198.51.100.20:51544       40  17 kB"
+    echo "$line" ;;
+  endpoints,ip)
+    echo "$line"
+    echo "IPv4 Endpoints"
+    echo "Filter:<No Filter>"
+    echo "                       |  Packets  | |  Bytes  |"
+    echo "10.0.0.5                    35,568     53 MB"
+    echo "198.51.100.66               34,526     48 MB"
+    echo "10.0.0.9                       798   5,443 kB"
+    echo "203.0.113.7                    200     52 kB"
+    echo "198.51.100.20                   40     17 kB"
+    echo "10.0.0.1                         6    376 bytes"
+    echo "10.0.0.12                        4    188 bytes"
+    echo "$line" ;;
+  io,phs)
+    echo "$line"
+    echo "Protocol Hierarchy Statistics"
+    echo "Filter: "
+    echo ""
+    echo "eth                                      frames:35574 bytes:53620112"
+    echo "  ip                                     frames:35574 bytes:53620112"
+    echo "    tcp                                  frames:35568 bytes:53619736"
+    echo "      data                               frames:33323 bytes:48222154"
+    echo "      pgsql                              frames:798   bytes:5443810"
+    echo "      http                               frames:28    bytes:9640"
+    echo "      ssh                                frames:58    bytes:12204"
+    echo "      tls                                frames:40    bytes:17410"
+    echo "    udp                                  frames:6     bytes:376"
+    echo "      dns                                frames:6     bytes:376"
+    echo "$line" ;;
+  http,tree)
+    echo "$line"
+    echo "HTTP/Packet Counter:"
+    echo "Topic / Item            Count"
+    echo "Total HTTP Packets         28"
+    echo " HTTP Request Packets      14"
+    echo "  GET                      13"
+    echo "  POST                      1"
+    echo " HTTP Response Packets     14"
+    echo "  2xx: Success             12"
+    echo "  5xx: Server Error         1"
+    echo "  4xx: Client Error         1"
+    echo "$line" ;;
+  *) echo "tshark: Invalid -z argument \"$stat\"; try conv,ip conv,tcp endpoints,ip io,phs http,tree" >&2; exit 1 ;;
+esac

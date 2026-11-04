@@ -1,0 +1,59 @@
+short=0; rev=0; name=""; type=A
+for a in "$@"; do
+  case "$a" in
+    +short) short=1 ;;
+    -x) rev=1 ;;
+    -h|--help) echo "dig (lab copy: answers for the case network only)"; echo "Usage: dig [+short] NAME   |   dig -x ADDRESS"; exit 0 ;;
+    A|MX|TXT|NS|AAAA) type="$a" ;;
+    +*|@*|-*) ;;
+    *) name="$a" ;;
+  esac
+done
+[ -z "$name" ] && { echo "Usage: dig [+short] NAME   |   dig -x ADDRESS"; exit 1; }
+
+if [ "$rev" = 1 ]; then
+  case "$name" in
+    10.0.0.1) ans="gateway.corp.lan." ;;
+    10.0.0.5) ans="web01.corp.lan." ;;
+    10.0.0.9) ans="db01.corp.lan." ;;
+    10.0.0.12) ans="hr-laptop.corp.lan." ;;
+    198.51.100.66) ans="vps-4471.cheap-hosting.example." ;;
+    203.0.113.7) ans="" ;;
+    *) ans="" ;;
+  esac
+  rr="PTR"
+  q=$(echo "$name" | awk -F. '{print $4"."$3"."$2"."$1".in-addr.arpa."}')
+else
+  case "$name" in
+    update.kworker-cdn.net|update.kworker-cdn.net.) ans="198.51.100.66" ;;
+    web01|web01.corp.lan) ans="10.0.0.5" ;;
+    db01|db01.corp.lan) ans="10.0.0.9" ;;
+    gateway|gateway.corp.lan) ans="10.0.0.1" ;;
+    hr-laptop|hr-laptop.corp.lan) ans="10.0.0.12" ;;
+    shop.nimbumart.test) ans="10.0.0.5" ;;
+    www.wikipedia.org) ans="185.15.59.224" ;;
+    *) ans="" ;;
+  esac
+  rr="A"
+  q="${name%.}."
+fi
+
+if [ "$short" = 1 ]; then [ -n "$ans" ] && echo "$ans"; exit 0; fi
+echo "; <<>> DiG 9.18.24 <<>> $*"
+echo ";; global options: +cmd"
+echo ";; Got answer:"
+if [ -n "$ans" ]; then st=NOERROR; n=1; else st=NXDOMAIN; n=0; fi
+echo ";; ->>HEADER<<- opcode: QUERY, status: $st, id: 23117"
+echo ";; flags: qr rd ra; QUERY: 1, ANSWER: $n, AUTHORITY: 0, ADDITIONAL: 1"
+echo ""
+echo ";; QUESTION SECTION:"
+echo ";$q            IN   $rr"
+if [ -n "$ans" ]; then
+  echo ""
+  echo ";; ANSWER SECTION:"
+  echo "$q   300   IN   $rr   $ans"
+fi
+echo ""
+echo ";; Query time: 12 msec"
+echo ";; SERVER: 10.0.0.1#53(10.0.0.1) (UDP)"
+echo ";; WHEN: $(date -u)"

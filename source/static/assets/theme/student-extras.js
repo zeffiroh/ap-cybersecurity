@@ -30,7 +30,7 @@
   }
   function player(yt, id) {
     return '<button class="sx-thumb" data-yt="' + esc(yt) + '" data-id="' + esc(id) + '" aria-label="Play video">' +
-      '<img src="https://i.ytimg.com/vi/' + esc(yt) + '/hqdefault.jpg" alt="" loading="lazy"><span class="sx-play">&#9654;</span></button>';
+      '<img src="https://i.ytimg.com/vi/' + esc(yt) + '/hqdefault.jpg" alt="" loading="lazy"><span class="sx-play" aria-hidden="true"></span></button>';
   }
   function bindPlayers(root) {
     root.querySelectorAll(".sx-thumb").forEach(function (b) {
@@ -76,16 +76,16 @@
     rpc("api_lesson_video", { p_atom: atom }).then(function (d) {
       if (!d || !d.videos.length) return;
       var h = d.videos.map(function (v) {
-        return '<div class="sx-video"><div class="sx-vh">Video lesson &middot; ' + esc(v.title) + (v.free ? " &middot; free" : "") + "</div>" +
-          (v.youtube ? player(v.youtube, v.id) : '<div class="sx-locked"><span class="sx-lock">&#128274;</span>' +
-            buyBox("labs", "Lesson videos come with Labs", "Labs unlocks every lesson video, every lab and the premium notebooks.") +
-            (email() ? "" : '<p><button class="btn" data-sx-signin>Already paid? Sign in</button></p>') + "</div>") +
-          (v.note ? '<p class="sx-note">' + esc(v.note) + "</p>" : "") + "</div>";
+        return '<article class="vl-card vl-wide"><div class="vl-media">' + (v.youtube ? player(v.youtube, v.id) : poster({ atom: atom })) +
+          (v.free ? '<span class="vl-free">Free</span>' : "") + '</div><div class="vl-body"><div class="vl-kicker">Video lesson</div><h4>' + esc(v.title) + "</h4>" +
+          (v.note ? '<p class="vl-note">' + esc(v.note) + "</p>" : "") +
+          (v.youtube ? "" : '<p class="vl-note">Lesson videos come with Labs. <a href="' + ROOT + 'store.html#labs">Get Labs</a> &middot; <a href="' + ROOT + 'store.html#redeem">I have a code</a>' +
+            (email() ? "" : ' &middot; <a href="#" data-sx-signin>Sign in</a>') + "</p>") + "</div></article>";
       }).join("");
       box.insertAdjacentHTML("afterbegin", h);
       bindPlayers(box);
       var s = box.querySelector("[data-sx-signin]");
-      if (s) s.addEventListener("click", signIn);
+      if (s) s.addEventListener("click", function (e) { e.preventDefault(); signIn(); });
     }).catch(function () {  });
   }
 
@@ -236,41 +236,96 @@
     }, 30000);
   }
 
+  var LOCK = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11"/></svg>';
+
+  function poster(v) {
+    return '<a class="vl-poster" href="' + ROOT + 'store.html#labs"><span class="vl-pid">' + esc(v.atom || "Video") + "</span>" +
+      '<span class="vl-plock">' + LOCK + "</span><span class=\"vl-pcta\">Unlock with Labs</span></a>";
+  }
+
+  function access(f, el) {
+    if (f.videoAccess) {
+      el.innerHTML = '<div class="vl-access ok"><span class="vl-tick">&#10003;</span><div><b>You have Labs.</b> Every lesson video is unlocked, including new ones.</div></div>';
+      return;
+    }
+    el.innerHTML = '<div class="vl-access"><span class="vl-alock">' + LOCK + "</span><div><b>Lesson videos come with Labs</b>" +
+      "<p>Free videos play for everyone. Labs unlocks the rest, every new one, every lab and the premium notebooks." +
+      (stores("labs").india ? " India: " + esc(stores("labs").india) + "." : "") + "</p></div>" +
+      '<div class="vl-actions"><a class="btn dark" href="' + ROOT + 'store.html#labs">Get Labs</a>' +
+      '<a class="btn" href="' + ROOT + 'store.html#redeem">I have a code</a>' +
+      (f.me ? "" : '<button class="btn" data-sx-signin>Sign in</button>') + "</div></div>";
+  }
+
   function videosPage(root) {
     var M = map();
     rpc("api_my_feed").then(function (f) {
       var vids = f.videos || [];
-      $("sx-pass").innerHTML = f.videoAccess ? '<p class="sx-ok">You have Labs. Every lesson video is unlocked.</p>'
-        : buyBox("labs", "Lesson videos come with Labs", "Labs unlocks every lesson video, including new ones, plus every lab and the premium notebooks.") +
-          (f.me ? "" : '<p><button class="btn" data-sx-signin>Already paid? Sign in</button></p>');
+      access(f, $("sx-pass"));
       var s = root.querySelector("[data-sx-signin]");
       if (s) s.addEventListener("click", signIn);
-      if (!vids.length) { $("sx-videos").innerHTML = '<p class="sx-empty">No videos yet.</p>'; return; }
+      var free = vids.filter(function (v) { return v.free; }).length;
+      if ($("vl-stats")) $("vl-stats").innerHTML = vids.length ? "<b>" + vids.length + "</b> video" + (vids.length === 1 ? "" : "s") +
+        (free ? " &middot; <b>" + free + "</b> free" : "") + " &middot; " + (f.videoAccess ? "all unlocked" : "Labs unlocks the rest") : "";
+      if (!vids.length) {
+        $("sx-videos").innerHTML = '<div class="vl-empty"><b>No videos yet.</b><p>Your teacher posts lesson videos here. They also show up on each lesson page.</p></div>';
+        return;
+      }
       var byTopic = {}, other = [];
       vids.forEach(function (v) {
         var t = v.atom ? v.atom.split(".").slice(0, 2).join(".") : v.topic;
         if (t && M.topics[t]) (byTopic[t] = byTopic[t] || []).push(v); else other.push(v);
       });
-      var h = [];
+      var h = [], units = [];
       M.units.forEach(function (u) {
         var ts = u.topics.filter(function (t) { return byTopic[t]; });
         if (!ts.length) return;
-        h.push("<h2>Unit " + u.n + " &middot; " + esc(u.title) + "</h2>");
+        units.push(u);
+        h.push('<section class="vl-unit" data-unit="' + u.n + '"><h2><span>Unit ' + u.n + "</span>" + esc(u.title) + "</h2>");
         ts.forEach(function (t) {
-          h.push('<h3><span class="aa-id">' + t + "</span>" + esc(M.topics[t].title) + '</h3><div class="sx-gallery">' + byTopic[t].map(vcard).join("") + "</div>");
+          var n = byTopic[t].length;
+          h.push('<div class="vl-topic"><h3><span class="aa-id">' + t + "</span>" + esc(M.topics[t].title) +
+            "<small>" + n + " video" + (n === 1 ? "" : "s") + '</small></h3><div class="vl-grid">' + byTopic[t].map(vcard).join("") + "</div></div>");
+        });
+        h.push("</section>");
+      });
+      if (other.length) h.push('<section class="vl-unit" data-unit="more"><h2><span>More</span>Other videos</h2><div class="vl-grid">' + other.map(vcard).join("") + "</div></section>");
+      $("sx-videos").innerHTML = (units.length > 1 || other.length ? '<div class="vl-filter"><div class="vl-chips" role="group" aria-label="Unit">' +
+        '<button class="vl-chip on" data-u="">All</button>' + units.map(function (u) { return '<button class="vl-chip" data-u="' + u.n + '">Unit ' + u.n + "</button>"; }).join("") +
+        (other.length ? '<button class="vl-chip" data-u="more">More</button>' : "") + "</div>" : '<div class="vl-filter">') +
+        '<input type="search" id="vl-q" placeholder="Search videos" aria-label="Search videos"></div>' + h.join("") +
+        '<p class="vl-none" id="vl-none" hidden>No videos match.</p>';
+      var unit = "";
+      function filter() {
+        var q = $("vl-q").value.trim().toLowerCase(), any = false;
+        root.querySelectorAll(".vl-unit").forEach(function (sec) {
+          var show = !unit || sec.getAttribute("data-unit") === unit, seen = false;
+          sec.querySelectorAll(".vl-card").forEach(function (c) {
+            var ok = show && (!q || c.getAttribute("data-text").indexOf(q) !== -1);
+            c.hidden = !ok; if (ok) seen = true;
+          });
+          sec.querySelectorAll(".vl-topic").forEach(function (tp) { tp.hidden = !tp.querySelector(".vl-card:not([hidden])"); });
+          sec.hidden = !seen; if (seen) any = true;
+        });
+        $("vl-none").hidden = any;
+      }
+      root.querySelectorAll(".vl-chip").forEach(function (b) {
+        b.addEventListener("click", function () {
+          unit = b.getAttribute("data-u");
+          root.querySelectorAll(".vl-chip").forEach(function (x) { x.classList.toggle("on", x === b); });
+          filter();
         });
       });
-      if (other.length) h.push('<h2>More videos</h2><div class="sx-gallery">' + other.map(vcard).join("") + "</div>");
-      $("sx-videos").innerHTML = h.join("");
+      $("vl-q").addEventListener("input", filter);
       bindPlayers(root);
       if (location.hash) { var el = document.querySelector(location.hash); if (el) el.scrollIntoView(); }
-    }).catch(function (e) { $("sx-videos").textContent = "Could not load: " + e.message; });
+    }).catch(function (e) { $("sx-videos").innerHTML = '<div class="vl-empty"><b>Could not load the videos.</b><p>' + esc(e.message) + "</p></div>"; });
     function vcard(v) {
       var a = v.atom && M.atoms[v.atom];
-      return '<div class="sx-video" id="v' + v.id + '"><div class="sx-vh">' + esc(v.title) + (v.free ? " &middot; free" : "") + "</div>" +
-        (v.youtube ? player(v.youtube, v.id) : '<div class="sx-locked"><span class="sx-lock">&#128274;</span><p>Part of Labs.</p></div>') +
-        (a ? '<p class="sx-note"><a href="' + ROOT + a.href + '">' + esc(v.atom + " " + a.title) + "</a></p>" : "") +
-        (v.note ? '<p class="sx-note">' + esc(v.note) + "</p>" : "") + "</div>";
+      return '<article class="vl-card" id="v' + v.id + '" data-text="' + esc((v.title + " " + (v.atom || "") + " " + (a ? a.title : "") + " " + (v.note || "")).toLowerCase()) + '">' +
+        '<div class="vl-media">' + (v.youtube ? player(v.youtube, v.id) : poster(v)) + (v.free ? '<span class="vl-free">Free</span>' : "") + "</div>" +
+        '<div class="vl-body"><h4>' + esc(v.title) + "</h4>" +
+        (a ? '<a class="vl-lesson" href="' + ROOT + a.href + '"><span class="aa-id">' + esc(v.atom) + "</span>" + esc(a.title) + "</a>" : "") +
+        (v.note ? '<p class="vl-note">' + esc(v.note) + "</p>" : "") + "</div></article>";
     }
   }
 

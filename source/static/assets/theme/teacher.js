@@ -447,7 +447,7 @@
   }
 
   function blog() {
-    var POSTS = global.AAYAT_POSTS || [], shown = 30, q = new URLSearchParams(location.search);
+    var POSTS = global.AAYAT_POSTS || [], shown = 15, q = new URLSearchParams(location.search);
     var units = {};
     Object.keys(T.topics).forEach(function (t) { units[T.topics[t].unit] = 1; });
     $("unit").innerHTML = '<option value="">All units</option>' + Object.keys(units).sort().map(function (u) {
@@ -463,24 +463,36 @@
       });
     }
     function draw() {
-      var list = match();
-      $("blog").innerHTML = list.slice(0, shown).map(function (p, i) {
-        var t = T.topics[p.topic];
-        return '<article class="tc-post"><img src="' + esc(p.banner) + '" alt="" loading="lazy">' +
-          '<div><div class="meta">' + (p.kind === "pre" ? "Pre-lecture" : "Post-lecture") + " &middot; " + esc(p.id) +
-          (t ? " &middot; Unit " + t.unit + " " + esc(t.title) : "") + "</div>" +
-          '<h3><a href="' + esc(p.href) + '">' + esc(p.title) + "</a></h3>" +
-          '<div class="body clip">' + body(p.html) + "</div>" +
-          '<div class="tc-btns" style="margin-top:10px"><button class="btn" data-more>Read more</button>' +
-          '<button class="btn" data-copy="' + i + '">Copy text</button><button class="btn" data-link="' + i + '">Copy link</button>' +
-          '<a class="btn" href="teach.html?topic=' + esc(p.topic) + '">Teach</a> <span class="tc-note"></span></div></div></article>';
-      }).join("") + (list.length > shown ? '<button class="btn" id="more">Show more (' + (list.length - shown) + ")</button>" : "") +
-        (list.length ? "" : '<p class="tc-empty">No posts match.</p>');
+      var list = match(), groups = [], at = {};
+      list.forEach(function (p) {
+        if (!at[p.id]) { at[p.id] = { id: p.id, title: p.title, topic: p.topic, posts: {} }; groups.push(at[p.id]); }
+        at[p.id].posts[p.kind] = p;
+      });
+      var lastUnit = null, total = POSTS.length / 2;
+      function half(p, kind) {
+        if (!p) return '<section class="bl-post bl-missing"><div class="bl-kind">' + (kind === "pre" ? "Before class" : "After class") + "</div><p class=\"tc-note\">Hidden by the filter.</p></section>";
+        var i = list.indexOf(p);
+        return '<section class="bl-post"><div class="bl-kind ' + kind + '">' + (kind === "pre" ? "Before class" : "After class") + "</div>" +
+          '<div class="bl-body clip">' + body(p.html) + "</div>" +
+          '<div class="bl-acts"><a class="btn" href="' + esc(p.href) + '">Open</a><button class="btn" data-more>Read here</button>' +
+          '<button class="btn" data-copy="' + i + '">Copy text</button><button class="btn" data-link="' + i + '">Copy link</button><span class="tc-note"></span></div></section>';
+      }
+      $("bl-count").textContent = groups.length === total ? total + " lessons, 2 posts each" : groups.length + " of " + total + " lessons";
+      $("blog").innerHTML = groups.slice(0, shown).map(function (g) {
+        var t = T.topics[g.topic], head = "";
+        if (t && t.unit !== lastUnit) { lastUnit = t.unit; head = '<h2 class="bl-unit"><span>Unit ' + t.unit + "</span></h2>"; }
+        var k = $("kind").value;
+        return head + '<article class="bl-card"><header class="bl-head"><div class="bl-id">' + esc(g.id) + "</div>" +
+          '<div class="bl-titles"><div class="bl-topic">' + (t ? esc(g.topic + " " + t.title) : esc(g.topic)) + "</div><h3>" + esc(g.title) + "</h3></div>" +
+          '<a class="btn" href="teach.html?topic=' + esc(g.topic) + '">Teach this</a></header>' +
+          '<div class="bl-cols' + (k ? " one" : "") + '">' + (k === "post" ? "" : half(g.posts.pre, "pre")) + (k === "pre" ? "" : half(g.posts.post, "post")) + "</div></article>";
+      }).join("") + (groups.length > shown ? '<p class="bl-moreRow"><button class="btn" id="more">Show more lessons (' + (groups.length - shown) + ")</button></p>" : "") +
+        (groups.length ? "" : '<p class="tc-empty">No posts match.</p>');
       $("blog").querySelectorAll("[data-more]").forEach(function (b) {
         b.addEventListener("click", function () {
-          var body = b.closest(".tc-post").querySelector(".body");
-          body.classList.toggle("clip");
-          b.textContent = body.classList.contains("clip") ? "Read more" : "Show less";
+          var el = b.closest(".bl-post").querySelector(".bl-body");
+          el.classList.toggle("clip");
+          b.textContent = el.classList.contains("clip") ? "Read here" : "Show less";
         });
       });
       $("blog").querySelectorAll("[data-copy]").forEach(function (b) {
@@ -495,10 +507,10 @@
         });
       });
       var more = $("more");
-      if (more) more.addEventListener("click", function () { shown += 30; draw(); });
+      if (more) more.addEventListener("click", function () { shown += 15; draw(); });
     }
-    ["unit", "kind"].forEach(function (id) { $(id).addEventListener("change", function () { shown = 30; draw(); }); });
-    $("q").addEventListener("input", function () { shown = 30; draw(); });
+    ["unit", "kind"].forEach(function (id) { $(id).addEventListener("change", function () { shown = 15; draw(); }); });
+    $("q").addEventListener("input", function () { shown = 15; draw(); });
     draw();
   }
 
@@ -824,20 +836,40 @@
       ["v-yt", "v-title", "v-note"].forEach(function (id) { $(id).value = ""; });
       $("v-atom").value = ""; $("v-group").value = ""; $("v-free").checked = false; $("v-email").checked = false;
       $("v-head").textContent = "Post a video"; $("v-save").textContent = "Post video";
+      preview();
+    }
+    function ytId(u) {
+      var m = /(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/.exec(u || "") || /^([A-Za-z0-9_-]{11})$/.exec((u || "").trim());
+      return m ? m[1] : "";
+    }
+    function preview() {
+      var id = ytId($("v-yt").value), g = $("v-group"), a = $("v-atom");
+      $("v-pthumb").innerHTML = id ? '<img src="https://i.ytimg.com/vi/' + id + '/mqdefault.jpg" alt="">'
+        : "<span>" + ($("v-yt").value.trim() ? "That doesn't look like a YouTube link" : "Paste a YouTube link to see it here") + "</span>";
+      $("v-ptitle").textContent = $("v-title").value.trim() || "Untitled video";
+      $("v-pmeta").textContent = (a.value ? a.options[a.selectedIndex].text : "Not tied to a lesson") + " · " +
+        (g.selectedIndex >= 0 ? g.options[g.selectedIndex].text : "Everyone") + " · " + ($("v-free").checked ? "Free" : "Labs");
     }
     function load() {
       return rpc("api_teacher_videos").then(function (d) {
         list = d.videos || [];
-        $("status").textContent = list.length + " video" + (list.length === 1 ? "" : "s") + " · " + d.buyers + " student" + (d.buyers === 1 ? "" : "s") + " with the video pass";
+        var views = list.reduce(function (n, v) { return n + (v.views || 0); }, 0);
+        $("status").textContent = list.length + " video" + (list.length === 1 ? "" : "s") + " · " + views + " view" + (views === 1 ? "" : "s") +
+          (typeof d.buyers === "number" ? " · " + d.buyers + " student" + (d.buyers === 1 ? "" : "s") + " with Labs" : "");
+        $("v-count").textContent = list.length ? list.length + " in all, newest first" : "";
         $("list").innerHTML = list.length ? list.map(function (v) {
           var g = plans.filter(function (x) { return x.id === String(v.group || ""); })[0];
-          return '<article class="tc-card"><img class="tc-vthumb" src="https://i.ytimg.com/vi/' + esc(v.youtube) + '/mqdefault.jpg" alt="">' +
-            "<h3><span>" + esc(v.title) + "</span></h3><p class='tc-note'>" + (v.atom ? esc(atomName(v.atom)) + " · " : "") +
-            esc(g ? g.name : "Everyone") + " · " + (v.free ? "free" : "video pass") + " · " + v.views + " watched" +
-            (v.email ? (v.emailed ? " · emailed" : " · email queued") : "") + "</p>" +
-            '<div class="tc-btns"><a class="btn" href="https://youtu.be/' + esc(v.youtube) + '" target="_blank" rel="noopener">YouTube</a>' +
-            '<button class="btn" data-edit="' + v.id + '">Edit</button><a class="btn" href="assignments.html">Assign</a>' +
-            '<button class="btn" data-del="' + v.id + '">' + (armed === "d" + v.id ? "Click again to delete" : "Delete") + "</button></div></article>";
+          return '<article class="tv-item"><a class="tv-thumb" href="https://youtu.be/' + esc(v.youtube) + '" target="_blank" rel="noopener">' +
+            '<img src="https://i.ytimg.com/vi/' + esc(v.youtube) + '/mqdefault.jpg" alt="" loading="lazy"></a>' +
+            '<div class="tv-info"><h4>' + esc(v.title) + "</h4>" +
+            '<div class="tv-tags">' + (v.atom ? '<span class="tv-tag">' + esc(atomName(v.atom)) + "</span>" : '<span class="tv-tag dim">No lesson</span>') +
+            '<span class="tv-tag">' + esc(g ? g.name : "Everyone") + "</span>" +
+            '<span class="tv-tag ' + (v.free ? "on" : "") + '">' + (v.free ? "Free" : "Labs") + "</span>" +
+            (v.email ? '<span class="tv-tag dim">' + (v.emailed ? "Emailed" : "Email queued") + "</span>" : "") + "</div>" +
+            (v.note ? '<p class="tc-note">' + esc(v.note) + "</p>" : "") + "</div>" +
+            '<div class="tv-views"><b>' + (v.views || 0) + "</b>watched</div>" +
+            '<div class="tv-acts"><button class="btn" data-edit="' + v.id + '">Edit</button><a class="btn" href="assignments.html">Assign</a>' +
+            '<button class="btn' + (armed === "d" + v.id ? " dark" : "") + '" data-del="' + v.id + '">' + (armed === "d" + v.id ? "Click again to delete" : "Delete") + "</button></div></article>";
         }).join("") : '<p class="tc-empty">No videos yet. Upload to YouTube as Unlisted, then paste the link above.</p>';
         document.querySelectorAll("[data-edit]").forEach(function (b) {
           b.addEventListener("click", function () {
@@ -846,6 +878,7 @@
             $("v-yt").value = "https://youtu.be/" + v.youtube; $("v-title").value = v.title; $("v-note").value = v.note;
             $("v-atom").value = v.atom || ""; $("v-group").value = v.group ? String(v.group) : ""; $("v-free").checked = v.free;
             $("v-head").textContent = "Edit video"; $("v-save").textContent = "Save changes";
+            preview();
             scrollTo(0, 0);
           });
         });
@@ -860,7 +893,9 @@
       }).catch(function (e) { $("status").textContent = "Could not load: " + e.message; });
     }
     $("v-atom").innerHTML = atomOptions("Not tied to a lesson");
-    loadPlans().then(function () { $("v-group").innerHTML = groupOptions(false); load(); });
+    loadPlans().then(function () { $("v-group").innerHTML = groupOptions(false); preview(); load(); });
+    ["v-yt", "v-title"].forEach(function (id) { $(id).addEventListener("input", preview); });
+    ["v-atom", "v-group", "v-free"].forEach(function (id) { $(id).addEventListener("change", preview); });
     $("v-reset").addEventListener("click", reset);
     $("v-save").addEventListener("click", function () {
       var atom = $("v-atom").value;
@@ -1085,7 +1120,9 @@
         try {
           var j = JSON.parse(r.result);
           nbData = { title: $("l-title").value || f.name.replace(/\.ipynb$/, ""), cells: (j.cells || []).map(function (c) {
-            return { t: c.cell_type === "code" ? "py" : "md", s: Array.isArray(c.source) ? c.source.join("") : String(c.source || "") };
+            var s = Array.isArray(c.source) ? c.source.join("") : String(c.source || ""), m = /^%%(bash|sh)[^\n]*\n?/.exec(s);
+            if (c.cell_type !== "code") return { t: "md", s: s };
+            return m || (c.metadata && c.metadata.aayat === "sh") ? { t: "sh", s: m ? s.slice(m[0].length) : s } : { t: "py", s: s };
           }).filter(function (c) { return c.s.trim(); }) };
           if (!$("l-title").value) $("l-title").value = nbData.title;
           $("l-cells").textContent = nbData.cells.length + " cells ready. Press Save.";

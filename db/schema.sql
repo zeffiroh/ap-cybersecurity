@@ -1327,16 +1327,17 @@ begin
 end $$;
 
 create or replace function api_teacher_videos()
-returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
-  select _need_teacher();
-  select jsonb_build_object(
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return jsonb_build_object(
     'videos', coalesce((select jsonb_agg(jsonb_build_object('id', v.id, 'title', v.title, 'youtube', v.youtube,
                 'topic', v.topic_id, 'atom', v.atom_id, 'note', v.note, 'free', v.free, 'group', v.group_id, 'email', v.email_students,
                 'emailed', _iso(v.emailed_at), 'created', _iso(v.created_at),
                 'views', (select count(distinct email) from activity x where x.kind = 'video' and x.ref = 'v' || v.id))
               order by v.created_at desc) from videos v), '[]'::jsonb),
-    'buyers', (select count(distinct email) from video_access where not revoked))
-$$;
+    'buyers', (select count(distinct email) from labs_access where not revoked));
+end $$;
 
 create or replace function api_teacher_save_video(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
