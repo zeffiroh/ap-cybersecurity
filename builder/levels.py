@@ -98,6 +98,7 @@ def merge_expected(cells, expected):
 
 
 def _guide_md(text):
+    text = T.printable(text)
     text = re.sub(r"(?m)^[ \t]*\?>[ \t]*(.+?)[ \t]*::.*$", r"**Question:** \1", text)
     text = re.sub(r"(?m)^(\s*)- \[[ xX]\] ", "\\1- &#9744; ", text)
     return MD.markdown(text, extensions=["fenced_code", "tables", "sane_lists"])

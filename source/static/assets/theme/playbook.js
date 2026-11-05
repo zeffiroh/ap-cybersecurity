@@ -139,8 +139,9 @@
     T.list().filter(function (d) { return d.console; }).forEach(function (def) {
       var k = "tool-" + def.id, keep = null;
       PANES[k] = function (p) {
-        if (p.getAttribute("data-on")) return;
-        p.setAttribute("data-on", "");
+        var ready = H.caseId() ? "case" : "empty";
+        if (p.getAttribute("data-on") === ready) return;
+        p.setAttribute("data-on", ready);
         def.mount(p, {
           state: {},
           saved: keep,
@@ -164,6 +165,7 @@
   function decorate() {
     if (!H || !dock) return;
     toolSteps();
+    if (open && tab.indexOf("tool-") === 0) paint();
     document.querySelectorAll("#nb-cells .nb-code").forEach(function (el) {
       var c = H.nb().cells[+el.getAttribute("data-i")];
       if (!c) return;

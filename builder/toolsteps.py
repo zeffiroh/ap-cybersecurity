@@ -56,6 +56,17 @@ def blanked(text):
     return rewrite(text, hide)
 
 
+def printable(text):
+    def one(m):
+        try:
+            state = json.loads(m.group(2))
+        except ValueError:
+            return m.group(0)
+        name = state.get("file", "") if isinstance(state, dict) else ""
+        return f"**Use the {m.group(1)} tool on {name}.**" if name else f"**Use the {m.group(1)} tool.**"
+    return FENCE.sub(one, text or "")
+
+
 def count_problems(cells, files):
     problems = []
     for c in cells:
