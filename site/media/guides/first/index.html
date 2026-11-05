@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your first investigation guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Tutorial guide</p>
+<h1>Your first investigation</h1>
+<p class="meta">Beginner &middot; about 25 min</p>
+<p>Someone changed the school Wi-Fi welcome page using a teacher&#x27;s account. Learn ls, cat, head, tail, grep, wc, cut, sort, uniq and sha256sum one at a time, and find the password guessing attack behind it.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-first&amp;runbook=first">Worked example</a><a href="../../../notebook.html?ref=rb-first--guided&amp;runbook=first--guided">Guided</a><a href="../../../notebook.html?ref=rb-first--solo&amp;runbook=first--solo">On your own</a></div>
+<p>Monday 2 Nov, 10:25. At <strong>Maple Grove School</strong> the Wi-Fi welcome page in the library is showing strange text. The change log says a teacher's account made the change, but the teacher says it wasn't him. You are the new student helper in the IT office, and this is your first case.</p>
+<p>You will use one Linux command at a time. Every step explains a command, lets you run it, and asks you one question about what you saw.</p>
+<h3>What you'll learn</h3>
+<ul>
+<li><code>ls</code>, <code>cat</code>, <code>head</code> and <code>tail</code> to look at evidence safely</li>
+<li><code>grep</code> and <code>wc -l</code> to find and count lines</li>
+<li><code>cut</code>, <code>sort</code> and <code>uniq -c</code> to turn a log into a ranking</li>
+<li><code>sha256sum</code> to fingerprint files and test passwords</li>
+<li><code>nmap</code>, <code>dig</code> and <code>curl</code> to look at the network</li>
+<li>How a password guessing attack shows up in a log</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Look before you touch: <code>ls</code></h2>
+<p><code>ls</code> lists the files in a folder. <code>ls -l</code> adds the size and date of each one. Investigators always start by seeing what they have.</p>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Run the cell below</li>
+</ul>
+<blockquote>
+<p>Hint: Count the names in the output of <code>ls</code>. <code>ls | wc -l</code> counts them for you.
+<strong>Question:</strong> How many files are in ~/case?</p>
+</blockquote>
+<pre><code>cd ~/case
+ls
+echo ---
+ls -l</code></pre>
+<p class="lab">Expected output</p><pre class="want">README.txt            common_passwords.txt  users.csv
+admin_changes.log     portal_hashes.txt     wifi_login.log
+---
+total 24
+-rw-r--r--    1 root     root           744 Nov  4 21:25 README.txt
+-rw-r--r--    1 root     root           211 Nov  4 21:25 admin_changes.log
+-rw-r--r--    1 root     root            89 Nov  4 21:25 common_passwords.txt
+-rw-r--r--    1 root     root          1914 Nov  4 21:25 portal_hashes.txt
+-rw-r--r--    1 root     root           459 Nov  4 21:25 users.csv
+-rw-r--r--    1 root     root          3194 Nov  4 21:25 wifi_login.log</pre>
+<h2>2. Read the ticket: <code>cat</code></h2>
+<p><code>cat FILE</code> prints a whole file. It is perfect for short files such as this ticket.</p>
+<ul>
+<li>&#9744; Read who reported the problem and what they saw</li>
+<li>&#9744; Note the two machines named at the bottom</li>
+</ul>
+<blockquote>
+<p>Hint: The time is on the second line of README.txt.
+<strong>Question:</strong> At what time (HH:MM) was the ticket opened?</p>
+</blockquote>
+<pre><code>cat README.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">MAPLE GROVE SCHOOL - IT OFFICE
+Ticket 2207, opened Monday 2 Nov 2026 at 10:25
+
+Reported by: Ms Okafor (Year 10 form tutor)
+&quot;The Wi-Fi welcome page in the library shows strange text instead of the
+school notices. Mr Patel says he hasn&#x27;t touched it, but the change log
+says it was his account.&quot;
+
+What we collected (the files in this folder):
+  wifi_login.log       every login to the Wi-Fi portal this morning
+  users.csv            who is who (students, teachers, office, IT)
+  admin_changes.log    changes made on the portal admin page
+  portal_hashes.txt    the portal&#x27;s password store (handle with care)
+  common_passwords.txt a list of the passwords people use most often
+
+Portal server: wifi.maplegrove.lan (10.10.0.20). Router: 10.10.0.1.</pre>
+<h2>3. The start and end of a log: <code>head</code> and <code>tail</code></h2>
+<p>Logs can be thousands of lines long. <code>head -n 5 FILE</code> shows the first 5 lines, <code>tail -n 5 FILE</code> the last 5. Each line of <code>wifi_login.log</code> is one login: the date, the time, OK or FAIL, the username and the address it came from.</p>
+<ul>
+<li>&#9744; Find when the log starts and when it ends</li>
+</ul>
+<blockquote>
+<p>Hint: The time is the second thing on each line.
+<strong>Question:</strong> At what time (HH:MM) is the first line of wifi_login.log?
+<strong>Question:</strong> At what time (HH:MM) is the last line?</p>
+</blockquote>
+<pre><code>head -n 5 wifi_login.log
+echo ...
+tail -n 5 wifi_login.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-02 07:55:31 OK user=pia.f src=10.10.0.116
+2026-11-02 08:04:31 OK user=ravi.j src=10.10.0.118
+2026-11-02 08:05:03 FAIL user=nia.c src=10.10.0.114
+2026-11-02 08:05:27 OK user=nia.c src=10.10.0.114
+2026-11-02 08:09:05 OK user=mo.h src=10.10.0.113
+...
+2026-11-02 10:17:30 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:42 OK user=mr.patel src=10.10.0.66
+2026-11-02 10:20:00 OK user=kofi.a src=10.10.0.111
+2026-11-02 10:21:07 OK user=hana.o src=10.10.0.108
+2026-11-02 10:21:08 OK user=theo.y src=10.10.0.120</pre>
+<h2>4. How big is it? <code>wc -l</code></h2>
+<p><code>wc -l FILE</code> counts the lines in a file. One line is one login, so this is the number of login attempts this morning.</p>
+<blockquote>
+<p>Hint: The number comes before the file name.
+<strong>Question:</strong> How many lines are in wifi_login.log?</p>
+</blockquote>
+<pre><code>wc -l wifi_login.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">61 wifi_login.log</pre>
+<h2>5. Find the failures: <code>grep</code></h2>
+<p><code>grep WORD FILE</code> prints only the lines that contain WORD. <code>grep -c WORD FILE</code> counts them instead. A few failed logins are normal (people mistype). Lots of them are not.</p>
+<ul>
+<li>&#9744; Look at the failed logins: do you see a pattern?</li>
+</ul>
+<blockquote>
+<p>Hint: Use <code>grep -c FAIL wifi_login.log</code> to count.
+<strong>Question:</strong> How many failed logins are in the log?</p>
+</blockquote>
+<pre><code>grep FAIL wifi_login.log
+echo ---
+grep -c FAIL wifi_login.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-02 08:05:03 FAIL user=nia.c src=10.10.0.114
+2026-11-02 09:21:02 FAIL user=ben.t src=10.10.0.102
+2026-11-02 09:43:10 FAIL user=ms.okafor src=10.10.0.41
+2026-11-02 10:14:02 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:10 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:22 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:31 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:40 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:47 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:57 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:09 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:16 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:26 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:34 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:46 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:58 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:07 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:16 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:27 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:37 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:45 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:55 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:02 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:10 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:20 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:30 FAIL user=mr.patel src=10.10.0.66
+---
+26</pre>
+<h2>6. Rank the addresses: <code>cut</code>, <code>sort</code>, <code>uniq -c</code></h2>
+<p>This is the most useful pattern in log work. Each command passes its output to the next with a pipe <code>|</code>:</p>
+<ol>
+<li><code>grep FAIL</code> keeps the failed lines</li>
+<li><code>cut -d' ' -f5</code> keeps the 5th field (fields are separated by spaces), which is <code>src=...</code></li>
+<li><code>sort</code> puts the same addresses next to each other</li>
+<li><code>uniq -c</code> counts each group</li>
+<li><code>sort -rn</code> puts the biggest number first</li>
+</ol>
+<ul>
+<li>&#9744; Run it, then change <code>-f5</code> to <code>-f4</code> to rank the usernames instead</li>
+</ul>
+<blockquote>
+<p>Hint: The top line is the address with the most failures.
+<strong>Question:</strong> Which address failed most often? (just the IP)</p>
+</blockquote>
+<pre><code>grep FAIL wifi_login.log | cut -d&#x27; &#x27; -f5 | sort | uniq -c | sort -rn
+echo ---
+grep FAIL wifi_login.log | cut -d&#x27; &#x27; -f4 | sort | uniq -c | sort -rn</code></pre>
+<p class="lab">Expected output</p><pre class="want">     23 src=10.10.0.66
+      1 src=10.10.0.41
+      1 src=10.10.0.114
+      1 src=10.10.0.102
+---
+     23 user=mr.patel
+      1 user=nia.c
+      1 user=ms.okafor
+      1 user=ben.t</pre>
+<h2>7. Follow one address</h2>
+<p>Now grep for that address alone. Many fails against one account, very fast, then one OK: that is a <strong>password guessing attack</strong> (brute force), and the last line is the moment it worked.</p>
+<ul>
+<li>&#9744; Which account was attacked?</li>
+<li>&#9744; How many guesses before it worked?</li>
+<li>&#9744; When did it work?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep src=10.10.0.66 wifi_login.log | grep -c FAIL</code> counts only the failures from that address.
+<strong>Question:</strong> How many times did 10.10.0.66 fail against mr.patel?
+<strong>Question:</strong> At what time (HH:MM) did the guess finally work?</p>
+</blockquote>
+<pre><code>grep src=10.10.0.66 wifi_login.log
+echo ---
+grep src=10.10.0.66 wifi_login.log | grep -c FAIL
+grep src=10.10.0.66 wifi_login.log | grep &#x27; OK &#x27;</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-02 10:14:02 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:10 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:22 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:31 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:40 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:47 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:14:57 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:09 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:16 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:26 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:34 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:46 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:15:58 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:07 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:16 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:27 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:37 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:45 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:16:55 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:02 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:10 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:20 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:30 FAIL user=mr.patel src=10.10.0.66
+2026-11-02 10:17:42 OK user=mr.patel src=10.10.0.66
+---
+23
+2026-11-02 10:17:42 OK user=mr.patel src=10.10.0.66</pre>
+<h2>8. Who is mr.patel? <code>cut</code> on a CSV file</h2>
+<p><code>users.csv</code> is a CSV file: commas separate the fields. <code>cut -d, -f1,2</code> keeps fields 1 and 2 (username and role).</p>
+<ul>
+<li>&#9744; Why does it matter that a teacher's account was taken, not a student's?</li>
+<li>&#9744; Read admin_changes.log: what did the attacker change, and from where?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep mr.patel users.csv | cut -d, -f2</code> prints just his role.
+<strong>Question:</strong> What role does mr.patel have?</p>
+</blockquote>
+<pre><code>grep mr.patel users.csv | cut -d, -f1,2
+echo ---
+cut -d, -f2 users.csv | sort | uniq -c
+echo ---
+cat admin_changes.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">mr.patel,teacher
+---
+      1 it
+      1 office
+      1 role
+     20 student
+      3 teacher
+---
+2026-10-30 15:02:10 user=mr.lewis src=10.10.0.42 changed notices.txt (half-term dates)
+2026-11-02 10:19:05 user=mr.patel src=10.10.0.66 changed banner.txt
+2026-11-02 10:19:40 user=mr.patel src=10.10.0.66 logout</pre>
+<h2>9. Fingerprints: <code>sha256sum</code></h2>
+<p><code>sha256sum FILE</code> prints a 64-character fingerprint (a <strong>hash</strong>). Change one letter in the file and the hash changes completely. Investigators hash evidence so they can prove later it was not changed.</p>
+<p>The portal stores a hash of each password instead of the password. But it uses plain SHA-256 with no salt, so anyone can hash a list of common passwords and look for a match. That is exactly what a guessing attack exploits.</p>
+<ul>
+<li>&#9744; Hash the evidence files</li>
+<li>&#9744; Hash each common password and look for it in <code>portal_hashes.txt</code></li>
+</ul>
+<blockquote>
+<p>Hint: <code>echo -n WORD | sha256sum</code> hashes a word. <code>-n</code> stops echo adding a newline, which would change the hash.
+Hint: The loop prints any username whose stored hash matches a common password.
+<strong>Question:</strong> Which common password is mr.patel using?
+<strong>Question:</strong> Which other account uses the same password?</p>
+</blockquote>
+<pre><code>sha256sum *.log *.csv *.txt
+echo ---
+for p in $(cat common_passwords.txt); do
+    h=$(echo -n &quot;$p&quot; | sha256sum | cut -d&#x27; &#x27; -f1)
+    grep &quot;$h&quot; portal_hashes.txt | while read user hash; do echo &quot;$user uses: $p&quot;; done
+done</code></pre>
+<p class="lab">Expected output</p><pre class="want">5ea7a6476f6ccc0374289b0ff138b4d2171bbfb3f13cedd0d8fdee055b5d871e  admin_changes.log
+1362591a494579c4d80c1e73d9137f18185bb5a87aae834b980870e875cdaac9  wifi_login.log
+3ba8e2dfb93002bb79b8f407e670442b9b6d15187c36fdaa837801182699f807  users.csv
+6de5d6fee500f7be4095392c71c3f077e97babf4c66255967514a509fa436b03  README.txt
+affe7b48507a8436a29d94bcaef87f3b09fedbd0035ca04a914193cd47897fd1  common_passwords.txt
+473bd7f0c01a1b47d274ce8bb28b2fb9d3d48a214a42ddbf40cb4b50f6d756c4  portal_hashes.txt
+---
+mr.patel uses: sunshine1
+jo.reception uses: sunshine1</pre>
+<h2>10. The network: <code>nmap</code>, <code>dig</code>, <code>curl</code></h2>
+<p>The network tools work on a recorded copy of the school network; nothing leaves your browser.</p>
+<ul>
+<li><code>nmap -sn 10.10.0.0/24</code> asks which machines are switched on</li>
+<li><code>dig +short NAME</code> turns a name into an address</li>
+<li>
+<p><code>curl URL</code> fetches a web page, like a browser without the pictures</p>
+</li>
+<li>
+<p>&#9744; Is the attacker's device (10.10.0.66) still on the network?</p>
+</li>
+<li>&#9744; Look at the Wi-Fi welcome page the attacker changed</li>
+</ul>
+<blockquote>
+<p>Hint: Count the <code>Nmap scan report</code> lines. 10.10.0.66 is not one of them: the device has left.
+<strong>Question:</strong> How many machines does nmap find up?
+<strong>Question:</strong> What address does wifi.maplegrove.lan point to?</p>
+</blockquote>
+<pre><code>nmap -sn 10.10.0.0/24
+echo ---
+dig +short wifi.maplegrove.lan
+echo ---
+curl -s http://wifi.maplegrove.lan/
+echo ---
+nmap -sV 10.10.0.20</code></pre>
+<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:25 UTC
+Nmap scan report for router.maplegrove.lan (10.10.0.1)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)
+Nmap scan report for wifi.maplegrove.lan (10.10.0.20)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:14 (QEMU virtual NIC)
+Nmap done: 256 IP addresses (2 hosts up) scanned in 4.84 seconds
+---
+10.10.0.20
+---
+&lt;!doctype html&gt;
+&lt;title&gt;Maple Grove Wi-Fi&lt;/title&gt;
+&lt;h1&gt;Maple Grove School Wi-Fi&lt;/h1&gt;
+&lt;p&gt;Sign in with your school username and password.&lt;/p&gt;
+&lt;p&gt;Today&#x27;s message: see &lt;a href=&quot;/banner.txt&quot;&gt;banner.txt&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Notices: &lt;a href=&quot;/notices.txt&quot;&gt;notices.txt&lt;/a&gt;&lt;/p&gt;
+---
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:25 UTC
+Nmap scan report for wifi.maplegrove.lan (10.10.0.20)
+Host is up (0.00042s latency).
+Not shown: 998 closed tcp ports (reset)
+PORT      STATE  SERVICE        VERSION
+22/tcp    open   ssh            OpenSSH 9.2p1 Debian 2+deb12u3 (protocol 2.0)
+80/tcp    open   http           nginx 1.22.1
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Nmap done: 1 IP address (1 host up) scanned in 3.47 seconds</pre>
+<h2>11. The changed banner (the flag)</h2>
+<p>The attacker replaced <code>banner.txt</code> with text that looks like nonsense. It ends in <code>=</code>, a sign of <strong>base64</strong>: a way to write any data with plain letters. <code>base64 -d</code> decodes it.</p>
+<ul>
+<li>&#9744; Fetch the banner and decode it</li>
+<li>&#9744; Submit the <code>aayat{...}</code> flag on the CTF board</li>
+</ul>
+<blockquote>
+<p>Hint: <code>curl -s URL | base64 -d</code> fetches and decodes in one line. Add <code>; echo</code> to get a clean new line.</p>
+</blockquote>
+<pre><code>curl -s http://wifi.maplegrove.lan/banner.txt
+echo ---
+curl -s http://wifi.maplegrove.lan/banner.txt | base64 -d; echo</code></pre>
+<p class="lab">Expected output</p><pre class="want">TWFwbGUgR3JvdmUgV2ktRmkgd2FzIGhlcmUuIEx1bmNoIHF1ZXVlIGNyZXcgc2F5cyBoaS4gYWF5YXR7b25lX2NvbW1hbmRfYXRfYV90aW1lfQ==
+---
+Maple Grove Wi-Fi was here. Lunch queue crew says hi. [flag hidden: run the lab to find it]</pre>
+<h2>12. Wrap up: contain, fix, learn</h2>
+<p>You have found what happened. Now think like the IT team.</p>
+<ul>
+<li>&#9744; <strong>Contain:</strong> reset mr.patel's and jo.reception's passwords today</li>
+<li>&#9744; <strong>Recover:</strong> put the real banner back from notices</li>
+<li>&#9744; <strong>Fix:</strong> lock an account for 15 minutes after 5 wrong passwords, and store passwords with a slow, salted hash (bcrypt or Argon2)</li>
+<li>&#9744; <strong>Learn:</strong> why did reusing one password on two accounts make this worse?</li>
+</ul>
+<p>Write a three-line report here: what happened, when, and what should change.</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Your answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attacker address</td>
+<td></td>
+</tr>
+<tr>
+<td>Account taken</td>
+<td></td>
+</tr>
+<tr>
+<td>Time it worked</td>
+<td></td>
+</tr>
+<tr>
+<td>What was changed</td>
+<td></td>
+</tr>
+</tbody>
+</table></main></body>
+</html>

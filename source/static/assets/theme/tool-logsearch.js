@@ -1,0 +1,74 @@
+(function (global) {
+  "use strict";
+  var SHOW = 200;
+
+  function pattern(q) {
+    try { return new RegExp(q, "i"); } catch (e) { return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); }
+  }
+  function linesOf(text) { return String(text).replace(/\r/g, "").replace(/\n$/, "").split("\n"); }
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+
+  function mount(el, ctx) {
+    var st = ctx.state || {}, saved = ctx.saved || {}, answer = st.a && typeof st.a === "object" ? st.a : null, files = {}, last = null;
+    el.classList.add("tl-box");
+    el.innerHTML = '<div class="tl-head"><b>Log search</b><small data-r="note"></small></div>' +
+      '<div class="tl-row"><label>File <select data-r="file"></select></label>' +
+      '<label class="tl-grow">Search <input data-r="q" spellcheck="false" autocomplete="off" placeholder="Text or a regular expression, for example fail|denied"></label>' +
+      '<button type="button" class="btn dark" data-r="go">Search</button>' +
+      (answer ? '<button type="button" class="btn" data-r="show">Show the recorded search</button>' : "") +
+      (ctx.record ? '<button type="button" class="btn" data-r="save" disabled>' + ctx.recordLabel + "</button>" : "") + "</div>" +
+      '<p class="tl-msg" data-r="msg" role="status"></p><pre class="tl-out" data-r="out" hidden></pre>';
+    function r(n) { return el.querySelector('[data-r="' + n + '"]'); }
+    r("q").value = saved.q != null ? saved.q : st.q || "";
+
+    function run() {
+      var name = r("file").value, q = r("q").value;
+      if (!q.trim()) { r("msg").textContent = "Type something to search for first."; return; }
+      if (!own(files, name)) return;
+      var re = pattern(q), all = linesOf(files[name]), hits = [];
+      all.forEach(function (l, i) { if (re.test(l)) hits.push((i + 1) + ": " + l); });
+      r("out").hidden = !hits.length;
+      r("out").textContent = hits.slice(0, SHOW).join("\n");
+      var text = hits.length + " of " + all.length + " lines match" + (hits.length > SHOW ? ", showing the first " + SHOW : "") + ".";
+      if (typeof st.n === "number") text += hits.length === st.n ? " Same count as the recorded search." : " The recorded search found " + st.n + ".";
+      r("msg").textContent = text;
+      last = { file: name, q: q, n: hits.length };
+      if (r("save")) r("save").disabled = false;
+      if (ctx.remember) ctx.remember({ file: name, q: q });
+    }
+
+    r("go").addEventListener("click", run);
+    r("q").addEventListener("input", function () { if (ctx.remember) ctx.remember({ file: r("file").value, q: r("q").value }); });
+    r("q").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); run(); } });
+    if (r("show")) r("show").addEventListener("click", function () { r("q").value = answer.q || ""; r("q").focus(); });
+    if (r("save")) r("save").addEventListener("click", function () {
+      if (!last) return;
+      ctx.record({ file: last.file, q: last.q, n: last.n, blank: ["q"] }, "Log search: " + last.q + " in " + last.file + " (" + last.n + " lines)");
+      r("msg").textContent = "Added.";
+      r("save").disabled = true;
+    });
+
+    r("note").textContent = "Loading the files…";
+    Promise.resolve(ctx.files()).then(function (fs) {
+      files = fs || {};
+      var names = Object.keys(files).sort();
+      if (!names.length) {
+        r("note").textContent = "";
+        r("msg").textContent = "There are no text files to search here yet.";
+        r("go").disabled = true;
+        return;
+      }
+      names.forEach(function (n) {
+        var o = document.createElement("option");
+        o.value = n;
+        o.textContent = n;
+        r("file").appendChild(o);
+      });
+      var want = saved.file || st.file;
+      r("file").value = want && own(files, want) ? want : names.filter(function (n) { return /\.log$/.test(n); })[0] || names[0];
+      r("note").textContent = names.length + (names.length === 1 ? " file" : " files");
+    }).catch(function () { r("note").textContent = ""; r("msg").textContent = "The files didn't load."; });
+  }
+
+  global.AayatTools.register({ id: "logsearch", title: "Log search", console: true, mount: mount });
+})(window);

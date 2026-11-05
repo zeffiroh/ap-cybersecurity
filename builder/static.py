@@ -2,7 +2,7 @@ import json
 
 from . import course as C
 from . import nav as N
-from . import seminars
+from . import levels, seminars
 from .paths import (ASSETS, CAPSTONE, CAPSTONE_SRC, LECTURES, LECTURES_SRC, SITE, STATIC_SRC, UNITS_SRC,
                     atom_dir, teacher_atom, topic_dir)
 from .util import emit, emit_bytes, rd
@@ -27,16 +27,27 @@ def tree(src_dir, dst_dir, skip=()):
             copy(p, dst_dir / p.relative_to(src_dir))
 
 
+def load_expected(path):
+    return json.loads(rd(path)) if path.exists() else {}
+
+
+def finish_case(man, expected):
+    man["template"] = levels.merge_expected(man["template"], expected)
+    man["levels"] = levels.publish(man)
+    man["guide"] = f"media/guides/{man['id']}/index.html"
+    return man
+
+
 def cases():
     src = STATIC_SRC / "assets" / "linux" / "cases"
     if not src.is_dir():
         return
-    skip = {"meta.json", "template.json", "manifest.json", "answers.json"}
+    skip = {"meta.json", "template.json", "manifest.json", "answers.json", "expected.json"}
     index = []
     for d in sorted(x for x in src.iterdir() if x.is_dir()):
         meta = dict(json.loads(rd(d / "meta.json")), id=d.name)
         files = sorted(p.relative_to(d).as_posix() for p in d.rglob("*") if p.is_file() and p.name not in skip)
-        man = dict(meta, files=files, template=json.loads(rd(d / "template.json")))
+        man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json"))), load_expected(d / "expected.json"))
         emit(ASSETS / "linux" / "cases" / d.name / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
         index.append(meta)
     for path in sorted(TEACHER_CASES.glob("*.json")):
@@ -50,11 +61,12 @@ def cases():
         names = sorted(bundle["files"])
         for name in names:
             emit(ASSETS / "linux" / "cases" / slug / name, bundle["files"][name])
-        man = dict(meta, files=names, template=bundle["template"])
+        man = finish_case(dict(meta, files=names, template=bundle["template"]), load_expected(TEACHER_CASES / "expected" / f"{path.stem}.json"))
         emit(ASSETS / "linux" / "cases" / slug / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
         index.append(meta)
     index.extend(seminars.publish())
     index.sort(key=lambda m: (m.get("order", 99), m["id"]))
+    levels.guide_index(index)
     emit(ASSETS / "linux" / "cases" / "index.json", json.dumps(index, ensure_ascii=False, indent=1) + "\n")
 
 

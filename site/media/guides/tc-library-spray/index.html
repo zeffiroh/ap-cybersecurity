@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Password spraying at the library portal guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Teacher case: authentication guide</p>
+<h1>Password spraying at the library portal</h1>
+<p class="meta">Beginner &middot; about 20 min</p>
+<p>Nobody was locked out, yet a library member&#x27;s account was taken over. Find the slow password spray, the one account it opened and what the attacker changed.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-tc-library-spray&amp;runbook=tc-library-spray">Worked example</a><a href="../../../notebook.html?ref=rb-tc-library-spray--guided&amp;runbook=tc-library-spray--guided">Guided</a><a href="../../../notebook.html?ref=rb-tc-library-spray--solo&amp;runbook=tc-library-spray--solo">On your own</a></div>
+<p>Friday 6 Nov, 09:02. A member of <strong>Riverside Public Library</strong> says her portal account was changed overnight. The portal locks an account after 5 wrong passwords, and nobody was locked out. So how did someone get in?</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>dig</code>, <code>whois</code>, <code>openssl</code> and more) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>The difference between brute force (many passwords, one account) and spraying (one password, many accounts)</li>
+<li>Why per-account lockout misses spraying</li>
+<li>Count with cut, sort and uniq to see the pattern</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash the evidence and read the ticket and the security settings</li>
+</ul>
+<blockquote>
+<p>Hint: The settings file says what the portal does about wrong passwords, and what it doesn't do.
+<strong>Question:</strong> After how many failed passwords does one account lock?</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l
+sha256sum *
+echo ---
+cat ticket.txt
+echo ---
+cat security_settings.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">total 20
+-rw-r--r--    1 root     root          6231 Nov  4 21:28 portal_auth.log
+-rw-r--r--    1 root     root           644 Nov  4 21:28 portal_sessions.log
+-rw-r--r--    1 root     root           363 Nov  4 21:28 security_settings.txt
+-rw-r--r--    1 root     root           176 Nov  4 21:28 ticket.txt
+2f1c57cef4976c295a033c66daee42e3d71b54235c5b1c7d8be816fdc8ac006c  portal_auth.log
+d88968d7df8f229188f15eac631dcd1ec6155461da289cf100396a73e1871838  portal_sessions.log
+4aadff2e65fef0c8a6ea894b11349d156d97c18a8a8463f9548b3233d355f990  security_settings.txt
+ef8a993b2167f3a65ae45d305a1bfc7bf6a736b41b8e2cbd2813f1aabeb871ac  ticket.txt
+---
+Ticket 5520, 06 Nov 2026 09:02
+Member k.osei phoned: &quot;My library name has changed to something strange and I got an email saying my email address was updated. I didn&#x27;t do it.&quot;
+---
+Riverside Public Library - member portal security settings (exported 06 Nov 2026)
+lockout: 5 failed passwords for one account within 15 minutes locks that account for 30 minutes
+per-address limit: none
+MFA: optional (2% of members use it)
+password rules: at least 8 characters, one capital, one number, one symbol
+password reuse check against breached lists: off</pre>
+<h2>2. Which address is guessing?</h2>
+<ul>
+<li>&#9744; Rank the failed logins by source address</li>
+<li>&#9744; For the top address, count how many different accounts it tried, and how many times per account</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep result=fail</code> then <code>grep -o 'src=[^ ]*'</code> pulls out the address. <code>sort | uniq -c | sort -rn</code> ranks them.
+<strong>Question:</strong> Which address failed most often?
+<strong>Question:</strong> How many different accounts did it try?
+<strong>Question:</strong> How many attempts did it make per account?</p>
+</blockquote>
+<pre><code>grep result=fail portal_auth.log | grep -o &#x27;src=[^ ]*&#x27; | sort | uniq -c | sort -rn | head -5
+echo ---
+grep src=203.0.113.50 portal_auth.log | grep -o &#x27;user=[^ ]*&#x27; | sort | uniq -c | sort -rn | head -3
+grep src=203.0.113.50 portal_auth.log | grep -o &#x27;user=[^ ]*&#x27; | sort -u | wc -l</code></pre>
+<p class="lab">Expected output</p><pre class="want">     39 src=203.0.113.50
+      5 src=198.51.100.77
+      2 src=198.51.100.60
+      1 src=198.51.100.93
+      1 src=198.51.100.61
+---
+      1 user=z.moss
+      1 user=y.ozturk
+      1 user=x.bell
+40</pre>
+<h2>3. Did it work?</h2>
+<p>Spraying tries one common password (here, one that fits the password rules) against every account, slowly, so no account ever reaches 5 failures.</p>
+<ul>
+<li>&#9744; Find the one success from the spraying address</li>
+<li>&#9744; Compare with d.park at 07:41: that is what normal lockout looks like</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep src=203.0.113.50 portal_auth.log | grep result=ok</code>
+<strong>Question:</strong> Which account did the sprayer get into?
+<strong>Question:</strong> At what time (HH:MM) did it get in?
+<strong>Question:</strong> Which account was locked out this morning?</p>
+</blockquote>
+<pre><code>grep src=203.0.113.50 portal_auth.log | grep result=ok
+echo ---
+grep -E &#x27;locked|d.park&#x27; portal_auth.log
+echo ---
+whois 203.0.113.50
+dig -x 203.0.113.50 +short</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-06T03:10:16Z portal login result=ok user=k.osei src=203.0.113.50 reason=-
+---
+2026-11-06T02:24:24Z portal login result=fail user=d.park src=203.0.113.50 reason=bad_password
+2026-11-06T07:41:01Z portal login result=fail user=d.park src=198.51.100.77 reason=bad_password
+2026-11-06T07:41:10Z portal login result=fail user=d.park src=198.51.100.77 reason=bad_password
+2026-11-06T07:41:13Z portal login result=fail user=d.park src=198.51.100.77 reason=bad_password
+2026-11-06T07:41:14Z portal login result=fail user=d.park src=198.51.100.77 reason=bad_password
+2026-11-06T07:41:44Z portal login result=fail user=d.park src=198.51.100.77 reason=bad_password
+2026-11-06T07:42:02Z portal login result=locked user=d.park src=198.51.100.77 reason=5_failures
+---
+% Lab whois record for 203.0.113.50
+
+NetRange: 203.0.113.0 - 203.0.113.255
+OrgName: Rent-a-Proxy (residential and VPS proxies by the hour)
+Abuse: abuse@rent-a-proxy.example
+node50.rent-a-proxy.example.</pre>
+<h2>4. What did they do with it?</h2>
+<ul>
+<li>&#9744; List every action in the attacker's session</li>
+<li>&#9744; Why change the email address? (Think about password resets.)</li>
+<li>&#9744; The new display name is the flag</li>
+</ul>
+<blockquote>
+<p>Hint: Grep the sessions log for the attacker's address or the session ID.</p>
+</blockquote>
+<pre><code>grep 203.0.113.50 portal_sessions.log</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-06T03:11:10Z session=s-88a1 user=k.osei src=203.0.113.50 action=view_account
+2026-11-06T03:12:31Z session=s-88a1 user=k.osei src=203.0.113.50 action=export_reading_history rows=412
+2026-11-06T03:14:02Z session=s-88a1 user=k.osei src=203.0.113.50 action=update_profile field=display_name value=[flag hidden: run the lab to find it]
+2026-11-06T03:15:40Z session=s-88a1 user=k.osei src=203.0.113.50 action=update_profile field=email value=k.osei.backup@freemail.example
+2026-11-06T03:17:05Z session=s-88a1 user=k.osei src=203.0.113.50 action=logout</pre>
+<h2>5. Contain, fix, learn</h2>
+<ul>
+<li>&#9744; Lock k.osei, restore her email address, reset her password, tell her what was seen (412 loans exported)</li>
+<li>&#9744; Block 203.0.113.50 and add a per-address limit (many accounts failing from one address)</li>
+<li>&#9744; Check new passwords against breached and common lists; offer MFA to everyone</li>
+<li>&#9744; Alert when one address fails on more than 10 different accounts in an hour</li>
+</ul>
+<blockquote>
+<p>Hint: Lockout per account stops brute force. Spraying needs a limit per address and a check on common passwords.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attacker address</td>
+<td></td>
+</tr>
+<tr>
+<td>Accounts tried</td>
+<td></td>
+</tr>
+<tr>
+<td>Account taken</td>
+<td></td>
+</tr>
+<tr>
+<td>What they changed</td>
+<td></td>
+</tr>
+</tbody>
+</table></main></body>
+</html>

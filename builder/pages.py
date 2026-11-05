@@ -410,7 +410,7 @@ def notebook_page():
             'Write <code>- [ ] step</code> in notes for a checklist, <code>&gt; Hint: text</code> for a hidden hint, and '
             '<code>?&gt; Question :: sha256:&lt;hash&gt;</code> for a question with a checked answer. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, ["runbook.css", "playbook.css"], ["linux-vm.js", "labkit.js", "playbook.js", "notebook.js"]))
+            + theme_assets(path.parent, ["runbook.css", "playbook.css", "tools.css"], ["linux-vm.js", "labkit.js", "tools.js", "tool-logsearch.js", "playbook.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 

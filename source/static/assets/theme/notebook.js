@@ -68,7 +68,12 @@
   }
 
   function mdHtml(src) {
-    var out = [], list = false, fence = null, table = null, para = [];
+    var out = [], list = false, fence = null, fenceTool = "", table = null, para = [];
+    function fenceHtml() {
+      var T = global.AayatTools, body = fence.join("\n");
+      if (fenceTool && T && T.get(fenceTool) && !space && T.parse(body)) return '<div class="tool-step" data-tool="' + esc(fenceTool) + '" data-state="' + esc(body) + '"></div>';
+      return '<pre class="nb-pre">' + esc(body) + "</pre>";
+    }
     function flushPara() { if (para.length) { out.push("<p>" + para.join(" ") + "</p>"); para = []; } }
     function flushList() { if (list) { out.push("</ul>"); list = false; } }
     function flushTable() {
@@ -84,11 +89,12 @@
     }
     String(src || "").split("\n").forEach(function (line, n) {
       if (fence) {
-        if (/^\s*```/.test(line)) { out.push('<pre class="nb-pre">' + esc(fence.join("\n")) + "</pre>"); fence = null; }
+        if (/^\s*```/.test(line)) { out.push(fenceHtml()); fence = null; }
         else fence.push(line);
         return;
       }
-      if (/^\s*```/.test(line)) { flushPara(); flushList(); flushTable(); fence = []; return; }
+      var open = /^\s*```(?:tool ([a-z0-9-]+)\s*$)?/.exec(line);
+      if (open) { flushPara(); flushList(); flushTable(); fence = []; fenceTool = open[1] || ""; return; }
       var g = K() && K().guideLine(line);
       if (g) { flushPara(); flushList(); flushTable(); out.push(g.hint !== undefined ? K().hintHtml(g.hint, gst()) : K().askHtml(g.ask, g.hash, gst())); return; }
       var bq = /^\s*>\s?(.*)$/.exec(line);
@@ -114,7 +120,7 @@
       else if (l.trim()) para.push(l);
       else flushPara();
     });
-    if (fence) out.push('<pre class="nb-pre">' + esc(fence.join("\n")) + "</pre>");
+    if (fence) { fenceTool = ""; out.push(fenceHtml()); }
     flushPara(); flushList(); flushTable();
     return out.join("");
   }
@@ -456,6 +462,16 @@
     return cm;
   }
 
+  function norm(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
+  function matchText(c) {
+    if (!c.e || !c.o) return "";
+    if (norm(c.o) === norm(c.e)) return "&#10003; Your output matches";
+    var want = c.e.split("\n").map(norm).filter(Boolean), have = {};
+    c.o.split("\n").forEach(function (l) { have[norm(l)] = 1; });
+    var hit = want.filter(function (l) { return have[l]; }).length;
+    return want.length && hit / want.length >= 0.6 ? "Close: dates, times or order can differ" : "Your output differs. Compare the two";
+  }
+
   function draw() {
     var box = $("nb-cells");
     box.innerHTML = nb.cells.map(function (c, i) {
@@ -470,6 +486,8 @@
           : '<div class="nb-view">' + mdHtml(c.s) + "</div>") +
         (sh ? '<div class="rb-explain rb-cellex" hidden></div>' : "") +
         (code ? '<pre class="nb-out"' + (c.o ? "" : " hidden") + ">" + esc(c.o || "") + "</pre>" : "") +
+        (code && c.a && norm(c.s) !== norm(c.a) ? '<div class="rb-reveal"><button type="button" class="btn" data-show>Show the recorded command</button></div>' : "") +
+        (code && c.e ? '<details class="rb-want"><summary>' + (c.r ? "Recorded on a real system" : "Expected output") + ' <span class="rb-match">' + matchText(c) + '</span></summary><pre>' + esc(c.e) + "</pre></details>" : "") +
         (sh ? '<div class="rb-tip"' + (tipFor(c) ? "" : " hidden") + ">" + tipFor(c) + "</div>" : "") + "</section>";
     }).join("") || '<p class="nb-empty">Empty notebook. Add notes or code below.</p>';
     box.querySelectorAll(".nb-cell").forEach(function (el) {
@@ -510,6 +528,8 @@
       el.querySelector("[data-down]").addEventListener("click", function () { if (i < nb.cells.length - 1) ops.move(i, 1); });
       var r = el.querySelector("[data-run]");
       if (r) r.addEventListener("click", function () { if (c.t === "sh" && shCell === i) stopSh(); else run(i); });
+      var sw = el.querySelector("[data-show]");
+      if (sw) sw.addEventListener("click", function () { c.s = c.a; draw(); save(); });
       var vw = el.querySelector("[data-view]");
       if (vw) vw.addEventListener("click", function () { c.edit = !c.edit; draw(); });
     });
@@ -680,6 +700,16 @@
     a.click();
   }
 
+  function levelBar(m) {
+    if (!m.levels) return "";
+    var names = { worked: "Worked example", guided: "Guided", solo: "On your own" }, cur = m.supportLevel || "worked", stamp = Date.now().toString(36);
+    var links = Object.keys(names).map(function (k) {
+      return k === cur ? '<b class="rb-lvl on">' + names[k] + "</b>" : '<a class="rb-lvl" href="?ref=rb-' + stamp + "&runbook=" + encodeURIComponent(m.levels[k]) + '">' + names[k] + "</a>";
+    }).join("");
+    return '<p class="rb-levels"><span>Support level</span>' + links + (m.guide ? ' <a class="rb-lvl" href="' + esc(m.guide) + '" target="_blank" rel="noopener">Printable guide</a>' : "") +
+      (m.replay ? ' <a class="rb-lvl" href="replay.html?case=' + encodeURIComponent(m.base || m.id) + '" target="_blank" rel="noopener">Watch the recording</a>' : "") + "</p>";
+  }
+
   function briefHtml(m) {
     var files = (m.files || []).filter(function (f) { return /^case\//.test(f); }).map(function (f) { return f.slice(5); });
     var tools = (m.tools || []).map(function (t) {
@@ -689,7 +719,7 @@
     var units = (m.units || []).length ? ((m.units.length > 1 ? "Units " : "Unit ") + m.units.join(" &amp; ")) : "";
     return '<summary><span class="rb-bk">' + esc(m.kicker || "Incident") + (m.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
       "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units].filter(Boolean).join(" &middot; ") + "</span></summary>" +
-      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" +
+      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + levelBar(m) +
       '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li><li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>' +
       "<li><b>Tick</b> the checklist and answer the questions. Stuck? Open a hint.</li><li><b>Next step</b> takes you on. Your progress saves with this notebook.</li></ol>" +
       (files.length ? '<h3>Evidence in <code>~/case</code></h3><div class="rb-files">' + files.map(function (f) { return "<code>" + esc(f) + "</code>"; }).join("") + "</div>" : "") +
@@ -787,6 +817,8 @@
     if (PB()) PB().ran(i, c);
     if (m) m.textContent = ran(c);
     if (c.t === "sh") showTip(i, c);
+    var mt = document.querySelector('.nb-cell[data-i="' + i + '"] .rb-match');
+    if (mt) mt.innerHTML = matchText(c);
     status("Ran cell " + (i + 1) + (code ? " (exit " + code + ")" : "") + ".");
     save();
     rail();
@@ -902,7 +934,7 @@
         shCell = i;
         var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
         if (b) b.innerHTML = "&#9632; Stop";
-        return V.shell(c.s);
+        return V.shell(c.r && norm(c.s) === norm(c.a) ? "aayat-replay --id " + c.r : c.s);
       }).then(function (r) {
         shCell = -1;
         var b = document.querySelector('.nb-cell[data-i="' + i + '"] [data-run]');
@@ -1084,7 +1116,13 @@
         global.AayatVM.manifest(want).then(function (m) {
           nb.case = m.id;
           nb.title = (m.titlePrefix || "Incident runbook: " + m.title) + ", " + new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
-          nb.cells = m.template.map(function (c) { return { t: c.t, s: c.s }; });
+          nb.cells = m.template.map(function (c) {
+            var o = { t: c.t, s: c.s };
+            if (c.e !== undefined) o.e = c.e;
+            if (c.r) o.r = c.r;
+            if (c.a) o.a = c.a;
+            return o;
+          });
           gst().started = new Date().toISOString();
           local("case_" + m.id, ref);
           $("nb-title").value = nb.title;

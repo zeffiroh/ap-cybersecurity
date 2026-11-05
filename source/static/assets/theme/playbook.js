@@ -29,6 +29,7 @@
     if (!n.pb) n.pb = { notes: [], log: [] };
     if (!n.pb.notes) n.pb.notes = [];
     if (!n.pb.log) n.pb.log = [];
+    if (!n.pb.tools) n.pb.tools = {};
     return n.pb;
   }
   function allScripts() { return BUILTIN.concat(mine); }
@@ -115,8 +116,54 @@
     });
   }
 
+  function toolSteps() {
+    var T = global.AayatTools;
+    if (!T) return;
+    document.querySelectorAll("#nb-cells .tool-step:not([data-on])").forEach(function (el, n) {
+      var cell = el.closest(".nb-cell"), c = cell && H.nb().cells[+cell.getAttribute("data-i")], def = T.get(el.getAttribute("data-tool"));
+      if (!c || !def) return;
+      el.setAttribute("data-on", "");
+      var all = cell.querySelectorAll(".tool-step"), key = keyOf(c) + ":" + Array.prototype.indexOf.call(all, el);
+      def.mount(el, {
+        state: T.parse(el.getAttribute("data-state")) || {},
+        saved: pb().tools[key] || null,
+        files: loadFiles,
+        remember: function (v) { pb().tools[key] = v; H.save(); }
+      });
+    });
+  }
+  function consoleTools() {
+    var T = global.AayatTools;
+    if (!T) return;
+    var before = dock.querySelector('[data-tab="runs"]');
+    T.list().filter(function (d) { return d.console; }).forEach(function (def) {
+      var k = "tool-" + def.id, keep = null;
+      PANES[k] = function (p) {
+        if (p.getAttribute("data-on")) return;
+        p.setAttribute("data-on", "");
+        def.mount(p, {
+          state: {},
+          saved: keep,
+          files: loadFiles,
+          remember: function (v) { keep = v; },
+          recordLabel: "Add to notebook",
+          record: function (state, text) {
+            H.nb().cells.push({ t: "md", s: text + "\n\n" + T.fence(def.id, state), id: uid() });
+            H.save();
+            H.redraw();
+          }
+        });
+      };
+      var b = document.createElement("button");
+      b.setAttribute("role", "tab");
+      b.setAttribute("data-tab", k);
+      b.textContent = def.title;
+      before.parentNode.insertBefore(b, before);
+    });
+  }
   function decorate() {
     if (!H || !dock) return;
+    toolSteps();
     document.querySelectorAll("#nb-cells .nb-code").forEach(function (el) {
       var c = H.nb().cells[+el.getAttribute("data-i")];
       if (!c) return;
@@ -933,6 +980,8 @@
     dock.id = "pb-dock";
     dock.className = "pb-dock";
     dock.setAttribute("aria-label", "Analyst console");
+    var toolTabs = global.AayatTools ? global.AayatTools.list().filter(function (d) { return d.console; }) : [];
+    toolTabs.forEach(function (d) { PANES["tool-" + d.id] = PANES["tool-" + d.id] || function () {}; });
     dock.innerHTML = '<div id="pb-drag" class="pb-drag" role="separator" aria-orientation="horizontal" aria-label="Resize the console" tabindex="0"></div>' +
       '<div class="pb-bar"><div class="pb-tabs" role="tablist">' +
       '<button role="tab" data-tab="term">Terminal</button><button role="tab" data-tab="tools">Toolkit</button><button role="tab" data-tab="logs">Logs</button>' +
@@ -941,6 +990,7 @@
       '<div class="pb-body">' + Object.keys(PANES).map(function (k) { return '<div class="pb-pane" id="pb-p-' + k + '" role="tabpanel" hidden></div>'; }).join("") + "</div>";
     document.body.appendChild(dock);
     document.body.classList.add("pb-has-dock");
+    consoleTools();
     dock.querySelectorAll("[data-tab]").forEach(function (b) {
       b.addEventListener("click", function () {
         var k = b.getAttribute("data-tab");

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who changed the grades? guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Teacher case: insider and access control guide</p>
+<h1>Who changed the grades?</h1>
+<p class="meta">Beginner &middot; about 30 min</p>
+<p>Grades changed under a teacher&#x27;s name, in subjects he doesn&#x27;t teach, from a student lab PC. Use the audit log, sign-in records and lab logins to find out how, and fix the access control.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-tc-grades&amp;runbook=tc-grades">Worked example</a><a href="../../../notebook.html?ref=rb-tc-grades--guided&amp;runbook=tc-grades--guided">Guided</a><a href="../../../notebook.html?ref=rb-tc-grades--solo&amp;runbook=tc-grades--solo">On your own</a></div>
+<p>Tuesday 10 Nov. At <strong>Westbrook High</strong>, a Chemistry teacher says grades were changed under his name in subjects he doesn't even teach. The audit log agrees it was his account. Was it him, or someone using his access?</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>dig</code>, <code>whois</code>, <code>openssl</code> and more) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>Use an audit log to answer who, what, when and from where</li>
+<li>Tie an account to a person with a second source (lab logins)</li>
+<li>Spot access control failures: no least privilege, no approval, remember-me on shared PCs</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash the evidence, read the complaint and the role rules</li>
+</ul>
+<blockquote>
+<p>Hint: roles.txt says what a teacher may change. Compare it with what t.wallace teaches.
+<strong>Question:</strong> Which subject does t.wallace teach?</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l
+sha256sum *
+echo ---
+cat complaint.txt
+echo ---
+cat roles.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">total 20
+-rw-r--r--    1 root     root           225 Nov  4 21:28 complaint.txt
+-rw-r--r--    1 root     root           740 Nov  4 21:28 grade_audit.csv
+-rw-r--r--    1 root     root           361 Nov  4 21:28 lab_logins.csv
+-rw-r--r--    1 root     root           510 Nov  4 21:28 roles.txt
+-rw-r--r--    1 root     root           588 Nov  4 21:28 sso.log
+0b0715d9371e323742a4f33ddf59dde35f7aef5d229f1090c8ea97890ca9fadf  complaint.txt
+90abb6d5524697566b5ad92bd414abd6fecfdd58a5873905f08da2af7d3bdc13  grade_audit.csv
+b735e8b9e2ee70da91af4619d1e1528775c687601ee859310610b11e5b14ff70  lab_logins.csv
+45724d93b6bbaa120ff31ef3dac6c117dc38cd68fc4285ae3249c761468ae2db  roles.txt
+bf2edff2e35c09da00d56946eadec88cbf9e443b7d6baeb5dfb4f359bf67daca  sso.log
+---
+From: t.wallace (Chemistry)
+Date: Tue 10 Nov 2026 08:15
+A parent emailed to say S. Harper&#x27;s report shows an A in Maths and Physics. I only teach Chemistry and I gave S. Harper a D. I did not make these changes. Please check.
+---
+Westbrook High - grade system roles (excerpt)
+teacher: view and change grades for their own classes; no approval needed for any change
+head_of_year: view all grades in their year
+registrar: view and change all grades; changes after report day need head teacher approval
+remember-me: allowed on all school computers, token valid 7 days
+MFA: required on staff laptops only
+lab PCs: one shared browser profile for every user (kiosk image), so saved sign-ins stay after logoff
+t.wallace classes: Chemistry Year 11</pre>
+<h2>2. What changed, and from where?</h2>
+<ul>
+<li>&#9744; List every change made by t.wallace with its source address</li>
+<li>&#9744; Which changes came from a machine that isn't his laptop?</li>
+<li>&#9744; Which of those are outside his own subject?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>cut -d, -f1-7</code> hides the comment column. <code>grep 10.80.3.27</code> keeps only the changes from the lab PC.
+<strong>Question:</strong> From which IP address were the suspicious changes made?
+<strong>Question:</strong> How many grades were changed from that address?
+<strong>Question:</strong> Whose grades were changed the most? (username)</p>
+</blockquote>
+<pre><code>grep t.wallace grade_audit.csv | cut -d, -f1-7
+echo ---
+grep 10.80.3.27 grade_audit.csv | cut -d, -f4 | sort | uniq -c | sort -rn
+echo ---
+dig -x 10.80.3.27 +short</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-09 08:22:10,t.wallace,10.80.1.15,m.dunn,Chemistry,B,B+
+2026-11-09 08:24:51,t.wallace,10.80.1.15,a.price,Chemistry,C,C+
+2026-11-09 12:43:02,t.wallace,10.80.3.27,s.harper,Chemistry,D,A
+2026-11-09 12:43:40,t.wallace,10.80.3.27,s.harper,Physics,C-,A-
+2026-11-09 12:44:15,t.wallace,10.80.3.27,s.harper,Biology,D+,B+
+2026-11-09 12:45:01,t.wallace,10.80.3.27,j.cole,Chemistry,E,B
+2026-11-09 12:46:30,t.wallace,10.80.3.27,s.harper,Maths,C,A
+2026-11-09 15:30:12,t.wallace,10.80.1.15,k.ames,Chemistry,B,B
+---
+      4 s.harper
+      1 j.cole
+---
+lab3-pc27.westbrook.lan.</pre>
+<h2>3. How did his account get in?</h2>
+<ul>
+<li>&#9744; Find his sign-ins on lab3-pc27. Which method did the 12:41 sign-in use?</li>
+<li>&#9744; Why did no password or MFA prompt appear?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>remember_me=yes</code> at 09:05 saved a token in the browser for 7 days. Lab PCs share one browser profile (roles.txt), so at 12:41 the next person's browser used it.
+<strong>Question:</strong> Which sign-in method was used at 12:41?</p>
+</blockquote>
+<pre><code>grep t.wallace sso.log
+echo ---
+grep -i remember roles.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-09T08:05:40Z user=t.wallace src=10.80.1.15 host=staff-lt15 method=password+mfa result=ok
+2026-11-09T09:05:12Z user=t.wallace src=10.80.3.27 host=lab3-pc27 method=password result=ok remember_me=yes
+2026-11-09T12:41:03Z user=t.wallace src=10.80.3.27 host=lab3-pc27 method=remember_me_token result=ok
+2026-11-09T12:47:20Z user=t.wallace src=10.80.3.27 host=lab3-pc27 method=logout result=ok
+2026-11-09T15:29:50Z user=t.wallace src=10.80.1.15 host=staff-lt15 method=password+mfa result=ok
+---
+remember-me: allowed on all school computers, token valid 7 days</pre>
+<h2>4. Who was at the keyboard?</h2>
+<p>An account is not a person. Use a second source to see who was at lab3-pc27 at 12:41.</p>
+<ul>
+<li>&#9744; Who logged on to lab3-pc27 around 12:41?</li>
+<li>&#9744; One change has a comment that looks like base64. Decode it: it is the flag.</li>
+<li>&#9744; Facts, not guesses: write what the evidence shows, and what it doesn't (it doesn't prove who typed).</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -o '[A-Za-z0-9+/=]\{20,\}$' grade_audit.csv | base64 -d</code> finds a long base64 comment and decodes it.
+<strong>Question:</strong> Which user was logged on to lab3-pc27 at 12:41?</p>
+</blockquote>
+<pre><code>awk -F, &#x27;$2 == &quot;lab3-pc27&quot;&#x27; lab_logins.csv
+echo ---
+grep -o &#x27;[A-Za-z0-9+/=]\{20,\}$&#x27; grade_audit.csv | base64 -d; echo</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-09 09:00:30,lab3-pc27,10.80.3.27,t.wallace,logon
+2026-11-09 09:52:11,lab3-pc27,10.80.3.27,t.wallace,logoff
+2026-11-09 12:30:44,lab3-pc27,10.80.3.27,s.harper,logon
+2026-11-09 13:05:09,lab3-pc27,10.80.3.27,s.harper,logoff
+---
+[flag hidden: run the lab to find it]</pre>
+<pre><code>import csv
+
+ev = []
+for r in csv.DictReader(open(&quot;case/lab_logins.csv&quot;)):
+    if r[&quot;host&quot;] == &quot;lab3-pc27&quot;:
+        ev.append((r[&quot;time&quot;][11:19], &quot;lab&quot;, r[&quot;user&quot;] + &quot; &quot; + r[&quot;event&quot;]))
+for line in open(&quot;case/sso.log&quot;):
+    if &quot;lab3-pc27&quot; in line:
+        f = dict(x.split(&quot;=&quot;, 1) for x in line.split()[1:])
+        ev.append((line[11:19], &quot;sso&quot;, f[&quot;user&quot;] + &quot; &quot; + f[&quot;method&quot;]))
+for r in csv.DictReader(open(&quot;case/grade_audit.csv&quot;)):
+    if r[&quot;source_ip&quot;] == &quot;10.80.3.27&quot;:
+        ev.append((r[&quot;time&quot;][11:19], &quot;grade&quot;, r[&quot;student&quot;] + &quot; &quot; + r[&quot;course&quot;] + &quot; &quot; + r[&quot;old&quot;] + &quot; -&gt; &quot; + r[&quot;new&quot;]))
+for t, src, what in sorted(ev):
+    print(t, src.ljust(6), what)</code></pre>
+<h2>5. Fix the access control</h2>
+<ul>
+<li>&#9744; Restore the five grades from the audit log; tell the head teacher, not the student first (school policy and fairness)</li>
+<li>&#9744; Least privilege: a teacher can only change grades in classes they teach</li>
+<li>&#9744; Separation of duties: big changes (two grades or more) need a second person to approve</li>
+<li>&#9744; No remember-me on shared lab PCs; sessions end at logoff; MFA for every grade change</li>
+<li>&#9744; Alert when grades change from a student lab address</li>
+</ul>
+<blockquote>
+<p>Hint: Which single fix would have blocked the Maths, Physics and Biology changes even with his token?</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Changes and times</td>
+<td></td>
+</tr>
+<tr>
+<td>Machine used</td>
+<td></td>
+</tr>
+<tr>
+<td>Who was logged on there</td>
+<td></td>
+</tr>
+<tr>
+<td>Control failures</td>
+<td></td>
+</tr>
+</tbody>
+</table></main></body>
+</html>

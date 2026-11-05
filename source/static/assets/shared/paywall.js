@@ -251,7 +251,8 @@
   function ribbon() {
     try { if (sessionStorage.getItem("pw-ribbon-off")) return; } catch (e) {}
     var b = bar(/^notebook\.html/.test(path || "") ? '<span>Notes and Python are free here. Linux cells and runbooks come with Labs.</span>' +
-      '<a href="' + root + 'store.html#labs">See Labs &rarr;</a>' : '<span>This part is free. The rest of the course unlocks with one payment.</span>' +
+      '<a href="' + root + 'store.html#labs">See Labs &rarr;</a>' : /^seminars\.html/.test(path || "") ? '<span>Unlock one seminar with tickets, or subscribe to all of them.</span>' +
+      '<a href="' + root + 'store.html#seminars">See the options &rarr;</a>' : '<span>This part is free. The rest of the course unlocks with one payment.</span>' +
       '<a href="' + unlockUrl() + '">Unlock the full course &rarr;</a>', "pw-ribbon");
     b.querySelector(".pw-x").addEventListener("click", function () {
       b.remove();

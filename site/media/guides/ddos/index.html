@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exam day outage guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Denial of service guide</p>
+<h1>Exam day outage</h1>
+<p class="meta">Beginner &middot; about 45 min</p>
+<p>Five minutes into an online exam, the school&#x27;s portal stops answering, and an extortion email arrives. Tell real students from attack traffic, name the three kinds of flood, and choose how to get the exam back.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-ddos&amp;runbook=ddos">Worked example</a><a href="../../../notebook.html?ref=rb-ddos--guided&amp;runbook=ddos--guided">Guided</a><a href="../../../notebook.html?ref=rb-ddos--solo&amp;runbook=ddos--solo">On your own</a></div>
+<p>09:15, Monday 9 Nov. <strong>Northfield Academy's</strong> online exam portal has been down since 09:07. 312 students were five minutes into their CS paper. An email arrived at 09:12 demanding money. You lead the response.</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>Tell a flash crowd from a denial of service attack</li>
+<li>Name volumetric, protocol and application floods from evidence</li>
+<li>Count attack sources with sort and uniq</li>
+<li>Choose a response that brings real users back</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash the evidence</li>
+<li>&#9744; When exactly did the portal slow down, and when did it stop?</li>
+</ul>
+<blockquote>
+<p>Hint: Read uptime.log line by line. Slow comes before down: watch the response time grow before the first error.
+<strong>Question:</strong> At what time (HH:MM) did the monitor first get a 503?</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l
+sha256sum *
+echo ---
+cat uptime.log
+echo ---
+curl -I http://exam.northfield.example/
+ping -c 3 exam.northfield.example
+traceroute exam.northfield.example
+nslookup exam.northfield.example</code></pre>
+<p class="lab">Expected output</p><pre class="want">total 124
+-rw-r--r--    1 root     root         92447 Nov  4 21:26 access.log
+-rw-r--r--    1 root     root          4880 Nov  4 21:26 capture.pcap
+-rw-r--r--    1 root     root           261 Nov  4 21:26 exam_schedule.txt
+-rw-r--r--    1 root     root           443 Nov  4 21:26 extortion.eml
+-rw-r--r--    1 root     root           626 Nov  4 21:26 fw_stats.txt
+-rw-r--r--    1 root     root           497 Nov  4 21:26 isp_ticket.txt
+-rw-r--r--    1 root     root           314 Nov  4 21:26 ss_summary.txt
+-rw-r--r--    1 root     root          1406 Nov  4 21:26 uptime.log
+65392aa98a5549bda41d97e7dbec2c7acae63a8aac074c322ba1e310a9a95995  access.log
+2c04b7e06849d2db0e0cb0bacaee6a86f77b29e837f3287eeb77c94b3c4a5e3b  capture.pcap
+8a8c6d6738d6c659e18c46d8655894f2cd4f14b057368bcdaaa7fb00935904f3  exam_schedule.txt
+fbfa48035161bb66668d2186fa10610a76e5bed036a04fbc7830a5e07031924f  extortion.eml
+87d91d1fecd95bb0c5640a9663e27736072fad2b83bd67cab0f9db8fa7927bd6  fw_stats.txt
+f7ee324829256fd9d966521aed0cdb20302148eeaad9d1c2aa3319615022e1e3  isp_ticket.txt
+36274a5f8c9262fe7bbc88e2fc5619a1da754c3dfba06c882b748ae739e41caa  ss_summary.txt
+21532936c5e95960e81336e3c225c3b09091fceb5f1a80437a5618832bfbf0fa  uptime.log
+---
+2026-11-09 08:55 https://exam.northfield.example/  200 OK  110 ms
+2026-11-09 08:56 https://exam.northfield.example/  200 OK  114 ms
+2026-11-09 08:57 https://exam.northfield.example/  200 OK  118 ms
+2026-11-09 08:58 https://exam.northfield.example/  200 OK  122 ms
+2026-11-09 08:59 https://exam.northfield.example/  200 OK  126 ms
+2026-11-09 09:00 https://exam.northfield.example/  200 OK  130 ms
+2026-11-09 09:01 https://exam.northfield.example/  200 OK  134 ms
+2026-11-09 09:02 https://exam.northfield.example/  200 OK  138 ms
+2026-11-09 09:03 https://exam.northfield.example/  200 OK  142 ms
+2026-11-09 09:04 https://exam.northfield.example/  200 OK  2400 ms
+2026-11-09 09:05 https://exam.northfield.example/  503 Service Unavailable  -
+2026-11-09 09:06 https://exam.northfield.example/  503 Service Unavailable  -
+2026-11-09 09:07 https://exam.northfield.example/  503 Service Unavailable  -
+2026-11-09 09:08 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:09 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:10 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:11 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:12 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:13 https://exam.northfield.example/  timeout after 30 s  -
+2026-11-09 09:14 https://exam.northfield.example/  timeout after 30 s  -
+---
+HTTP/1.1 503 Service Unavailable
+Server: nginx/1.24.0
+Date: Wed, 04 Nov 2026 21:26:10 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 178
+Connection: keep-alive
+PING exam.northfield.example (192.0.2.80): 56 data bytes
+64 bytes from 192.0.2.80: seq=0 ttl=52 time=43.988 ms
+64 bytes from 192.0.2.80: seq=1 ttl=52 time=45.294 ms
+64 bytes from 192.0.2.80: seq=2 ttl=52 time=51.780 ms
+
+--- exam.northfield.example ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 42.000/45.360/51.240 ms
+traceroute to exam.northfield.example (192.0.2.80), 30 hops max, 46 byte packets
+ 1  10.50.0.1 (10.50.0.1)  0.431 ms  0.412 ms  0.490 ms
+ 2  edge1.isp.example (100.64.12.1)  6.500 ms  6.951 ms  7.415 ms
+ 3  core3.isp.example (100.64.0.9)  10.941 ms  10.497 ms  10.051 ms
+ 4  ix-peer.transit.example (100.64.250.4)  19.720 ms  21.108 ms  20.213 ms
+ 5  border.hosting.example (100.65.1.1)  44.232 ms  37.920 ms  40.675 ms
+ 6  exam.northfield.example (192.0.2.80)  51.892 ms  49.811 ms  47.717 ms
+Server:		10.50.0.1
+Address:	10.50.0.1#53
+
+Non-authoritative answer:
+Name:	exam.northfield.example
+Address: 192.0.2.80</pre>
+<h2>2. Verify: is this real?</h2>
+<p>Alerts are often wrong. Before you wake anyone up, decide whether this is a <strong>true positive</strong>.</p>
+<ul>
+<li>&#9744; What exactly raised the alarm, and when?</li>
+<li>&#9744; Name two pieces of evidence that prove something bad really happened</li>
+<li>&#9744; What harmless explanation would make this a false positive? Can you rule it out?</li>
+<li>&#9744; Decision: true positive / false positive (write it here)</li>
+</ul>
+<blockquote>
+<p>Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.
+<strong>Question:</strong> How many SYN-RECV connections did exam01 have at 09:06?</p>
+</blockquote>
+<h2>3. Busy, or under attack?</h2>
+<p>Exams start at 09:00, so some extra traffic is expected (a <em>flash crowd</em>). Prove it is more than that.</p>
+<ul>
+<li>&#9744; How many requests come from students, and how many from everything else?</li>
+<li>&#9744; What do real students ask for that the attack traffic never does?</li>
+</ul>
+<blockquote>
+<p>Hint: Real students load the exam pages. Compare the paths the flood requests with the paths everyone else requests.
+<strong>Question:</strong> How many requests are in access.log?
+<strong>Question:</strong> Which path under /exam/ do students use to save their answers?</p>
+</blockquote>
+<pre><code>from collections import Counter
+import re
+
+rows = []
+for line in open(&quot;case/access.log&quot;):
+    m = re.match(r&#x27;(\S+) .*?\[(.+?)\] &quot;(\S+) (\S+)[^&quot;]*&quot; (\d+) \d+ &quot;[^&quot;]*&quot; &quot;([^&quot;]*)&quot;&#x27;, line)
+    if m:
+        rows.append(m.groups())
+print(len(rows), &quot;requests&quot;)
+paths = Counter(r[3].split(&quot;?&quot;)[0] for r in rows)
+print(&quot;by path:&quot;, paths.most_common())
+agents = Counter(r[5] for r in rows)
+for ua, n in agents.most_common():
+    print(str(n).rjust(4), ua)</code></pre>
+<h2>4. Three kinds of flood</h2>
+<p>DDoS attacks hit different layers. Use the firewall counters and the capture to name each one.</p>
+<ul>
+<li>&#9744; <strong>Volumetric:</strong> what fills the 10 Gbit/s link? Why do DNS answers arrive that nobody asked for?</li>
+<li>&#9744; <strong>Protocol:</strong> what fills the server's connection table? What is SYN-RECV?</li>
+<li>&#9744; <strong>Application:</strong> which page is hammered, and which user agent does it? (A CTF flag is hiding in it.)</li>
+</ul>
+<blockquote>
+<p>Hint: Source port 53 means DNS answers. Your network never asked for them: someone forged your address. That is reflection.
+Hint: The flag is inside the user agent of the GET /login?ts= requests. Submit it on the CTF board.
+<strong>Question:</strong> Which source port does the volumetric flood come from?
+<strong>Question:</strong> Which TCP state fills the connection table? (the state name)</p>
+</blockquote>
+<pre><code>cat fw_stats.txt
+echo ---
+cat ss_summary.txt
+echo ---
+tshark -r capture.pcap -q -z io,phs
+tshark -r capture.pcap -Y dns -c 3
+tshark -r capture.pcap -Y &#x27;tcp.flags.syn==1&#x27; -c 3
+tshark -r capture.pcap -Y &#x27;http.request&#x27; -T fields -e ip.src -e http.request.uri -e http.user_agent | head -3</code></pre>
+<p class="lab">Expected output</p><pre class="want">edge-fw01 counters, 09:04 to 09:14 UTC, inbound to 192.0.2.80
+proto  dport  src_port  packets/s   Mbit/s   unique_sources  note
+udp    any    53          610,000   9,100     3,912          DNS responses nobody asked for (avg 1,870 bytes)
+tcp    443    any         220,000     110     65,000+        SYN only, no ACK follows, sources look random
+tcp    80     any           6,400      38      1,804         full HTTP connections, GET /login
+tcp    443    any           1,900      22        612         normal TLS from students
+
+conntrack: table full (262144/262144), dropping packet
+uplink: 10 Gbit/s, inbound 9.8 Gbit/s (98%)
+---
+ss -s on exam01 at 09:06 UTC
+Total: 51842
+TCP:   51310 (estab 2210, closed 410, orphaned 3, timewait 388)
+
+State counts (ss -tan | awk &#x27;{print $1}&#x27; | sort | uniq -c)
+  48211 SYN-RECV
+   2210 ESTAB
+    388 TIME-WAIT
+     91 FIN-WAIT-2
+      9 LISTEN
+
+net.ipv4.tcp_syncookies = 0
+net.ipv4.tcp_max_syn_backlog = 4096
+---
+================================================================================
+Protocol Hierarchy Statistics
+Filter: &lt;No Filter&gt;
+
+frames                                   frames:35 bytes:19937
+  dns                                    frames:7 bytes:13300
+  tlsv1.3                                frames:7 bytes:3997
+  http                                   frames:9 bytes:1926
+  tcp                                    frames:12 bytes:714
+================================================================================
+(Counted from the frames in this trimmed capture.)
+    13  255.000000      192.0.2.10 → 192.0.2.80      DNS      1870 Standard query response 0x66ba ANY big-zone.example (unrequested)
+    15  256.000000     192.0.2.110 → 192.0.2.80      DNS      1882 Standard query response 0x4441 ANY big-zone.example (unrequested)
+    17  257.000000     192.0.2.120 → 192.0.2.80      DNS      1894 Standard query response 0x50fe ANY big-zone.example (unrequested)
+     7  250.000000   103.81.120.25 → 192.0.2.80      TCP        60 [SYN] Seq=0 Win=1024 Len=0 (spoofed source)
+     8  251.000000   103.10.112.65 → 192.0.2.80      TCP        60 [SYN] Seq=0 Win=1024 Len=0 (spoofed source)
+     9  252.000000    91.46.20.162 → 192.0.2.80      TCP        60 [SYN] Seq=0 Win=1024 Len=0 (spoofed source)
+203.0.113.55	/login?ts=183858402	Mozilla/5.0 (X11; Linux x86_64; [flag hidden: run the lab to find it]) Gecko/20100101
+203.0.113.101	/login?ts=391167981	Mozilla/5.0 (X11; Linux x86_64; [flag hidden: run the lab to find it]) Gecko/20100101
+203.0.113.93	/login?ts=283003179	Mozilla/5.0 (X11; Linux x86_64; [flag hidden: run the lab to find it]) Gecko/20100101</pre>
+<h2>5. Who and how big?</h2>
+<ul>
+<li>&#9744; How many different addresses send the HTTP flood? Are they spread out or from one network?</li>
+<li>&#9744; Why can't you just block the SYN flood's sources?</li>
+<li>&#9744; Look up the domain used in the DNS reflection</li>
+</ul>
+<blockquote>
+<p>Hint: <code>sort -u | wc -l</code> counts different addresses. <code>cut -d. -f1-3</code> keeps the first three numbers, so it groups by /24 network.
+<strong>Question:</strong> How many different addresses send the HTTP flood?
+<strong>Question:</strong> Which /24 network do they all come from? (first three numbers, e.g. 10.0.0)</p>
+</blockquote>
+<pre><code>grep &#x27;login?ts=&#x27; access.log | awk &#x27;{print $1}&#x27; | sort -u | wc -l
+grep &#x27;login?ts=&#x27; access.log | awk &#x27;{print $1}&#x27; | cut -d. -f1-3 | sort | uniq -c
+echo ---
+dig TXT big-zone.example +short
+echo ---
+curl -s http://exam01.northfield.lan/nginx_status
+whois big-zone.example</code></pre>
+<p class="lab">Expected output</p><pre class="want">203
+    420 203.0.113
+---
+&quot;a very large DNS zone: attackers ask open resolvers for it with a forged source address&quot;
+---
+Active connections: 50421
+server accepts handled requests
+ 1902211 1890004 2210911
+Reading: 1 Writing: 1024 Waiting: 49396
+% Lab whois record for big-zone.example
+
+Domain Name: BIG-ZONE.EXAMPLE
+Comment: A very large zone that attackers ask open resolvers for, with a forged source address,
+so the big answers hit the victim (DNS amplification).</pre>
+<h2>6. The extortion email</h2>
+<ul>
+<li>&#9744; What do they want, and what do they threaten?</li>
+<li>&#9744; Should the school pay? Give two reasons</li>
+<li>&#9744; Who must be told: the police, the exams board, parents?</li>
+</ul>
+<blockquote>
+<p>Hint: Paying funds the next attack and gives no guarantee. Think about who must be told and how fast (the exams board rule).
+<strong>Question:</strong> How much bitcoin do the attackers demand? (number only)</p>
+</blockquote>
+<pre><code>cat extortion.eml
+echo ---
+cat exam_schedule.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">From: &quot;BlackHarbor Collective&quot; &lt;bh-ops@securemail.example&gt;
+To: it-desk@northfield.example
+Subject: your exam portal
+Date: Mon, 9 Nov 2026 09:12:40 +0000
+
+Your exam portal is down because of us. This is a small demonstration.
+
+Send 0.5 BTC to bc1qexampleexampleexampleexample0wallet within 24 hours
+and we stop. If not, we come back every exam day this week, ten times bigger.
+
+Do not reply from your school address. We will know when you pay.
+---
+Northfield Academy online exams, Monday 9 Nov 2026
+09:00  CS Unit 3 paper (312 students)
+11:30  Maths paper 2 (290 students)
+14:00  Biology practical theory (180 students)
+Exams board rule: a paper may be restarted once if the outage is reported within 1 hour.</pre>
+<h2>7. Initial access: how did they get in?</h2>
+<p>The way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.</p>
+<ul>
+<li>&#9744; Phishing (a message that tricked someone)</li>
+<li>&#9744; Exploit of a public-facing application (a website or service bug)</li>
+<li>&#9744; Valid accounts (a real username and password or key, stolen or misused)</li>
+<li>&#9744; External remote services (VPN, remote desktop, SSH)</li>
+<li>&#9744; Drive-by compromise (a booby-trapped website)</li>
+<li>&#9744; Supply chain or trusted partner</li>
+<li>&#9744; Hardware added (a USB device or rogue machine)</li>
+<li>&#9744; Insider using access they were given</li>
+<li>&#9744; No intrusion (for example, traffic from outside that never got in)</li>
+</ul>
+<h2>8. Preserve the evidence</h2>
+<p>Cleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.</p>
+<ul>
+<li>&#9744; Copy the evidence and write SHA256SUMS</li>
+<li>&#9744; Note who collected it, when, and where it is stored (chain of custody)</li>
+</ul>
+<pre><code>mkdir -p ~/evidence &amp;&amp; cp -r ~/case/* ~/evidence/
+cd ~/evidence &amp;&amp; find . -type f ! -name SHA256SUMS -exec sha256sum {} + &gt; SHA256SUMS
+pack=~/evidence-$(date -u +%Y%m%dT%H%M).tar
+tar cf &quot;$pack&quot; -C ~/evidence .
+(gzip -f &quot;$pack&quot; 2&gt;/dev/null &amp;&amp; echo &quot;packed $pack.gz&quot;) || echo &quot;packed $pack&quot;
+ls -l ~/evidence-*
+wc -l SHA256SUMS
+cd ~/case</code></pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2126.tar.gz
+-rw-r--r--    1 root     root         10810 Nov  4 21:26 /root/evidence-20261104T2126.tar.gz
+8 SHA256SUMS</pre>
+<h2>9. Contain</h2>
+<p>Each layer needs its own fix. The cell prints the commands; nothing touches a real system.</p>
+<ul>
+<li>&#9744; Volumetric: ask the ISP for scrubbing (option 2). Why not blackhole (option 1)?</li>
+<li>&#9744; Protocol: turn on SYN cookies</li>
+<li>&#9744; Application: rate-limit <code>/login</code> per address and drop the bot's user agent</li>
+<li>&#9744; Tell students and the exams board before 10:07 so the paper can restart</li>
+</ul>
+<blockquote>
+<p>Hint: A blackhole drops all traffic to the portal, the good with the bad. That finishes the attacker's job for them.
+<strong>Question:</strong> Which ISP option should you choose? (1 or 2)</p>
+</blockquote>
+<pre><code>echo &quot;reply NOC-55102: option 2, scrubbing approved by the IT lead&quot;
+echo &quot;sysctl -w net.ipv4.tcp_syncookies=1&quot;
+echo &quot;sysctl -w net.ipv4.tcp_max_syn_backlog=65536&quot;
+echo &#x27;nginx: limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;&#x27;
+echo &#x27;nginx: if ($http_user_agent ~* &quot;Gecko/20100101&quot;) { return 444; }&#x27;
+cat isp_ticket.txt | head -3
+curl -s https://status.fiberlink.example/</code></pre>
+<p class="lab">Expected output</p><pre class="want">reply NOC-55102: option 2, scrubbing approved by the IT lead
+sysctl -w net.ipv4.tcp_syncookies=1
+sysctl -w net.ipv4.tcp_max_syn_backlog=65536
+nginx: limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+nginx: if ($http_user_agent ~* &quot;Gecko/20100101&quot;) { return 444; }
+FiberLink NOC, ticket NOC-55102, opened 09:11 UTC
+Customer: Northfield Academy, circuit 10G-NF-01
+We see 9.8 Gbit/s inbound to 192.0.2.80, mostly UDP from port 53 (DNS reflection).
+FiberLink status: major DDoS against a customer in region North. Scrubbing capacity available. Updated 09:15 UTC.</pre>
+<h2>10. Recover and prepare</h2>
+<ul>
+<li>&#9744; When is it safe to restart the paper? What would you watch first?</li>
+<li>&#9744; The attackers promised to come back at 11:30. What is ready by then?</li>
+<li>&#9744; Longer term: a CDN or anycast in front of the portal, scrubbing on standby, SYN cookies on by default, a plan B for exams</li>
+</ul>
+<h2>11. Report</h2>
+<ul>
+<li>&#9744; Timeline with times from the uptime monitor</li>
+<li>&#9744; The three kinds of flood and the evidence for each</li>
+<li>&#9744; Decisions taken (and not paying)</li>
+<li>&#9744; Submit the flag from step 4 on the CTF board</li>
+</ul>
+<p>Write the report here.</p>
+<h2>12. Lessons learned</h2>
+<ul>
+<li>&#9744; How did the attack happen, start to finish?</li>
+<li>&#9744; What went well in the response?</li>
+<li>&#9744; What would you do differently next time?</li>
+<li>&#9744; Which fixes stop it happening again? Who owns each one, and by when?</li>
+<li>&#9744; Which early warning signs should be watched from now on?</li>
+</ul>
+<h2>13. Artifacts and analyst note</h2>
+<p>List every indicator you found so others can search for it.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Value</th>
+<th>Where you found it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IP address</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Domain</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>File hash</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Account</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analyst note:</strong> write two or three sentences for the next analyst who picks this up.</p></main></body>
+</html>

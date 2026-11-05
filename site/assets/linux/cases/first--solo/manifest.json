@@ -1,0 +1,161 @@
+{
+ "order": 0,
+ "title": "Your first investigation",
+ "kicker": "Tutorial",
+ "units": [
+  1,
+  2
+ ],
+ "level": "Beginner",
+ "minutes": 25,
+ "summary": "Someone changed the school Wi-Fi welcome page using a teacher's account. Learn ls, cat, head, tail, grep, wc, cut, sort, uniq and sha256sum one at a time, and find the password guessing attack behind it.",
+ "tools": [
+  "ls",
+  "cat",
+  "head",
+  "tail",
+  "grep",
+  "wc",
+  "cut",
+  "sort",
+  "uniq",
+  "sha256sum",
+  "nmap",
+  "dig",
+  "curl",
+  "base64"
+ ],
+ "titlePrefix": "Tutorial: your first investigation",
+ "ctf": "A flag is hidden in the Wi-Fi banner the attacker changed (step 11). Submit it on the CTF board as \"Your first investigation\".",
+ "id": "first--solo",
+ "files": [
+  "case/README.txt",
+  "case/admin_changes.log",
+  "case/common_passwords.txt",
+  "case/portal_hashes.txt",
+  "case/users.csv",
+  "case/wifi_login.log",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/404.htm",
+  "net/www/banner.txt",
+  "net/www/index.htm",
+  "net/www/notices.txt",
+  "net/www/router.htm"
+ ],
+ "base": "first",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "first",
+  "guided": "first--guided",
+  "solo": "first--solo"
+ },
+ "guide": "media/guides/first/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Your first investigation: the Wi-Fi welcome page\n\nMonday 2 Nov, 10:25. At **Maple Grove School** the Wi-Fi welcome page in the library is showing strange text. The change log says a teacher's account made the change, but the teacher says it wasn't him. You are the new student helper in the IT office, and this is your first case.\n\nYou will use one Linux command at a time. Every step explains a command, lets you run it, and asks you one question about what you saw.\n\n### What you'll learn\n\n- `ls`, `cat`, `head` and `tail` to look at evidence safely\n- `grep` and `wc -l` to find and count lines\n- `cut`, `sort` and `uniq -c` to turn a log into a ranking\n- `sha256sum` to fingerprint files and test passwords\n- `nmap`, `dig` and `curl` to look at the network\n- How a password guessing attack shows up in a log\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Look before you touch: `ls`\n\n`ls` lists the files in a folder. `ls -l` adds the size and date of each one. Investigators always start by seeing what they have.\n\n- [ ] Write your name and the time you started here:\n- [ ] Run the cell below\n\n?> How many files are in ~/case? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\nls\necho ---\nls -l"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Read the ticket: `cat`\n\n`cat FILE` prints a whole file. It is perfect for short files such as this ticket.\n\n- [ ] Read who reported the problem and what they saw\n- [ ] Note the two machines named at the bottom\n\n?> At what time (HH:MM) was the ticket opened? :: sha256:accbd06b69990df2e9d51d813f4796a98d3364e99504c2873ce68588ad64b144"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cat README.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The start and end of a log: `head` and `tail`\n\nLogs can be thousands of lines long. `head -n 5 FILE` shows the first 5 lines, `tail -n 5 FILE` the last 5. Each line of `wifi_login.log` is one login: the date, the time, OK or FAIL, the username and the address it came from.\n\n- [ ] Find when the log starts and when it ends\n\n?> At what time (HH:MM) is the first line of wifi_login.log? :: sha256:42ac3912d96fe3374cea084d5565bb0d8f1e7f0eedba75d63e598875c4a59c22\n?> At what time (HH:MM) is the last line? :: sha256:244828ada6db12307bc654c7695b6a0a4a4c4a3f3377161b98e0bdcecc47c9bb"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "head -n 5 wifi_login.log\necho ...\ntail -n 5 wifi_login.log"
+  },
+  {
+   "t": "md",
+   "s": "## 4. How big is it? `wc -l`\n\n`wc -l FILE` counts the lines in a file. One line is one login, so this is the number of login attempts this morning.\n\n?> How many lines are in wifi_login.log? :: sha256:d029fa3a95e174a19934857f535eb9427d967218a36ea014b70ad704bc6c8d1c"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "wc -l wifi_login.log"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Find the failures: `grep`\n\n`grep WORD FILE` prints only the lines that contain WORD. `grep -c WORD FILE` counts them instead. A few failed logins are normal (people mistype). Lots of them are not.\n\n- [ ] Look at the failed logins: do you see a pattern?\n\n?> How many failed logins are in the log? :: sha256:5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "grep FAIL wifi_login.log\necho ---\ngrep -c FAIL wifi_login.log"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Rank the addresses: `cut`, `sort`, `uniq -c`\n\nThis is the most useful pattern in log work. Each command passes its output to the next with a pipe `|`:\n\n1. `grep FAIL` keeps the failed lines\n2. `cut -d' ' -f5` keeps the 5th field (fields are separated by spaces), which is `src=...`\n3. `sort` puts the same addresses next to each other\n4. `uniq -c` counts each group\n5. `sort -rn` puts the biggest number first\n\n- [ ] Run it, then change `-f5` to `-f4` to rank the usernames instead\n\n?> Which address failed most often? (just the IP) :: sha256:10dd6c4e7efaffc189022d8551cdf2a47f3fe7506e5a6571bb98ec12a79b3214"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "grep FAIL wifi_login.log | cut -d' ' -f5 | sort | uniq -c | sort -rn\necho ---\ngrep FAIL wifi_login.log | cut -d' ' -f4 | sort | uniq -c | sort -rn"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Follow one address\n\nNow grep for that address alone. Many fails against one account, very fast, then one OK: that is a **password guessing attack** (brute force), and the last line is the moment it worked.\n\n- [ ] Which account was attacked?\n- [ ] How many guesses before it worked?\n- [ ] When did it work?\n\n?> How many times did 10.10.0.66 fail against mr.patel? :: sha256:535fa30d7e25dd8a49f1536779734ec8286108d115da5045d77f3b4185d8f790\n?> At what time (HH:MM) did the guess finally work? :: sha256:e3d4a8782369d9a3a426c645f0218c73a1884fe8f80809f979bc294e47f78e35"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "grep src=10.10.0.66 wifi_login.log\necho ---\ngrep src=10.10.0.66 wifi_login.log | grep -c FAIL\ngrep src=10.10.0.66 wifi_login.log | grep ' OK '"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Who is mr.patel? `cut` on a CSV file\n\n`users.csv` is a CSV file: commas separate the fields. `cut -d, -f1,2` keeps fields 1 and 2 (username and role).\n\n- [ ] Why does it matter that a teacher's account was taken, not a student's?\n- [ ] Read admin_changes.log: what did the attacker change, and from where?\n\n?> What role does mr.patel have? :: sha256:1057a9604e04b274da5a4de0c8f4b4868d9b230989f8c8c6a28221143cc5a755"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "grep mr.patel users.csv | cut -d, -f1,2\necho ---\ncut -d, -f2 users.csv | sort | uniq -c\necho ---\ncat admin_changes.log"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Fingerprints: `sha256sum`\n\n`sha256sum FILE` prints a 64-character fingerprint (a **hash**). Change one letter in the file and the hash changes completely. Investigators hash evidence so they can prove later it was not changed.\n\nThe portal stores a hash of each password instead of the password. But it uses plain SHA-256 with no salt, so anyone can hash a list of common passwords and look for a match. That is exactly what a guessing attack exploits.\n\n- [ ] Hash the evidence files\n- [ ] Hash each common password and look for it in `portal_hashes.txt`\n\n?> Which common password is mr.patel using? :: sha256:284fff3bd254b48cca05a8bfc4fad69e05cad0d086513a034a66a118829e6fa4\n?> Which other account uses the same password? :: sha256:238b524c25705993954a202c064014323f8bcc64a38f696285dffd89fbf73b5b"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "sha256sum *.log *.csv *.txt\necho ---\nfor p in $(cat common_passwords.txt); do\n    h=$(echo -n \"$p\" | sha256sum | cut -d' ' -f1)\n    grep \"$h\" portal_hashes.txt | while read user hash; do echo \"$user uses: $p\"; done\ndone"
+  },
+  {
+   "t": "md",
+   "s": "## 10. The network: `nmap`, `dig`, `curl`\n\nThe network tools work on a recorded copy of the school network; nothing leaves your browser.\n\n- `nmap -sn 10.10.0.0/24` asks which machines are switched on\n- `dig +short NAME` turns a name into an address\n- `curl URL` fetches a web page, like a browser without the pictures\n\n- [ ] Is the attacker's device (10.10.0.66) still on the network?\n- [ ] Look at the Wi-Fi welcome page the attacker changed\n\n?> How many machines does nmap find up? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n?> What address does wifi.maplegrove.lan point to? :: sha256:a4bcf7b572ee33deb535105424cf44b2f22b906187b4e819840cf3cef9261f03"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "nmap -sn 10.10.0.0/24\necho ---\ndig +short wifi.maplegrove.lan\necho ---\ncurl -s http://wifi.maplegrove.lan/\necho ---\nnmap -sV 10.10.0.20"
+  },
+  {
+   "t": "md",
+   "s": "## 11. The changed banner (the flag)\n\nThe attacker replaced `banner.txt` with text that looks like nonsense. It ends in `=`, a sign of **base64**: a way to write any data with plain letters. `base64 -d` decodes it.\n\n- [ ] Fetch the banner and decode it\n- [ ] Submit the `aayat{...}` flag on the CTF board"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "curl -s http://wifi.maplegrove.lan/banner.txt\necho ---\ncurl -s http://wifi.maplegrove.lan/banner.txt | base64 -d; echo"
+  },
+  {
+   "t": "md",
+   "s": "## 12. Wrap up: contain, fix, learn\n\nYou have found what happened. Now think like the IT team.\n\n- [ ] **Contain:** reset mr.patel's and jo.reception's passwords today\n- [ ] **Recover:** put the real banner back from notices\n- [ ] **Fix:** lock an account for 15 minutes after 5 wrong passwords, and store passwords with a slow, salted hash (bcrypt or Argon2)\n- [ ] **Learn:** why did reusing one password on two accounts make this worse?\n\nWrite a three-line report here: what happened, when, and what should change.\n\n| Question | Your answer |\n|---|---|\n| Attacker address |  |\n| Account taken |  |\n| Time it worked |  |\n| What was changed |  |"
+  }
+ ]
+}

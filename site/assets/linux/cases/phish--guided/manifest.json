@@ -1,0 +1,201 @@
+{
+ "order": 1,
+ "title": "The invoice that wasn't",
+ "kicker": "Phishing to ransomware",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Beginner",
+ "minutes": 60,
+ "summary": "A fake overdue invoice reaches three people at Kestrel Logistics. One opens it. An hour later the HR and Finance folders are encrypted. Find patient zero, trace the attack, contain it and choose a backup to restore.",
+ "tools": [
+  "grep",
+  "awk",
+  "nmap",
+  "curl",
+  "tshark",
+  "dig",
+  "whois",
+  "nc",
+  "openssl",
+  "base64",
+  "Python"
+ ],
+ "titlePrefix": "Incident runbook: Kestrel ransomware",
+ "ctf": "The loader's campaign value hides a flag (step 7). Submit it on the CTF board as \"The invoice that wasn't\".",
+ "id": "phish--guided",
+ "files": [
+  "case/README_RESTORE.txt",
+  "case/backups.txt",
+  "case/capture.pcap",
+  "case/invoice.eml",
+  "case/known_bad.txt",
+  "case/mail.log",
+  "case/process.csv",
+  "case/proxy.log",
+  "case/share_listing.txt",
+  "case/suspect/svchost-upd.strings.txt",
+  "case/suspect/upd.cfg",
+  "net/certs.txt",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/403.htm",
+  "net/www/404.htm",
+  "net/www/c2_401.json",
+  "net/www/docm.bin",
+  "net/www/intranet.htm",
+  "net/www/lookalike.htm",
+  "net/www/real.htm",
+  "net/www/router.htm",
+  "net/www/s2.bin"
+ ],
+ "base": "phish",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "phish",
+  "guided": "phish--guided",
+  "solo": "phish--solo"
+ },
+ "guide": "media/guides/phish/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Incident runbook: ransomware at Kestrel Logistics\n\n09:55, Monday 2 Nov. The helpdesk pulled the network cable on **hr-pc07** after files on the shared drive started ending in `.kestrel-locked`. You lead the response.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). the network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- Read email headers to find the real sender, and spot a look-alike domain\n- Match a proxy log and a process tree to find patient zero\n- Decode a base64 loader setting and check files against threat intel\n- Measure how far ransomware spread and choose a clean backup\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the ransom note: what do the attackers want?\n- [ ] Map the network\n\n> Hint: `ls -l` lists the files, `sha256sum` prints a fingerprint for each one. Save those hashes before you open anything.\n> Hint: The ransom note and the share listing both name the extension the ransomware adds to every file.\n?> Which file extension does the ransomware add? (include the dot) :: sha256:7267b77d0ef78e40d9e82eb6495f6658e7ddda42fd7ba893109e37961d6af7a5\n?> How many hosts does `nmap -sn 10.20.0.0/24` find up? :: sha256:7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with ls.\n",
+   "e": ".:\ntotal 40\n-rw-r--r--    1 root     root           302 Nov  4 21:25 README_RESTORE.txt\n-rw-r--r--    1 root     root           519 Nov  4 21:25 backups.txt\n-rw-r--r--    1 root     root          4121 Nov  4 21:25 capture.pcap\n-rw-r--r--    1 root     root          1254 Nov  4 21:25 invoice.eml\n-rw-r--r--    1 root     root           655 Nov  4 21:25 known_bad.txt\n-rw-r--r--    1 root     root          1525 Nov  4 21:25 mail.log\n-rw-r--r--    1 root     root          1781 Nov  4 21:25 process.csv\n-rw-r--r--    1 root     root          1642 Nov  4 21:25 proxy.log\n-rw-r--r--    1 root     root          1520 Nov  4 21:25 share_listing.txt\ndrwxr-xr-x    2 root     root            80 Nov  4 21:25 suspect\n\nsuspect:\ntotal 8\n-rwxr-xr-x    1 root     root           620 Nov  4 21:25 svchost-upd.strings.txt\n-rwxr-xr-x    1 root     root           293 Nov  4 21:25 upd.cfg\n3184011b117431eb553fc650ee59f4e051f3e9de29adc6ea48560eb1efacefb9  README_RESTORE.txt\n5b145bfb88313591b075457fb40deee70f8f0f8e9b3f56654646d2b319f69510  backups.txt\n17cbcc9230ca13223b41d40cc171e9fa0f2958a0eedadcba3007303d194b980a  capture.pcap\n1252d01be625c9004165769468257d6dea5bafb56c7c169c22bc42d9f358f87c  invoice.eml\nf5ae321872b4ffb42a54a5e2974856caf5d4a7803fe753b8d3b160b3e7419c82  known_bad.txt\n6741f38d66c179a20805d09960134e5a1f927435b20015605cefa21b146b569d  mail.log\na03b46bac4e9c7d58a615504b6d768ee7261b47c4adcda88070e660f4a161ed2  process.csv\n671015e4c0e6ba79b561a628182d987324cd07ef16519498d908193c373ce625  proxy.log\nf24e3e38c4946bbb263fc2f5a50c7f7f809628f80cf3a0f2938ec41089b956f5  share_listing.txt\nf118b576636dbb6d1cde317e3a5163e2f532584553512725ad7cb7def786ab13  suspect/svchost-upd.strings.txt\nec6403a4f2d1847613e3a324e35b536c6114e288245b2ff94afaff3e6a074f37  suspect/upd.cfg\n---\nYOUR FILES ARE ENCRYPTED\n\nAll documents on this share were encrypted with a strong key.\nFiles now end in .kestrel-locked. Do not rename or edit them.\n\nTo get the decryptor, contact restore-desk@onion-mail.example\nand quote your ID: KSL-4471-2026-11-02\n\nYou have 72 hours. After that the price doubles.",
+   "a": "cd ~/case\nls -l . suspect\nsha256sum *.* suspect/*\necho ---\ncat README_RESTORE.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\n> Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.\n?> How many files in `share_listing.txt` end in .kestrel-locked? :: sha256:4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with nmap.\n",
+   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:25 UTC\nNmap scan report for gw.kestrel.lan (10.20.0.1)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)\nNmap scan report for fs01.kestrel.lan (10.20.0.10)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0A (QEMU virtual NIC)\nNmap scan report for hr-pc07.kestrel.lan (10.20.0.14)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0E (QEMU virtual NIC)\nNmap scan report for fin-pc02.kestrel.lan (10.20.0.15)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0F (QEMU virtual NIC)\nNmap scan report for ops-pc01.kestrel.lan (10.20.0.16)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:10 (QEMU virtual NIC)\nNmap scan report for mail.kestrel.lan (10.20.0.25)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:19 (QEMU virtual NIC)\nNmap scan report for backup01.kestrel.lan (10.20.0.30)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:1E (QEMU virtual NIC)\nNmap done: 256 IP addresses (7 hosts up) scanned in 9.89 seconds",
+   "a": "nmap -sn 10.20.0.0/24"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The email\n\n- [ ] Who really sent it? Compare `From`, `Reply-To`, `Return-Path` and the `Received` line\n- [ ] What did SPF, DKIM and DMARC say?\n- [ ] Spot the look-alike domain: which letter is wrong?\n- [ ] What does the real domain publish in DNS?\n- [ ] List the pressure tactics in the message (Unit 1.1)\n\n> Hint: The `Received` line is added by your own mail server, so the attacker can't fake it. The address in square brackets is the real sender.\n> Hint: Read the two domains letter by letter: kestrel-logist**i**cs and kestrel-logist**l**cs.\n?> Which IP address really sent the email? :: sha256:eb4b2dd34d5ba9aff5f39480c21f10aff75f58d1bfe56c0d153cb60b63533992\n?> Which letter replaced the i in the look-alike domain? :: sha256:acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0\n?> What DMARC policy does the real domain publish? (the word after p=) :: sha256:084e990a49ba65e622926853785e0ed05c63fc7fbf798a26e8242b5ee3d7ce9f"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "e": "Return-Path: <bounce-7781@kestrel-logistlcs.com>\nReceived: from vps-118.bulkhost.example (vps-118.bulkhost.example [203.0.113.45])\n    by mail.kestrel.lan (Postfix) with ESMTP id 4A1F21C02\n--\nAuthentication-Results: mail.kestrel.lan;\n    spf=none smtp.mailfrom=kestrel-logistlcs.com;\n--\nFrom: \"Kestrel Logistics Accounts\" <accounts@kestrel-logistlcs.com>\nReply-To: payments.desk@freemail.example\nTo: priya.nair@kestrel.lan, dev.kapoor@kestrel.lan, tomas.reyes@kestrel.lan\nSubject: FINAL NOTICE: overdue invoice INV-30412 - service suspension today\nDate: Mon, 2 Nov 2026 08:51:03 +0000\n---\n192.0.2.10\n\"v=spf1 ip4:192.0.2.10 -all\"\n\"v=DMARC1; p=reject; rua=mailto:dmarc@kestrel-logistics.com\"\n---\n203.0.113.45\nvps-118.bulkhost.example.\n---\n% Lab whois record for kestrel-logistlcs.com\n\nDomain Name: KESTREL-LOGISTLCS.COM\nCreated: 2026-10-30 (3 days before the email)\nRegistrar: Budget Names Ltd\nRegistrant: REDACTED FOR PRIVACY\nName Server: ns1.bulkhost.example\nNetRange: 203.0.113.0 - 203.0.113.255\nOrgName: BulkHost VPS\nAbuse: abuse@bulkhost.example\n% Lab whois record for kestrel-logistics.com\n\nDomain Name: KESTREL-LOGISTICS.COM",
+   "a": "grep -E '^(From|Reply-To|Return-Path|Received|Subject|Authentication-Results)' -A1 invoice.eml\necho ---\ndig +short kestrel-logistics.com\ndig TXT kestrel-logistics.com +short\ndig TXT _dmarc.kestrel-logistics.com +short\necho ---\ndig +short kestrel-logistlcs.com\ndig TXT kestrel-logistlcs.com +short\ndig -x 203.0.113.45 +short\necho ---\nwhois kestrel-logistlcs.com\nwhois kestrel-logistics.com | head -3"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Who got it, and who clicked?\n\n- [ ] How many people received the email?\n- [ ] Who reported it, and when?\n- [ ] Which computers downloaded the invoice? Did the block stop anyone?\n\nThe proxy log times are Unix epoch seconds. The Python cell turns them into clock times.\n\n> Hint: `nrcpt=` in mail.log is the number of recipients. In proxy.log, TCP_MISS/200 means the download worked and TCP_DENIED/403 means the proxy blocked it.\n?> How many people received the email? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce\n?> Which internal IP address downloaded the invoice successfully? :: sha256:ecda40e9a719dbe5a19ca890028508dc0dffab4ef41d0accd82d2c3a46a8405d\n?> At what time (HH:MM, UTC) did that download happen? :: sha256:b14795fe960de9648774c15eac13483db8adce7aefa63462eb0cea308987d95e"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "e": "Nov  2 08:51:08 mail postfix/smtpd[2210]: 4A1F21C02: client=vps-118.bulkhost.example[203.0.113.45]\nNov  2 08:51:08 mail postfix/cleanup[2214]: 4A1F21C02: message-id=<20261102085103.7781@kestrel-logistlcs.com>\nNov  2 08:51:09 mail postfix/qmgr[880]: 4A1F21C02: from=<bounce-7781@kestrel-logistlcs.com>, size=18432, nrcpt=3 (queue active)\nNov  2 08:51:09 mail postfix/local[2220]: 4A1F21C02: to=<priya.nair@kestrel.lan>, relay=local, status=sent (delivered to mailbox)\nNov  2 08:51:09 mail postfix/local[2220]: 4A1F21C02: to=<dev.kapoor@kestrel.lan>, relay=local, status=sent (delivered to mailbox)\nNov  2 08:51:09 mail postfix/local[2220]: 4A1F21C02: to=<tomas.reyes@kestrel.lan>, relay=local, status=sent (delivered to mailbox)\nNov  2 09:15:44 mail report-phish[3012]: dev.kapoor@kestrel.lan reported message 4A1F21C02 as phishing\nNov  2 09:15:44 mail report-phish[3012]: dev.kapoor@kestrel.lan reported message 4A1F21C02 as phishing\nNov  2 09:16:30 mail report-phish[3012]: IT notified (ticket 88213)\nNov  2 09:18:02 mail proxy-sync[3030]: blocklist updated: kestrel-logistlcs.com\n---\n1793610151.000   157 10.20.0.14 TCP_MISS/200 48733 GET http://kestrel-logistlcs.com/invoices/INV-30412.docm - HIER_DIRECT/203.0.113.45 application/vnd.ms-word.document.macroEnabled.12\n1793610189.000   194 10.20.0.14 TCP_MISS/200 241664 GET http://cdn-update-check.net/s2.bin - HIER_DIRECT/198.51.100.140 application/octet-stream\n1793611247.000   416 10.20.0.15 TCP_DENIED/403 3912 GET http://kestrel-logistlcs.com/invoices/INV-30412.docm - HIER_DIRECT/- text/html",
+   "a": "grep 4A1F21C02 mail.log\ngrep -E 'report|blocklist' mail.log\necho ---\ngrep -E 'docm|s2.bin' proxy.log"
+  },
+  {
+   "t": "py",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with from.\n",
+   "a": "from datetime import datetime, timezone\n\nfor line in open(\"case/proxy.log\"):\n    f = line.split()\n    when = datetime.fromtimestamp(float(f[0]), timezone.utc).strftime(\"%H:%M:%S\")\n    print(when, f[2], f[3], f[5], f[6])"
+  },
+  {
+   "t": "md",
+   "s": "## 5. What ran on hr-pc07?\n\n- [ ] Rebuild the process tree from `process.csv`\n- [ ] Which program started PowerShell? Why is that suspicious?\n- [ ] Where does the real `svchost.exe` live, and who starts it? Where does this one live?\n\n> Hint: Follow the ppid column: each process names its parent. Word should never start cmd.exe; a macro did that.\n> Hint: The real svchost.exe lives in C:\\Windows\\System32 and runs as SYSTEM. Look for one with a slightly different name in a public folder.\n?> Which program started cmd.exe? (file name) :: sha256:f8878dc09ca0bd8005c9009ae3a4aee3085d3081b5c95e2232c9d8e561ce9166\n?> What is the PID of the svchost-upd.exe that PowerShell started? :: sha256:cfe35c9e498096d4463cfade00cdef305d2311d90db9949bf321f87447fc2f1a"
+  },
+  {
+   "t": "py",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with import.\n",
+   "a": "import csv\nfrom collections import defaultdict\n\nrows = [r for r in csv.DictReader(open(\"case/process.csv\")) if r[\"host\"] == \"hr-pc07\"]\nkids = defaultdict(list)\nfor r in rows:\n    kids[r[\"ppid\"]].append(r)\n\ndef show(pid, depth):\n    for r in kids.get(pid, []):\n        print(\"    \" * depth + r[\"time\"][11:] + \"  \" + r[\"image\"].split(\"\\\\\")[-1] + \"  \" + r[\"command_line\"][:70])\n        show(r[\"pid\"], depth + 1)\n\nshow(\"704\", 0)\nshow(\"640\", 0)"
+  },
+  {
+   "t": "md",
+   "s": "## 6. The network\n\n- [ ] Which names did hr-pc07 look up, and when?\n- [ ] What did it download, and with what user agent?\n- [ ] How often does it call home on port 443?\n- [ ] When did the encryption over SMB start and stop?\n\n> Hint: Subtract the times of the TLS Client Hello packets to the command server. A steady gap is a beacon.\n?> How many seconds pass between the beacons on port 443? :: sha256:983bd614bb5afece5ab3b6023f71147cd7b6bc2314f9d27af7422541c6558389\n?> Which domain did hr-pc07 look up right after the invoice download? :: sha256:c34fa70e89a7709bcc132bd0e2520092c83206a1e769718af097fa5e2d62f2ec"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with tshark.\n",
+   "e": "683.000000\t10.20.0.14\tkestrel-logistlcs.com\n683.000000\t10.20.0.1\tkestrel-logistlcs.com\n721.000000\t10.20.0.14\tcdn-update-check.net\n721.000000\t10.20.0.1\tcdn-update-check.net\n1254.000000\t10.20.0.16\tnews.example\n1779.000000\t10.20.0.15\tkestrel-logistlcs.com\n---\n10.20.0.14\tkestrel-logistlcs.com\t/invoices/INV-30412.docm\tMozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0\n10.20.0.14\tcdn-update-check.net\t/s2.bin\tMozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1)\n---\n738.000000\n1038.000000\n1338.000000\n1638.000000\n1938.000000\n2238.000000\n2538.000000\n2838.000000\n---\n    25 2995.000000      10.20.0.14 → 10.20.0.10      SMB2      162 Tree Connect Request Tree: \\\\fs01\\shared\n    26 2999.000000      10.20.0.14 → 10.20.0.10      SMB2      240 Create Request File: HR\\payroll-2026.xlsx\n    27 3000.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 Write Request Len:65536 File: HR\\payroll-2026.xlsx.kestrel-locked\n    28 3002.000000      10.20.0.14 → 10.20.0.10      SMB2      240 Create Request File: HR\\offer-letters\n    29 3003.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 Write Request Len:65536 File: HR\\offer-letters.kestrel-locked\n    30 3005.000000      10.20.0.14 → 10.20.0.10      SMB2      240 Create Request File: HR\\appraisals-2026.docx\n    31 3006.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 Write Request Len:65536 File: HR\\appraisals-2026.docx.kestrel-locked\n    32 3013.000000      10.20.0.14 → 10.20.0.10      SMB2      260 Create Request File: HR\\README_RESTORE.txt\n    33 3014.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 [SMB2 writes] (1,190 more like this, HR and Finance, trimmed)\n    34 3355.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 Write Request Len:65536 File: Finance\\ledger-q3.xlsx.kestrel-locked\n    35 3663.000000      10.20.0.14 → 10.20.0.10      SMB2     1514 Write Request Len:65536 File: Finance\\budget-2027.xlsx.kestrel-locked\n================================================================================\nIPv4 Conversations\nFilter:<No Filter>\n                                                 Frames        Bytes\n10.20.0.10 <-> 10.20.0.14                            11         9 kB\n10.20.0.14 <-> 198.51.100.140                        10         3 kB\n10.20.0.25 <-> 203.0.113.45                           6         1 kB\n10.20.0.14 <-> 203.0.113.45                           2         1 kB\n10.20.0.1 <-> 10.20.0.14                              4    378 bytes\n10.20.0.1 <-> 10.20.0.15                              1     87 bytes\n10.20.0.1 <-> 10.20.0.16                              1     74 bytes\n================================================================================\n(Counted from the frames in this trimmed capture.)",
+   "a": "tshark -r capture.pcap -Y dns -T fields -e frame.time_relative -e ip.src -e dns.qry.name\necho ---\ntshark -r capture.pcap -Y http.request -T fields -e ip.src -e http.host -e http.request.uri -e http.user_agent\necho ---\ntshark -r capture.pcap -Y 'tls and ip.src==10.20.0.14' -T fields -e frame.time_relative\necho ---\ntshark -r capture.pcap -Y smb2 | head -12\ntshark -r capture.pcap -q -z conv,ip"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Take the loader apart\n\nThe macro wrote a settings file before it fetched the ransomware. Its `campaign=` value is base64.\n\n- [ ] Decode the campaign value. What is in it? (There is a CTF flag in there.)\n- [ ] Match the files against the threat intel feed\n- [ ] Read the strings pulled from the ransomware: which folder does it target?\n- [ ] Are the attacker's servers still up?\n\n> Hint: `cut -d= -f2-` keeps everything after the first `=`, and `base64 -d` decodes it. The fields are separated by `|`.\n> Hint: The flag is the last field of the decoded value. Submit it on the CTF board, not here.\n?> Which port is the second field of the decoded campaign value? :: sha256:6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923\n?> Which file in `suspect/` is on the threat intel feed? (file name only) :: sha256:b266aef728bf88ac568e36113bb53d570b3461c5e215418a809ebcbaf0b4ec00"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "e": "loader settings, written by the macro to C:\\Users\\Public\\upd.cfg\nversion=2.4\ndrop=C:\\Users\\Public\\svchost-upd.exe\nfetch=http://cdn-update-check.net/s2.bin\ncampaign=Y2RuLXVwZGF0ZS1jaGVjay5uZXR8NDQzfDMwMHwua2VzdHJlbC1sb2NrZWR8UkVBRE1FX1JFU1RPUkUudHh0fGFheWF0e2RlY29kZV90aGVfZHJvcHBlcl9jb25maWd9\n---\ncdn-update-check.net|443|300|.kestrel-locked|README_RESTORE.txt|[flag hidden: run the lab to find it]\n---\nnot listed: suspect/svchost-upd.strings.txt\nKNOWN BAD: suspect/upd.cfg\n.kestrel-locked\n\\\\fs01\\shared\ncdn-update-check.net",
+   "a": "cat suspect/upd.cfg\necho ---\ngrep '^campaign=' suspect/upd.cfg | cut -d= -f2- | base64 -d; echo\necho ---\nsha256sum suspect/* | while read h f; do\n    grep -q \"$h\" known_bad.txt && echo \"KNOWN BAD: $f\" || echo \"not listed: $f\"\ndone\ngrep -E 'fs01|kestrel-locked|cdn' suspect/svchost-upd.strings.txt"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with curl.\n",
+   "e": "HTTP/1.1 200 OK\nServer: nginx/1.18.0\nDate: Wed, 04 Nov 2026 21:25:34 GMT\nContent-Type: application/vnd.ms-word.document.macroEnabled.12\nContent-Length: 59\nConnection: keep-alive\n{\"error\":\"unauthorized\",\"hint\":\"agent id required\"}\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:25 UTC\nNmap scan report for 198.51.100.140\nHost is up (0.048s latency).\nNot shown: 998 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n80/tcp    open   http           nginx\n443/tcp   open   ssl/http       nginx\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds\n   v:NotBefore: Oct 27 00:00:00 2026 GMT; NotAfter: Oct 27 00:00:00 2027 GMT\nsubject=CN = cdn-update-check.net\nissuer=CN = cdn-update-check.net\nVerify return code: 18 (self-signed certificate)\nnc: 198.51.100.140 (198.51.100.140:440): Connection refused\nnc: 198.51.100.140 (198.51.100.140:441): Connection refused\nnc: 198.51.100.140 (198.51.100.140:442): Connection refused\n198.51.100.140 (198.51.100.140:443) open\nnc: 198.51.100.140 (198.51.100.140:444): Connection refused\nnc: 198.51.100.140 (198.51.100.140:445): Connection refused",
+   "a": "curl -I http://kestrel-logistlcs.com/invoices/INV-30412.docm\ncurl -s http://cdn-update-check.net/api/v1/hello\nnmap -sV 198.51.100.140\nopenssl s_client -connect cdn-update-check.net:443 | grep -E 'subject=|issuer=|NotBefore|Verify'\nnc -zv 198.51.100.140 440-445"
+  },
+  {
+   "t": "md",
+   "s": "## 8. How far did it get?\n\n- [ ] Which folders were encrypted, and in what time window?\n- [ ] Which folder was saved by pulling the cable?\n- [ ] Why could one HR laptop encrypt Finance's files? Scan the file server.\n\n> Hint: The awk line counts locked files per folder. A folder with no locked files was saved.\n?> Which folder on the share was not encrypted? :: sha256:a92c36e66a25ee99ff862faa8e87987be6c7cd13c3ee661c400a45b0f1e3b132\n?> At what time (HH:MM) was the last file encrypted? :: sha256:a0b059528bee3eb374974bcf3cb583eb5ba29b7607b3346136fbff698bfe7a33"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with awk.\n",
+   "e": "6 locked in \\\\fs01\\shared\\HR\n4 locked in \\\\fs01\\shared\\Finance\n09:41\n09:50\n---\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:25 UTC\nNmap scan report for fs01.kestrel.lan (10.20.0.10)\nHost is up (0.00042s latency).\nNot shown: 996 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n135/tcp   open   msrpc          Microsoft Windows RPC\n139/tcp   open   netbios-ssn    Microsoft Windows netbios-ssn\n445/tcp   open   microsoft-ds   Windows Server 2019 microsoft-ds (SMBv1 enabled)\n3389/tcp  open   ms-wbt-server  Microsoft Terminal Services\nService Info: OS: Windows; CPE: cpe:/o:microsoft:windows\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds",
+   "a": "awk '/Directory of/ {d = $3} /kestrel-locked/ {n[d]++} END {for (k in n) print n[k], \"locked in\", k}' share_listing.txt\ngrep kestrel-locked share_listing.txt | awk '{print $2}' | sort | sed -n '1p;$p'\necho ---\nnmap -sV fs01.kestrel.lan"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with mkdir.\n",
+   "e": "packed /root/evidence-20261104T2125.tar.gz\n-rw-r--r--    1 root     root          5281 Nov  4 21:25 /root/evidence-20261104T2125.tar.gz\n11 SHA256SUMS",
+   "a": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+  },
+  {
+   "t": "md",
+   "s": "## 11. Contain\n\n- [ ] Keep hr-pc07 off the network, but don't switch it off yet (memory evidence)\n- [ ] Block the look-alike domain and the command server everywhere\n- [ ] Reset priya.nair's password and sign her out everywhere\n- [ ] Search every mailbox for the same message and delete it\n\nThe cell prints the commands. Nothing here touches a real firewall."
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with for.\n",
+   "e": "dns-block add kestrel-logistlcs.com\ndns-block add cdn-update-check.net\niptables -A OUTPUT -d 198.51.100.140 -j DROP\niptables -A FORWARD -s 10.20.0.14 -j DROP\nmail-purge --message-id '20261102085103.7781@kestrel-logistlcs.com' --all-mailboxes",
+   "a": "for d in kestrel-logistlcs.com cdn-update-check.net; do echo \"dns-block add $d\"; done\necho \"iptables -A OUTPUT -d 198.51.100.140 -j DROP\"\necho \"iptables -A FORWARD -s 10.20.0.14 -j DROP\"\necho \"mail-purge --message-id '20261102085103.7781@kestrel-logistlcs.com' --all-mailboxes\""
+  },
+  {
+   "t": "md",
+   "s": "## 12. Recover\n\n- [ ] Which snapshot is the last clean one? Why not the newest?\n- [ ] How much work is lost (the RPO)?\n- [ ] What is wrong with how the backups are stored? How would you fix it?\n- [ ] Two lasting fixes: block macros in files from the internet, and limit which folders each team can write to\n\n> Hint: s-1102 was taken at 23:00 on 2 Nov, after the attack at 09:41. Its files are already locked.\n?> Which snapshot is the last clean one? (its ID) :: sha256:54d426929fbfcfb9e645760fd9320fdf02b87605cc31b7922cee292085439f0b"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "e": "backup01 snapshots of \\\\fs01\\shared (rsync, every night at 23:00, kept 14 days)\nID      started            status  files    changed  notes\ns-1029  2026-10-29 23:00   OK      18,204   122\ns-1030  2026-10-30 23:00   OK      18,219    96\ns-1031  2026-10-31 23:00   OK      18,240   140\ns-1101  2026-11-01 23:00   OK      18,251    97\ns-1102  2026-11-02 23:00   OK      18,256  1,214    1,204 changed files end in .kestrel-locked\n\nbackup01 is mounted read-write on fs01 as \\\\fs01\\backup$ (any domain user can write to it).",
+   "a": "cat backups.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 13. Report\n\n- [ ] Timeline from 08:51 to 09:55, with sources\n- [ ] Patient zero, what was taken or encrypted, and the indicators (domains, IPs, hashes, extension)\n- [ ] What went well (a user reported it) and what to fix\n- [ ] Submit the flag from step 7 on the CTF board\n\nWrite the report here. Download .ipynb keeps every output above."
+  },
+  {
+   "t": "md",
+   "s": "## 14. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+  },
+  {
+   "t": "md",
+   "s": "## 15. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+  }
+ ]
+}

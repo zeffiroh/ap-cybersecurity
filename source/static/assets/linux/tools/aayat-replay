@@ -1,0 +1,30 @@
+R=/usr/local/share/aayat/replay
+
+play() {
+  [ -d "$R/$1.files" ] && cp -r "$R/$1.files/." /root/case/ 2>/dev/null
+  [ -f "$R/$1.out" ] && cat "$R/$1.out"
+  exit "${2:-0}"
+}
+
+case "$1" in
+  --id)
+    want="$2"
+    while IFS='|' read -r id tool code args; do
+      [ "$id" = "$want" ] && play "$id" "$code"
+    done < "$R/index.txt"
+    echo "This recording is missing from the lab." >&2
+    exit 1 ;;
+  --tool)
+    t="$2"; shift 2; a="$*"
+    while IFS='|' read -r id tool code args; do
+      [ "$tool" = "$t" ] && [ "$args" = "$a" ] && play "$id" "$code"
+    done < "$R/index.txt"
+    [ -x "/usr/local/bin/$t" ] && exec "/usr/local/bin/$t" "$@"
+    echo "$t: this tool isn't installed in the browser Linux. The lesson recorded these runs on a real system:" >&2
+    while IFS='|' read -r id tool code args; do
+      [ "$tool" = "$t" ] && echo "  $t $args" >&2
+    done < "$R/index.txt"
+    exit 127 ;;
+esac
+echo "Usage: aayat-replay --id ID | --tool NAME [args]" >&2
+exit 2

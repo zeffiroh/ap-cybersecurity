@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The night shift download guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Insider threat guide</p>
+<h1>The night shift download</h1>
+<p class="meta">Beginner &middot; about 50 min</p>
+<p>An engineer who has just resigned to join a competitor badges into an empty office at 01:47. Build a timeline from badge, VPN, Git, USB and DLP records, and handle it the right way: evidence first, then HR and Legal.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-insider&amp;runbook=insider">Worked example</a><a href="../../../notebook.html?ref=rb-insider--guided&amp;runbook=insider--guided">Guided</a><a href="../../../notebook.html?ref=rb-insider--solo&amp;runbook=insider--solo">On your own</a></div>
+<p>Tuesday 3 Nov, 08:40. Security at <strong>Halcyon Aero</strong> sees three data loss (DLP) alerts from overnight, all for one engineer. Your job: find out what happened, prove it with evidence, and handle it lawfully and fairly.</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>Build one timeline from badge, VPN, Git, USB and proxy records</li>
+<li>Compare normal behaviour with a suspicious night</li>
+<li>Tell a policy gap from a technical gap</li>
+<li>Handle an insider case lawfully: evidence first, then HR and Legal</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash every file before you read it</li>
+<li>&#9744; Read the HR note and the policy excerpts</li>
+</ul>
+<blockquote>
+<p>Hint: <code>sha256sum *</code> fingerprints every file. If anyone later says the logs were changed, these hashes prove they weren't.
+<strong>Question:</strong> On what date did he resign? (day and month, e.g. 3 Nov)</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l
+sha256sum *
+echo ---
+cat hr_note.txt
+echo ---
+cat policy.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">total 40
+-rw-r--r--    1 root     root           634 Nov  4 21:25 badge.csv
+-rw-r--r--    1 root     root          2614 Nov  4 21:25 capture.pcap
+-rw-r--r--    1 root     root          1158 Nov  4 21:25 dlp_alerts.json
+-rw-r--r--    1 root     root          1660 Nov  4 21:25 git_audit.log
+-rw-r--r--    1 root     root           385 Nov  4 21:25 hr_note.txt
+-rw-r--r--    1 root     root           730 Nov  4 21:25 policy.txt
+-rw-r--r--    1 root     root           425 Nov  4 21:25 proxy.log
+-rw-r--r--    1 root     root           468 Nov  4 21:25 usb.log
+-rw-r--r--    1 root     root           402 Nov  4 21:25 vpn.log
+-rw-r--r--    1 root     root           473 Nov  4 21:25 ws_events.csv
+230d3fe9fa0db194da1bb6dbf51ff59194a36a0bd1185a0fa8372ee380d41142  badge.csv
+0d9a56ec791738a7af39fa6ee958ba687f9e4dcf38307818a4498a7460dfc23d  capture.pcap
+f86394233350fdba68943e58cf0fc81dc065a45344fe73a4021f0885eff79235  dlp_alerts.json
+61c7f89c063c3eb520471d94854085cbb7078af539dde5359e9f4334eb922ea7  git_audit.log
+3c59ab514939f96f3555359e3183703c12ec81f1c85a124f6947722ab0e4cc7d  hr_note.txt
+092d2168cfa1955bfe6eae928de2761d58c1eeb8f074d64c8a9ec0d5bbc4a897  policy.txt
+fe0c898a925d3f199589ba0ee3a1a56918c1f7a6b3eb8494f095ed8a8926818e  proxy.log
+23c7d3dc69144919b2cc5da96a8265fbfc4ad8a6e31639f050e7f90915846483  usb.log
+5173bb8f5cca2bc09000b38a85dd85a231cbfa2fcdd13032b86aadf12a0644e6  vpn.log
+8a9f2913aa769f519a32cf222791ac7f90179421f43e4c6af95a9524c7476122  ws_events.csv
+---
+HALCYON AERO - HR NOTE (confidential)
+Date: 28 Oct 2026
+Employee: Ravi Menon (r.menon), Senior Firmware Engineer, Telemetry team
+Notice: resigned today. Last working day 14 Nov 2026.
+Next employer (told to manager): Vantage Aero (direct competitor).
+Access review: requested from IT on 28 Oct, ticket 77104, status OPEN.
+Manager note: Ravi only works on telemetry-ui and test-harness.
+---
+Halcyon Aero - Information Security Policy (excerpts)
+
+4.2  Company data may only be stored on company systems. Personal cloud storage
+     (personal Google Drive, Dropbox, FileCrate and similar) is not allowed.
+5.1  Removable media (USB drives) may be used only with written approval from IT.
+     Files marked CONFIDENTIAL may never be copied to removable media.
+6.4  Remote access through the VPN is allowed for work purposes only.
+7.3  When an employee gives notice, IT reviews their access within 2 working days
+     and removes anything they do not need for their remaining duties.
+9.1  Suspected misuse is reported to Security, who preserve evidence and involve
+     HR and Legal before any conversation with the employee.</pre>
+<h2>2. Verify: is this real?</h2>
+<p>Alerts are often wrong. Before you wake anyone up, decide whether this is a <strong>true positive</strong>.</p>
+<ul>
+<li>&#9744; What exactly raised the alarm, and when?</li>
+<li>&#9744; Name two pieces of evidence that prove something bad really happened</li>
+<li>&#9744; What harmless explanation would make this a false positive? Can you rule it out?</li>
+<li>&#9744; Decision: true positive / false positive (write it here)</li>
+</ul>
+<blockquote>
+<p>Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.
+<strong>Question:</strong> How many DLP alerts are in dlp_alerts.json?</p>
+</blockquote>
+<h2>3. What changed?</h2>
+<ul>
+<li>&#9744; When did he give notice, and to which company is he going?</li>
+<li>&#9744; Policy 7.3 says access is reviewed within 2 working days. Was it?</li>
+<li>&#9744; Which repositories does his job need?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -c</code> counts matching lines. Each repo he can only read is one he does not need for his job.
+<strong>Question:</strong> Which company is he joining? (two words)
+<strong>Question:</strong> How many repositories can he only read?
+<strong>Question:</strong> What is the number of the access review ticket that is still open?</p>
+</blockquote>
+<pre><code>grep -E &#x27;Notice|Next employer|Access review|Manager&#x27; hr_note.txt
+echo ---
+curl -s https://git.halcyon.lan/api/v1/users/r.menon/repos | grep -c &#x27;&quot;read&quot;&#x27;</code></pre>
+<p class="lab">Expected output</p><pre class="want">Notice: resigned today. Last working day 14 Nov 2026.
+Next employer (told to manager): Vantage Aero (direct competitor).
+Access review: requested from IT on 28 Oct, ticket 77104, status OPEN.
+Manager note: Ravi only works on telemetry-ui and test-harness.
+---
+12</pre>
+<h2>4. The evening: VPN and Git</h2>
+<ul>
+<li>&#9744; When was he on the VPN, from where, and how much did he download?</li>
+<li>&#9744; How many repositories did he clone that night?</li>
+<li>&#9744; Compare with a normal week: which user, which repos, how often?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>wc -l</code> counts lines. A normal week shows a few pulls; that night shows clones, one every six minutes.
+<strong>Question:</strong> How many repositories did he clone that night?
+<strong>Question:</strong> From which public IP address did he connect to the VPN?</p>
+</blockquote>
+<pre><code>grep r.menon vpn.log
+dig -x 198.51.100.200 +short
+echo ---
+grep &#x27;action=clone&#x27; git_audit.log | wc -l
+grep &#x27;action=clone&#x27; git_audit.log | awk &#x27;{print $1, $4}&#x27; | head -5</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-02T22:10:42Z openvpn[1201]: r.menon/198.51.100.200 peer connected, assigned 10.30.8.14
+2026-11-03T01:30:07Z openvpn[1201]: r.menon/198.51.100.200 peer disconnected (bytes in 3.4 GB, out 12.0 MB)
+cpe-198-51-100-200.home-isp.example.
+---
+14
+2026-11-02T22:31:05Z repo=halcyon/telemetry-ui
+2026-11-02T22:37:06Z repo=halcyon/test-harness
+2026-11-02T22:43:07Z repo=halcyon/propulsion-ctrl
+2026-11-02T22:49:08Z repo=halcyon/satcom-fw
+2026-11-02T22:55:09Z repo=halcyon/guidance-sim</pre>
+<pre><code>from collections import Counter
+
+c = Counter()
+for line in open(&quot;case/git_audit.log&quot;):
+    f = dict(x.split(&quot;=&quot;, 1) for x in line.split()[1:])
+    c[(line[:10], f[&quot;user&quot;], f[&quot;action&quot;])] += 1
+for (day, user, action), n in sorted(c.items()):
+    print(day, user.ljust(8), action.ljust(6), n)</code></pre>
+<h2>5. The night: in the building</h2>
+<ul>
+<li>&#9744; When did his badge open a door after hours? Which door?</li>
+<li>&#9744; Which door said no?</li>
+<li>&#9744; When did he sign in to his workstation?</li>
+</ul>
+<blockquote>
+<p>Hint: The awk line keeps only badge rows between 20:00 and 06:00. Look at the result column.
+<strong>Question:</strong> At what time (HH:MM) did a door deny his badge?
+<strong>Question:</strong> At what time (HH:MM) did he log off the workstation that night?</p>
+</blockquote>
+<pre><code>awk -F, &#x27;$1 &gt;= &quot;2026-11-02 20&quot; &amp;&amp; $1 &lt;= &quot;2026-11-03 06&quot;&#x27; badge.csv
+echo ---
+grep 2026-11-03 ws_events.csv</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-02 22:15:00,30001,guard.night,Security desk,granted
+2026-11-03 01:47:33,40211,r.menon,HQ east door,granted
+2026-11-03 01:48:02,40211,r.menon,Engineering floor 3,granted
+2026-11-03 01:49:15,40211,r.menon,Lab 3B (hardware),denied
+2026-11-03 03:12:48,40211,r.menon,HQ east door (out),granted
+---
+2026-11-03 01:55:20,eng-ws57,logon,HALCYON\r.menon,interactive (console)
+2026-11-03 02:05:41,eng-ws57,usb_connected,HALCYON\r.menon,see usb.log
+2026-11-03 02:58:03,eng-ws57,usb_removed,HALCYON\r.menon,see usb.log
+2026-11-03 03:05:37,eng-ws57,logoff,HALCYON\r.menon,
+2026-11-03 08:51:10,eng-ws57,logon,HALCYON\r.menon,interactive</pre>
+<h2>6. Data out</h2>
+<ul>
+<li>&#9744; What was plugged in, and what was its label? (A CTF flag is hiding there.)</li>
+<li>&#9744; How much was copied, and how long did it take?</li>
+<li>&#9744; Where was data uploaded, and how much?</li>
+<li>&#9744; What do the DLP alerts say, and which one is a false alarm?</li>
+</ul>
+<blockquote>
+<p>Hint: The USB label is in the <code>volume mounted</code> line of usb.log. That label is the CTF flag.
+Hint: bytes_out is what left the network. 1932735283 bytes is about 1.8 GB.
+<strong>Question:</strong> How many GB were copied to the USB drive?
+<strong>Question:</strong> Which host name received the biggest upload?</p>
+</blockquote>
+<pre><code>cat usb.log
+echo ---
+cat proxy.log
+echo ---
+tshark -r capture.pcap -Y &#x27;tls and ip.src==10.30.0.57&#x27; -T fields -e frame.time_relative -e _ws.col.Info
+dig +short upload.filecrate.example
+dig TXT filecrate.example +short
+whois filecrate.example
+whois 198.51.100.200</code></pre>
+<p class="lab">Expected output</p><pre class="want">2026-11-03 02:05:41 eng-ws57 device connected: USB mass storage, vendor SanDisk, product Ultra USB 3.0, serial 4C530001230918112345
+2026-11-03 02:05:43 eng-ws57 volume mounted as E:, filesystem exFAT, size 64 GB, label &quot;[flag hidden: run the lab to find it]&quot;
+2026-11-03 02:06:10 eng-ws57 copy started: C:\Users\r.menon\repos -&gt; E:\work
+2026-11-03 02:41:55 eng-ws57 copy finished: 41,822 files, 2.3 GB
+2026-11-03 02:58:03 eng-ws57 device removed: serial 4C530001230918112345
+---
+2026-11-03 02:14:58 10.30.0.57 r.menon CONNECT www.filecrate.example:443 bytes_out=18211 bytes_in=2210
+2026-11-03 02:15:12 10.30.0.57 r.menon CONNECT upload.filecrate.example:443 bytes_out=1932735283 bytes_in=51022
+2026-11-03 02:44:40 10.30.0.57 r.menon CONNECT www.filecrate.example:443 bytes_out=9120 bytes_in=3010
+2026-11-03 02:46:02 10.30.0.57 r.menon CONNECT mail.personal-mail.example:443 bytes_out=41020 bytes_in=8811
+---
+14656.000000	Client Hello (SNI=www.filecrate.example)
+14670.000000	Client Hello (SNI=upload.filecrate.example)
+14678.000000	Application Data
+15099.000000	Application Data
+15520.000000	Application Data
+15941.000000	Application Data
+16437.000000	[TLS segments] (1,330,000 more like this, 1.8 GB out, trimmed)
+16520.000000	Client Hello (SNI=mail.personal-mail.example)
+203.0.113.80
+&quot;FileCrate personal cloud storage - abuse and legal requests: legal@filecrate.example&quot;
+% Lab whois record for filecrate.example
+
+Domain Name: FILECRATE.EXAMPLE
+Created: 2014-06-01
+Registrant: FileCrate Inc.
+Legal: legal@filecrate.example (preservation requests)
+NetRange: 203.0.113.0 - 203.0.113.255
+OrgName: FileCrate Inc.
+% Lab whois record for 198.51.100.200
+
+NetRange: 198.51.100.192 - 198.51.100.223
+OrgName: HomeNet Broadband (residential customers)
+Comment: Subscriber details only through a court order.</pre>
+<pre><code>import json
+
+for a in sorted(json.load(open(&quot;case/dlp_alerts.json&quot;)), key=lambda a: a[&quot;time&quot;]):
+    print(a[&quot;time&quot;], a[&quot;severity&quot;].upper().ljust(6), a[&quot;user&quot;].ljust(8), a[&quot;rule&quot;])
+    print(&quot;   &quot;, a[&quot;detail&quot;])</code></pre>
+<h2>7. Build the timeline</h2>
+<p>Put every event from every source in one list, sorted by time. This is the heart of the case.</p>
+<blockquote>
+<p>Hint: Read the timeline top to bottom and say each line out loud as a sentence. Gaps between events tell a story too.
+<strong>Question:</strong> Which happened first: the USB copy or the FileCrate upload? (usb or upload)</p>
+</blockquote>
+<pre><code>import csv, json, re
+
+ev = []
+for r in csv.DictReader(open(&quot;case/badge.csv&quot;)):
+    ev.append((r[&quot;time&quot;], &quot;badge&quot;, r[&quot;user&quot;] + &quot; &quot; + r[&quot;door&quot;] + &quot; &quot; + r[&quot;result&quot;]))
+for line in open(&quot;case/vpn.log&quot;):
+    ev.append((line[:19].replace(&quot;T&quot;, &quot; &quot;), &quot;vpn&quot;, line[20:].strip()))
+for line in open(&quot;case/git_audit.log&quot;):
+    if &quot;clone&quot; in line:
+        ev.append((line[:19].replace(&quot;T&quot;, &quot; &quot;), &quot;git&quot;, line.split(&quot;repo=&quot;)[1].split()[0]))
+for r in csv.DictReader(open(&quot;case/ws_events.csv&quot;)):
+    ev.append((r[&quot;time&quot;], &quot;workstation&quot;, r[&quot;event&quot;] + &quot; &quot; + r[&quot;detail&quot;]))
+for line in open(&quot;case/usb.log&quot;):
+    ev.append((line[:19], &quot;usb&quot;, line[29:].strip()))
+for line in open(&quot;case/proxy.log&quot;):
+    ev.append((line[:19], &quot;proxy&quot;, &quot; &quot;.join(line.split()[4:6])))
+for t, src, what in sorted(ev):
+    if t &gt;= &quot;2026-11-02 20&quot;:
+        print(t, src.ljust(11), what[:90])</code></pre>
+<h2>8. Before anyone talks to him</h2>
+<p>This is a people case as much as a technical one.</p>
+<ul>
+<li>&#9744; Preserve the evidence: hashes, logs, the workstation image, the USB serial</li>
+<li>&#9744; Don't confront him or warn him. Involve HR and Legal first (policy 9.1)</li>
+<li>&#9744; Ask FileCrate to preserve the account through Legal, not by logging in yourself</li>
+<li>&#9744; Write facts, not guesses: "copied 2.3 GB to USB", not "stole the designs"</li>
+<li>&#9744; Respect his privacy: only collect what the investigation needs</li>
+</ul>
+<pre><code>curl -s https://www.filecrate.example/legal | sed &#x27;s/&lt;[^&gt;]*&gt;//g&#x27;
+echo ---
+sha256sum * &gt; ../evidence-hashes.txt &amp;&amp; cat ../evidence-hashes.txt</code></pre>
+<p class="lab">Expected output</p><pre class="want">
+FileCrate - legal requests
+
+Legal and preservation requests
+Companies can ask us to preserve an account&#x27;s data while a court order is obtained. Email legal@filecrate.example with the account email, the dates and the upload sizes.
+
+---
+230d3fe9fa0db194da1bb6dbf51ff59194a36a0bd1185a0fa8372ee380d41142  badge.csv
+0d9a56ec791738a7af39fa6ee958ba687f9e4dcf38307818a4498a7460dfc23d  capture.pcap
+f86394233350fdba68943e58cf0fc81dc065a45344fe73a4021f0885eff79235  dlp_alerts.json
+61c7f89c063c3eb520471d94854085cbb7078af539dde5359e9f4334eb922ea7  git_audit.log
+3c59ab514939f96f3555359e3183703c12ec81f1c85a124f6947722ab0e4cc7d  hr_note.txt
+092d2168cfa1955bfe6eae928de2761d58c1eeb8f074d64c8a9ec0d5bbc4a897  policy.txt
+fe0c898a925d3f199589ba0ee3a1a56918c1f7a6b3eb8494f095ed8a8926818e  proxy.log
+23c7d3dc69144919b2cc5da96a8265fbfc4ad8a6e31639f050e7f90915846483  usb.log
+5173bb8f5cca2bc09000b38a85dd85a231cbfa2fcdd13032b86aadf12a0644e6  vpn.log
+8a9f2913aa769f519a32cf222791ac7f90179421f43e4c6af95a9524c7476122  ws_events.csv</pre>
+<h2>9. Initial access: how did they get in?</h2>
+<p>The way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.</p>
+<ul>
+<li>&#9744; Phishing (a message that tricked someone)</li>
+<li>&#9744; Exploit of a public-facing application (a website or service bug)</li>
+<li>&#9744; Valid accounts (a real username and password or key, stolen or misused)</li>
+<li>&#9744; External remote services (VPN, remote desktop, SSH)</li>
+<li>&#9744; Drive-by compromise (a booby-trapped website)</li>
+<li>&#9744; Supply chain or trusted partner</li>
+<li>&#9744; Hardware added (a USB device or rogue machine)</li>
+<li>&#9744; Insider using access they were given</li>
+<li>&#9744; No intrusion (for example, traffic from outside that never got in)</li>
+</ul>
+<h2>10. Preserve the evidence</h2>
+<p>Cleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.</p>
+<ul>
+<li>&#9744; Copy the evidence and write SHA256SUMS</li>
+<li>&#9744; Note who collected it, when, and where it is stored (chain of custody)</li>
+</ul>
+<pre><code>mkdir -p ~/evidence &amp;&amp; cp -r ~/case/* ~/evidence/
+cd ~/evidence &amp;&amp; find . -type f ! -name SHA256SUMS -exec sha256sum {} + &gt; SHA256SUMS
+pack=~/evidence-$(date -u +%Y%m%dT%H%M).tar
+tar cf &quot;$pack&quot; -C ~/evidence .
+(gzip -f &quot;$pack&quot; 2&gt;/dev/null &amp;&amp; echo &quot;packed $pack.gz&quot;) || echo &quot;packed $pack&quot;
+ls -l ~/evidence-*
+wc -l SHA256SUMS
+cd ~/case</code></pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2125.tar.gz
+-rw-r--r--    1 root     root          3690 Nov  4 21:25 /root/evidence-20261104T2125.tar.gz
+-rw-r--r--    1 root     root           776 Nov  4 21:25 /root/evidence-hashes.txt
+10 SHA256SUMS</pre>
+<h2>11. Contain</h2>
+<ul>
+<li>&#9744; Disable his account, VPN certificate, Git tokens and badge (at the same moment HR meets him)</li>
+<li>&#9744; Block FileCrate and personal mail on the company network</li>
+</ul>
+<p>The cell prints the commands only.</p>
+<pre><code>echo &quot;identity disable r.menon --revoke-sessions&quot;
+echo &quot;vpn revoke-cert r.menon&quot;
+echo &quot;gitea admin user tokens delete r.menon --all&quot;
+echo &quot;badge disable 40211&quot;
+echo &quot;dns-block add filecrate.example&quot;
+echo &quot;dns-block add personal-mail.example&quot;</code></pre>
+<p class="lab">Expected output</p><pre class="want">identity disable r.menon --revoke-sessions
+vpn revoke-cert r.menon
+gitea admin user tokens delete r.menon --all
+badge disable 40211
+dns-block add filecrate.example
+dns-block add personal-mail.example</pre>
+<h2>12. Fix the gaps</h2>
+<ul>
+<li>&#9744; Access review on the day notice is given (ticket 77104 was still open)</li>
+<li>&#9744; Give people only the repos their job needs (least privilege)</li>
+<li>&#9744; Block USB storage by default; allow approved, encrypted drives</li>
+<li>&#9744; Alert in real time on bulk clones and after-hours badge use, not the next morning</li>
+</ul>
+<h2>13. Report</h2>
+<ul>
+<li>&#9744; Timeline with sources</li>
+<li>&#9744; What left the company, how, and how much</li>
+<li>&#9744; Evidence list with hashes</li>
+<li>&#9744; Recommendations</li>
+<li>&#9744; Submit the flag from step 6 on the CTF board</li>
+</ul>
+<p>Write the report here.</p>
+<h2>14. Lessons learned</h2>
+<ul>
+<li>&#9744; How did the attack happen, start to finish?</li>
+<li>&#9744; What went well in the response?</li>
+<li>&#9744; What would you do differently next time?</li>
+<li>&#9744; Which fixes stop it happening again? Who owns each one, and by when?</li>
+<li>&#9744; Which early warning signs should be watched from now on?</li>
+</ul>
+<h2>15. Artifacts and analyst note</h2>
+<p>List every indicator you found so others can search for it.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Value</th>
+<th>Where you found it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IP address</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Domain</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>File hash</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Account</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analyst note:</strong> write two or three sentences for the next analyst who picks this up.</p></main></body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The key in the commit guide &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Cloud breach guide</p>
+<h1>The key in the commit</h1>
+<p class="meta">Intermediate &middot; about 60 min</p>
+<p>A deploy key with admin rights sat in an old Git commit. The repo went public for one evening. By 02:00 someone had copied customer data, made a backdoor admin and started 20 crypto-miners. Trace it, shut it down and fix the root cause.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-cloudkey&amp;runbook=cloudkey">Worked example</a><a href="../../../notebook.html?ref=rb-cloudkey--guided&amp;runbook=cloudkey--guided">Guided</a><a href="../../../notebook.html?ref=rb-cloudkey--solo&amp;runbook=cloudkey--solo">On your own</a></div>
+<p>07:31, Tuesday 3 Nov. A budget alert at <strong>Paperplane Apps</strong>: today's cloud bill is forecast at $3,812. A normal day is about $42. You are on call.</p>
+<p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
+<p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
+<h3>What you'll learn</h3>
+<ul>
+<li>Read a cloud audit log and group events by identity and address</li>
+<li>Find a secret in Git history, even after it was deleted</li>
+<li>Spot attacker persistence: a backdoor user and key</li>
+<li>Contain a cloud breach in the right order</li>
+</ul>
+<h3>How to use this runbook</h3>
+<ul>
+<li>Run a cell with <strong>Shift+Enter</strong> (or its Run button). Run the cells in order: the first Linux cell copies the evidence into <code>~/case</code>.</li>
+<li>Tick each <code>- [ ]</code> box when you have done it.</li>
+<li>Stuck? Open a <strong>Hint</strong> under the step.</li>
+<li>Type your answer into each <strong>check</strong> box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.</li>
+<li>Write your notes under each step. Download .ipynb keeps your notes and every output.</li>
+</ul>
+<h2>1. Triage</h2>
+<ul>
+<li>&#9744; Write your name and the time you started here:</li>
+<li>&#9744; Hash the evidence</li>
+<li>&#9744; Look at the bill: which service jumped, and by how much?</li>
+</ul>
+<blockquote>
+<p>Hint: Compare today's compute cost with the days before. The Python cell in step 2 does the maths.
+<strong>Question:</strong> About how many times normal is today's compute bill? (whole number from the Python cell)</p>
+</blockquote>
+<pre><code>cd ~/case
+ls -l
+sha256sum *
+echo ---
+cat billing.csv</code></pre>
+<p class="lab">Expected output</p><pre class="want">total 40
+-rw-r--r--    1 root     root         12412 Nov  4 21:27 audit.json
+-rw-r--r--    1 root     root           206 Nov  4 21:27 billing.csv
+-rw-r--r--    1 root     root          2789 Nov  4 21:27 capture.pcap
+-rw-r--r--    1 root     root           560 Nov  4 21:27 forge_audit.log
+-rw-r--r--    1 root     root          2008 Nov  4 21:27 instances.txt
+-rw-r--r--    1 root     root           369 Nov  4 21:27 keys.txt
+-rw-r--r--    1 root     root          1114 Nov  4 21:27 repo_history.txt
+c5f2dd3f8ad52c639524ef24132ff6d50ed96178531ac6ba70f9716d007d1205  audit.json
+7afd7c30a6a7009999039e33af97f575857510d82e14ddd08fbefa978fa23024  billing.csv
+a0b409a07ee1d724f675caf7e23d6ac9abee843fd6065e8d5d9e577b984437ac  capture.pcap
+709054284596422bfe30e378787a7a358931778ed12abced219c4b3cd283a78a  forge_audit.log
+185434da3550d0a6bbe76dd156c1ffec105a2dcb727d1ec3dce356db5fd434a5  instances.txt
+1e13e2e7a76fa63005f40007c8eaa6d91a7784bb9ea0b32c8360bde2eb8ffd93  keys.txt
+e4caa4612426ced07065b9030732fd4f87cd7aa9626df79db0f6925eeac33672  repo_history.txt
+---
+date,compute_usd,storage_usd,network_usd
+2026-10-29,38.20,2.10,1.05
+2026-10-30,39.95,2.12,1.11
+2026-10-31,37.40,2.08,1.02
+2026-11-01,38.85,2.15,1.08
+2026-11-02,40.10,2.30,1.40
+2026-11-03,3712.60,2.40,97.35</pre>
+<h2>2. Verify: is this real?</h2>
+<p>Alerts are often wrong. Before you wake anyone up, decide whether this is a <strong>true positive</strong>.</p>
+<ul>
+<li>&#9744; What exactly raised the alarm, and when?</li>
+<li>&#9744; Name two pieces of evidence that prove something bad really happened</li>
+<li>&#9744; What harmless explanation would make this a false positive? Can you rule it out?</li>
+<li>&#9744; Decision: true positive / false positive (write it here)</li>
+</ul>
+<blockquote>
+<p>Hint: A true positive needs evidence, not a feeling. Look for something only an attacker would do, such as a file that should not exist or a connection to an address nobody uses.</p>
+</blockquote>
+<pre><code>import csv
+
+rows = list(csv.DictReader(open(&quot;case/billing.csv&quot;)))
+normal = sum(float(r[&quot;compute_usd&quot;]) for r in rows[:-1]) / (len(rows) - 1)
+last = rows[-1]
+print(&quot;normal compute per day: $%.2f&quot; % normal)
+print(&quot;%s compute: $%s, %.0f times normal&quot; % (last[&quot;date&quot;], last[&quot;compute_usd&quot;], float(last[&quot;compute_usd&quot;]) / normal))</code></pre>
+<h2>3. Where did the attacker get in?</h2>
+<ul>
+<li>&#9744; Which key did the attacker use? Who owns it, and what can it do?</li>
+<li>&#9744; How did the key leak? Read the Git history</li>
+<li>&#9744; The secret was "removed" on 31 Oct. Why didn't that help? (A CTF flag is in the history.)</li>
+<li>&#9744; When was the repo public, and who cloned it?</li>
+</ul>
+<blockquote>
+<p>Hint: keys.txt shows who owns each key and where it was last used. In the Git history, a line starting with <code>-</code> was removed and <code>+</code> was added. Both stay in history.
+<strong>Question:</strong> Which user owns the leaked key?
+<strong>Question:</strong> Who made the repository public?
+<strong>Question:</strong> Which IP address cloned the public repository?</p>
+</blockquote>
+<pre><code>cat keys.txt
+echo ---
+curl -s &quot;https://api.stratus-cloud.example/v1/whoami?key=SCKA7Q2MXV81LP0D&quot;
+echo ---
+grep -nE &#x27;commit|Date|STRATUS|owner&#x27; repo_history.txt
+echo ---
+cat forge_audit.log
+echo ---
+curl -s https://git.public-forge.example/paperplane/mobile-backend/commits
+curl -s https://git.public-forge.example/paperplane/mobile-backend/raw/a3f91c2/config/staging.env | grep KEY</code></pre>
+<p class="lab">Expected output</p><pre class="want">key_id            user            created               last_used             last_used_from
+SCKA7Q2MXV81LP0D  lina.ci         2026-10-30 14:03      2026-11-03 02:05      203.0.113.150
+SCKA9R4TBN20QZ7W  support-backup  2026-11-03 02:05      2026-11-03 02:14      203.0.113.151
+SCKA1B2C3D4E5F6G  lina            2026-03-02 09:00      2026-11-02 18:10      198.51.100.61
+---
+{
+ &quot;key_id&quot;: &quot;SCKA7Q2MXV81LP0D&quot;,
+ &quot;user&quot;: &quot;lina.ci&quot;,
+ &quot;account&quot;: &quot;paperplane-prod&quot;,
+ &quot;policies&quot;: [
+  &quot;AdministratorAccess&quot;
+ ],
+ &quot;status&quot;: &quot;active&quot;,
+ &quot;note&quot;: &quot;CI deploy key with full admin rights&quot;
+}
+---
+3:commit 7be20d4e1c9a0b5f2d6e8a7c3b1f9e0d2a4c6b8e
+5:Date:   Sat Oct 31 09:12:40 2026 +0000
+14:-STRATUS_REGION=eu-north-1
+15:-STRATUS_KEY_ID=SCKA7Q2MXV81LP0D
+16:-STRATUS_SECRET=stratus.secret.Lr4vT9wQ2nX8pZ6kD1yH5mB3
+18:-# owner: platform team, rotate quarterly, [flag hidden: run the lab to find it]
+20:commit a3f91c2b7d0e4f6a8c1b3d5e7f9a0c2e4b6d8f1a
+22:Date:   Fri Oct 30 14:20:11 2026 +0000
+31:+STRATUS_REGION=eu-north-1
+32:+STRATUS_KEY_ID=SCKA7Q2MXV81LP0D
+33:+STRATUS_SECRET=stratus.secret.Lr4vT9wQ2nX8pZ6kD1yH5mB3
+35:+# owner: platform team, rotate quarterly, [flag hidden: run the lab to find it]
+---
+2026-10-30T14:20:11Z repo=paperplane/mobile-backend actor=lina action=push branch=main commits=1
+2026-10-31T09:12:40Z repo=paperplane/mobile-backend actor=lina action=push branch=main commits=1
+2026-11-02T19:22:05Z repo=paperplane/mobile-backend actor=jay.intern action=visibility.change from=private to=public note=&quot;share with the design contractor&quot;
+2026-11-02T19:41:50Z repo=paperplane/mobile-backend actor=anonymous action=clone ip=203.0.113.150
+2026-11-03T08:05:12Z repo=paperplane/mobile-backend actor=lina action=visibility.change from=public to=private
+---
+7be20d4  2026-10-31  lina  remove secrets
+a3f91c2  2026-10-30  lina  add staging config so CI can deploy
+51c9e03  2026-10-21  lina  bump api client
+STRATUS_KEY_ID=SCKA7Q2MXV81LP0D</pre>
+<h2>4. What did the attacker do?</h2>
+<ul>
+<li>&#9744; Group the audit log by source address</li>
+<li>&#9744; List every action in order, with the identity used</li>
+<li>&#9744; Which actions failed?</li>
+</ul>
+<blockquote>
+<p>Hint: The Python cell counts events per address and identity. Anything from 203.0.113.x is the attacker.
+<strong>Question:</strong> How many events came from 203.0.113.151?
+<strong>Question:</strong> Which action was denied? (action name)</p>
+</blockquote>
+<pre><code>import json
+from collections import Counter
+
+ev = json.load(open(&quot;case/audit.json&quot;))
+by_ip = Counter((e[&quot;source_ip&quot;], e[&quot;identity&quot;]) for e in ev)
+for (ip, who), n in by_ip.most_common():
+    print(ip.ljust(15), who.ljust(15), n, &quot;events&quot;)
+print()
+for e in ev:
+    if e[&quot;source_ip&quot;].startswith(&quot;203.0.113&quot;):
+        extra = e.get(&quot;policy&quot;) or e.get(&quot;new_key_id&quot;) or e.get(&quot;bytes&quot;) or &quot;&quot;
+        print(e[&quot;time&quot;][11:19], e[&quot;identity&quot;].ljust(15), e[&quot;action&quot;].ljust(18), e[&quot;resource&quot;][:45].ljust(45), e[&quot;result&quot;][:20], extra)</code></pre>
+<h2>5. The backdoor</h2>
+<p>Attackers rarely rely on the key they found. They make their own way back in.</p>
+<ul>
+<li>&#9744; Which user did they create, and with what rights?</li>
+<li>&#9744; Which key does it have, and where was it used from?</li>
+<li>&#9744; Who are the attacker's servers?</li>
+</ul>
+<blockquote>
+<p>Hint: Look for CreateUser and CreateAccessKey in the audit log, then ask the API about the new key.
+<strong>Question:</strong> What is the name of the backdoor user?
+<strong>Question:</strong> What is the key ID of the backdoor key?</p>
+</blockquote>
+<pre><code>curl -s https://api.stratus-cloud.example/v1/users
+curl -s &quot;https://api.stratus-cloud.example/v1/whoami?key=SCKA9R4TBN20QZ7W&quot;
+echo ---
+dig -x 203.0.113.150 +short
+dig -x 203.0.113.151 +short
+nmap -sV 203.0.113.150
+whois 203.0.113.150
+ssh root@203.0.113.150</code></pre>
+<p class="lab">Expected output</p><pre class="want">[
+ {
+  &quot;user&quot;: &quot;lina&quot;,
+  &quot;created&quot;: &quot;2026-03-02&quot;,
+  &quot;mfa&quot;: true
+ },
+ {
+  &quot;user&quot;: &quot;lina.ci&quot;,
+  &quot;created&quot;: &quot;2026-10-30&quot;,
+  &quot;mfa&quot;: false,
+  &quot;policies&quot;: [
+   &quot;AdministratorAccess&quot;
+  ]
+ },
+ {
+  &quot;user&quot;: &quot;support-backup&quot;,
+  &quot;created&quot;: &quot;2026-11-03T02:05:10Z&quot;,
+  &quot;mfa&quot;: false,
+  &quot;policies&quot;: [
+   &quot;AdministratorAccess&quot;
+  ]
+ }
+]
+{
+ &quot;key_id&quot;: &quot;SCKA9R4TBN20QZ7W&quot;,
+ &quot;user&quot;: &quot;support-backup&quot;,
+ &quot;account&quot;: &quot;paperplane-prod&quot;,
+ &quot;policies&quot;: [
+  &quot;AdministratorAccess&quot;
+ ],
+ &quot;status&quot;: &quot;active&quot;,
+ &quot;created_by&quot;: &quot;lina.ci&quot;
+}
+---
+vps-a.anon-hosting.example.
+vps-b.anon-hosting.example.
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC
+Nmap scan report for 203.0.113.150
+Host is up (0.048s latency).
+Not shown: 999 closed tcp ports (reset)
+PORT      STATE  SERVICE        VERSION
+22/tcp    open   ssh            OpenSSH 9.2p1 Debian (protocol 2.0)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Nmap done: 1 IP address (1 host up) scanned in 3.47 seconds
+% Lab whois record for 203.0.113.150
+
+NetRange: 203.0.113.128 - 203.0.113.191
+OrgName: Anon Hosting (hourly VPS)
+Abuse: abuse@anon-hosting.example
+Server banner: SSH-2.0-OpenSSH_9.2p1
+The authenticity of host &#x27;203.0.113.150 (203.0.113.150)&#x27; can&#x27;t be established.
+ED25519 key fingerprint is SHA256:60797af19e3727911b4a8730044820ede1139eac1b3.
+(This lab never saves host keys and never logs in.)
+root@203.0.113.150: Permission denied (publickey,password).</pre>
+<h2>6. Customer data</h2>
+<ul>
+<li>&#9744; Which files were downloaded, and how big were they?</li>
+<li>&#9744; What did the attacker change on that bucket afterwards? Is it still open?</li>
+<li>&#9744; This is now a personal data breach. Who must be told, and how fast?</li>
+</ul>
+<blockquote>
+<p>Hint: GetObject means a file was downloaded. PutBucketPolicy changed who can read the bucket.
+<strong>Question:</strong> How many files were downloaded from customer-exports?</p>
+</blockquote>
+<pre><code>grep -B4 -A5 &#x27;GetObject&#x27; audit.json | grep -E &#x27;resource|bytes|time&#x27;
+echo ---
+curl -s https://api.stratus-cloud.example/v1/buckets/customer-exports/policy</code></pre>
+<p class="lab">Expected output</p><pre class="want">  &quot;time&quot;: &quot;2026-11-03T02:03:40Z&quot;,
+  &quot;resource&quot;: &quot;bucket/customer-exports/users-2026-10.csv&quot;,
+  &quot;bytes&quot;: 41933012
+  &quot;time&quot;: &quot;2026-11-03T02:03:59Z&quot;,
+  &quot;resource&quot;: &quot;bucket/customer-exports/payments-2026-10.csv&quot;,
+  &quot;bytes&quot;: 18320044
+---
+{
+ &quot;bucket&quot;: &quot;customer-exports&quot;,
+ &quot;policy&quot;: &quot;public-read&quot;,
+ &quot;changed&quot;: &quot;2026-11-03T02:14:30Z&quot;,
+ &quot;changed_by&quot;: &quot;support-backup&quot;
+}</pre>
+<h2>7. The miners</h2>
+<ul>
+<li>&#9744; How many machines were started, of what type, by whom?</li>
+<li>&#9744; Where do they send their work? Prove it from the traffic</li>
+<li>&#9744; Which wallet gets paid, and how many workers does the pool see?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -c</code> counts the instances launched by the backdoor user. Mining pools often listen on port 3333.
+<strong>Question:</strong> How many mining machines were started?
+<strong>Question:</strong> Which TCP port do the miners connect to on the pool?</p>
+</blockquote>
+<pre><code>grep -c support-backup instances.txt
+head -4 instances.txt
+echo ---
+dig +short pool.coinsmelt.example
+tshark -r capture.pcap -Y &#x27;tcp.dstport==3333&#x27; -c 6
+tshark -r capture.pcap -q -z conv,ip
+echo ---
+curl -s https://pool.coinsmelt.example/api/stats</code></pre>
+<p class="lab">Expected output</p><pre class="want">20
+instance          type         state    launched              launched_by     private_ip    cpu
+i-0f3a10      gpu.xlarge   running  2026-11-03 02:09     support-backup  10.40.1.11   100%
+i-0f3a11      gpu.xlarge   running  2026-11-03 02:09     support-backup  10.40.1.12   100%
+i-0f3a12      gpu.xlarge   running  2026-11-03 02:09     support-backup  10.40.1.13   100%
+---
+198.51.100.88
+     5  446.000000      10.40.1.11 → 198.51.100.88   TCP        74 51000 → 3333 [SYN] Seq=0 Win=64240 Len=0
+     6  447.000000      10.40.1.11 → 198.51.100.88   TCP       190 JSON-RPC {&quot;method&quot;:&quot;mining.subscribe&quot;,&quot;params&quot;:[&quot;worker-01&quot;]}
+     7  448.000000      10.40.1.11 → 198.51.100.88   TCP       236 JSON-RPC {&quot;method&quot;:&quot;mining.authorize&quot;,&quot;params&quot;:[&quot;4AqWallet7f3c.worker-01&quot;,&quot;x&quot;]}
+    10  506.000000      10.40.1.12 → 198.51.100.88   TCP        74 51001 → 3333 [SYN] Seq=0 Win=64240 Len=0
+    11  507.000000      10.40.1.12 → 198.51.100.88   TCP       190 JSON-RPC {&quot;method&quot;:&quot;mining.subscribe&quot;,&quot;params&quot;:[&quot;worker-02&quot;]}
+    12  508.000000      10.40.1.12 → 198.51.100.88   TCP       236 JSON-RPC {&quot;method&quot;:&quot;mining.authorize&quot;,&quot;params&quot;:[&quot;4AqWallet7f3c.worker-02&quot;,&quot;x&quot;]}
+================================================================================
+IPv4 Conversations
+Filter:&lt;No Filter&gt;
+                                                 Frames        Bytes
+198.51.100.77 &lt;-&gt; 203.0.113.150                       1         1 kB
+10.40.1.11 &lt;-&gt; 198.51.100.88                          4    710 bytes
+10.40.1.12 &lt;-&gt; 198.51.100.88                          4    710 bytes
+10.40.1.13 &lt;-&gt; 198.51.100.88                          4    710 bytes
+10.40.1.14 &lt;-&gt; 198.51.100.88                          1    210 bytes
+10.40.0.2 &lt;-&gt; 10.40.1.13                              2    184 bytes
+10.40.0.2 &lt;-&gt; 10.40.1.12                              2    184 bytes
+10.40.0.2 &lt;-&gt; 10.40.1.11                              2    184 bytes
+10.40.0.2 &lt;-&gt; 10.40.0.20                              1     80 bytes
+================================================================================
+(Counted from the frames in this trimmed capture.)
+---
+{
+ &quot;wallet&quot;: &quot;4AqWallet7f3c&quot;,
+ &quot;workers_online&quot;: 20,
+ &quot;hashrate&quot;: &quot;38.4 kH/s&quot;,
+ &quot;first_seen&quot;: &quot;2026-11-03T02:11:06Z&quot;
+}</pre>
+<h2>8. Initial access: how did they get in?</h2>
+<p>The way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.</p>
+<ul>
+<li>&#9744; Phishing (a message that tricked someone)</li>
+<li>&#9744; Exploit of a public-facing application (a website or service bug)</li>
+<li>&#9744; Valid accounts (a real username and password or key, stolen or misused)</li>
+<li>&#9744; External remote services (VPN, remote desktop, SSH)</li>
+<li>&#9744; Drive-by compromise (a booby-trapped website)</li>
+<li>&#9744; Supply chain or trusted partner</li>
+<li>&#9744; Hardware added (a USB device or rogue machine)</li>
+<li>&#9744; Insider using access they were given</li>
+<li>&#9744; No intrusion (for example, traffic from outside that never got in)</li>
+</ul>
+<h2>9. Preserve the evidence</h2>
+<p>Cleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.</p>
+<ul>
+<li>&#9744; Copy the evidence and write SHA256SUMS</li>
+<li>&#9744; Note who collected it, when, and where it is stored (chain of custody)</li>
+</ul>
+<pre><code>mkdir -p ~/evidence &amp;&amp; cp -r ~/case/* ~/evidence/
+cd ~/evidence &amp;&amp; find . -type f ! -name SHA256SUMS -exec sha256sum {} + &gt; SHA256SUMS
+pack=~/evidence-$(date -u +%Y%m%dT%H%M).tar
+tar cf &quot;$pack&quot; -C ~/evidence .
+(gzip -f &quot;$pack&quot; 2&gt;/dev/null &amp;&amp; echo &quot;packed $pack.gz&quot;) || echo &quot;packed $pack&quot;
+ls -l ~/evidence-*
+wc -l SHA256SUMS
+cd ~/case</code></pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2127.tar.gz
+-rw-r--r--    1 root     root          3385 Nov  4 21:27 /root/evidence-20261104T2127.tar.gz
+7 SHA256SUMS</pre>
+<h2>10. Contain (in this order)</h2>
+<ul>
+<li>&#9744; Deactivate both keys first, so nothing new can start</li>
+<li>&#9744; Delete the backdoor user</li>
+<li>&#9744; Make the bucket private again</li>
+<li>&#9744; Stop the miners, but snapshot one disk for evidence</li>
+<li>&#9744; Block the pool and the attacker addresses</li>
+</ul>
+<p>The cell prints the commands only.</p>
+<pre><code>for k in SCKA7Q2MXV81LP0D SCKA9R4TBN20QZ7W; do echo &quot;stratus keys deactivate $k&quot;; done
+echo &quot;stratus users delete support-backup&quot;
+echo &quot;stratus buckets set-policy customer-exports private&quot;
+echo &quot;stratus disks snapshot i-0f3a10 --tag evidence&quot;
+grep support-backup instances.txt | awk &#x27;{print &quot;stratus instances terminate&quot;, $1}&#x27; | head -3
+echo &quot;... and 17 more&quot;
+echo &quot;firewall deny 198.51.100.88 3333&quot;</code></pre>
+<p class="lab">Expected output</p><pre class="want">stratus keys deactivate SCKA7Q2MXV81LP0D
+stratus keys deactivate SCKA9R4TBN20QZ7W
+stratus users delete support-backup
+stratus buckets set-policy customer-exports private
+stratus disks snapshot i-0f3a10 --tag evidence
+stratus instances terminate i-0f3a10
+stratus instances terminate i-0f3a11
+stratus instances terminate i-0f3a12
+... and 17 more
+firewall deny 198.51.100.88 3333</pre>
+<h2>11. Fix the root cause</h2>
+<ul>
+<li>&#9744; Rotate, don't just delete: a secret in Git history is public forever once cloned</li>
+<li>&#9744; Give the CI key only what CI needs (least privilege), or better, short-lived credentials with no stored secret</li>
+<li>&#9744; Turn on secret scanning so commits with keys are blocked</li>
+<li>&#9744; Only admins can make repos public</li>
+<li>&#9744; Budget alerts every hour, not every morning</li>
+</ul>
+<h2>12. Report</h2>
+<ul>
+<li>&#9744; Timeline from 30 Oct to 08:05 on 3 Nov</li>
+<li>&#9744; Root cause, data exposed, cost</li>
+<li>&#9744; Indicators: keys, addresses, user, wallet, pool</li>
+<li>&#9744; Breach notification plan</li>
+<li>&#9744; Submit the flag from step 3 on the CTF board</li>
+</ul>
+<p>Write the report here.</p>
+<h2>13. Lessons learned</h2>
+<ul>
+<li>&#9744; How did the attack happen, start to finish?</li>
+<li>&#9744; What went well in the response?</li>
+<li>&#9744; What would you do differently next time?</li>
+<li>&#9744; Which fixes stop it happening again? Who owns each one, and by when?</li>
+<li>&#9744; Which early warning signs should be watched from now on?</li>
+</ul>
+<h2>14. Artifacts and analyst note</h2>
+<p>List every indicator you found so others can search for it.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Value</th>
+<th>Where you found it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IP address</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Domain</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>File hash</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Account</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analyst note:</strong> write two or three sentences for the next analyst who picks this up.</p></main></body>
+</html>

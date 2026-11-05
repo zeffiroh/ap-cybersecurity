@@ -153,6 +153,34 @@ def cmd_preview(args):
             pass
 
 
+def cmd_studio(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import server
+    server.run(slugify(args.name), args.title or "", args.source or "", args.shell, args.port, not args.no_open)
+
+
+def cmd_desk(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import desk
+    desk.run(args.port, not args.no_open)
+
+
+def cmd_finish(args):
+    from builder import lesson
+    report = lesson.finish(slugify(args.name))
+    print(f"{report['folder']}: {report['steps']} steps, {report['commands']} commands, {report['notebookCells']} notebook cells, {report['files']} files.")
+    print(f"  {report['recordedOnly']} commands can only be replayed in the browser. The replay was {'made' if report['replay'] else 'not made'}.")
+    for line in report["review"] + report["problems"]:
+        print(f"  check: {line}")
+    print('Read the lab, set "published": true in seminar.json when it is ready, then run: ' + report["next"])
+
+
+def cmd_expected(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import expected
+    sys.exit(expected.run(args.case))
+
+
 def main():
     ap = argparse.ArgumentParser(prog="teach", description="Turn your seminar scripts into notebooks for the site.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -177,6 +205,24 @@ def main():
     p = sub.add_parser("preview", help="open the built site on this computer")
     p.add_argument("--port", type=int, default=8000)
     p.set_defaults(fn=cmd_preview)
+    p = sub.add_parser("desk", help="open the Teaching Desk: make, record, edit, check and preview lessons in your browser")
+    p.add_argument("--port", type=int, default=8760)
+    p.add_argument("--no-open", action="store_true", help="don't open the browser")
+    p.set_defaults(fn=cmd_desk)
+    p = sub.add_parser("studio", help="teach for real in a live recorded terminal, with optional screen recording")
+    p.add_argument("name")
+    p.add_argument("--title")
+    p.add_argument("--from", dest="source", help="start from a case, seminar or lesson: its files and steps become your plan")
+    p.add_argument("--shell", default="auto", help="bash, or wsl:NAME such as wsl:kali-linux (Windows picks Kali, then Ubuntu)")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--no-open", action="store_true", help="don't open the browser")
+    p.set_defaults(fn=cmd_studio)
+    p = sub.add_parser("finish", help="turn a recording into a lab: codebook, simulated setup, levels, replay, chapters")
+    p.add_argument("name")
+    p.set_defaults(fn=cmd_finish)
+    p = sub.add_parser("expected", help="run labs in the in-browser Linux and save each cell's real output")
+    p.add_argument("case", nargs="?", help="one case id; all of them if left out")
+    p.set_defaults(fn=cmd_expected)
     args = ap.parse_args()
     args.fn(args)
 

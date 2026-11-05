@@ -1,0 +1,90 @@
+{
+ "title": "The QR code parking fine",
+ "kicker": "Teacher case: smishing and quishing",
+ "units": [
+  1
+ ],
+ "level": "Beginner",
+ "minutes": 20,
+ "summary": "Fake parking fines arrive by text and by QR stickers on parking meters. Compare the fake site with the real one and find where the card details go.",
+ "tools": [
+  "cat",
+  "cut",
+  "dig",
+  "whois",
+  "openssl",
+  "curl"
+ ],
+ "titlePrefix": "Teacher case: parking fine",
+ "ctf": "The phishing kit left a build comment in its page (step 4). That is the flag. Submit it on the CTF board.",
+ "id": "tc-qr-parking--guided",
+ "teacher": true,
+ "files": [
+  "case/qr_decoded.txt",
+  "case/reports.csv",
+  "case/sms.txt",
+  "case/sticker_photo_notes.txt",
+  "net/certs.txt",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/404.htm",
+  "net/www/index.htm",
+  "net/www/real.htm"
+ ],
+ "base": "tc-qr-parking",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "tc-qr-parking",
+  "guided": "tc-qr-parking--guided",
+  "solo": "tc-qr-parking--solo"
+ },
+ "guide": "media/guides/tc-qr-parking/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# The QR code parking fine\n\nSaturday 7 Nov. The **Elmbridge Council** helpdesk is getting calls about parking fines. Some people got a text; others scanned a QR code on a parking meter. Some paid, and their cards were then used abroad. You are helping the council's IT team.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `dig`, `whois`, `openssl` and more) work on a recorded copy of the case network; nothing leaves your browser.\n\n### What you'll learn\n\n- What smishing (SMS phishing) and quishing (QR phishing) look like\n- Compare a fake domain with the real one using dig, whois and certificates\n- Read a phishing page safely with curl to see where the card details go\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Read the text message, the warden's notes and the decoded QR codes\n- [ ] List the pressure tactics in the text (Unit 1)\n\n> Hint: A QR code is just a link you can't read until you scan it. Compare the two decoded links character by character.\n?> Which domain does the sticker's QR code point to? :: sha256:94f09bd2b219b022abaf91d4961749439ead1b2c92a0600cc3feeca7f5a82d5e\n?> Which domain does the council's own QR code point to? :: sha256:4900e0ecae0f0c49c35cbae4f7bcd0cbd4e8a278d2ef2c9db938eb7faa20332f"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with ls.\n",
+   "e": "total 16\n-rw-r--r--    1 root     root           180 Nov  4 21:29 qr_decoded.txt\n-rw-r--r--    1 root     root           459 Nov  4 21:29 reports.csv\n-rw-r--r--    1 root     root           220 Nov  4 21:29 sms.txt\n-rw-r--r--    1 root     root           249 Nov  4 21:29 sticker_photo_notes.txt\ned7550e4b0228b7fbbda39d982cd54ca7e8fe6ee9986854f1ad73c605950b623  qr_decoded.txt\n83a4cb15040f975cd095c67b53d903515185562eb9cd25b1d605f801327348f4  reports.csv\ne83cdb7cc04856beafe0bb6d369be2ac85facc32ad2fe3f0207a7e9947fc5be3  sms.txt\n36d611888ae025f52b1354d35d3520cca2701f25b0c784ea68d7c8a4dad57771  sticker_photo_notes.txt\n---\nFrom: +44 7700 900123\nReceived: Sat 7 Nov 2026 09:38\n\nELMBRIDGE COUNCIL: Your vehicle has an unpaid parking charge (PCN EB3391).\nPay GBP 35 today to avoid a GBP 120 penalty: https://elmbridge-parkpay.example/f?id=EB3391\n---\nPhoto taken by a parking warden, meter P14, High Street, 7 Nov 08:30\n- A printed sticker has been stuck over the meter's own QR code\n- Text on sticker: \"Scan to pay - quick and easy\"\n- The original council QR is still visible underneath at the edge\nQR decoded from the sticker photo:\nhttps://elmbridge-parkpay.example/pay?meter=P14\n\nQR decoded from the council's own code underneath:\nhttps://pay.elmbridge-council.test/meter/P14",
+   "a": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat sms.txt\necho ---\ncat sticker_photo_notes.txt\ncat qr_decoded.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Scope: how many reports?\n\n> Hint: `cut -d, -f2 reports.csv | sort | uniq -c` counts reports by channel.\n?> How many reports were about stickers? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "e": "time,channel,reporter,detail\n2026-11-07 08:12,sticker,resident,QR sticker on meter P14, High Street\n2026-11-07 09:40,sms,resident,text about unpaid parking fine\n2026-11-07 10:05,sticker,staff,QR sticker on meter P15\n2026-11-07 11:30,sms,resident,paid, then card used abroad\n2026-11-07 12:02,sticker,resident,QR sticker on meter P22, Station Road\n2026-11-07 13:15,sms,resident,text with link, did not click\n2026-11-07 14:48,sticker,resident,paid 35 GBP via QR\n---\n      3 sms\n      4 sticker",
+   "a": "cat reports.csv\necho ---\ncut -d, -f2 reports.csv | grep -v channel | sort | uniq -c"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Real or fake?\n\n- [ ] Where does each domain point, and who owns that address?\n- [ ] When was each domain registered?\n- [ ] Both have a padlock: when were their certificates issued? Does a padlock prove a site is honest?\n\n> Hint: whois shows `Created:`. The first report came on 7 Nov.\n?> How many days old was the fake domain on 7 Nov? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n?> Which IP address hosts the fake site? :: sha256:a6353bfbe92ae34a8544b367820743d0175595f96dcad8b904c39583f24c3eec"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with dig.\n",
+   "e": "203.0.113.66\n192.0.2.40\n---\n% Lab whois record for elmbridge-parkpay.example\n\nDomain Name: ELMBRIDGE-PARKPAY.EXAMPLE\nCreated: 2026-11-05\nRegistrar: Budget Names Ltd\nRegistrant: REDACTED FOR PRIVACY\nNetRange: 203.0.113.0 - 203.0.113.255\nOrgName: Anon VPS Rentals\nAbuse: abuse@anon-vps.example\n% Lab whois record for elmbridge-council.test\n\nDomain Name: ELMBRIDGE-COUNCIL.TEST\nCreated: 2001-02-14\nRegistrant: Elmbridge Borough Council\n---\n   v:NotBefore: Nov  5 00:00:00 2026 GMT; NotAfter: Feb  3 23:59:59 2027 GMT\nsubject=CN = elmbridge-parkpay.example\n   v:NotBefore: Mar 10 00:00:00 2026 GMT; NotAfter: Mar  9 23:59:59 2027 GMT\nsubject=CN = pay.elmbridge-council.test",
+   "a": "dig +short elmbridge-parkpay.example\ndig +short pay.elmbridge-council.test\necho ---\nwhois elmbridge-parkpay.example\nwhois elmbridge-council.test\necho ---\nopenssl s_client -connect elmbridge-parkpay.example:443 | grep -E 'subject=|NotBefore'\nopenssl s_client -connect pay.elmbridge-council.test:443 | grep -E 'subject=|NotBefore'"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Read the fake page (safely)\n\ncurl downloads the page as text. Nothing on it runs, so this is a safe way to look.\n\n- [ ] What does the form ask for?\n- [ ] Where does it send the details?\n- [ ] Phishing kits often leave a build comment in the HTML: that is the flag\n\n> Hint: The `action=` of the form is where the data goes. `<!-- ... -->` is an HTML comment.\n?> Which path does the form send card details to? :: sha256:de25c05c0f35a02718ae15e167521b0ee8688b343beeffe6e060fb8ccc6b601a"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with curl.\n",
+   "e": "<!doctype html>\n<title>Elmbridge Parking Payments</title>\n<!-- kit build [flag hidden: run the lab to find it] -->\n<h1>Pay your parking charge</h1>\n<p>Reference: EB3391. Amount due today: GBP 35.00</p>\n<form method=post action=\"/collect.php\">\nCard number <input name=cc> Expiry <input name=exp> CVV <input name=cvv> Postcode <input name=pc>\n<button>Pay now</button>\n</form>\n---\n<!doctype html>\n<title>Elmbridge Council - Pay for parking</title>\n<h1>Pay for parking</h1>\n<p>Enter your meter number. We never send texts asking you to pay a fine by link.</p>",
+   "a": "curl -s 'https://elmbridge-parkpay.example/pay?meter=P14'\necho ---\ncurl -s https://pay.elmbridge-council.test/"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Respond and prevent\n\n- [ ] Remove every sticker; check all meters, not only the reported ones\n- [ ] Report the domain to the registrar and host (abuse addresses in whois) and the number to the mobile network\n- [ ] Tell residents: the council never texts a payment link; type the address yourself; call your bank if you paid\n- [ ] Prevention: tamper-evident QR plates, a short memorable payment address printed on every meter\n\n| Finding | Evidence |\n|---|---|\n| Fake domain and address |  |\n| Age of the domain |  |\n| Where card data goes |  |\n| Advice for residents |  |"
+  }
+ ]
+}

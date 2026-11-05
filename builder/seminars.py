@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 
+from . import levels
 from .paths import ASSETS, SITE, SRC
 from .util import emit, emit_bytes
 
@@ -72,7 +73,7 @@ def problems(folder):
     if not str(info.get("title", "")).strip():
         out.append("seminar.json needs a title")
     items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb")]
-    if not items:
+    if not items and not (folder / "lesson.json").exists():
         out.append("no .md, .sh, .py or .ipynb files yet")
     for p in items:
         if p.suffix == ".py":
@@ -94,6 +95,11 @@ def cells_of(folder, info):
     if names:
         intro += "\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): " + ", ".join(f"`{n}`" for n in names) + "."
     cells = [{"t": "md", "s": intro}]
+    compiled = folder / "lesson.json"
+    if compiled.exists():
+        for c in json.loads(compiled.read_text(encoding="utf-8")):
+            cells.append(dict(c, s=hide_answers(c["s"])) if c["t"] == "md" else c)
+        return cells
     items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb")]
     for stem in sorted({p.stem for p in items}):
         group = {p.suffix: p for p in items if p.stem == stem}
@@ -137,13 +143,31 @@ def publish_one(folder):
         name = "case/" + p.relative_to(folder / "files").as_posix()
         files.append(name)
         emit(case_dir / name, p.read_text(encoding="utf-8"))
+    for kind in ("net", "replay"):
+        base = folder / kind
+        for p in sorted(base.rglob("*")) if base.is_dir() else []:
+            if p.is_file():
+                name = kind + "/" + p.relative_to(base).as_posix()
+                files.append(name)
+                emit(case_dir / name, p.read_text(encoding="utf-8"))
+    for tool in info.get("replayTools") or []:
+        name = "bin/" + tool
+        files.append(name)
+        emit(case_dir / name, f'exec aayat-replay --tool {tool} "$@"\n')
     meta = {"order": int(info.get("order", 60)), "title": info["title"], "kicker": info.get("kicker", "Seminar"),
             "units": info.get("units", []), "level": info.get("level", "Beginner"), "minutes": int(info.get("minutes", 30)),
             "summary": info.get("summary", ""), "tools": info.get("tools") or tools_in(cells),
             "titlePrefix": info["title"], "teacher": True, "id": slug}
     if info.get("seminar_id"):
         meta["seminarId"] = int(info["seminar_id"])
-    emit(case_dir / "manifest.json", json.dumps(dict(meta, files=files, template=cells), ensure_ascii=False, indent=1) + "\n")
+    cast = folder / "replay.json"
+    if cast.exists():
+        meta["replay"] = True
+        emit(case_dir / "replay.json", cast.read_text(encoding="utf-8"))
+    man = dict(meta, files=files, template=cells)
+    man["levels"] = levels.publish(man)
+    man["guide"] = f"media/guides/{slug}/index.html"
+    emit(case_dir / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
     emit_bytes(media / f"{folder.name}.ipynb", (json.dumps(ipynb(cells), ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
     for p in sorted(folder.iterdir()):
         if p.is_file() and p.suffix in CODE:

@@ -2831,6 +2831,8 @@ create table if not exists notebook_handins (
   student_notified_at timestamptz,
   unique (email, ref)
 );
+alter table notebook_handins add column if not exists teacher_notified_at timestamptz;
+alter table notebook_handins add column if not exists student_notified_at timestamptz;
 alter table notebook_handins enable row level security;
 revoke all on notebook_handins from public, anonymous, authenticated;
 

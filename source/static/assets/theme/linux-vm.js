@@ -5,8 +5,9 @@
   var ROOT = me ? me.replace(/assets\/theme\/linux-vm\.js.*$/, "") : "";
   var LINUX = ROOT + "assets/linux/";
   var MARK = "__AYT";
-  var TOOLS = ["aayat-net", "nmap", "curl", "tshark", "dig", "ping", "traceroute", "nslookup", "host", "whois", "nc", "wget", "ssh", "openssl", "gobuster", "nikto"];
+  var TOOLS = ["aayat-net", "nmap", "curl", "tshark", "dig", "ping", "traceroute", "nslookup", "host", "whois", "nc", "wget", "ssh", "openssl", "gobuster", "nikto", "aayat-replay"];
   var NET = "/usr/local/share/aayat/net";
+  var REPLAY = "/usr/local/share/aayat/replay", SHIMS = "/usr/local/share/aayat/bin";
 
   var vm = null, booting = null, job = null, queue = Promise.resolve(), listeners = [], muted = 0;
   var installed = "", installing = null, manifests = {}, texts = {}, waitPrompt = null, seen = "";
@@ -140,7 +141,7 @@
     var meta = data.meta || {}, files = data.files || {}, m = {};
     Object.keys(meta).forEach(function (k) { m[k] = meta[k]; });
     m.id = id;
-    m.files = Object.keys(files).filter(function (f) { return /^(case|net)\//.test(f); }).sort();
+    m.files = Object.keys(files).filter(function (f) { return /^(case|net|replay|bin)\//.test(f); }).sort();
     m.template = data.template || [];
     m.bodies = {};
     m.files.forEach(function (f) { m.bodies[f] = String(files[f] == null ? "" : files[f]); });
@@ -171,7 +172,7 @@
 
   function body(m, f) {
     if (m.bodies) return Promise.resolve(m.bodies[f] == null ? "" : m.bodies[f]);
-    return text(LINUX + "cases/" + m.id + "/" + f);
+    return text(LINUX + "cases/" + (m.base || m.id) + "/" + f);
   }
 
   function caseFiles(id) {
@@ -212,12 +213,14 @@
         m.files.forEach(function (f, i) {
           if (/^case\//.test(f)) dest.push("/root/case/" + f.slice(5));
           else if (/^net\//.test(f)) dest.push(NET + "/" + f.slice(4));
+          else if (/^replay\//.test(f)) dest.push(REPLAY + "/" + f.slice(7));
+          else if (/^bin\//.test(f)) dest.push(SHIMS + "/" + f.slice(4));
           else return;
           bodies.push(all[TOOLS.length + i]);
         });
-        var head = ["mkdir -p /root/case /usr/local/bin /usr/local/share/aayat", "rm -rf /root/case/* " + NET, "mkdir -p " + NET + "/www",
-          "export PATH=/usr/local/bin:$PATH"];
-        var tail = ["chmod +x /usr/local/bin/* /root/case/suspect/* 2>/dev/null; true", "cd /root/case"];
+        var head = ["mkdir -p /root/case /usr/local/bin /usr/local/share/aayat", "rm -rf /root/case/* " + NET + " " + REPLAY + " " + SHIMS, "mkdir -p " + NET + "/www " + REPLAY + " " + SHIMS,
+          "export PATH=" + SHIMS + ":/usr/local/bin:$PATH"];
+        var tail = ["chmod +x /usr/local/bin/* " + SHIMS + "/* /root/case/suspect/* 2>/dev/null; true", "cd /root/case"];
         return viaShare(dest, bodies).then(function (script) { return script; }, function () {
           var lines = [], n = 0;
           dest.forEach(function (path, i) {
