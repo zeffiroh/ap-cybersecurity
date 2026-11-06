@@ -1,3 +1,4 @@
+import math
 import re
 
 KINDS = {"labs": ("labs_page", "labs_gumroad"), "video": ("video_page", "video_gumroad"),
@@ -58,7 +59,8 @@ def ticket_count(prod, amount, currency, fields, quantity=1):
         m = COUNT_RE.search(str(v))
         if m:
             return max(1, min(int(m.group(1)) * times, 500))
-    pack = packs(prod, currency).get(int(amount) // times)
+    table = packs(prod, currency)
+    pack = table.get(int(amount) // times)
     if pack:
         return min(pack * times, 500)
     if times > 1:
@@ -68,7 +70,27 @@ def ticket_count(prod, amount, currency, fields, quantity=1):
         each = round(float(price) * 100)
     except (TypeError, ValueError):
         each = 0
-    return max(1, min(int(amount) // each, 500)) if each > 0 else 1
+    if each <= 0:
+        return 1
+    return max(1, min(most_tickets(int(amount), each, table), 500))
+
+
+def most_tickets(amount, each, table):
+    items = [(each, 1)] + [(p, n) for p, n in table.items() if p > 0 and n > 0]
+    step = 0
+    for p, _ in items:
+        step = math.gcd(step, p)
+    size = amount // step
+    if size > 100000:
+        return amount // each
+    best = [-1] * (size + 1)
+    best[0] = 0
+    for a in range(1, size + 1):
+        for p, n in items:
+            u = p // step
+            if u <= a and best[a - u] >= 0 and best[a - u] + n > best[a]:
+                best[a] = best[a - u] + n
+    return max(best)
 
 
 def grant(db, kind, email, ref, via, paid, cid=None, count=1, prod=None):

@@ -30,7 +30,7 @@ window.APCYBER_PAYWALL = {
 
   products: {
     labs: {
-      name: "Labs",
+      name: "Cybersecurity Labs",
       title: "Part of Labs",
       text: "Labs is the hands-on side of the course: incident runbooks with an analyst console, a real Linux computer, JupyterLab " +
         "with every code book, the SQL injection lab, the hackable shop, the capture-the-flag board, every skill lab, premium notebooks and the lesson videos. " +
@@ -46,13 +46,13 @@ window.APCYBER_PAYWALL = {
 
 window.APCYBER_STORES = {
   bundle: {
-    name: "Course + Labs",
+    name: "Course + Cybersecurity Labs",
     blurb: "Everything in the Course and everything in Labs together, for less than buying them one by one.",
     india: "Pay what you want, with a minimum",
     badge: "Best value",
     methods: [
-      { label: "Razorpay", note: "India", url: "" },
-      { label: "Gumroad", note: "International", url: "" }
+      { label: "Razorpay", note: "India · from Rs 14,999", url: "https://rzp.io/rzp/aayat-course-and-labs" },
+      { label: "Gumroad", note: "International · $449", url: "https://mitaliaayatmahnoor.gumroad.com/l/course-and-cybersecurity-labs" }
     ]
   },
   course: {
@@ -65,36 +65,36 @@ window.APCYBER_STORES = {
     ]
   },
   labs: {
-    name: "Labs",
+    name: "Cybersecurity Labs",
     blurb: "Incident runbooks with an analyst console (terminal, script toolkit, log viewer, notes), real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
       "every skill lab, premium notebooks and every lesson video. Pay once, keep it.",
     india: "Pay what you want, with a minimum",
     methods: [
-      { label: "Razorpay", note: "India · pay what you want", url: "" },
-      { label: "Gumroad", note: "International · $149", url: "" }
+      { label: "Razorpay", note: "India · from Rs 9,999", url: "https://rzp.io/rzp/aayat-cybersecurity-labs" },
+      { label: "Gumroad", note: "International · $249", url: "https://mitaliaayatmahnoor.gumroad.com/l/cybersecurity-labs" }
     ]
   },
   seminars: {
-    name: "Seminars subscription",
+    name: "Cybersecurity Seminars, one year",
     blurb: "Every recorded seminar and its hands-on lab, including new ones, for a year. Or unlock single seminars with tickets.",
     india: "Pay what you want, with a minimum",
     methods: [
-      { label: "Razorpay", note: "India", url: "" },
-      { label: "Gumroad", note: "International", url: "" }
+      { label: "Razorpay", note: "India · from Rs 9,999", url: "https://rzp.io/rzp/aayat-cybersecurity-seminars" },
+      { label: "Gumroad", note: "International · $249", url: "https://mitaliaayatmahnoor.gumroad.com/l/cybersecurity-seminars" }
     ]
   },
   tickets: {
-    name: "Tickets",
+    name: "Cybersecurity Tickets",
     blurb: "Buy any number. A batch class costs 1 ticket; a 1:1 class or a seminar costs what its page says.",
     india: "Priced per ticket, cheaper in packs",
     packs: [
-      { tickets: 5, inr: "", usd: "" },
-      { tickets: 10, inr: "", usd: "" },
-      { tickets: 25, inr: "", usd: "" }
+      { tickets: 5, inr: "900", usd: "22" },
+      { tickets: 10, inr: "1,600", usd: "40" },
+      { tickets: 25, inr: "3,500", usd: "90" }
     ],
     methods: [
-      { label: "Razorpay", note: "India · type how many you want", url: "" },
-      { label: "Gumroad", note: "International · choose a quantity", url: "" }
+      { label: "Razorpay", note: "India · Rs 200 each or a pack", url: "https://rzp.io/rzp/aayat-tickets" },
+      { label: "Gumroad", note: "International · $5 each or a pack", url: "https://mitaliaayatmahnoor.gumroad.com/l/class-and-seminar-tickets" }
     ]
   },
   book: {
