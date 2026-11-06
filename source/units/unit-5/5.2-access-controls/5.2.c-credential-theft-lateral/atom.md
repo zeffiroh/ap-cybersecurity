@@ -1,6 +1,6 @@
 # 5.2.c: Credential theft prevention and lateral movement
 
-> **Unit 5 · 5.2 Protecting Applications and Data: Access Controls**
+> **Unit 5 · 5.2 Linux Permission Controls**
 > **AP Learning Objective(s):** 5.2.B, 5.2.C
 > **Course skill(s):** Mitigate Risk, Detect Attacks
 

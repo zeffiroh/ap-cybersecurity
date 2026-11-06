@@ -1,6 +1,6 @@
 # 2.4.a: Access logs and monitoring
 
-> **Unit 2 · 2.4 Detecting Physical Attacks**
+> **Unit 2 · 2.4 Physical Detection Systems**
 > **AP Learning Objective(s):** 2.4.A
 > **Course skill(s):** Detect Attacks
 

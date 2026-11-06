@@ -1,6 +1,6 @@
 # 1.2.a: Password-attack signs (failed attempts, unusual times, unknown devices)
 
-> **Unit 1 · 1.2 Suspicious Wi-Fi Login**
+> **Unit 1 · 1.2 Suspicious Website Logins**
 > **AP Learning Objective(s):** 1.2.A
 > **Course skill(s):** Detect Attacks
 

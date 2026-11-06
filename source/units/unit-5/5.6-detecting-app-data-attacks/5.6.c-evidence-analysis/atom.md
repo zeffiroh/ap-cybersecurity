@@ -1,6 +1,6 @@
 # 5.6.c: Digital evidence analysis and attack classification
 
-> **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
+> **Unit 5 · 5.6 Application Threat Auditing**
 > **AP Learning Objective(s):** 5.6.B, 5.6.C
 > **Course skill(s):** Detect Attacks, Collaborate
 

@@ -1,7 +1,7 @@
 ---
 deck:
   title: Phishing & Credential Attacks
-  kicker: Class 5
+  kicker: Lecture 5
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

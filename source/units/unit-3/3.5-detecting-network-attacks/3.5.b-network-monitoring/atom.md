@@ -1,6 +1,6 @@
 # 3.5.b: Network monitoring and traffic analysis
 
-> **Unit 3 · 3.5 Detecting Network Attacks**
+> **Unit 3 · 3.5 Network Threat Detection**
 > **AP Learning Objective(s):** 3.5.B
 > **Course skill(s):** Detect Attacks
 

@@ -1,6 +1,6 @@
 # 3.2.b: Managerial controls and security policies
 
-> **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
+> **Unit 3 · 3.2 Wireless Network Security**
 > **AP Learning Objective(s):** 3.2.A, 3.2.B
 > **Course skill(s):** Mitigate Risk
 

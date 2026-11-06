@@ -1,6 +1,6 @@
 # 3.4.a: Firewall types (stateful vs. stateless)
 
-> **Unit 3 · 3.4 Protecting Networks: Firewalls**
+> **Unit 3 · 3.4 Firewall Access Controls**
 > **AP Learning Objective(s):** 3.4.A
 > **Course skill(s):** Mitigate Risk
 

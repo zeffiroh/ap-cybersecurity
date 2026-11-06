@@ -1,6 +1,6 @@
 # 5.5.a: Input validation and sanitization
 
-> **Unit 5 · 5.5 Protecting Applications**
+> **Unit 5 · 5.5 Secure Web Application Design**
 > **AP Learning Objective(s):** 5.5.A
 > **Course skill(s):** Mitigate Risk
 

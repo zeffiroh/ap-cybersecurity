@@ -1,7 +1,7 @@
 ---
 deck:
   title: Threat Actors & Security Risks
-  kicker: Class 3
+  kicker: Lecture 3
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

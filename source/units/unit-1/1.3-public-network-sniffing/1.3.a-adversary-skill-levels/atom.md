@@ -1,6 +1,6 @@
 # 1.3.a: Adversary skill levels (low-skilled vs high-skilled / zero-days); motivation
 
-> **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
+> **Unit 1 · 1.3 Public Network Sniffing**
 > **AP Learning Objective(s):** 1.3.A
 > **Course skill(s):** Analyze Risk
 

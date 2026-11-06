@@ -1,6 +1,6 @@
 # 3.1.c: Man-in-the-middle and ARP spoofing
 
-> **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
+> **Unit 3 · 3.1 Network-Level Exploits**
 > **AP Learning Objective(s):** 3.1.B
 > **Course skill(s):** Analyze Risk
 

@@ -1,7 +1,7 @@
 ---
 deck:
   title: Incident Response
-  kicker: Class 20
+  kicker: Lecture 20
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

@@ -1,7 +1,7 @@
 ---
 deck:
   title: Physical Security
-  kicker: Class 10
+  kicker: Lecture 10
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

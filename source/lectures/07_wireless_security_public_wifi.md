@@ -1,7 +1,7 @@
 ---
 deck:
   title: Wireless Security & Public Wi-Fi
-  kicker: Class 7
+  kicker: Lecture 7
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

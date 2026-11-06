@@ -1,6 +1,6 @@
 # 5.3.c: Integrity and authenticity (HMAC)
 
-> **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
+> **Unit 5 · 5.3 Symmetric Encryption, Hashing and Key Storage**
 > **AP Learning Objective(s):** 5.3.B, 5.3.C
 > **Course skill(s):** Mitigate Risk
 

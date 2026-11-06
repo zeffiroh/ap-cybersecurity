@@ -1,7 +1,7 @@
 ---
 deck:
   title: Network Fundamentals
-  kicker: Class 11
+  kicker: Lecture 11
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

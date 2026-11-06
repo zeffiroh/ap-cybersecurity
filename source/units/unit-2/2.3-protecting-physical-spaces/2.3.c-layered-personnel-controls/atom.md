@@ -1,6 +1,6 @@
 # 2.3.c: Security guards and layered defense-in-depth
 
-> **Unit 2 · 2.3 Protecting Physical Spaces**
+> **Unit 2 · 2.3 Physical Access Controls**
 > **AP Learning Objective(s):** 2.3.B
 > **Course skill(s):** Mitigate Risk
 

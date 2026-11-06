@@ -1,6 +1,6 @@
 # 4.4.c: Identifying compromised devices (indicators of compromise)
 
-> **Unit 4 · 4.4 Detecting Attacks on Devices**
+> **Unit 4 · 4.4 Endpoint Threat Auditing**
 > **AP Learning Objective(s):** 4.4.B, 4.4.C
 > **Course skill(s):** Detect Attacks
 

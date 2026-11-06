@@ -1,6 +1,6 @@
 # 5.3.b: Symmetric encryption and key management
 
-> **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
+> **Unit 5 · 5.3 Symmetric Encryption, Hashing and Key Storage**
 > **AP Learning Objective(s):** 5.3.A, 5.3.B
 > **Course skill(s):** Mitigate Risk
 

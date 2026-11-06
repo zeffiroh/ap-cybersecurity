@@ -1,6 +1,6 @@
 # 5.6.a: Application monitoring and logging
 
-> **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
+> **Unit 5 · 5.6 Application Threat Auditing**
 > **AP Learning Objective(s):** 5.6.A
 > **Course skill(s):** Detect Attacks
 

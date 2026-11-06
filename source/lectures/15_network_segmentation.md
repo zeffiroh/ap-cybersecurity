@@ -1,7 +1,7 @@
 ---
 deck:
   title: Network Segmentation
-  kicker: Class 15
+  kicker: Lecture 15
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

@@ -1,7 +1,7 @@
 ---
 deck:
   title: AI Cyber Defense
-  kicker: Class 9
+  kicker: Lecture 9
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

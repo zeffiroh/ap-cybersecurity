@@ -1,6 +1,6 @@
 # 4.4.a: Endpoint detection and response (EDR)
 
-> **Unit 4 · 4.4 Detecting Attacks on Devices**
+> **Unit 4 · 4.4 Endpoint Threat Auditing**
 > **AP Learning Objective(s):** 4.4.A
 > **Course skill(s):** Detect Attacks
 

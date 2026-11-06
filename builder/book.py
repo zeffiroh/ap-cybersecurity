@@ -529,7 +529,8 @@ def chapter(path, unit, inserts):
     if pq:
         out[review:review] = [f"<h3{CE}>Check Your Understanding</h3>", pq]
     head = (f'<header class="topic-header"><img class="topic-cover" src="covers/topic-{slug(tid)}.svg" alt="" '
-            f'loading="lazy"><h2 id="ch-{slug(tid)}"{CE}>{tid} {inline(title)}</h2></header>')
+            f'loading="lazy"><h2 id="ch-{slug(tid)}"{CE}>{tid} {inline(title)}</h2>'
+            f'<p class="topic-links"><a href="../unit-{tid.split(".")[0]}/{tid}/index.html">Topic {tid}: notes, practice, quizzes and labs</a></p></header>')
     return tid, plain(inline(title)), f'<section class="topic">{head}\n' + "\n".join(out) + "</section>"
 
 

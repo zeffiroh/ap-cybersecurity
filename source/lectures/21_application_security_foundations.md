@@ -1,7 +1,7 @@
 ---
 deck:
   title: Application Security Foundations
-  kicker: Class 21
+  kicker: Lecture 21
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

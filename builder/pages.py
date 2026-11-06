@@ -3,6 +3,7 @@ from pathlib import Path
 
 from . import course as C
 from . import nav as N
+from . import resources as RES
 from . import teacher
 from .course import BRAND, SUBJECT
 from .paths import ASSETS, DOWNLOADS, SHARED, SITE, TESTS, THEME, downloads_unit, unit_dir
@@ -40,12 +41,34 @@ def files(tid):
             ("Slides (PowerPoint)", d / f"Topic_{tid}_Slides.pptx", "")]
 
 
+def chips(page_dir, items):
+    out = []
+    for it in items:
+        label, path, query = it[0], it[1], it[2] if len(it) > 2 else ""
+        if not path or not Path(path).exists():
+            continue
+        tag = '<span class="aa-needs">Labs</span>' if len(it) > 3 and it[3] else ""
+        seen = f' data-aa-seen="{it[4]}"' if len(it) > 4 and it[4] else ""
+        href = rel(page_dir, path, query).replace("&", "&amp;")
+        out.append(f'<a href="{href}"{seen}>{esc(label)}{tag}</a>')
+    return f'<div class="aa-links">{"".join(out)}</div>'
+
+
 def atom_row(page_dir, a):
     r = lambda p: rel(page_dir, p)
-    ls = [("Lesson", N.lesson_page(a), ""), ("Sim", N.sim_page(a), ""),
-          ("Code", N.problem_page(a), ""), ("Quiz", N.quiz_page(a), "")]
+    ls = [("Lesson", N.lesson_page(a)), ("Simulation", N.sim_page(a)), ("Coding problem", N.problem_page(a)),
+          ("Quiz", N.quiz_page(a)), ("Code book", SITE / "notebook.html", RES.code_book_href(a["id"])),
+          ("Lab", N.lab_page(a), "", True)]
     return (f'<li><span class="aa-what"><i class="aa-lvl" data-aa-atom="{a["id"]}"></i><span class="aa-id">{a["id"]}</span>'
-            f'<a href="{r(N.lesson_page(a))}">{esc(a["title"])}</a></span>{links(page_dir, ls)}</li>')
+            f'<a href="{r(N.lesson_page(a))}">{esc(a["title"])}</a></span>{chips(page_dir, ls)}</li>')
+
+
+def goes_with(page_dir, tids, label="Goes with"):
+    if not tids:
+        return ""
+    out = "".join(f'<a href="{rel(page_dir, N.target(t, "topic"))}"><span class="aa-id">{t}</span>{esc(C.topic(t)["title"])}</a>'
+                  for t in tids)
+    return f'<p class="aa-goes"><span>{esc(label)}</span>{out}</p>\n'
 
 
 def home():
@@ -84,19 +107,8 @@ def unit_page(u):
     emit(path, N.shell(path, "", body))
 
 
-LAB_PAGES = {"cyberchef": ("CyberChef", SITE / "cyberchef" / "index.html"), "linux": ("Linux lab", SITE / "linux.html"),
-             "sqli": ("SQL injection lab", SITE / "sqli.html"), "shop": ("Hack the shop", SITE / "shop.html")}
-TOPIC_LABS = {"1.2": ["cyberchef"], "1.3": ["cyberchef"], "3.5": ["linux"], "4.2": ["linux"], "4.3": ["linux"], "4.4": ["linux"],
-              "5.1": ["sqli", "shop"], "5.2": ["linux"], "5.3": ["cyberchef", "linux"], "5.4": ["cyberchef"],
-              "5.5": ["shop", "sqli"], "5.6": ["shop", "linux"]}
-
-
-def lab_links(page_dir, tid):
-    unit = C.topic(tid)["unit"]
-    items = [(LAB_PAGES[k][0], LAB_PAGES[k][1], "") for k in TOPIC_LABS.get(tid, [])]
-    items.append((f"Unit {unit} CTF challenges", SITE / "ctf.html", f"#u{unit}"))
-    out = [f'<a href="{rel(page_dir, p, q)}">{esc(label)}</a>' for label, p, q in items]
-    return f'<div class="aa-links">{"".join(out)}</div>'
+def kind_item(tid, kind, label):
+    return (label, N.target(tid, kind) if N.has(tid, kind) else None, "", False, f"{kind}|{tid}")
 
 
 def topic_page(tid):
@@ -105,11 +117,25 @@ def topic_page(tid):
     t = C.topic(tid)
     los = "".join(f"<li>{esc(lo)}</li>" for lo in t["los"])
     atoms = "".join(atom_row(d, a) for a in C.topic_atoms(tid))
+    book, anchor = RES.book_anchor(tid)
+    learn = [kind_item(tid, "notes", "Notes"), ("Book chapter", book, anchor)]
+    learn += [(f'Lecture {x["n"]:02d}: {x["title"]}', x["path"]) for x in RES.lectures(tid)]
+    learn.append(kind_item(tid, "slides", "Slides"))
+    check = [kind_item(tid, "flashcards", "Flashcards"), kind_item(tid, "quiz", "Topic quiz"),
+             kind_item(tid, "assignments", "Assignments"), kind_item(tid, "activities", "Activities")]
+    apply_it = [(f'Runbook: {x["title"]}', SITE / "notebook.html", RES.case_href(x["id"]), True) for x in RES.cases(tid)]
+    apply_it += [(label, p, "", True) for _, label, p in RES.labs(tid)]
+    apply_it.append((f'Unit {t["unit"]} CTF challenges', SITE / "ctf.html", f'#u{t["unit"]}', True))
+    runbook_hint = "A <b>runbook</b> is a full incident to investigate. " if RES.cases(tid) else ""
     body = (f'<h1><span class="aa-id">{tid}</span>{esc(t["title"])} <span class="aa-pct" data-aa-topic="{tid}"></span></h1>\n'
             f'<ul class="aa-los">{los}</ul>\n'
-            f'<h2>Study</h2>\n{links(d, materials(tid))}\n'
-            f'<h2>Practice</h2>\n<ul class="aa-list">{atoms}</ul>\n'
-            f'<h2>Hands-on labs</h2>\n{lab_links(d, tid)}\n'
+            f'<h2>1. Learn it</h2>\n{chips(d, learn)}\n'
+            f'<h2>2. Practise each skill</h2>\n<p class="aa-hint">A <b>coding problem</b> is marked by tests. A <b>code book</b> is a '
+            f'guided notebook you can run and keep.</p>\n<ul class="aa-list">{atoms}</ul>\n'
+            f'{chips(d, [kind_item(tid, "simlab", "All simulations for this topic")])}\n'
+            f'<h2>3. Check yourself</h2>\n{chips(d, check)}\n'
+            f'<h2>4. Use it on real evidence</h2>\n<p class="aa-hint">{runbook_hint}Anything marked '
+            f'<span class="aa-needs">Labs</span> comes with Labs.</p>\n{chips(d, apply_it)}\n'
             f'<h2>Downloads</h2>\n{links(d, files(tid))}\n{scripts(d)}')
     emit(path, N.shell(path, "", body))
 
@@ -123,7 +149,8 @@ def course_map():
                              "atoms": [a["id"] for a in C.topic_atoms(tid)],
                              "mats": {k: root(N.target(tid, k)) for k, _ in N.KINDS[1:] if N.has(tid, k)}}
                        for tid in C.order()},
-            "atoms": {a["id"]: {"title": a["title"], "href": root(N.lesson_page(a))} for a in C.atom_order()}}
+            "atoms": {a["id"]: {"title": a["title"], "href": root(N.lesson_page(a))} for a in C.atom_order()},
+            "cases": {cid: RES.topics_for_case(cid) for cid in RES.all_cases()}}
     emit(THEME / "course-map.js", "window.AAYAT_MAP = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
 
 
@@ -189,7 +216,7 @@ def linux_page():
     path = SITE / "linux.html"
     r = lambda p: rel(path.parent, p)
     body = ('<h1>Linux lab</h1>\n<p class="aa-sub">A real Linux computer running inside your browser. Nothing to install, '
-            'and nothing you do here can harm your own computer.</p>\n<div id="lx-app" class="lx-app">'
+            'and nothing you do here can harm your own computer.</p>\n' + goes_with(path.parent, RES.topics_for_lab("linux")) + '<div id="lx-app" class="lx-app">'
             '<section class="lx-term"><div class="lx-bar"><button class="btn dark" id="lx-start">Start Linux</button>'
             '<button class="btn" id="lx-setup" disabled>Create the lab files</button><button class="btn" id="lx-reset">Restart</button>'
             '<span id="lx-status" class="sx-note">Press Start. The first start downloads about 12 MB.</span></div>'
@@ -219,7 +246,8 @@ def ctf_page():
     path = SITE / "ctf.html"
     r = lambda p: rel(path.parent, p)
     body = ('<h1>Capture the flag</h1>\n<p class="aa-sub">Each puzzle hides a flag like <code>aayat{...}</code>. Find it, paste it in, '
-            'score points for yourself and your class.</p>\n'
+            'score points for yourself and your class. Stuck? Go back to the unit that teaches it.</p>\n' +
+            '<p class="aa-goes"><span>Units</span>' + "".join(f'<a href="{rel(path.parent, unit_dir(u["num"]) / "index.html")}"><span class="aa-id">{u["num"]}</span>{esc(u["title"])}</a>' for u in C.units()) + '</p>\n'
             '<div id="ctf-app" class="ctf-app"><section class="ctf-main"><p class="sx-note" id="ctf-msg">Loading…</p>'
             '<div id="ctf-stats" class="ctf-stats" aria-live="polite"></div>'
             '<div class="ctf-filters" role="search"><label class="ctf-search"><span class="ctf-sr">Search puzzles</span>'
@@ -247,7 +275,7 @@ def sqli_page():
     path = SITE / "sqli.html"
     r = lambda p: rel(path.parent, p)
     body = ('<h1>SQL injection lab</h1>\n<p class="aa-sub">A pretend staff portal backed by a real SQL database running in your browser. '
-            'Break it, then fix it. Nothing outside this page is touched.</p>\n'
+            'Break it, then fix it. Nothing outside this page is touched.</p>\n' + goes_with(path.parent, RES.topics_for_lab("sqli")) +
             '<div id="sq-app" class="lab-app"><section class="lab-main">'
             '<div class="sq-site"><div class="sq-brand">Northwind Staff Portal</div>'
             '<div class="sq-panel"><h3>Sign in</h3><label>Username <input id="sq-user" autocomplete="off" spellcheck="false"></label>'
@@ -279,7 +307,7 @@ def shop_page():
     path = SITE / "shop.html"
     r = lambda p: rel(path.parent, p)
     body = ('<h1>Hack the shop</h1>\n<p class="aa-sub">NimbuMart is a deliberately insecure online shop. Its web server is simulated '
-            'inside this page, so you can attack it freely. Use the address bar and the developer tools under it, as in a real browser.</p>\n'
+            'inside this page, so you can attack it freely. Use the address bar and the developer tools under it, as in a real browser.</p>\n' + goes_with(path.parent, RES.topics_for_lab("shop")) +
             '<div id="sh-app" class="lab-app"><section class="lab-main">'
             '<div class="sh-browser"><div class="sh-bar"><button class="btn" id="sh-back" title="Back">&larr;</button>'
             '<button class="btn" id="sh-reload" title="Reload">&#8635;</button><span class="sh-host">https://nimbu.shop</span>'

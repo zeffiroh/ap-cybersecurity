@@ -3,6 +3,7 @@ from pathlib import Path
 
 from . import course as C
 from . import nav as N
+from . import resources as RES
 from .course import BRAND
 from .paths import DOWNLOADS, SITE, TEACHER, THEME, downloads_unit, teacher_atom, teacher_topic
 from .util import emit, esc, rel
@@ -84,7 +85,17 @@ def teach_data():
                        "quizKey": have(td / f"Topic_{tid}_Quiz_AnswerKey.pdf"),
                        "assignKey": have(td / f"Topic_{tid}_Assignment_AnswerKey.pdf"),
                        "activityKeys": have(td / "activity-keys.html"),
-                       "quizPdf": have(dl / f"Topic_{tid}_Quiz.pdf"), "assignPdf": have(dl / f"Topic_{tid}_Assignment.pdf")}
+                       "quizPdf": have(dl / f"Topic_{tid}_Quiz.pdf"), "assignPdf": have(dl / f"Topic_{tid}_Assignment.pdf"),
+                       "notes": have(N.target(tid, "notes")), "flashcards": have(N.target(tid, "flashcards")),
+                       "topicQuiz": have(N.target(tid, "quiz")), "assignments": have(N.target(tid, "assignments")),
+                       "activities": have(N.target(tid, "activities")),
+                       "book": site_rel(RES.book_anchor(tid)[0]) + RES.book_anchor(tid)[1],
+                       "ctf": f"ctf.html#u{C.topic(tid)['unit']}",
+                       "lectures": [{"n": x["n"], "title": x["title"], "page": have(x["path"]),
+                                     "present": f"teacher/present.html?deck={x['stem']}"} for x in RES.lectures(tid)],
+                       "cases": [{"title": x["title"], "page": "notebook.html" + RES.case_href(x["id"]),
+                                  "present": f"teacher/present-lab.html?kind=runbook&id={x['id']}"} for x in RES.cases(tid)],
+                       "labs": [{"title": label, "page": have(p)} for _, label, p in RES.labs(tid)]}
         for a in C.topic_atoms(tid):
             ad, aid = teacher_atom(a["id"]), a["id"]
             atoms[aid] = {"topic": tid, "title": a["title"], "lesson": have(N.lesson_page(a)), "sim": have(N.sim_page(a)),
@@ -134,6 +145,7 @@ def teach_page():
             '  <aside class="tc-rail">\n'
             '    <div class="tc-card"><h3>Timer</h3><div class="tc-timer" id="timer">00:00</div>'
             '<div class="tc-btns" id="timer-btns"></div></div>\n'
+            '    <div class="tc-card"><h3>Also for this class</h3><div id="more"></div></div>\n'
             '    <div class="tc-card"><h3>Share with the class</h3><div id="share"></div><p class="tc-note" id="copied"></p></div>\n'
             '    <div class="tc-card"><h3>Live <span class="tc-dot"></span></h3><div id="live">Loading…</div></div>\n'
             '    <div class="tc-card"><h3>Teacher only</h3><div id="private"></div></div>\n'
@@ -262,7 +274,13 @@ def videos_page():
 def lectures_page():
     path = TEACHER / "lectures.html"
     d = path.parent
-    rows = "".join(f'<tr><td>{n:02d}</td><td>{esc(t)}</td><td><span class="tc-links">'
+    def deck_topics(n):
+        tops = RES.topics_for_lecture(n)
+        if not tops:
+            return '<span class="aa-sub">Whole course</span>'
+        return " ".join(f'<a href="{rel(d, teacher_topic(x) / "index.html")}">{x}</a>' for x in tops)
+
+    rows = "".join(f'<tr><td>{n:02d}</td><td>{esc(t)}</td><td>{deck_topics(n)}</td><td><span class="tc-links">'
                    f'<a class="btn dark" href="present.html?deck={p.stem}">Present with notes</a>'
                    f'<a href="{rel(d, p)}" target="_blank" rel="noopener">Slides only</a>'
                    + link_list(d, [("PowerPoint", TEACHER / "lectures" / (p.stem + ".pptx"))]) + '</span></td></tr>'
@@ -274,7 +292,7 @@ def lectures_page():
     body = ('<header class="tc-head"><div><h1>Lectures</h1><p class="aa-sub">Present any deck with your speaker notes beside it. '
             'Put the slides on the projector and keep the notes on your screen; they stay in step.</p></div>'
             '<a class="btn" href="present-lab.html">Present a lab, runbook case or challenges</a></header>\n'
-            f'<section class="tc-card"><h3>Lecture decks (30)</h3><table class="tc-table">{rows}</table></section>\n'
+            f'<section class="tc-card"><h3>Lecture decks (30)</h3><p class="aa-sub">Numbered 01 to 30. These are separate from the 40 planned classes in Teach a class; each deck links to its topics.</p><table class="tc-table">{rows}</table></section>\n'
             f'<section class="tc-card"><h3>Topic decks</h3><table class="tc-table">{topics}</table></section>')
     console(path, "Lectures", "lectures", body)
 
@@ -460,6 +478,12 @@ def topic_page(tid):
     teach = link_list(d, [("Topic deck with speaker notes", d / "slides.html"),
                           ("Classroom PowerPoint", downloads_unit(tid) / f"Topic_{tid}_Slides.pptx"),
                           ("Student view", N.target(tid, "topic"))])
+    book, anchor = RES.book_anchor(tid)
+    materials = "".join(f'<a href="{rel(d, s_).replace("&", "&amp;") if not q else rel(d, s_, q).replace("&", "&amp;")}">{esc(l)}</a>' for l, s_, q in
+                        [("Notes", N.target(tid, "notes"), ""), ("Book chapter", book, anchor)]
+                        + [(f'Lecture {x["n"]:02d}: {x["title"]}', TEACHER / "present.html", f'?deck={x["stem"]}') for x in RES.lectures(tid)]
+                        + [(f'Present runbook: {x["title"]}', TEACHER / "present-lab.html", f'?kind=runbook&id={x["id"]}') for x in RES.cases(tid)]
+                        + [(label, p, "") for _, label, p in RES.labs(tid)])
     keys = link_list(d, [("Quiz key (PDF)", d / f"Topic_{tid}_Quiz_AnswerKey.pdf"),
                          ("Quiz key (Word)", d / f"Topic_{tid}_Quiz_AnswerKey.docx"),
                          ("Assignment key (PDF)", d / f"Topic_{tid}_Assignment_AnswerKey.pdf"),
@@ -480,6 +504,7 @@ def topic_page(tid):
             f'<a class="btn" href="{rel(d, TEACHER / "teach.html")}?topic={tid}">Teach this topic</a></header>\n'
             f'<div class="tc-grid"><section class="tc-card"><h3>Teach</h3><span class="tc-links">{teach}</span></section>'
             f'<section class="tc-card"><h3>Answer keys</h3><span class="tc-links">{keys}</span></section></div>\n'
+            f'<section class="tc-card"><h3>Everything for this topic</h3><span class="tc-links">{materials}</span></section>\n'
             f'<section class="tc-card"><h3>Skills</h3><ul class="tc-skills">{"".join(rows)}</ul></section>')
     console(path, f"{tid} {t['title']}", "resources", body)
 

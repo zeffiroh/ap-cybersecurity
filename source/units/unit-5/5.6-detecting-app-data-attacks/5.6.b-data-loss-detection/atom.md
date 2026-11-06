@@ -1,6 +1,6 @@
 # 5.6.b: Data loss detection (DLP)
 
-> **Unit 5 · 5.6 Detecting Attacks on Data and Applications**
+> **Unit 5 · 5.6 Application Threat Auditing**
 > **AP Learning Objective(s):** 5.6.B
 > **Course skill(s):** Detect Attacks
 

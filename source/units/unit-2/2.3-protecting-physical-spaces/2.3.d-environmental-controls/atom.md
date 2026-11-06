@@ -1,6 +1,6 @@
 # 2.3.d: Environmental controls (HVAC, fire suppression, power)
 
-> **Unit 2 · 2.3 Protecting Physical Spaces**
+> **Unit 2 · 2.3 Physical Access Controls**
 > **AP Learning Objective(s):** 2.3.C
 > **Course skill(s):** Mitigate Risk
 

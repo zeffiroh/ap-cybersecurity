@@ -1,6 +1,6 @@
 # 1.4.b: Generative-AI phishing; prompt injection against LLM apps
 
-> **Unit 1 · 1.4 AI-Based Cybersecurity Attacks**
+> **Unit 1 · 1.4 AI-Augmented Cyberattacks**
 > **AP Learning Objective(s):** 1.4.A
 > **Course skill(s):** Analyze Risk, Mitigate Risk
 

@@ -1,6 +1,6 @@
 # 1.5.c: AI suggesting detection rules
 
-> **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
+> **Unit 1 · 1.5 AI-Powered Threat Detection**
 > **AP Learning Objective(s):** 1.5.A
 > **Course skill(s):** Detect Attacks
 

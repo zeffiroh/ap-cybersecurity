@@ -1,6 +1,6 @@
 # 3.5.c: Incident response sequence
 
-> **Unit 3 · 3.5 Detecting Network Attacks**
+> **Unit 3 · 3.5 Network Threat Detection**
 > **AP Learning Objective(s):** 3.5.C
 > **Course skill(s):** Detect Attacks, Collaborate
 

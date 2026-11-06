@@ -1,7 +1,7 @@
 ---
 deck:
   title: Access Control
-  kicker: Class 18
+  kicker: Lecture 18
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

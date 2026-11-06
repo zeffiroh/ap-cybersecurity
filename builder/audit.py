@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from urllib.parse import unquote, urlsplit
 
+from . import resources as RES
 from .paths import ROOT, SITE, SRC
 
 ATTR = re.compile(r"""\s(?:href|src)\s*=\s*(["'])(.*?)\1""", re.I | re.S)
@@ -61,4 +62,9 @@ def run(verbose=False):
     print(f"broken local links: {len(bad)} in {len({p for p, _ in bad})} page(s)")
     for p, u in bad[:None if verbose else 25]:
         print(f"  {p} -> {u}")
-    return not bad
+    problems, unlinked = RES.check()
+    print(f"topic map and titles: {len(problems)} problem(s)")
+    for p in problems[:None if verbose else 25]:
+        print(f"  {p}")
+    print(f"objectives with no skill tagged: {len(unlinked)}" + (f" ({', '.join(unlinked)})" if unlinked else ""))
+    return not bad and not problems

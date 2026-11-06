@@ -1,7 +1,7 @@
 ---
 deck:
   title: AI Cybersecurity
-  kicker: Class 8
+  kicker: Lecture 8
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

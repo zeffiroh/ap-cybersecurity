@@ -1,7 +1,7 @@
 ---
 deck:
   title: Firewalls & Network Controls
-  kicker: Class 13
+  kicker: Lecture 13
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

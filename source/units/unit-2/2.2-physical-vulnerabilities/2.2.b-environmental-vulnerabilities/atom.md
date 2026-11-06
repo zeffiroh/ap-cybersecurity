@@ -1,6 +1,6 @@
 # 2.2.b: Environmental vulnerabilities (power, HVAC, fire, water)
 
-> **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
+> **Unit 2 · 2.2 Physical Security Breaches**
 > **AP Learning Objective(s):** 2.2.A
 > **Course skill(s):** Analyze Risk
 

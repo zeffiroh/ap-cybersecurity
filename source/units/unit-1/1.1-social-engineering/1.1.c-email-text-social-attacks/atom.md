@@ -1,6 +1,6 @@
 # 1.1.c: Email, text, and social media attacks
 
-> **Unit 1 · 1.1 Understanding Social Engineering**
+> **Unit 1 · 1.1 Social Engineering**
 > **AP Learning Objective(s):** 1.1.A, 1.1.C
 > **Course skill(s):** Analyze Risk, Detect Attacks
 

@@ -1,7 +1,7 @@
 ---
 deck:
   title: IDS, IPS & Monitoring
-  kicker: Class 14
+  kicker: Lecture 14
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

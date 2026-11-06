@@ -1,7 +1,7 @@
 ---
 deck:
   title: Secure Coding
-  kicker: Class 23
+  kicker: Lecture 23
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

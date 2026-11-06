@@ -1,6 +1,6 @@
 # 2.1.a: CIA triad: confidentiality, integrity, availability
 
-> **Unit 2 · 2.1 Cyber Foundations**
+> **Unit 2 · 2.1 Security Foundations: CIA Triad**
 > **AP Learning Objective(s):** 2.1.A
 > **Course skill(s):** Analyze Risk
 

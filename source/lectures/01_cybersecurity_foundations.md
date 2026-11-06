@@ -1,7 +1,7 @@
 ---
 deck:
   title: Cybersecurity Foundations
-  kicker: Class 1
+  kicker: Lecture 1
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png
@@ -12,7 +12,7 @@ deck:
 ---
 
 ---
-unit: Class 01
+unit: Lecture 01
 title: Cybersecurity Foundations
 cover: true
 ---

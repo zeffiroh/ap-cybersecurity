@@ -1,6 +1,6 @@
 # 2.1.b: Threat actors and their motivations
 
-> **Unit 2 · 2.1 Cyber Foundations**
+> **Unit 2 · 2.1 Security Foundations: CIA Triad**
 > **AP Learning Objective(s):** 2.1.B
 > **Course skill(s):** Analyze Risk
 

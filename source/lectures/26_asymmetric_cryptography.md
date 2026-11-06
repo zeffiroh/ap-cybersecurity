@@ -1,7 +1,7 @@
 ---
 deck:
   title: Asymmetric Cryptography
-  kicker: Class 26
+  kicker: Lecture 26
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

@@ -1,6 +1,6 @@
 # 1.5.b: AI analyzing code for vulnerabilities
 
-> **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
+> **Unit 1 · 1.5 AI-Powered Threat Detection**
 > **AP Learning Objective(s):** 1.5.A
 > **Course skill(s):** Detect Attacks, Collaborate
 

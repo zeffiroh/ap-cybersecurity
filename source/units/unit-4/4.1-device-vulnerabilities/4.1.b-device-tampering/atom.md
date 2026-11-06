@@ -1,6 +1,6 @@
 # 4.1.b: Device tampering and physical compromise
 
-> **Unit 4 · 4.1 Device Vulnerabilities and Attacks**
+> **Unit 4 · 4.1 Device and Endpoint Vulnerabilities**
 > **AP Learning Objective(s):** 4.1.B
 > **Course skill(s):** Analyze Risk
 

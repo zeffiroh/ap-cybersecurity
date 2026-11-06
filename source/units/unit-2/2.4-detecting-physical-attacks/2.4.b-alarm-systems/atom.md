@@ -1,6 +1,6 @@
 # 2.4.b: Alarm systems
 
-> **Unit 2 · 2.4 Detecting Physical Attacks**
+> **Unit 2 · 2.4 Physical Detection Systems**
 > **AP Learning Objective(s):** 2.4.B
 > **Course skill(s):** Detect Attacks
 

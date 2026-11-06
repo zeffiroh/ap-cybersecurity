@@ -1,7 +1,7 @@
 ---
 deck:
   title: Risk Assessment Project
-  kicker: Class 29
+  kicker: Lecture 29
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

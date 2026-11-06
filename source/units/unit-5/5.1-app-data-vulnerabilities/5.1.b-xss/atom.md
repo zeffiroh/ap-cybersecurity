@@ -1,6 +1,6 @@
 # 5.1.b: Cross-site scripting (XSS)
 
-> **Unit 5 · 5.1 Application and Data Vulnerabilities and Attacks**
+> **Unit 5 · 5.1 Application Code Vulnerabilities**
 > **AP Learning Objective(s):** 5.1.A, 5.1.B
 > **Course skill(s):** Analyze Risk
 

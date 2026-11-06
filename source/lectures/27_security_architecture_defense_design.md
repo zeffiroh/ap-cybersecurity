@@ -1,7 +1,7 @@
 ---
 deck:
   title: Security Architecture & Defense Design
-  kicker: Class 27
+  kicker: Lecture 27
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

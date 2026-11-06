@@ -1,6 +1,6 @@
 # 2.2.c: Device theft and tampering
 
-> **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
+> **Unit 2 · 2.2 Physical Security Breaches**
 > **AP Learning Objective(s):** 2.2.B, 2.2.C
 > **Course skill(s):** Analyze Risk
 

@@ -1,6 +1,6 @@
 # Aayat-AP-Prep · Cybersecurity
 
-The complete AP Cybersecurity course: a textbook, 30 lecture decks, notes and slides for every topic,
+Beginner's Cybersecurity Kickstarter, a full course aligned with AP Cybersecurity: a textbook, 30 lecture decks, notes and slides for every topic,
 practice for every skill, quizzes, assignments, adaptive unit tests and a capstone investigation.
 
 **Opening the course.** Online, open the course's web address. Without internet, open the `offline`
@@ -26,7 +26,7 @@ Aayat-AP-Prep / Cybersecurity v / Unit N v / X.Y Topic v | Overview Notes Slides
   Capstone, Calendar, Report card and Downloads.
 - **Unit** and **Topic** jump anywhere in the course.
 - The tabs show everything a topic has; the arrows go to the same tab of the previous or next topic.
-- **Sign in** (just your email, no password) saves your progress online, so it follows you to any
+- **Sign in** (your email and password) saves your progress online, so it follows you to any
   computer. Without signing in, progress stays in this browser.
 
 ### Working through a topic

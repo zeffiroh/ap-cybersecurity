@@ -1,6 +1,6 @@
 # 3.4.b: Firewall rules and access control lists (ACLs)
 
-> **Unit 3 · 3.4 Protecting Networks: Firewalls**
+> **Unit 3 · 3.4 Firewall Access Controls**
 > **AP Learning Objective(s):** 3.4.B, 3.4.C
 > **Course skill(s):** Mitigate Risk
 

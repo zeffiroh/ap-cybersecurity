@@ -1,6 +1,6 @@
 # 3.3.a: VLANs and network segmentation
 
-> **Unit 3 · 3.3 Protecting Networks: Segmentation**
+> **Unit 3 · 3.3 Network Segmentation**
 > **AP Learning Objective(s):** 3.3.A
 > **Course skill(s):** Mitigate Risk
 

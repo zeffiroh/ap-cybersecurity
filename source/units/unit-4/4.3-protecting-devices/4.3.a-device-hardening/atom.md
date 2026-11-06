@@ -1,6 +1,6 @@
 # 4.3.a: Device hardening
 
-> **Unit 4 · 4.3 Protecting Devices**
+> **Unit 4 · 4.3 Endpoint Hardening Controls**
 > **AP Learning Objective(s):** 4.3.A
 > **Course skill(s):** Mitigate Risk
 

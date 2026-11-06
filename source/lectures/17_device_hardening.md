@@ -1,7 +1,7 @@
 ---
 deck:
   title: Device Hardening
-  kicker: Class 17
+  kicker: Lecture 17
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

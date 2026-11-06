@@ -1,7 +1,7 @@
 ---
 deck:
   title: Cyber Investigation Lab
-  kicker: Class 28
+  kicker: Lecture 28
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

@@ -1,7 +1,7 @@
 ---
 deck:
   title: Authentication & Password Security
-  kicker: Class 6
+  kicker: Lecture 6
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

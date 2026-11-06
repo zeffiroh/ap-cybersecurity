@@ -1,6 +1,6 @@
 # 3.2.c: Layered network defense overview
 
-> **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
+> **Unit 3 · 3.2 Wireless Network Security**
 > **AP Learning Objective(s):** 3.2.B, 3.2.C
 > **Course skill(s):** Mitigate Risk
 

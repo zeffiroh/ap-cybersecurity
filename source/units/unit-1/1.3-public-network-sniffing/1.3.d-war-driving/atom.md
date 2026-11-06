@@ -1,6 +1,6 @@
 # 1.3.d: War driving; protecting yourself (verify SSIDs, avoid open networks, VPN)
 
-> **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
+> **Unit 1 · 1.3 Public Network Sniffing**
 > **AP Learning Objective(s):** 1.3.B, 1.3.C
 > **Course skill(s):** Mitigate Risk
 

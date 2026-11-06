@@ -1,7 +1,7 @@
 ---
 deck:
   title: Social Engineering Attacks
-  kicker: Class 4
+  kicker: Lecture 4
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

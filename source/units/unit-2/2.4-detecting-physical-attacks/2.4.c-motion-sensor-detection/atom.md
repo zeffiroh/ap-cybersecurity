@@ -1,6 +1,6 @@
 # 2.4.c: Motion detectors and sensor-based detection
 
-> **Unit 2 · 2.4 Detecting Physical Attacks**
+> **Unit 2 · 2.4 Physical Detection Systems**
 > **AP Learning Objective(s):** 2.4.B, 2.4.C
 > **Course skill(s):** Detect Attacks
 

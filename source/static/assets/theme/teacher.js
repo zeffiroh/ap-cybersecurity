@@ -232,11 +232,16 @@
       var out = [], seen = {};
       cur.atoms.forEach(function (aid) {
         var a = T.atoms[aid], t = T.topics[a.topic];
-        if (!seen[a.topic] && t.slides) { seen[a.topic] = 1; out.push(["Topic " + a.topic + " slides", t.slides]); }
+        if (!seen[a.topic]) {
+          seen[a.topic] = 1;
+          if (t.slides) out.push(["Topic " + a.topic + " slides", t.slides]);
+          if (t.notes) out.push([a.topic + " Notes", t.notes]);
+          (t.lectures || []).forEach(function (l) { if (l.page) out.push(["Lecture " + ("0" + l.n).slice(-2), l.page]); });
+        }
       });
       cur.atoms.forEach(function (aid) {
         var a = T.atoms[aid];
-        [["lesson", "Lesson"], ["sim", "Sim"], ["code", "Code"], ["quiz", "Quiz"]].forEach(function (k) {
+        [["lesson", "Lesson"], ["sim", "Simulation"], ["code", "Coding problem"], ["quiz", "Quiz"]].forEach(function (k) {
           if (a[k[0]]) out.push([aid + " " + k[1], a[k[0]]]);
         });
       });
@@ -263,11 +268,36 @@
       $("tabs").querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { show(b.getAttribute("data-p")); }); });
       if (ts.length) show(ts[0][1]);
 
+      var classTopics = [];
+      cur.atoms.forEach(function (aid) { var x = T.atoms[aid].topic; if (classTopics.indexOf(x) < 0) classTopics.push(x); });
+      var more = [];
+      classTopics.forEach(function (x) {
+        var t = T.topics[x];
+        (t.lectures || []).forEach(function (l) { more.push(["Present lecture " + ("0" + l.n).slice(-2) + ": " + l.title, l.present]); });
+        (t.cases || []).forEach(function (c) { more.push(["Present runbook: " + c.title, c.present]); });
+        [[x + " book chapter", t.book], [x + " flashcards", t.flashcards], [x + " topic quiz", t.topicQuiz],
+         [x + " assignments", t.assignments], [x + " activities", t.activities]].forEach(function (i) { if (i[1]) more.push(i); });
+        (t.labs || []).forEach(function (l) { more.push([l.title, l.page]); });
+        if (!more.some(function (i) { return i[1] === t.ctf; })) more.push(["Unit " + t.unit + " CTF challenges", t.ctf]);
+      });
+      $("more").innerHTML = '<ul class="tc-people">' + more.map(function (x) {
+        return '<li><a href="' + esc(url(x[1])) + '" target="_blank" rel="noopener">' + esc(x[0]) + "</a></li>";
+      }).join("") + "</ul>";
+
       var POSTS = global.AAYAT_POSTS || [];
       var share = [];
+      classTopics.forEach(function (x) {
+        var t = T.topics[x];
+        [[x + " Notes", t.notes], [x + " book chapter", t.book], [x + " flashcards", t.flashcards], [x + " topic quiz", t.topicQuiz]].forEach(function (i) {
+          if (i[1]) share.push([i[0], abs(i[1])]);
+        });
+        (t.lectures || []).forEach(function (l) { if (l.page) share.push(["Lecture " + ("0" + l.n).slice(-2), abs(l.page)]); });
+        (t.cases || []).forEach(function (c) { share.push(["Runbook: " + c.title, abs(c.page)]); });
+        (t.labs || []).forEach(function (l) { if (l.page) share.push([l.title, abs(l.page)]); });
+      });
       cur.atoms.forEach(function (aid) {
         var a = T.atoms[aid];
-        [["lesson", "Lesson"], ["sim", "Sim"], ["quiz", "Quiz"], ["code", "Code"]].forEach(function (k) {
+        [["lesson", "Lesson"], ["sim", "Simulation"], ["quiz", "Quiz"], ["code", "Coding problem"]].forEach(function (k) {
           if (a[k[0]]) share.push([aid + " " + k[1], abs(a[k[0]])]);
         });
         POSTS.filter(function (p) { return p.id === aid; }).forEach(function (p) {

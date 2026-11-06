@@ -1,6 +1,6 @@
 # 1.5.d: Faster, more accurate threat detection and response
 
-> **Unit 1 · 1.5 Leveraging AI in Cyber Defense**
+> **Unit 1 · 1.5 AI-Powered Threat Detection**
 > **AP Learning Objective(s):** 1.5.B
 > **Course skill(s):** Detect Attacks, Collaborate
 

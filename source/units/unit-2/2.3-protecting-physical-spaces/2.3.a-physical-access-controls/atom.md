@@ -1,6 +1,6 @@
 # 2.3.a: Physical access controls (locks, badges, biometrics, mantraps)
 
-> **Unit 2 · 2.3 Protecting Physical Spaces**
+> **Unit 2 · 2.3 Physical Access Controls**
 > **AP Learning Objective(s):** 2.3.A
 > **Course skill(s):** Mitigate Risk
 

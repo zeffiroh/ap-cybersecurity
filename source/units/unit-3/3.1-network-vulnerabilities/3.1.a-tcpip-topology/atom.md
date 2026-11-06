@@ -1,6 +1,6 @@
 # 3.1.a: TCP/IP fundamentals and network topology flaws
 
-> **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
+> **Unit 3 · 3.1 Network-Level Exploits**
 > **AP Learning Objective(s):** 3.1.A
 > **Course skill(s):** Analyze Risk
 

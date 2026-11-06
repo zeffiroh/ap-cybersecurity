@@ -1,7 +1,7 @@
 ---
 deck:
   title: Detecting Device Attacks
-  kicker: Class 19
+  kicker: Lecture 19
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

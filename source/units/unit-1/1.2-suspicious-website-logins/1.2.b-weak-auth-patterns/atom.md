@@ -1,6 +1,6 @@
 # 1.2.b: Weak authentication patterns; adversary dictionary construction
 
-> **Unit 1 · 1.2 Suspicious Wi-Fi Login**
+> **Unit 1 · 1.2 Suspicious Website Logins**
 > **AP Learning Objective(s):** 1.2.B
 > **Course skill(s):** Analyze Risk
 

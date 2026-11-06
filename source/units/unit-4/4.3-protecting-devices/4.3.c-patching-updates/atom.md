@@ -1,6 +1,6 @@
 # 4.3.c: Patching and regular updates
 
-> **Unit 4 · 4.3 Protecting Devices**
+> **Unit 4 · 4.3 Endpoint Hardening Controls**
 > **AP Learning Objective(s):** 4.3.B, 4.3.C
 > **Course skill(s):** Mitigate Risk
 

@@ -1,6 +1,6 @@
 # 3.2.a: Wi-Fi basics and wireless security protocols (WPA2/WPA3)
 
-> **Unit 3 · 3.2 Protecting Networks: Managerial & Wireless Security**
+> **Unit 3 · 3.2 Wireless Network Security**
 > **AP Learning Objective(s):** 3.2.A
 > **Course skill(s):** Mitigate Risk
 

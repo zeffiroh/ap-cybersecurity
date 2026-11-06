@@ -1,6 +1,6 @@
 # 2.1.c: Risk language: likelihood, impact, and security goals
 
-> **Unit 2 · 2.1 Cyber Foundations**
+> **Unit 2 · 2.1 Security Foundations: CIA Triad**
 > **AP Learning Objective(s):** 2.1.C
 > **Course skill(s):** Analyze Risk
 

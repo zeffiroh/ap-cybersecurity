@@ -1,6 +1,6 @@
 # 3.1.b: DNS attacks (spoofing, cache poisoning)
 
-> **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
+> **Unit 3 · 3.1 Network-Level Exploits**
 > **AP Learning Objective(s):** 3.1.A, 3.1.B
 > **Course skill(s):** Analyze Risk, Detect Attacks
 

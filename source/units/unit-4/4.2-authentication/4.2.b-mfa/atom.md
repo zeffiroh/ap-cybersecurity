@@ -1,6 +1,6 @@
 # 4.2.b: Multi-factor authentication
 
-> **Unit 4 · 4.2 Authentication**
+> **Unit 4 · 4.2 Device Authentication Hardening**
 > **AP Learning Objective(s):** 4.2.A, 4.2.B
 > **Course skill(s):** Mitigate Risk
 

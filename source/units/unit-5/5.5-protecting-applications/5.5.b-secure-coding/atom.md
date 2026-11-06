@@ -1,6 +1,6 @@
 # 5.5.b: Secure coding practices
 
-> **Unit 5 · 5.5 Protecting Applications**
+> **Unit 5 · 5.5 Secure Web Application Design**
 > **AP Learning Objective(s):** 5.5.A, 5.5.B
 > **Course skill(s):** Mitigate Risk
 

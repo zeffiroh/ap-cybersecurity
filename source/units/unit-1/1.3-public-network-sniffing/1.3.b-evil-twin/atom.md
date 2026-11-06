@@ -1,6 +1,6 @@
 # 1.3.b: Evil twin attack
 
-> **Unit 1 · 1.3 The Dangers of Public Wi-Fi**
+> **Unit 1 · 1.3 Public Network Sniffing**
 > **AP Learning Objective(s):** 1.3.B
 > **Course skill(s):** Analyze Risk, Detect Attacks
 

@@ -3,6 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from . import course as C
+from . import resources as RES
 from .course import BRAND, SITE_URL, SUBJECT
 from .paths import (BOOK, CAPSTONE, DOWNLOADS, LECTURES, LECTURES_SRC, SITE, TESTS, THEME, atom_dir,
                     topic_dir, unit_dir)
@@ -210,9 +211,13 @@ def nav_html(page_dir, c):
         ds = decks()
         items = "".join(f'<a{_on(n == c["n"])} href="{r(p)}"><span class="apn-n">{n:02d}</span>{esc(t)}</a>'
                         for n, p, t in ds)
-        parts.append(f'<span class="apn-sep">/</span><details><summary class="apn-cur">Class {c["n"]:02d}</summary>'
+        parts.append(f'<span class="apn-sep">/</span><details><summary class="apn-cur">Lecture {c["n"]:02d}</summary>'
                      f'<div class="apn-menu">{items}</div></details>')
         i = [n for n, _, _ in ds].index(c["n"])
+        tops = RES.topics_for_lecture(c["n"])
+        if tops:
+            parts.append('<span class="apn-div"></span><div class="apn-tabs">' + "".join(
+                f'<a href="{r(target(t, "topic"))}" title="{esc(C.topic(t)["title"])}">Topic {t}</a>' for t in tops) + '</div>')
         step = []
         if i > 0:
             n, p, t = ds[i - 1]
@@ -250,7 +255,8 @@ def nav_html(page_dir, c):
         tabs = []
         for kk, lbl in KINDS:
             if has(tid, kk):
-                on = ' class="on" aria-current="page"' if kk == k else ""
+                is_code = c.get("sub") == "problem"
+                on = ' class="on" aria-current="page"' if (kk == "practice" if is_code else kk == k) else ""
                 tabs.append(f'<a{on} href="{r(target(tid, kk))}">{lbl}</a>')
         parts.append(f'<span class="apn-div"></span><div class="apn-tabs">{"".join(tabs)}</div>')
 

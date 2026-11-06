@@ -1,7 +1,7 @@
 ---
 deck:
   title: Cryptography Basics
-  kicker: Class 25
+  kicker: Lecture 25
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

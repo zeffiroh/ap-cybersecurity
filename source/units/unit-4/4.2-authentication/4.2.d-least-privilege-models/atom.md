@@ -1,6 +1,6 @@
 # 4.2.d: Least privilege and access control models
 
-> **Unit 4 · 4.2 Authentication**
+> **Unit 4 · 4.2 Device Authentication Hardening**
 > **AP Learning Objective(s):** 4.2.B, 4.2.C
 > **Course skill(s):** Mitigate Risk
 

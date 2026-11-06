@@ -1,7 +1,7 @@
 ---
 deck:
   title: Final Cybersecurity Capstone
-  kicker: Class 30
+  kicker: Lecture 30
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

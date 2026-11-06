@@ -1,6 +1,6 @@
 # 1.1.a: Psychological tactics (intimidation, urgency, authority, scarcity)
 
-> **Unit 1 · 1.1 Understanding Social Engineering**
+> **Unit 1 · 1.1 Social Engineering**
 > **AP Learning Objective(s):** 1.1.A, 1.1.B
 > **Course skill(s):** Analyze Risk
 

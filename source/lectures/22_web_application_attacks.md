@@ -1,7 +1,7 @@
 ---
 deck:
   title: Web Application Attacks
-  kicker: Class 22
+  kicker: Lecture 22
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

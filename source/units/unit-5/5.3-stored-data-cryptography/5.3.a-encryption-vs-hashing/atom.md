@@ -1,6 +1,6 @@
 # 5.3.a: Encryption vs. hashing
 
-> **Unit 5 · 5.3 Protecting Stored Data with Cryptography**
+> **Unit 5 · 5.3 Symmetric Encryption, Hashing and Key Storage**
 > **AP Learning Objective(s):** 5.3.A
 > **Course skill(s):** Mitigate Risk
 

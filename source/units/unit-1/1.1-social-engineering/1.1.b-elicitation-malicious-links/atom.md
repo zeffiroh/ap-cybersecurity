@@ -1,6 +1,6 @@
 # 1.1.b: Elicitation; malicious links and files
 
-> **Unit 1 · 1.1 Understanding Social Engineering**
+> **Unit 1 · 1.1 Social Engineering**
 > **AP Learning Objective(s):** 1.1.A, 1.1.C
 > **Course skill(s):** Analyze Risk
 

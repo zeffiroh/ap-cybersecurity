@@ -710,6 +710,14 @@
       (m.replay ? ' <a class="rb-lvl" href="replay.html?case=' + encodeURIComponent(m.base || m.id) + '" target="_blank" rel="noopener">Watch the recording</a>' : "") + "</p>";
   }
 
+  function topicLine(m) {
+    var M = global.AAYAT_MAP, ids = (M && M.cases && M.cases[String(m.base || m.id).replace(/--.*$/, "")]) || [];
+    if (!ids.length) return "";
+    return '<p class="aa-goes"><span>Goes with</span>' + ids.map(function (t) {
+      return '<a href="' + esc(ROOT + M.topics[t].href) + '" target="_blank" rel="noopener"><span class="aa-id">' + esc(t) + "</span>" + esc(M.topics[t].title) + "</a>";
+    }).join("") + "</p>";
+  }
+
   function briefHtml(m) {
     var files = (m.files || []).filter(function (f) { return /^case\//.test(f); }).map(function (f) { return f.slice(5); });
     var tools = (m.tools || []).map(function (t) {
@@ -719,7 +727,7 @@
     var units = (m.units || []).length ? ((m.units.length > 1 ? "Units " : "Unit ") + m.units.join(" &amp; ")) : "";
     return '<summary><span class="rb-bk">' + esc(m.kicker || "Incident") + (m.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
       "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units].filter(Boolean).join(" &middot; ") + "</span></summary>" +
-      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + levelBar(m) +
+      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + topicLine(m) + levelBar(m) +
       '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li><li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>' +
       "<li><b>Tick</b> the checklist and answer the questions. Stuck? Open a hint.</li><li><b>Next step</b> takes you on. Your progress saves with this notebook.</li></ol>" +
       (files.length ? '<h3>Evidence in <code>~/case</code></h3><div class="rb-files">' + files.map(function (f) { return "<code>" + esc(f) + "</code>"; }).join("") + "</div>" : "") +

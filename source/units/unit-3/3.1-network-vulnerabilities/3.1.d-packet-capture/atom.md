@@ -1,6 +1,6 @@
 # 3.1.d: Packet capture and traffic sniffing
 
-> **Unit 3 · 3.1 Network Vulnerabilities and Attacks**
+> **Unit 3 · 3.1 Network-Level Exploits**
 > **AP Learning Objective(s):** 3.1.B, 3.1.C
 > **Course skill(s):** Detect Attacks
 

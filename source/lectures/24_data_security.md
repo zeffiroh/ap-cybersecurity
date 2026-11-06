@@ -1,7 +1,7 @@
 ---
 deck:
   title: Data Security
-  kicker: Class 24
+  kicker: Lecture 24
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

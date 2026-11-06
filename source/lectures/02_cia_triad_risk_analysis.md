@@ -1,7 +1,7 @@
 ---
 deck:
   title: CIA Triad & Risk Analysis
-  kicker: Class 2
+  kicker: Lecture 2
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png

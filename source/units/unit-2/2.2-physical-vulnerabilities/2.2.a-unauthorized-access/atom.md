@@ -1,6 +1,6 @@
 # 2.2.a: Unauthorized physical access (tailgating, piggybacking, lock bypass)
 
-> **Unit 2 · 2.2 Physical Vulnerabilities and Attacks**
+> **Unit 2 · 2.2 Physical Security Breaches**
 > **AP Learning Objective(s):** 2.2.A, 2.2.B
 > **Course skill(s):** Analyze Risk
 

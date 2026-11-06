@@ -1,7 +1,7 @@
 ---
 deck:
   title: Network Vulnerabilities & Attacks
-  kicker: Class 12
+  kicker: Lecture 12
   accent: "#B3001B"
   background: "#FFFFFF"
   logo: logo.png
