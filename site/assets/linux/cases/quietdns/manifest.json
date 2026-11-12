@@ -23,14 +23,57 @@
  ],
  "titlePrefix": "Incident runbook: Harbourline DNS",
  "ctf": "The stolen file's doc-id is a flag, once you rebuild it from the DNS chunks (step 7). Submit it on the CTF board as \"Quiet DNS\".",
+ "playbook": {
+  "trigger": "The DNS-ANOMALY-02 alert: long, unique subdomains under one domain",
+  "severity": "High",
+  "roles": [
+   "Incident lead",
+   "SOC analyst",
+   "Network team",
+   "Finance (data owner)"
+  ],
+  "attack": [
+   "T1204.002",
+   "T1053.005",
+   "T1071.004",
+   "T1048.003",
+   "T1036.005"
+  ],
+  "decisions": [
+   "Sinkhole the domain now, or watch it to learn what was taken?"
+  ],
+  "targets": [
+   "Isolate fin-lt04 within 1 hour",
+   "Block cloudmetric.example on the resolver",
+   "Report to CERT-In within 6 hours"
+  ],
+  "notify": [
+   "Finance leadership",
+   "CERT-In within 6 hours of noticing it (2022 Directions)",
+   "Data Protection Board and affected people, if personal data is breached and the DPDP breach rules are in force (check the date)"
+  ],
+  "done": [
+   "The stolen file rebuilt and its owner told",
+   "Task and program removed",
+   "Resolver blocks in place",
+   "Other laptops checked for the same task"
+  ],
+  "version": "1.1",
+  "reviewed": "2026-11-07"
+ },
  "id": "quietdns",
  "files": [
   "case/alert.txt",
+  "case/alerts.json",
   "case/capture.pcap",
   "case/dns.log",
   "case/dns_stats.csv",
+  "case/eventlogs/Security.jsonl",
+  "case/eventlogs/Sysmon.jsonl",
+  "case/eventlogs/System.jsonl",
   "case/fw_summary.txt",
   "case/hr_contact.txt",
+  "case/intel.json",
   "case/process.csv",
   "case/proxy.log",
   "net/certs.txt",
@@ -52,7 +95,7 @@
   {
    "t": "sh",
    "s": "cd ~/case\nls -l\nsha256sum *\necho ---\ncat alert.txt\necho ---\ncat fw_summary.txt\necho ---\ngrep -c 'client 10.70.0.44#' dns.log",
-   "e": "total 76\n-rw-r--r--    1 root     root           289 Nov  4 21:27 alert.txt\n-rw-r--r--    1 root     root         30978 Nov  4 21:27 capture.pcap\n-rw-r--r--    1 root     root         20026 Nov  4 21:27 dns.log\n-rw-r--r--    1 root     root           174 Nov  4 21:27 dns_stats.csv\n-rw-r--r--    1 root     root           517 Nov  4 21:27 fw_summary.txt\n-rw-r--r--    1 root     root           158 Nov  4 21:27 hr_contact.txt\n-rw-r--r--    1 root     root          1417 Nov  4 21:27 process.csv\n-rw-r--r--    1 root     root           937 Nov  4 21:27 proxy.log\n40ed6dc1ac9f41acac3fd40a28bd727131849706a7fd6486b7ad408df313362a  alert.txt\n6da6401552aaede29556a821fb078c212cad2962b0ab229c3900575ca8263911  capture.pcap\ncfebf8997189922619671dac4cb9e229fad9afe83b53564b5989fb592f4d580a  dns.log\n176ff66f7a7c6b37f75acd0a99c63f8d0351e5a6de8033bd2225d845312388f2  dns_stats.csv\n843eae3222657cddee8b7bc00b24ed2d3de578cbdaeae1f0d9c43f1be41ec89f  fw_summary.txt\n8aa5771350e4991a0dc5c86452913b049dca975cd20cd2cb7cdb929d95c98195  hr_contact.txt\na050bee19a84acc0fe501090865302c4090b0307c2539dd4e7829dfec551536c  process.csv\n8cd74b15dfbf7b7bba4c53b5317e3f8b8658008701692bac1affc625fe06c6fa  proxy.log\n---\nSIEM ALERT  DNS-ANOMALY-02   raised 2026-11-05 11:41 UTC\nHost: fin-lt04 (10.70.0.44), user m.devlin (Finance)\nRule: more than 20 unique subdomains under one domain in 30 minutes, average name length over 60\nSeen: 26 queries, 21 unique names under cloudmetric.example\nAnalyst on shift: you\n---\nedge-fw01 outbound summary, 5 Nov 2026 11:00 to 11:45, source 10.70.0.44 (fin-lt04)\ndst              dport  proto  action  sessions  bytes_out\n10.70.0.1        53     udp    allow   59       4826\n10.70.0.5        3128   tcp    allow   9        41022\nany              53     udp    deny    0        0\nany              443    tcp    deny    0        0        (all web traffic must use the proxy 10.70.0.5)\nnote: the laptop never talked to the internet directly. Only the internal resolver 10.70.0.1 did, on its behalf.\n---\n59"
+   "e": "total 84\n-rw-r--r--    1 root     root           289 Nov  7 13:10 alert.txt\n-rw-r--r--    1 root     root          2296 Nov  7 13:10 alerts.json\n-rw-r--r--    1 root     root         30978 Nov  7 13:10 capture.pcap\n-rw-r--r--    1 root     root         20026 Nov  7 13:10 dns.log\n-rw-r--r--    1 root     root           174 Nov  7 13:10 dns_stats.csv\ndrwxr-xr-x    2 root     root           100 Nov  7 13:10 eventlogs\n-rw-r--r--    1 root     root           517 Nov  7 13:10 fw_summary.txt\n-rw-r--r--    1 root     root           158 Nov  7 13:10 hr_contact.txt\n-rw-r--r--    1 root     root          1027 Nov  7 13:10 intel.json\n-rw-r--r--    1 root     root          1417 Nov  7 13:10 process.csv\n-rw-r--r--    1 root     root           937 Nov  7 13:10 proxy.log\n40ed6dc1ac9f41acac3fd40a28bd727131849706a7fd6486b7ad408df313362a  alert.txt\ndfa1b764101760b2d075e6ddf5414c07f8f93b28a035afcd8f117d24347a38f3  alerts.json\n6da6401552aaede29556a821fb078c212cad2962b0ab229c3900575ca8263911  capture.pcap\ncfebf8997189922619671dac4cb9e229fad9afe83b53564b5989fb592f4d580a  dns.log\n176ff66f7a7c6b37f75acd0a99c63f8d0351e5a6de8033bd2225d845312388f2  dns_stats.csv\nsha256sum: can't read 'eventlogs': Is a directory\n843eae3222657cddee8b7bc00b24ed2d3de578cbdaeae1f0d9c43f1be41ec89f  fw_summary.txt\n8aa5771350e4991a0dc5c86452913b049dca975cd20cd2cb7cdb929d95c98195  hr_contact.txt\n6f67bc5572193a482156deb15d30f333ca6d643776012363268c67d55087af4e  intel.json\na050bee19a84acc0fe501090865302c4090b0307c2539dd4e7829dfec551536c  process.csv\n8cd74b15dfbf7b7bba4c53b5317e3f8b8658008701692bac1affc625fe06c6fa  proxy.log\n---\nSIEM ALERT  DNS-ANOMALY-02   raised 2026-11-05 11:41 UTC\nHost: fin-lt04 (10.70.0.44), user m.devlin (Finance)\nRule: more than 20 unique subdomains under one domain in 30 minutes, average name length over 60\nSeen: 26 queries, 21 unique names under cloudmetric.example\nAnalyst on shift: you\n---\nedge-fw01 outbound summary, 5 Nov 2026 11:00 to 11:45, source 10.70.0.44 (fin-lt04)\ndst              dport  proto  action  sessions  bytes_out\n10.70.0.1        53     udp    allow   59       4826\n10.70.0.5        3128   tcp    allow   9        41022\nany              53     udp    deny    0        0\nany              443    tcp    deny    0        0        (all web traffic must use the proxy 10.70.0.5)\nnote: the laptop never talked to the internet directly. Only the internal resolver 10.70.0.1 did, on its behalf.\n---\n59"
   },
   {
    "t": "md",
@@ -122,7 +165,7 @@
   {
    "t": "sh",
    "s": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case",
-   "e": "packed /root/evidence-20261104T2128.tar.gz\n-rw-r--r--    1 root     root          9039 Nov  4 21:28 /root/evidence-20261104T2128.tar.gz\n8 SHA256SUMS"
+   "e": "packed /root/evidence-20261107T1310.tar.gz\n-rw-r--r--    1 root     root         15295 Nov  7 13:10 /root/evidence-20261107T1310.tar.gz\n13 SHA256SUMS"
   },
   {
    "t": "md",

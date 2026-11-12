@@ -1369,7 +1369,8 @@ begin
     update videos set title = _clean(trim(p->>'title'), 200), youtube = v_yt, topic_id = _clean(p->>'topic', 20),
            atom_id = _clean(p->>'atom', 20),
            note = _clean(trim(coalesce(p->>'note', '')), 2000), free = coalesce((p->>'free')::boolean, false),
-           group_id = nullif(p->>'group', '')::bigint
+           group_id = nullif(p->>'group', '')::bigint,
+           email_students = coalesce((p->>'email')::boolean, email_students)
      where id = v_id;
   end if;
   return jsonb_build_object('ok', true, 'id', v_id);
@@ -1650,6 +1651,25 @@ begin
     return jsonb_build_object('ok', false, 'error', 'bad availability');
   end if;
   insert into settings (key, value) values ('availability', p::text)
+  on conflict (key) do update set value = excluded.value;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function api_teacher_checklist_get()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return coalesce((select value::jsonb from settings where key = 'yt_checklist'), '{}'::jsonb);
+end $$;
+
+create or replace function api_teacher_checklist_set(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  if jsonb_typeof(p) <> 'object' or length(p::text) > 60000 then
+    return jsonb_build_object('ok', false, 'error', 'bad checklist');
+  end if;
+  insert into settings (key, value) values ('yt_checklist', p::text)
   on conflict (key) do update set value = excluded.value;
   return jsonb_build_object('ok', true);
 end $$;
@@ -2276,6 +2296,8 @@ create table if not exists seminar_progress (
   primary key (seminar_id, email)
 );
 
+alter table seminars add column if not exists domains jsonb not null default '[]'::jsonb;
+
 create table if not exists certificates (
   id         text primary key,
   seminar_id bigint references seminars (id) on delete set null,
@@ -2327,9 +2349,45 @@ returns boolean language sql stable security definer set search_path = public, p
       or exists (select 1 from teacher_emails where email = e))
 $$;
 
+create or replace function _ticket_days()
+returns integer language sql stable security definer set search_path = public, pg_temp as $$
+  select case when (select value from settings where key = 'ticket_expiry_days') ~ '^[1-9][0-9]{0,4}$'
+              then (select value from settings where key = 'ticket_expiry_days')::integer end
+$$;
+
+create or replace function _ticket_lots(e text)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare
+  v_days integer := _ticket_days();
+  lots jsonb := '[]'::jsonb;
+  r record;
+  need integer;
+  i integer;
+  amt integer;
+begin
+  if v_days is null then
+    return jsonb_build_array(jsonb_build_object('left', coalesce((select sum(delta) from ticket_ledger where email = e), 0), 'expires', null));
+  end if;
+  for r in select delta, created_at from ticket_ledger where email = e order by created_at, id loop
+    lots := coalesce((select jsonb_agg(x order by (x->>'expires')) from jsonb_array_elements(lots) x where (x->>'expires')::timestamptz > r.created_at and (x->>'left')::integer > 0), '[]'::jsonb);
+    if r.delta > 0 then
+      lots := lots || jsonb_build_array(jsonb_build_object('left', r.delta, 'expires', _iso(r.created_at + make_interval(days => v_days))));
+    else
+      need := -r.delta;
+      for i in 0 .. jsonb_array_length(lots) - 1 loop
+        exit when need <= 0;
+        amt := least(need, (lots->i->>'left')::integer);
+        lots := jsonb_set(lots, array[i::text, 'left'], to_jsonb((lots->i->>'left')::integer - amt));
+        need := need - amt;
+      end loop;
+    end if;
+  end loop;
+  return coalesce((select jsonb_agg(x order by (x->>'expires')) from jsonb_array_elements(lots) x where (x->>'expires')::timestamptz > now() and (x->>'left')::integer > 0), '[]'::jsonb);
+end $$;
+
 create or replace function _tickets(e text)
 returns integer language sql stable security definer set search_path = public, pg_temp as $$
-  select coalesce(sum(delta), 0)::integer from ticket_ledger where email = e
+  select greatest(coalesce((select sum((x->>'left')::integer) from jsonb_array_elements(_ticket_lots(e)) x), 0), 0)::integer
 $$;
 
 create or replace function _sub_until(e text)
@@ -2370,6 +2428,7 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'course', _teacher() or exists (select 1 from unlocks where email = _me() and not revoked),
     'labs', _teacher() or coalesce(_has_labs(_me()), false),
     'tickets', coalesce(_tickets(_me()), 0),
+    'ticketLots', case when _ticket_days() is null then '[]'::jsonb else _ticket_lots(_me()) end,
     'seminarsUntil', _iso(_sub_until(_me())),
     'emails', coalesce((select not no_email from accounts where email = _me()), true),
     'history', coalesce((select jsonb_agg(jsonb_build_object('delta', delta, 'reason', reason, 'at', _iso(created_at)) order by created_at desc)
@@ -2510,7 +2569,7 @@ begin
   return jsonb_build_object('ok', true,
     'seminars', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title, 'summary', s.summary, 'description', s.description,
                   'level', s.level, 'minutes', s.minutes, 'cover', s.cover, 'youtube', s.youtube, 'topics', s.topics,
-                  'chapters', s.chapters, 'resources', s.resources, 'tickets', s.tickets, 'published', s.published, 'sort', s.sort,
+                  'chapters', s.chapters, 'resources', s.resources, 'tickets', s.tickets, 'published', s.published, 'sort', s.sort, 'domains', s.domains,
                   'owners', (select count(*) from seminar_access a where a.seminar_id = s.id), 'updated', _iso(s.updated_at))
                   order by s.sort, s.created_at desc) from seminars s), '[]'::jsonb),
     'subscribers', (select count(distinct email) from seminar_subs where not revoked and until > now()));
@@ -2541,6 +2600,7 @@ begin
     youtube = _clean(trim(coalesce(p->>'youtube', '')), 500),
     topics = _clean(trim(coalesce(p->>'topics', '')), 300),
     chapters = case when jsonb_typeof(p->'chapters') = 'array' then p->'chapters' else '[]'::jsonb end,
+    domains = case when jsonb_typeof(p->'domains') = 'array' then (select coalesce(jsonb_agg(left(trim(x), 120)), '[]'::jsonb) from jsonb_array_elements_text(p->'domains') x where trim(x) <> '') else '[]'::jsonb end,
     resources = case when jsonb_typeof(p->'resources') = 'array' then p->'resources' else '[]'::jsonb end,
     tickets = least(greatest(coalesce(_num(p->'tickets'), 1)::integer, 0), 100),
     published = coalesce((p->>'published')::boolean, false),
@@ -2700,7 +2760,9 @@ end $$;
 create or replace function api_certificate(p_id text)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce((select jsonb_build_object('ok', true, 'id', c.id, 'name', c.name, 'title', c.title, 'minutes', c.minutes,
-                     'issued', _iso(c.issued_at), 'mine', c.email = _me())
+                     'issued', _iso(c.issued_at), 'mine', c.email = _me(),
+                     'chapters', coalesce((select jsonb_agg(jsonb_build_object('t', x->>'t', 'title', x->>'title', 'd', coalesce(x->>'d', ''))) from seminars s, jsonb_array_elements(s.chapters) x where s.id = c.seminar_id), '[]'::jsonb),
+                     'domains', coalesce((select s.domains from seminars s where s.id = c.seminar_id), '[]'::jsonb))
                      from certificates c where c.id = upper(trim(coalesce(p_id, '')))),
                   jsonb_build_object('ok', false, 'error', 'No certificate has that number.'))
 $$;
@@ -2804,7 +2866,7 @@ grant execute on function
   api_teacher_set_seat(bigint, text, text), api_teacher_answer_request(bigint, text),
   api_class_join(bigint, boolean), api_class_checkin(bigint, text), api_teacher_open_checkin(bigint, integer),
   api_teacher_set_attendance(bigint, text, text), api_teacher_breakouts(bigint, jsonb),
-  api_availability(), api_teacher_set_availability(jsonb), api_spaces(), api_group_join(bigint, boolean),
+  api_availability(), api_teacher_set_availability(jsonb), api_teacher_checklist_get(), api_teacher_checklist_set(jsonb), api_spaces(), api_group_join(bigint, boolean),
   api_forum_threads(text), api_forum_thread(bigint), api_forum_post(jsonb), api_forum_moderate(text, bigint, text),
   api_shared_get(text), api_shared_save(text, jsonb, integer),
   api_shared_push(text, text), api_shared_pull(text, bigint), api_shared_compact(text, text, bigint, jsonb),
@@ -2896,7 +2958,88 @@ returns jsonb language sql stable security definer set search_path = public, pg_
   select jsonb_build_object('ok', true, 'access', coalesce((select s.published and _seminar_ok(s, _me()) from seminars s where s.id = p_id), false) or _teacher())
 $$;
 
+alter table notebook_handins add column if not exists rubric jsonb not null default '[]'::jsonb;
+alter table notebook_handins add column if not exists score numeric;
+alter table notebook_handins add column if not exists max_score numeric;
+
+create or replace function api_my_handin(p_ref text)
+returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select jsonb_build_object('ok', true, 'handed', _iso(h.handed_at), 'status', h.status, 'note', h.note,
+           'feedback', h.feedback, 'replied', _iso(h.replied_at), 'rubric', h.rubric, 'score', h.score, 'max', h.max_score)
+    from notebook_handins h where h.email = _me() and h.ref = left(coalesce(p_ref, ''), 60)), jsonb_build_object('ok', true))
+$$;
+
+create or replace function api_teacher_handins()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return jsonb_build_object('ok', true, 'items', coalesce((select jsonb_agg(jsonb_build_object('id', h.id, 'email', h.email, 'ref', h.ref,
+    'title', h.title, 'note', h.note, 'status', h.status, 'handed', _iso(h.handed_at), 'replied', _iso(h.replied_at), 'score', h.score, 'max', h.max_score)
+    order by h.status = 'new' desc, h.handed_at desc) from notebook_handins h), '[]'::jsonb));
+end $$;
+
+create or replace function api_teacher_handin(p_id bigint)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return coalesce((select jsonb_build_object('ok', true, 'item', jsonb_build_object('id', h.id, 'email', h.email, 'ref', h.ref, 'title', h.title,
+    'note', h.note, 'status', h.status, 'feedback', h.feedback, 'data', h.data, 'handed', _iso(h.handed_at), 'replied', _iso(h.replied_at),
+    'rubric', h.rubric, 'score', h.score, 'max', h.max_score))
+    from notebook_handins h where h.id = p_id), jsonb_build_object('ok', false, 'error', 'That hand-in is gone.'));
+end $$;
+
+create or replace function api_teacher_handin_grade(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_id bigint := nullif(p->>'id', '')::bigint;
+  v_rows jsonb := '[]'::jsonb;
+  v_got numeric := 0;
+  v_max numeric := 0;
+  r jsonb;
+  h notebook_handins;
+begin
+  perform _need_teacher();
+  if jsonb_typeof(p->'rubric') <> 'array' or jsonb_array_length(p->'rubric') > 20 then
+    return jsonb_build_object('ok', false, 'error', 'A rubric is a list of up to 20 criteria.');
+  end if;
+  for r in select * from jsonb_array_elements(p->'rubric') loop
+    if trim(coalesce(r->>'c', '')) = '' then continue; end if;
+    v_rows := v_rows || jsonb_build_array(jsonb_build_object('c', _clean(trim(r->>'c'), 200), 'max', least(greatest(coalesce(_num(r->'max'), 0), 0), 100),
+      'got', least(greatest(coalesce(_num(r->'got'), 0), 0), least(greatest(coalesce(_num(r->'max'), 0), 0), 100)), 'note', _clean(coalesce(r->>'note', ''), 500)));
+  end loop;
+  select coalesce(sum((x->>'got')::numeric), 0), coalesce(sum((x->>'max')::numeric), 0) into v_got, v_max from jsonb_array_elements(v_rows) x;
+  update notebook_handins set rubric = v_rows, score = case when v_max > 0 then v_got end, max_score = case when v_max > 0 then v_max end,
+         feedback = left(coalesce(p->>'feedback', feedback), 5000), status = 'replied', replied_at = now(), student_notified_at = null
+   where id = v_id returning * into h;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'That hand-in is gone.');
+  end if;
+  if v_max > 0 then
+    insert into submissions (email, topic_id, atom_id, kind, item_id, correct, points, max_points, response, explanation, status, feedback)
+    values (h.email, 'runbook', '', 'handin', left(h.ref, 60), v_got >= v_max, v_got, v_max, left(h.title, 200), '', 'graded', left(coalesce(p->>'feedback', ''), 4000));
+  end if;
+  return jsonb_build_object('ok', true, 'score', v_got, 'max', v_max);
+end $$;
+
+create or replace function api_teacher_rubrics_get()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  return coalesce((select value::jsonb from settings where key = 'rubrics'), '{}'::jsonb);
+end $$;
+
+create or replace function api_teacher_rubrics_set(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  perform _need_teacher();
+  if jsonb_typeof(p) <> 'object' or length(p::text) > 40000 then
+    return jsonb_build_object('ok', false, 'error', 'bad rubrics');
+  end if;
+  insert into settings (key, value) values ('rubrics', p::text) on conflict (key) do update set value = excluded.value;
+  return jsonb_build_object('ok', true);
+end $$;
+
 grant execute on function api_seminar_lab(bigint), api_handin(jsonb), api_my_handin(text), api_teacher_handins(), api_teacher_handin(bigint),
-  api_teacher_handin_reply(bigint, text) to anonymous, authenticated;
+  api_teacher_handin_reply(bigint, text), api_teacher_handin_grade(jsonb), api_teacher_rubrics_get(), api_teacher_rubrics_set(jsonb) to anonymous, authenticated;
 
 notify pgrst, 'reload schema';

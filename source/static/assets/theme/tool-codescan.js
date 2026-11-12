@@ -1,0 +1,151 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var SECRETS = [
+    [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, "Private key", "critical"],
+    [/\bAKIA[0-9A-Z]{16}\b/, "Cloud access key ID", "high"],
+    [/\bSCKA[0-9A-Z]{12}\b/, "Cloud access key ID", "high"],
+    [/\bstratus\.secret\.[A-Za-z0-9]{16,}\b/, "Cloud secret key", "critical"],
+    [/\bgh[pousr]_[A-Za-z0-9]{20,}\b/, "Code hosting token", "critical"],
+    [/\bxox[abprs]-[A-Za-z0-9-]{10,}\b/, "Chat bot token", "high"],
+    [/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/, "Payment API key", "critical"],
+    [/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*["']?[^\s"'#]{6,}/i, "Password or secret in a setting", "high"],
+    [/\b[a-z]+:\/\/[^\s:@\/]+:[^\s:@\/]+@[^\s]+/i, "Password inside a URL", "high"]
+  ];
+  var IAC = {
+    docker: [
+      [/^FROM\s+\S+(:latest)?\s*$/im, function (t) { var m = /^FROM\s+(\S+)/im.exec(t); return m && (!/:/.test(m[1].replace(/^[^\/]*\/\//, "")) || /:latest$/.test(m[1])); }, "Base image isn't pinned to a version", "medium", "Use a fixed tag or digest, for example python:3.12-slim"],
+      [null, function (t) { return !/^USER\s+(?!root\b)\S+/im.test(t); }, "The container runs as root", "high", "Add a non-root user and a USER line"],
+      [/^ADD\s+https?:\/\//im, null, "ADD downloads from the internet without a checksum", "medium", "Download with curl and check a SHA-256, or COPY a vetted file"],
+      [/curl[^|\n]*\|\s*(sh|bash)/i, null, "Pipes a downloaded script straight into a shell", "high", "Download, check the hash, then run"],
+      [/^ENV\s+\S*(SECRET|PASSWORD|TOKEN|KEY)\S*\s*=?/im, null, "A secret is baked into the image with ENV", "critical", "Pass secrets at run time from a secret store"]
+    ],
+    k8s: [
+      [/privileged:\s*true/i, null, "Privileged container: it can control the node", "critical", "Remove privileged: true"],
+      [/hostNetwork:\s*true|hostPID:\s*true/i, null, "Shares the node's network or processes", "high", "Remove hostNetwork and hostPID"],
+      [null, function (t) { return !/runAsNonRoot:\s*true/i.test(t); }, "Doesn't require a non-root user", "medium", "securityContext: runAsNonRoot: true"],
+      [null, function (t) { return !/allowPrivilegeEscalation:\s*false/i.test(t); }, "Privilege escalation isn't turned off", "medium", "securityContext: allowPrivilegeEscalation: false"],
+      [null, function (t) { return !/limits:/i.test(t); }, "No CPU or memory limits", "low", "Add resources.limits"],
+      [/image:\s*\S+:latest\b/i, null, "Image uses the latest tag", "medium", "Pin the image to a version or digest"],
+      [/^\s*value:\s*\S*(secret|password|token)/im, null, "A secret is written into the manifest", "critical", "Use a Secret and secretKeyRef"]
+    ],
+    tf: [
+      [/acl\s*=\s*"public-read(-write)?"/i, null, "Storage bucket is public", "critical", "acl = \"private\" and block public access"],
+      [null, function (t) { return /cidr_blocks\s*=\s*\[\s*"0\.0\.0\.0\/0"\s*\]/.test(t) && /from_port\s*=\s*(22|3389)\b/.test(t); }, "SSH or RDP open to the whole internet", "high", "Allow only the office or VPN range"],
+      [/publicly_accessible\s*=\s*true/i, null, "Database reachable from the internet", "critical", "publicly_accessible = false"],
+      [/(storage_)?encrypted\s*=\s*false/i, null, "Encryption at rest is off", "high", "storage_encrypted = true"],
+      [/versioning\s*=\s*false/i, null, "Bucket versioning is off", "low", "versioning = true, so files can be recovered"],
+      [/password\s*=\s*"[^"$]+"/i, null, "A password is written in the Terraform code", "critical", "Read it from a secret store or variable"]
+    ]
+  };
+  var CSS = ".tcs-box td.tcs-l{font:12px ui-monospace,Consolas,monospace;word-break:break-all}";
+
+  function kindOf(name) {
+    var b = K.base(name).toLowerCase();
+    if (/^dockerfile/.test(b)) return "docker";
+    if (/\.(ya?ml)$/.test(b)) return "k8s";
+    if (/\.tf$/.test(b)) return "tf";
+    return "";
+  }
+  function mask(s) { return String(s).replace(/([A-Za-z0-9._+\/=-]{4})[A-Za-z0-9._+\/=-]{6,}/g, "$1••••••"); }
+  function secrets(files) {
+    var out = [];
+    Object.keys(files).sort().forEach(function (n) {
+      var data = /\.(json|jsonl|csv|tsv|log)$|(^|\/)(keys|audit)[^\/]*$/i.test(n) && !/package\.json$/i.test(n);
+      String(files[n]).replace(/\r/g, "").split("\n").forEach(function (l, i) {
+        SECRETS.forEach(function (s) {
+          if (!s[0].test(l)) return;
+          if (data && /key ID/.test(s[1])) return;
+          var hist = /history|\.patch$|\.diff$/i.test(n) && /^[-+](?![-+])/.test(l);
+          out.push({ file: n, line: i + 1, what: s[1], sev: s[2], text: mask(l.trim()).slice(0, 160), where: hist ? (l.charAt(0) === "-" ? "deleted, but still in Git history" : "added in Git history") : "in the current file" });
+        });
+      });
+    });
+    var seen = {};
+    return out.filter(function (x) { var k = x.file + ":" + x.line; if (seen[k]) return false; seen[k] = 1; return true; });
+  }
+  function iac(files) {
+    var out = [];
+    Object.keys(files).sort().forEach(function (n) {
+      var k = kindOf(n), t = files[n];
+      if (!k || (k === "k8s" && !/^kind:/m.test(t))) return;
+      IAC[k].forEach(function (r) {
+        var hit = r[1] ? r[1](t) : r[0].test(t);
+        if (!hit) return;
+        var line = 0;
+        if (r[0]) String(t).split("\n").some(function (l, i) { if (r[0].test(l)) { line = i + 1; return true; } return false; });
+        out.push({ file: n, line: line, what: r[2], sev: r[3], fix: r[4] });
+      });
+    });
+    return out;
+  }
+  function vcmp(a, b) {
+    var x = String(a).split(/[.\-]/), y = String(b).split(/[.\-]/);
+    for (var i = 0; i < Math.max(x.length, y.length); i++) {
+      var p = parseInt(x[i] || "0", 10), q = parseInt(y[i] || "0", 10);
+      if (p !== q) return p < q ? -1 : 1;
+    }
+    return 0;
+  }
+  function deps(files) {
+    var adv = [], pkgs = [];
+    Object.keys(files).forEach(function (n) {
+      var b = K.base(n).toLowerCase(), t = files[n];
+      if (/advisor/.test(b)) { var d = K.json(t); adv = adv.concat((d && d.advisories) || []); }
+      else if (/requirements.*\.txt$/.test(b)) t.split("\n").forEach(function (l) { var m = /^\s*([A-Za-z0-9_.\-]+)\s*==\s*([\w.]+)/.exec(l); if (m) pkgs.push({ eco: "pypi", name: m[1].toLowerCase(), v: m[2], file: n }); });
+      else if (b === "package.json") { var p = K.json(t) || {}; ["dependencies", "devDependencies"].forEach(function (k) { Object.keys(p[k] || {}).forEach(function (x) { pkgs.push({ eco: "npm", name: x.toLowerCase(), v: String(p[k][x]).replace(/^[\^~>=\s]+/, ""), file: n }); }); }); }
+    });
+    var out = [];
+    pkgs.forEach(function (p) {
+      adv.forEach(function (a) { if (a.ecosystem === p.eco && String(a.package).toLowerCase() === p.name && vcmp(p.v, a.fixed) < 0) out.push({ file: p.file, pkg: p.name + " " + p.v, id: a.id, sev: a.severity, what: a.summary, fix: "upgrade to " + a.fixed + " or later" }); });
+    });
+    return { list: out, packages: pkgs.length, advisories: adv.length };
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-codescan-css", CSS);
+    var files = {};
+    var F = K.frame(el, ctx, {
+      title: "Code and config scanner", cls: "tcs-box",
+      body: '<div class="tl-tabs"><button type="button" data-t="secrets" class="on">Secrets</button><button type="button" data-t="deps">Dependencies</button><button type="button" data-t="iac">Dockerfile, Kubernetes, Terraform</button></div>',
+      actions: '<button type="button" class="btn dark" data-r="go">Scan everything</button>',
+      showLabel: "Show the recorded totals",
+      show: function (a) { if (a.counts) F.msg("The recorded scan found " + a.counts.secrets + " secrets, " + a.counts.deps + " vulnerable packages and " + a.counts.iac + " config problems."); },
+      after: '<div class="tl-scroll" data-r="out" hidden></div>'
+    });
+    var res = null, tab = "secrets";
+    function sevPill(s) { return '<span class="tl-pill ' + (/critical|high/.test(s) ? "hi" : s === "medium" ? "mid" : "") + '">' + K.esc(s) + "</span>"; }
+    function draw() {
+      if (!res) return;
+      var o = F.r("out");
+      o.hidden = false;
+      if (tab === "secrets") o.innerHTML = res.s.length ? '<table class="tl-table"><tr><th>Severity</th><th>What</th><th>Where</th><th>Line (masked)</th></tr>' + res.s.map(function (x) {
+        return "<tr><td>" + sevPill(x.sev) + "</td><td>" + K.esc(x.what) + "</td><td>" + K.esc(x.file) + ":" + x.line + "<br><small>" + K.esc(x.where) + '</small></td><td class="tcs-l">' + K.esc(x.text) + "</td></tr>";
+      }).join("") + "</table><small>A secret that was ever pushed must be revoked and replaced. Deleting it from the file isn't enough.</small>" : "<p>No secrets found.</p>";
+      else if (tab === "deps") o.innerHTML = res.d.list.length ? '<table class="tl-table"><tr><th>Severity</th><th>Package</th><th>Advisory</th><th>Problem</th><th>Fix</th><th>File</th></tr>' + res.d.list.map(function (x) {
+        return "<tr><td>" + sevPill(x.sev) + "</td><td>" + K.esc(x.pkg) + "</td><td>" + K.esc(x.id) + "</td><td>" + K.esc(x.what) + "</td><td>" + K.esc(x.fix) + "</td><td>" + K.esc(K.base(x.file)) + "</td></tr>";
+      }).join("") + "</table>" : "<p>No vulnerable packages found in " + res.d.packages + " packages (" + res.d.advisories + " advisories checked).</p>";
+      else o.innerHTML = res.i.length ? '<table class="tl-table"><tr><th>Severity</th><th>Problem</th><th>File</th><th>Fix</th></tr>' + res.i.map(function (x) {
+        return "<tr><td>" + sevPill(x.sev) + "</td><td>" + K.esc(x.what) + "</td><td>" + K.esc(x.file) + (x.line ? ":" + x.line : "") + "</td><td>" + K.esc(x.fix) + "</td></tr>";
+      }).join("") + "</table>" : "<p>No Dockerfile, Kubernetes or Terraform problems found.</p>";
+    }
+    el.addEventListener("click", function (e) {
+      var t = e.target.closest("[data-t]");
+      if (!t || !el.contains(t)) return;
+      tab = t.getAttribute("data-t");
+      el.querySelectorAll(".tl-tabs button").forEach(function (b) { b.classList.toggle("on", b === t); });
+      draw();
+    });
+    F.r("go").addEventListener("click", function () {
+      res = { s: secrets(files), d: deps(files), i: iac(files) };
+      var c = { secrets: res.s.length, deps: res.d.list.length, iac: res.i.length }, n = c.secrets + c.deps + c.iac;
+      F.msg(c.secrets + " secrets, " + c.deps + " vulnerable packages and " + c.iac + " config problems." + F.compare(n, "scan"));
+      draw();
+      F.ready({ counts: c, n: n, blank: [] }, "Code scan: " + c.secrets + " secrets, " + c.deps + " vulnerable packages, " + c.iac + " config problems");
+    });
+    F.note("Loading…");
+    F.files().then(function (fs) { files = K.textFiles(fs); F.note(Object.keys(files).length + " files"); }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "codescan", title: "Code and config scanner", console: true, group: "Cloud and DevSecOps", mount: mount, secrets: secrets, iac: iac, deps: deps });
+})(window);

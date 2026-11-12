@@ -76,7 +76,7 @@ window.APCYBER_STORES = {
   },
   seminars: {
     name: "Cybersecurity Seminars, one year",
-    blurb: "Every recorded seminar and its hands-on lab, including new ones, for a year. Or unlock single seminars with tickets.",
+    blurb: "All thirteen seminars for a year: SOC, incident response, cloud, testing, governance and AI security, each with its tutorial, hands-on lab and certificate. Or unlock single seminars with tickets.",
     india: "Pay what you want, with a minimum",
     methods: [
       { label: "Razorpay", note: "India · from Rs 9,999", url: "https://rzp.io/rzp/aayat-cybersecurity-seminars" },
@@ -128,3 +128,5 @@ window.APCYBER_SUPPORT = {
     "unit-5": null
   }
 };
+
+window.APCYBER_LAB_HOST = "";

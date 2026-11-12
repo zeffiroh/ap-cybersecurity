@@ -5,7 +5,7 @@
 > **Course skill(s):** Detect Attacks, Collaborate
 
 ## Learning objective (student-facing)
-Name the six phases of the NIST incident-response lifecycle in
+Name the six phases of the incident-response lifecycle in
 order, classify a given response action into its correct phase, and explain why performing actions
 out of order (for example, eradicating before containing) can make an incident worse.
 
@@ -16,11 +16,12 @@ whether the incident is a contained inconvenience or a catastrophic breach. Inci
 is the structured process for handling that aftermath, and it is not improvised: security teams
 follow a defined sequence of phases so that critical steps are never skipped under pressure.
 
-**The NIST lifecycle.** The most widely taught model, from NIST Special Publication 800-61 ("Computer
-Security Incident Handling Guide"), defines the process as six phases: **Preparation**,
+**The six-phase lifecycle.** The most widely taught model, popularized by the SANS Institute and
+often abbreviated PICERL, defines the process as six phases: **Preparation**,
 **Identification**, **Containment**, **Eradication**, **Recovery**, and **Lessons Learned**
-(also called Post-Incident Activity). Some texts fold Preparation into a separate ongoing readiness
-category and describe the remaining five as the "incident lifecycle," but the AP framework treats
+(also called Post-Incident Activity). NIST Special Publication 800-61 Rev. 2 ("Computer Security
+Incident Handling Guide") groups the same steps into four phases: Preparation; Detection and
+Analysis; Containment, Eradication and Recovery; and Post-Incident Activity. This course uses
 all six as the sequence to know, in this order.
 
 **Preparation.** This phase happens before any incident occurs: writing an incident response plan,
@@ -82,8 +83,8 @@ of the six canonical phase names, return them in correct lifecycle order.
 ## Key terms
 - **Incident response (IR)**: the structured process an organization follows to detect, contain,
   and recover from a security incident.
-- **NIST SP 800-61 lifecycle**: the six-phase model: Preparation, Identification, Containment,
-  Eradication, Recovery, Lessons Learned.
+- **Six-phase IR lifecycle (SANS PICERL)**: Preparation, Identification, Containment,
+  Eradication, Recovery, Lessons Learned. NIST SP 800-61 Rev. 2 groups the same steps into four phases.
 - **Containment (short-term / long-term)**: actions that stop an incident from spreading,
   performed before the root cause is removed.
 - **Eradication**: removing the actual cause of the incident (malware, backdoor accounts,
@@ -102,9 +103,9 @@ of the six canonical phase names, return them in correct lifecycle order.
 
 ## Try it
 - **Simulation:** Correctly assign every shuffled response action
-  to its NIST IR phase and confirm the six phases are in correct lifecycle order.
+  to its IR phase and confirm the six phases are in correct lifecycle order.
 - **Coding problem:** Implement a phase classifier/orderer: given phase-tagged actions
-  and a shuffled phase-name list, validate/produce the correct NIST IR sequence.
+  and a shuffled phase-name list, validate/produce the correct IR sequence.
 - **Quiz:** self-check on the skill's key ideas.
 
 ## Sources (local / vendor / rebuilt)

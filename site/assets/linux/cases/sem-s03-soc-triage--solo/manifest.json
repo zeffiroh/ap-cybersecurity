@@ -1,0 +1,155 @@
+{
+ "order": 4,
+ "title": "SOC triage: alerts, phishing, threat intel and AI verdicts",
+ "kicker": "Seminar 3",
+ "units": [
+  1,
+  3,
+  4
+ ],
+ "level": "Practitioner",
+ "minutes": 360,
+ "summary": "Work a ten-alert queue the morning after a ransomware attack: triage five reported emails, write and test a YARA rule, check indicators against intel and map them to ATT&CK, decode a suspicious command in CyberChef, and review an AI assistant's verdicts.",
+ "tools": [
+  "Alert queue",
+  "Email triage",
+  "YARA-X",
+  "Indicators and ATT&CK",
+  "CyberChef",
+  "AI security simulator",
+  "Report builder"
+ ],
+ "titlePrefix": "SOC triage: alerts, phishing, threat intel and AI verdicts",
+ "teacher": true,
+ "id": "sem-s03-soc-triage--solo",
+ "seminarId": 4,
+ "rubric": [
+  [
+   "Ten dispositions, each with a one-line reason a stranger could check",
+   6
+  ],
+  [
+   "Exactly one escalation, written with the ask first",
+   3
+  ],
+  [
+   "Phishing report: sender, authentication results, the real link, pressure tactics and a verdict for each email",
+   5
+  ],
+  [
+   "YARA rule that matches the lure and not the intel feed or logs, with its test result",
+   4
+  ],
+  [
+   "Intel note: indicators checked against the feed, defanged, mapped to ATT&CK",
+   4
+  ],
+  [
+   "AI-verdict review log: every verdict agreed or overridden, each override backed by evidence",
+   4
+  ],
+  [
+   "Plain writing: facts kept apart from guesses",
+   2
+  ]
+ ],
+ "handin": "Ten dispositions with one escalation, a phishing report with a tested YARA rule, an intel note, and an AI-verdict review log.",
+ "files": [
+  "case/ai-verdicts.json",
+  "case/alerts-tuesday.json",
+  "case/intel.json",
+  "case/invoice.eml",
+  "case/known_bad.txt",
+  "case/mail.log",
+  "case/proxy.log",
+  "case/reported/bank-details.eml",
+  "case/reported/hr-newsletter.eml",
+  "case/reported/password-expiry.eml",
+  "case/reported/webinar.eml",
+  "case/suspect/svchost-upd.strings.txt"
+ ],
+ "script": {
+  "intro": "Welcome to SOC triage. It's the morning after the ransomware at Kestrel Logistics, everyone is nervous, and everything is being reported. You have ten alerts. Today you'll triage five reported emails, write and test a YARA rule, check indicators against threat intel and map them to ATT&CK, decode a suspicious command in CyberChef, and check an AI assistant's verdicts. Only one alert deserves an escalation. Let's find it.",
+  "outro": "That's the morning shift. Ten dispositions with one escalation, five emails judged on evidence, a YARA rule that catches the lure and nothing else, an intel note with defanged indicators, and an AI review where every override had a fact behind it. Next comes Capstone A, where you run a whole night shift alone.",
+  "steps": [
+   "Read the queue end to end before deciding anything. Ten alerts: some about yesterday's incident, some new. One has money and a deadline in it, and that's usually where an attacker goes when the laptops are locked down. We hash the evidence and list the alerts.",
+   "Five reported emails. For each, we read who really sent it: the Return-Path and the Received line, not the display name. Then SPF, DKIM and DMARC, and the real link target, which isn't always the link text. The password email's link text says the company's sign-in page, but the href goes to a look-alike. The CFO email comes from a free mail account and asks for secrecy and speed. Three are malicious, one is marketing, one is genuine.",
+   "Now the whole queue. Exactly one escalation: the payment request, because a person must act before 3 pm. Yesterday's activity that's already contained is handled. The scanner in its scheduled window is benign. And two are false positives, which we'll prove in a moment.",
+   "Encoded PowerShell looks scary, which is why attackers use it. But we decode before we judge. CyberChef, From Base64, then UTF-16. It's Get-ComputerInfo writing an inventory file: IT's daily script. False positive, with a note to IT so it stops tripping the alert every morning.",
+   "A YARA rule for the mail gateway. The first rule matches on the domain alone, and it also catches the intel feed and the logs. That's noise. The tuned rule needs the subject, the link path and the threat together, and it matches only the lure email. The third rule shows how YARA is usually used: on the malware's own strings.",
+   "We extract the indicators, check them against the feed, and note who reported each one. The feed also lists internal assets as benign, so we don't block our own intranet. Then we map the campaign to ATT&CK and write the intel note, with every indicator defanged.",
+   "The AI assistant is fast and usually right, but it only sees the alert text. We agree with seven verdicts and override three. It trusted a display name, it panicked at encoding without decoding it, and it didn't know about the VPN exit. Every override has a fact from the evidence behind it.",
+   "The one escalation goes to the Finance controller. The ask first: stop the payment and confirm with the CFO on a known number, before 3 pm. Then why it's high, what we know and don't, and what we have not done: we did not reply to the sender.",
+   "Hand in the notebook: dispositions, email verdicts, YARA tests, intel note, AI review and the escalation. The rubric is on screen."
+  ]
+ },
+ "base": "sem-s03-soc-triage",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "sem-s03-soc-triage",
+  "guided": "sem-s03-soc-triage--guided",
+  "solo": "sem-s03-soc-triage--solo"
+ },
+ "guide": "media/guides/sem-s03-soc-triage/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# SOC triage: alerts, phishing, threat intel and AI verdicts\n\nWork a ten-alert queue the morning after a ransomware attack: triage five reported emails, write and test a YARA rule, check indicators against intel and map them to ATT&CK, decode a suspicious command in CyberChef, and review an AI assistant's verdicts.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `ai-verdicts.json`, `alerts-tuesday.json`, `intel.json`, `invoice.eml`, `known_bad.txt`, `mail.log`, `proxy.log`, `reported/bank-details.eml`, `reported/hr-newsletter.eml`, `reported/password-expiry.eml`, `reported/webinar.eml`, `suspect/svchost-upd.strings.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Morning queue\n\nIt's Tuesday 3 Nov, the morning after the ransomware at Kestrel Logistics. Everyone is nervous, so everything is being reported. You have ten alerts. Your job is to close what is noise, finish what is already handled, and escalate only what needs a person now.\n\nRead the queue once end to end before you decide anything. Then hash the evidence.\n\n- [ ] Read all ten alerts\n- [ ] Which alerts are about yesterday's incident, and which are new?\n- [ ] Which one has a deadline today?\n\n\n?> How many alerts are in the Tuesday queue? :: sha256:4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\nsha256sum *.* reported/* suspect/*\necho ---\ngrep -E '\"(id|rule|host)\"' alerts-tuesday.json"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Triage the reported emails\n\nFive emails were reported. For each one, read who **really** sent it (Return-Path and the Received line), what SPF, DKIM and DMARC said, where the link **really** goes, and which pressure tactics it uses. Then give a verdict: phishing, payment fraud (BEC), spam, or genuine.\n\n- [ ] Sender, Reply-To and Return-Path for each email\n- [ ] Authentication results\n- [ ] The real link target, not the link text\n- [ ] Pressure tactics: urgency, secrecy, authority\n- [ ] A verdict for each\n\n\n```tool email\n{\"d\": \"\", \"n\": 3, \"files\": [\"case/reported/bank-details.eml\", \"case/reported/hr-newsletter.eml\", \"case/reported/password-expiry.eml\", \"case/reported/webinar.eml\", \"case/invoice.eml\"], \"blank\": [\"d\"], \"a\": {\"d\": {\"case/reported/bank-details.eml\": \"bec\", \"case/reported/hr-newsletter.eml\": \"legit\", \"case/reported/password-expiry.eml\": \"phish\", \"case/reported/webinar.eml\": \"spam\", \"case/invoice.eml\": \"phish\"}}}\n```\n\n?> Which domain does the password-expiry link really go to? (the host name) :: sha256:db2c69d325c82cc888a85988003e7a0863eca3e155448e5242a2ba712545cf4f\n?> How many of the five emails are phishing or payment fraud? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case/reported\ngrep -H -E '^(From|Reply-To|Return-Path):' *.eml\necho ---\ngrep -H -o 'spf=[a-z]*\\|dkim=[a-z]*\\|dmarc=[a-z]*' *.eml\necho ---\ngrep -o 'href=\"[^\"]*\"' password-expiry.eml"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Work the queue\n\nNow give all ten alerts a disposition and a one-line reason. **Exactly one** should be escalated: the one where a person must act in the next hour. Already-contained activity is \"true positive: handled\". A rule that fired on something harmless is \"false positive\".\n\n- [ ] Every alert has a disposition\n- [ ] One escalation\n- [ ] Each reason points at evidence\n- [ ] Write the notes for the next shift\n\n\n```tool alerts\n{\"file\": \"case/alerts-tuesday.json\", \"d\": \"\", \"n\": 1, \"blank\": [\"d\"], \"a\": {\"d\": {\"AL-3101\": \"handled\", \"AL-3102\": \"escalate\", \"AL-3103\": \"benign\", \"AL-3104\": \"benign\", \"AL-3105\": \"handled\", \"AL-3106\": \"false\", \"AL-3107\": \"handled\", \"AL-3108\": \"benign\", \"AL-3109\": \"false\", \"AL-3110\": \"handled\"}}}\n```\n\n?> Which alert is the one to escalate? :: sha256:8af9b1fa01d82ae881aa11e21238ca2ca6b365770cef66caa9d2279d6733d9a0"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Decode the suspicious command\n\nAL-3106 is an encoded PowerShell command. Encoding hides what a command does, which is why attackers use it, but IT scripts sometimes use it too. Decode it before you judge it.\n\n[Open the command in CyberChef](https://zeffiroh.github.io/ap-cybersecurity/cyberchef/#recipe=From_Base64%28%27A-Za-z0-9%252B/%253D%27,true,false%29Decode_text%28%27UTF-16LE%2520%281200%29%27%29&input=UndCbEFIUUFMUUJEQUc4QWJRQndBSFVBZEFCbEFISUFTUUJ1QUdZQWJ3QWdBSHdBSUFCUEFIVUFkQUF0QUVZQWFRQnNBR1VBSUFCY0FGd0FhUUJ1QUhZQU1BQXhBRndBYVFCdUFIWUFaUUJ1QUhRQWJ3QnlBSGtBWEFBa0FHVUFiZ0IyQURvQVF3QlBBRTBBVUFCVkFGUUFSUUJTQUU0QVFRQk5BRVVBTGdCMEFIZ0FkQUE9) (From Base64, then Decode text as UTF-16LE). Or decode it in the Linux cell.\n\n- [ ] Decode the command\n- [ ] What does it do? Is anything in it harmful?\n- [ ] Which account runs it, and when?\n- [ ] Write the disposition and a note to IT: an encoded command in a scheduled task trips the alert every day\n\n\n?> Which PowerShell command does AL-3106 run first? (the cmdlet name) :: sha256:685839d40f40c5a114000e5d64c22e843ca432756a65d08f49e903137f803bb4"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "echo 'RwBlAHQALQBDAG8AbQBwAHUAdABlAHIASQBuAGYAbwAgAHwAIABPAHUAdAAtAEYAaQBsAGUAIABcAFwAaQBuAHYAMAAxAFwAaQBuAHYAZQBuAHQAbwByAHkAXAAkAGUAbgB2ADoAQwBPAE0AUABVAFQARQBSAE4AQQBNAEUALgB0AHgAdAA=' | base64 -d | tr -d '\\000'; echo"
+  },
+  {
+   "t": "md",
+   "s": "## 5. A YARA rule for the lure\n\nWrite a YARA rule that finds the overdue-invoice lure in mail, so the mail gateway can catch the next one. Test it on **every** file in the case. The first rule below matches on the domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.\n\n- [ ] Test the noisy rule: which files does it match? Are they emails?\n- [ ] Test the tuned rule: it should match only invoice.eml\n- [ ] Test the third rule on the malware's strings\n- [ ] Write one line on what each rule would miss\n\n\n```tool yara\n{\"rule\": \"\", \"n\": 6, \"files\": [\"case/alerts-tuesday.json\", \"case/intel.json\", \"case/invoice.eml\", \"case/known_bad.txt\", \"case/mail.log\", \"case/proxy.log\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule kestrel_lookalike_domain\\n{\\n  meta:\\n    description = \\\"Anything that mentions the look-alike domain\\\"\\n  strings:\\n    $d = \\\"kestrel-logistlcs.com\\\"\\n  condition:\\n    $d\\n}\\n\"}}\n```\n\n```tool yara\n{\"rule\": \"\", \"n\": 1, \"files\": [\"case/invoice.eml\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule kestrel_invoice_lure\\n{\\n  meta:\\n    description = \\\"The overdue-invoice lure email from the look-alike domain\\\"\\n    author = \\\"SOC\\\"\\n    reference = \\\"AL-2201, message 4A1F21C02\\\"\\n  strings:\\n    $subject = \\\"Subject: FINAL NOTICE: overdue invoice\\\"\\n    $link = \\\"kestrel-logistlcs.com/invoices/INV-\\\"\\n    $press = \\\"service suspension\\\"\\n  condition:\\n    all of them\\n}\\n\"}}\n```\n\n```tool yara\n{\"rule\": \"\", \"n\": 1, \"files\": [\"case/suspect/svchost-upd.strings.txt\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule ksl_ransomware_strings\\n{\\n  meta:\\n    description = \\\"Strings from svchost-upd.exe, the KSL ransomware\\\"\\n  strings:\\n    $mutex = \\\"Global\\\\\\\\ksl-mutex-4471\\\"\\n    $ext = \\\".kestrel-locked\\\"\\n    $note = \\\"README_RESTORE.txt\\\"\\n    $walk = \\\"--walk\\\"\\n  condition:\\n    3 of them\\n}\\n\"}}\n```\n\n?> How many files does the domain-only rule match? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683\n?> How many files does the tuned lure rule match? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Indicators and intel\n\nPull every indicator out of the evidence, check it against the intel feed, and map the campaign to ATT&CK. Your intel note lists each indicator **defanged** (kestrel-logistlcs[.]com), says which feed knows it, and says what to do: block, watch or ignore.\n\n- [ ] Extract indicators\n- [ ] Which are on the feed, and from which source?\n- [ ] Which internal names and addresses must not be blocked?\n- [ ] Map the campaign to ATT&CK\n- [ ] Write the intel note\n\n\n```tool ioc\n{\"attack\": \"\", \"blank\": [\"iocs\", \"attack\"], \"a\": {\"attack\": [\"T1566.001\", \"T1566.002\", \"T1204.002\", \"T1071.001\", \"T1105\", \"T1486\", \"T1490\", \"T1656\"]}}\n```\n\n?> Which source on the feed reported kestrel-logistlcs.com? :: sha256:c06535c79402028994ae442e6549a012295c83ccc574464e0bcdd8d65931da3b"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Review the AI assistant's verdicts\n\nThe SOC's AI triage assistant gave a verdict on every alert. It is fast and usually right, but it only sees the alert text, not your evidence. Agree, or override it and say why. **Every override needs a fact** from the evidence.\n\n- [ ] Read each verdict and its reason\n- [ ] Agree or override\n- [ ] For each override, the fact that proves it wrong\n- [ ] Which kind of mistake does it make: too trusting, or too alarmed?\n\n\n```tool aisec\n{\"file\": \"case/ai-verdicts.json\", \"marks\": \"\", \"n\": 10, \"blank\": [\"marks\"], \"a\": {\"marks\": {\"AL-3101\": \"agree\", \"AL-3102\": \"override\", \"AL-3103\": \"agree\", \"AL-3104\": \"agree\", \"AL-3105\": \"agree\", \"AL-3106\": \"override\", \"AL-3107\": \"agree\", \"AL-3108\": \"agree\", \"AL-3109\": \"override\", \"AL-3110\": \"agree\"}}}\n```\n\n?> How many AI verdicts did you override? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Escalate the payment fraud\n\nWrite the one escalation. The person reading it is the Finance controller, who must stop a payment before 3 pm. Put the ask first, and say what you have **not** done (you didn't reply to the sender).\n\n- [ ] The ask, with a time in the reader's time zone and in UTC\n- [ ] Why it is high\n- [ ] Know and don't know\n- [ ] Where the evidence is\n\n\n```tool report\n{\"tpl\": \"escalation\", \"title\": \"Escalation: payment fraud attempt against Finance\", \"text\": \"\", \"n\": 7, \"blank\": [\"text\"], \"a\": {\"text\": \"# Escalation: payment fraud attempt against Finance\\n\\n## The ask\\n\\nPlease take the Rs 18,40,000 supplier payment out of today's payment run and call a.kulkarni in Finance now, before the run closes at 15:00 IST (09:30 UTC). Finance controller, please confirm by phone with the CFO on his known number.\\n\\n## Severity and why\\n\\nHigh: a payment is due today and the request came from outside the company while pretending to be the CFO.\\n\\n## What we know\\n\\n- 2 Nov 11:47 UTC the email arrived; 3 Nov 08:20 UTC Finance forwarded it. It is signed \\\"Anil Mehta (CFO)\\\" from anil.mehta.cfo@freemail.example (AL-3102).\\n- The email asks for a supplier's bank details to be changed and a payment released before 3 pm, and says to keep it secret and reply only to the freemail address.\\n- SPF, DKIM and DMARC all pass for freemail.example: it really came from a free mail account, not from kestrel-logistics.com. Passing proves who sent it, not that it is safe.\\n\\n## What we don't know\\n\\n- Whether the CFO knows about the request (he has not been reached yet).\\n- Whether other people in Finance got the same email, and whether the supplier's details were already changed in the payment system.\\n\\n## Impact so far\\n\\nOne Finance user and one pending payment are at risk. No account or host is known to be compromised.\\n\\n## What I've done\\n\\nNothing has been changed. I have not replied to the sender.\\n\\n## Evidence\\n\\nreported/bank-details.eml is saved in the case folder with its SHA-256 hash; the queue with dispositions is alerts-tuesday.json.\\n\"}}\n```"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Hand in\n\nHand in this notebook. It carries your dispositions, email verdicts, YARA tests, intel note, AI review and escalation.\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Ten dispositions, each with a one-line reason a stranger could check | 6 |\n| Exactly one escalation, written with the ask first | 3 |\n| Phishing report: sender, authentication results, the real link, pressure tactics and a verdict for each email | 5 |\n| YARA rule that matches the lure and not the intel feed or logs, with its test result | 4 |\n| Intel note: indicators checked against the feed, defanged, mapped to ATT&CK | 4 |\n| AI-verdict review log: every verdict agreed or overridden, each override backed by evidence | 4 |\n| Plain writing: facts kept apart from guesses | 2 |\n\n- [ ] All questions answered\n- [ ] Ten dispositions, one escalation\n- [ ] Each YARA rule tested\n- [ ] Each AI override has a fact\n- [ ] Press Hand in"
+  },
+  {
+   "t": "md",
+   "s": "# Lecture script: SOC triage: alerts, phishing, threat intel and AI verdicts\n\nSeminar 3 · about 360 minutes of lab work · the video runs about 9 minutes\n\nRead it aloud while the demo plays (add `&demo=1` to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with `./teach demo` already has subtitles.\n\n## Opening\n\nWelcome to SOC triage. It's the morning after the ransomware at Kestrel Logistics, everyone is nervous, and everything is being reported. You have ten alerts. Today you'll triage five reported emails, write and test a YARA rule, check indicators against threat intel and map them to ATT&CK, decode a suspicious command in CyberChef, and check an AI assistant's verdicts. Only one alert deserves an escalation. Let's find it.\n\n## 1. Morning queue\n\nRead the queue end to end before deciding anything. Ten alerts: some about yesterday's incident, some new. One has money and a deadline in it, and that's usually where an attacker goes when the laptops are locked down. We hash the evidence and list the alerts.\n\nOn screen: the step text, the Linux cell.\n\n## 2. Triage the reported emails\n\nFive reported emails. For each, we read who really sent it: the Return-Path and the Received line, not the display name. Then SPF, DKIM and DMARC, and the real link target, which isn't always the link text. The password email's link text says the company's sign-in page, but the href goes to a look-alike. The CFO email comes from a free mail account and asks for secrecy and speed. Three are malicious, one is marketing, one is genuine.\n\nOn screen: the step text, the Linux cell, the tool with the model answer.\n\n## 3. Work the queue\n\nNow the whole queue. Exactly one escalation: the payment request, because a person must act before 3 pm. Yesterday's activity that's already contained is handled. The scanner in its scheduled window is benign. And two are false positives, which we'll prove in a moment.\n\nOn screen: the step text, the tool with the model answer.\n\n## 4. Decode the suspicious command\n\nEncoded PowerShell looks scary, which is why attackers use it. But we decode before we judge. CyberChef, From Base64, then UTF-16. It's Get-ComputerInfo writing an inventory file: IT's daily script. False positive, with a note to IT so it stops tripping the alert every morning.\n\nOn screen: the step text, the Linux cell.\n\n## 5. A YARA rule for the lure\n\nA YARA rule for the mail gateway. The first rule matches on the domain alone, and it also catches the intel feed and the logs. That's noise. The tuned rule needs the subject, the link path and the threat together, and it matches only the lure email. The third rule shows how YARA is usually used: on the malware's own strings.\n\nOn screen: the step text, the tool with the model answer.\n\n## 6. Indicators and intel\n\nWe extract the indicators, check them against the feed, and note who reported each one. The feed also lists internal assets as benign, so we don't block our own intranet. Then we map the campaign to ATT&CK and write the intel note, with every indicator defanged.\n\nOn screen: the step text, the tool with the model answer.\n\n## 7. Review the AI assistant's verdicts\n\nThe AI assistant is fast and usually right, but it only sees the alert text. We agree with seven verdicts and override three. It trusted a display name, it panicked at encoding without decoding it, and it didn't know about the VPN exit. Every override has a fact from the evidence behind it.\n\nOn screen: the step text, the tool with the model answer.\n\n## 8. Escalate the payment fraud\n\nThe one escalation goes to the Finance controller. The ask first: stop the payment and confirm with the CFO on a known number, before 3 pm. Then why it's high, what we know and don't, and what we have not done: we did not reply to the sender.\n\nOn screen: the step text, the tool with the model answer.\n\n## 9. Hand in\n\nHand in the notebook: dispositions, email verdicts, YARA tests, intel note, AI review and the escalation. The rubric is on screen.\n\nOn screen: the step text.\n\n## Wrap-up\n\nThat's the morning shift. Ten dispositions with one escalation, five emails judged on evidence, a YARA rule that catches the lure and nothing else, an intel note with defanged indicators, and an AI review where every override had a fact behind it. Next comes Capstone A, where you run a whole night shift alone.\n\n## YouTube chapters (estimate; `./teach demo` writes the exact ones)\n\n```\n0:00 Opening\n0:28 1. Morning queue\n1:13 2. Triage the reported emails\n2:30 3. Work the queue\n3:20 4. Decode the suspicious command\n4:05 5. A YARA rule for the lure\n5:46 6. Indicators and intel\n6:36 7. Review the AI assistant's verdicts\n7:26 8. Escalate the payment fraud\n8:16 9. Hand in\n8:41 Wrap-up\n```"
+  }
+ ]
+}

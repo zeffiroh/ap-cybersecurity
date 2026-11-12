@@ -1,6 +1,6 @@
 # Coding problem 4.2.a: Passwords and password policies
 
-**Skill:** Mitigate Risk · **Maps to:** 4.2.A · **Language:** Python 3 (pytest)
+**Skill:** Mitigate Risk · **Maps to:** 4.2.A, 4.2.D · **Language:** Python 3 (pytest)
 
 ## Problem
 A system administrator has defined a password policy (minimum length, complexity requirements,

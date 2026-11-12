@@ -1,6 +1,6 @@
 # Coding problem 3.5.b: Traffic-anomaly detector
 
-**Skill:** Detect Attacks · **Maps to:** 3.5.B · **Language:** Python 3 (pytest)
+**Skill:** Detect Attacks · **Maps to:** 3.5.B, 3.5.E · **Language:** Python 3 (pytest)
 
 ## Problem
 Implement a simplified network traffic-anomaly detector. You are given a per-host **baseline**

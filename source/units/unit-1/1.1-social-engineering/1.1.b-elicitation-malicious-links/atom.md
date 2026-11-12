@@ -117,7 +117,7 @@ warning, macro prompts, browser warnings, extension-mismatch alerts, as itself a
   deception because legitimate services rarely use this form in communications.
 - **Mismatched link**: a hyperlink whose visible anchor text differs from its actual href
   destination.
-- **Dangerous extension**: a file extension (.exe.scr.ps1.vbs, etc.) indicating the
+- **Dangerous extension**: a file extension (.exe, .scr, .ps1, .vbs, etc.) indicating the
   file can execute arbitrary code when opened.
 - **Double extension**: a filename like `report.pdf.exe` used to disguise an executable as
   a harmless file type by exploiting OS defaults that hide the final extension.

@@ -108,13 +108,13 @@ def guide_html(man, cells):
     cid = man["id"]
     e = html.escape
     start = f"../../../notebook.html?ref=rb-{cid}"
-    links = [f'<a class="main" href="{start}&amp;runbook={cid}">Worked example</a>',
-             f'<a href="{start}--guided&amp;runbook={cid}--guided">Guided</a>',
-             f'<a href="{start}--solo&amp;runbook={cid}--solo">On your own</a>']
+    links = [f'<a class="main" href="{start}&amp;runbook={cid}">Walkthrough</a>',
+             f'<a href="{start}--guided&amp;runbook={cid}--guided">Practice</a>',
+             f'<a href="{start}--solo&amp;runbook={cid}--solo">Solo</a>']
     if man.get("replay"):
         links.append(f'<a href="../../../replay.html?case={cid}">Watch the recording</a>')
     meta = " &middot; ".join(x for x in [e(str(man.get("level", ""))), f"about {man['minutes']} min" if man.get("minutes") else ""] if x)
-    body = [f'<p class="kick">{e(man.get("kicker") or "Lab")} guide</p>', f"<h1>{e(man['title'])}</h1>", f'<p class="meta">{meta}</p>',
+    body = [f'<p class="kick">{e(man.get("kicker") or "Lab")} · written tutorial</p>', f"<h1>{e(man['title'])}</h1>", f'<p class="meta">{meta}</p>',
             f"<p>{e(man.get('summary', ''))}</p>", '<div class="go">' + "".join(links) + "</div>"]
     for i, c in enumerate(cells):
         if c["t"] == "md":
@@ -130,7 +130,7 @@ def guide_html(man, cells):
             if c.get("e"):
                 body.append('<p class="lab">Expected output</p><pre class="want">' + e(c["e"][:6000]) + "</pre>")
     return ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-            f"<title>{e(man['title'])} guide &middot; Aayat-AP-Prep</title>\n<style>{STYLE}</style>\n</head>\n<body><main>" + "\n".join(body) + "</main></body>\n</html>\n")
+            f"<title>{e(man['title'])} written tutorial &middot; Aayat-AP-Prep</title>\n<style>{STYLE}</style>\n</head>\n<body><main>" + "\n".join(body) + "</main></body>\n</html>\n")
 
 
 def publish(man, cases_dir=None):

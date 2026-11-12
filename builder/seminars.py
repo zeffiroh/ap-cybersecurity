@@ -132,6 +132,14 @@ def ipynb(cells):
     return {"nbformat": 4, "nbformat_minor": 5, "metadata": {"kernelspec": {"name": "python3", "display_name": "Python 3", "language": "python"}}, "cells": out}
 
 
+def expected_of(folder):
+    p = folder / "expected.json"
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    except ValueError:
+        return {}
+
+
 def publish_one(folder):
     info = about(folder)
     slug = "sem-" + folder.name
@@ -160,11 +168,17 @@ def publish_one(folder):
             "titlePrefix": info["title"], "teacher": True, "id": slug}
     if info.get("seminar_id"):
         meta["seminarId"] = int(info["seminar_id"])
+    if isinstance(info.get("rubric"), list) and info["rubric"]:
+        meta["rubric"] = [[str(c), int(m)] for c, m in info["rubric"]][:20]
+    if info.get("handin"):
+        meta["handin"] = str(info["handin"])
     cast = folder / "replay.json"
     if cast.exists():
         meta["replay"] = True
         emit(case_dir / "replay.json", cast.read_text(encoding="utf-8"))
-    man = dict(meta, files=files, template=cells)
+    man = dict(meta, files=files, template=levels.merge_expected(cells, expected_of(folder)))
+    if isinstance(info.get("script"), dict):
+        man["script"] = info["script"]
     man["levels"] = levels.publish(man)
     man["guide"] = f"media/guides/{slug}/index.html"
     emit(case_dir / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")

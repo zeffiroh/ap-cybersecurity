@@ -24,17 +24,67 @@
  ],
  "titlePrefix": "Incident runbook: web01",
  "ctf": "The attacker signed their notes with a crew tag (step 7). Submit it on the CTF board as \"Follow the beacon home\".",
+ "playbook": {
+  "trigger": "Alerts for SSH brute force, a web shell request or a process running from /tmp on the web server",
+  "severity": "High",
+  "roles": [
+   "Incident lead",
+   "SOC analyst",
+   "Web team",
+   "Database owner"
+  ],
+  "attack": [
+   "T1110.001",
+   "T1190",
+   "T1505.003",
+   "T1053.003",
+   "T1496.001",
+   "T1071.001"
+  ],
+  "decisions": [
+   "Take the shop offline or keep it running behind a block?",
+   "Rotate every credential on the box, or only the deploy account?"
+  ],
+  "targets": [
+   "Block 203.0.113.7 within 15 minutes",
+   "Remove the web shell and cron job within 2 hours",
+   "Report to CERT-In within 6 hours"
+  ],
+  "notify": [
+   "Shop owner",
+   "CERT-In within 6 hours of noticing it (2022 Directions)",
+   "Payment provider, if card data could have been reached"
+  ],
+  "done": [
+   "Web shell, cron entry and /tmp/.x removed",
+   "Upload form fixed and passwords rotated",
+   "/etc/shadow treated as stolen: every password changed",
+   "Monitoring rule for /tmp processes added"
+  ],
+  "version": "1.1",
+  "reviewed": "2026-11-07"
+ },
  "id": "web01--guided",
  "files": [
   "case/access.log",
+  "case/alerts.json",
   "case/auth.log",
   "case/capture.pcap",
+  "case/captured_token.txt",
+  "case/config/login.defs",
+  "case/config/nginx.conf",
+  "case/config/sshd_config",
+  "case/config/sysctl.conf",
   "case/conn.csv",
   "case/crontab.txt",
+  "case/firewall/rules.txt",
+  "case/intel.json",
   "case/known_bad.txt",
   "case/ps.txt",
+  "case/shop_users.csv",
   "case/suspect/backup.sh",
   "case/suspect/kworkerd",
+  "case/vulns.csv",
   "net/certs.txt",
   "net/cmd.txt",
   "net/dns.txt",
@@ -67,6 +117,30 @@
   "net/www/union.htm",
   "net/www/upload_ok.txt"
  ],
+ "variants": [
+  {
+   "map": {
+    "203.0.113.7": "203.0.113.91",
+    "198.51.100.66": "203.0.113.140",
+    "kworker-cdn.net": "kworker-sync.net"
+   },
+   "hashes": {
+    "fec52565aa0cf18f57d7cf5b3ac728503b8992d2d6f7d46da1d1201090902b02": "5cb361bde8cc20be6f35f72f9deb9626e5af907caa68f43bb5609ec220facb4c",
+    "dd018af78a7d85e59f10d70dc458131e6b982bf17f1eac4f63217a9637cff025": "de5dae61e88225066a76ae2293250f74124a8c40876a1941a4bc606fab2c2af3"
+   }
+  },
+  {
+   "map": {
+    "203.0.113.7": "198.51.100.212",
+    "198.51.100.66": "198.51.100.37",
+    "kworker-cdn.net": "kcache-cdn.net"
+   },
+   "hashes": {
+    "fec52565aa0cf18f57d7cf5b3ac728503b8992d2d6f7d46da1d1201090902b02": "df0a0c411b3492c27231b00f0400b135ca5d6ba8cc8f576624ba065bd63f1745",
+    "dd018af78a7d85e59f10d70dc458131e6b982bf17f1eac4f63217a9637cff025": "4955c2828e0e0afec714ef51bcbf4a84b1e6d93a40b629b2f257abaa374d8f6e"
+   }
+  }
+ ],
  "base": "web01",
  "supportLevel": "guided",
  "levels": {
@@ -83,7 +157,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with date.\n",
-   "e": "Wed Nov  4 21:26:33 UTC 2026\n.:\ntotal 32\n-rw-r--r--    1 root     root          1412 Nov  4 21:26 access.log\n-rw-r--r--    1 root     root          1150 Nov  4 21:26 auth.log\n-rw-r--r--    1 root     root          5625 Nov  4 21:26 capture.pcap\n-rw-r--r--    1 root     root           806 Nov  4 21:26 conn.csv\n-rw-r--r--    1 root     root           104 Nov  4 21:26 crontab.txt\n-rw-r--r--    1 root     root           177 Nov  4 21:26 known_bad.txt\n-rw-r--r--    1 root     root           347 Nov  4 21:26 ps.txt\ndrwxr-xr-x    2 root     root            80 Nov  4 21:26 suspect\n\nsuspect:\ntotal 8\n-rwxr-xr-x    1 root     root            39 Nov  4 21:26 backup.sh\n-rwxr-xr-x    1 root     root            93 Nov  4 21:26 kworkerd\nb81ad98f8172463a8c224c3eddb6429eb553a08a297cf4bc2c7a0a44f4bb3f3a  access.log\ncbcc5dbfd3199c92d15787576c07771e7889acef854d14e4e8b526be71c43b7d  auth.log\nee805a8835c67b1aa8caf9658993fb6e1a046fb3db76320b5b8b6384ec2ef7b9  conn.csv\nfd1d4e004e93c46c3ab7154076608a882d6ed65f33f5d33d5575193876012e61  crontab.txt\n6c659e3c86d78417a2f716b1a2abbf6e59317bf5a21a76e8e95d86ea16cb61a7  known_bad.txt\na9780930c8ce9b535924617ec06a624925fcf6ed7cd0fa1b3eaa9ac9ad80bfdb  ps.txt\n3fa3bd85bbb1dc9cb9e0260511b1b5591842d21629352fc84a6b578c9ea382fa  capture.pcap",
+   "e": "Sat Nov  7 13:09:21 UTC 2026\n.:\ntotal 52\n-rw-r--r--    1 root     root          1412 Nov  7 13:09 access.log\n-rw-r--r--    1 root     root          2673 Nov  7 13:09 alerts.json\n-rw-r--r--    1 root     root          1150 Nov  7 13:09 auth.log\n-rw-r--r--    1 root     root          5625 Nov  7 13:09 capture.pcap\n-rw-r--r--    1 root     root           256 Nov  7 13:09 captured_token.txt\ndrwxr-xr-x    2 root     root           120 Nov  7 13:09 config\n-rw-r--r--    1 root     root           806 Nov  7 13:09 conn.csv\n-rw-r--r--    1 root     root           104 Nov  7 13:09 crontab.txt\ndrwxr-xr-x    2 root     root            60 Nov  7 13:09 firewall\n-rw-r--r--    1 root     root          1019 Nov  7 13:09 intel.json\n-rw-r--r--    1 root     root           177 Nov  7 13:09 known_bad.txt\n-rw-r--r--    1 root     root           347 Nov  7 13:09 ps.txt\n-rw-r--r--    1 root     root           341 Nov  7 13:09 shop_users.csv\ndrwxr-xr-x    2 root     root            80 Nov  7 13:09 suspect\n-rw-r--r--    1 root     root          1506 Nov  7 13:09 vulns.csv\n\nsuspect:\ntotal 8\n-rwxr-xr-x    1 root     root            39 Nov  7 13:09 backup.sh\n-rwxr-xr-x    1 root     root            93 Nov  7 13:09 kworkerd\nb81ad98f8172463a8c224c3eddb6429eb553a08a297cf4bc2c7a0a44f4bb3f3a  access.log\ncbcc5dbfd3199c92d15787576c07771e7889acef854d14e4e8b526be71c43b7d  auth.log\nee805a8835c67b1aa8caf9658993fb6e1a046fb3db76320b5b8b6384ec2ef7b9  conn.csv\n735da737c46251436a8dc350a1feac9d711b810e957d4688ae95ba68aa44f7f3  shop_users.csv\n5ecaef97518d18ac7272978a9c0864f0f7b56a71cd794951d5da0a7cfe68c4d5  vulns.csv\n9098f5aa5796416394d8ef7697dcbb68fb02dbb69439d9561239649ba9775df9  captured_token.txt\nfd1d4e004e93c46c3ab7154076608a882d6ed65f33f5d33d5575193876012e61  crontab.txt\n6c659e3c86d78417a2f716b1a2abbf6e59317bf5a21a76e8e95d86ea16cb61a7  known_bad.txt\na9780930c8ce9b535924617ec06a624925fcf6ed7cd0fa1b3eaa9ac9ad80bfdb  ps.txt\n3fa3bd85bbb1dc9cb9e0260511b1b5591842d21629352fc84a6b578c9ea382fa  capture.pcap",
    "a": "cd ~/case\ndate -u\nls -l . suspect\nsha256sum *.log *.csv *.txt capture.pcap"
   },
   {
@@ -93,7 +167,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with nmap.\n",
-   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:26 UTC\nNmap scan report for gateway.corp.lan (10.0.0.1)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)\nNmap scan report for web01.corp.lan (10.0.0.5)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:05 (QEMU virtual NIC)\nNmap scan report for db01.corp.lan (10.0.0.9)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:09 (QEMU virtual NIC)\nNmap scan report for hr-laptop.corp.lan (10.0.0.12)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0C (QEMU virtual NIC)\nNmap done: 256 IP addresses (4 hosts up) scanned in 6.68 seconds",
+   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC\nNmap scan report for gateway.corp.lan (10.0.0.1)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)\nNmap scan report for web01.corp.lan (10.0.0.5)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:05 (QEMU virtual NIC)\nNmap scan report for db01.corp.lan (10.0.0.9)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:09 (QEMU virtual NIC)\nNmap scan report for hr-laptop.corp.lan (10.0.0.12)\nHost is up (0.00042s latency).\nMAC Address: 52:54:00:12:34:0C (QEMU virtual NIC)\nNmap done: 256 IP addresses (4 hosts up) scanned in 6.68 seconds",
    "a": "nmap -sn 10.0.0.0/24"
   },
   {
@@ -119,7 +193,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with curl.\n",
-   "e": "User-agent: *\nDisallow: /admin\nDisallow: /backup.zip\n---\nHTTP/1.1 200 OK\nServer: nginx/1.18.0 (Ubuntu)\nDate: Wed, 04 Nov 2026 21:26:36 GMT\nContent-Type: text/plain\nContent-Length: 54\nConnection: keep-alive\n\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n---\n- Nikto v2.5.0 (lab copy)\n---------------------------------------------------------------------------\n+ Target IP:          10.0.0.5\n+ Target Hostname:    10.0.0.5\n+ Start Time:         2026-11-04 21:26:37 (GMT0)\n---------------------------------------------------------------------------\n+ Server: nginx/1.18.0 (Ubuntu)\n+ The server banner reveals the exact software version. Attackers use it to look up known bugs.\n+ The anti-clickjacking X-Frame-Options header is not present.\n+ The X-Content-Type-Options header is not set.\n+ No Strict-Transport-Security header: browsers may fall back to plain HTTP.\n+ /robots.txt: contains 2 entries which should be manually viewed: /admin /backup.zip \n+ /admin/: Admin login page or section found. (HTTP 200)\n+ /backup.zip: Potentially interesting backup file found. (HTTP 200)\n+ /uploads/: Upload folder found. Check whether uploaded files can run. (HTTP 403)\n+ /login: Login page found. Test it for weak passwords and SQL injection. (HTTP 200)\n+ /shop?id=: A database error is shown to users. Possible SQL injection.\n+ 21:26:40: scan finished. Nikto only finds clues; check every one by hand.\n===============================================================\nGobuster v3.6 (lab copy)\n===============================================================\n[+] Url:        http://10.0.0.5\n[+] Wordlist:   built-in (60 common paths)\n===============================================================\nScanning... (about half a minute)\n/admin                        (Status: 200) [Size: 253]\n/login                        (Status: 200) [Size: 188]\n/backup.zip                   (Status: 200) [Size: 54]\n/uploads                      (Status: 403) [Size: 109]\n/robots.txt                   (Status: 200) [Size: 53]\n/index.html                   (Status: 200) [Size: 254]\n===============================================================\nFinished: 6 paths found",
+   "e": "User-agent: *\nDisallow: /admin\nDisallow: /backup.zip\n---\nHTTP/1.1 200 OK\nServer: nginx/1.18.0 (Ubuntu)\nDate: Sat, 07 Nov 2026 13:09:24 GMT\nContent-Type: text/plain\nContent-Length: 54\nConnection: keep-alive\n\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n---\n- Nikto v2.5.0 (lab copy)\n---------------------------------------------------------------------------\n+ Target IP:          10.0.0.5\n+ Target Hostname:    10.0.0.5\n+ Start Time:         2026-11-07 13:09:24 (GMT0)\n---------------------------------------------------------------------------\n+ Server: nginx/1.18.0 (Ubuntu)\n+ The server banner reveals the exact software version. Attackers use it to look up known bugs.\n+ The anti-clickjacking X-Frame-Options header is not present.\n+ The X-Content-Type-Options header is not set.\n+ No Strict-Transport-Security header: browsers may fall back to plain HTTP.\n+ /robots.txt: contains 2 entries which should be manually viewed: /admin /backup.zip \n+ /admin/: Admin login page or section found. (HTTP 200)\n+ /backup.zip: Potentially interesting backup file found. (HTTP 200)\n+ /uploads/: Upload folder found. Check whether uploaded files can run. (HTTP 403)\n+ /login: Login page found. Test it for weak passwords and SQL injection. (HTTP 200)\n+ /shop?id=: A database error is shown to users. Possible SQL injection.\n+ 13:09:28: scan finished. Nikto only finds clues; check every one by hand.\n===============================================================\nGobuster v3.6 (lab copy)\n===============================================================\n[+] Url:        http://10.0.0.5\n[+] Wordlist:   built-in (60 common paths)\n===============================================================\nScanning... (about half a minute)\n/admin                        (Status: 200) [Size: 253]\n/login                        (Status: 200) [Size: 188]\n/backup.zip                   (Status: 200) [Size: 54]\n/uploads                      (Status: 403) [Size: 109]\n/robots.txt                   (Status: 200) [Size: 53]\n/index.html                   (Status: 200) [Size: 254]\n===============================================================\nFinished: 6 paths found",
    "a": "curl -s http://10.0.0.5/robots.txt\necho ---\ncurl -i -s \"http://10.0.0.5/uploads/img.php?cmd=id\"\necho ---\nnikto -h http://10.0.0.5\ngobuster dir -u http://10.0.0.5"
   },
   {
@@ -150,7 +224,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with nmap.\n",
-   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:26 UTC\nNmap scan report for web01.corp.lan (10.0.0.5)\nHost is up (0.00042s latency).\nNot shown: 65531 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n22/tcp    open   ssh            OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)\n80/tcp    open   http           nginx 1.18.0 (Ubuntu)\n443/tcp   open   ssl/http       nginx 1.18.0 (Ubuntu)\n31337/tcp open   Elite?         kworkerd backdoor (banner: KW-1.2 ready)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds",
+   "e": "Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC\nNmap scan report for web01.corp.lan (10.0.0.5)\nHost is up (0.00042s latency).\nNot shown: 65531 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n22/tcp    open   ssh            OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)\n80/tcp    open   http           nginx 1.18.0 (Ubuntu)\n443/tcp   open   ssl/http       nginx 1.18.0 (Ubuntu)\n31337/tcp open   Elite?         kworkerd backdoor (banner: KW-1.2 ready)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds",
    "a": "nmap -sV -p- 10.0.0.5"
   },
   {
@@ -160,7 +234,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with dig.\n",
-   "e": "198.51.100.66\nvps-4471.cheap-hosting.example.\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC\nNmap scan report for 203.0.113.7\nHost is up (0.048s latency).\nNot shown: 998 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n22/tcp    open   ssh            OpenSSH 9.2p1 Debian 2+deb12u2 (protocol 2.0)\n8080/tcp  open   http           SimpleHTTPServer 0.6 (Python 3.11.2)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds\ntarget: web01 / nimbumart\n- sqlmap on /shop?id= : works, dumped users\n- deploy : Summer2026!  (works on ssh too)\n- upload page lets me run commands: /uploads/img.php?cmd=\n- c2: update.kworker-cdn.net:4444, push the db dump on day 1\n- crew tag for the leak site: [flag hidden: run the lab to find it]\n% Lab whois record for kworker-cdn.net\n\nDomain Name: KWORKER-CDN.NET\nCreated: 2026-10-29 (5 days before the attack)\nRegistrar: Budget Names Ltd\nRegistrant: REDACTED FOR PRIVACY\nName Server: ns1.cheap-hosting.example\nNetRange: 198.51.100.0 - 198.51.100.255\nOrgName: Cheap Hosting VPS (accepts crypto, no ID checks)\nAbuse: abuse@cheap-hosting.example\ntraceroute to 198.51.100.66 (198.51.100.66), 30 hops max, 46 byte packets\n 1  gateway.corp.lan (10.0.0.1)  0.431 ms  0.412 ms  0.490 ms\n 2  edge1.isp.example (100.64.12.1)  6.500 ms  6.951 ms  7.415 ms\n 3  core3.isp.example (100.64.0.9)  10.941 ms  10.497 ms  10.051 ms\n 4  ix-peer.transit.example (100.64.250.4)  19.720 ms  21.108 ms  20.213 ms\n 5  border.hosting.example (100.65.1.1)  44.232 ms  37.920 ms  40.675 ms\n 6  vps-4471.cheap-hosting.example (198.51.100.66)  51.892 ms  49.811 ms  47.717 ms\n% Lab whois record for 203.0.113.7\n\nNetRange: 203.0.113.0 - 203.0.113.255\nOrgName: Anon VPS Rentals\nCountry: (offshore)\nAbuse: abuse@anon-vps.example\nComment: Hourly rented servers. Often used for scanning.",
+   "e": "198.51.100.66\nvps-4471.cheap-hosting.example.\nStarting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC\nNmap scan report for 203.0.113.7\nHost is up (0.048s latency).\nNot shown: 998 closed tcp ports (reset)\nPORT      STATE  SERVICE        VERSION\n22/tcp    open   ssh            OpenSSH 9.2p1 Debian 2+deb12u2 (protocol 2.0)\n8080/tcp  open   http           SimpleHTTPServer 0.6 (Python 3.11.2)\nService Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel\n\nNmap done: 1 IP address (1 host up) scanned in 3.47 seconds\ntarget: web01 / nimbumart\n- sqlmap on /shop?id= : works, dumped users\n- deploy : Summer2026!  (works on ssh too)\n- upload page lets me run commands: /uploads/img.php?cmd=\n- c2: update.kworker-cdn.net:4444, push the db dump on day 1\n- crew tag for the leak site: [flag hidden: run the lab to find it]\n% Lab whois record for kworker-cdn.net\n\nDomain Name: KWORKER-CDN.NET\nCreated: 2026-10-29 (5 days before the attack)\nRegistrar: Budget Names Ltd\nRegistrant: REDACTED FOR PRIVACY\nName Server: ns1.cheap-hosting.example\nNetRange: 198.51.100.0 - 198.51.100.255\nOrgName: Cheap Hosting VPS (accepts crypto, no ID checks)\nAbuse: abuse@cheap-hosting.example\ntraceroute to 198.51.100.66 (198.51.100.66), 30 hops max, 46 byte packets\n 1  gateway.corp.lan (10.0.0.1)  0.431 ms  0.412 ms  0.490 ms\n 2  edge1.isp.example (100.64.12.1)  6.500 ms  6.951 ms  7.415 ms\n 3  core3.isp.example (100.64.0.9)  10.941 ms  10.497 ms  10.051 ms\n 4  ix-peer.transit.example (100.64.250.4)  19.720 ms  21.108 ms  20.213 ms\n 5  border.hosting.example (100.65.1.1)  44.232 ms  37.920 ms  40.675 ms\n 6  vps-4471.cheap-hosting.example (198.51.100.66)  51.892 ms  49.811 ms  47.717 ms\n% Lab whois record for 203.0.113.7\n\nNetRange: 203.0.113.0 - 203.0.113.255\nOrgName: Anon VPS Rentals\nCountry: (offshore)\nAbuse: abuse@anon-vps.example\nComment: Hourly rented servers. Often used for scanning.",
    "a": "dig +short update.kworker-cdn.net\ndig -x 198.51.100.66 +short\nnmap -sV 203.0.113.7\ncurl -s http://203.0.113.7:8080/notes.txt\nwhois kworker-cdn.net\ntraceroute 198.51.100.66\nwhois 203.0.113.7"
   },
   {
@@ -174,7 +248,7 @@
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with mkdir.\n",
-   "e": "packed /root/evidence-20261104T2127.tar.gz\n-rw-r--r--    1 root     root          3557 Nov  4 21:27 /root/evidence-20261104T2127.tar.gz\n9 SHA256SUMS",
+   "e": "packed /root/evidence-20261107T1309.tar.gz\n-rw-r--r--    1 root     root          7240 Nov  7 13:09 /root/evidence-20261107T1309.tar.gz\n19 SHA256SUMS",
    "a": "mkdir -p ~/evidence && cp -r ~/case/* ~/evidence/\ncd ~/evidence && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS\npack=~/evidence-$(date -u +%Y%m%dT%H%M).tar\ntar cf \"$pack\" -C ~/evidence .\n(gzip -f \"$pack\" 2>/dev/null && echo \"packed $pack.gz\") || echo \"packed $pack\"\nls -l ~/evidence-*\nwc -l SHA256SUMS\ncd ~/case"
   },
   {

@@ -1,7 +1,7 @@
 # 3.3.b: Traffic isolation and zero-trust segmentation
 
 > **Unit 3 · 3.3 Network Segmentation**
-> **AP Learning Objective(s):** 3.3.B, 3.3.C
+> **AP Learning Objective(s):** 3.3.B
 > **Course skill(s):** Mitigate Risk
 
 ## Learning objective (student-facing)

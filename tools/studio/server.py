@@ -437,8 +437,15 @@ class App:
             if size > FILE_LIMIT or total + size > FILES_LIMIT:
                 continue
             try:
-                out[p.relative_to(self.session.work).as_posix()] = p.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
+                blob = p.read_bytes()
+                if p.suffix.lower() in (".pcap", ".pcapng", ".cap") and not blob.startswith(b"#aayat-capture"):
+                    text = L.capture_text(blob, p.name)
+                    if not text:
+                        continue
+                    out[p.relative_to(self.session.work).as_posix()] = text
+                else:
+                    out[p.relative_to(self.session.work).as_posix()] = blob.decode("utf-8")
+            except (UnicodeDecodeError, OSError, ValueError, IndexError, struct.error):
                 continue
             total += size
         return json.dumps(out, ensure_ascii=False).encode("utf-8")

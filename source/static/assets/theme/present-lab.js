@@ -3,7 +3,7 @@
 
   var H, $, esc, rpc, url, T;
   var CH = "aayat-present-lab";
-  var QR_SRC = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+  var QR_SRC = (document.currentScript ? document.currentScript.src.replace(/assets\/theme\/present-lab\.js.*$/, "") : "../") + "assets/vendor/qrcode-generator-1.4.4/qrcode.min.js";
   var TOOLS = { linux: ["linux.html", "Open the Linux lab"], jupyter: ["lab/lab/index.html", "Open JupyterLab"], sqli: ["sqli.html", "Open the SQL lab"],
     shop: ["shop.html", "Open Hack the shop"], cyberchef: ["cyberchef/index.html", "Open CyberChef"], ctf: ["ctf.html", "Open the CTF board"] };
   var LANG = { sh: "Linux", py: "Python", data: "Data", "": "Commands" };

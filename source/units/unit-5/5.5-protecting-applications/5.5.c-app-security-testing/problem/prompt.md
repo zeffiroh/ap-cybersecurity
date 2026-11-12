@@ -1,6 +1,6 @@
 # Coding problem 5.5.c: Static-analysis scanner (SAST)
 
-**Skill:** Detect Attacks, Mitigate Risk · **Maps to:** 5.5.B, 5.5.C · **Language:** Python 3 (pytest)
+**Skill:** Detect Attacks, Mitigate Risk · **Maps to:** 5.5.B · **Language:** Python 3 (pytest)
 
 ## Problem
 Build a miniature SAST rule engine. Given the source lines of a file (as a list of strings, one

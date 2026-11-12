@@ -1,0 +1,132 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var ME = document.currentScript && document.currentScript.src;
+  var ENGINE = ME ? ME.replace(/theme\/tool-yara\.js.*$/, "vendor/yara-x-1.23.0/pkg/yara_x_js.js") : "";
+  var STARTER = 'rule macro_invoice_lure\n{\n  meta:\n    description = "Macro document named like an invoice"\n  strings:\n' +
+    '    $docm = ".docm" nocase\n    $lure = "invoice" nocase\n  condition:\n    $docm and $lure\n}\n';
+  var CSS = ".ty-box textarea{min-height:190px}.ty-box .ty-hit{cursor:pointer}.ty-box .ty-hit:hover td{background:#f3f3f3}.ty-box .ty-hit.on td{background:#1f4e8c;color:#fff}" +
+    ".ty-box .ty-ctx{margin:8px 0 0;padding:8px;background:#f4f4f4;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:180px;overflow:auto}" +
+    ".ty-box .ty-ctx mark{background:#ffe08a;color:inherit}.ty-box .ty-err{margin:8px 0 0;padding:8px;background:#fdecea;font:12px/1.4 ui-monospace,Consolas,monospace;white-space:pre-wrap}";
+  var engine = null;
+
+  function load() {
+    if (engine) return engine;
+    engine = import(ENGINE).then(function (m) { return m.default().then(function () { return m; }); });
+    engine.catch(function () { engine = null; });
+    return engine;
+  }
+
+  function scan(m, rule, files) {
+    var c = new m.Compiler();
+    try { c.addSource(rule); } catch (e) { return { error: String(e && e.message || e).replace(/^Error:\s*/, "") }; }
+    var warnings = [];
+    try { warnings = (c.warnings || []).slice(); } catch (e) { warnings = []; }
+    var rules;
+    try { rules = c.build(); } catch (e) { return { error: String(e && e.message || e) }; }
+    var hits = [], matched = [], enc = new TextEncoder();
+    Object.keys(files).sort().forEach(function (name) {
+      var bytes = enc.encode(files[name]), res;
+      try { res = rules.scan(bytes); } catch (e) { return; }
+      var ms = (res && res.matches) || [];
+      if (ms.length) matched.push(name);
+      ms.forEach(function (rm) {
+        var pats = (rm.patterns || []).filter(function (p) { return (p.matches || []).length; });
+        hits.push({ file: name, rule: rm.identifier, tags: rm.tags || [], meta: rm.metadata || [], bytes: bytes,
+          pats: pats.map(function (p) { return { id: p.identifier, kind: p.kind, at: p.matches.slice(0, 50) }; }) });
+      });
+    });
+    return { hits: hits, matched: matched, warnings: warnings, scanned: Object.keys(files).length };
+  }
+
+  function context(bytes, at) {
+    var dec = new TextDecoder("utf-8", { fatal: false }), lo = Math.max(0, at.offset - 120), hi = Math.min(bytes.length, at.offset + at.length + 120);
+    return { before: dec.decode(bytes.slice(lo, at.offset)), hit: dec.decode(bytes.slice(at.offset, at.offset + at.length)), after: dec.decode(bytes.slice(at.offset + at.length, hi)) };
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-yara-css", CSS);
+    var files = {}, result = null;
+    var F = K.frame(el, ctx, {
+      title: "YARA rules", cls: "ty-box",
+      body: '<label class="tl-row" style="display:block"><span style="font-size:12px">Rules</span><textarea class="tl-area" data-r="rule" spellcheck="false"></textarea></label>',
+      actions: '<button type="button" class="btn dark" data-r="go">Scan the case files</button><button type="button" class="btn" data-r="starter">Starter rule</button>',
+      showLabel: "Show the recorded rule",
+      show: function (a) { if (a.rule != null) F.r("rule").value = a.rule; },
+      after: '<div data-r="err"></div><div class="tl-scroll" data-r="list" hidden></div><div data-r="ctx"></div>'
+    });
+    var st = F.st, init = F.saved && F.saved.rule != null ? F.saved : st;
+    F.r("rule").value = init.rule != null && init.rule !== "" ? init.rule : (st.a ? "" : STARTER);
+    F.r("rule").addEventListener("input", function () { F.remember({ rule: F.r("rule").value }); });
+    F.r("starter").addEventListener("click", function () { F.r("rule").value = STARTER; F.remember({ rule: STARTER }); });
+
+    function draw() {
+      var box = F.r("list");
+      F.r("ctx").innerHTML = "";
+      if (!result.hits.length) { box.hidden = true; return; }
+      box.hidden = false;
+      var rows = [];
+      result.hits.forEach(function (h, hi) {
+        h.pats.forEach(function (p) {
+          p.at.forEach(function (at, ai) {
+            rows.push('<tr class="ty-hit" data-h="' + hi + '" data-p="' + K.esc(p.id) + '" data-a="' + ai + '"><td>' + K.esc(h.file) + "</td><td>" + K.esc(h.rule) +
+              (h.tags.length ? " " + h.tags.map(function (t) { return '<span class="tl-pill">' + K.esc(t) + "</span>"; }).join("") : "") +
+              "</td><td>" + K.esc(p.id) + "</td><td>0x" + at.offset.toString(16) + "</td><td>" + at.length + "</td></tr>");
+          });
+        });
+        if (!h.pats.length) rows.push('<tr><td>' + K.esc(h.file) + "</td><td>" + K.esc(h.rule) + '</td><td colspan="3">matched on its condition</td></tr>');
+      });
+      box.innerHTML = '<table class="tl-table"><tr><th>File</th><th>Rule</th><th>String</th><th>Offset</th><th>Length</th></tr>' + rows.join("") + "</table>";
+    }
+
+    el.addEventListener("click", function (e) {
+      var t = e.target.closest("tr.ty-hit");
+      if (!t || !el.contains(t)) return;
+      el.querySelectorAll("tr.ty-hit.on").forEach(function (x) { x.classList.remove("on"); });
+      t.classList.add("on");
+      var h = result.hits[+t.getAttribute("data-h")], p = h.pats.filter(function (x) { return x.id === t.getAttribute("data-p"); })[0], at = p.at[+t.getAttribute("data-a")];
+      var c = context(h.bytes, at);
+      F.r("ctx").innerHTML = '<pre class="ty-ctx"></pre>';
+      var pre = F.r("ctx").firstChild, mk = document.createElement("mark");
+      mk.textContent = c.hit;
+      pre.append(document.createTextNode(c.before), mk, document.createTextNode(c.after));
+    });
+
+    F.r("go").addEventListener("click", function () {
+      var rule = F.r("rule").value;
+      if (!rule.trim()) { F.msg("Write a rule first.", true); return; }
+      F.msg("Starting the YARA engine…");
+      F.r("err").innerHTML = "";
+      load().then(function (m) { return m; }, function () { F.msg("The YARA engine didn't load.", true); return null; }).then(function (m) {
+        if (!m) return;
+        result = scan(m, rule, files);
+        if (result.error) {
+          F.msg("The rule didn't compile. Fix it and scan again.", true);
+          F.r("err").innerHTML = '<pre class="ty-err"></pre>';
+          F.r("err").firstChild.textContent = result.error;
+          F.r("list").hidden = true;
+          return;
+        }
+        var n = result.matched.length;
+        F.msg(n + " of " + result.scanned + " files match" + (n ? ": " + result.matched.map(K.base).join(", ") : "") + "." +
+          (result.warnings.length ? " " + result.warnings.length + " warning(s)." : "") + F.compare(n, "rule"));
+        if (result.warnings.length) {
+          F.r("err").innerHTML = '<pre class="ty-err"></pre>';
+          F.r("err").firstChild.textContent = result.warnings.join("\n\n");
+        }
+        draw();
+        F.ready({ rule: rule, n: n, files: result.matched, blank: ["rule"] },
+          "YARA: a rule matching " + n + " file" + (n === 1 ? "" : "s") + (n ? " (" + result.matched.map(K.base).join(", ") + ")" : ""));
+      }).catch(function (e) { F.msg("The scan stopped: " + (e && e.message || e), true); });
+    });
+
+    F.note("Loading the files…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs);
+      F.note(Object.keys(files).length + " files");
+      if (!Object.keys(files).length) { F.msg("There are no case files to scan here."); F.r("go").disabled = true; }
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "yara", title: "YARA rules", console: true, group: "SOC analyst", mount: mount, scan: scan, load: load });
+})(window);

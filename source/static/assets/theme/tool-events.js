@@ -1,0 +1,251 @@
+(function (global) {
+  "use strict";
+  var SHOW = 1000;
+  var LEVELS = ["Critical", "Error", "Warning", "Information", "Audit Success", "Audit Failure"];
+  var ICON = { Critical: "⛔", Error: "❌", Warning: "⚠", Information: "ℹ", "Audit Success": "🔑", "Audit Failure": "🔒", Verbose: "·" };
+  var CSS = ".te-box .te-wrap{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px;margin-top:8px}@media (max-width:760px){.te-box .te-wrap{grid-template-columns:1fr}}" +
+    ".te-box .te-logs{border:1px solid #bbb;background:#fff;padding:4px;font-size:13px}.te-box .te-logs b{display:block;font-size:11px;color:#555;margin:2px 4px 4px}" +
+    ".te-box .te-logs button{display:flex;justify-content:space-between;width:100%;border:0;background:none;color:#111;padding:4px 6px;cursor:pointer;text-align:left;font:inherit}" +
+    ".te-box .te-logs button.on{background:#1f4e8c;color:#fff}.te-box .te-logs small{opacity:.75}" +
+    ".te-box .te-lv{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;margin-top:6px}.te-box .te-lv label{display:flex;flex-direction:row;gap:4px;align-items:center;white-space:nowrap;margin:0}.te-box .te-lv input{margin:0}" +
+    ".te-box .te-scroll{max-height:250px;overflow:auto;border:1px solid #bbb;background:#fff}" +
+    ".te-box table{border-collapse:collapse;width:100%;font-size:12px}.te-box th{position:sticky;top:0;background:#e8e8e8;text-align:left;padding:3px 6px;border-bottom:1px solid #999;white-space:nowrap}" +
+    ".te-box td{padding:2px 6px;border-bottom:1px solid #eee;white-space:nowrap}.te-box tr.te-row{cursor:pointer}.te-box tr.te-row:hover td{background:#f3f3f3}.te-box tr.te-row.on td{background:#1f4e8c;color:#fff}" +
+    ".te-box .te-detail{border:1px solid #bbb;background:#fff;margin-top:8px}.te-box .te-dtabs{display:flex;gap:2px;border-bottom:1px solid #bbb;background:#f0f0f0}" +
+    ".te-box .te-dtabs button{border:0;background:none;padding:4px 10px;cursor:pointer;font-size:12px;color:#111}.te-box .te-dtabs button.on{background:#fff;border-bottom:2px solid #1f4e8c}" +
+    ".te-box .te-dbody{padding:8px;max-height:260px;overflow:auto}.te-box .te-msg{margin:0 0 8px;white-space:pre-wrap;font:12px/1.5 ui-monospace,Consolas,monospace;border:1px solid #ddd;padding:6px;background:#fafafa}" +
+    ".te-box .te-grid{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:12px}.te-box .te-grid span:nth-child(odd){color:#555}" +
+    ".te-box .te-xml{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,Consolas,monospace}.te-box .te-bad{outline:2px solid #c0392b}";
+
+  function style() {
+    if (document.getElementById("tool-events-css")) return;
+    var s = document.createElement("style");
+    s.id = "tool-events-css";
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  }
+
+  function firstJson(text) {
+    var lines = String(text || "").split("\n");
+    for (var i = 0; i < lines.length && i < 5; i++) {
+      if (!lines[i].trim()) continue;
+      try { var o = JSON.parse(lines[i]); return o && typeof o === "object" && own(o, "EventID") ? o : null; } catch (e) { return null; }
+    }
+    return null;
+  }
+  function isLog(name, text) { return /\.jsonl$/i.test(name) && !!firstJson(text); }
+
+  function parse(text) {
+    var events = [];
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (l) {
+      if (!l.trim()) return;
+      var o;
+      try { o = JSON.parse(l); } catch (e) { return; }
+      if (!o || typeof o !== "object" || o.EventID == null) return;
+      var data = o.Data && typeof o.Data === "object" ? o.Data : {};
+      events.push({ id: +o.EventID, level: String(o.Level || "Information"), kw: String(o.Keywords || ""), time: String(o.TimeCreated || ""), src: String(o.Provider || ""),
+        task: String(o.Task || "None"), host: String(o.Computer || ""), rec: o.RecordID, msg: String(o.Message || ""), data: data,
+        user: String(data.SubjectUserName || data.TargetUserName || data.User || "") });
+    });
+    events.sort(function (a, b) { return a.time < b.time ? 1 : a.time > b.time ? -1 : (b.rec || 0) - (a.rec || 0); });
+    return { events: events };
+  }
+
+  function shownLevel(e) { return e.kw || e.level; }
+
+  function idRule(text) {
+    var inc = [], exc = [];
+    String(text || "").split(/[,\s]+/).forEach(function (part) {
+      if (!part) return;
+      var neg = part.charAt(0) === "-";
+      var body = neg ? part.slice(1) : part, m = /^(\d+)(?:-(\d+))?$/.exec(body);
+      if (!m) throw new Error("\"" + part + "\" isn't an event ID or a range like 4720-4732.");
+      var lo = +m[1], hi = m[2] ? +m[2] : lo;
+      if (hi < lo) throw new Error("The range " + body + " runs backwards.");
+      (neg ? exc : inc).push([lo, hi]);
+    });
+    function within(list, id) { return list.some(function (r) { return id >= r[0] && id <= r[1]; }); }
+    return function (id) { return (!inc.length || within(inc, id)) && !within(exc, id); };
+  }
+
+  function compile(q) {
+    q = q || {};
+    var ids = idRule(q.ids), lv = String(q.lv || "").split(",").filter(Boolean), src = String(q.src || "").trim().toLowerCase(), text = String(q.q || "").trim().toLowerCase();
+    lv.forEach(function (l) { if (LEVELS.indexOf(l) < 0) throw new Error("\"" + l + "\" isn't a level."); });
+    return function (e) {
+      if (!ids(e.id)) return false;
+      if (lv.length && lv.indexOf(shownLevel(e)) < 0) return false;
+      if (src && e.src.toLowerCase().indexOf(src) < 0) return false;
+      if (text) {
+        var hay = (e.msg + "\n" + Object.keys(e.data).map(function (k) { return k + "=" + e.data[k]; }).join("\n")).toLowerCase();
+        if (hay.indexOf(text) < 0) return false;
+      }
+      return true;
+    };
+  }
+
+  function when(iso) { return String(iso).replace("T", " ").replace(/Z$/, " UTC"); }
+
+  function xml(e, log) {
+    var x = '<Event>\n  <System>\n    <Provider Name="' + esc(e.src) + '" />\n    <EventID>' + e.id + "</EventID>\n    <Level>" + esc(e.level) + "</Level>\n    <Task>" + esc(e.task) + "</Task>\n" +
+      (e.kw ? "    <Keywords>" + esc(e.kw) + "</Keywords>\n" : "") + '    <TimeCreated SystemTime="' + esc(e.time) + '" />\n    <EventRecordID>' + esc(e.rec) + "</EventRecordID>\n    <Channel>" + esc(log) +
+      "</Channel>\n    <Computer>" + esc(e.host) + "</Computer>\n  </System>\n  <EventData>\n" + Object.keys(e.data).map(function (k) {
+        return '    <Data Name="' + esc(k) + '">' + esc(e.data[k]) + "</Data>";
+      }).join("\n") + "\n  </EventData>\n</Event>";
+    return x;
+  }
+
+  function mount(el, ctx) {
+    style();
+    var st = ctx.state || {}, saved = ctx.saved || {}, answer = st.a && typeof st.a === "object" ? st.a : null;
+    var logs = {}, names = [], cur = "", list = [], shown = [], pick = null, tab = "general", last = null;
+    el.classList.add("tl-box", "te-box");
+    el.innerHTML = '<div class="tl-head"><b>Event viewer</b><small data-r="note"></small></div>' +
+      '<div class="tl-row"><label>Event IDs <input data-r="ids" spellcheck="false" autocomplete="off" placeholder="4624, 4720-4732, -4634" size="18"></label>' +
+      '<label>Source <input data-r="src" spellcheck="false" autocomplete="off" placeholder="any" size="14"></label>' +
+      '<label class="tl-grow">Text contains <input data-r="q" spellcheck="false" autocomplete="off" placeholder="for example  svchost-upd"></label>' +
+      '<button type="button" class="btn dark" data-r="go">Filter</button><button type="button" class="btn" data-r="clear">Clear</button>' +
+      (answer ? '<button type="button" class="btn" data-r="show">Show the recorded filter</button>' : "") +
+      (ctx.record ? '<button type="button" class="btn" data-r="save" disabled>' + ctx.recordLabel + "</button>" : "") + "</div>" +
+      '<div class="te-lv" data-r="lv">' + LEVELS.map(function (l) { return '<label><input type="checkbox" value="' + esc(l) + '"> ' + ICON[l] + " " + esc(l) + "</label>"; }).join("") + "</div>" +
+      '<p class="tl-msg" data-r="msg" role="status"></p>' +
+      '<div class="te-wrap"><div class="te-logs" data-r="logs"><b>Event logs</b></div><div><div class="te-scroll" data-r="list"></div>' +
+      '<div class="te-detail" data-r="detail" hidden><div class="te-dtabs"><button data-t="general" class="on">General</button><button data-t="details">Details</button><button data-t="xml">XML</button></div><div class="te-dbody" data-r="dbody"></div></div></div></div>';
+    function r(n) { return el.querySelector('[data-r="' + n + '"]'); }
+    function levels() { return Array.prototype.filter.call(r("lv").querySelectorAll("input"), function (i) { return i.checked; }).map(function (i) { return i.value; }).join(","); }
+    function setLevels(v) { var want = String(v || "").split(","); r("lv").querySelectorAll("input").forEach(function (i) { i.checked = want.indexOf(i.value) >= 0; }); }
+    function query() { return { ids: r("ids").value.trim(), src: r("src").value.trim(), q: r("q").value.trim(), lv: levels() }; }
+    function remember() { if (ctx.remember) { var q = query(); q.file = cur; ctx.remember(q); } }
+
+    var init = saved.file != null ? saved : st;
+    r("ids").value = init.ids || "";
+    r("src").value = init.src || "";
+    r("q").value = init.q || "";
+    setLevels(init.lv);
+
+    function apply(quiet) {
+      if (!cur) return;
+      var q = query(), fn;
+      r("ids").classList.remove("te-bad");
+      try { fn = compile(q); } catch (e) { r("ids").classList.add("te-bad"); r("msg").textContent = e.message; return; }
+      shown = list.filter(fn);
+      var filtered = q.ids || q.src || q.q || q.lv;
+      var text = (filtered ? "Filtered: showing " + shown.length + " of " + list.length : list.length) + " events in " + cur.replace(/^.*\//, "").replace(/\.jsonl$/i, "") + (shown.length > SHOW ? ", listing the newest " + SHOW : "") + ".";
+      if (!quiet && typeof st.n === "number") text += shown.length === st.n ? " Same count as the recorded filter." : " The recorded filter showed " + st.n + ".";
+      r("msg").textContent = text;
+      if (!quiet) {
+        last = { file: cur, ids: q.ids, src: q.src, q: q.q, lv: q.lv, n: shown.length };
+        if (r("save")) r("save").disabled = false;
+      }
+      pick = null;
+      r("detail").hidden = true;
+      draw();
+      remember();
+    }
+
+    function draw() {
+      r("list").innerHTML = '<table><tr><th>Level</th><th>Date and time</th><th>Source</th><th>Event ID</th><th>Task category</th></tr>' + shown.slice(0, SHOW).map(function (e, i) {
+        var l = shownLevel(e);
+        return '<tr class="te-row' + (pick === i ? " on" : "") + '" data-i="' + i + '"><td>' + (ICON[l] || "") + " " + esc(l) + "</td><td>" + esc(when(e.time)) + "</td><td>" + esc(e.src) + "</td><td>" + e.id + "</td><td>" + esc(e.task) + "</td></tr>";
+      }).join("") + "</table>";
+    }
+
+    function detail() {
+      var e = shown[pick];
+      if (!e) return;
+      r("detail").hidden = false;
+      el.querySelectorAll(".te-dtabs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-t") === tab); });
+      var log = cur.replace(/^.*\//, "").replace(/\.jsonl$/i, "");
+      if (tab === "general") {
+        r("dbody").innerHTML = '<div class="te-msg"></div><div class="te-grid">' + [["Log name", log], ["Source", e.src], ["Event ID", e.id], ["Level", e.level], ["Keywords", e.kw || "-"],
+          ["Logged", when(e.time)], ["Task category", e.task], ["User", e.user || "N/A"], ["Computer", e.host], ["Record", e.rec]].map(function (p) {
+            return "<span>" + esc(p[0]) + "</span><span>" + esc(p[1]) + "</span>";
+          }).join("") + "</div>";
+        r("dbody").querySelector(".te-msg").textContent = e.msg;
+      } else if (tab === "details") {
+        r("dbody").innerHTML = '<div class="te-grid">' + Object.keys(e.data).map(function (k) { return "<span>" + esc(k) + "</span><span>" + esc(e.data[k]) + "</span>"; }).join("") + "</div>" +
+          (Object.keys(e.data).length ? "" : "<p>No event data.</p>");
+      } else {
+        r("dbody").innerHTML = '<pre class="te-xml"></pre>';
+        r("dbody").querySelector("pre").textContent = xml(e, log);
+      }
+    }
+
+    function open(name) {
+      cur = name;
+      list = parse(logs[name]).events;
+      r("logs").querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-log") === name); });
+      apply(true);
+    }
+
+    el.addEventListener("click", function (e) {
+      var t = e.target.closest("[data-log],[data-i],[data-t]");
+      if (!t || !el.contains(t)) return;
+      if (t.hasAttribute("data-log")) { open(t.getAttribute("data-log")); remember(); return; }
+      if (t.hasAttribute("data-t")) { tab = t.getAttribute("data-t"); detail(); return; }
+      pick = +t.getAttribute("data-i");
+      el.querySelectorAll("tr.te-row.on").forEach(function (x) { x.classList.remove("on"); });
+      t.classList.add("on");
+      detail();
+    });
+    r("go").addEventListener("click", function () { apply(); });
+    r("clear").addEventListener("click", function () { r("ids").value = ""; r("src").value = ""; r("q").value = ""; setLevels(""); apply(); });
+    ["ids", "src", "q"].forEach(function (n) {
+      r(n).addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+      r(n).addEventListener("input", remember);
+    });
+    r("lv").addEventListener("change", remember);
+    if (r("show")) r("show").addEventListener("click", function () {
+      if (answer.ids != null) r("ids").value = answer.ids;
+      if (answer.src != null) r("src").value = answer.src;
+      if (answer.q != null) r("q").value = answer.q;
+      if (answer.lv != null) setLevels(answer.lv);
+      r("ids").focus();
+    });
+    if (r("save")) r("save").addEventListener("click", function () {
+      if (!last) return;
+      var bits = [last.ids && "IDs " + last.ids, last.src && "source " + last.src, last.q && "text " + last.q, last.lv && last.lv].filter(Boolean).join(", ") || "all events";
+      ctx.record({ file: last.file, ids: last.ids, src: last.src, q: last.q, lv: last.lv, n: last.n, blank: ["ids", "src", "q"] },
+        "Event viewer: " + bits + " in " + last.file.replace(/^.*\//, "") + " (" + last.n + " events)");
+      r("msg").textContent = "Added.";
+      r("save").disabled = true;
+    });
+
+    r("note").textContent = "Loading the files…";
+    Promise.resolve(ctx.files()).then(function (fs) {
+      fs = fs || {};
+      Object.keys(fs).forEach(function (k) { if (isLog(k, fs[k])) logs[k] = fs[k]; });
+      names = Object.keys(logs).sort(function (a, b) {
+        var o = ["application", "security", "setup", "system"], x = o.indexOf(a.replace(/^.*\//, "").replace(/\.jsonl$/i, "").toLowerCase()), y = o.indexOf(b.replace(/^.*\//, "").replace(/\.jsonl$/i, "").toLowerCase());
+        return (x < 0 ? 9 : x) - (y < 0 ? 9 : y) || (a < b ? -1 : 1);
+      });
+      if (!names.length) {
+        r("note").textContent = "";
+        r("msg").textContent = "There are no event logs here. They are .jsonl files with one event per line, like eventlogs/Security.jsonl.";
+        r("go").disabled = true;
+        return;
+      }
+      names.forEach(function (n) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("data-log", n);
+        b.innerHTML = "<span></span><small></small>";
+        b.firstChild.textContent = n.replace(/^.*\//, "").replace(/\.jsonl$/i, "");
+        b.lastChild.textContent = String(parse(logs[n]).events.length);
+        b.title = n;
+        r("logs").appendChild(b);
+      });
+      var hosts = {};
+      names.forEach(function (n) { parse(logs[n]).events.forEach(function (e) { if (e.host) hosts[e.host] = 1; }); });
+      r("note").textContent = Object.keys(hosts).join(", ");
+      var want = init.file;
+      open(want && own(logs, want) ? want : names.filter(function (n) { return /security\.jsonl$/i.test(n); })[0] || names[0]);
+    }).catch(function () { r("note").textContent = ""; r("msg").textContent = "The files didn't load."; });
+  }
+
+  global.AayatTools.register({ id: "events", title: "Event viewer", console: true, mount: mount, parse: parse, compile: compile });
+})(window);

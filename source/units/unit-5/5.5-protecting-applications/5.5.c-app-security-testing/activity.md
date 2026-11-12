@@ -4,7 +4,7 @@
 
 ## Goal
 Groups triage a mixed batch of security findings, sort each into SAST-catchable,
-DAST-catchable, or human-pentest-only, and justify the sort. Ties to LO 5.5.B, 5.5.C.
+DAST-catchable, or human-pentest-only, and justify the sort. Ties to LO 5.5.B.
 
 ## Materials (all local)
 - the SimLab simulation / `problem/` / printed finding cards below.

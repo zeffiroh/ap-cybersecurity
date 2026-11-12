@@ -9,6 +9,8 @@ from .paths import ROOT, SITE, SRC
 
 ATTR = re.compile(r"""\s(?:href|src)\s*=\s*(["'])(.*?)\1""", re.I | re.S)
 EXPECTED_COPIES = ("smartart",)
+WARN_MB = 800
+STOP_MB = 950
 
 
 def files(base):
@@ -53,7 +55,33 @@ def broken_links():
     return bad
 
 
+def site_size():
+    sizes = defaultdict(int)
+    total = 0
+    for p in SITE.rglob("*"):
+        if p.is_file():
+            n = p.stat().st_size
+            total += n
+            sizes[p.relative_to(SITE).parts[0] if len(p.relative_to(SITE).parts) > 1 else "(top level)"] += n
+    return total, sorted(sizes.items(), key=lambda kv: -kv[1])
+
+
+def size_report():
+    total, parts = site_size()
+    mb = total / 1e6
+    level = "stop" if mb >= STOP_MB else "warn" if mb >= WARN_MB else "ok"
+    lines = [f"site size: {mb:.0f} MB of GitHub Pages' 1000 MB limit"]
+    if level != "ok":
+        lines += [f"  {name}: {n / 1e6:.0f} MB" for name, n in parts[:6]]
+        lines.append("  Move big files (videos, lab images) to YouTube or another file host." if level == "stop"
+                     else f"  Over {WARN_MB} MB: plan where big files will go.")
+    return level, lines
+
+
 def run(verbose=False):
+    level, lines = size_report()
+    for line in lines:
+        print(line)
     dups = duplicates()
     print(f"duplicate source files: {len(dups)} group(s)")
     for ps in dups[:None if verbose else 15]:
@@ -67,4 +95,4 @@ def run(verbose=False):
     for p in problems[:None if verbose else 25]:
         print(f"  {p}")
     print(f"objectives with no skill tagged: {len(unlinked)}" + (f" ({', '.join(unlinked)})" if unlinked else ""))
-    return not bad and not problems
+    return not bad and not problems and level != "stop"

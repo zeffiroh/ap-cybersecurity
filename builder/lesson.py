@@ -590,7 +590,7 @@ def finish(name):
     cmds = [e for e in events if e["k"] == "cmd"]
     net = parse_network(cmds, scrub)
     files, skipped = {}, []
-    searched = {state.get("file") for c in cells if c["t"] == "md" for _, state in T.steps_in(c["s"])}
+    searched = {n for c in cells if c["t"] == "md" for _, state in T.steps_in(c["s"]) for n in T.files_used(state)}
     for path in sorted(p for p in work.rglob("*") if p.is_file()):
         rel = path.relative_to(work).as_posix()
         if rel in made and rel not in baseline and rel not in searched:

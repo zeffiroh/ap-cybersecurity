@@ -249,7 +249,7 @@
       return;
     }
     el.innerHTML = '<div class="vl-access"><span class="vl-alock">' + LOCK + "</span><div><b>Lesson videos come with Labs</b>" +
-      "<p>Free videos play for everyone. Labs unlocks the rest, every new one, every lab and the premium notebooks." +
+      "<p>Free videos play for everyone. Labs unlocks every other lesson video, new ones included, plus every lab and the premium notebooks." +
       (stores("labs").india ? " India: " + esc(stores("labs").india) + "." : "") + "</p></div>" +
       '<div class="vl-actions"><a class="btn dark" href="' + ROOT + 'store.html#labs">Get Labs</a>' +
       '<a class="btn" href="' + ROOT + 'store.html#redeem">I have a code</a>' +

@@ -1,0 +1,169 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var CSS = ".tf-box textarea{min-height:200px}.tf-box tr.tf-allow td:nth-child(6){color:#256b3d;font-weight:600}.tf-box tr.tf-deny td:nth-child(6){color:#a11;font-weight:600}" +
+    ".tf-box tr.tf-diff td{background:#fff3cd}.tf-box .tf-mx td,.tf-box .tf-mx th{text-align:center;font-size:12px}.tf-box .tf-mx td.on{background:#fde2e1}";
+
+  function ipNum(ip) {
+    var p = String(ip).trim().split(".");
+    if (p.length !== 4 || p.some(function (x) { return !/^\d+$/.test(x) || +x > 255; })) return null;
+    return ((+p[0] << 24) >>> 0) + (+p[1] << 16) + (+p[2] << 8) + +p[3];
+  }
+  function range(spec) {
+    spec = String(spec).trim();
+    var m;
+    if (spec === "any" || spec === "*" || spec === "0.0.0.0/0") return [0, 4294967295];
+    if ((m = /^([\d.]+)\/(\d+)$/.exec(spec))) {
+      var b = ipNum(m[1]), bits = +m[2];
+      if (b === null || bits > 32) return null;
+      var mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0, lo = (b & mask) >>> 0;
+      return [lo, (lo + Math.pow(2, 32 - bits) - 1) >>> 0];
+    }
+    if ((m = /^([\d.]+)-([\d.]+)$/.exec(spec))) { var a = ipNum(m[1]), z = ipNum(m[2]); return a === null || z === null ? null : [a, z]; }
+    var one = ipNum(spec);
+    return one === null ? null : [one, one];
+  }
+  function ports(spec) {
+    if (!spec || spec === "any" || spec === "*") return null;
+    return String(spec).split(",").map(function (x) {
+      var m = /^(\d+)(?:-(\d+))?$/.exec(x.trim());
+      if (!m) throw new Error("\"" + x + "\" isn't a port or a range like 8000-8099.");
+      return [+m[1], m[2] ? +m[2] : +m[1]];
+    });
+  }
+
+  function parse(text) {
+    var zones = {}, rules = [], def = "deny", errors = [];
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (raw, i) {
+      var l = raw.replace(/#.*$/, "").trim(), m;
+      if (!l) return;
+      try {
+        if ((m = /^zone\s+([A-Za-z][\w-]*)\s+(.+)$/i.exec(l))) {
+          zones[m[1].toLowerCase()] = m[2].split(/[\s,]+/).map(function (s) { var r = range(s); if (!r) throw new Error("\"" + s + "\" isn't an address, CIDR or range."); return r; });
+        } else if ((m = /^default\s+(allow|deny)$/i.exec(l))) def = m[1].toLowerCase();
+        else if ((m = /^(allow|deny)\s+(tcp|udp|icmp|any)\s+(\S+)\s*->\s*(\S+)$/i.exec(l))) {
+          var src = m[3], dst = m[4], dp = null, sp = null;
+          if (dst.indexOf(":") > 0) { dp = dst.split(":")[1]; dst = dst.split(":")[0]; }
+          if (src.indexOf(":") > 0) { sp = src.split(":")[1]; src = src.split(":")[0]; }
+          rules.push({ line: i + 1, text: l, action: m[1].toLowerCase(), proto: m[2].toLowerCase(), src: src.toLowerCase(), dst: dst.toLowerCase(), dp: ports(dp), sp: ports(sp) });
+        } else throw new Error("I can't read this line. Use \"allow tcp SOURCE -> DEST:PORTS\", \"zone NAME CIDR\" or \"default deny\".");
+      } catch (e) { errors.push("Line " + (i + 1) + ": " + e.message); }
+    });
+    rules.forEach(function (r) {
+      [r.src, r.dst].forEach(function (s) { if (!zones[s] && !range(s)) errors.push("Line " + r.line + ": \"" + s + "\" isn't a zone or an address."); });
+    });
+    return { zones: zones, rules: rules, def: def, errors: errors };
+  }
+  function within(fw, name, ip) {
+    var n = ipNum(ip);
+    if (n === null) return false;
+    var rs = fw.zones[name] || (range(name) ? [range(name)] : []);
+    if (name === "internet" && fw.zones.internet && fw.zones.internet.length === 1 && fw.zones.internet[0][1] === 4294967295) {
+      return !Object.keys(fw.zones).some(function (z) { return z !== "internet" && fw.zones[z].some(function (r) { return n >= r[0] && n <= r[1]; }); });
+    }
+    return rs.some(function (r) { return n >= r[0] && n <= r[1]; });
+  }
+  function zoneOf(fw, ip) {
+    var names = Object.keys(fw.zones).filter(function (z) { return z !== "internet"; });
+    for (var i = 0; i < names.length; i++) if (within(fw, names[i], ip)) return names[i];
+    return fw.zones.internet ? "internet" : "";
+  }
+  function portIn(list, p) { return !list || list.some(function (r) { return p >= r[0] && p <= r[1]; }); }
+  function decide(fw, f) {
+    for (var i = 0; i < fw.rules.length; i++) {
+      var r = fw.rules[i];
+      if (r.proto !== "any" && r.proto !== f.proto) continue;
+      if (!within(fw, r.src, f.src) || !within(fw, r.dst, f.dst)) continue;
+      if (!portIn(r.dp, f.dport) || (f.sport != null && !portIn(r.sp, f.sport))) continue;
+      return { action: r.action, rule: r };
+    }
+    return { action: fw.def, rule: null };
+  }
+  function flows(files) {
+    var out = [];
+    Object.keys(files).sort().forEach(function (n) {
+      if (!/\.csv$/i.test(n)) return;
+      var rows = K.csv(files[n]);
+      if (!rows.length) return;
+      var h = Object.keys(rows[0]), get = function (r, names) { for (var i = 0; i < names.length; i++) if (r[names[i]] != null && r[names[i]] !== "") return r[names[i]]; return ""; };
+      if (!h.some(function (x) { return /^(src|src_ip|source)$/i.test(x); }) || !h.some(function (x) { return /^(dst|dst_ip|dest|dest_ip|destination)$/i.test(x); })) return;
+      var seen = {};
+      rows.forEach(function (r) {
+        var f = { src: get(r, ["src", "src_ip", "source"]), dst: get(r, ["dst", "dst_ip", "dest", "dest_ip", "destination"]), dport: +get(r, ["dport", "dst_port", "dest_port", "port"]) || 0,
+          proto: String(get(r, ["proto", "protocol"]) || "tcp").toLowerCase(), file: n };
+        if (ipNum(f.src) === null || ipNum(f.dst) === null) return;
+        var k = f.proto + " " + f.src + " " + f.dst + ":" + f.dport;
+        if (seen[k]) { seen[k].count++; return; }
+        f.key = k;
+        f.count = 1;
+        seen[k] = f;
+        out.push(f);
+      });
+    });
+    return out;
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-firewall-css", CSS);
+    var files = {}, list = [], ruleFile = "", fw = null, result = [];
+    var F = K.frame(el, ctx, {
+      title: "Firewall and segmentation", cls: "tf-box",
+      body: '<div class="tl-cols"><label style="font-size:12px">Rules <small data-r="rf"></small><textarea class="tl-area" data-r="rules" spellcheck="false"></textarea></label>' +
+        '<div><div style="font-size:12px">Zone to zone (what the rules allow)</div><div data-r="mx"></div></div></div>',
+      actions: '<button type="button" class="btn dark" data-r="go">Test the flows</button><button type="button" class="btn" data-r="reset">Load the saved rules</button>',
+      showLabel: "Show the recorded rules",
+      show: function (a) { if (a.rules != null) F.r("rules").value = a.rules; },
+      after: '<div class="tl-scroll" data-r="list" hidden></div>'
+    });
+    var init = F.saved || F.st;
+    function keep() { F.remember({ rules: F.r("rules").value }); }
+    F.r("rules").addEventListener("input", keep);
+    function matrix() {
+      var zs = Object.keys(fw.zones);
+      if (!zs.length) { F.r("mx").innerHTML = "<p class=\"tl-msg\">Add zone lines to see segmentation.</p>"; return; }
+      F.r("mx").innerHTML = '<table class="tl-table tf-mx"><tr><th>from \\ to</th>' + zs.map(function (z) { return "<th>" + K.esc(z) + "</th>"; }).join("") + "</tr>" + zs.map(function (a) {
+        return "<tr><th>" + K.esc(a) + "</th>" + zs.map(function (b) {
+          var ps = fw.rules.filter(function (r) { return r.action === "allow" && (r.src === a || r.src === "any") && (r.dst === b || r.dst === "any"); })
+            .map(function (r) { return (r.proto === "any" ? "" : r.proto + " ") + (r.dp ? r.dp.map(function (x) { return x[0] === x[1] ? x[0] : x[0] + "-" + x[1]; }).join(",") : "any"); });
+          return '<td class="' + (ps.some(function (p) { return /any$/.test(p); }) && a !== b ? "on" : "") + '">' + (a === b ? "" : K.esc(ps.join(" ")) || "&ndash;") + "</td>";
+        }).join("") + "</tr>";
+      }).join("") + "</table><small>Red cells allow every port: check they really need to.</small>";
+    }
+    function run() {
+      fw = parse(F.r("rules").value);
+      if (fw.errors.length) { F.msg(fw.errors.slice(0, 3).join(" "), true); F.r("list").hidden = true; return; }
+      matrix();
+      result = list.map(function (f) { return { f: f, d: decide(fw, f) }; });
+      var want = F.answer && F.answer.decisions || null, diff = 0;
+      F.r("list").hidden = false;
+      F.r("list").innerHTML = '<table class="tl-table"><tr><th>Source</th><th>Zone</th><th>Destination</th><th>Zone</th><th>Port</th><th>Result</th><th>Rule</th><th>Seen</th></tr>' + result.map(function (x) {
+        var d = want && want[x.f.key] && want[x.f.key] !== x.d.action;
+        if (d) diff++;
+        return '<tr class="tf-' + x.d.action + (d ? " tf-diff" : "") + '"><td>' + K.esc(x.f.src) + "</td><td>" + K.esc(zoneOf(fw, x.f.src)) + "</td><td>" + K.esc(x.f.dst) + "</td><td>" + K.esc(zoneOf(fw, x.f.dst)) +
+          "</td><td>" + x.f.proto + "/" + x.f.dport + "</td><td>" + x.d.action + "</td><td>" + (x.d.rule ? "line " + x.d.rule.line + ": " + K.esc(x.d.rule.text) : "default") + "</td><td>" + x.f.count + "</td></tr>";
+      }).join("") + "</table>";
+      var allowed = result.filter(function (x) { return x.d.action === "allow"; }).length;
+      F.msg(allowed + " of " + result.length + " distinct flows are allowed." + (want ? " " + (result.length - diff) + " of " + result.length + " match the recorded rules (yellow rows differ)." : ""));
+      var dec = {};
+      result.forEach(function (x) { dec[x.f.key] = x.d.action; });
+      F.ready({ rules: F.r("rules").value, decisions: dec, n: allowed, files: [ruleFile].filter(Boolean), blank: ["rules"] }, "Firewall: " + allowed + " of " + result.length + " flows allowed");
+      keep();
+    }
+    F.r("go").addEventListener("click", run);
+    F.r("reset").addEventListener("click", function () { if (ruleFile) { F.r("rules").value = files[ruleFile]; keep(); run(); } });
+
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs);
+      list = flows(files);
+      ruleFile = Object.keys(files).filter(function (n) { return /(firewall|fw).*rules|rules.*\.txt$/i.test(n) && /^(zone|allow|deny|default)\b/m.test(files[n]); })[0] || "";
+      F.r("rf").textContent = ruleFile ? "(from " + ruleFile + ")" : "";
+      F.r("rules").value = init.rules != null && init.rules !== "" ? init.rules : F.st.a ? "" : files[ruleFile] || "zone inside 10.0.0.0/8\nzone internet any\n\nallow tcp inside -> internet:443\ndefault deny\n";
+      F.note(list.length + " distinct flows" + (ruleFile ? ", rules in " + K.base(ruleFile) : ""));
+      if (!list.length) { F.msg("No flow logs here. They are CSV files with src and dst columns, like conn.csv."); }
+      else if (F.r("rules").value) run();
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "firewall", title: "Firewall and segmentation", console: true, group: "Security engineer", mount: mount, parse: parse, decide: decide, flows: flows, zoneOf: zoneOf });
+})(window);

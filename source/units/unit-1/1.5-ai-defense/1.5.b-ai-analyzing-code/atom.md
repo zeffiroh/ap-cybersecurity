@@ -58,7 +58,7 @@ security breaches.
 **How AI improves on grep.** The simplest version of code scanning is a regex search, grep for
 dangerous function names. AI tools go further: they build an abstract syntax tree (AST) of the
 code, track data flow to see whether user input reaches a dangerous sink, and score confidence
-levels. For the AP course, the rule-engine (substring matching) layer is the right foundation,
+levels. For this course, the rule-engine (substring matching) layer is the right foundation,
 because it makes the detection logic transparent and auditable. The sim lets you practice the
 human analyst's role; the coding problem implements the rule engine itself.
 

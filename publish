@@ -47,6 +47,9 @@ echo "Checking links..."
 "$PY" -c 'import sys; from builder import audit; b = audit.broken_links(); [print(" ", p, "->", u) for p, u in b[:20]]; print(len(b), "broken links"); sys.exit(1 if b else 0)' \
   || { echo "Fix the broken links first. Nothing was published."; exit 1; }
 
+"$PY" -c 'import sys; from builder import audit; level, lines = audit.size_report(); [print(x) for x in lines]; sys.exit(1 if level == "stop" else 0)' \
+  || { echo "The site is too big for GitHub Pages. Nothing was published."; exit 1; }
+
 CHANGED=$(git status --porcelain --untracked-files=all | cut -c4- | sed 's/^"//; s/"$//')
 if [ -z "$CHANGED" ]; then
   echo "Nothing has changed, so there is nothing to publish."

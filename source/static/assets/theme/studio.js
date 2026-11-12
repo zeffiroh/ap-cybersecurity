@@ -441,7 +441,7 @@
       var s = src ? JSON.parse(JSON.stringify(src)) : { title: "", youtube: "", summary: "", description: "", level: "Beginner", minutes: 0, tickets: 1,
         sort: data.reduce(function (m, x) { return Math.max(m, +x.sort || 0); }, 0) + 1, topics: "", cover: "", chapters: [], resources: [], published: false };
       s.chapters = s.chapters || []; s.resources = s.resources || [];
-      function chRow(c) { return '<div class="sd-row"><input class="sd-time" data-k="t" value="' + esc(c.t) + '" placeholder="0:00"><input data-k="title" value="' + esc(c.title) + '" placeholder="Chapter title">' + rowTools() + "</div>"; }
+      function chRow(c) { return '<div class="sd-row"><input class="sd-time" data-k="t" value="' + esc(c.t) + '" placeholder="0:00"><input data-k="title" value="' + esc(c.title) + '" placeholder="Chapter title"><input data-k="d" value="' + esc(c.d || "") + '" placeholder="Domain (for CPE)" list="sf-domlist">' + rowTools() + "</div>"; }
       function reRow(r) { return '<div class="sd-row"><input data-k="title" value="' + esc(r.title) + '" placeholder="Label, e.g. Slides"><input data-k="url" value="' + esc(r.url) + '" placeholder="https://…">' + rowTools() + "</div>"; }
       function ytNote() {
         var id = ytId(s.youtube), list = /[?&]list=/.test(s.youtube || "");
@@ -456,6 +456,8 @@
             field("Level", chips("level", [["", "Any"], ["Beginner", "Beginner"], ["Intermediate", "Intermediate"], ["Advanced", "Advanced"]], s.level)) +
             '<div class="sd-two">' + field("Length (minutes)", '<input id="sf-minutes" type="number" min="0" value="' + (s.minutes || "") + '">') +
             field("Topics", '<input id="sf-topics" value="' + esc(s.topics) + '" placeholder="malware, incident response">', "comma separated") + "</div>" +
+            field("CPE domains", '<input id="sf-domains" value="' + esc((s.domains || []).join(", ")) + '" placeholder="Security Operations, Incident Response">' +
+              '<datalist id="sf-domlist">' + (s.domains || []).map(function (d) { return '<option value="' + esc(d) + '">'; }).join("") + "</datalist>", "the areas this seminar counts towards; tag each chapter with one") +
             field("Full description", '<textarea id="sf-description" rows="5" placeholder="What it covers and who it is for. Start a line with - for a list.">' + esc(s.description) + "</textarea>")) +
           step(3, "Chapters", rows(s.chapters, chRow, "+ Add chapter", "ch") +
             '<details class="sd-adv"' + (s.chapters.length ? "" : " open") + '><summary>Paste the YouTube description instead</summary><textarea id="sf-paste" rows="4" placeholder="0:00 Introduction&#10;4:30 The phishing email"></textarea>' +
@@ -473,12 +475,13 @@
           (s.published ? "" : '<p class="sd-note">Draft: only teachers can see it.</p>');
       }
       function readRows() {
-        s.chapters = qa('[data-rows="ch"] .sd-row').map(function (r) { return { t: q('[data-k="t"]', r).value.trim(), title: q('[data-k="title"]', r).value.trim() }; });
+        s.chapters = qa('[data-rows="ch"] .sd-row').map(function (r) { return { t: q('[data-k="t"]', r).value.trim(), title: q('[data-k="title"]', r).value.trim(), d: q('[data-k="d"]', r).value.trim() }; });
         s.resources = qa('[data-rows="re"] .sd-row').map(function (r) { return { title: q('[data-k="title"]', r).value.trim(), url: q('[data-k="url"]', r).value.trim() }; });
       }
       function sync() {
         ["youtube", "title", "summary", "minutes", "topics", "description", "sort", "cover"].forEach(function (k) { var e = $("sf-" + k); if (e) s[k] = e.value; });
         s.minutes = +s.minutes || 0;
+        if ($("sf-domains")) s.domains = $("sf-domains").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
         s.published = $("sf-published").checked;
         readRows();
         $("sf-ytnote").innerHTML = ytNote();
@@ -494,7 +497,7 @@
         var badRe = qa('[data-rows="re"] .sd-row').filter(function (r, i) { var x = s.resources[i]; return (x.title || x.url) && !(x.title && /^https:\/\//.test(x.url)); });
         if (badRe.length) return bad(q('[data-k="url"]', badRe[0]), "Each resource needs a label and a link starting with https://");
         var p = { title: s.title, youtube: s.youtube.trim(), summary: s.summary, description: s.description, level: s.level, minutes: s.minutes, tickets: +s.tickets,
-          sort: +s.sort || 0, topics: s.topics, cover: s.cover, published: s.published,
+          sort: +s.sort || 0, topics: s.topics, cover: s.cover, published: s.published, domains: s.domains || [],
           chapters: s.chapters.filter(function (c) { return c.t && c.title; }).sort(function (a, b) { return secs(a.t) - secs(b.t); }),
           resources: s.resources.filter(function (r) { return r.title && r.url; }) };
         if (src && src.id) p.id = src.id;

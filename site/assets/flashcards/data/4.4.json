@@ -7,27 +7,115 @@
   "flashcards": [
     {
       "id": "FC_4.4_1",
-      "front": "What is the primary threat vector for Endpoint Threat Auditing?",
-      "back_definition": "Adversaries exploit local file log deletions on system audit logs to bypass standard perimeter security controls.",
-      "back_example": "Example: Event ID 4625: Logon Failure | Source: 198.51.100.12",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: local file log deletions is the unlocked door; system audit logs is what the attacker wants to steal."
+      "front": "What does an EDR agent collect?",
+      "back_definition": "Telemetry: a continuous stream of process, file, network and registry events from the device.",
+      "back_example": "winword.exe starts powershell.exe, which connects to an unknown IP.",
+      "back_confusion": "Antivirus mainly checks files; EDR watches behaviour over time.",
+      "back_hook": "Everything the device does, written down."
     },
     {
       "id": "FC_4.4_2",
-      "front": "How does the security team mitigate Endpoint Threat Auditing threats?",
-      "back_definition": "Deploying and enforcing centralized secure Syslog servers directly hardens system audit logs and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require centralized secure Syslog servers.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "What EDR response actions exist?",
+      "back_definition": "Isolate the device from the network, kill a process, quarantine a file, and collect evidence for analysts.",
+      "back_example": "A laptop beaconing to a C2 server is isolated within seconds.",
+      "back_confusion": "Isolation cuts network access but keeps the data and the analyst's remote connection; it is not a wipe.",
+      "back_hook": "Cut it off, stop it, quarantine it, study it."
     },
     {
       "id": "FC_4.4_3",
-      "front": "How do analysts detect exploitation of Endpoint Threat Auditing?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on Windows Event ID 4625 flags.",
-      "back_example": "Syslog trace: Event ID 4625: Logon Failure | Source: 198.51.100.12",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "If EDR shows no alerts, is the device clean?",
+      "back_definition": "Not necessarily. Detection rules and baselines never cover everything, so teams also hunt for threats proactively.",
+      "back_example": "A threat hunter finds a scheduled task created by a tool no rule watched.",
+      "back_confusion": "Absence of alerts is not proof of absence of attackers.",
+      "back_hook": "Quiet is not the same as clean."
+    },
+    {
+      "id": "FC_4.4_4",
+      "front": "What is log correlation?",
+      "back_definition": "Linking entries from one or more logs by user, IP or time to reveal a pattern that no single entry shows.",
+      "back_example": "Many failures, then a success for the same account from the same IP within a minute.",
+      "back_confusion": "One failed login is normal human error; the pattern is the signal.",
+      "back_hook": "One line is noise; many lines tell a story."
+    },
+    {
+      "id": "FC_4.4_5",
+      "front": "Which Windows event IDs show logins and log clearing?",
+      "back_definition": "4624 is a successful logon, 4625 a failed logon, and 1102 means the security audit log was cleared.",
+      "back_example": "Twenty 4625 events followed by a 4624 for the same account suggests a successful brute force.",
+      "back_confusion": "An unexpected 1102 is a red flag in itself: attackers often clear logs to hide.",
+      "back_hook": "4625 fail, 4624 in, 1102 wiped."
+    },
+    {
+      "id": "FC_4.4_6",
+      "front": "Why do attackers clear logs, and how do defenders protect them?",
+      "back_definition": "To hide what they did. Defenders forward logs promptly to a central server or SIEM the attacker can't reach, and alert on clearing events.",
+      "back_example": "The local log is wiped, but every event already sits on the SIEM.",
+      "back_confusion": "Logs stored only on the compromised machine can't be trusted.",
+      "back_hook": "Ship logs out before they can be erased."
+    },
+    {
+      "id": "FC_4.4_7",
+      "front": "Where does Linux record security events?",
+      "back_definition": "Authentication logs such as /var/log/auth.log (or journald), and auditd for detailed system-call and file auditing.",
+      "back_example": "auth.log shows repeated \"Failed password for root from 203.0.113.50\".",
+      "back_confusion": "auditd is for deep auditing rules; auth.log is the first place to look for login attempts.",
+      "back_hook": "auth.log for doors, auditd for everything else."
+    },
+    {
+      "id": "FC_4.4_8",
+      "front": "What is a detection rule?",
+      "back_definition": "A precise, repeatable condition that raises an alert automatically when log events match it.",
+      "back_example": "Alert when one account has 5 or more failed logins within 60 seconds.",
+      "back_confusion": "A rule that is too sensitive creates alert fatigue; one too loose misses attacks.",
+      "back_hook": "Write the pattern once, catch it forever."
+    },
+    {
+      "id": "FC_4.4_9",
+      "front": "Why are logs still useful after an attack is over?",
+      "back_definition": "They let investigators reconstruct what happened, when, and through which accounts and systems.",
+      "back_example": "Logs show the attacker entered through a VPN account three weeks before the ransomware ran.",
+      "back_confusion": "Keep logs long enough to cover how long attackers stay hidden.",
+      "back_hook": "Logs are the device's memory."
+    },
+    {
+      "id": "FC_4.4_10",
+      "front": "What is an indicator of compromise (IOC)?",
+      "back_definition": "Evidence that a device has been breached: a known-bad file hash, an IP or domain, a new account, a changed configuration, or a persistence mechanism.",
+      "back_example": "A file whose SHA-256 matches a threat-intelligence feed entry for ransomware.",
+      "back_confusion": "One IOC alone is often ambiguous; several independent ones give confidence.",
+      "back_hook": "Fingerprints left at the scene."
+    },
+    {
+      "id": "FC_4.4_11",
+      "front": "IOC vs IOA?",
+      "back_definition": "An indicator of compromise is evidence after the fact that something happened. An indicator of attack shows an attacker's technique while it is still in progress.",
+      "back_example": "IOA: a process dumping LSASS memory right now. IOC: a known-malicious hash found later.",
+      "back_confusion": "IOAs aim to stop the attack; IOCs help confirm and scope it.",
+      "back_hook": "IOA = caught in the act; IOC = evidence afterwards."
+    },
+    {
+      "id": "FC_4.4_12",
+      "front": "What is persistence?",
+      "back_definition": "A technique that keeps an attacker's access alive after reboots or partial clean-up.",
+      "back_example": "A new scheduled task, a Run registry key, or a cron job that relaunches the backdoor.",
+      "back_confusion": "Removing the malware without removing persistence lets it come back.",
+      "back_hook": "The spare key under the mat."
+    },
+    {
+      "id": "FC_4.4_13",
+      "front": "How does weighted IOC scoring work?",
+      "back_definition": "Each indicator found on a device has a weight for how strong the evidence is; the total score decides the verdict.",
+      "back_example": "Known-bad hash 50 + new admin account 30 + odd login time 5 = 85: treat as compromised.",
+      "back_confusion": "Not all IOCs are equal: a confirmed malicious hash outweighs a single failed login.",
+      "back_hook": "Add up the evidence, weigh it fairly."
+    },
+    {
+      "id": "FC_4.4_14",
+      "front": "What is a threat intelligence feed?",
+      "back_definition": "A shared, regularly updated list of known-malicious indicators (hashes, IPs, domains) that tools can match against.",
+      "back_example": "The SIEM flags a connection to a domain listed in the feed yesterday.",
+      "back_confusion": "Feeds catch known threats; behaviour detection is still needed for new ones.",
+      "back_hook": "Other people's bad experiences, shared."
     }
   ]
 }

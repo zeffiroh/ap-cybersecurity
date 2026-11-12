@@ -1,4 +1,6 @@
+import hashlib
 import json
+import re
 
 from . import course as C
 from . import nav as N
@@ -38,16 +40,44 @@ def finish_case(man, expected):
     return man
 
 
+def swap(text, mapping):
+    for old in sorted(mapping, key=len, reverse=True):
+        text = re.sub(r"(?<![A-Za-z0-9-])" + re.escape(old) + r"(?![A-Za-z0-9-])", mapping[old], text)
+    return text
+
+
+def variants(d):
+    path = d / "variants.json"
+    if not path.exists():
+        return None
+    tokens = json.loads(rd(path))["tokens"]
+    sizes = {len(v) for v in tokens.values()}
+    if len(sizes) != 1:
+        raise ValueError(f"{path}: every token needs the same number of alternatives")
+    answers = json.loads(rd(d / "answers.json")) if (d / "answers.json").exists() else []
+    out = []
+    for i in range(sizes.pop()):
+        mapping = {old: alts[i] for old, alts in tokens.items()}
+        hashes = {}
+        for a in answers:
+            new = swap(a["a"], mapping)
+            if new != a["a"]:
+                hashes[hashlib.sha256(seminars.norm(a["a"]).encode()).hexdigest()] = hashlib.sha256(seminars.norm(new).encode()).hexdigest()
+        out.append({"map": mapping, "hashes": hashes})
+    return out
+
+
 def cases():
     src = STATIC_SRC / "assets" / "linux" / "cases"
     if not src.is_dir():
         return
-    skip = {"meta.json", "template.json", "manifest.json", "answers.json", "expected.json"}
+    skip = {"meta.json", "template.json", "manifest.json", "answers.json", "expected.json", "variants.json"}
     index = []
     for d in sorted(x for x in src.iterdir() if x.is_dir()):
         meta = dict(json.loads(rd(d / "meta.json")), id=d.name)
         files = sorted(p.relative_to(d).as_posix() for p in d.rglob("*") if p.is_file() and p.name not in skip)
-        man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json"))), load_expected(d / "expected.json"))
+        extra = {"variants": variants(d)} if (d / "variants.json").exists() else {}
+        man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json")), **extra), load_expected(d / "expected.json"))
         emit(ASSETS / "linux" / "cases" / d.name / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
         index.append(meta)
     for path in sorted(TEACHER_CASES.glob("*.json")):

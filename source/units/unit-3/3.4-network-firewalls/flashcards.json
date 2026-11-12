@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_3.4_1",
-      "front": "What is the primary threat vector for Firewall Access Controls?",
-      "back_definition": "Adversaries exploit exposed administrative ports on network border ports to bypass standard perimeter security controls.",
-      "back_example": "Example: Perimeter-FW: Inbound DROP on Port 3389 from external IP",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: exposed administrative ports is the unlocked door; network border ports is what the attacker wants to steal."
+      "front": "What is a firewall?",
+      "back_definition": "A control at a network boundary that allows or blocks traffic according to rules about source, destination, port and protocol.",
+      "back_example": "Allow TCP 443 from anywhere to the web server; deny everything else inbound.",
+      "back_confusion": "A firewall enforces policy at a point; it does not see traffic that never passes through it.",
+      "back_hook": "A border guard with a rulebook."
     },
     {
       "id": "FC_3.4_2",
-      "front": "How does the security team mitigate Firewall Access Controls threats?",
-      "back_definition": "Deploying and enforcing stateful firewalls and DMZ routing directly hardens network border ports and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require stateful firewalls and DMZ routing.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "Stateless vs stateful firewall?",
+      "back_definition": "A stateless firewall judges each packet alone against fixed rules. A stateful firewall tracks connections and lets return traffic through only for sessions that were opened legitimately.",
+      "back_example": "A stateful firewall drops an inbound ACK packet that belongs to no tracked connection.",
+      "back_confusion": "Stateful does not mean inspecting content; payload inspection is an application-layer feature.",
+      "back_hook": "Stateless has no memory; stateful remembers who called whom."
     },
     {
       "id": "FC_3.4_3",
-      "front": "How do analysts detect exploitation of Firewall Access Controls?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on firewall packet drop indicators.",
-      "back_example": "Syslog trace: Perimeter-FW: Inbound DROP on Port 3389 from external IP",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "What is in a connection-tracking table?",
+      "back_definition": "One entry per active session: source and destination IP, ports, protocol and connection state.",
+      "back_example": "10.0.0.5:51322 to 203.0.113.9:443 TCP ESTABLISHED.",
+      "back_confusion": "A stateful firewall still needs good rules; tracking doesn't fix an allow-all rule.",
+      "back_hook": "The firewall's guest list."
+    },
+    {
+      "id": "FC_3.4_4",
+      "front": "Where are stateless firewalls still used?",
+      "back_definition": "Where speed and simplicity matter most: high-throughput edge routers, simple access lists and small embedded devices.",
+      "back_example": "An ISP edge router drops packets from obviously spoofed private addresses.",
+      "back_confusion": "Older does not mean useless; they are often a fast first filter.",
+      "back_hook": "Fast and simple has its place."
+    },
+    {
+      "id": "FC_3.4_5",
+      "front": "What does first-match-wins mean in an ACL?",
+      "back_definition": "Rules are checked from top to bottom, and the first rule that matches decides; later rules are never checked for that packet.",
+      "back_example": "Rule 1 allow any any; rule 2 deny the attacker. Rule 2 never runs.",
+      "back_confusion": "A more specific rule doesn't override a broader one; only order matters.",
+      "back_hook": "First in line gets served."
+    },
+    {
+      "id": "FC_3.4_6",
+      "front": "What is implicit deny?",
+      "back_definition": "Traffic that matches no rule is dropped. Security devices end their rule lists with deny all, written or assumed.",
+      "back_example": "Only HTTPS and SSH are allowed; a Telnet attempt matches nothing and is dropped.",
+      "back_confusion": "Some routers default to allow, so check the device; good security design always ends with deny.",
+      "back_hook": "If it isn't on the list, it isn't coming in."
+    },
+    {
+      "id": "FC_3.4_7",
+      "front": "What is rule shadowing?",
+      "back_definition": "A broad rule high in the list matches everything a more specific rule below it would, so the lower rule can never fire.",
+      "back_example": "Allow 10.0.0.0/8 sits above deny 10.0.5.20, so the deny never happens.",
+      "back_confusion": "Put specific rules above general ones.",
+      "back_hook": "A big umbrella hides the small one."
+    },
+    {
+      "id": "FC_3.4_8",
+      "front": "Why is the order of firewall rules so important?",
+      "back_definition": "Under first-match-wins, a correct rule placed after a broader one is useless. Order is part of the policy.",
+      "back_example": "Moving one deny above the general allow closes a gap without adding any new rule.",
+      "back_confusion": "Having all the right rules is not enough; they must be in the right order.",
+      "back_hook": "Right rules, wrong order, wrong result."
+    },
+    {
+      "id": "FC_3.4_9",
+      "front": "What is a DMZ?",
+      "back_definition": "A separate network segment for public-facing servers, between the internet and the internal network, with firewall rules on both sides.",
+      "back_example": "The web server sits in the DMZ; the database stays inside and accepts only the web server's connections.",
+      "back_confusion": "Putting a public server on the internal network means one compromise reaches everything.",
+      "back_hook": "The waiting room between the street and the house."
+    },
+    {
+      "id": "FC_3.4_10",
+      "front": "Network firewall vs host firewall vs WAF?",
+      "back_definition": "A network firewall filters traffic between segments. A host firewall filters traffic on one machine. A web application firewall inspects HTTP requests for attacks like SQL injection.",
+      "back_example": "Windows Defender Firewall on a laptop is a host firewall.",
+      "back_confusion": "A WAF protects web apps but must be configured correctly itself.",
+      "back_hook": "The border, the front door, the receptionist reading every letter."
+    },
+    {
+      "id": "FC_3.4_11",
+      "front": "What happened in the 2019 Capital One breach?",
+      "back_definition": "A misconfigured web application firewall allowed server-side request forgery (SSRF), which fetched cloud credentials and then data on about 100 million people from storage.",
+      "back_example": "The WAF itself was tricked into requesting the cloud metadata service.",
+      "back_confusion": "The tool was not the problem; its configuration and permissions were.",
+      "back_hook": "A guard who will fetch anything you ask for."
+    },
+    {
+      "id": "FC_3.4_12",
+      "front": "Why was CVE-2024-3400 so serious?",
+      "back_definition": "A command injection flaw in Palo Alto Networks GlobalProtect let unauthenticated attackers run commands as root on the firewall itself; it was exploited as a zero-day and scored CVSS 10.",
+      "back_example": "Attackers planted a backdoor on internet-facing firewalls before a patch existed.",
+      "back_confusion": "Security appliances are software too, and need patching and monitoring like any server.",
+      "back_hook": "When the guard post is hacked, the border is open."
+    },
+    {
+      "id": "FC_3.4_13",
+      "front": "Why use firewalls inside the network, not just at the edge?",
+      "back_definition": "Internal firewalls between zones stop an attacker who is already inside from moving freely.",
+      "back_example": "A firewall between the user VLAN and the database VLAN allows only the app server through.",
+      "back_confusion": "A perimeter-only design assumes nobody ever gets in.",
+      "back_hook": "Doors inside the house, not just at the front."
     }
   ]
 }

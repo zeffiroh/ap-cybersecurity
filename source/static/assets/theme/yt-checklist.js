@@ -1,0 +1,179 @@
+(function (global) {
+  "use strict";
+
+  var KEY = "aayat_yt_checklist";
+  var TIME = /^(\d+:)?\d{1,2}:\d{2}$/;
+
+  var SEMINAR = [
+    { id: "link", auto: true, text: "YouTube link pasted", test: function (s) { return !!s.youtube; } },
+    { id: "chapters", auto: true, text: "At least 3 chapters, the first at 0:00", test: function (s) {
+      var c = s.chapters || [];
+      return c.length >= 3 && c.every(function (x) { return TIME.test(String(x.t || "")); }) && /^(0:)?0?0:00$/.test(String(c[0].t));
+    } },
+    { id: "summary", auto: true, text: "Summary and description written", test: function (s) { return !!(s.summary && s.description); } },
+    { id: "cover", auto: true, text: "Cover image set", test: function (s) { return !!s.cover; } },
+    { id: "resources", auto: true, text: "Resources linked (slides, notebook or lab)", test: function (s) { return (s.resources || []).length > 0; } },
+    { id: "published", auto: true, text: "Published on the site", test: function (s) { return !!s.published; } },
+    { id: "unlisted", text: "Uploaded to YouTube as Unlisted, not Public or Private" },
+    { id: "kids", text: "“Made for kids” set to No; comments set the way you want" },
+    { id: "secrets", text: "Watched through: no passwords, keys, emails or real names on screen" },
+    { id: "audio", text: "Sound level even; no long silences at the start" },
+    { id: "captions", text: "Captions checked (YouTube gets security terms wrong)" },
+    { id: "thumb", text: "Custom thumbnail with the Aayat-AP-Prep look" },
+    { id: "desc", text: "YouTube description has the chapters and the course link" },
+    { id: "student", text: "Played it signed in as a student: locked, then unlocked" }
+  ];
+  var VIDEO = [
+    { id: "link", auto: true, text: "YouTube link pasted", test: function (v) { return !!v.youtube; } },
+    { id: "title", auto: true, text: "Clear title", test: function (v) { return !!(v.title && v.title.length >= 8); } },
+    { id: "lesson", auto: true, text: "Tied to a lesson", test: function (v) { return !!(v.atom || v.topic); } },
+    { id: "unlisted", text: "Uploaded to YouTube as Unlisted, not Public or Private" },
+    { id: "kids", text: "“Made for kids” set to No" },
+    { id: "secrets", text: "No passwords, keys, emails or real names on screen" },
+    { id: "captions", text: "Captions checked" },
+    { id: "desc", text: "YouTube description has the course link" },
+    { id: "student", text: "Played it signed in as a student" }
+  ];
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function rpc(fn, args) {
+    var P = global.AayatProgress;
+    return (P ? P.neon() : Promise.resolve(null)).then(function (db) {
+      if (!db) throw new Error("The course database is not connected yet.");
+      return db.rpc(fn, args || {}, { attempts: 1 });
+    });
+  }
+  function local() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+
+  function Store() {
+    var ticks = local(), online = false;
+    return {
+      load: function () {
+        return rpc("api_teacher_checklist_get").then(function (r) {
+          online = true;
+          if (r && typeof r === "object") {
+            var l = local();
+            Object.keys(l).forEach(function (k) { if (!r[k]) r[k] = l[k]; });
+            ticks = r;
+          }
+        }).catch(function () { online = false; });
+      },
+      has: function (key, id) { return (ticks[key] || []).indexOf(id) !== -1; },
+      set: function (key, id, on) {
+        var a = (ticks[key] || []).filter(function (x) { return x !== id; });
+        if (on) a.push(id);
+        ticks[key] = a;
+        try { localStorage.setItem(KEY, JSON.stringify(ticks)); } catch (e) {  }
+        if (!online) return Promise.resolve(false);
+        return rpc("api_teacher_checklist_set", { p: ticks }).then(function (r) { return !!(r && r.ok); }, function () { return false; });
+      },
+      online: function () { return online; }
+    };
+  }
+
+  function rows(kind, item, store) {
+    var list = kind === "s" ? SEMINAR : VIDEO, key = kind + item.id;
+    return list.map(function (c) {
+      var on = c.auto ? !!c.test(item) : store.has(key, c.id);
+      return { id: c.id, auto: !!c.auto, on: on, text: c.text, key: key };
+    });
+  }
+
+  function card(kind, item, store, open) {
+    var rs = rows(kind, item, store), done = rs.filter(function (r) { return r.on; }).length;
+    var pct = Math.round(done / rs.length * 100);
+    var href = kind === "s" ? "seminars.html" : "videos.html";
+    return '<details class="yt-item' + (done === rs.length ? " yt-done" : "") + '"' + (open ? " open" : "") + ">" +
+      '<summary><span class="yt-kind">' + (kind === "s" ? "Seminar" : "Lesson video") + "</span>" +
+      '<span class="yt-title">' + esc(item.title || "Untitled") + "</span>" +
+      '<span class="yt-bar"><i style="width:' + pct + '%"></i></span><span class="yt-n">' + done + "/" + rs.length + "</span></summary>" +
+      '<ul class="yt-list">' + rs.map(function (r) {
+        return '<li class="' + (r.on ? "on" : "") + (r.auto ? " auto" : "") + '"><label><input type="checkbox" data-key="' + esc(r.key) +
+          '" data-id="' + esc(r.id) + '"' + (r.on ? " checked" : "") + (r.auto ? " disabled" : "") + "> <span>" + esc(r.text) +
+          (r.auto ? ' <small>' + (r.on ? "from the site" : '<a href="' + href + '">fix on ' + (kind === "s" ? "Seminars" : "Lesson videos") + "</a>") + "</small>" : "") +
+          "</span></label></li>";
+      }).join("") + "</ul></details>";
+  }
+
+  function style() {
+    if (document.getElementById("yt-css")) return;
+    var s = document.createElement("style");
+    s.id = "yt-css";
+    s.textContent =
+      ".yt-item{border:1px solid var(--line,#ddd);border-radius:8px;margin:.4rem 0;background:var(--card,#fff)}" +
+      ".yt-item summary{display:grid;grid-template-columns:auto 1fr 90px auto;gap:.6rem;align-items:center;padding:.5rem .7rem;cursor:pointer}" +
+      ".yt-kind{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;opacity:.7}" +
+      ".yt-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".yt-bar{height:6px;background:var(--line,#e5e5e5);border-radius:3px;overflow:hidden}.yt-bar i{display:block;height:100%;background:currentColor}" +
+      ".yt-n{font-variant-numeric:tabular-nums;font-size:.85rem}" +
+      ".yt-done .yt-title::after{content:' \\2713'}" +
+      ".yt-list{list-style:none;margin:0;padding:.2rem .9rem .7rem}.yt-list li{padding:.18rem 0}" +
+      ".yt-list li.on span{text-decoration:line-through;opacity:.65}.yt-list li.on small{text-decoration:none}" +
+      ".yt-list small{opacity:.75;margin-left:.3rem}.yt-list li.auto input{cursor:default}" +
+      ".yt-before{columns:2;column-gap:1.5rem;margin:.3rem 0 .6rem;padding-left:1.1rem}" +
+      ".yt-foot{font-size:.85rem;opacity:.8}";
+    document.head.appendChild(s);
+  }
+
+  var BEFORE = ["Close email, chat and password managers", "Use the course's made-up case data only", "Turn off notifications",
+    "Zoom the terminal so text is readable", "Do a 10-second sound check", "Have the chapter list ready to say out loud"];
+
+  function mount(el) {
+    style();
+    var mode = el.getAttribute("data-mode") || "full", only = el.getAttribute("data-only") || "";
+    var store = Store();
+    el.innerHTML = '<p class="tc-empty">Loading the checklist…</p>';
+    Promise.all([store.load(),
+      only === "v" ? Promise.resolve(null) : rpc("api_teacher_seminars").catch(function () { return false; }),
+      only === "s" ? Promise.resolve(null) : rpc("api_teacher_videos").catch(function () { return false; })])
+      .then(function (r) {
+        if ((r[1] === false || only === "v") && (r[2] === false || only === "s")) {
+          el.innerHTML = '<p class="tc-empty">Sign in as the teacher to see the checklist.</p>';
+          return;
+        }
+        var items = [];
+        ((r[1] && r[1].seminars) || []).forEach(function (s) { items.push(["s", s]); });
+        ((r[2] && r[2].videos) || []).forEach(function (v) { items.push(["v", v]); });
+        var scored = items.map(function (it) {
+          var rs = rows(it[0], it[1], store);
+          return { it: it, left: rs.filter(function (x) { return !x.on; }).length };
+        });
+        var open = scored.filter(function (x) { return x.left > 0; });
+        var show = mode === "compact" ? open.slice(0, 5) : scored;
+        var head = mode === "compact"
+          ? '<p class="tc-note">' + (items.length ? open.length + " of " + items.length + " video" + (items.length === 1 ? "" : "s") + " still have steps left." : "") + "</p>"
+          : '<p class="tc-note">Before you record:</p><ul class="yt-before">' + BEFORE.map(function (b) { return "<li>" + esc(b) + "</li>"; }).join("") + "</ul>";
+        el.innerHTML = head + (show.length ? show.map(function (x, i) { return card(x.it[0], x.it[1], store, mode !== "compact" && i === 0 && x.left > 0); }).join("")
+          : '<p class="tc-empty">' + (items.length ? "Every video is ready." : 'No seminars or lesson videos yet. <a href="seminars.html">Add a seminar</a> or <a href="videos.html">post a video</a>.') + "</p>") +
+          '<p class="yt-foot" id="yt-save">' + (store.online() ? "Ticks are saved to your account." : "Ticks are saved in this browser until the database update is applied.") + "</p>";
+        el.addEventListener("change", function (e) {
+          var b = e.target;
+          if (!b.matches || !b.matches("input[data-key]") || b.disabled) return;
+          var li = b.closest("li");
+          if (li) li.classList.toggle("on", b.checked);
+          var d = b.closest("details"), boxes = d.querySelectorAll("input[type=checkbox]"), n = 0;
+          boxes.forEach(function (x) { if (x.checked) n++; });
+          d.querySelector(".yt-n").textContent = n + "/" + boxes.length;
+          d.querySelector(".yt-bar i").style.width = Math.round(n / boxes.length * 100) + "%";
+          d.classList.toggle("yt-done", n === boxes.length);
+          var note = el.querySelector("#yt-save");
+          store.set(b.getAttribute("data-key"), b.getAttribute("data-id"), b.checked).then(function (ok) {
+            if (note) note.textContent = ok ? "Saved to your account." : "Saved in this browser.";
+          });
+        });
+      });
+  }
+
+  function start() {
+    var els = document.querySelectorAll("[data-yt-checklist]");
+    for (var i = 0; i < els.length; i++) mount(els[i]);
+  }
+  global.AayatYTChecklist = { mount: mount, SEMINAR: SEMINAR, VIDEO: VIDEO };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})(window);

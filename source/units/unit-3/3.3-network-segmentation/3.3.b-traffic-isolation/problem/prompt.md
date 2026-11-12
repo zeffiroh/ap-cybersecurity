@@ -1,6 +1,6 @@
 # Coding problem 3.3.b: Zero Trust Access Proxy
 
-**Skill:** Mitigate Risk · **Maps to:** 3.3.B, 3.3.C · **Language:** Python 3 (pytest)
+**Skill:** Mitigate Risk · **Maps to:** 3.3.B · **Language:** Python 3 (pytest)
 
 ## Problem
 In a Zero Trust Network Architecture (ZTNA), network access is never implicitly granted based on a user's location. Instead, every request to access a corporate resource must be explicitly authenticated, authorized, and checked for health compliance.

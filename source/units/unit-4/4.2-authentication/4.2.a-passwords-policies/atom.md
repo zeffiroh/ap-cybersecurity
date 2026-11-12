@@ -1,7 +1,7 @@
 # 4.2.a: Passwords and password policies
 
 > **Unit 4 · 4.2 Device Authentication Hardening**
-> **AP Learning Objective(s):** 4.2.A
+> **AP Learning Objective(s):** 4.2.A, 4.2.D
 > **Course skill(s):** Mitigate Risk
 
 ## Learning objective (student-facing)

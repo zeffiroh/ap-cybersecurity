@@ -814,7 +814,7 @@ NIST SP 800-63B moved away from traditional complexity rules like "1 uppercase, 
 :::
 
 :::steps heading="Modern Password Policy Implementation Checklist"
-1. **Set minimum length to 12 characters**, NIST recommends at least 8 but 12–16 is the operational target; allow up to 64 characters (or more) to support passphrases
+1. **Set minimum length to 15 characters**, NIST SP 800-63B-4 requires 15 for a password used on its own (8 only when it is part of MFA); allow up to 64 characters (or more) to support passphrases
 2. **Integrate breach database screening**, Check submitted passwords against Have I Been Pwned's Pwned Passwords API (k-anonymity model preserves privacy) at account creation and password change
 3. **Remove mandatory rotation schedules**, Eliminate 90-day forced resets; institute rotation only upon confirmed or suspected compromise
 4. **Provide real-time strength feedback**, Use zxcvbn or similar entropy estimation libraries to give users actionable guidance at the point of password creation
@@ -825,7 +825,7 @@ NIST SP 800-63B moved away from traditional complexity rules like "1 uppercase, 
 :::notes
 In the past, password policies were largely shaped by compliance frameworks that emphasized visible complexity, such as requiring uppercase letters, numbers, and special characters. These rules, while well-intentioned, often resulted in predictable user behavior. For example, users frequently appended a "1" or replaced an "o" with a "0", leading to passwords like "P@ssw0rd1", which are easily guessed by modern cracking tools using pattern dictionaries.
 
-The shift toward evidence-based password policies is most clearly articulated in NIST Special Publication 800-63B, *Digital Identity Guidelines*, which emphasizes usability and resistance to common attack vectors. NIST recommends a minimum of 8 characters for user-chosen passwords (14+ for administrators), but strongly encourages the use of longer passphrases, sequences of random or semi-random words that are easier to remember and harder to crack via brute-force or dictionary attacks.
+The shift toward evidence-based password policies is most clearly articulated in NIST Special Publication 800-63B, *Digital Identity Guidelines*, which emphasizes usability and resistance to common attack vectors. The 2025 revision, SP 800-63B-4, requires a minimum of 15 characters for a password used as the only factor and 8 for a password used within MFA, and strongly encourages the use of longer passphrases, sequences of random or semi-random words that are easier to remember and harder to crack via brute-force or dictionary attacks.
 
 One of the most impactful changes is the deprecation of mandatory periodic password changes for users who have not exhibited signs of compromise. Research, including studies cited by Microsoft and Carnegie Mellon University, has shown that frequent password resets often result in weaker passwords over time, as users resort to simple patterns or slight variations of old credentials. Instead, NIST advises organizations to monitor for breaches and enforce changes only when necessary.
 
@@ -1505,7 +1505,7 @@ The classification of SMS OTP as a "restricted authenticator" at AAL2 deserves c
 
 The lifecycle management provisions of SP 800-63B (Section 6) are often overlooked but operationally important. They cover authenticator binding (how a new authenticator is issued to a user), authenticator recovery (what happens when an authenticator is lost), and reauthentication requirements (how often sessions must be refreshed). The reauthentication interval recommendations, every 12 hours for AAL2 in sessions involving sensitive operations, or after 30 minutes of inactivity, are important parameters for session management policy design.
 
-NIST SP 800-63-4, the successor to SP 800-63B, was in public review as of 2024 and is expected to further strengthen passkey and phishing-resistant authenticator requirements, potentially reclassifying TOTP as "restricted" similar to SMS in high-assurance contexts. Students and practitioners should monitor NIST's website for updates to this foundational standard.
+NIST SP 800-63-4, finalized in 2025, replaced revision 3: AAL3 requires a phishing-resistant authenticator, services at AAL2 must offer a phishing-resistant option, and SMS remains a "restricted" authenticator. Students and practitioners should still check NIST's website for later updates to this foundational standard.
 
 The main requirements of NIST SP 800-63B to retain are: the three Authenticator Assurance Levels and their requirements, the restricted status of SMS one-time codes, and the policy changes from earlier practice: no mandatory periodic rotation, no composition rules, and mandatory screening against breached passwords.
 :::
@@ -1628,7 +1628,7 @@ Authentication serves as the final barrier between an attacker and a compromised
 
 :::steps heading="Defense-in-Depth with Authentication"
 1. **Enforce Strong Password Policies**  
-   - Minimum length (NIST recommends at least 8 characters; longer is better)  
+   - Minimum length (NIST SP 800-63B-4: 15 characters on its own, 8 with MFA; longer is better)  
    - Prohibit commonly used or breached passwords (e.g., "password123")  
    - Avoid periodic mandatory resets unless there's evidence of compromise  
 

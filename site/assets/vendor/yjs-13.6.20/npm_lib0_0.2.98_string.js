@@ -1,0 +1,8 @@
+/**
+ * Bundled by jsDelivr using Rollup v4.62.2 and esbuild v0.28.1.
+ * Original file: /npm/lib0@0.2.98/string.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+const g=(e,t)=>{const n=new Array(e);for(let o=0;o<e;o++)n[o]=t(o,n);return n},s=String.fromCharCode,m=String.fromCodePoint,p=s(65535),y=e=>e.toLowerCase(),U=/^\s*/g,l=e=>e.replace(U,""),x=/([A-Z])/g,h=(e,t)=>l(e.replace(x,n=>`${t}${y(n)}`)),w=e=>unescape(encodeURIComponent(e)).length,f=e=>{const t=unescape(encodeURIComponent(e)),n=t.length,o=new Uint8Array(n);for(let c=0;c<n;c++)o[c]=t.codePointAt(c);return o},d=typeof TextEncoder<"u"?new TextEncoder:null,i=e=>d.encode(e),A=d?i:f,a=e=>{let t=e.length,n="",o=0;for(;t>0;){const c=t<1e4?t:1e4,C=e.subarray(o,o+c);o+=c,n+=String.fromCodePoint.apply(null,C),t-=c}return decodeURIComponent(escape(n))};let r=typeof TextDecoder>"u"?null:new TextDecoder("utf-8",{fatal:!0,ignoreBOM:!0});r&&r.decode(new Uint8Array).length===1&&(r=null);const u=e=>r.decode(e),T=r?u:a,L=(e,t,n,o="")=>e.slice(0,t)+o+e.slice(t+n),P=(e,t)=>g(t,()=>e).join("");export{p as MAX_UTF16_CHARACTER,u as _decodeUtf8Native,a as _decodeUtf8Polyfill,i as _encodeUtf8Native,f as _encodeUtf8Polyfill,T as decodeUtf8,A as encodeUtf8,h as fromCamelCase,s as fromCharCode,m as fromCodePoint,P as repeat,L as splice,l as trimLeft,w as utf8ByteLength,r as utf8TextDecoder,d as utf8TextEncoder};
+//# sourceMappingURL=/sm/df91620087ca157c5e6157af4256871eba22b4a22fbd23c2a002d03f093ed4de.map

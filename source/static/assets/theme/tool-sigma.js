@@ -1,0 +1,457 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var ME = document.currentScript && document.currentScript.src;
+  var PYO = ME ? ME.replace(/theme\/tool-sigma\.js.*$/, "vendor/pyodide-0.26.1/") : "";
+  var SHOW = 300;
+  var STARTER = ["title: Scheduled task that runs a program from a user-writable folder", "status: experimental", "logsource:", "  product: windows",
+    "  service: security", "detection:", "  selection:", "    EventID: 4698", "  odd_path:", "    Action|contains:", "      - '\\Users\\Public\\'",
+    "      - '\\AppData\\'", "      - '\\Temp\\'", "  condition: selection and odd_path", "level: high", ""].join("\n");
+  var CSS = ".tg-box textarea{min-height:220px}.tg-box .tg-k{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.tg-box .tg-k span{border:1px solid #bbb;padding:3px 8px;font-size:12.5px;background:#fafafa}" +
+    ".tg-box .tg-k b{font-variant-numeric:tabular-nums}.tg-box td.tg-raw{font:12px/1.4 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}" +
+    ".tg-box tr.tg-tp td{background:#fde2e1}.tg-box tr.tg-fn td{background:#fff3cd}.tg-box .tg-spl{margin:8px 0 0;padding:8px;background:#f4f4f4;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}";
+
+  function fail(m) { var e = new Error(m); e.sigma = true; return e; }
+
+  function stripComment(line) {
+    var q = "", out = "";
+    for (var i = 0; i < line.length; i++) {
+      var c = line.charAt(i);
+      if (q) { out += c; if (c === q && !(q === '"' && line.charAt(i - 1) === "\\")) q = ""; continue; }
+      if (c === "'" || c === '"') { q = c; out += c; continue; }
+      if (c === "#" && (i === 0 || /\s/.test(line.charAt(i - 1)))) break;
+      out += c;
+    }
+    return out.replace(/\s+$/, "");
+  }
+
+  function scalar(s) {
+    s = String(s).trim();
+    if (s === "") return null;
+    if (s.charAt(0) === "'" && s.charAt(s.length - 1) === "'" && s.length > 1) return s.slice(1, -1).replace(/''/g, "'");
+    if (s.charAt(0) === '"' && s.charAt(s.length - 1) === '"' && s.length > 1) {
+      return s.slice(1, -1).replace(/\\(.)/g, function (m, c) { return { n: "\n", t: "\t", '"': '"', "\\": "\\" }[c] || "\\" + c; });
+    }
+    if (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]") return splitFlow(s.slice(1, -1)).map(scalar);
+    if (/^(null|~)$/i.test(s)) return null;
+    if (/^true$/i.test(s)) return true;
+    if (/^false$/i.test(s)) return false;
+    if (/^-?\d+$/.test(s)) return +s;
+    return s;
+  }
+  function splitFlow(s) {
+    var out = [], cur = "", q = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      if (q) { cur += c; if (c === q) q = ""; continue; }
+      if (c === "'" || c === '"') { q = c; cur += c; continue; }
+      if (c === ",") { out.push(cur); cur = ""; continue; }
+      cur += c;
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+  function keyOf(text) {
+    var q = "", i;
+    for (i = 0; i < text.length; i++) {
+      var c = text.charAt(i);
+      if (q) { if (c === q) q = ""; continue; }
+      if (c === "'" || c === '"') { q = c; continue; }
+      if (c === ":" && (i === text.length - 1 || text.charAt(i + 1) === " ")) return [scalar(text.slice(0, i)), text.slice(i + 1).trim()];
+    }
+    return null;
+  }
+
+  function yaml(text) {
+    var raw = String(text || "").replace(/\r/g, "").replace(/\t/g, "  ").split("\n"), lines = [];
+    for (var i = 0; i < raw.length; i++) {
+      var l = raw[i];
+      if (/^\s*---\s*$/.test(l)) { if (lines.length) break; continue; }
+      lines.push({ n: i + 1, ind: l.match(/^ */)[0].length, raw: l, text: stripComment(l).trim() });
+    }
+    var pos = 0;
+    function skip() { while (pos < lines.length && !lines[pos].text) pos++; }
+    function block(ind, text) {
+      var out = [];
+      while (pos < lines.length && (!lines[pos].raw.trim() || lines[pos].ind > ind)) { out.push(lines[pos].raw); pos++; }
+      var min = Math.min.apply(null, out.filter(function (l) { return l.trim(); }).map(function (l) { return l.match(/^ */)[0].length; }).concat([999]));
+      out = out.map(function (l) { return l.slice(Math.min(min, l.length)); });
+      while (out.length && !out[out.length - 1].trim()) out.pop();
+      return text.charAt(0) === ">" ? out.join(" ") : out.join("\n") + "\n";
+    }
+    function value(rest, ind) {
+      if (rest === "|" || rest === "|-" || rest === ">" || rest === ">-") return block(ind, rest);
+      if (rest !== "") return scalar(rest);
+      skip();
+      if (pos < lines.length && lines[pos].ind > ind) return node(lines[pos].ind);
+      if (pos < lines.length && lines[pos].ind === ind && /^- /.test(lines[pos].text + " ")) return node(ind);
+      return null;
+    }
+    function node(ind) {
+      skip();
+      if (pos >= lines.length) return null;
+      if (/^-(\s|$)/.test(lines[pos].text)) {
+        var list = [];
+        while (true) {
+          skip();
+          if (pos >= lines.length || lines[pos].ind !== ind || !/^-(\s|$)/.test(lines[pos].text)) break;
+          var L = lines[pos], rest = L.text.replace(/^-\s*/, ""), kv = keyOf(rest);
+          if (kv && !/^['"]/.test(rest)) {
+            var inner = L.ind + (L.text.length - rest.length);
+            lines[pos] = { n: L.n, ind: inner, raw: L.raw, text: rest };
+            list.push(node(inner));
+          } else {
+            pos++;
+            list.push(value(rest, ind));
+          }
+        }
+        return list;
+      }
+      var map = {};
+      while (true) {
+        skip();
+        if (pos >= lines.length || lines[pos].ind !== ind) break;
+        var M = lines[pos], kv2 = keyOf(M.text);
+        if (!kv2) throw fail("Line " + M.n + " isn't \"key: value\": " + M.text);
+        pos++;
+        map[kv2[0]] = value(kv2[1], ind);
+      }
+      if (pos < lines.length && lines[pos].ind > ind && lines[pos].text) throw fail("Line " + lines[pos].n + " is indented too far.");
+      return map;
+    }
+    skip();
+    var root = pos < lines.length ? node(lines[pos].ind) : {};
+    skip();
+    if (pos < lines.length) throw fail("Line " + lines[pos].n + " is indented less than it should be.");
+    return root;
+  }
+
+  function wild(v) {
+    var s = String(v), out = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      if (c === "\\" && (s.charAt(i + 1) === "*" || s.charAt(i + 1) === "?" || s.charAt(i + 1) === "\\")) { out += "\\" + s.charAt(i + 1); i++; continue; }
+      if (c === "*") out += "[\\s\\S]*";
+      else if (c === "?") out += "[\\s\\S]";
+      else out += c.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
+    }
+    return out;
+  }
+  function ipNum(ip) {
+    var p = String(ip).split(".");
+    if (p.length !== 4 || p.some(function (x) { return !/^\d+$/.test(x) || +x > 255; })) return null;
+    return ((+p[0] << 24) >>> 0) + (+p[1] << 16) + (+p[2] << 8) + +p[3];
+  }
+  function inCidr(ip, cidr) {
+    var m = /^([\d.]+)\/(\d+)$/.exec(String(cidr)), a = ipNum(ip);
+    if (!m || a === null) return false;
+    var b = ipNum(m[1]), bits = +m[2];
+    if (b === null) return false;
+    var mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+    return ((a & mask) >>> 0) === ((b & mask) >>> 0);
+  }
+
+  var MODS = ["contains", "startswith", "endswith", "all", "re", "cidr", "exists", "gt", "gte", "lt", "lte", "windash", "i", "m", "s"];
+
+  function field(ev, name) {
+    if (Object.prototype.hasOwnProperty.call(ev, name)) return ev[name];
+    var low = String(name).toLowerCase();
+    for (var k in ev) if (k.toLowerCase() === low) return ev[k];
+    return undefined;
+  }
+
+  function test1(have, want, mods) {
+    if (mods.indexOf("exists") >= 0) return (have !== undefined && have !== "") === (want === true || String(want).toLowerCase() === "true");
+    if (want === null) return have === undefined || have === null || have === "";
+    if (have === undefined || have === null) return false;
+    var h = String(have);
+    if (mods.indexOf("cidr") >= 0) return inCidr(h, want);
+    if (mods.indexOf("gt") >= 0) return +h > +want;
+    if (mods.indexOf("gte") >= 0) return +h >= +want;
+    if (mods.indexOf("lt") >= 0) return +h < +want;
+    if (mods.indexOf("lte") >= 0) return +h <= +want;
+    if (mods.indexOf("re") >= 0) {
+      var flags = (mods.indexOf("i") >= 0 ? "i" : "") + (mods.indexOf("m") >= 0 ? "m" : "") + (mods.indexOf("s") >= 0 ? "s" : "");
+      try { return new RegExp(String(want), flags).test(h); } catch (e) { throw fail("The regular expression " + want + " doesn't compile."); }
+    }
+    var w = String(want), pats = [w];
+    if (mods.indexOf("windash") >= 0) pats = [w, w.replace(/(^|\s)-/g, "$1/"), w.replace(/(^|\s)\//g, "$1-")];
+    return pats.some(function (p) {
+      var body = wild(p);
+      if (mods.indexOf("contains") >= 0) body = "[\\s\\S]*" + body + "[\\s\\S]*";
+      else if (mods.indexOf("startswith") >= 0) body = body + "[\\s\\S]*";
+      else if (mods.indexOf("endswith") >= 0) body = "[\\s\\S]*" + body;
+      return new RegExp("^" + body + "$", "i").test(h);
+    });
+  }
+
+  function selection(ev, sel, name) {
+    if (Array.isArray(sel)) {
+      if (!sel.length) return false;
+      if (sel.every(function (x) { return x === null || typeof x !== "object"; })) {
+        var hay = ev._raw || Object.keys(ev).map(function (k) { return ev[k]; }).join(" ");
+        return sel.some(function (k) { return test1(hay, k, ["contains"]); });
+      }
+      return sel.some(function (x) { return selection(ev, x, name); });
+    }
+    if (!sel || typeof sel !== "object") throw fail("The search \"" + name + "\" should be a map of fields or a list.");
+    return Object.keys(sel).every(function (key) {
+      var parts = String(key).split("|"), f = parts[0], mods = parts.slice(1);
+      mods.forEach(function (m) {
+        if (MODS.indexOf(m) < 0) throw fail("The modifier |" + m + " isn't supported here. Use contains, startswith, endswith, all, re, cidr, exists, gt, gte, lt, lte or windash.");
+      });
+      var want = sel[key], have = f ? field(ev, f) : (ev._raw || "");
+      var list = Array.isArray(want) ? want : [want];
+      if (!list.length) return false;
+      return mods.indexOf("all") >= 0 ? list.every(function (v) { return test1(have, v, mods); }) : list.some(function (v) { return test1(have, v, mods); });
+    });
+  }
+
+  function tokens(s) {
+    var out = [], re = /\s*(\(|\)|[A-Za-z0-9_*.\-]+)/g, m, at = 0;
+    s = String(s || "");
+    if (/\|/.test(s)) throw fail("Aggregations after | (like count()) aren't supported here.");
+    while ((m = re.exec(s))) {
+      if (m.index !== at && s.slice(at, m.index).trim()) throw fail("The condition has something unexpected: " + s.slice(at, m.index).trim());
+      out.push(m[1]);
+      at = re.lastIndex;
+    }
+    if (s.slice(at).trim()) throw fail("The condition has something unexpected: " + s.slice(at).trim());
+    return out;
+  }
+
+  function condition(text, names) {
+    var t = tokens(text), i = 0;
+    function peek() { return t[i] && t[i].toLowerCase(); }
+    function match(pat) {
+      if (pat === "them") return names.filter(function (n) { return n.charAt(0) !== "_"; });
+      var re = new RegExp("^" + wild(pat) + "$");
+      var hit = names.filter(function (n) { return re.test(n); });
+      if (!hit.length) throw fail("No search is called " + pat + ".");
+      return hit;
+    }
+    function primary() {
+      var w = peek();
+      if (w === "(") { i++; var e = or(); if (peek() !== ")") throw fail("A bracket ( isn't closed in the condition."); i++; return e; }
+      if ((w === "1" || w === "all" || w === "any") && t[i + 1] && t[i + 1].toLowerCase() === "of") {
+        i += 2;
+        if (!t[i]) throw fail("\"" + w + " of\" needs a name or \"them\".");
+        var set = match(t[i++]), all = w === "all";
+        return function (s) { return all ? set.every(function (n) { return s(n); }) : set.some(function (n) { return s(n); }); };
+      }
+      if (!w || w === ")" || w === "and" || w === "or" || w === "not") throw fail("The condition is incomplete.");
+      var name = t[i++];
+      if (names.indexOf(name) < 0) throw fail("The condition uses " + name + ", but there's no search with that name.");
+      return function (s) { return s(name); };
+    }
+    function not() { if (peek() === "not") { i++; var e = not(); return function (s) { return !e(s); }; } return primary(); }
+    function and() { var l = not(); while (peek() === "and") { i++; var r = not(), a = l; l = (function (x, y) { return function (s) { return x(s) && y(s); }; })(a, r); } return l; }
+    function or() { var l = and(); while (peek() === "or") { i++; var r = and(), a = l; l = (function (x, y) { return function (s) { return x(s) || y(s); }; })(a, r); } return l; }
+    var fn = or();
+    if (i < t.length) throw fail("The condition has extra words at the end: " + t.slice(i).join(" "));
+    return fn;
+  }
+
+  function compile(text) {
+    var doc = yaml(text);
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw fail("A Sigma rule is a map with title, logsource and detection.");
+    var det = doc.detection;
+    if (!det || typeof det !== "object") throw fail("The rule needs a detection section.");
+    var cond = det.condition;
+    if (Array.isArray(cond)) cond = cond.map(function (c) { return "(" + c + ")"; }).join(" or ");
+    if (!cond) throw fail("The detection section needs a condition.");
+    var names = Object.keys(det).filter(function (k) { return k !== "condition" && k !== "timeframe"; });
+    (function check(v) {
+      if (Array.isArray(v)) return v.forEach(check);
+      if (!v || typeof v !== "object") return;
+      Object.keys(v).forEach(function (key) {
+        String(key).split("|").slice(1).forEach(function (m) {
+          if (MODS.indexOf(m) < 0) throw fail("The modifier |" + m + " isn't supported here. Use contains, startswith, endswith, all, re, cidr, exists, gt, gte, lt, lte or windash.");
+        });
+      });
+    })(names.map(function (n) { return det[n]; }));
+    var fn = condition(String(cond), names);
+    return {
+      doc: doc, title: String(doc.title || "Untitled rule"), level: String(doc.level || ""), logsource: doc.logsource || {},
+      test: function (ev) {
+        var memo = {};
+        return fn(function (n) { if (!(n in memo)) memo[n] = selection(ev, det[n], n); return memo[n]; });
+      }
+    };
+  }
+
+  function events(files) {
+    var out = [];
+    Object.keys(files).sort().forEach(function (name) {
+      if (!/\.jsonl$/i.test(name)) return;
+      String(files[name]).replace(/\r/g, "").split("\n").forEach(function (l, n) {
+        if (!l.trim()) return;
+        var o = K.json(l);
+        if (!o || typeof o !== "object") return;
+        var ev = {}, data = o.Data && typeof o.Data === "object" ? o.Data : {};
+        Object.keys(o).forEach(function (k) { if (k !== "Data" && (o[k] === null || typeof o[k] !== "object")) ev[k] = o[k]; });
+        Object.keys(data).forEach(function (k) { ev[k] = data[k]; });
+        ev._raw = l;
+        ev._src = name;
+        ev._key = name + "#" + (o.RecordID != null ? o.RecordID : n + 1);
+        ev._kind = "windows";
+        out.push(ev);
+      });
+    });
+    var siem = global.AayatTools.get("siem");
+    if (siem && siem.engine) {
+      var rest = {};
+      Object.keys(files).forEach(function (k) { if (!/\.jsonl$/i.test(k)) rest[k] = files[k]; });
+      var idx = siem.engine.index(rest), seen = {};
+      idx.events.slice().reverse().forEach(function (e) {
+        var ev = {};
+        Object.keys(e).forEach(function (k) {
+          if (k.charAt(0) === "_" && k !== "_raw") return;
+          ev[k.replace(/^Data\./, "")] = Array.isArray(e[k]) ? e[k].join(" ") : e[k];
+        });
+        seen[e.source] = (seen[e.source] || 0) + 1;
+        ev._src = e.source;
+        ev._key = e.source + "#" + seen[e.source];
+        ev._kind = /auth|syslog|secure|cron/i.test(e.source) ? "linux" : /access|proxy|web|http/i.test(e.source) ? "web" : "other";
+        out.push(ev);
+      });
+    }
+    return out;
+  }
+
+  function fits(rule, ev) {
+    var ls = rule.logsource || {}, p = String(ls.product || "").toLowerCase(), c = String(ls.category || "").toLowerCase();
+    if (p === "windows") return ev._kind === "windows";
+    if (p === "linux") return ev._kind === "linux" || ev._kind === "other";
+    if (/webserver|proxy/.test(c)) return ev._kind === "web";
+    return true;
+  }
+
+  function run(rule, evs, useLogsource) {
+    var pool = useLogsource ? evs.filter(function (e) { return fits(rule, e); }) : evs;
+    return { pool: pool, hits: pool.filter(function (e) { return rule.test(e); }) };
+  }
+
+  var py = null;
+  function toSpl(text) {
+    if (!py) {
+      py = new Promise(function (ok, bad) {
+        function go() { global.loadPyodide({ indexURL: PYO }).then(ok, bad); }
+        if (global.loadPyodide) return go();
+        var s = document.createElement("script");
+        s.src = PYO + "pyodide.js";
+        s.onload = go;
+        s.onerror = function () { bad(new Error("Python didn't load.")); };
+        document.head.appendChild(s);
+      }).then(function (P) {
+        return P.loadPackage(["pyyaml", "pyparsing", "packaging", "jinja2", "typing-extensions"])
+          .then(function () { return P.loadPackage([PYO + "pysigma-1.0.0-py3-none-any.whl", PYO + "pysigma_backend_splunk-1.0.0-py3-none-any.whl"]); })
+          .then(function () { P.runPython("from sigma.collection import SigmaCollection\nfrom sigma.backends.splunk import SplunkBackend\n_aayat_b = SplunkBackend()"); return P; });
+      });
+      py.catch(function () { py = null; });
+    }
+    return py.then(function (P) {
+      P.globals.set("_aayat_rule", text);
+      try {
+        return P.runPython("'\\n'.join(str(q) for q in _aayat_b.convert(SigmaCollection.from_yaml(_aayat_rule)))");
+      } catch (e) {
+        var m = String(e && e.message || e).trim().split("\n").filter(Boolean).pop() || "The rule couldn't be converted.";
+        throw new Error(m);
+      }
+    });
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-sigma-css", CSS);
+    var files = {}, evs = null, rule = null, res = null;
+    var F = K.frame(el, ctx, {
+      title: "Sigma rules", cls: "tg-box",
+      body: '<label style="display:block;font-size:12px">Rule (YAML)<textarea class="tl-area" data-r="rule" spellcheck="false"></textarea></label>' +
+        '<div class="tl-row"><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-r="ls" checked> Only search logs that fit the rule\'s logsource</label></div>',
+      actions: '<button type="button" class="btn dark" data-r="go">Test the rule</button><button type="button" class="btn" data-r="spl">Convert to a SIEM query</button>' +
+        '<button type="button" class="btn" data-r="starter">Starter rule</button>',
+      showLabel: "Show the recorded rule",
+      show: function (a) { if (a.rule != null) F.r("rule").value = a.rule; },
+      after: '<div class="tg-k" data-r="score"></div><pre class="tg-spl" data-r="out" hidden></pre><div class="tl-scroll" data-r="list" hidden></div>'
+    });
+    var st = F.st, bad = {}, init = F.saved && F.saved.rule != null ? F.saved : st;
+    (Array.isArray(st.bad) ? st.bad : []).forEach(function (k) { bad[k] = 1; });
+    (F.saved && Array.isArray(F.saved.bad) ? F.saved.bad : []).forEach(function (k) { bad[k] = 1; });
+    F.r("rule").value = init.rule != null && init.rule !== "" ? init.rule : (st.a ? "" : STARTER);
+    function keep() { F.remember({ rule: F.r("rule").value, bad: Object.keys(bad) }); }
+    F.r("rule").addEventListener("input", keep);
+    F.r("starter").addEventListener("click", function () { F.r("rule").value = STARTER; keep(); });
+
+    function score() {
+      var labelled = Object.keys(bad).length;
+      if (!labelled) { F.r("score").innerHTML = '<span>Tick the hits that are really malicious to score true and false positives.</span>'; return null; }
+      var hitKeys = {};
+      res.hits.forEach(function (e) { hitKeys[e._key] = 1; });
+      var tp = res.hits.filter(function (e) { return bad[e._key]; }).length, fp = res.hits.length - tp;
+      var fn = Object.keys(bad).filter(function (k) { return !hitKeys[k]; }).length;
+      F.r("score").innerHTML = "<span>True positives <b>" + tp + "</b></span><span>False positives <b>" + fp + "</b></span><span>Missed <b>" + fn + "</b></span>" +
+        "<span>Precision <b>" + (res.hits.length ? Math.round(tp / res.hits.length * 100) + "%" : "-") + "</b></span><span>Recall <b>" + Math.round(tp / labelled * 100) + "%</b></span>";
+      return { tp: tp, fp: fp, fn: fn };
+    }
+
+    function draw() {
+      var box = F.r("list"), missed = evs.filter(function (e) { return bad[e._key] && res.hits.indexOf(e) < 0; });
+      if (!res.hits.length && !missed.length) { box.hidden = true; return; }
+      box.hidden = false;
+      function row(e, cls) {
+        return '<tr class="' + cls + '"><td><input type="checkbox" data-k="' + K.esc(e._key) + '"' + (bad[e._key] ? " checked" : "") + ' aria-label="Malicious"></td><td>' +
+          K.esc(K.base(e._src)) + '</td><td class="tg-raw">' + K.esc(String(e._raw || "").slice(0, 400)) + "</td></tr>";
+      }
+      box.innerHTML = '<table class="tl-table"><tr><th title="Malicious">Bad</th><th>Source</th><th>Event</th></tr>' +
+        res.hits.slice(0, SHOW).map(function (e) { return row(e, bad[e._key] ? "tg-tp" : ""); }).join("") +
+        missed.map(function (e) { return row(e, "tg-fn"); }).join("") + "</table>";
+    }
+
+    function test(quiet) {
+      F.r("out").hidden = true;
+      try { rule = compile(F.r("rule").value); } catch (e) {
+        F.msg(e.sigma ? e.message : "The rule couldn't be read: " + e.message, true);
+        F.r("list").hidden = true;
+        F.r("score").innerHTML = "";
+        return;
+      }
+      try { res = run(rule, evs, F.r("ls").checked); } catch (e) { F.msg(e.message, true); return; }
+      var srcs = {};
+      res.pool.forEach(function (e) { srcs[K.base(e._src)] = 1; });
+      var n = res.hits.length;
+      F.msg("\"" + rule.title + "\" matched " + n + " of " + res.pool.length + " events in " + (Object.keys(srcs).join(", ") || "no logs") + "." + (quiet ? "" : F.compare(n, "rule")));
+      score();
+      draw();
+      F.ready({ rule: F.r("rule").value, n: n, bad: Object.keys(bad), ls: F.r("ls").checked, blank: ["rule"] },
+        "Sigma: \"" + rule.title + "\" matches " + n + " event" + (n === 1 ? "" : "s"));
+    }
+
+    el.addEventListener("change", function (e) {
+      var k = e.target.getAttribute && e.target.getAttribute("data-k");
+      if (!k) return;
+      if (e.target.checked) bad[k] = 1; else delete bad[k];
+      keep();
+      if (res) { score(); draw(); F.ready({ rule: F.r("rule").value, n: res.hits.length, bad: Object.keys(bad), ls: F.r("ls").checked, blank: ["rule"] }, "Sigma: \"" + rule.title + "\" matches " + res.hits.length + " events"); }
+    });
+    F.r("go").addEventListener("click", function () { test(false); });
+    F.r("spl").addEventListener("click", function () {
+      F.msg("Converting with pySigma (the first time loads Python, about 15 MB)…");
+      toSpl(F.r("rule").value).then(function (q) {
+        F.r("out").hidden = false;
+        F.r("out").textContent = q;
+        F.msg("The same rule as a SIEM search query. Paste it into SIEM search to compare.");
+      }).catch(function (e) { F.msg("pySigma couldn't convert it: " + e.message, true); });
+    });
+
+    F.note("Loading the logs…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs);
+      evs = events(files);
+      F.note(evs.length + " events");
+      if (!evs.length) { F.msg("There are no logs here to test a rule against."); F.r("go").disabled = true; }
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "sigma", title: "Sigma rules", console: true, group: "SOC analyst", mount: mount,
+    yaml: yaml, compile: compile, events: events, run: run, toSpl: toSpl });
+})(window);

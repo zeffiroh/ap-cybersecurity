@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_5.2_1",
-      "front": "What is the primary threat vector for Linux Permission Controls?",
-      "back_definition": "Adversaries exploit excessive chmod 777 permissions on proprietary system binaries to bypass standard perimeter security controls.",
-      "back_example": "Example: Permissions warning: file has excessive rwxrwxrwx settings",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: excessive chmod 777 permissions is the unlocked door; proprietary system binaries is what the attacker wants to steal."
+      "front": "Subject vs object in access control?",
+      "back_definition": "The subject is who or what asks for access (a user, process or service). The object is the resource being protected (a file, table or endpoint).",
+      "back_example": "Subject: user maya. Object: /srv/grades.csv. Action: read.",
+      "back_confusion": "Access control decides which subjects may do which actions on which objects.",
+      "back_hook": "Who wants what."
     },
     {
       "id": "FC_5.2_2",
-      "front": "How does the security team mitigate Linux Permission Controls threats?",
-      "back_definition": "Deploying and enforcing chmod 700 owner-only restrictions directly hardens proprietary system binaries and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require chmod 700 owner-only restrictions.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "DAC vs MAC vs RBAC?",
+      "back_definition": "DAC: the owner of a resource decides who gets access. MAC: a central authority assigns labels and clearances that users can't change. RBAC: permissions come from the user's job role.",
+      "back_example": "Linux file permissions are DAC; military SECRET labels are MAC; \"all nurses can read charts\" is RBAC.",
+      "back_confusion": "No model is best everywhere: MAC is too rigid for most companies, DAC too loose for classified data.",
+      "back_hook": "Owner decides, system decides, role decides."
     },
     {
       "id": "FC_5.2_3",
-      "front": "How do analysts detect exploitation of Linux Permission Controls?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on directory permission sweeps.",
-      "back_example": "Syslog trace: Permissions warning: file has excessive rwxrwxrwx settings",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "Permission vs role?",
+      "back_definition": "A permission is one narrow right (read invoices). A role is a named bundle of permissions given to users together.",
+      "back_example": "Role \"Accounts clerk\" = read invoices + create invoices.",
+      "back_confusion": "RBAC supports least privilege only if roles are narrow; one huge superuser role defeats it.",
+      "back_hook": "Permissions are bricks; roles are walls."
+    },
+    {
+      "id": "FC_5.2_4",
+      "front": "What does least privilege mean?",
+      "back_definition": "Every user, process and service gets only the access it needs to do its job, and nothing more.",
+      "back_example": "The web app's database account can read and insert orders but cannot drop tables.",
+      "back_confusion": "Extra access \"just in case\" is not harmless: it grows the damage when that account is compromised.",
+      "back_hook": "Need to do, not nice to have."
+    },
+    {
+      "id": "FC_5.2_5",
+      "front": "What is separation of duties?",
+      "back_definition": "Splitting a sensitive process so that no single person or role can complete it alone.",
+      "back_example": "One person creates a supplier; a different person approves payments to it.",
+      "back_confusion": "It prevents both fraud by one insider and mistakes nobody checks.",
+      "back_hook": "Two keys for the vault."
+    },
+    {
+      "id": "FC_5.2_6",
+      "front": "How do you counter privilege creep?",
+      "back_definition": "Regular access reviews (recertification), removing access when people change roles, and granting temporary access with an end date.",
+      "back_example": "A quarterly review removes the payroll access a transferred employee kept.",
+      "back_confusion": "Access that was right last year may be wrong today.",
+      "back_hook": "Prune permissions on a schedule."
+    },
+    {
+      "id": "FC_5.2_7",
+      "front": "Read the Linux permissions -rwxr-x---.",
+      "back_definition": "The owner can read, write and execute; the group can read and execute; everyone else has no access. In octal that is 750.",
+      "back_example": "chmod 750 deploy.sh sets exactly these permissions.",
+      "back_confusion": "Execute on a directory means you may enter it, not run it.",
+      "back_hook": "Owner, group, others: 4 read, 2 write, 1 execute."
+    },
+    {
+      "id": "FC_5.2_8",
+      "front": "Why is a world-writable file or directory dangerous?",
+      "back_definition": "Anyone on the system can change it. If something privileged runs or reads it, any user can escalate their privileges.",
+      "back_example": "A root cron job runs a script in a world-writable folder, so any user can edit the script and get root.",
+      "back_confusion": "Find them with find / -perm -o+w and remove the write bit for others.",
+      "back_hook": "Writable by all, owned by the attacker."
+    },
+    {
+      "id": "FC_5.2_9",
+      "front": "What is the SUID bit, and why is it risky?",
+      "back_definition": "SUID makes a program run with its owner's privileges, often root, whoever starts it. A flaw in such a program can give a normal user root.",
+      "back_example": "-rwsr-xr-x on /usr/bin/passwd lets users change their own password.",
+      "back_confusion": "Audit SUID files regularly; an unexpected SUID shell or editor is a serious finding.",
+      "back_hook": "The s means it runs as someone else."
+    },
+    {
+      "id": "FC_5.2_10",
+      "front": "Why shouldn't containers run as root?",
+      "back_definition": "If an attacker escapes a root container, or a host folder is mounted into it, they can act as root on the host.",
+      "back_example": "A container running as root with the host's / mounted can rewrite the host's files.",
+      "back_confusion": "Run containers as a non-root user, drop capabilities and mount only what is needed.",
+      "back_hook": "Root inside can mean root outside."
+    },
+    {
+      "id": "FC_5.2_11",
+      "front": "How do stolen credentials enable lateral movement?",
+      "back_definition": "The attacker logs into other systems as the victim, often reusing hashes or tickets without knowing the password (pass-the-hash, pass-the-ticket).",
+      "back_example": "An admin's hash taken from a workstation logs the attacker into the file server.",
+      "back_confusion": "A strong password alone does not stop hash replay; MFA, credential hygiene and segmentation do more.",
+      "back_hook": "Borrowed identity, open doors."
+    },
+    {
+      "id": "FC_5.2_12",
+      "front": "What signs suggest lateral movement in progress?",
+      "back_definition": "One account logging into many hosts it never used before, at odd hours, or running admin tools for the first time.",
+      "back_example": "A helpdesk account suddenly connects to 30 servers over SMB in ten minutes.",
+      "back_confusion": "These behaviour signals can be caught as it happens, not just afterwards.",
+      "back_hook": "One user, too many doors, too fast."
+    },
+    {
+      "id": "FC_5.2_13",
+      "front": "Name the three states of data.",
+      "back_definition": "At rest (stored), in transit (moving across a network), and in use (being processed in memory).",
+      "back_example": "Disk encryption protects data at rest; TLS protects data in transit.",
+      "back_confusion": "Data in use is the hardest to protect, since it must be decrypted to be processed.",
+      "back_hook": "Sitting, moving, working."
     }
   ]
 }

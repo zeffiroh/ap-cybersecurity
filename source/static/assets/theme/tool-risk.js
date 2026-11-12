@@ -1,0 +1,95 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var COLS = [["asset", "Asset"], ["threat", "Threat"], ["weakness", "Weakness"], ["likelihood", "Likelihood 1-5"], ["impact", "Impact 1-5"], ["treatment", "Treatment"], ["control", "Control or action"], ["owner", "Owner"], ["due", "Due"]];
+  var TREAT = ["mitigate", "accept", "transfer", "avoid"];
+  var EXAMPLE = [
+    { asset: "Customer database", threat: "Ransomware", weakness: "Backups on the same network", likelihood: 3, impact: 5, treatment: "mitigate", control: "Offline backups, tested monthly", owner: "IT manager", due: "2026-12-15" },
+    { asset: "Shop website", threat: "Web shell through uploads", weakness: "Uploads can run PHP", likelihood: 4, impact: 4, treatment: "mitigate", control: "Block code in /uploads", owner: "Web team", due: "2026-11-15" },
+    { asset: "Staff laptops", threat: "Theft", weakness: "Some disks unencrypted", likelihood: 2, impact: 3, treatment: "mitigate", control: "Full-disk encryption", owner: "Desktop team", due: "2027-01-31" }
+  ];
+  var CSS = ".trk-box input,.trk-box select{width:100%;box-sizing:border-box;font:12px system-ui;padding:3px;border:1px solid #999}.trk-box td{padding:2px}" +
+    ".trk-box .trk-heat{display:grid;grid-template-columns:70px repeat(5,48px);gap:2px;margin-top:8px;font-size:11px;align-items:center}.trk-box .trk-heat div{height:34px;display:flex;align-items:center;justify-content:center;font-weight:600}" +
+    ".trk-box .l1{background:#e3f4e8}.trk-box .l2{background:#fff3cd}.trk-box .l3{background:#fbd5a5}.trk-box .l4{background:#f4a29a}.trk-box .trk-x{border:0;background:none;color:#a11;cursor:pointer}";
+
+  function level(s) { return s >= 15 ? "high" : s >= 8 ? "medium" : "low"; }
+  function band(s) { return s >= 15 ? 4 : s >= 10 ? 3 : s >= 5 ? 2 : 1; }
+  function norm(r) { var o = {}; COLS.forEach(function (c) { o[c[0]] = r[c[0]] == null ? "" : r[c[0]]; }); o.likelihood = Math.max(1, Math.min(5, +o.likelihood || 1)); o.impact = Math.max(1, Math.min(5, +o.impact || 1)); return o; }
+  function problems(rows) {
+    var out = [];
+    rows.forEach(function (r, i) {
+      var s = r.likelihood * r.impact, n = "Risk " + (i + 1) + " (" + (r.asset || "no asset") + ")";
+      if (!r.owner) out.push(n + " has no owner.");
+      if (s >= 15 && r.treatment === "accept") out.push(n + " is high but accepted: that needs sign-off from leadership.");
+      if (r.treatment === "mitigate" && !r.control) out.push(n + " says mitigate but names no control.");
+      if (r.treatment !== "accept" && !r.due) out.push(n + " has no due date.");
+    });
+    return out;
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-risk-css", CSS);
+    var rows = [];
+    var F = K.frame(el, ctx, {
+      title: "Risk register", cls: "trk-box",
+      body: '<div class="tl-scroll" style="max-height:none"><table class="tl-table" data-r="tbl"></table></div><div class="tl-row" style="margin-top:6px"><button type="button" class="btn" data-r="add">Add a risk</button>' +
+        '<button type="button" class="btn" data-r="ex">Load examples</button></div><div class="tl-cols"><div class="trk-heat" data-r="heat"></div><ul data-r="probs" style="font-size:12.5px"></ul></div>',
+      actions: '<button type="button" class="btn dark" data-r="done">Check the register</button><button type="button" class="btn" data-r="csv">Download CSV</button>',
+      showLabel: "Show the recorded register",
+      show: function (a) { if (Array.isArray(a.rows)) { rows = a.rows.map(norm); draw(); } }
+    });
+    function keep() { F.remember({ rows: rows }); }
+    function draw() {
+      F.r("tbl").innerHTML = "<tr>" + COLS.map(function (c) { return "<th>" + K.esc(c[1]) + "</th>"; }).join("") + "<th>Score</th><th></th></tr>" + rows.map(function (r, i) {
+        var s = r.likelihood * r.impact;
+        return "<tr>" + COLS.map(function (c) {
+          var v = r[c[0]];
+          if (c[0] === "likelihood" || c[0] === "impact") return '<td><select data-i="' + i + '" data-k="' + c[0] + '">' + [1, 2, 3, 4, 5].map(function (n) { return "<option" + (+v === n ? " selected" : "") + ">" + n + "</option>"; }).join("") + "</select></td>";
+          if (c[0] === "treatment") return '<td><select data-i="' + i + '" data-k="treatment">' + TREAT.map(function (t) { return "<option" + (v === t ? " selected" : "") + ">" + t + "</option>"; }).join("") + "</select></td>";
+          return '<td><input data-i="' + i + '" data-k="' + c[0] + '" value="' + K.esc(v) + '"' + (c[0] === "due" ? ' placeholder="YYYY-MM-DD"' : "") + "></td>";
+        }).join("") + '<td class="l' + band(s) + '"><b>' + s + "</b> " + level(s) + '</td><td><button type="button" class="trk-x" data-del="' + i + '" aria-label="Remove">&times;</button></td></tr>';
+      }).join("");
+      var grid = '<div></div>' + [1, 2, 3, 4, 5].map(function (i) { return "<div>Impact " + i + "</div>"; }).join("");
+      for (var l = 5; l >= 1; l--) {
+        grid += "<div>Likely " + l + "</div>";
+        for (var im = 1; im <= 5; im++) {
+          var n = rows.filter(function (r) { return r.likelihood === l && r.impact === im; }).length;
+          grid += '<div class="l' + band(l * im) + '">' + (n || "") + "</div>";
+        }
+      }
+      F.r("heat").innerHTML = grid;
+      F.r("probs").innerHTML = problems(rows).map(function (p) { return "<li>" + K.esc(p) + "</li>"; }).join("");
+    }
+    F.r("tbl").addEventListener("input", function (e) {
+      var i = e.target.getAttribute("data-i"), k = e.target.getAttribute("data-k");
+      if (i == null) return;
+      rows[+i][k] = k === "likelihood" || k === "impact" ? +e.target.value : e.target.value;
+      keep();
+      if (e.target.tagName === "SELECT") draw(); else F.r("probs").innerHTML = problems(rows).map(function (p) { return "<li>" + K.esc(p) + "</li>"; }).join("");
+    });
+    F.r("tbl").addEventListener("click", function (e) { var b = e.target.closest("[data-del]"); if (b) { rows.splice(+b.getAttribute("data-del"), 1); keep(); draw(); } });
+    F.r("add").addEventListener("click", function () { rows.push(norm({ likelihood: 3, impact: 3, treatment: "mitigate" })); keep(); draw(); });
+    F.r("ex").addEventListener("click", function () { rows = rows.concat(EXAMPLE.map(norm)); keep(); draw(); });
+    F.r("csv").addEventListener("click", function () {
+      K.download("risk-register.csv", COLS.map(function (c) { return c[0]; }).concat(["score", "level"]).join(",") + "\n" + rows.map(function (r) {
+        var s = r.likelihood * r.impact;
+        return COLS.map(function (c) { return r[c[0]]; }).concat([s, level(s)]).map(function (v) { v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(",");
+      }).join("\n") + "\n", "text/csv");
+    });
+    F.r("done").addEventListener("click", function () {
+      var p = problems(rows), high = rows.filter(function (r) { return r.likelihood * r.impact >= 15; }).length;
+      F.msg(rows.length + " risks, " + high + " high. " + (p.length ? p.length + " things to fix in the register." : "Every risk has an owner, a treatment and a date."));
+      F.ready({ rows: rows, n: high, blank: [] }, "Risk register: " + rows.length + " risks, " + high + " high");
+    });
+    var init = F.saved || F.st;
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      var files = K.textFiles(fs), csvName = Object.keys(files).filter(function (n) { return /risk.*\.csv$/i.test(n); })[0];
+      rows = Array.isArray(init.rows) ? init.rows.map(norm) : csvName ? K.csv(files[csvName]).map(norm) : [];
+      F.note(csvName ? "from " + csvName : "");
+      draw();
+    }, function () { rows = Array.isArray(init.rows) ? init.rows.map(norm) : []; draw(); });
+  }
+
+  global.AayatTools.register({ id: "risk", title: "Risk register", console: true, group: "Governance and risk", mount: mount, problems: problems, level: level });
+})(window);

@@ -7,14 +7,14 @@
 <script src="../../../assets/shared/identity.js"></script>
 <script src="../../../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quiet DNS guide &middot; Aayat-AP-Prep</title>
+<title>Quiet DNS written tutorial &middot; Aayat-AP-Prep</title>
 <style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
 </head>
-<body><main><p class="kick">Data exfiltration guide</p>
+<body><main><p class="kick">Data exfiltration · written tutorial</p>
 <h1>Quiet DNS</h1>
 <p class="meta">Intermediate &middot; about 55 min</p>
 <p>A Finance laptop at Harbourline Credit Union never touched the internet, yet a confidential file left the building. Find the DNS tunnel, measure it, and rebuild the stolen file from base32 chunks hidden in query names.</p>
-<div class="go"><a class="main" href="../../../notebook.html?ref=rb-quietdns&amp;runbook=quietdns">Worked example</a><a href="../../../notebook.html?ref=rb-quietdns--guided&amp;runbook=quietdns--guided">Guided</a><a href="../../../notebook.html?ref=rb-quietdns--solo&amp;runbook=quietdns--solo">On your own</a></div>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-quietdns&amp;runbook=quietdns">Walkthrough</a><a href="../../../notebook.html?ref=rb-quietdns--guided&amp;runbook=quietdns--guided">Practice</a><a href="../../../notebook.html?ref=rb-quietdns--solo&amp;runbook=quietdns--solo">Solo</a></div>
 <p>11:41, Thursday 5 Nov. The SIEM at <strong>Harbourline Credit Union</strong> raised a DNS anomaly for <strong>fin-lt04</strong>, a Finance laptop. The firewall shows nothing unusual: the laptop never talked to the internet directly. You are the analyst on shift.</p>
 <p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python). The network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
 <p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
@@ -53,21 +53,27 @@ echo ---
 cat fw_summary.txt
 echo ---
 grep -c &#x27;client 10.70.0.44#&#x27; dns.log</code></pre>
-<p class="lab">Expected output</p><pre class="want">total 76
--rw-r--r--    1 root     root           289 Nov  4 21:27 alert.txt
--rw-r--r--    1 root     root         30978 Nov  4 21:27 capture.pcap
--rw-r--r--    1 root     root         20026 Nov  4 21:27 dns.log
--rw-r--r--    1 root     root           174 Nov  4 21:27 dns_stats.csv
--rw-r--r--    1 root     root           517 Nov  4 21:27 fw_summary.txt
--rw-r--r--    1 root     root           158 Nov  4 21:27 hr_contact.txt
--rw-r--r--    1 root     root          1417 Nov  4 21:27 process.csv
--rw-r--r--    1 root     root           937 Nov  4 21:27 proxy.log
+<p class="lab">Expected output</p><pre class="want">total 84
+-rw-r--r--    1 root     root           289 Nov  7 13:10 alert.txt
+-rw-r--r--    1 root     root          2296 Nov  7 13:10 alerts.json
+-rw-r--r--    1 root     root         30978 Nov  7 13:10 capture.pcap
+-rw-r--r--    1 root     root         20026 Nov  7 13:10 dns.log
+-rw-r--r--    1 root     root           174 Nov  7 13:10 dns_stats.csv
+drwxr-xr-x    2 root     root           100 Nov  7 13:10 eventlogs
+-rw-r--r--    1 root     root           517 Nov  7 13:10 fw_summary.txt
+-rw-r--r--    1 root     root           158 Nov  7 13:10 hr_contact.txt
+-rw-r--r--    1 root     root          1027 Nov  7 13:10 intel.json
+-rw-r--r--    1 root     root          1417 Nov  7 13:10 process.csv
+-rw-r--r--    1 root     root           937 Nov  7 13:10 proxy.log
 40ed6dc1ac9f41acac3fd40a28bd727131849706a7fd6486b7ad408df313362a  alert.txt
+dfa1b764101760b2d075e6ddf5414c07f8f93b28a035afcd8f117d24347a38f3  alerts.json
 6da6401552aaede29556a821fb078c212cad2962b0ab229c3900575ca8263911  capture.pcap
 cfebf8997189922619671dac4cb9e229fad9afe83b53564b5989fb592f4d580a  dns.log
 176ff66f7a7c6b37f75acd0a99c63f8d0351e5a6de8033bd2225d845312388f2  dns_stats.csv
+sha256sum: can&#x27;t read &#x27;eventlogs&#x27;: Is a directory
 843eae3222657cddee8b7bc00b24ed2d3de578cbdaeae1f0d9c43f1be41ec89f  fw_summary.txt
 8aa5771350e4991a0dc5c86452913b049dca975cd20cd2cb7cdb929d95c98195  hr_contact.txt
+6f67bc5572193a482156deb15d30f333ca6d643776012363268c67d55087af4e  intel.json
 a050bee19a84acc0fe501090865302c4090b0307c2539dd4e7829dfec551536c  process.csv
 8cd74b15dfbf7b7bba4c53b5317e3f8b8658008701692bac1affc625fe06c6fa  proxy.log
 ---
@@ -356,9 +362,9 @@ tar cf &quot;$pack&quot; -C ~/evidence .
 ls -l ~/evidence-*
 wc -l SHA256SUMS
 cd ~/case</code></pre>
-<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2128.tar.gz
--rw-r--r--    1 root     root          9039 Nov  4 21:28 /root/evidence-20261104T2128.tar.gz
-8 SHA256SUMS</pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261107T1310.tar.gz
+-rw-r--r--    1 root     root         15295 Nov  7 13:10 /root/evidence-20261107T1310.tar.gz
+13 SHA256SUMS</pre>
 <h2>10. Contain</h2>
 <ul>
 <li>&#9744; Isolate fin-lt04 from the network (keep it powered on for memory evidence)</li>

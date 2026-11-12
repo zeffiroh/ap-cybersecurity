@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capstone A: the night shift written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 4 · Capstone · written tutorial</p>
+<h1>Capstone A: the night shift</h1>
+<p class="meta">Practitioner &middot; about 270 min</p>
+<p>Run an overnight shift alone for a credit union client: an unlabelled, noisy queue of twelve alerts, one real intrusion hiding in it, and a morning team waiting for your escalation, a new detection and a shift report.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift&amp;runbook=sem-s04-capstone-night-shift">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift--guided&amp;runbook=sem-s04-capstone-night-shift--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift--solo&amp;runbook=sem-s04-capstone-night-shift--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>alerts-night.json</code>, <code>capture.pcap</code>, <code>dns.log</code>, <code>dns_stats.csv</code>, <code>eventlogs/Security.jsonl</code>, <code>eventlogs/Sysmon.jsonl</code>, <code>eventlogs/System.jsonl</code>, <code>fw_summary.txt</code>, <code>intel.json</code>, <code>process.csv</code>, <code>proxy.log</code>.</p>
+<h2>1. Start of shift</h2>
+<p>You are the overnight analyst at a managed SOC. The client, Harbourline Credit Union, is starting its working day while you are on nights. The queue has <strong>twelve alerts and no severities</strong>: the client's old SIEM doesn't send them. One real intrusion is in there. The rest is ordinary noise.</p>
+<p>This is a capstone: the steps say what to deliver, not how. <strong>Hints cost one point each</strong> on the rubric, so open one only when you are stuck, and write down how many you opened.</p>
+<p>Start by hashing the evidence and reading the queue end to end before you touch anything.</p>
+<ul>
+<li>&#9744; Hash every evidence file and keep the list</li>
+<li>&#9744; Read all twelve alerts once, quickly</li>
+<li>&#9744; Write down your first guess of which ones belong together: you will test it</li>
+</ul>
+<blockquote>
+<p>Hint: Group alerts by host first. Four different hosts appear more than once or not at all: which host has the most?</p>
+</blockquote>
+<p><strong>Question:</strong> How many alerts are in the night queue?</p>
+<pre><code>cd ~/case
+sha256sum *.* eventlogs/*
+echo ---
+grep -c &#x27;&quot;id&quot;&#x27; alerts-night.json
+grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
+<h2>2. Work the queue</h2>
+<p>Give every alert a disposition and a reason. A reason is a log line or a fact you checked, not a feeling. Severity is yours to judge: the queue doesn't tell you.</p>
+<ul>
+<li>&#9744; Every alert has a disposition</li>
+<li>&#9744; Every reason points at evidence</li>
+<li>&#9744; Alerts that belong to one intrusion say so</li>
+<li>&#9744; Use "needs more information" only with a question someone can answer</li>
+</ul>
+<blockquote>
+<p>Hint: Five alerts are on fin-lt04 or about it. A program downloaded at 11:02 and a scheduled task at 11:04 on the same laptop are not a coincidence.</p>
+</blockquote>
+<p><strong>Use the Alert queue on case/alerts-night.json.</strong></p>
+<p><strong>Question:</strong> Which host do the related alerts share?</p>
+<h2>3. Scope it with search</h2>
+<p>Before you escalate, know how big it is. Which hosts talk to the odd domain, how many times, and did anything get past the proxy?</p>
+<ul>
+<li>&#9744; Which client sends the most DNS queries? Is that normal for it? (dns_stats.csv)</li>
+<li>&#9744; Who else asked for cloudmetric.example?</li>
+<li>&#9744; What did the proxy let through and block for that laptop?</li>
+<li>&#9744; Write the same scoping search in KQL</li>
+</ul>
+<blockquote>
+<p>Hint: The very long names all end in cloudmetric.example. Count by <code>src_ip</code> to see who asks for it.</p>
+</blockquote>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*dns.log | stats count by src_ip | sort - count</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*dns.log cloudmetric.example | stats count by src_ip</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*proxy.log src_ip=10.70.0.44 | table _time action url category</code></p>
+<p><strong>Use SIEM search (KQL).</strong> Search: <code>dns | where query endswith "cloudmetric.example" | summarize count() by src_ip</code></p>
+<p><strong>Question:</strong> How many DNS queries did 10.70.0.44 send in dns.log?
+<strong>Question:</strong> How many different clients queried cloudmetric.example?
+<strong>Question:</strong> Which site did the proxy block?</p>
+<h2>4. Confirm on the host and the wire</h2>
+<p>Search results are a summary. Confirm on the host's own logs and on the packet capture: which program made the lookups, how it got there, and where the answers came from.</p>
+<ul>
+<li>&#9744; Sysmon event 1: what was downloaded, what did it copy itself as, which task did it create?</li>
+<li>&#9744; Sysmon event 22: which program made the TXT lookups?</li>
+<li>&#9744; Capture: which server answered the tunnel queries?</li>
+</ul>
+<blockquote>
+<p>Hint: In the packet viewer, the filter <code>dns.qry.name contains cloudmetric</code> shows the tunnel. Look at the destination of the answers' questions.</p>
+</blockquote>
+<p><strong>Use the Event viewer on case/eventlogs/Sysmon.jsonl.</strong></p>
+<p><strong>Use the Event viewer on case/eventlogs/Sysmon.jsonl.</strong></p>
+<p><strong>Use the Packet viewer on case/capture.pcap.</strong></p>
+<p><strong>Question:</strong> What file name does the malware use to look like the chat app?
+<strong>Question:</strong> What is the name of the scheduled task it created?
+<strong>Question:</strong> At what time (HH:MM) did the first tunnel query go out?
+<strong>Question:</strong> Which IP address is the attacker's name server?</p>
+<h2>5. Check the indicators</h2>
+<p>Pull every indicator out of the evidence and check it against the client's intel feed. Map what you saw to ATT&amp;CK so the morning team and the client speak the same language.</p>
+<ul>
+<li>&#9744; Extract indicators from the logs</li>
+<li>&#9744; Which are on the intel feed, and which are new?</li>
+<li>&#9744; Map the behaviour to ATT&amp;CK techniques</li>
+<li>&#9744; Defang indicators before you paste them anywhere</li>
+</ul>
+<blockquote>
+<p>Hint: Download, scheduled task, PowerShell discovery, exfiltration over DNS: four techniques, four tiles on the heatmap.</p>
+</blockquote>
+<p><strong>Use the Indicators and ATT&amp;CK.</strong></p>
+<p><strong>Question:</strong> From which domain was the program downloaded?</p>
+<h2>6. Escalate</h2>
+<p>Write one escalation for the whole intrusion, not one per alert. The client's duty manager reads it on a phone.</p>
+<ul>
+<li>&#9744; The ask first, with a time</li>
+<li>&#9744; Severity and the fact that decided it</li>
+<li>&#9744; Know / don't know</li>
+<li>&#9744; What you have and haven't changed</li>
+</ul>
+<blockquote>
+<p>Hint: Say clearly that you have not touched the laptop. The client decides on isolation; you give them what they need to decide.</p>
+</blockquote>
+<p><strong>Use the Report builder.</strong></p>
+<h2>7. Leave a new detection behind</h2>
+<p>The client's rule fired 32 minutes after the tunnel started. Write a better one: something the tunnel does that normal programs don't. Test it, and write what would make it noisy.</p>
+<ul>
+<li>&#9744; A Sigma rule on Sysmon DNS events</li>
+<li>&#9744; Test it: it should match the tunnel and not the browser</li>
+<li>&#9744; One tuning note</li>
+</ul>
+<blockquote>
+<p>Hint: Browsers and the Windows resolver live in Program Files and System32. The tunnel program lives in AppData and asks for TXT records.</p>
+</blockquote>
+<p><strong>Use the Sigma rules.</strong></p>
+<p><strong>Question:</strong> How many events does your TXT-from-AppData rule match?</p>
+<h2>8. Shift report</h2>
+<p>Close your shift. Everything open, by ID, with an owner. Everything closed in one line. What the morning should watch. Who you called and when. How many hints you opened.</p>
+<ul>
+<li>&#9744; Open items by ID with owners</li>
+<li>&#9744; Closed items</li>
+<li>&#9744; Watch list including your new rule</li>
+<li>&#9744; Calls with times</li>
+<li>&#9744; Hints opened</li>
+</ul>
+<p><strong>Use the Report builder.</strong></p>
+<h2>9. Hand in</h2>
+<p>Hand in this notebook. It carries your queue, searches, escalation, rule and shift report.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Queue: all twelve alerts have a disposition and a reason backed by a log line</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Scope: the one affected host, user and domain named, with the evidence</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Escalation: the ask first, severity with its reason, know / don't know, evidence location</td>
+<td>5</td>
+</tr>
+<tr>
+<td>New detection: a Sigma rule that catches the tunnel, tested, with a tuning note</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Shift report: open items by ID with owners, closed items, watch list, calls with times</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Hints: minus 1 point for each hint opened (write the count in the shift report)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Working alone: every search and command kept in the notebook</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; All twelve alerts dispositioned</li>
+<li>&#9744; Escalation and shift report show every section complete</li>
+<li>&#9744; Rule tested</li>
+<li>&#9744; Hints counted</li>
+<li>&#9744; Press Hand in</li>
+</ul>
+<h1>Lecture script: Capstone A: the night shift</h1>
+<p>Seminar 4 · Capstone · about 270 minutes of lab work · the video runs about 10 minutes</p>
+<p>Read it aloud while the demo plays (add <code>&amp;demo=1</code> to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with <code>./teach demo</code> already has subtitles.</p>
+<h2>Opening</h2>
+<p>This is Capstone A, the night shift. You're the overnight analyst at a managed SOC, covering a credit union whose working day is your night. The queue has twelve alerts and no severities. One real intrusion is hiding in it. In this capstone the steps tell you what to deliver, not how, and every hint you open costs a point. I'll walk the whole shift once so you see what good looks like.</p>
+<h2>1. Start of shift</h2>
+<p>Start of shift. Before touching anything, hash the evidence and read the queue end to end. Twelve alerts. Write down your first guess of which ones belong together; we'll test it.</p>
+<p>On screen: the step text, the Linux cell.</p>
+<h2>2. Work the queue</h2>
+<p>Every alert gets a disposition and a reason that points at evidence. Five of them are on, or about, the same Finance laptop, fin-lt04: a download, a scheduled task, a hidden PowerShell, a blocked upload and a DNS alarm. The rest are noise: Caps Lock, a patch window, a printer looking for an old share. One gets "needs more information", with the question we'll ask.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>3. Scope it with search</h2>
+<p>Before escalating, we scope it. The laptop sent fifty-nine DNS queries, twice its neighbours. Only one client ever asked for cloudmetric.example. And the proxy blocked an attempt to upload to a paste site. We write the same scoping search in KQL to check ourselves.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>4. Confirm on the host and the wire</h2>
+<p>Search results are a summary, so we confirm on the host and on the wire. Sysmon shows the tax tool copied itself as msteams-update.exe and created the task TeamsUpdateCheck. The DNS events show which program made the lookups. In the capture, the tunnel queries start at 11:09 and go to the attacker's name server.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>5. Check the indicators</h2>
+<p>We pull out the indicators, check them against the client's intel feed, and map the behaviour to ATT&amp;CK: user execution, a scheduled task, PowerShell, file discovery, and exfiltration over DNS. Defang them before they go anywhere.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>6. Escalate</h2>
+<p>One escalation for the whole intrusion. The ask first: isolate the laptop, with a time. Severity high, because data is leaving now. Then what we know, what we don't, and what we have and haven't changed. The client decides; we give them what they need to decide.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>7. Leave a new detection behind</h2>
+<p>The client's rule fired thirty-two minutes after the tunnel started. We leave a better one behind: TXT lookups from a program in the user's AppData folder. Browsers and the Windows resolver don't live there. It matches the twenty-six tunnel lookups and nothing else.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>8. Shift report</h2>
+<p>We close the shift: the open incident with its owner, the one alert that needs more information, everything closed in one line, what the morning should watch including our new rule, the calls with times, and the number of hints opened.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>9. Hand in</h2>
+<p>Hand in the notebook. It carries the queue, the searches, the escalation, the rule and the shift report. The rubric is on screen.</p>
+<p>On screen: the step text.</p>
+<h2>Wrap-up</h2>
+<p>That's the shift. Twelve alerts dispositioned, one intrusion scoped to one laptop and one domain, an escalation the client could act on, a new rule that catches the tunnel the old rule was slow to see, and a shift report that leaves nothing behind. Now do it yourself at the Practice level, then Solo, with your hints counted.</p>
+<h2>YouTube chapters (estimate; <code>./teach demo</code> writes the exact ones)</h2>
+<pre><code>0:00 Opening
+0:30 1. Start of shift
+1:15 2. Work the queue
+2:07 3. Scope it with search
+4:12 4. Confirm on the host and the wire
+5:52 5. Check the indicators
+6:42 6. Escalate
+7:32 7. Leave a new detection behind
+8:22 8. Shift report
+9:12 9. Hand in
+9:37 Wrap-up
+</code></pre></main></body>
+</html>

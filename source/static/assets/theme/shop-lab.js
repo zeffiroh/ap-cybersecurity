@@ -33,7 +33,9 @@
     { id: "shop-upload", points: 200, title: "Not a picture", text: "Upload a profile picture that runs JavaScript when someone opens it.",
       hint: "Profile page. The upload only checks that the name contains .png. Try a name like me.png.html with <img src=x onerror=alert(1)> inside, then open its link." },
     { id: "shop-jwt", points: 250, title: "Forge a token", text: "Become admin by editing your login token, without the admin password.",
-      hint: "Storage tab: decode the token, set alg to none, role to admin, delete the signature, keep the last dot, re-encode." }
+      hint: "Storage tab: decode the token, set alg to none, role to admin, delete the signature, keep the last dot, re-encode." },
+    { id: "shop-csrf", points: 200, title: "Change Jim's email from your own site", text: "Jim is logged in to the shop. Build a page on your own website that changes his newsletter email to yours when he opens it.",
+      hint: "The newsletter form on the Profile page is old: it trusts the session cookie and has no secret token. Open /#/lab/attacker and copy that form, pointing it at https://nimbu.shop." }
   ];
 
   var PRODUCTS = [
@@ -113,7 +115,7 @@
         5: [{ by: "priya@nimbu.shop", text: "Set it up on every account. Phishing pages can't use it. Worth it." }],
         6: [{ by: "jim@nimbu.shop", text: "Opened my practice lock in 20 minutes. Bruno was not impressed." }]
       },
-      baskets: {}, coupons: {}, discount: {}, uploads: {}, nextOrder: 6, feedback: [], token: "", log: [], history: [], path: "/#/", pick: null, rep: null, tab: "net"
+      baskets: {}, coupons: {}, discount: {}, uploads: {}, newsletter: {}, attacker: "", nextOrder: 6, feedback: [], token: "", log: [], history: [], path: "/#/", pick: null, rep: null, tab: "net"
     };
   }
 
@@ -289,6 +291,16 @@
       if (email === "jim@nimbu.shop") K.award("shop-reset", "Reset Jim's password");
       return json(200, { ok: true, message: "Password changed. You can log in now." });
     }],
+    ["POST", /^\/account\/newsletter$/, function (req) {
+      var m = /(?:^|;\s*)sid=([^;]+)/.exec(req.headers.cookie || ""), a = m && verify(m[1]);
+      if (!a) return text(401, "<p>Please log in first.</p>", "text/html");
+      var email = String((req.form || {}).email || "").trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return text(400, "<p>That isn't an email address.</p>", "text/html");
+      S.newsletter[a.claims.sub] = email;
+      var cross = req.headers.origin && !/^https?:\/\/([a-z0-9-]+\.)*nimbu\.shop$/i.test(req.headers.origin);
+      if (cross && a.claims.email === "jim@nimbu.shop" && !/@nimbu\.shop$/i.test(email)) K.award("shop-csrf", "Change Jim's email from your own site");
+      return text(200, "<p>Newsletter email for " + esc(a.claims.email) + " is now " + esc(email) + ".</p>", "text/html");
+    }],
     ["GET", /^\/api\/admin\/users$/, function (req) {
       var a = auth(req);
       if (!a) return json(401, { error: "Not logged in." });
@@ -321,7 +333,13 @@
     var p = parse(req.path);
     req.query = p.query;
     req.headers = req.headers || {};
-    try { req.json = req.body ? JSON.parse(req.body) : null; } catch (e) { return json(400, { error: "Body is not valid JSON." }); }
+    if (/x-www-form-urlencoded/i.test(req.headers["content-type"] || "")) {
+      req.form = {};
+      new URLSearchParams(req.body || "").forEach(function (v, k) { req.form[k] = v; });
+      req.json = null;
+    } else {
+      try { req.json = req.body ? JSON.parse(req.body) : null; } catch (e) { return json(400, { error: "Body is not valid JSON." }); }
+    }
     var known = false;
     for (var i = 0; i < ROUTES.length; i++) {
       var m = p.path.match(ROUTES[i][1]);
@@ -332,20 +350,88 @@
     return p.path.indexOf("/api/") === 0 ? json(404, { error: "Not found." }) : text(404, "404 Not Found");
   }
 
+  var P = { hold: false, held: [], seen: 0, fns: [], passing: false, page: false, booting: null };
+
+  function notify(kind, item) { P.fns.slice().forEach(function (f) { try { f(kind, item); } catch (e) {} }); }
+
+  function exchange(req, from) {
+    var res = server({ method: req.method, path: req.path, headers: Object.assign({}, req.headers), body: req.body });
+    var item = { n: ++P.seen, req: req, res: res, at: new Date(), from: from || "page" };
+    S.log.unshift(item);
+    if (S.log.length > 80) S.log.pop();
+    if (S.tab === "net" && $("sh-devbody")) dev();
+    notify("log", item);
+    return res;
+  }
+
   function send(method, path, body, extra) {
     var headers = {};
-    if (S.token) headers.authorization = "Bearer " + S.token;
+    if (S.token) { headers.authorization = "Bearer " + S.token; headers.cookie = "sid=" + S.token; }
     if (body != null) headers["content-type"] = "application/json";
     Object.keys(extra || {}).forEach(function (k) { headers[k.toLowerCase()] = extra[k]; });
     var req = { method: method, path: path, headers: headers, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) };
-    var res = server({ method: req.method, path: req.path, headers: Object.assign({}, headers), body: req.body });
-    S.log.unshift({ req: req, res: res, at: new Date() });
-    if (S.log.length > 80) S.log.pop();
-    if (S.tab === "net") dev();
+    if (P.hold && !P.passing) {
+      P.held.push({ n: ++P.seen, req: req });
+      notify("held", P.held[P.held.length - 1]);
+      var wait = { status: 0, type: "text/plain", body: "This request is held by the proxy. Forward or drop it in the Proxy tab." };
+      return { status: 0, data: null, raw: wait };
+    }
+    var res = exchange(req, "page");
     var data = null;
     try { data = res.type === "application/json" ? JSON.parse(res.body) : res.body; } catch (e) {}
     return { status: res.status, data: data, raw: res };
   }
+
+  function release(i, edited, drop) {
+    var h = P.held.splice(i, 1)[0];
+    if (!h) return null;
+    var res = null;
+    if (!drop) {
+      res = exchange(edited || h.req, "page");
+      if (res.status === 200 && /^\/api\/login\b/.test((edited || h.req).path)) {
+        try { var t = JSON.parse(res.body).token; if (t) S.token = t; } catch (e) {}
+      }
+    }
+    notify("released", h);
+    if (P.page && !P.held.length) {
+      P.passing = true;
+      try { go(S.path, true); } finally { P.passing = false; }
+    }
+    return res;
+  }
+
+  function boot() {
+    if (P.booting) return P.booting;
+    K = global.LabKit || { esc: function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); },
+      reveal: function () { return ""; }, award: function () { return ""; }, missions: function () {} };
+    esc = K.esc;
+    if (!global.initSqlJs) return Promise.reject(new Error("The shop's database engine didn't load."));
+    P.booting = global.initSqlJs({ locateFile: function (f) { return ROOT + "assets/vendor/sqljs-1.13.0/" + f; } }).then(function (lib) {
+      SQL = lib;
+      fresh();
+    });
+    P.booting.catch(function () { P.booting = null; });
+    return P.booting;
+  }
+
+  global.NimbuShop = {
+    boot: boot,
+    page: function () { return P.page; },
+    browse: function (method, path, body) {
+      var r = send(String(method || "GET").toUpperCase(), path || "/", body == null ? null : String(body));
+      if (r.status === 200 && /^\/api\/login\b/.test(path) && r.data && r.data.token) S.token = r.data.token;
+      return r;
+    },
+    exchange: function (req) { return exchange({ method: String(req.method || "GET").toUpperCase(), path: req.path || "/", headers: req.headers || {}, body: req.body || "" }, "proxy"); },
+    history: function () { return S ? S.log.slice() : []; },
+    token: function () { return S ? S.token : ""; },
+    intercept: function (on) { if (on != null) P.hold = !!on; return P.hold; },
+    held: function () { return P.held.slice(); },
+    forward: function (i, req) { return release(i, req, false); },
+    drop: function (i) { return release(i, null, true); },
+    on: function (f) { P.fns.push(f); return function () { P.fns = P.fns.filter(function (x) { return x !== f; }); }; },
+    reset: function () { if (SQL) { P.held = []; if (P.page) reset(); else fresh(); notify("reset"); } }
+  };
 
   function el(html) { $("sh-page").innerHTML = html; }
 
@@ -447,12 +533,23 @@
         '<label>File name <input name="filename" placeholder="me.png"></label>' +
         '<label>File contents <textarea name="content" rows="3" placeholder="(this lab pretends the file is text)"></textarea></label>' +
         '<button class="btn dark">Upload</button> <span class="sh-msg"></span></form>' +
+        '<form class="sh-form" data-newsletter><h3>Newsletter email</h3><p class="sx-note">Served by the old account app.</p>' +
+        '<label>Send offers to <input name="email" placeholder="you@example.com"></label><button class="btn">Save</button> <span class="sh-msg"></span></form>' +
         (mine.length ? "<h3>Uploaded</h3><ul>" + mine.map(function (n) { return '<li><a href="#" data-go="/uploads/' + esc(n) + '">/uploads/' + esc(n) + "</a></li>"; }).join("") + "</ul>" : ""));
     }],
     [/^\/#\/feedback$/, function () {
       el(header() + '<form class="sh-form" data-feedback><h2>Tell us how we did</h2><label>Rating <select name="rating">' +
         [5, 4, 3, 2, 1].map(function (n) { return "<option>" + n + "</option>"; }).join("") + '</select></label>' +
         '<label>Comment <textarea name="comment" rows="3" maxlength="200"></textarea></label><button class="btn dark">Send</button> <span class="sh-msg"></span></form>');
+    }],
+    [/^\/#\/lab\/attacker$/, function () {
+      el('<div class="sh-evil"><div class="sh-top"><b class="sh-logo">😈 evil.example</b><span class="sx-note">Your own website, in this lab only</span></div>' +
+        '<p>Write a page here. When you press <b>Send the link to Jim</b>, Jim (who is logged in to NimbuMart in another tab) opens it, and his browser does whatever your page does.</p>' +
+        '<label>Your page (HTML)<textarea id="sh-evil-html" rows="9" spellcheck="false" placeholder="&lt;form action=&quot;https://nimbu.shop/...&quot; method=&quot;POST&quot;&gt;…"></textarea></label>' +
+        '<div class="sh-btns"><button class="btn dark" data-csrf>Send the link to Jim</button></div><div id="sh-evil-out"></div>' +
+        '<details><summary>How sites stop this</summary><p>A secret per-form token that the attacker can\'t read, the session cookie set with <code>SameSite=Lax</code> or <code>Strict</code>, and checking the <code>Origin</code> header.</p></details></div>');
+      $("sh-evil-html").value = S.attacker || "";
+      $("sh-evil-html").addEventListener("input", function () { S.attacker = this.value; });
     }],
     [/^\/#\/administration$/, function () {
       var r = send("GET", "/api/admin/users");
@@ -526,6 +623,11 @@
       if (r.status === 201) return go(S.path, true);
       return say((r.data && r.data.error) || "Failed.");
     }
+    if (f.hasAttribute("data-newsletter")) {
+      if (!S.token) return say("Log in first.");
+      r = send("POST", "/account/newsletter", "email=" + encodeURIComponent(v.email || ""), { "content-type": "application/x-www-form-urlencoded" });
+      return say(r.status === 200 ? "Saved." : "Failed (" + r.status + ").", r.status === 200);
+    }
     if (f.hasAttribute("data-feedback")) {
       if (!(+v.rating >= 1 && +v.rating <= 5)) return say("Pick a rating from 1 to 5.");
       r = send("POST", "/api/feedback", { rating: +v.rating, comment: v.comment });
@@ -545,10 +647,33 @@
     }
   }
 
+  function victim(html) {
+    var out = $("sh-evil-out"), say = function (t, good) { out.innerHTML = '<p class="' + (good ? "sq-good" : "sq-bad") + '">' + t + "</p>"; };
+    var doc = new DOMParser().parseFromString(String(html || ""), "text/html"), f = doc.querySelector("form");
+    if (!f) return say("Jim opened your page, but there's no form on it, so his browser sent nothing to the shop.");
+    var url;
+    try { url = new URL(f.getAttribute("action") || "/", "https://evil.example/"); } catch (e) { return say("The form's action isn't a valid address."); }
+    var method = String(f.getAttribute("method") || "GET").toUpperCase(), fields = new URLSearchParams();
+    Array.prototype.forEach.call(f.querySelectorAll("input[name],textarea[name],select[name]"), function (x) { fields.append(x.getAttribute("name"), x.getAttribute("value") || x.textContent || ""); });
+    var auto = /\.submit\s*\(|requestSubmit\s*\(/.test(html) || /onload\s*=/.test(html);
+    if (!/^(www\.)?nimbu\.shop$/i.test(url.hostname)) return say("Jim's browser sent the form to " + esc(url.hostname) + ", not to the shop. Point the action at https://nimbu.shop/…");
+    var jim = q("SELECT id, email, role FROM users WHERE email = 'jim@nimbu.shop'")[0], sid = token(jim);
+    var path = url.pathname + (method === "GET" ? "?" + fields.toString() : "");
+    var res = exchange({ method: method, path: path, headers: { cookie: "sid=" + sid, origin: "https://evil.example", referer: "https://evil.example/", "content-type": "application/x-www-form-urlencoded" },
+      body: method === "GET" ? "" : fields.toString() }, "jim");
+    var flag = K.reveal("shop-csrf");
+    if (res.status === 200 && S.newsletter[jim.id] && !/@nimbu\.shop$/i.test(S.newsletter[jim.id])) {
+      out.innerHTML = '<p class="sq-good">Jim\'s browser added his session cookie, the shop believed it was him, and his newsletter email is now ' + esc(S.newsletter[jim.id]) +
+        ". " + (auto ? "Your page submitted itself, so Jim didn't have to click anything." : "Jim had to click your button; add a script that calls submit() so it happens by itself.") + "</p>" +
+        (flag ? '<p class="sq-good">' + esc(flag) + "</p>" : "") + '<pre class="sh-raw">' + esc(method + " " + path + "\nCookie: sid=" + sid.slice(0, 18) + "…\nOrigin: https://evil.example\n\n" + (method === "GET" ? "" : fields.toString())) + "</pre>";
+    } else say("Jim's browser sent " + esc(method + " " + url.pathname) + " and the shop answered " + res.status + ". " + esc(String(res.body).replace(/<[^>]+>/g, "").slice(0, 160)));
+  }
+
   function onClick(e) {
-    var a = e.target.closest("[data-go],[data-logout],[data-checkout]");
+    var a = e.target.closest("[data-go],[data-logout],[data-checkout],[data-csrf]");
     if (!a) return;
     e.preventDefault();
+    if (a.hasAttribute("data-csrf")) return victim($("sh-evil-html").value);
     if (a.hasAttribute("data-go")) return go(a.getAttribute("data-go"));
     if (a.hasAttribute("data-logout")) { S.token = ""; return go("/#/"); }
     if (a.hasAttribute("data-checkout")) {
@@ -592,6 +717,10 @@
     "  adminUsers: () => get(API + '/admin/users'),",
     "  coupon: (code) => post(API + '/coupon', { code }),",
     "  avatar: (filename, content) => post(API + '/avatar', { filename, content }),",
+    "};",
+    "",
+    "const LEGACY_ACCOUNT_APP = {",
+    "  newsletter: 'POST /account/newsletter, form field email, signed in by the sid cookie (SameSite=None), no CSRF token',",
     "};",
     "",
     "function Basket() {",
@@ -656,6 +785,11 @@
           $("st-msg").textContent = "Encoded. Press Save token to use it.";
         } catch (e) { $("st-msg").textContent = "That isn't valid JSON."; }
       });
+    } else if (S.tab === "proxy") {
+      var T = global.AayatTools, def = T && T.get("proxy");
+      if (!def) { body.innerHTML = '<p class="sx-empty">The proxy didn\'t load. Reload the page.</p>'; return; }
+      body.innerHTML = "<div></div>";
+      def.mount(body.firstChild, { state: {}, files: function () { return {}; } });
     } else {
       body.innerHTML = '<p class="sx-note">main.3f9a1c.js, the storefront code your browser downloaded</p><pre class="sh-src">' + esc(SOURCE) + "</pre>";
     }
@@ -699,6 +833,7 @@
 
   function reset() {
     fresh();
+    P.held = [];
     $("sh-devbody").innerHTML = "";
     go("/#/", true);
     dev();
@@ -706,14 +841,15 @@
 
   function start() {
     if (!$("sh-app")) return;
+    P.page = true;
     K = global.LabKit;
     esc = K.esc;
     paint();
     global.addEventListener("labkit-award", paint);
     if (!global.initSqlJs) { $("sh-page").textContent = "Couldn't load the shop's database engine. Check your connection and reload."; return; }
-    global.initSqlJs({ locateFile: function (f) { return ROOT + "assets/vendor/sqljs-1.13.0/" + f; } }).then(function (lib) {
-      SQL = lib;
+    boot().then(function () {
       reset();
+      notify("reset");
       $("sh-page").addEventListener("click", onClick);
       $("sh-page").addEventListener("submit", onSubmit);
       document.querySelector(".sh-dev").addEventListener("click", onDev);

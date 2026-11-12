@@ -603,8 +603,27 @@
     });
   }
 
+  var PB_LISTS = ["roles", "attack", "targets", "notify", "decisions", "done"];
+  function blankPlaybook() { return { trigger: "", severity: "", roles: "", attack: "", targets: "", notify: "", decisions: "", done: "", version: "1.0", reviewed: "" }; }
+  function playbookOut(pb) {
+    var out = {}, any = false;
+    Object.keys(pb || {}).forEach(function (k) {
+      var v = pb[k];
+      if (PB_LISTS.indexOf(k) >= 0) v = String(v || "").split(k === "attack" || k === "roles" ? /[\n,]+/ : /\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      else v = String(v || "").trim();
+      if (k === "attack") v = v.map(function (x) { return x.toUpperCase(); });
+      if ((Array.isArray(v) && v.length) || (!Array.isArray(v) && v)) { out[k] = v; if (k !== "version") any = true; }
+    });
+    return any ? out : null;
+  }
+  function playbookIn(pb) {
+    var out = blankPlaybook();
+    Object.keys(pb || {}).forEach(function (k) { if (k in out) out[k] = Array.isArray(pb[k]) ? pb[k].join(k === "attack" || k === "roles" ? ", " : "\n") : String(pb[k]); });
+    return out;
+  }
+
   function blankState() {
-    return { id: null, published: false, meta: { title: "", kicker: "", units: [], level: "Beginner", minutes: 45, summary: "", tools: [], titlePrefix: "" },
+    return { id: null, published: false, meta: { title: "", kicker: "", units: [], level: "Beginner", minutes: 45, summary: "", tools: [], titlePrefix: "", playbook: blankPlaybook() },
       briefing: "", stdIntro: true, files: {}, www: {}, hosts: [], os: [], dns: [], pages: [], whois: [], machines: [],
       steps: [], flag: { word: "", where: "file", target: "", line: "{flag}", src: "", dst: "", capFile: "case/capture.pcap", ask: true, clue: "", ctf: false, points: 100, ctfId: "" } };
   }
@@ -613,7 +632,7 @@
     b = b || {};
     if (b.data && (b.data.files || b.data.meta)) b = b.data;
     var st = blankState(), files = b.files || {}, meta = b.meta || {}, sd = b.studio || {};
-    Object.keys(st.meta).forEach(function (k) { if (meta[k] != null) st.meta[k] = clone(meta[k]); });
+    Object.keys(st.meta).forEach(function (k) { if (meta[k] != null) st.meta[k] = k === "playbook" ? playbookIn(meta[k]) : clone(meta[k]); });
     var inj = sd.injected || {};
     Object.keys(inj).forEach(function (p) { if (inj[p] === null) delete files[p]; else files[p] = inj[p]; });
     Object.keys(files).forEach(function (p) {
@@ -716,6 +735,8 @@
     meta.minutes = +meta.minutes || 45;
     if (!meta.tools || !meta.tools.length) meta.tools = detectTools(st);
     if (!meta.titlePrefix) meta.titlePrefix = "Incident runbook: " + meta.title;
+    var pb = playbookOut(meta.playbook);
+    if (pb) meta.playbook = pb; else delete meta.playbook;
     var b = buildFiles(st);
     return stepsToTemplate(st).then(function (tpl) {
       return { meta: meta, files: b.files, template: tpl, flag: flagOf(st.flag.word), steps: clone(st.steps),
@@ -1141,7 +1162,20 @@
         field("Opening briefing", area("briefing", st.briefing, 6, "At 09:20 on 3 Nov the help desk..."), "Set the scene: who noticed what, when, and what evidence was saved. You can use **bold** and `code`.") +
         "<label class=\"cs-check\"><input type=\"checkbox\" data-k=\"stdIntro\"" + (st.stdIntro ? " checked" : "") + "> Add the standard paragraph about <code>~/case</code> and the network tools</label>" +
         "<div class=\"cs-f\"><span>Tools students will use</span>" + chips("meta.tools", TOOLS, m.tools, true) + btn("tools-detect", "Pick them from my runbook") + "</div>" +
+        vPlaybook(m.playbook || (m.playbook = blankPlaybook())) +
         "<details class=\"cs-adv\"><summary>Advanced</summary>" + field("Notebook title", inp("meta.titlePrefix", m.titlePrefix, "Incident runbook: " + (m.title || "…"))) + "</details>";
+    }
+    function vPlaybook(pb) {
+      return "<details class=\"cs-adv\"" + (pb.trigger ? " open" : "") + "><summary>Playbook (shown in the briefing)</summary>" +
+        field("Trigger: what starts this playbook", inp("meta.playbook.trigger", pb.trigger, "An alert for a process running from /tmp")) +
+        field("Severity", sel("meta.playbook.severity", pb.severity, [["", "Not set"], ["Low", "Low"], ["Medium", "Medium"], ["High", "High"], ["Critical", "Critical"]])) +
+        field("Roles", inp("meta.playbook.roles", pb.roles, "Incident lead, SOC analyst, Legal")) +
+        field("ATT&CK techniques", inp("meta.playbook.attack", pb.attack, "T1190, T1505.003"), "Technique IDs, separated by commas.") +
+        field("Key decisions (one per line)", area("meta.playbook.decisions", pb.decisions, 2, "Take the site offline, or block and keep it running?")) +
+        field("Time targets (one per line)", area("meta.playbook.targets", pb.targets, 2, "Contain within 1 hour\nReport to CERT-In within 6 hours")) +
+        field("Who to notify (one per line)", area("meta.playbook.notify", pb.notify, 2, "Leadership\nCERT-In within 6 hours of noticing it")) +
+        field("Done when (one per line)", area("meta.playbook.done", pb.done, 3, "Web shell removed\nPasswords rotated")) +
+        "<div class=\"cs-row\">" + field("Version", inp("meta.playbook.version", pb.version, "1.0")) + field("Last reviewed", inp("meta.playbook.reviewed", pb.reviewed, "2026-11-07")) + "</div></details>";
     }
 
     function vEvidence() {

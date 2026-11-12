@@ -7,27 +7,115 @@
   "flashcards": [
     {
       "id": "FC_4.2_1",
-      "front": "What is the primary threat vector for Device Authentication Hardening?",
-      "back_definition": "Adversaries exploit weak MD5 credential hashes on stored user credentials to bypass standard perimeter security controls.",
-      "back_example": "Example: System Audit: Account administrator locked after 5 failed logons",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: weak MD5 credential hashes is the unlocked door; stored user credentials is what the attacker wants to steal."
+      "front": "What is authentication?",
+      "back_definition": "Verifying who a user or system is before giving access.",
+      "back_example": "Typing a password, then approving a passkey prompt.",
+      "back_confusion": "Authentication proves identity; authorisation decides what that identity may do.",
+      "back_hook": "Who are you? (Then: what may you do?)"
     },
     {
       "id": "FC_4.2_2",
-      "front": "How does the security team mitigate Device Authentication Hardening threats?",
-      "back_definition": "Deploying and enforcing SHA-256 salting and key stretching directly hardens stored user credentials and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require SHA-256 salting and key stretching.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "What does a modern password policy include?",
+      "back_definition": "A long minimum length, screening against breached and common passwords, support for long passphrases and paste, rate limiting or lockout, and changes only after suspected compromise.",
+      "back_example": "Rejecting Summer2024! because it appears in breach lists.",
+      "back_confusion": "Mandatory complexity and 90-day rotation are no longer recommended by NIST; they produce predictable passwords.",
+      "back_hook": "Long, unique, unbreached, unexpired."
     },
     {
       "id": "FC_4.2_3",
-      "front": "How do analysts detect exploitation of Device Authentication Hardening?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on failed authentication lockouts.",
-      "back_example": "Syslog trace: System Audit: Account administrator locked after 5 failed logons",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "Why does forced 90-day rotation backfire?",
+      "back_definition": "People make tiny, predictable changes (Spring2024! to Summer2024!), which attackers guess easily.",
+      "back_example": "A cracked old password lets an attacker predict the new one.",
+      "back_confusion": "Change a password when there is evidence of compromise, not on a timer.",
+      "back_hook": "New season, same password."
+    },
+    {
+      "id": "FC_4.2_4",
+      "front": "What is a salt, and what does it defeat?",
+      "back_definition": "A unique random value added to each password before hashing. Identical passwords then have different hashes, which defeats precomputed rainbow tables.",
+      "back_example": "Two users with Password1 get completely different stored hashes.",
+      "back_confusion": "A salt does not slow down guessing one password; a slow hash such as bcrypt or Argon2id does that.",
+      "back_hook": "Salt makes every hash unique."
+    },
+    {
+      "id": "FC_4.2_5",
+      "front": "Why are bcrypt, scrypt and Argon2id used for passwords?",
+      "back_definition": "They are deliberately slow and tunable (work factor, and memory for scrypt and Argon2id), so each guess costs an attacker far more than with a fast hash.",
+      "back_example": "Raising bcrypt's cost by 1 doubles the time per guess.",
+      "back_confusion": "SHA-256 is a fine hash for files but too fast for passwords on its own.",
+      "back_hook": "Slow for you once, slow for them billions of times."
+    },
+    {
+      "id": "FC_4.2_6",
+      "front": "What did the 2009 RockYou breach teach attackers?",
+      "back_definition": "About 32 million passwords were stored in plain text and leaked, giving a huge list of real human passwords that became a standard cracking wordlist.",
+      "back_example": "rockyou.txt still ships with many penetration testing tools.",
+      "back_confusion": "Every breach of plain or weakly hashed passwords improves attackers' dictionaries.",
+      "back_hook": "Your password may already be in someone's wordlist."
+    },
+    {
+      "id": "FC_4.2_7",
+      "front": "What are the three MFA factor categories?",
+      "back_definition": "Knowledge (something you know), possession (something you have), inherence (something you are).",
+      "back_example": "Password + hardware key + fingerprint uses all three.",
+      "back_confusion": "A password and a PIN are both knowledge: same category, so not MFA.",
+      "back_hook": "Know, have, are."
+    },
+    {
+      "id": "FC_4.2_8",
+      "front": "Rank SMS codes, authenticator apps and FIDO2 keys for phishing resistance.",
+      "back_definition": "SMS is weakest (SIM swapping, interception), app codes are better but can still be phished in real time, and FIDO2/WebAuthn keys are phishing-resistant because they are bound to the real domain.",
+      "back_example": "A fake login page can relay an app code, but a security key refuses to sign for the wrong domain.",
+      "back_confusion": "Any MFA is much better than none; the question is how well it resists phishing.",
+      "back_hook": "Text < app < key."
+    },
+    {
+      "id": "FC_4.2_9",
+      "front": "What is MFA fatigue (push bombing)?",
+      "back_definition": "Flooding a user with push approval prompts until they approve one to make them stop.",
+      "back_example": "Uber's 2022 breach involved repeated push prompts and a message pretending to be IT support.",
+      "back_confusion": "Number matching and showing login location help users spot prompts they didn't start.",
+      "back_hook": "Never approve a prompt you didn't trigger."
+    },
+    {
+      "id": "FC_4.2_10",
+      "front": "Session hijacking vs session fixation?",
+      "back_definition": "Hijacking steals a valid session token after login and reuses it. Fixation plants a session ID the attacker knows before the victim logs in, then uses it once the victim authenticates.",
+      "back_example": "Fixation: a link carrying ?sessionid=abc123 that the site keeps after login.",
+      "back_confusion": "Regenerating the session ID at login stops fixation; secure cookie flags and HTTPS stop hijacking.",
+      "back_hook": "Fixation plants the key; hijacking pickpockets it."
+    },
+    {
+      "id": "FC_4.2_11",
+      "front": "What do the Secure, HttpOnly and SameSite cookie flags do?",
+      "back_definition": "Secure: send only over HTTPS. HttpOnly: hide the cookie from JavaScript, which blunts theft through XSS. SameSite: limit sending on cross-site requests, which reduces CSRF.",
+      "back_example": "Set-Cookie: session=...; Secure; HttpOnly; SameSite=Lax",
+      "back_confusion": "HTTPS alone doesn't stop an XSS script reading a cookie without HttpOnly.",
+      "back_hook": "Secure = tunnel only, HttpOnly = no scripts, SameSite = home only."
+    },
+    {
+      "id": "FC_4.2_12",
+      "front": "Idle timeout vs absolute timeout?",
+      "back_definition": "An idle timeout ends a session after a period of no activity. An absolute timeout ends it after a fixed total time, however active the user is.",
+      "back_example": "15 minutes idle or 8 hours total, whichever comes first.",
+      "back_confusion": "Logging out must also invalidate the session on the server, not just delete the browser cookie.",
+      "back_hook": "Fall asleep or run out the clock."
+    },
+    {
+      "id": "FC_4.2_13",
+      "front": "DAC, MAC, RBAC and ABAC: what decides access in each?",
+      "back_definition": "DAC: the owner of the resource. MAC: central labels and clearances. RBAC: the user's role. ABAC: attributes of the user, resource and environment, checked at request time.",
+      "back_example": "ABAC: nurses may read records for their own ward during their shift.",
+      "back_confusion": "RBAC asks what role you have; ABAC asks whether the current conditions satisfy the policy.",
+      "back_hook": "Owner, label, role, attributes."
+    },
+    {
+      "id": "FC_4.2_14",
+      "front": "Least privilege, separation of duties and just-in-time access?",
+      "back_definition": "Least privilege: only the access needed. Separation of duties: no single person controls a sensitive process end to end. Just-in-time: elevated access granted only for the time it is needed.",
+      "back_example": "One person raises a payment, another approves it; an admin gets domain rights for a 2-hour change window.",
+      "back_confusion": "Malware inherits the rights of whoever runs it, so over-privileged accounts turn one infection into a wide breach.",
+      "back_hook": "Need it, split it, time it."
     }
   ]
 }

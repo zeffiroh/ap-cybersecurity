@@ -1,0 +1,112 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var ACTIONS = { enrich: "Look up indicators in threat intel", ticket: "Open a ticket", notify: "Page the on-call analyst", isolate: "Isolate the host", block: "Block the address or domain",
+    disable: "Disable the user account", close: "Close as noise", escalate: "Escalate to incident lead" };
+  var STARTER = "when severity >= medium\n  enrich\n  if intel == malicious then block\n\nwhen severity >= high\n  ticket\n  if rule contains \"scheduled task\" then isolate\n  notify\n\nwhen severity == low\n  if rule contains \"print\" then close\n";
+  var CSS = ".tso-box textarea{min-height:170px}.tso-box .tso-log{font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;background:#fff;border:1px solid #bbb;padding:6px;max-height:340px;overflow:auto;margin-top:8px}" +
+    ".tso-box .tso-warn{color:#a11}";
+  var SEV = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
+
+  function cond(text) {
+    var m;
+    text = text.trim();
+    if ((m = /^severity\s*(>=|<=|==|>|<)\s*(\w+)$/i.exec(text))) {
+      var want = SEV[m[2].toLowerCase()];
+      if (want == null) throw new Error("Severity is info, low, medium, high or critical.");
+      var op = m[1];
+      return function (a) { var s = SEV[a.sev]; return op === ">=" ? s >= want : op === "<=" ? s <= want : op === ">" ? s > want : op === "<" ? s < want : s === want; };
+    }
+    if ((m = /^(rule|host|user|detail)\s+contains\s+"([^"]+)"$/i.exec(text))) { var f = m[1].toLowerCase(), w = m[2].toLowerCase(); return function (a) { return String(a[f] || "").toLowerCase().indexOf(w) >= 0; }; }
+    if ((m = /^intel\s*==\s*(malicious|suspicious|benign|unknown)$/i.exec(text))) { var v = m[1].toLowerCase(); return function (a, ctx) { return (ctx.intel || "unknown") === v; }; }
+    if (/^always$/i.test(text)) return function () { return true; };
+    throw new Error("I can't read the condition \"" + text + "\".");
+  }
+  function compile(text) {
+    var blocks = [], cur = null, errors = [];
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (raw, i) {
+      var l = raw.replace(/#.*$/, ""), t = l.trim(), m;
+      if (!t) return;
+      try {
+        if ((m = /^when\s+(.+)$/i.exec(t)) && !/^\s/.test(l)) { cur = { when: cond(m[1]), text: t, steps: [] }; blocks.push(cur); return; }
+        if (!cur) throw new Error("Start with a \"when\" line.");
+        if ((m = /^if\s+(.+?)\s+then\s+(\w+)$/i.exec(t))) { if (!ACTIONS[m[2].toLowerCase()]) throw new Error("Unknown action " + m[2] + "."); cur.steps.push({ test: cond(m[1]), act: m[2].toLowerCase(), text: t }); return; }
+        if (ACTIONS[t.toLowerCase()]) { cur.steps.push({ act: t.toLowerCase(), text: t }); return; }
+        throw new Error("Use an action (" + Object.keys(ACTIONS).join(", ") + ") or \"if CONDITION then ACTION\".");
+      } catch (e) { errors.push("Line " + (i + 1) + ": " + e.message); }
+    });
+    return { blocks: blocks, errors: errors };
+  }
+  function run(pb, alerts, intelDb) {
+    var log = [], did = {}, I = global.AayatTools.get("ioc");
+    alerts.forEach(function (a) {
+      var ctx = { intel: "unknown" }, acts = [];
+      pb.blocks.forEach(function (b) {
+        if (!b.when(a, ctx)) return;
+        b.steps.forEach(function (s) {
+          if (s.test && !s.test(a, ctx)) return;
+          if (s.act === "enrich") {
+            var ind = [a.src, a.dest].concat((a.detail.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\.(?:com|net|org|example|test)\b/gi) || [])).filter(Boolean), found = null;
+            ind.forEach(function (x) { var hit = intelDb[String(x).toLowerCase()]; if (hit && (!found || hit.verdict === "malicious")) found = hit; });
+            ctx.intel = found ? found.verdict : "unknown";
+            acts.push("enrich: " + (ind.length ? ind.join(", ") : "nothing to look up") + " -> " + ctx.intel);
+            return;
+          }
+          var target = s.act === "isolate" ? a.host : s.act === "block" ? (a.dest || a.src) : s.act === "disable" ? a.user : a.id;
+          if (!target) { acts.push(s.act + ": skipped, the alert has no " + (s.act === "block" ? "address" : s.act === "isolate" ? "host" : "user")); return; }
+          acts.push(s.act + ": " + ACTIONS[s.act] + " (" + target + ")");
+          (did[s.act] = did[s.act] || {})[target] = 1;
+        });
+      });
+      log.push({ a: a, acts: acts });
+    });
+    return { log: log, did: did };
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-soar-css", CSS);
+    var Q = {}, intelDb = {};
+    var F = K.frame(el, ctx, {
+      title: "SOAR playbook", cls: "tso-box",
+      body: '<div class="tl-cols"><label style="font-size:12px">Playbook<textarea class="tl-area" data-r="pb" spellcheck="false"></textarea></label>' +
+        '<div style="font-size:12px"><b>How to write it</b><ul><li><code>when severity &gt;= high</code> starts a block</li><li>actions: ' + Object.keys(ACTIONS).map(function (k) { return "<code>" + k + "</code>"; }).join(", ") +
+        '</li><li><code>if intel == malicious then block</code></li><li><code>if rule contains "text" then isolate</code></li></ul><label>Alert queue <select data-r="q"></select></label></div></div>',
+      actions: '<button type="button" class="btn dark" data-r="go">Run on the queue</button><button type="button" class="btn" data-r="starter">Example playbook</button>',
+      showLabel: "Show the recorded playbook",
+      show: function (a) { if (a.pb != null) F.r("pb").value = a.pb; },
+      after: '<div class="tso-log" data-r="log" hidden></div>'
+    });
+    var init = F.saved || F.st;
+    F.r("pb").value = init.pb != null && init.pb !== "" ? init.pb : F.st.a ? "" : STARTER;
+    F.r("pb").addEventListener("input", function () { F.remember({ pb: F.r("pb").value }); });
+    F.r("starter").addEventListener("click", function () { F.r("pb").value = STARTER; });
+    F.r("go").addEventListener("click", function () {
+      var c = compile(F.r("pb").value), list = Q[F.r("q").value] || [];
+      if (c.errors.length) { F.msg(c.errors.slice(0, 3).join(" "), true); return; }
+      var res = run(c, list, intelDb), risky = [];
+      var hostIso = Object.keys(res.did.isolate || {}), closed = list.filter(function (a) { return res.log.some(function (l) { return l.a === a && l.acts.some(function (x) { return /^close/.test(x); }); }); });
+      closed.forEach(function (a) { if (/high|critical/.test(a.sev)) risky.push(a.id + " (" + a.sev + ") was closed automatically"); });
+      F.r("log").hidden = false;
+      F.r("log").innerHTML = res.log.map(function (l) {
+        return "<b>" + K.esc(l.a.id + " " + l.a.sev.toUpperCase() + " " + l.a.rule) + "</b>\n" + (l.acts.length ? l.acts.map(function (x) { return "  " + K.esc(x); }).join("\n") : "  (no block matched: a person triages it)");
+      }).join("\n") + (risky.length ? '\n\n<span class="tso-warn">Check: ' + K.esc(risky.join("; ")) + "</span>" : "");
+      var n = Object.keys(res.did).reduce(function (s, k) { return s + Object.keys(res.did[k]).length; }, 0), untouched = res.log.filter(function (l) { return !l.acts.length; }).length;
+      F.msg(n + " automatic actions on " + list.length + " alerts; " + untouched + " left for a person." + (hostIso.length ? " Isolated: " + hostIso.join(", ") + "." : "") + F.compare(n, "playbook"));
+      F.ready({ pb: F.r("pb").value, file: F.r("q").value, n: n, blank: ["pb"] }, "SOAR playbook: " + n + " automatic actions on " + list.length + " alerts");
+    });
+
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      var files = K.textFiles(fs), A = global.AayatTools.get("alerts"), I = global.AayatTools.get("ioc");
+      Q = A ? A.queues(files) : {};
+      intelDb = I ? I.intel(files) : {};
+      var names = Object.keys(Q).sort();
+      F.r("q").innerHTML = names.map(function (n) { return '<option value="' + K.esc(n) + '">' + K.esc(n) + "</option>"; }).join("");
+      if (F.st.file && Q[F.st.file]) F.r("q").value = F.st.file;
+      F.note(names.length + " queue" + (names.length === 1 ? "" : "s") + ", " + Object.keys(intelDb).length + " intel entries");
+      if (!names.length) F.msg("There's no alert queue in this case to run the playbook on.");
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "soar", title: "SOAR playbook", console: true, group: "Security engineer", mount: mount, compile: compile, run: run });
+})(window);

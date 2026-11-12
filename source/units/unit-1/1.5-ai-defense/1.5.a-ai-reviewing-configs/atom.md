@@ -33,7 +33,7 @@ emit a finding. More sophisticated ML-based tools go further, they model the ent
 as a graph of interdependent settings and flag combinations that are individually acceptable but
 dangerous together (for example, allowing password auth *and* disabling login attempt limits).
 
-For the AP course, focus on the rule-engine layer, which is transparent, auditable, and teaches the
+For this course, focus on the rule-engine layer, which is transparent, auditable, and teaches the
 underlying security principle for each rule. Consider an SSH configuration file:
 
 ```

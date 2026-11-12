@@ -517,10 +517,10 @@ vulnerabilities = [
      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"},
 
     # CVE-2017-0144: EternalBlue, SMBv1 vulnerability exploited by WannaCry ransomware
-    # CVSS 8.1 HIGH, AC:H reduces score (requires specific SMB conditions)
-    # Still network-exploitable with no authentication; devastating when combined with DoublePulsar
-    {"cve": "CVE-2017-0144", "name": "EternalBlue", "cvss": 8.1,
-     "vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"},
+    # NVD: CVSS 8.8 HIGH, AV:N / AC:L / PR:L (low privileges) / UI:N / S:U
+    # Network-exploitable over SMBv1; devastating when combined with DoublePulsar
+    {"cve": "CVE-2017-0144", "name": "EternalBlue", "cvss": 8.8,
+     "vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"},
 
     # CVE-2023-38606: iOS Kernel exploit used in Operation Triangulation
     # CVSS 5.5 MEDIUM, AV:L (local access required) / PR:L (low privileges needed)
@@ -541,7 +541,7 @@ for vuln in vulnerabilities:
 | CVE              | Name            | CVSS Score | Severity  | Attack Vector | Privileges Required | User Interaction |
 |------------------|-----------------|------------|-----------|---------------|---------------------|------------------|
 | CVE-2021-44228   | Log4Shell       | 10.0       | Critical  | Network       | None                | None             |
-| CVE-2017-0144    | EternalBlue     | 8.1        | High      | Network       | None                | None             |
+| CVE-2017-0144    | EternalBlue     | 8.8        | High      | Network       | Low                 | None             |
 | CVE-2023-38606   | iOS Kernel Bug  | 5.5        | Medium    | Local         | Low                 | None             |
 :::
 
@@ -1298,7 +1298,7 @@ title: Case Study, WannaCry Ransomware (CVE-2017-0144)
 :::
 ::col::
 :::list heading="Technical Analysis" style=plain
-- **Vulnerability:** CVE-2017-0144, Windows SMBv1 buffer overflow allowing remote code execution as SYSTEM (CVSS 8.1).
+- **Vulnerability:** CVE-2017-0144, Windows SMBv1 buffer overflow allowing remote code execution as SYSTEM (NVD CVSS v3.1 base score 8.8).
 - **Propagation:** Worm component scanned TCP port 445; infected all reachable unpatched Windows systems autonomously.
 - **Payload:** AES-128 encrypted victim files with .WCRY extension; demanded $300-600 in Bitcoin.
 - **Kill switch:** WannaCry checked if a specific unregistered domain resolved, if it did, execution halted. Hutchins registered it for $10.69.

@@ -1,7 +1,7 @@
 # 3.5.a: Intrusion detection and prevention systems (IDS/IPS)
 
 > **Unit 3 · 3.5 Network Threat Detection**
-> **AP Learning Objective(s):** 3.5.A
+> **AP Learning Objective(s):** 3.5.A, 3.5.D
 > **Course skill(s):** Detect Attacks
 
 ## Learning objective (student-facing)

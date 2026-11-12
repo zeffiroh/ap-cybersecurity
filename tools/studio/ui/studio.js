@@ -38,7 +38,18 @@
   }
 
   function drawTools() {
-    window.AayatTools.list().forEach(function (def) {
+    var T = window.AayatTools, order = ["Core"].concat(T.groups || []), last = null;
+    T.list().map(function (d, i) { return { d: d, g: d.group || "Core", i: i }; }).sort(function (a, b) {
+      return (order.indexOf(a.g) + 1 || 99) - (order.indexOf(b.g) + 1 || 99) || a.i - b.i;
+    }).forEach(function (x) {
+      var def = x.d;
+      if (x.g !== last) {
+        last = x.g;
+        var h = document.createElement("small");
+        h.className = "toolgroup";
+        h.textContent = x.g === "Core" ? "Core tools" : x.g;
+        $("toolbtns").appendChild(h);
+      }
       var b = document.createElement("button");
       b.textContent = def.title;
       b.addEventListener("click", function () {

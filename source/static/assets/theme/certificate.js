@@ -18,6 +18,28 @@
   function day(iso) { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }); }
   function hours(m) { return !m ? "" : m < 60 ? m + " minutes" : (Math.round(m / 6) / 10) + " hours"; }
 
+  function quarter(x) { return Math.floor(x * 4) / 4; }
+  function secs(t) { return String(t || "0:00").split(":").reduce(function (s, x) { return s * 60 + (+x || 0); }, 0); }
+  function cpe(c) {
+    if (!c.minutes) return "";
+    var out = '<div class="ce-cpe"><p><b>Learning time:</b> ' + esc(c.minutes) + " minutes. <b>CPE hours:</b> " + quarter(c.minutes / 60) + " (60-minute hours), " +
+      quarter(c.minutes / 50) + " (50-minute hours).</p>";
+    var ch = (c.chapters || []).slice().sort(function (a, b) { return secs(a.t) - secs(b.t); });
+    if (ch.length) {
+      var by = {}, order = [];
+      ch.forEach(function (x, i) {
+        var end = i + 1 < ch.length ? secs(ch[i + 1].t) : c.minutes * 60, d = x.d || "General";
+        if (!by[d]) { by[d] = { mins: 0, items: [] }; order.push(d); }
+        by[d].mins += Math.max(0, end - secs(x.t)) / 60;
+        by[d].items.push(x.title);
+      });
+      out += '<table class="ce-out"><tr><th>Domain</th><th>Minutes</th><th>Covered</th></tr>' + order.map(function (d) {
+        return "<tr><td>" + esc(d) + "</td><td>" + Math.round(by[d].mins) + "</td><td>" + by[d].items.map(esc).join("; ") + "</td></tr>";
+      }).join("") + "</table>";
+    } else if ((c.domains || []).length) out += "<p><b>Domains:</b> " + c.domains.map(esc).join(", ") + "</p>";
+    return out + '<p class="ce-small">You can report these hours as self-reported CPE where your certifying body accepts them. Check its rules for what counts and how to round.</p></div>';
+  }
+
   function show(id) {
     $("ce-box").innerHTML = '<p class="sx-empty">Checking ' + esc(id) + "…</p>";
     $("ce-print").hidden = true;
@@ -32,7 +54,7 @@
         '<div class="ce-kind">Certificate of completion</div>' +
         '<p class="ce-lead">This certifies that</p><div class="ce-name">' + esc(c.name) + "</div>" +
         '<p class="ce-lead">watched and completed the seminar</p><div class="ce-title">' + esc(c.title) + "</div>" +
-        '<p class="ce-meta">' + (c.minutes ? esc(hours(c.minutes)) + " &middot; " : "") + "completed " + esc(day(c.issued)) + "</p>" +
+        '<p class="ce-meta">' + (c.minutes ? esc(hours(c.minutes)) + " &middot; " : "") + "completed " + esc(day(c.issued)) + "</p>" + cpe(c) +
         '<div class="ce-foot"><div class="ce-sign"><span>Mitali Aayat Mahnoor Sharma</span><small>Instructor</small></div>' +
         '<div class="ce-id"><span>' + esc(c.id) + "</span><small>Check it at " + esc(link) + "</small></div></div>" +
         "</div></article>" + (c.mine ? "" : '<p class="ce-ok">&#10003; This certificate is genuine.</p>');

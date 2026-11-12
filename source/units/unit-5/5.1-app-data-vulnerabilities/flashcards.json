@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_5.1_1",
-      "front": "What is the primary threat vector for Application Code Vulnerabilities?",
-      "back_definition": "Adversaries exploit unsafe SQL concatenations on web databases to bypass standard perimeter security controls.",
-      "back_example": "Example: Exception: Syntax error in query: SELECT * FROM users WHERE id = 42 OR '1'='1'",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: unsafe SQL concatenations is the unlocked door; web databases is what the attacker wants to steal."
+      "front": "What is SQL injection?",
+      "back_definition": "Input that is pasted into a database query gets read as SQL code, so the attacker can change what the query does.",
+      "back_example": "Typing ' OR '1'='1' -- into a login box makes the WHERE clause always true.",
+      "back_confusion": "Escaping HTML output stops XSS, not SQL injection; the fix for SQLi is parameterised queries.",
+      "back_hook": "Data that turns into commands."
     },
     {
       "id": "FC_5.1_2",
-      "front": "How does the security team mitigate Application Code Vulnerabilities threats?",
-      "back_definition": "Deploying and enforcing parameterized prepared queries directly hardens web databases and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require parameterized prepared queries.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "What is the main fix for SQL injection?",
+      "back_definition": "Parameterised queries (prepared statements): the query has placeholders and user input is passed separately, so it is always treated as data.",
+      "back_example": "cursor.execute(\"SELECT * FROM users WHERE name = ?\", (name,))",
+      "back_confusion": "A WAF and input validation help, but parameterisation is the primary control.",
+      "back_hook": "Placeholders, not string glue."
     },
     {
       "id": "FC_5.1_3",
-      "front": "How do analysts detect exploitation of Application Code Vulnerabilities?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on SQL query syntax error alerts.",
-      "back_example": "Syslog trace: Exception: Syntax error in query: SELECT * FROM users WHERE id = 42 OR '1'='1'",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "What do UNION SELECT and the -- comment do in an injection?",
+      "back_definition": "UNION SELECT adds a second query to pull data from another table into the results; -- comments out the rest of the original query.",
+      "back_example": "' UNION SELECT username, password FROM users --",
+      "back_confusion": "UNION only works when both queries return the same number of columns, so attackers probe for that first.",
+      "back_hook": "Join their query on; comment yours off."
+    },
+    {
+      "id": "FC_5.1_4",
+      "front": "What is blind SQL injection?",
+      "back_definition": "Injection where the page shows no query results, so the attacker learns data indirectly: from true/false page differences or deliberate time delays.",
+      "back_example": "If the first letter of the admin password is 'a', sleep 5 seconds.",
+      "back_confusion": "No visible output does not mean no vulnerability.",
+      "back_hook": "Asking yes/no questions, one character at a time."
+    },
+    {
+      "id": "FC_5.1_5",
+      "front": "What is cross-site scripting (XSS)?",
+      "back_definition": "Injecting script into a page so it runs in other users' browsers, with their session and permissions.",
+      "back_example": "A forum comment containing <img src=x onerror=\"steal(document.cookie)\">.",
+      "back_confusion": "XSS attacks the site's users, while SQL injection attacks its database.",
+      "back_hook": "The site serves the attacker's code to its own visitors."
+    },
+    {
+      "id": "FC_5.1_6",
+      "front": "Reflected vs stored vs DOM-based XSS?",
+      "back_definition": "Reflected: the payload comes in the request (often a crafted link) and is echoed back. Stored: it is saved on the server and served to every viewer. DOM-based: the page's own JavaScript writes untrusted data into the page without it reaching the server.",
+      "back_example": "The 2005 Samy worm was stored XSS on MySpace and added over a million friends within a day.",
+      "back_confusion": "Stored XSS needs no special link, so it can hit everyone who views the page.",
+      "back_hook": "Bounced, saved, or built in the browser."
+    },
+    {
+      "id": "FC_5.1_7",
+      "front": "What reliably prevents XSS?",
+      "back_definition": "Encoding output for its context (HTML, attribute, JavaScript, URL) so special characters show as text, backed by a Content Security Policy.",
+      "back_example": "< becomes &lt;, so <script> is displayed instead of run.",
+      "back_confusion": "Blocking the word <script> fails: onerror=, javascript: links and SVG still work.",
+      "back_hook": "Escape on the way out."
+    },
+    {
+      "id": "FC_5.1_8",
+      "front": "What is BOLA (also called IDOR)?",
+      "back_definition": "Broken object-level authorisation: an API returns or changes an object by its ID without checking that the caller is allowed to access that specific object.",
+      "back_example": "Changing /api/orders/1001 to /api/orders/1002 shows someone else's order.",
+      "back_confusion": "It is an authorisation failure, not an authentication failure: the attacker is logged in, just not entitled.",
+      "back_hook": "Logged in is not the same as allowed."
+    },
+    {
+      "id": "FC_5.1_9",
+      "front": "What is excessive data exposure in an API?",
+      "back_definition": "The server sends more fields than the client needs and relies on the front-end to hide them.",
+      "back_example": "The profile API returns date of birth and password-reset tokens; the app just doesn't display them.",
+      "back_confusion": "Hiding data or buttons in the UI does nothing; attackers call the API directly with curl or Postman.",
+      "back_hook": "If the server sends it, the attacker has it."
+    },
+    {
+      "id": "FC_5.1_10",
+      "front": "What is broken function-level authorisation?",
+      "back_definition": "An endpoint meant for admins can be called by any logged-in user because the server never checks the role.",
+      "back_example": "A student calls POST /api/admin/grades and it works.",
+      "back_confusion": "Every endpoint must check permission on the server, not just hide the menu item.",
+      "back_hook": "Check the role at the door, not on the map."
+    },
+    {
+      "id": "FC_5.1_11",
+      "front": "What makes one data breach worse than another?",
+      "back_definition": "The type of data (health, financial, ID numbers, credentials), how many records, and how long it took to detect and contain.",
+      "back_example": "40 patients' health records can be more serious than 4 million newsletter emails.",
+      "back_confusion": "A breach with no passwords can still enable identity theft and carry strict notification duties.",
+      "back_hook": "What, how much, how long."
+    },
+    {
+      "id": "FC_5.1_12",
+      "front": "PII vs PHI?",
+      "back_definition": "PII is personally identifiable information (name, address, ID numbers, date of birth). PHI is protected health information, regulated in the US by HIPAA.",
+      "back_example": "A patient's name plus diagnosis is PHI.",
+      "back_confusion": "PHI is a subset of sensitive personal data with extra legal rules; breach notification laws apply to both.",
+      "back_hook": "PII says who; PHI says who and what's wrong with them."
+    },
+    {
+      "id": "FC_5.1_13",
+      "front": "How did Equifax get breached in 2017?",
+      "back_definition": "Attackers exploited an Apache Struts flaw (CVE-2017-5638) that had a patch available two months earlier, then took data on about 147 million people.",
+      "back_example": "The fix was released in March; the attackers got in from mid-May.",
+      "back_confusion": "It was a known, patchable flaw: a patch-management failure, not a zero-day.",
+      "back_hook": "The patch was there; nobody applied it."
     }
   ]
 }

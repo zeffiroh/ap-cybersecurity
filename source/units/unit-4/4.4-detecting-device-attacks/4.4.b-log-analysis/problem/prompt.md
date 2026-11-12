@@ -1,6 +1,6 @@
 # Coding problem 4.4.b: Brute-force log correlator
 
-**Skill:** Detect Attacks · **Maps to:** 4.4.B · **Language:** Python 3 (pytest)
+**Skill:** Detect Attacks · **Maps to:** 4.4.B, 4.4.D · **Language:** Python 3 (pytest)
 
 ## Problem
 An authentication log records every login attempt as an event with a username, a timestamp (in

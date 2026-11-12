@@ -13,7 +13,7 @@ control type and policy.
 ## Lesson
 
 ### Three families of control
-Security controls are commonly grouped into three families, and the AP course expects you to be
+Security controls are commonly grouped into three families, and this course expects you to be
 able to sort any given control into the right one. **Technical (logical) controls** are implemented
 in hardware or software and enforce policy automatically, without a person deciding case-by-case, a firewall rule, WPA3 encryption (3.2.a), or an access-control list are all technical controls.
 **Physical controls** restrict physical access to a space or device, a locked server room door, a

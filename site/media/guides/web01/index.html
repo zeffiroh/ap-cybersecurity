@@ -7,14 +7,14 @@
 <script src="../../../assets/shared/identity.js"></script>
 <script src="../../../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The hacked web shop guide &middot; Aayat-AP-Prep</title>
+<title>The hacked web shop written tutorial &middot; Aayat-AP-Prep</title>
 <style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
 </head>
-<body><main><p class="kick">Web server compromise guide</p>
+<body><main><p class="kick">Web server compromise · written tutorial</p>
 <h1>The hacked web shop</h1>
 <p class="meta">Intermediate &middot; about 60 min</p>
 <p>NimbuMart&#x27;s web server is busy and sending data out. Follow the attacker from SQL injection to a web shell, a hidden backdoor and a command server.</p>
-<div class="go"><a class="main" href="../../../notebook.html?ref=rb-web01&amp;runbook=web01">Worked example</a><a href="../../../notebook.html?ref=rb-web01--guided&amp;runbook=web01--guided">Guided</a><a href="../../../notebook.html?ref=rb-web01--solo&amp;runbook=web01--solo">On your own</a></div>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-web01&amp;runbook=web01">Walkthrough</a><a href="../../../notebook.html?ref=rb-web01--guided&amp;runbook=web01--guided">Practice</a><a href="../../../notebook.html?ref=rb-web01--solo&amp;runbook=web01--solo">Solo</a></div>
 <p>Alerts at 09:20 on 3 Nov: web01 is using a lot of CPU and sending data out. Work down this runbook in order. Linux cells run on a real Linux in your browser, Python cells run Python, and every output is saved in this notebook.</p>
 <p>The evidence is in <code>~/case</code> (Linux) and <code>case/</code> (Python), including a packet capture, <code>capture.pcap</code>. the network tools (<code>nmap</code>, <code>curl</code>, <code>wget</code>, <code>tshark</code>, <code>dig</code>, <code>nslookup</code>, <code>host</code>, <code>whois</code>, <code>ping</code>, <code>traceroute</code>, <code>nc</code>, <code>ssh</code>, <code>openssl</code>, <code>nikto</code>, <code>gobuster</code>) work on a recorded copy of the case network; nothing leaves your browser.</p>
 <p>The steps follow the incident response lifecycle: <strong>verify, scope, find the way in, preserve evidence, contain, eradicate, recover, learn</strong>. The order is based on the open LetsDefend incident response playbooks (MIT licence).</p>
@@ -47,25 +47,35 @@
 date -u
 ls -l . suspect
 sha256sum *.log *.csv *.txt capture.pcap</code></pre>
-<p class="lab">Expected output</p><pre class="want">Wed Nov  4 21:26:33 UTC 2026
+<p class="lab">Expected output</p><pre class="want">Sat Nov  7 13:09:21 UTC 2026
 .:
-total 32
--rw-r--r--    1 root     root          1412 Nov  4 21:26 access.log
--rw-r--r--    1 root     root          1150 Nov  4 21:26 auth.log
--rw-r--r--    1 root     root          5625 Nov  4 21:26 capture.pcap
--rw-r--r--    1 root     root           806 Nov  4 21:26 conn.csv
--rw-r--r--    1 root     root           104 Nov  4 21:26 crontab.txt
--rw-r--r--    1 root     root           177 Nov  4 21:26 known_bad.txt
--rw-r--r--    1 root     root           347 Nov  4 21:26 ps.txt
-drwxr-xr-x    2 root     root            80 Nov  4 21:26 suspect
+total 52
+-rw-r--r--    1 root     root          1412 Nov  7 13:09 access.log
+-rw-r--r--    1 root     root          2673 Nov  7 13:09 alerts.json
+-rw-r--r--    1 root     root          1150 Nov  7 13:09 auth.log
+-rw-r--r--    1 root     root          5625 Nov  7 13:09 capture.pcap
+-rw-r--r--    1 root     root           256 Nov  7 13:09 captured_token.txt
+drwxr-xr-x    2 root     root           120 Nov  7 13:09 config
+-rw-r--r--    1 root     root           806 Nov  7 13:09 conn.csv
+-rw-r--r--    1 root     root           104 Nov  7 13:09 crontab.txt
+drwxr-xr-x    2 root     root            60 Nov  7 13:09 firewall
+-rw-r--r--    1 root     root          1019 Nov  7 13:09 intel.json
+-rw-r--r--    1 root     root           177 Nov  7 13:09 known_bad.txt
+-rw-r--r--    1 root     root           347 Nov  7 13:09 ps.txt
+-rw-r--r--    1 root     root           341 Nov  7 13:09 shop_users.csv
+drwxr-xr-x    2 root     root            80 Nov  7 13:09 suspect
+-rw-r--r--    1 root     root          1506 Nov  7 13:09 vulns.csv
 
 suspect:
 total 8
--rwxr-xr-x    1 root     root            39 Nov  4 21:26 backup.sh
--rwxr-xr-x    1 root     root            93 Nov  4 21:26 kworkerd
+-rwxr-xr-x    1 root     root            39 Nov  7 13:09 backup.sh
+-rwxr-xr-x    1 root     root            93 Nov  7 13:09 kworkerd
 b81ad98f8172463a8c224c3eddb6429eb553a08a297cf4bc2c7a0a44f4bb3f3a  access.log
 cbcc5dbfd3199c92d15787576c07771e7889acef854d14e4e8b526be71c43b7d  auth.log
 ee805a8835c67b1aa8caf9658993fb6e1a046fb3db76320b5b8b6384ec2ef7b9  conn.csv
+735da737c46251436a8dc350a1feac9d711b810e957d4688ae95ba68aa44f7f3  shop_users.csv
+5ecaef97518d18ac7272978a9c0864f0f7b56a71cd794951d5da0a7cfe68c4d5  vulns.csv
+9098f5aa5796416394d8ef7697dcbb68fb02dbb69439d9561239649ba9775df9  captured_token.txt
 fd1d4e004e93c46c3ab7154076608a882d6ed65f33f5d33d5575193876012e61  crontab.txt
 6c659e3c86d78417a2f716b1a2abbf6e59317bf5a21a76e8e95d86ea16cb61a7  known_bad.txt
 a9780930c8ce9b535924617ec06a624925fcf6ed7cd0fa1b3eaa9ac9ad80bfdb  ps.txt
@@ -83,7 +93,7 @@ a9780930c8ce9b535924617ec06a624925fcf6ed7cd0fa1b3eaa9ac9ad80bfdb  ps.txt
 <strong>Question:</strong> Which process uses 38.5% CPU on web01? (program name, see ps.txt)</p>
 </blockquote>
 <pre><code>nmap -sn 10.0.0.0/24</code></pre>
-<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:26 UTC
+<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC
 Nmap scan report for gateway.corp.lan (10.0.0.1)
 Host is up (0.00042s latency).
 MAC Address: 52:54:00:12:34:01 (QEMU virtual NIC)
@@ -152,7 +162,7 @@ Disallow: /backup.zip
 ---
 HTTP/1.1 200 OK
 Server: nginx/1.18.0 (Ubuntu)
-Date: Wed, 04 Nov 2026 21:26:36 GMT
+Date: Sat, 07 Nov 2026 13:09:24 GMT
 Content-Type: text/plain
 Content-Length: 54
 Connection: keep-alive
@@ -163,7 +173,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)
 ---------------------------------------------------------------------------
 + Target IP:          10.0.0.5
 + Target Hostname:    10.0.0.5
-+ Start Time:         2026-11-04 21:26:37 (GMT0)
++ Start Time:         2026-11-07 13:09:24 (GMT0)
 ---------------------------------------------------------------------------
 + Server: nginx/1.18.0 (Ubuntu)
 + The server banner reveals the exact software version. Attackers use it to look up known bugs.
@@ -176,7 +186,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)
 + /uploads/: Upload folder found. Check whether uploaded files can run. (HTTP 403)
 + /login: Login page found. Test it for weak passwords and SQL injection. (HTTP 200)
 + /shop?id=: A database error is shown to users. Possible SQL injection.
-+ 21:26:40: scan finished. Nikto only finds clues; check every one by hand.
++ 13:09:28: scan finished. Nikto only finds clues; check every one by hand.
 ===============================================================
 Gobuster v3.6 (lab copy)
 ===============================================================
@@ -275,7 +285,7 @@ deploy    1402  0.0  0.1 -bash
 not listed: suspect/backup.sh
 KNOWN BAD: suspect/kworkerd</pre>
 <pre><code>nmap -sV -p- 10.0.0.5</code></pre>
-<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:26 UTC
+<p class="lab">Expected output</p><pre class="want">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC
 Nmap scan report for web01.corp.lan (10.0.0.5)
 Host is up (0.00042s latency).
 Not shown: 65531 closed tcp ports (reset)
@@ -306,7 +316,7 @@ traceroute 198.51.100.66
 whois 203.0.113.7</code></pre>
 <p class="lab">Expected output</p><pre class="want">198.51.100.66
 vps-4471.cheap-hosting.example.
-Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-04 21:27 UTC
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-07 13:09 UTC
 Nmap scan report for 203.0.113.7
 Host is up (0.048s latency).
 Not shown: 998 closed tcp ports (reset)
@@ -373,9 +383,9 @@ tar cf &quot;$pack&quot; -C ~/evidence .
 ls -l ~/evidence-*
 wc -l SHA256SUMS
 cd ~/case</code></pre>
-<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261104T2127.tar.gz
--rw-r--r--    1 root     root          3557 Nov  4 21:27 /root/evidence-20261104T2127.tar.gz
-9 SHA256SUMS</pre>
+<p class="lab">Expected output</p><pre class="want">packed /root/evidence-20261107T1309.tar.gz
+-rw-r--r--    1 root     root          7240 Nov  7 13:09 /root/evidence-20261107T1309.tar.gz
+19 SHA256SUMS</pre>
 <h2>10. Contain</h2>
 <ul>
 <li>&#9744; Block the attacker and the command server at the firewall</li>

@@ -1,0 +1,178 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var TYPES = ["Targeted scanning or probing of critical networks or systems", "Compromise of critical systems or information", "Unauthorised access of IT systems or data",
+    "Defacement or intrusion into a website", "Malicious code attack (virus, worm, trojan, bots, spyware, ransomware, cryptominer)", "Attack on servers (database, mail, DNS) and network devices",
+    "Identity theft, spoofing and phishing attacks", "Denial of service (DoS) and distributed denial of service (DDoS)", "Attack on critical infrastructure, SCADA or operational technology",
+    "Attack on applications (e-governance, e-commerce and others)", "Data breach", "Data leak", "Attack on Internet of Things devices", "Attack affecting digital payment systems",
+    "Attack through malicious mobile apps", "Fake mobile apps", "Unauthorised access to social media accounts", "Attack affecting cloud computing systems, servers, software or applications",
+    "Attack affecting big data, blockchain, virtual assets, exchanges, wallets, robotics, 3D and 4D printing or drones", "Attack affecting artificial intelligence and machine learning systems"];
+  var FIELDS = [["name", "Your name", "text"], ["role", "Your role", "text"], ["email", "Contact email", "text"], ["phone", "Contact phone", "text"], ["org", "Organisation", "text"],
+    ["sector", "Sector", "text"], ["occurred", "When it started (UTC, YYYY-MM-DD HH:MM)", "text"], ["detected", "When you noticed it (UTC, YYYY-MM-DD HH:MM)", "text"],
+    ["type", "Type of incident", "type"], ["systems", "Affected systems (names, addresses, operating systems)", "area"], ["symptoms", "What happened (symptoms observed)", "area"],
+    ["indicators", "Indicators (IP addresses, domains, hashes, file names)", "area"], ["actions", "Actions taken so far", "area"], ["personal", "Is personal data affected?", "yn"],
+    ["filed", "Filing time (UTC, YYYY-MM-DD HH:MM)", "text"]];
+  var CSS = ".tci-box .tci-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;margin-top:8px}@media (max-width:820px){.tci-box .tci-grid{grid-template-columns:1fr}}" +
+    ".tci-box .tci-form label{display:block;font-size:12px;margin-top:6px}.tci-box .tci-form input,.tci-box .tci-form select,.tci-box .tci-form textarea{display:block;width:100%;box-sizing:border-box;font:13px system-ui,sans-serif;padding:4px;border:1px solid #000;background:#fff;color:#111}" +
+    ".tci-box .tci-form textarea{min-height:54px}.tci-box .tci-mail{border:1px solid #bbb;background:#fff;margin-top:6px;font-size:12.5px}.tci-box .tci-mail summary{cursor:pointer;padding:5px 8px;background:#f0f0f0}" +
+    ".tci-box .tci-mail pre{white-space:pre-wrap;margin:0;padding:6px 8px;font:12.5px/1.45 system-ui,sans-serif}.tci-box .tci-mail textarea{width:calc(100% - 16px);margin:0 8px 8px;min-height:44px}" +
+    ".tci-box .tci-late td{background:#fbe3e0}.tci-box .tci-ok td{background:#e3f4e8}.tci-box h5{margin:10px 0 2px;font-size:13px}";
+
+  function when(s) {
+    var m = /^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d)/.exec(String(s || "").trim());
+    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : NaN;
+  }
+  function fmt(t) { return isNaN(t) ? "" : new Date(t).toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+  function scenarios(files) {
+    var out = {};
+    Object.keys(files).forEach(function (n) {
+      if (!/certin.*\.json$/i.test(K.base(n))) return;
+      var d = K.json(files[n]);
+      if (d && d.detected) out[n] = d;
+    });
+    return out;
+  }
+  function clocks(sc, form) {
+    var t = when(sc.detected), rows = [];
+    function add(who, hours, rule, applies, note) { rows.push({ who: who, due: t + hours * 3600000, hours: hours, rule: rule, applies: applies, note: note || "" }); }
+    add("CERT-In", 6, "CERT-In Directions of 28 April 2022 under section 70B(6) of the IT Act: report within 6 hours of noticing", true);
+    add("Data Protection Board (detailed report)", 72, "DPDP Rules 2025, rule 7: tell the Board without delay, then a detailed report within 72 hours", !!(sc.personal || form.personal === "yes"),
+      "Applies from 13 May 2027. Also tell each affected person without delay.");
+    add("RBI", 6, "RBI directions for regulated entities: report cyber incidents within 6 hours of detection", !!sc.rbi);
+    add("EU supervisory authority (GDPR)", 72, "GDPR Article 33: within 72 hours of becoming aware, if EU residents' personal data is affected", !!sc.eu);
+    return rows;
+  }
+  function check(sc, form) {
+    var out = [];
+    FIELDS.forEach(function (f) { if (!String(form[f[0]] || "").trim()) out.push(f[1] + " is empty."); });
+    if (form.email && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(form.email)) out.push("The contact email doesn't look like an email address.");
+    ["occurred", "detected", "filed"].forEach(function (k) { if (form[k] && isNaN(when(form[k]))) out.push(FIELDS.filter(function (f) { return f[0] === k; })[0][1].split(" (")[0] + " needs the form YYYY-MM-DD HH:MM."); });
+    var det = when(form.detected), filed = when(form.filed), real = when(sc.detected);
+    if (!isNaN(det) && !isNaN(real) && Math.abs(det - real) > 15 * 60000) out.push("The detection time doesn't match the evidence: the first sure sign was at " + fmt(real) + ".");
+    if (!isNaN(filed) && !isNaN(real) && filed - real > 6 * 3600000) out.push("Filed " + Math.round((filed - real) / 360000) / 10 + " hours after noticing: that is past CERT-In's 6 hours.");
+    if (!isNaN(filed) && !isNaN(real) && filed < real) out.push("The filing time is before the incident was noticed.");
+    if (sc.types && form.type && sc.types.indexOf(form.type) < 0) out.push("Check the incident type: the evidence fits " + sc.types.map(function (x) { return "“" + x + "”"; }).join(" or ") + ".");
+    if (form.indicators && !/\d+\.\d+\.\d+\.\d+|[a-z0-9-]+\[?\.\]?[a-z]{2,}|\b[a-f0-9]{32,64}\b/i.test(form.indicators)) out.push("Indicators need at least one IP address, domain or hash.");
+    if (sc.personal && form.personal === "no") out.push("The evidence shows personal data was affected.");
+    (sc.must || []).forEach(function (m) { if (!new RegExp(m[0], "i").test([form.systems, form.symptoms, form.indicators, form.actions].join("\n"))) out.push(m[1]); });
+    return out;
+  }
+  function ref(sc, form) {
+    var s = (sc.org || "") + (form.filed || ""), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9000;
+    return "CERTIn-" + String(form.filed || "").slice(0, 10).replace(/-/g, "") + "-" + (1000 + h);
+  }
+  function report(sc, form, inbox) {
+    var lines = ["# Incident report to CERT-In", ""];
+    FIELDS.forEach(function (f) { lines.push("**" + f[1] + ":** " + String(form[f[0]] || "").replace(/\n/g, " ")); });
+    lines.push("", "## Notification clocks", "");
+    clocks(sc, form).filter(function (c) { return c.applies; }).forEach(function (c) { lines.push("- " + c.who + ": due " + fmt(c.due) + " (" + c.rule + ")" + (c.note ? " " + c.note : "")); });
+    if (inbox.length) {
+      lines.push("", "## Messages", "");
+      inbox.forEach(function (m) { lines.push("- " + fmt(m.t) + " from " + m.from + ": " + m.subject + (m.reply ? "\n  Reply: " + m.reply.replace(/\n/g, " ") : "")); });
+    }
+    return lines.join("\n") + "\n";
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-certin-css", CSS);
+    var S = {}, cur = "", sc = null, form = {}, filedAt = null, now = NaN, replies = {};
+    var F = K.frame(el, ctx, {
+      title: "CERT-In filing and inbox", cls: "tci-box",
+      body: '<div class="tl-row"><label>Case <select data-r="sc"></select></label><span class="tl-pill" data-r="clock"></span></div>',
+      actions: '<button type="button" class="btn dark" data-r="file">Check and file</button><button type="button" class="btn" data-r="tick">Advance the clock 1 hour</button><button type="button" class="btn" data-r="dl">Download the filing</button>',
+      showLabel: "Show the model filing",
+      show: function (a) { if (a.form) { form = JSON.parse(JSON.stringify(a.form)); draw(); keep(); } },
+      after: '<div class="tci-grid"><div class="tci-form" data-r="form"></div><div><h5>Notification clocks</h5><div data-r="clocks"></div><h5>Inbox</h5><div data-r="inbox"><p class="tl-msg">Nothing yet.</p></div></div></div>'
+    });
+    var init = F.saved || F.st;
+    function keep() { F.remember({ file: cur, form: form, filedAt: filedAt, now: now, replies: replies }); }
+    function inbox() {
+      if (filedAt == null || !sc) return [];
+      var list = [{ t: filedAt + 4 * 60000, from: "incident@cert-in.org.in (simulated)", subject: "Acknowledgement: " + ref(sc, form),
+        body: "Your report has been received and given the reference " + ref(sc, form) + ".\nKeep the logs of the affected systems for 180 days, as the Directions require, and send updates to this address quoting the reference." }];
+      (sc.inbox || []).forEach(function (m, i) {
+        var t = m.after != null ? filedAt + m.after * 60000 : when(m.at);
+        list.push({ t: t, from: m.from, subject: m.subject, body: m.body, id: "m" + i });
+      });
+      return list.filter(function (m) { return m.t <= now; }).sort(function (a, b) { return a.t - b.t; }).map(function (m) { m.reply = replies[m.id || "ack"] || ""; return m; });
+    }
+    function drawClocks() {
+      if (!sc) return;
+      var filed = when(form.filed);
+      F.r("clocks").innerHTML = '<table class="tl-table"><tr><th>Who</th><th>Due</th><th>Status</th></tr>' + clocks(sc, form).map(function (c) {
+        if (!c.applies) return '<tr><td>' + K.esc(c.who) + '</td><td colspan="2">Does not apply to this case</td></tr>';
+        var late = (!isNaN(filed) && c.who === "CERT-In" ? filed : now) > c.due, done = c.who === "CERT-In" && filedAt != null && !late;
+        return '<tr class="' + (done ? "tci-ok" : late ? "tci-late" : "") + '" title="' + K.esc(c.rule + (c.note ? " " + c.note : "")) + '"><td>' + K.esc(c.who) + "</td><td>" + K.esc(fmt(c.due)) + "</td><td>" +
+          (done ? "Filed in time" : late ? "Late" : Math.max(0, Math.round((c.due - now) / 360000) / 10) + " h left") + "</td></tr>";
+      }).join("") + '</table><p class="tl-msg">Hover a row for the rule behind it.</p>';
+      F.r("clock").textContent = "Clock: " + fmt(now);
+    }
+    function drawInbox() {
+      var list = inbox();
+      F.r("inbox").innerHTML = list.length ? list.map(function (m) {
+        var k = m.id || "ack";
+        return '<details class="tci-mail" open><summary><b>' + K.esc(m.subject) + "</b><br><small>" + K.esc(m.from) + ", " + K.esc(fmt(m.t)) + "</small></summary><pre>" + K.esc(m.body) + "</pre>" +
+          (m.id ? '<textarea data-reply="' + k + '" placeholder="Your reply">' + K.esc(replies[k] || "") + "</textarea>" : "") + "</details>";
+      }).join("") : '<p class="tl-msg">Nothing yet. File the report to start the conversation.</p>';
+    }
+    function draw() {
+      F.r("form").innerHTML = FIELDS.map(function (f) {
+        var v = K.esc(form[f[0]] || "");
+        if (f[2] === "type") return '<label>' + K.esc(f[1]) + '<select data-f="type"><option value="">Choose…</option>' + TYPES.map(function (t) { return '<option' + (form.type === t ? " selected" : "") + ">" + K.esc(t) + "</option>"; }).join("") + "</select></label>";
+        if (f[2] === "yn") return '<label>' + K.esc(f[1]) + '<select data-f="personal"><option value="">Choose…</option><option value="yes"' + (form.personal === "yes" ? " selected" : "") + '>Yes</option><option value="no"' + (form.personal === "no" ? " selected" : "") + ">No</option></select></label>";
+        if (f[2] === "area") return '<label>' + K.esc(f[1]) + '<textarea data-f="' + f[0] + '">' + v + "</textarea></label>";
+        return '<label>' + K.esc(f[1]) + '<input data-f="' + f[0] + '" value="' + v + '"></label>';
+      }).join("");
+      drawClocks();
+      drawInbox();
+    }
+    function open(name) {
+      cur = name;
+      sc = S[name];
+      if (isNaN(now)) now = when(sc.detected) + 30 * 60000;
+      F.note(sc.org || "");
+      draw();
+    }
+    el.addEventListener("input", function (e) {
+      var k = e.target.getAttribute("data-f"), rk = e.target.getAttribute("data-reply");
+      if (k) { form[k] = e.target.value; drawClocks(); keep(); }
+      if (rk) { replies[rk] = e.target.value; keep(); }
+    });
+    el.addEventListener("change", function (e) { var k = e.target.getAttribute("data-f"); if (k) { form[k] = e.target.value; drawClocks(); keep(); } });
+    F.r("sc").addEventListener("change", function () { now = NaN; filedAt = null; open(this.value); keep(); });
+    F.r("tick").addEventListener("click", function () { now += 3600000; drawClocks(); drawInbox(); keep(); });
+    F.r("dl").addEventListener("click", function () { if (sc) K.download("cert-in-report.md", report(sc, form, inbox()), "text/markdown"); });
+    F.r("file").addEventListener("click", function () {
+      if (!sc) return;
+      var bad = check(sc, form);
+      if (bad.length) { F.msg("Not filed yet. " + bad.length + " thing" + (bad.length === 1 ? "" : "s") + " to fix: " + bad.join(" "), true); }
+      else {
+        var t = when(form.filed);
+        filedAt = t;
+        if (now < t + 5 * 60000) now = t + 5 * 60000;
+        F.msg("Filed. Reference " + ref(sc, form) + ". Advance the clock to see what arrives next.");
+        draw();
+        keep();
+      }
+      F.ready({ file: cur, form: form, n: bad.length, blank: ["form"] }, "CERT-In filing for " + (sc.org || K.base(cur)) + ": " + (bad.length ? bad.length + " problems" : "filed, reference " + ref(sc, form)));
+    });
+
+    F.note("Loading the case…");
+    F.files().then(function (fs) {
+      S = scenarios(K.textFiles(fs));
+      var names = Object.keys(S).sort();
+      if (!names.length) { F.note(""); F.msg("There is no case here. It is a .json file with \"certin\" in the name and a \"detected\" time.", true); F.r("file").disabled = true; return; }
+      F.r("sc").innerHTML = names.map(function (n) { return '<option value="' + K.esc(n) + '">' + K.esc(n) + "</option>"; }).join("");
+      var want = init.file && S[init.file] ? init.file : names[0];
+      F.r("sc").value = want;
+      if (init.form && typeof init.form === "object") form = JSON.parse(JSON.stringify(init.form));
+      if (typeof init.filedAt === "number") filedAt = init.filedAt;
+      if (typeof init.now === "number") now = init.now;
+      if (init.replies && typeof init.replies === "object") replies = init.replies;
+      open(want);
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "certin", title: "CERT-In filing and inbox", console: true, group: "Governance and risk", mount: mount, types: TYPES, fields: FIELDS, clocks: clocks, check: check, when: when });
+})(window);

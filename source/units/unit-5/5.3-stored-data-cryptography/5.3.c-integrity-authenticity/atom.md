@@ -97,7 +97,7 @@ library function.
 
 ## Common misconceptions
 - "A matching hash proves the message wasn't tampered with." → Only if the attacker could not also recompute the hash after tampering. A plain, keyless hash gives no such guarantee once an attacker can rewrite both the message and its accompanying hash.
-- "`H(key + message)` is basically the same as HMAC." → Naive concatenation is vulnerable to length-extension attacks on Merkle-Damgard hashes (MD5/SHA-1/SHA-256); HMAC's nested nested construction is specifically designed to prevent this.
+- "`H(key + message)` is basically the same as HMAC." → Naive concatenation is vulnerable to length-extension attacks on Merkle-Damgard hashes (MD5/SHA-1/SHA-256); HMAC's nested construction is specifically designed to prevent this.
 - "HMAC encrypts the message." → HMAC produces a tag for verification; it does not hide or encrypt the message content at all. Confidentiality requires separate encryption.
 - "Integrity and authenticity are the same thing." → Integrity means unaltered; authenticity means it really came from the claimed sender. A plain hash can offer integrity (over a trusted channel) without authenticity; HMAC offers both because only the key holder can produce a valid tag.
 

@@ -1,6 +1,6 @@
 # Coding problem 2.1.c: Risk Likelihood, Impact, and Decisions
 
-**Skill:** Analyze Risk · **Maps to:** 2.1.C · **Language:** Python 3 (pytest)
+**Skill:** Analyze Risk · **Maps to:** 2.1.C, 2.1.D, 2.1.E, 2.1.F, 2.1.G · **Language:** Python 3 (pytest)
 
 ## Problem
 In cybersecurity, organizations must assess risk and decide how to respond to it. Risk is typically calculated by multiplying the Likelihood of an incident by its Impact:

@@ -1,7 +1,7 @@
 # 2.1.c: Risk language: likelihood, impact, and security goals
 
 > **Unit 2 · 2.1 Security Foundations: CIA Triad**
-> **AP Learning Objective(s):** 2.1.C
+> **AP Learning Objective(s):** 2.1.C, 2.1.D, 2.1.E, 2.1.F, 2.1.G
 > **Course skill(s):** Analyze Risk
 
 ## Learning objective (student-facing)
@@ -45,6 +45,12 @@ Once a risk is identified and scored, the organization must decide how to handle
    * *Example:* A retail store decides to completely stop collecting and storing customer credit card numbers. By using a third-party payment processor, they eliminate the risk of their credit card database being breached.
    * *When to use:* Extreme risks where the cost of protection is higher than the business value of the activity.
 
+### Sorting the Controls You Choose
+Mitigation means picking controls, and every control can be sorted on two independent axes. By **function**, when it acts in the life of an incident: **preventive** controls stop it happening (a locked door, MFA), **detective** controls notice it (CCTV, an intrusion detection alert), **corrective** controls restore things afterwards (backups, a re-imaged laptop), **deterrent** controls discourage the attempt (a warning banner), and **compensating** controls stand in when the preferred control cannot be used. By **category**, how it is implemented: **technical** (software and hardware), **administrative** (policies, training, background checks), or **physical** (locks, guards, fences). A security camera is physical and detective; a background-check policy is administrative and preventive.
+
+### Why One Strong Control Is Not Enough
+Every control has a known way to fail: passwords get phished, antivirus misses new malware, a firewall rule is written in the wrong order, a detective alert goes unread. **Defense in depth** layers several independent controls so that an attacker who defeats one still meets the next. The layers must fail for different reasons, two controls that share one weakness add little. In the 2013 Target breach, the intrusion detection system did flag the malware, but nobody acted on the alert and the vendor's network path to the payment systems was not segmented, so no remaining layer stopped the theft.
+
 ### Risk Calculus
 To decide which strategy to use, security teams compare the cost of a control against the asset value and the risk score. For instance, if a database is worth $10,000, spending $20,000 on a firewall is mathematically irrational. 
 The coding problem in `problem/` models this decision-making process. By evaluating the threat likelihood, impact, mitigation cost, and asset value, you will write a program to recommend the optimal risk treatment.
@@ -57,6 +63,9 @@ The coding problem in `problem/` models this decision-making process. By evaluat
 - **Accept**: retaining risk without active mitigation when it is low-impact or too expensive to fix.
 - **Transfer**: sharing risk with third parties (like insurance or cloud hosting).
 - **Avoid**: eliminating risk by stopping the risky activity altogether.
+- **Control function**: when a control acts: preventive, detective, corrective, deterrent, or compensating.
+- **Control category**: how a control is implemented: technical, administrative, or physical.
+- **Defense in depth**: layering independent controls so that the failure of one does not expose the asset.
 
 ## Common misconceptions
 - "We must eliminate all risk." → Impossible. Security has a cost, and organizations must accept some level of risk (known as risk appetite) to function.

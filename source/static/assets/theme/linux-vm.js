@@ -7,7 +7,7 @@
   var MARK = "__AYT";
   var TOOLS = ["aayat-net", "nmap", "curl", "tshark", "dig", "ping", "traceroute", "nslookup", "host", "whois", "nc", "wget", "ssh", "openssl", "gobuster", "nikto", "aayat-replay"];
   var NET = "/usr/local/share/aayat/net";
-  var REPLAY = "/usr/local/share/aayat/replay", SHIMS = "/usr/local/share/aayat/bin";
+  var REPLAY = "/usr/local/share/aayat/replay", SHIMS = "/usr/local/share/aayat/bin", LABDIR = "/usr/local/share/aayat/lab";
 
   var vm = null, booting = null, job = null, queue = Promise.resolve(), listeners = [], muted = 0;
   var installed = "", installing = null, manifests = {}, texts = {}, waitPrompt = null, seen = "";
@@ -15,13 +15,22 @@
   function utf8out(s) { return unescape(encodeURIComponent(s)); }
   function utf8in(s) { try { return decodeURIComponent(escape(s)); } catch (e) { return s; } }
 
+  var IMG = LINUX;
+  function imageHost() {
+    var host = global.APCYBER_LAB_HOST && String(global.APCYBER_LAB_HOST).replace(/\/?$/, "/");
+    if (!host || !global.fetch) return Promise.resolve(LINUX);
+    var ctl = global.AbortController ? new AbortController() : null, t = setTimeout(function () { if (ctl) ctl.abort(); }, 4000);
+    return fetch(host + "buildroot-bzimage68.bin", { method: "HEAD", signal: ctl ? ctl.signal : undefined }).then(function (r) { clearTimeout(t); return r.ok ? host : LINUX; },
+      function () { clearTimeout(t); return LINUX; });
+  }
+
   function boot(status) {
     if (booting) return booting;
-    booting = new Promise(function (ok, bad) {
+    booting = imageHost().then(function (base) { IMG = base; }).then(function () { return new Promise(function (ok, bad) {
       function go() {
         try {
           vm = new global.V86({ wasm_path: LINUX + "v86.wasm", memory_size: 128 * 1024 * 1024, vga_memory_size: 2 * 1024 * 1024,
-            bios: { url: LINUX + "seabios.bin" }, vga_bios: { url: LINUX + "vgabios.bin" }, bzimage: { url: LINUX + "buildroot-bzimage68.bin" },
+            bios: { url: LINUX + "seabios.bin" }, vga_bios: { url: LINUX + "vgabios.bin" }, bzimage: { url: IMG + "buildroot-bzimage68.bin" },
             cmdline: "tsc=reliable mitigations=off random.trust_cpu=on", filesystem: {}, autostart: true });
         } catch (e) { bad(e); return; }
         waitPrompt = ok;
@@ -40,7 +49,7 @@
       s.onload = go;
       s.onerror = function () { bad(new Error("Couldn't load Linux. Check your connection.")); };
       document.head.appendChild(s);
-    });
+    }); });
     booting.catch(function () { booting = null; vm = null; });
     return booting;
   }
@@ -156,6 +165,60 @@
     return manifests[id];
   }
 
+  function swap(s, map, keys) {
+    keys.forEach(function (k) {
+      s = s.replace(new RegExp("(^|[^A-Za-z0-9-])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9-])", "g"), function (m, pre) { return pre + map[k]; });
+    });
+    return s;
+  }
+  function learner() {
+    var e = global.Identity && global.Identity.getEmail && global.Identity.getEmail();
+    if (e) return String(e).toLowerCase();
+    try {
+      var k = localStorage.getItem("aayat_learner");
+      if (!k) { k = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("aayat_learner", k); }
+      return k;
+    } catch (err) { return "anon"; }
+  }
+  function pickVariant(m) {
+    var n = m.variants.length + 1, key = "aayat_evidence_" + (m.base || m.id), q = /[?&]evidence=(\d+)/.exec(location.search || "");
+    if (global.AAYAT_EVIDENCE != null) return Math.min(n - 1, Math.max(0, +global.AAYAT_EVIDENCE));
+    if (q) return Math.min(n - 1, +q[1]);
+    try { var s = localStorage.getItem(key); if (s != null && +s < n) return +s; } catch (e) {}
+    var h = 2166136261, who = learner() + "|" + (m.base || m.id);
+    for (var i = 0; i < who.length; i++) { h ^= who.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    var v = h % n;
+    try { localStorage.setItem(key, String(v)); } catch (e) {}
+    return v;
+  }
+  function personalise(m) {
+    if (!m || !Array.isArray(m.variants) || !m.variants.length) return m;
+    var v = pickVariant(m), out = {};
+    Object.keys(m).forEach(function (k) { out[k] = m[k]; });
+    out.variant = v;
+    out.variantCount = m.variants.length + 1;
+    if (!v) return out;
+    var pick = m.variants[v - 1], map = pick.map, keys = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
+    var keep = { files: 1, variants: 1, id: 1, base: 1, levels: 1, guide: 1, variant: 1, variantCount: 1 };
+    function deep(x) {
+      if (typeof x === "string") return swap(x, map, keys);
+      if (Array.isArray(x)) return x.map(deep);
+      if (x && typeof x === "object") { var o = {}; Object.keys(x).forEach(function (k) { o[k] = deep(x[k]); }); return o; }
+      return x;
+    }
+    Object.keys(m).forEach(function (k) { if (!keep[k]) out[k] = deep(m[k]); });
+    out.template = (out.template || []).map(function (c) {
+      var o = {};
+      Object.keys(c).forEach(function (k) { o[k] = c[k]; });
+      if (typeof o.s === "string") o.s = o.s.replace(/sha256:([0-9a-f]{64})/g, function (all, h) { return pick.hashes[h] ? "sha256:" + pick.hashes[h] : all; });
+      if (typeof o.e === "string" && /\b[0-9a-f]{64}\b/.test(o.e)) delete o.e;
+      return o;
+    });
+    out.map = map;
+    out.mapKeys = keys;
+    return out;
+  }
+
   function manifest(id) {
     id = cleanId(id);
     if (!manifests[id]) {
@@ -164,7 +227,7 @@
           if (!r || !r.ok || !r.item) throw new Error((r && r.error) || "Couldn't load this case.");
           return fromBundle(id, r.item.data);
         });
-      } else manifests[id] = text(LINUX + "cases/" + id + "/manifest.json").then(JSON.parse);
+      } else manifests[id] = text(LINUX + "cases/" + id + "/manifest.json").then(JSON.parse).then(personalise);
       manifests[id].catch(function () { delete manifests[id]; });
     }
     return manifests[id];
@@ -172,7 +235,8 @@
 
   function body(m, f) {
     if (m.bodies) return Promise.resolve(m.bodies[f] == null ? "" : m.bodies[f]);
-    return text(LINUX + "cases/" + (m.base || m.id) + "/" + f);
+    var p = text(LINUX + "cases/" + (m.base || m.id) + "/" + f);
+    return m.map ? p.then(function (t) { return /\u0000/.test(t) ? t : swap(t, m.map, m.mapKeys); }) : p;
   }
 
   function caseFiles(id) {
@@ -215,12 +279,16 @@
           else if (/^net\//.test(f)) dest.push(NET + "/" + f.slice(4));
           else if (/^replay\//.test(f)) dest.push(REPLAY + "/" + f.slice(7));
           else if (/^bin\//.test(f)) dest.push(SHIMS + "/" + f.slice(4));
+          else if (/^lab\//.test(f)) dest.push(LABDIR + "/" + f.slice(4));
           else return;
           bodies.push(all[TOOLS.length + i]);
         });
-        var head = ["mkdir -p /root/case /usr/local/bin /usr/local/share/aayat", "rm -rf /root/case/* " + NET + " " + REPLAY + " " + SHIMS, "mkdir -p " + NET + "/www " + REPLAY + " " + SHIMS,
+        var head = ["for p in $(ps | grep '[a]ayat/lab/bg/' | awk '{print $1}'); do kill $p 2>/dev/null; done", "mkdir -p /root/case /usr/local/bin /usr/local/share/aayat",
+          "rm -rf /root/case/* " + NET + " " + REPLAY + " " + SHIMS + " " + LABDIR, "mkdir -p " + NET + "/www " + REPLAY + " " + SHIMS + " " + LABDIR,
           "export PATH=" + SHIMS + ":/usr/local/bin:$PATH"];
-        var tail = ["chmod +x /usr/local/bin/* " + SHIMS + "/* /root/case/suspect/* 2>/dev/null; true", "cd /root/case"];
+        var tail = ["chmod +x /usr/local/bin/* " + SHIMS + "/* /root/case/suspect/* " + LABDIR + "/*.sh " + LABDIR + "/bg/*.sh 2>/dev/null; true",
+          "[ -f " + LABDIR + "/setup.sh ] && sh " + LABDIR + "/setup.sh >/dev/null 2>&1",
+          "for f in " + LABDIR + "/bg/*.sh; do [ -f \"$f\" ] && (setsid sh \"$f\" >/dev/null 2>&1 &); done", "cd /root/case"];
         return viaShare(dest, bodies).then(function (script) { return script; }, function () {
           var lines = [], n = 0;
           dest.forEach(function (path, i) {

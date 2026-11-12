@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_5.3_1",
-      "front": "What is the primary threat vector for Symmetric Hashing and Key Storage?",
-      "back_definition": "Adversaries exploit legacy 56-bit DES keys on transaction columns to bypass standard perimeter security controls.",
-      "back_example": "Example: Crypt-Scan: Weak DES cipher key discovered in active schema",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: legacy 56-bit DES keys is the unlocked door; transaction columns is what the attacker wants to steal."
+      "front": "Encryption vs hashing?",
+      "back_definition": "Encryption is reversible with the right key and protects confidentiality. Hashing is one-way, producing a fixed-size digest, and is used for integrity and password checks.",
+      "back_example": "Encrypt a file to send it; hash it to prove it didn't change.",
+      "back_confusion": "You can't decrypt a hash; if you need the original back, you need encryption.",
+      "back_hook": "Encrypt to hide, hash to check."
     },
     {
       "id": "FC_5.3_2",
-      "front": "How does the security team mitigate Symmetric Hashing and Key Storage threats?",
-      "back_definition": "Deploying and enforcing AES-256 symmetric keys and HSM storage directly hardens transaction columns and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require AES-256 symmetric keys and HSM storage.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "Is Base64 encryption?",
+      "back_definition": "No. Base64 is encoding: a reversible format change with no key, so it gives no confidentiality.",
+      "back_example": "cGFzc3dvcmQ= decodes to \"password\" in any decoder.",
+      "back_confusion": "Encoding is about format, encryption about secrecy, hashing about fingerprints.",
+      "back_hook": "Encoding is a costume, not a lock."
     },
     {
       "id": "FC_5.3_3",
-      "front": "How do analysts detect exploitation of Symmetric Hashing and Key Storage?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on cryptographic audit sweeps.",
-      "back_example": "Syslog trace: Crypt-Scan: Weak DES cipher key discovered in active schema",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "What are the avalanche effect and a collision?",
+      "back_definition": "Avalanche: a tiny change in input completely changes the digest. Collision: two different inputs give the same digest; a practical way to make collisions breaks the hash.",
+      "back_example": "Changing one letter in a document changes about half the bits of its SHA-256 digest.",
+      "back_confusion": "MD5 and SHA-1 have practical collision attacks; SHA-256 does not.",
+      "back_hook": "Small change, totally new fingerprint."
+    },
+    {
+      "id": "FC_5.3_4",
+      "front": "Why salt password hashes, and what is a rainbow table?",
+      "back_definition": "A rainbow table is a precomputed list of hashes for common passwords. A unique salt per password makes those tables useless, because every hash has to be attacked separately.",
+      "back_example": "Unsalted SHA-1 let attackers crack millions of LinkedIn passwords in 2012 within days.",
+      "back_confusion": "Salts are stored with the hash and are not secret; their job is uniqueness.",
+      "back_hook": "Unique salt, useless tables."
+    },
+    {
+      "id": "FC_5.3_5",
+      "front": "What is symmetric encryption?",
+      "back_definition": "One shared key both encrypts and decrypts. It is fast, so it is used for bulk data.",
+      "back_example": "AES-256 encrypts a laptop's whole disk.",
+      "back_confusion": "The hard part is sharing the key safely, which asymmetric cryptography solves.",
+      "back_hook": "Same key locks and unlocks."
+    },
+    {
+      "id": "FC_5.3_6",
+      "front": "Why is AES-ECB mode insecure?",
+      "back_definition": "ECB encrypts identical blocks to identical ciphertext, so patterns in the data show through.",
+      "back_example": "An image encrypted with ECB still shows the outline of the original picture.",
+      "back_confusion": "The cipher (AES) is strong; the mode is the problem. Use an authenticated mode such as AES-GCM.",
+      "back_hook": "Same in, same out: patterns leak."
+    },
+    {
+      "id": "FC_5.3_7",
+      "front": "What is an IV or nonce, and why must it not repeat?",
+      "back_definition": "A unique value used with the key so encrypting the same data twice gives different ciphertext. Reusing it with the same key leaks information, and with GCM can let attackers forge messages.",
+      "back_example": "Generate a fresh random 96-bit nonce for each AES-GCM message.",
+      "back_confusion": "The IV is not secret, but it must be unique (and unpredictable for CBC).",
+      "back_hook": "Never twice with the same key."
+    },
+    {
+      "id": "FC_5.3_8",
+      "front": "Where should encryption keys be kept?",
+      "back_definition": "In a secrets manager, key vault or HSM, never in source code. Data keys are often encrypted (wrapped) by a key-encryption key.",
+      "back_example": "An HSM holds the master key; the app gets data keys through an API.",
+      "back_confusion": "A key committed to Git, even a private repo, should be treated as leaked and rotated.",
+      "back_hook": "Keys live in vaults, not in code."
+    },
+    {
+      "id": "FC_5.3_9",
+      "front": "What is key rotation, and why do it?",
+      "back_definition": "Replacing keys on a schedule or after suspected exposure, which limits how much data any one key protects and how long a stolen key stays useful.",
+      "back_example": "Rotate a database encryption key yearly and immediately when an admin leaves under suspicion.",
+      "back_confusion": "Rotation needs a plan for re-encrypting or keeping old data readable.",
+      "back_hook": "Change the locks regularly."
+    },
+    {
+      "id": "FC_5.3_10",
+      "front": "What does HMAC give that a plain hash does not?",
+      "back_definition": "Authenticity as well as integrity: only someone with the secret key can produce a valid tag.",
+      "back_example": "A webhook includes an HMAC-SHA256 tag the receiver recomputes with the shared key.",
+      "back_confusion": "An attacker who changes a message can just recompute a plain hash; they can't recompute an HMAC without the key.",
+      "back_hook": "Hash plus secret = proof of sender."
+    },
+    {
+      "id": "FC_5.3_11",
+      "front": "Why not just use hash(key + message) instead of HMAC?",
+      "back_definition": "With hashes such as MD5, SHA-1 and SHA-256, that construction allows length-extension attacks that add data and a valid tag without knowing the key. HMAC's nested design prevents this.",
+      "back_example": "An attacker appends &admin=true to a signed URL and forges a matching tag.",
+      "back_confusion": "HMAC does not encrypt anything; the message stays readable.",
+      "back_hook": "Use the standard recipe, not a home-made one."
+    },
+    {
+      "id": "FC_5.3_12",
+      "front": "Which algorithms should store passwords?",
+      "back_definition": "Slow, salted password hashing functions: Argon2id, scrypt, bcrypt or PBKDF2 with a high iteration count.",
+      "back_example": "Argon2id with a per-user salt and memory cost set to slow down GPU cracking.",
+      "back_confusion": "MD5, SHA-1 and plain SHA-256 are all too fast for passwords.",
+      "back_hook": "Passwords need slow hashes."
+    },
+    {
+      "id": "FC_5.3_13",
+      "front": "How does ransomware misuse encryption?",
+      "back_definition": "It encrypts files with fast symmetric keys, then locks those keys with the attacker's public key, so only the attacker's private key can recover them.",
+      "back_example": "Each file gets a random AES key, wrapped with the gang's RSA public key.",
+      "back_confusion": "Strong encryption is the attacker's tool here; the defence is offline backups, not breaking the cipher.",
+      "back_hook": "Their key, your data."
     }
   ]
 }

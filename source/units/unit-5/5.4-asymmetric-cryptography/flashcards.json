@@ -7,27 +7,115 @@
   "flashcards": [
     {
       "id": "FC_5.4_1",
-      "front": "What is the primary threat vector for Asymmetric Cryptography?",
-      "back_definition": "Adversaries exploit unvalidated self-signed certificates on TLS public keys to bypass standard perimeter security controls.",
-      "back_example": "Example: TLS Fail: CN name mismatch (g00gle.com CN presented on utility.com)",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: unvalidated self-signed certificates is the unlocked door; TLS public keys is what the attacker wants to steal."
+      "front": "Public key vs private key?",
+      "back_definition": "The public key can be shared with anyone and is used to encrypt to the owner or verify their signatures. The private key is kept secret and used to decrypt and to sign.",
+      "back_example": "Alice encrypts a message with Bob's public key; only Bob's private key can decrypt it.",
+      "back_confusion": "Publishing your public key is safe; only the private key lets someone impersonate you.",
+      "back_hook": "Public locks, private unlocks."
     },
     {
       "id": "FC_5.4_2",
-      "front": "How does the security team mitigate Asymmetric Cryptography threats?",
-      "back_definition": "Deploying and enforcing Root CA public key infrastructure validation directly hardens TLS public keys and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require Root CA public key infrastructure validation.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "What problem does asymmetric cryptography solve?",
+      "back_definition": "Key distribution: two parties who have never met can set up secure communication without first sharing a secret.",
+      "back_example": "A browser and a website agree a session key over the open internet.",
+      "back_confusion": "Asymmetric crypto is slow, so it is mainly used to exchange or protect symmetric keys.",
+      "back_hook": "No secret handshake needed in advance."
     },
     {
       "id": "FC_5.4_3",
-      "front": "How do analysts detect exploitation of Asymmetric Cryptography?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on OCSP revocation status queries.",
-      "back_example": "Syslog trace: TLS Fail: CN name mismatch (g00gle.com CN presented on utility.com)",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "What is hybrid encryption?",
+      "back_definition": "Asymmetric cryptography exchanges or protects a random symmetric key, then fast symmetric encryption (such as AES) protects the actual data.",
+      "back_example": "TLS uses a key exchange to agree session keys, then AES-GCM for the traffic.",
+      "back_confusion": "RSA can only encrypt a message smaller than its modulus, so it is not used for bulk data.",
+      "back_hook": "Public key for the key, symmetric key for the data."
+    },
+    {
+      "id": "FC_5.4_4",
+      "front": "What is RSA based on?",
+      "back_definition": "Multiplying two large primes is easy, but factoring their product n back into the primes is infeasible at real key sizes.",
+      "back_example": "A 2048-bit n has over 600 decimal digits.",
+      "back_confusion": "The maths in classroom examples with small primes is the same; security comes only from the size.",
+      "back_hook": "Easy to multiply, hard to un-multiply."
+    },
+    {
+      "id": "FC_5.4_5",
+      "front": "What are the RSA encrypt and decrypt formulas?",
+      "back_definition": "Encrypt: c = m^e mod n. Decrypt: m = c^d mod n. The private exponent d is the inverse of e modulo phi(n).",
+      "back_example": "p = 3, q = 11: n = 33, phi = 20, e = 3, d = 7. m = 4 gives c = 64 mod 33 = 31, and 31^7 mod 33 = 4.",
+      "back_confusion": "Encryption and decryption are the same operation; only the exponent changes.",
+      "back_hook": "Same power trick, different exponent."
+    },
+    {
+      "id": "FC_5.4_6",
+      "front": "Why is e = 65537 so common?",
+      "back_definition": "It is prime and has only two 1 bits in binary, so encryption and verification are fast, and it avoids the weaknesses of very small exponents such as 3.",
+      "back_example": "Most RSA certificates you inspect show Exponent: 65537 (0x10001).",
+      "back_confusion": "e is public; secrecy depends entirely on d and the primes.",
+      "back_hook": "Fast, prime and not too small."
+    },
+    {
+      "id": "FC_5.4_7",
+      "front": "How is a digital signature made and checked?",
+      "back_definition": "The signer hashes the message and signs the digest with their private key. Anyone checks it with the signer's public key against a fresh hash of the message.",
+      "back_example": "A software update is signed by the vendor; your computer verifies it before installing.",
+      "back_confusion": "A signature does not encrypt the message; anyone can still read it.",
+      "back_hook": "Sign with private, verify with public."
+    },
+    {
+      "id": "FC_5.4_8",
+      "front": "What does a digital signature give that HMAC does not?",
+      "back_definition": "Non-repudiation: only the private-key holder could have signed, so they can't plausibly deny it. With HMAC, both sides share the key, so either could have made the tag.",
+      "back_example": "A signed contract binds the signer; an HMAC between two servers proves only that one of them sent it.",
+      "back_confusion": "Both give integrity and authenticity; only signatures give non-repudiation.",
+      "back_hook": "Only you have your pen."
+    },
+    {
+      "id": "FC_5.4_9",
+      "front": "What is in a digital certificate?",
+      "back_definition": "The subject's identity (usually a domain name), their public key, validity dates, the issuer, and the issuing CA's signature over all of it.",
+      "back_example": "Subject: CN=shop.example, Issuer: an intermediate CA, valid for 90 days.",
+      "back_confusion": "A certificate proves who owns a key, not that the site is honest or safe.",
+      "back_hook": "An ID card for a public key."
+    },
+    {
+      "id": "FC_5.4_10",
+      "front": "How does a browser check a certificate chain?",
+      "back_definition": "It verifies each certificate's signature with the public key of the one above it, up to a root CA already in its trust store, and checks dates, names and revocation.",
+      "back_example": "Leaf (shop.example) signed by Intermediate CA, signed by a trusted Root CA.",
+      "back_confusion": "Each link is checked separately; one trusted root does not vouch for a broken middle link.",
+      "back_hook": "Follow the signatures up to someone you already trust."
+    },
+    {
+      "id": "FC_5.4_11",
+      "front": "Revocation vs expiry?",
+      "back_definition": "Expiry is the planned end date of a certificate. Revocation withdraws trust early, usually because the private key was compromised. Clients check revocation through CRLs or OCSP.",
+      "back_example": "A leaked server key: the CA revokes the certificate the same day.",
+      "back_confusion": "Shorter certificate lifetimes reduce how long a bad certificate can be misused.",
+      "back_hook": "Expired ran out; revoked was cancelled."
+    },
+    {
+      "id": "FC_5.4_12",
+      "front": "Why are self-signed certificates not trusted by browsers?",
+      "back_definition": "No trusted CA vouches for them, so a visitor's browser has no reason to believe the key belongs to that site.",
+      "back_example": "An internal dashboard uses a self-signed certificate installed on company laptops by IT.",
+      "back_confusion": "The cryptography is just as strong; the missing part is trust distribution.",
+      "back_hook": "Signing your own ID card."
+    },
+    {
+      "id": "FC_5.4_13",
+      "front": "What did Heartbleed (2014) expose?",
+      "back_definition": "A missing bounds check in OpenSSL's heartbeat feature (CVE-2014-0160) let anyone read up to 64 KB of server memory per request, which could include private keys and passwords.",
+      "back_example": "Sites had to patch, replace their private keys, revoke old certificates and reset passwords.",
+      "back_confusion": "The encryption maths was fine; the bug was in the code around it.",
+      "back_hook": "Ask for a heartbeat, get the server's memory."
+    },
+    {
+      "id": "FC_5.4_14",
+      "front": "Why did DigiNotar's compromise in 2011 matter?",
+      "back_definition": "Attackers broke into a certificate authority and issued fraudulent certificates, including one for google.com used to intercept users in Iran. Browsers removed DigiNotar's trust and it went bankrupt.",
+      "back_example": "Users saw a valid padlock on a fake Google connection.",
+      "back_confusion": "The whole PKI depends on every trusted CA staying secure.",
+      "back_hook": "When the ID office is hacked, every ID is suspect."
     }
   ]
 }

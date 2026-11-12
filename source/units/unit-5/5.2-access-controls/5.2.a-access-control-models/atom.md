@@ -1,7 +1,7 @@
 # 5.2.a: Access control models (RBAC, DAC, MAC)
 
 > **Unit 5 · 5.2 Linux Permission Controls**
-> **AP Learning Objective(s):** 5.2.A
+> **AP Learning Objective(s):** 5.2.A, 5.2.D
 > **Course skill(s):** Mitigate Risk
 
 ## Learning objective (student-facing)

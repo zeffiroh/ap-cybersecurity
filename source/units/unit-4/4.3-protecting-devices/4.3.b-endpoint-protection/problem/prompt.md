@@ -1,6 +1,6 @@
 # Coding problem 4.3.b: Endpoint Detection Engine
 
-**Skill:** Mitigate Risk · **Maps to:** 4.3.B · **Language:** Python 3 (pytest)
+**Skill:** Mitigate Risk · **Maps to:** 4.3.A, 4.3.B, 4.3.D · **Language:** Python 3 (pytest)
 
 ## Problem
 Endpoint Protection Platforms (EPP) use a mixture of signature detection (known hashes) and behavioral heuristics (actions taken by the process, such as excessive file updates or network socket connections) to identify and suspend threats.

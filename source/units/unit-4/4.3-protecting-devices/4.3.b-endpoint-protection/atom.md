@@ -1,7 +1,7 @@
 # 4.3.b: Antivirus and endpoint protection
 
 > **Unit 4 · 4.3 Endpoint Hardening Controls**
-> **AP Learning Objective(s):** 4.3.A, 4.3.B
+> **AP Learning Objective(s):** 4.3.A, 4.3.B, 4.3.D
 > **Course skill(s):** Mitigate Risk
 
 ## Learning objective (student-facing)

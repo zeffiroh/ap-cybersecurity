@@ -135,32 +135,66 @@
   function consoleTools() {
     var T = global.AayatTools;
     if (!T) return;
-    var before = dock.querySelector('[data-tab="runs"]');
-    T.list().filter(function (d) { return d.console; }).forEach(function (def) {
-      var k = "tool-" + def.id, keep = null;
+    var before = dock.querySelector('[data-tab="runs"]'), kept = {};
+    function ctxFor(def) {
+      return {
+        state: {},
+        saved: kept[def.id] || null,
+        files: loadFiles,
+        remember: function (v) { kept[def.id] = v; },
+        recordLabel: "Add to notebook",
+        record: function (state, text) {
+          H.nb().cells.push({ t: "md", s: text + "\n\n" + T.fence(def.id, state), id: uid() });
+          H.save();
+          H.redraw();
+        }
+      };
+    }
+    function tabButton(k, title) {
+      var b = document.createElement("button");
+      b.setAttribute("role", "tab");
+      b.setAttribute("data-tab", k);
+      b.textContent = title;
+      before.parentNode.insertBefore(b, before);
+    }
+    var all = T.list().filter(function (d) { return d.console; });
+    all.filter(function (d) { return !d.group; }).forEach(function (def) {
+      var k = "tool-" + def.id;
       PANES[k] = function (p) {
         var ready = H.caseId() ? "case" : "empty";
         if (p.getAttribute("data-on") === ready) return;
         p.setAttribute("data-on", ready);
-        def.mount(p, {
-          state: {},
-          saved: keep,
-          files: loadFiles,
-          remember: function (v) { keep = v; },
-          recordLabel: "Add to notebook",
-          record: function (state, text) {
-            H.nb().cells.push({ t: "md", s: text + "\n\n" + T.fence(def.id, state), id: uid() });
-            H.save();
-            H.redraw();
-          }
-        });
+        def.mount(p, ctxFor(def));
       };
-      var b = document.createElement("button");
-      b.setAttribute("role", "tab");
-      b.setAttribute("data-tab", k);
-      b.textContent = def.title;
-      before.parentNode.insertBefore(b, before);
+      tabButton(k, def.title);
     });
+    var grouped = all.filter(function (d) { return d.group; });
+    if (!grouped.length) return;
+    PANES["tool-more"] = function (p) {
+      var ready = H.caseId() ? "case" : "empty";
+      if (p.getAttribute("data-on") === ready) return;
+      p.setAttribute("data-on", ready);
+      function menu() {
+        var groups = (T.groups || []).concat(grouped.map(function (d) { return d.group; }))
+          .filter(function (g, i, a) { return a.indexOf(g) === i && grouped.some(function (d) { return d.group === g; }); });
+        p.innerHTML = '<div class="tl-pick">' + groups.map(function (g) {
+          return "<h4>" + esc(g) + "</h4>" + grouped.filter(function (d) { return d.group === g; }).map(function (d) {
+            return '<button type="button" data-more="' + esc(d.id) + '">' + esc(d.title) + "</button>";
+          }).join("");
+        }).join("") + "</div>";
+      }
+      p.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-more],[data-more-back]");
+        if (!b || !p.contains(b)) return;
+        if (b.hasAttribute("data-more-back")) { menu(); return; }
+        var def = T.get(b.getAttribute("data-more"));
+        if (!def) return;
+        p.innerHTML = '<button type="button" class="tl-back" data-more-back>&larr; All tools</button><div></div>';
+        def.mount(p.lastChild, ctxFor(def));
+      });
+      menu();
+    };
+    tabButton("tool-more", "More tools");
   }
   function decorate() {
     if (!H || !dock) return;
@@ -844,7 +878,8 @@
     H.rpc("api_my_handin", { p_ref: H.ref() }).then(function (r) {
       var done = r && r.handed;
       box.innerHTML = (done ? '<p class="pb-on">Handed in at ' + esc(new Date(r.handed).toLocaleString()) + ".</p>" : "<p>Send a copy of this notebook, your notes and your run log. You can hand in again after changes.</p>") +
-        (r && r.feedback ? '<div class="pb-reply"><b>Your teacher replied</b><p>' + esc(r.feedback) + "</p></div>" : "") +
+        (r && (r.feedback || r.max) ? '<div class="pb-reply"><b>Your teacher replied' + (r.max ? ": " + esc(r.score) + " / " + esc(r.max) : "") + "</b>" + (r.feedback ? "<p>" + esc(r.feedback) + "</p>" : "") +
+          (Array.isArray(r.rubric) && r.rubric.length ? "<ul>" + r.rubric.map(function (x) { return "<li>" + esc(x.c) + ": " + esc(x.got) + " / " + esc(x.max) + (x.note ? " &middot; " + esc(x.note) : "") + "</li>"; }).join("") + "</ul>" : "") + "</div>" : "") +
         '<label for="pb-hnote">Message (optional)</label><input id="pb-hnote" value="' + esc((r && r.note) || "") + '"><div class="pb-btns pb-handbtn"><button class="btn dark" id="pb-hsend">' + (done ? "Hand in again" : "Hand in") + '</button></div><p id="pb-herr" class="pb-err" role="alert"></p>';
       $("pb-hsend").addEventListener("click", function () {
         var b = $("pb-hsend");
@@ -983,7 +1018,7 @@
     dock.className = "pb-dock";
     dock.setAttribute("aria-label", "Analyst console");
     var toolTabs = global.AayatTools ? global.AayatTools.list().filter(function (d) { return d.console; }) : [];
-    toolTabs.forEach(function (d) { PANES["tool-" + d.id] = PANES["tool-" + d.id] || function () {}; });
+    toolTabs.forEach(function (d) { var k = d.group ? "tool-more" : "tool-" + d.id; PANES[k] = PANES[k] || function () {}; });
     dock.innerHTML = '<div id="pb-drag" class="pb-drag" role="separator" aria-orientation="horizontal" aria-label="Resize the console" tabindex="0"></div>' +
       '<div class="pb-bar"><div class="pb-tabs" role="tablist">' +
       '<button role="tab" data-tab="term">Terminal</button><button role="tab" data-tab="tools">Toolkit</button><button role="tab" data-tab="logs">Logs</button>' +

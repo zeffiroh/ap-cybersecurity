@@ -35,6 +35,8 @@ def save_path(cid):
         return CASES / cid / "expected.json"
     if cid.startswith("tc-"):
         return TEACHER / "expected" / f"{cid[3:]}.json"
+    if cid.startswith("sem-") and "--" not in cid and (ROOT / "source" / "seminars" / cid[4:]).is_dir():
+        return ROOT / "source" / "seminars" / cid[4:] / "expected.json"
     return None
 
 
@@ -67,6 +69,7 @@ def run(only=None):
                 page = browser.new_page()
                 page.route("**/*", lambda route: route.fulfill(status=200, content_type="text/html", body="<!DOCTYPE html><title>lab</title>") if route.request.url.endswith("/blank") else route.continue_())
                 page.goto(f"http://127.0.0.1:{port}/blank")
+                page.add_script_tag(content="window.AAYAT_EVIDENCE = 0;")
                 page.add_script_tag(url=f"http://127.0.0.1:{port}/assets/theme/linux-vm.js")
                 page.set_default_timeout(180000)
                 bad += run_case(page, cid)

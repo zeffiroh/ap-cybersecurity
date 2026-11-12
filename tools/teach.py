@@ -175,10 +175,78 @@ def cmd_finish(args):
     print('Read the lab, set "published": true in seminar.json when it is ready, then run: ' + report["next"])
 
 
+def cmd_capture(args):
+    from builder import lesson
+    folder = folder_of(args.name)
+    cmd = list(args.command)
+    if "--" in cmd:
+        cut = cmd.index("--")
+        pre, cmd = cmd[:cut], cmd[cut + 1:]
+        more = argparse.ArgumentParser(prog="teach capture")
+        more.add_argument("--files", nargs="*")
+        more.add_argument("--shell")
+        more.add_argument("--timeout", type=int)
+        extra = more.parse_args(pre)
+        for k in ("files", "shell", "timeout"):
+            if getattr(extra, k) is not None:
+                setattr(args, k, getattr(extra, k))
+    if not cmd:
+        sys.exit("Give the command after --, for example: ./teach capture log-triage -- nmap -sV 10.0.0.5")
+    tool = Path(cmd[0]).name
+    if not re.fullmatch(r"[A-Za-z0-9_.+-]+", tool):
+        sys.exit(f"{tool} isn't a plain tool name.")
+    run = cmd
+    if args.shell.startswith("wsl"):
+        run = ["wsl.exe"] + (["-d", args.shell.split(":", 1)[1]] if ":" in args.shell else []) + ["--"] + cmd
+    elif args.shell == "auto" and sys.platform == "win32":
+        run = ["wsl.exe", "--"] + cmd
+    try:
+        r = subprocess.run(run, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=args.timeout)
+    except FileNotFoundError:
+        sys.exit(f"Couldn't run {cmd[0]}. On Windows this needs WSL; on Linux, install the tool first.")
+    except subprocess.TimeoutExpired:
+        sys.exit(f"{tool} ran for more than {args.timeout} seconds. Use --timeout to allow longer.")
+    scrub = lesson.Scrubber(Path.cwd())
+    argstr = scrub(" ".join(cmd[1:]))
+    out = scrub((r.stdout or "") + (r.stderr or ""))
+    replay = folder / "replay"
+    replay.mkdir(exist_ok=True)
+    index = replay / "index.txt"
+    lines = [l for l in (index.read_text(encoding="utf-8").splitlines() if index.exists() else []) if l.strip()]
+    lines = [l for l in lines if l.split("|", 3)[1:2] != [tool] or l.split("|", 3)[3:4] != [argstr]]
+    rid = "k" + str(1 + max([int(l.split("|", 1)[0][1:]) for l in lines if re.fullmatch(r"k\d+", l.split("|", 1)[0])] or [0])).zfill(5)
+    (replay / f"{rid}.out").write_text(out + ("" if out.endswith("\n") or not out else "\n"), encoding="utf-8", newline="\n")
+    for src in args.files or []:
+        p = Path(src)
+        if not p.is_file():
+            sys.exit(f"{src} isn't a file.")
+        dst = replay / f"{rid}.files" / p.name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(scrub(p.read_text(encoding="utf-8", errors="replace")), encoding="utf-8", newline="\n")
+    lines.append(f"{rid}|{tool}|{r.returncode}|{argstr}")
+    index.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    about = json.loads((folder / "seminar.json").read_text(encoding="utf-8"))
+    tools = about.get("replayTools") or []
+    if tool not in tools:
+        about["replayTools"] = tools + [tool]
+        (folder / "seminar.json").write_text(json.dumps(about, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    print(f"Saved {rid}: {tool} {argstr} (exit {r.returncode}, {len(out.splitlines())} lines) in {replay.relative_to(ROOT)}")
+    for what, n in sorted(scrub.report.items()):
+        print(f"  {n} {what}")
+    print(f"Students run it in a Linux cell exactly as: {tool} {argstr}".rstrip())
+    print(f"Then: ./teach build {folder.name}")
+
+
 def cmd_expected(args):
     sys.path.insert(0, str(ROOT / "tools"))
     from studio import expected
     sys.exit(expected.run(args.case))
+
+
+def cmd_demo(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import demo
+    sys.exit(demo.run(args.name, args.speed, args.level))
 
 
 def main():
@@ -220,6 +288,18 @@ def main():
     p = sub.add_parser("finish", help="turn a recording into a lab: codebook, simulated setup, levels, replay, chapters")
     p.add_argument("name")
     p.set_defaults(fn=cmd_finish)
+    p = sub.add_parser("capture", help="run a real tool on your Linux and save its output for students to replay")
+    p.add_argument("name", help="the seminar folder")
+    p.add_argument("--files", nargs="*", help="files the tool wrote, to give students too")
+    p.add_argument("--shell", default="auto", help="auto, bash, wsl or wsl:NAME (Windows uses WSL)")
+    p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("command", nargs=argparse.REMAINDER, help="-- then the command, for example: -- nmap -sV 10.0.0.5")
+    p.set_defaults(fn=cmd_capture)
+    p = sub.add_parser("demo", help="play a seminar lab's walkthrough by itself and save the video, subtitles, chapters and transcript")
+    p.add_argument("name", help="the seminar folder, for example f-evidence-notes-handoffs")
+    p.add_argument("--speed", type=float, default=1.0, help="1 is reading pace; 1.5 is quicker")
+    p.add_argument("--level", choices=["", "guided", "solo"], default="", help="leave out for the walkthrough")
+    p.set_defaults(fn=cmd_demo)
     p = sub.add_parser("expected", help="run labs in the in-browser Linux and save each cell's real output")
     p.add_argument("case", nargs="?", help="one case id; all of them if left out")
     p.set_defaults(fn=cmd_expected)

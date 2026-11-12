@@ -1,0 +1,135 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var COMMON = ["secret", "password", "123456", "changeme", "admin", "jwtsecret", "your-256-bit-secret", "letmein", "qwerty", "nimbumart", "shop", "summer2026", "welcome1", "default", "test", "key", "supersecret"];
+  var CSS = ".tj-box textarea{min-height:70px;font:12px ui-monospace,Consolas,monospace;word-break:break-all}.tj-box pre{white-space:pre-wrap;word-break:break-all;background:#fff;border:1px solid #bbb;padding:6px;font:12px/1.45 ui-monospace,Consolas,monospace;margin:4px 0}" +
+    ".tj-box .tj-h{color:#c0392b}.tj-box .tj-p{color:#6b3fa0}.tj-box .tj-s{color:#1f6feb}.tj-box .tj-tok{font:12px ui-monospace,Consolas,monospace;word-break:break-all;background:#fff;border:1px solid #bbb;padding:6px}";
+
+  function b64u(bytes) { var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function unb64u(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var bin = atob(s), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function text(bytes) { return new TextDecoder().decode(bytes); }
+  function decode(tok) {
+    var p = String(tok || "").trim().split(".");
+    if (p.length !== 3) throw new Error("A JWT has three parts separated by dots: header.payload.signature.");
+    var h, b;
+    try { h = JSON.parse(text(unb64u(p[0]))); } catch (e) { throw new Error("The header isn't base64url JSON."); }
+    try { b = JSON.parse(text(unb64u(p[1]))); } catch (e) { throw new Error("The payload isn't base64url JSON."); }
+    return { header: h, payload: b, parts: p };
+  }
+  function hmac(alg, secret, data) {
+    var hash = { HS256: "SHA-256", HS384: "SHA-384", HS512: "SHA-512" }[alg];
+    if (!hash) return Promise.reject(new Error("Only HS256, HS384 and HS512 can be checked with a shared secret."));
+    var enc = new TextEncoder();
+    return global.crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: hash }, false, ["sign"]).then(function (k) {
+      return global.crypto.subtle.sign("HMAC", k, enc.encode(data));
+    }).then(function (sig) { return b64u(new Uint8Array(sig)); });
+  }
+  function sign(header, payload, secret) {
+    var enc = new TextEncoder(), data = b64u(enc.encode(JSON.stringify(header))) + "." + b64u(enc.encode(JSON.stringify(payload)));
+    if (String(header.alg).toLowerCase() === "none") return Promise.resolve(data + ".");
+    return hmac(header.alg, secret, data).then(function (s) { return data + "." + s; });
+  }
+  function warnings(d) {
+    var w = [], h = d.header, p = d.payload, now = Date.now() / 1000;
+    if (String(h.alg).toLowerCase() === "none") w.push("alg is none: there is no signature at all. A server that accepts this trusts anyone.");
+    if (/^HS/.test(h.alg)) w.push("HMAC: whoever knows the shared secret can make tokens. A short or common secret can be guessed offline.");
+    if (h.jku || h.x5u) w.push("The header points to a key URL (jku/x5u): a server must never fetch keys from a URL the token chooses.");
+    if (h.kid && /[\/\\.]|'|--/.test(String(h.kid))) w.push("The kid looks like a path or SQL: check the server doesn't use it unsafely.");
+    if (p.exp == null) w.push("No exp: this token never expires.");
+    else if (p.exp < now) w.push("Expired on " + new Date(p.exp * 1000).toISOString() + ".");
+    if (p.exp && p.iat && p.exp - p.iat > 30 * 86400) w.push("Valid for more than 30 days: long-lived tokens are worth stealing.");
+    if (/admin|root/i.test(JSON.stringify(p))) w.push("The payload carries a role or admin flag: the server must check the signature before trusting it.");
+    return w;
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-jwt-css", CSS);
+    var words = COMMON.slice(), dec = null;
+    var F = K.frame(el, ctx, {
+      title: "JWT inspector", cls: "tj-box",
+      body: '<label style="display:block;font-size:12px">Token<textarea class="tl-area" data-r="tok" spellcheck="false" placeholder="eyJ…"></textarea></label>' +
+        '<div class="tl-row"><label class="tl-grow">Secret to check <input data-r="secret" placeholder="for HS256 tokens"></label><button type="button" class="btn" data-r="verify">Check the signature</button>' +
+        '<button type="button" class="btn" data-r="guess">Try a wordlist</button></div><div data-r="view"></div>' +
+        '<details style="margin-top:8px"><summary>Edit and re-sign (for the lab only)</summary><label style="display:block;font-size:12px">Payload<textarea class="tl-area" data-r="newp"></textarea></label>' +
+        '<div class="tl-row"><label>Algorithm <select data-r="alg"><option>HS256</option><option>HS384</option><option>HS512</option><option>none</option></select></label><button type="button" class="btn" data-r="sign">Make the token</button></div><div class="tj-tok" data-r="made" hidden></div></details>',
+      actions: "",
+      showLabel: "Show the recorded secret",
+      show: function (a) { if (a.secret) F.r("secret").value = a.secret; },
+      after: ""
+    });
+    function show() {
+      try { dec = decode(F.r("tok").value); } catch (e) { F.r("view").innerHTML = ""; F.msg(e.message, true); return; }
+      var w = warnings(dec);
+      F.r("view").innerHTML = '<div class="tl-cols"><div><b class="tj-h">Header</b><pre></pre><b class="tj-p">Payload</b><pre></pre></div><div><b>What to check</b><ul>' +
+        w.map(function (x) { return "<li>" + K.esc(x) + "</li>"; }).join("") + "</ul>" + (dec.payload.exp ? "<p>Expires: " + K.esc(new Date(dec.payload.exp * 1000).toISOString()) + "</p>" : "") + "</div></div>";
+      var pres = F.r("view").querySelectorAll("pre");
+      pres[0].textContent = JSON.stringify(dec.header, null, 2);
+      pres[1].textContent = JSON.stringify(dec.payload, null, 2);
+      F.r("newp").value = JSON.stringify(dec.payload, null, 2);
+      F.r("alg").value = /^(HS256|HS384|HS512|none)$/i.test(dec.header.alg) ? (String(dec.header.alg).toLowerCase() === "none" ? "none" : dec.header.alg) : "HS256";
+      F.msg("Decoded. Anyone can read a JWT: the signature only proves who made it.");
+      F.remember({ tok: F.r("tok").value });
+    }
+    function check(secret) {
+      var data = dec.parts[0] + "." + dec.parts[1];
+      return hmac(dec.header.alg, secret, data).then(function (s) { return s === dec.parts[2]; });
+    }
+    F.r("tok").addEventListener("input", show);
+    F.r("verify").addEventListener("click", function () {
+      if (!dec) return;
+      if (String(dec.header.alg).toLowerCase() === "none") { F.msg("alg none has no signature to check. Reject it.", true); return; }
+      check(F.r("secret").value).then(function (ok) {
+        F.msg(ok ? "The signature is valid with that secret." : "The signature doesn't match that secret.", !ok);
+        if (ok) F.ready({ tok: F.r("tok").value, secret: F.r("secret").value, n: 1, blank: ["secret"] }, "JWT: the token's HMAC secret is " + F.r("secret").value.replace(/./g, "•"));
+      }, function (e) { F.msg(e.message, true); });
+    });
+    F.r("guess").addEventListener("click", function () {
+      if (!dec) return;
+      var i = 0, tried = 0;
+      F.msg("Trying " + words.length + " secrets…");
+      (function next() {
+        if (i >= words.length) { F.msg("None of the " + tried + " secrets worked. A long random secret resists this.", true); return; }
+        var w = words[i++];
+        tried++;
+        check(w).then(function (ok) {
+          if (ok) {
+            F.r("secret").value = w;
+            F.msg("Found it after " + tried + " tries: the secret is \"" + w + "\". Anyone with this can mint admin tokens.");
+            F.ready({ tok: F.r("tok").value, secret: w, n: tried, blank: ["secret"] }, "JWT: the HMAC secret was found in a wordlist after " + tried + " tries");
+          } else next();
+        }, function (e) { F.msg(e.message, true); });
+      })();
+    });
+    F.r("sign").addEventListener("click", function () {
+      var p = K.json(F.r("newp").value);
+      if (!p) { F.msg("The payload isn't valid JSON.", true); return; }
+      var alg = F.r("alg").value;
+      sign({ alg: alg, typ: "JWT" }, p, F.r("secret").value).then(function (t) {
+        F.r("made").hidden = false;
+        F.r("made").textContent = t;
+        F.msg(alg === "none" ? "An unsigned token. Only a badly built server accepts it." : "Signed with the secret above.");
+      }, function (e) { F.msg(e.message, true); });
+    });
+
+    var init = F.saved || F.st;
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      var files = K.textFiles(fs), list = Object.keys(files).filter(function (n) { return /wordlist|passwords|rockyou/i.test(K.base(n)); });
+      list.forEach(function (n) { words = words.concat(files[n].split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean)); });
+      words = words.filter(function (w, i, a) { return a.indexOf(w) === i; });
+      var found = "";
+      Object.keys(files).some(function (n) { var m = /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/.exec(files[n]); if (m) { found = m[0]; return true; } return false; });
+      F.note(words.length + " words to try" + (found ? ", a token was found in the case files" : ""));
+      F.r("tok").value = init.tok || found || "";
+      if (F.r("tok").value) show();
+    }).catch(function () { F.note(""); });
+  }
+
+  global.AayatTools.register({ id: "jwt", title: "JWT inspector", console: true, group: "Penetration tester", mount: mount, decode: decode, sign: sign, warnings: warnings });
+})(window);

@@ -5,6 +5,7 @@ from . import course as C
 from . import nav as N
 from . import resources as RES
 from . import teacher
+from . import toolsteps as TS
 from .course import BRAND, SUBJECT
 from .paths import ASSETS, DOWNLOADS, SHARED, SITE, TESTS, THEME, downloads_unit, unit_dir
 
@@ -225,8 +226,8 @@ def linux_page():
             'There is no internet inside the lab: nmap, curl, wget, tshark, dig, nslookup, whois, ping, traceroute, nc, ssh, openssl, nikto and gobuster reach a recorded '
             'copy of a case network instead.</p></section>'
             '<section id="lx-labs" class="lx-labs"></section></div>\n'
-            '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">\n'
-            '<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js" defer></script>\n'
+            f'<link rel="stylesheet" href="{r(VENDOR / "xterm" / "xterm.css")}">\n'
+            f'<script src="{r(VENDOR / "xterm" / "xterm.js")}" defer></script>\n'
             + theme_assets(path.parent, ["runbook.css", "labview.css"], ["linux-vm.js", "labkit.js", "linux-lab.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
@@ -315,12 +316,13 @@ def shop_page():
             '<div id="sh-page" class="sh-page"></div></div>'
             '<div class="sh-dev"><div class="sh-tabs" role="tablist"><button data-tab="net" class="on">Network</button>'
             '<button data-tab="repeat">Edit and resend</button><button data-tab="store">Storage</button><button data-tab="src">Sources</button>'
+            '<button data-tab="proxy">Proxy</button>'
             '</div><div id="sh-devbody" class="sh-devbody"></div></div></section>'
             '<aside class="lab-side"><h2>Challenges</h2><p class="sx-note">Each one gives a flag for the CTF board.</p>'
             '<div id="sh-missions"></div><p><button class="btn" id="sh-wipe">Reset the shop</button></p></aside></div>\n'
             f'<script src="{r(VENDOR / "sqljs-1.13.0" / "sql-wasm.js")}" defer></script>\n'
             f'<script src="{r(ASSETS / "ctf" / "lab-flags.js")}" defer></script>\n'
-            + theme_assets(path.parent, [], ["labkit.js", "shop-lab.js"]))
+            + theme_assets(path.parent, ["tools.css"], ["labkit.js", "shop-lab.js", "tools.js", "tool-proxy.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -344,7 +346,7 @@ def labs_page():
         return (f'<a class="lv-card" href="{r(p) + q}"><span class="lv-ck">{esc(kick)}</span><b>{esc(title)}</b>'
                 f'<span class="lv-cs">{esc(d)}</span><span class="lv-cp">{esc(more or "Open")} &rarr;</span></a>')
     attack = (card("Attack the app", "SQL injection lab", SITE / "sqli.html", "Break a staff login with SQL injection, then fix the query so it can't happen again.", "Beginner · 30 min")
-              + card("Attack the app", "Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with ten vulnerabilities to find, each worth a CTF flag.", "Intermediate · 1 to 2 hours"))
+              + card("Attack the app", "Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with fourteen vulnerabilities to find, each worth a CTF flag.", "Intermediate · 1 to 2 hours"))
     ctf = card("Capture the flag", "CTF board", SITE / "ctf.html", "Puzzles for every unit, points and a class leaderboard. Runbooks and attack labs hide flags too.", "All levels")
     tools = (card("Tool", "Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with 13 step-by-step exercises.", "Start with steps 1 to 5")
              + card("Tool", "JupyterLab", SITE / "lab" / "lab" / "index.html", "Every code book, runnable Python, nothing to install.")
@@ -378,8 +380,9 @@ def labs_page():
 
 def seminars_page():
     path = SITE / "seminars.html"
-    body = ('<div id="sm-app"><section id="sm-index"><h1>Seminars</h1>\n<p class="aa-sub">Complete, intensive recorded seminars. '
-            'Unlock one with tickets, or subscribe to all of them.</p>\n<div id="sm-me" class="st-me"></div>\n'
+    body = ('<div id="sm-app"><section id="sm-index"><h1>Seminars</h1>\n<p class="aa-sub">Thirteen complete job skills, from SOC triage to cloud, testing and governance. '
+            'Each one has a recorded seminar, a written tutorial, a hands-on lab in your browser (walkthrough, practice and solo), '
+            'a hand-in your teacher scores, and a certificate. Unlock one with tickets, or subscribe to all of them.</p>\n<div id="sm-me" class="st-me"></div>\n'
             '<div id="sm-list" class="sm-grid"><p class="sx-empty">Loading…</p></div></section>\n'
             '<section id="sm-view" hidden></section></div>\n'
             + theme_assets(path.parent, [], ["seminars.js"]))
@@ -438,7 +441,7 @@ def notebook_page():
             'Write <code>- [ ] step</code> in notes for a checklist, <code>&gt; Hint: text</code> for a hidden hint, and '
             '<code>?&gt; Question :: sha256:&lt;hash&gt;</code> for a question with a checked answer. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, ["runbook.css", "playbook.css", "tools.css"], ["linux-vm.js", "labkit.js", "tools.js", "tool-logsearch.js", "playbook.js", "notebook.js"]))
+            + theme_assets(path.parent, ["runbook.css", "playbook.css", "tools.css"], ["linux-vm.js", "labkit.js", "tools.js", *TS.TOOL_FILES, "playbook.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 

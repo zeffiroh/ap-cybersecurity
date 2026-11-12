@@ -3,7 +3,7 @@
 **Skill:** Detect Attacks, Collaborate · **Maps to:** 3.5.C · **Language:** Python 3 (pytest)
 
 ## Problem
-The NIST SP 800-61 incident response lifecycle has six phases, in this canonical order:
+The six-phase incident response lifecycle (SANS PICERL; NIST SP 800-61 groups the same steps into four phases) runs in this canonical order:
 
 ```
 1. Preparation

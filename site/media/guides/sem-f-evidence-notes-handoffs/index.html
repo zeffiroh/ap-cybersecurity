@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evidence, notes and handoffs written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Free seminar · written tutorial</p>
+<h1>Evidence, notes and handoffs</h1>
+<p class="meta">Foundation &middot; about 120 min</p>
+<p>Rewrite a poor helpdesk ticket into a triage note, an escalation and a shift handover that the next analyst can act on, using the evidence from a real phishing case.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-f-evidence-notes-handoffs&amp;runbook=sem-f-evidence-notes-handoffs">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-f-evidence-notes-handoffs--guided&amp;runbook=sem-f-evidence-notes-handoffs--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-f-evidence-notes-handoffs--solo&amp;runbook=sem-f-evidence-notes-handoffs--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>alerts.json</code>, <code>handover-night.txt</code>, <code>invoice.eml</code>, <code>mail.log</code>, <code>process.csv</code>, <code>proxy.log</code>, <code>share_listing.txt</code>, <code>ticket-88213.txt</code>.</p>
+<h2>1. A ticket nobody can act on</h2>
+<p>Most security work is handed from one person to the next: helpdesk to SOC, SOC to the incident lead, night shift to morning shift. If the note is poor, the next person starts again from zero, and an attack keeps running while they do.</p>
+<p>Read helpdesk ticket 88213 and last night's handover. Both are real kinds of notes analysts receive every day.</p>
+<ul>
+<li>&#9744; Which facts in the ticket have a time and a source?</li>
+<li>&#9744; Which words are guesses ("probably", "maybe", "???")?</li>
+<li>&#9744; What does the next person need that isn't there: which host, which user, which alert, what was done?</li>
+<li>&#9744; What is wrong with "all quiet. couple of alerts, nothing major"?</li>
+</ul>
+<blockquote>
+<p>Hint: A useful note answers five questions: what fired, what I checked, what I found, what I don't know, and what happens next.</p>
+</blockquote>
+<p><strong>Question:</strong> Which message ID did dev.kapoor report as phishing?
+<strong>Question:</strong> At what time (HH:MM) did the helpdesk pull the cable on the HR PC?</p>
+<pre><code>cd ~/case
+cat ticket-88213.txt
+echo ---
+cat handover-night.txt</code></pre>
+<h2>2. Find the facts behind the ticket</h2>
+<p>A good note is built from evidence, not from what someone said on the phone. Start with the reported message in the mail log, then see who downloaded the attachment.</p>
+<p><code>nrcpt=</code> is the number of people the email went to. In the proxy log, <code>TCP_MISS/200</code> means the download worked and <code>TCP_DENIED/403</code> means the proxy blocked it.</p>
+<ul>
+<li>&#9744; How many people received the email, and who are they?</li>
+<li>&#9744; Which internal address downloaded the invoice, and was anyone blocked?</li>
+<li>&#9744; Write each fact down with its time and the file you saw it in</li>
+</ul>
+<blockquote>
+<p>Hint: Proxy times are Unix epoch seconds. The Python cell turns them into UTC clock times, so every fact in your note uses one time zone.</p>
+</blockquote>
+<p><strong>Question:</strong> How many people received the fake invoice?
+<strong>Question:</strong> Which internal IP address downloaded the invoice successfully?</p>
+<pre><code>cd ~/case
+grep 4A1F21C02 mail.log
+echo ---
+grep -E &#x27;report|blocklist&#x27; mail.log
+echo ---
+grep -E &#x27;docm|s2.bin&#x27; proxy.log</code></pre>
+<pre><code>from datetime import datetime, timezone
+
+for line in open(&quot;case/proxy.log&quot;):
+    f = line.split()
+    if &quot;docm&quot; in f[6] or &quot;s2.bin&quot; in f[6]:
+        when = datetime.fromtimestamp(float(f[0]), timezone.utc).strftime(&quot;%H:%M:%S UTC&quot;)
+        print(when, f[2], f[3], f[6])</code></pre>
+<h2>3. What ran on the PC</h2>
+<p>"HR PC slow, maybe virus" is a guess. The process list says exactly what ran, when and which program started it. Follow the <code>ppid</code> column: each process names its parent.</p>
+<ul>
+<li>&#9744; Which program started cmd.exe? Should it ever do that?</li>
+<li>&#9744; Where does the program PowerShell started live? Where does the real svchost.exe live?</li>
+<li>&#9744; When did that program reach the file share?</li>
+</ul>
+<blockquote>
+<p>Hint: The real svchost.exe is in C:\Windows\System32 and runs as SYSTEM. A file called svchost-upd.exe in C:\Users\Public is pretending.</p>
+</blockquote>
+<p><strong>Question:</strong> Which program started cmd.exe? (file name)
+<strong>Question:</strong> What is the PID of svchost-upd.exe started by PowerShell?</p>
+<pre><code>import csv
+from collections import defaultdict
+
+rows = [r for r in csv.DictReader(open(&quot;case/process.csv&quot;)) if r[&quot;host&quot;] == &quot;hr-pc07&quot;]
+kids = defaultdict(list)
+for r in rows:
+    kids[r[&quot;ppid&quot;]].append(r)
+
+
+def show(pid, depth):
+    for r in kids.get(pid, []):
+        print(&quot;    &quot; * depth + r[&quot;time&quot;][11:] + &quot; UTC  &quot; + r[&quot;image&quot;].split(&quot;\\&quot;)[-1] + &quot;  (pid &quot; + r[&quot;pid&quot;] + &quot;)  &quot; + r[&quot;command_line&quot;][:60])
+        show(r[&quot;pid&quot;], depth + 1)
+
+
+show(&quot;704&quot;, 0)</code></pre>
+<h2>4. Write the triage note</h2>
+<p>Now rewrite ticket 88213 as a triage note for alert <strong>AL-2203</strong>. The report builder checks each section as you type: it wants an alert ID, times with a time zone, the exact searches you ran, at least one gap, a disposition and an owner.</p>
+<p>Rules that make notes useful:</p>
+<ul>
+<li>One time zone for everything (UTC here), written every time.</li>
+<li>Facts say where you saw them. Guesses go under "What I don't know yet".</li>
+<li>
+<p>Write what you ran, so the next person can repeat it without asking you.</p>
+</li>
+<li>
+<p>&#9744; Fill every section, then press Check the report</p>
+</li>
+<li>&#9744; Compare yours with the model answer only after you've written your own</li>
+<li>&#9744; Download the Markdown: it is part of your hand-in</li>
+</ul>
+<blockquote>
+<p>Hint: "What I don't know yet" is never empty. Here: did the other two people open the invoice, and was anything copied out?</p>
+</blockquote>
+<p><strong>Use the Report builder.</strong></p>
+<p><strong>Question:</strong> Which disposition fits AL-2203? (escalate, handled, benign, false positive or more information)</p>
+<h2>5. Escalate</h2>
+<p>An escalation is read in ten seconds by someone who has just been woken up. Put <strong>the ask</strong> in the first line: what you need, from whom, by when. Then severity, what you know, what you don't know, impact, what you did, and where the evidence is.</p>
+<p>Say what you have <strong>not</strong> done as well: "I have not changed anything on the host" tells the incident lead the evidence is untouched.</p>
+<ul>
+<li>&#9744; First line: the ask, with a time</li>
+<li>&#9744; Severity, and the one fact that decided it</li>
+<li>&#9744; Facts with times, newest last</li>
+<li>&#9744; Where the evidence is saved (file names or hashes)</li>
+</ul>
+<blockquote>
+<p>Hint: Critical means harm is happening now. Files being encrypted on a shared drive is the fact that decides it.</p>
+</blockquote>
+<p><strong>Use the Report builder.</strong></p>
+<p><strong>Question:</strong> How many files on the share were encrypted?
+<strong>Question:</strong> Which folder on the share was not encrypted?</p>
+<pre><code>cd ~/case
+grep -c &#x27;kestrel-locked&#x27; share_listing.txt
+grep &#x27;Directory of&#x27; share_listing.txt
+echo ---
+sha256sum alerts.json mail.log proxy.log process.csv share_listing.txt invoice.eml</code></pre>
+<h2>6. Work the queue before you hand over</h2>
+<p>Your shift had ten alerts, and the night shift left a note that says "nothing major". Give every alert a disposition and a one-line reason. Some belong to the incident; some are ordinary noise and should be closed so the next shift isn't chasing them.</p>
+<p>The alert queue sorts by severity, then time. Pick an alert, choose a disposition, and write why.</p>
+<ul>
+<li>&#9744; Every alert gets a disposition: nothing left "Not triaged"</li>
+<li>&#9744; Each reason is one line a stranger could check</li>
+<li>&#9744; Write the notes for the next shift in the box under the queue</li>
+<li>&#9744; Download the handover the queue writes for you</li>
+</ul>
+<blockquote>
+<p>Hint: AL-2202's "Singapore" address is the company VPN exit: read the detail line. AL-2206 retried and worked at 09:25.</p>
+</blockquote>
+<p><strong>Use the Alert queue on case/alerts.json.</strong></p>
+<p><strong>Question:</strong> Which alert ID is the sign-in from the company VPN exit?
+<strong>Question:</strong> Which local account did the attacker create on hr-pc07?</p>
+<h2>7. Write the shift handover</h2>
+<p>Rewrite last night's "all quiet" note as a handover that leaves nothing behind. List every open item <strong>by ID</strong> with the next step and who owns it, what you closed, what to watch, who you called and when, and any temporary change that must be undone later.</p>
+<ul>
+<li>&#9744; Every open item by ID, with next step and owner</li>
+<li>&#9744; Closed items in one line each</li>
+<li>&#9744; Things to watch on the next shift</li>
+<li>&#9744; Calls and messages with times</li>
+<li>&#9744; Temporary blocks or exceptions, with a review date</li>
+</ul>
+<blockquote>
+<p>Hint: A temporary block nobody remembers becomes a permanent one. Write down who may remove it, and when it should be reviewed.</p>
+</blockquote>
+<p><strong>Use the Report builder.</strong></p>
+<h2>8. Hand in</h2>
+<p>Hand in three pieces of writing. Your teacher scores them with the rubric below, and your certificate is issued after the hand-in is scored.</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it must have</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Triage note for AL-2203</td>
+<td>Alert ID, time with time zone, searches you ran, facts with sources, gaps, disposition, owner</td>
+</tr>
+<tr>
+<td>Escalation</td>
+<td>The ask first, severity, know / don't know, impact, actions, evidence location</td>
+</tr>
+<tr>
+<td>Shift handover</td>
+<td>Open items by ID, closed items, watch list, calls with times, temporary changes</td>
+</tr>
+</tbody>
+</table>
+<p>Use <strong>Hand in</strong> at the top of the notebook. Your notes, tool work and answers go with it.</p>
+<ul>
+<li>&#9744; All questions in this notebook answered</li>
+<li>&#9744; Triage note, escalation and handover each show every section complete</li>
+<li>&#9744; Read each one aloud once: if a sentence needs you to explain it, rewrite it</li>
+<li>&#9744; Press Hand in</li>
+</ul>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Triage note: alert ID, time with time zone, and what was checked, so someone else can repeat it</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Triage note: facts with times and sources, kept apart from guesses</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Triage note: a disposition with one sentence of reasons</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Escalation: the ask in the first line, with who and by when</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Escalation: what we know, what we don't know, and impact</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Escalation: where the evidence is saved</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Shift handover: every open item by ID, with the next step and owner</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Shift handover: things to watch and calls made, with times</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Plain writing: short sentences, no blame, no guessing presented as fact</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h1>Lecture script: Evidence, notes and handoffs</h1>
+<p>Free seminar · about 120 minutes of lab work · the video runs about 8 minutes</p>
+<p>Read it aloud while the demo plays (add <code>&amp;demo=1</code> to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with <code>./teach demo</code> already has subtitles.</p>
+<h2>Opening</h2>
+<p>Welcome to Evidence, notes and handoffs. This is the free seminar, and it's about the skill every security job runs on: writing things down so the next person can act. Today we take one real case, a fake invoice that turned into ransomware at Kestrel Logistics, and a helpdesk ticket nobody can use. By the end you'll have rewritten it three ways: as a triage note, as an escalation, and as a shift handover. Everything runs in your browser. Let's start with the ticket.</p>
+<h2>1. A ticket nobody can act on</h2>
+<p>Here is ticket 88213, exactly as the helpdesk left it. Read it with me. "Probably spam." "Maybe virus." "Not sure if related." Every line is a guess, and not one line says which host, which user or which alert. Below it is last night's handover: "all quiet, nothing major". Keep both open. Our job is to replace every guess with a fact, a time and the place we saw it.</p>
+<p>On screen: the step text, the Linux cell.</p>
+<h2>2. Find the facts behind the ticket</h2>
+<p>Facts come from evidence. First the mail log: we search for the message ID dev.kapoor reported, and it shows the email went to three people. Then the proxy log: one address, 10.20.0.14, downloaded the invoice successfully, and a second machine was blocked. The Python cell turns the proxy's epoch times into UTC, so every fact in our notes uses one time zone.</p>
+<p>On screen: the step text, the Linux cell, the Python cell.</p>
+<h2>3. What ran on the PC</h2>
+<p>"HR PC slow" isn't evidence. The process list is. Follow the parent column: Word started cmd.exe, which started a hidden PowerShell, which started a program called svchost-upd in the Public folder. The real svchost lives in System32 and runs as SYSTEM. This one is pretending. And at 09:41 the same program reached the file share.</p>
+<p>On screen: the step text, the Python cell.</p>
+<h2>4. Write the triage note</h2>
+<p>Now we write. The report builder has six sections and checks each one as we type: an alert ID, times with a time zone, the exact searches we ran, at least one thing we don't know, a disposition and an owner. Watch the model note. The "What I don't know yet" section is never empty, and every fact says where it came from.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>5. Escalate</h2>
+<p>An escalation is read in ten seconds by someone who has just been woken up, so the ask goes first: what we need, from whom, by when. Then the severity and the one fact that decided it: files on the share are being encrypted right now. The Linux cell counts the encrypted files and hashes the evidence, and we say where it's saved, so nothing gets lost.</p>
+<p>On screen: the step text, the Linux cell, the tool with the model answer.</p>
+<h2>6. Work the queue before you hand over</h2>
+<p>Before handing over, we work the whole queue. Ten alerts. Some belong to the incident, and some are ordinary noise: the Singapore sign-in is the company VPN exit, and the antivirus update fixed itself. Each one gets a disposition and one line of reason a stranger could check. The queue then writes a handover for us.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>7. Write the shift handover</h2>
+<p>Last night's note said "all quiet". Ours lists every open item by ID with the next step and its owner, what we closed, what to watch, who we called and when, and the temporary blocks someone must remember to review. A handover like this lets the next shift start working instead of starting over.</p>
+<p>On screen: the step text, the tool with the model answer.</p>
+<h2>8. Hand in</h2>
+<p>Your hand-in is these three pieces of writing. Your teacher scores them with the rubric on screen, and the certificate follows once it's scored. Before you press Hand in, read each piece aloud once. If a sentence needs you to explain it, rewrite it.</p>
+<p>On screen: the step text.</p>
+<h2>Wrap-up</h2>
+<p>That's the seminar. You turned a ticket that said "probably spam" into a triage note with facts and times, an escalation someone can decide on in ten seconds, and a handover that leaves nothing behind. Those three pieces are your hand-in. Use the Practice level to write them yourself with hints, then the Solo level without. In the next seminar we take the same habits into log search and detection rules.</p>
+<h2>YouTube chapters (estimate; <code>./teach demo</code> writes the exact ones)</h2>
+<pre><code>0:00 Opening
+0:35 1. A ticket nobody can act on
+1:24 2. Find the facts behind the ticket
+2:25 3. What ran on the PC
+3:05 4. Write the triage note
+3:56 5. Escalate
+5:09 6. Work the queue before you hand over
+5:59 7. Write the shift handover
+6:49 8. Hand in
+7:14 Wrap-up
+</code></pre></main></body>
+</html>

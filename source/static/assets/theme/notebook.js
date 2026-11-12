@@ -3,7 +3,7 @@
 
   var me = document.currentScript && document.currentScript.src;
   var ROOT = me ? me.replace(/assets\/theme\/notebook\.js.*$/, "") : "";
-  var PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+  var PYODIDE = ROOT + "assets/vendor/pyodide-0.26.1/";
   var $ = function (id) { return document.getElementById(id); };
   var q = new URLSearchParams(location.search);
   var ref = (q.get("ref") || "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 60);
@@ -163,7 +163,7 @@
     }).catch(function (e) { status(e.message); });
   }
 
-  var YJS = "https://cdn.jsdelivr.net/npm/yjs@13.6.20/+esm";
+  var YJS = ROOT + "assets/vendor/yjs-13.6.20/yjs.js";
   function b64(u8) {
     var out = "";
     for (var i = 0; i < u8.length; i += 0x8000) out += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
@@ -423,7 +423,7 @@
 
   function grow(t) { t.style.height = "auto"; t.style.height = Math.max(60, t.scrollHeight + 4) + "px"; }
 
-  var CM = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/", cmLoad = null;
+  var CM = ROOT + "assets/vendor/codemirror-5.65.16/", cmLoad = null;
 
   function loadCM() {
     if (cmLoad || space) return cmLoad;
@@ -463,9 +463,31 @@
   }
 
   function norm(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
+  function facts(text) {
+    var out = {}, re = /aayat\{[^}]+\}|\b[0-9a-f]{32,64}\b|\b(?:\d{1,3}\.){3}\d{1,3}\b|\b(?:[a-z0-9-]+\.)+(?:com|net|org|example|test|lan|local|io)\b|\/(?:etc|tmp|var|home|usr|root)\/[\w.\/-]+|\b\d{3,}\b/gi, m;
+    while ((m = re.exec(String(text || "")))) out[m[0].toLowerCase()] = 1;
+    return Object.keys(out);
+  }
+  function works(c) {
+    if (!c.o) return false;
+    var k = c.k && typeof c.k === "object" ? c.k : null;
+    if (k) {
+      var outs = [].concat(k.out || []), cmds = [].concat(k.cmd || []);
+      var okOut = outs.length && outs.every(function (p) { try { return new RegExp(p, "im").test(c.o); } catch (e) { return false; } });
+      var okCmd = cmds.length && cmds.some(function (p) { try { return new RegExp(p, "i").test(c.s); } catch (e) { return false; } });
+      return !!(okOut || (okCmd && !outs.length));
+    }
+    if (!c.e) return false;
+    var want = facts(c.e), have = {};
+    if (!want.length || want.length > 40) return false;
+    facts(c.o).forEach(function (f) { have[f] = 1; });
+    return want.every(function (f) { return have[f]; });
+  }
   function matchText(c) {
-    if (!c.e || !c.o) return "";
-    if (norm(c.o) === norm(c.e)) return "&#10003; Your output matches";
+    if (!c.o || (!c.e && !c.k)) return "";
+    if (c.e && norm(c.o) === norm(c.e)) return "&#10003; Your output matches";
+    if (works(c)) return "&#10003; Your command works: it finds " + (c.k ? "what this step needs" : "the same facts as the recorded one");
+    if (!c.e) return "Not yet: this step is looking for something your output doesn't show";
     var want = c.e.split("\n").map(norm).filter(Boolean), have = {};
     c.o.split("\n").forEach(function (l) { have[norm(l)] = 1; });
     var hit = want.filter(function (l) { return have[l]; }).length;
@@ -487,7 +509,7 @@
         (sh ? '<div class="rb-explain rb-cellex" hidden></div>' : "") +
         (code ? '<pre class="nb-out"' + (c.o ? "" : " hidden") + ">" + esc(c.o || "") + "</pre>" : "") +
         (code && c.a && norm(c.s) !== norm(c.a) ? '<div class="rb-reveal"><button type="button" class="btn" data-show>Show the recorded command</button></div>' : "") +
-        (code && c.e ? '<details class="rb-want"><summary>' + (c.r ? "Recorded on a real system" : "Expected output") + ' <span class="rb-match">' + matchText(c) + '</span></summary><pre>' + esc(c.e) + "</pre></details>" : "") +
+        (code && c.e ? '<details class="rb-want"><summary>' + (c.r ? "Recorded on a real system" : "Expected output") + ' <span class="rb-match">' + matchText(c) + '</span></summary><pre>' + esc(c.e) + "</pre></details>" : code && c.k && c.o ? '<p class="rb-match">' + matchText(c) + "</p>" : "") +
         (sh ? '<div class="rb-tip"' + (tipFor(c) ? "" : " hidden") + ">" + tipFor(c) + "</div>" : "") + "</section>";
     }).join("") || '<p class="nb-empty">Empty notebook. Add notes or code below.</p>';
     box.querySelectorAll(".nb-cell").forEach(function (el) {
@@ -702,11 +724,11 @@
 
   function levelBar(m) {
     if (!m.levels) return "";
-    var names = { worked: "Worked example", guided: "Guided", solo: "On your own" }, cur = m.supportLevel || "worked", stamp = Date.now().toString(36);
+    var names = { worked: "Walkthrough", guided: "Practice", solo: "Solo" }, cur = m.supportLevel || "worked", stamp = Date.now().toString(36);
     var links = Object.keys(names).map(function (k) {
       return k === cur ? '<b class="rb-lvl on">' + names[k] + "</b>" : '<a class="rb-lvl" href="?ref=rb-' + stamp + "&runbook=" + encodeURIComponent(m.levels[k]) + '">' + names[k] + "</a>";
     }).join("");
-    return '<p class="rb-levels"><span>Support level</span>' + links + (m.guide ? ' <a class="rb-lvl" href="' + esc(m.guide) + '" target="_blank" rel="noopener">Printable guide</a>' : "") +
+    return '<p class="rb-levels"><span>Support level</span>' + links + (m.guide ? ' <a class="rb-lvl" href="' + esc(m.guide) + '" target="_blank" rel="noopener">Written tutorial</a>' : "") +
       (m.replay ? ' <a class="rb-lvl" href="replay.html?case=' + encodeURIComponent(m.base || m.id) + '" target="_blank" rel="noopener">Watch the recording</a>' : "") + "</p>";
   }
 
@@ -718,6 +740,19 @@
     }).join("") + "</p>";
   }
 
+  function playbookHtml(p) {
+    if (!p || typeof p !== "object") return "";
+    function list(a) { return (a || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join(""); }
+    var rows = [["Trigger", esc(p.trigger || "")], ["Severity", p.severity ? '<span class="rb-sev rb-sev-' + esc(String(p.severity).toLowerCase()) + '">' + esc(p.severity) + "</span>" : ""],
+      ["Roles", esc((p.roles || []).join(", "))], ["ATT&amp;CK", (p.attack || []).map(function (t) { return '<a href="https://attack.mitre.org/techniques/' + esc(String(t).replace(".", "/")) + '/" target="_blank" rel="noopener"><code>' + esc(t) + "</code></a>"; }).join(" ")],
+      ["Time targets", p.targets ? "<ul>" + list(p.targets) + "</ul>" : ""], ["Who to notify", p.notify ? "<ul>" + list(p.notify) + "</ul>" : ""],
+      ["Key decisions", p.decisions ? "<ul>" + list(p.decisions) + "</ul>" : ""], ["Done when", p.done ? "<ul>" + list(p.done) + "</ul>" : ""]]
+      .filter(function (r) { return r[1]; });
+    if (!rows.length) return "";
+    return '<details class="rb-play"><summary>Playbook' + (p.version ? " v" + esc(p.version) : "") + (p.reviewed ? ", last reviewed " + esc(p.reviewed) : "") + "</summary><table class=\"rb-tools\">" +
+      rows.map(function (r) { return "<tr><th>" + r[0] + "</th><td>" + r[1] + "</td></tr>"; }).join("") + "</table></details>";
+  }
+
   function briefHtml(m) {
     var files = (m.files || []).filter(function (f) { return /^case\//.test(f); }).map(function (f) { return f.slice(5); });
     var tools = (m.tools || []).map(function (t) {
@@ -726,8 +761,8 @@
     }).join("");
     var units = (m.units || []).length ? ((m.units.length > 1 ? "Units " : "Unit ") + m.units.join(" &amp; ")) : "";
     return '<summary><span class="rb-bk">' + esc(m.kicker || "Incident") + (m.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
-      "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units].filter(Boolean).join(" &middot; ") + "</span></summary>" +
-      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + topicLine(m) + levelBar(m) +
+      "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units, m.variantCount ? "evidence set " + (m.variant + 1) + " of " + m.variantCount : ""].filter(Boolean).join(" &middot; ") + "</span></summary>" +
+      '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + topicLine(m) + levelBar(m) + playbookHtml(m.playbook) +
       '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li><li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>' +
       "<li><b>Tick</b> the checklist and answer the questions. Stuck? Open a hint.</li><li><b>Next step</b> takes you on. Your progress saves with this notebook.</li></ol>" +
       (files.length ? '<h3>Evidence in <code>~/case</code></h3><div class="rb-files">' + files.map(function (f) { return "<code>" + esc(f) + "</code>"; }).join("") + "</div>" : "") +
@@ -1129,6 +1164,7 @@
             if (c.e !== undefined) o.e = c.e;
             if (c.r) o.r = c.r;
             if (c.a) o.a = c.a;
+            if (c.k) o.k = c.k;
             return o;
           });
           gst().started = new Date().toISOString();
@@ -1190,6 +1226,11 @@
     document.querySelectorAll("[data-add]").forEach(function (b) { b.addEventListener("click", function () { add(b.getAttribute("data-add")); }); });
     if (!space && (premium || ref)) loadCM();
     if (premium) premiumBoot(); else if (space) liveEditor(); else if (ref) editor(); else listPage();
+    if (q.get("demo") && q.get("runbook")) {
+      var d = document.createElement("script");
+      d.src = ROOT + "assets/theme/demo.js";
+      document.body.appendChild(d);
+    }
   }
   if (document.readyState === "complete") boot();
   else global.addEventListener("load", boot);

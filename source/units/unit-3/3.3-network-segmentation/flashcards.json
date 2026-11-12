@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_3.3_1",
-      "front": "What is the primary threat vector for Network Segmentation?",
-      "back_definition": "Adversaries exploit flat subnet mapping on operations subnets to bypass standard perimeter security controls.",
-      "back_example": "Example: ACL Drop: Workstation 192.168.10.45 blocked from database",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: flat subnet mapping is the unlocked door; operations subnets is what the attacker wants to steal."
+      "front": "What is network segmentation?",
+      "back_definition": "Dividing a network into zones with limited, controlled connections between them, so a breach in one zone cannot easily reach the others.",
+      "back_example": "Point-of-sale terminals on their own segment that only talks to the payment server.",
+      "back_confusion": "Segmentation limits the blast radius; it does not stop the first compromise.",
+      "back_hook": "Bulkheads in a ship."
     },
     {
       "id": "FC_3.3_2",
-      "front": "How does the security team mitigate Network Segmentation threats?",
-      "back_definition": "Deploying and enforcing VLAN subnet isolation directly hardens operations subnets and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require VLAN subnet isolation.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "What is a VLAN?",
+      "back_definition": "A virtual LAN: a logical broadcast domain created on a switch, so groups of ports are separated without separate hardware.",
+      "back_example": "VLAN 10 for staff, VLAN 20 for guests, VLAN 99 for management, all on the same switch.",
+      "back_confusion": "A VLAN is logical separation on shared hardware; an air gap is physical separation.",
+      "back_hook": "Many networks, one switch."
     },
     {
       "id": "FC_3.3_3",
-      "front": "How do analysts detect exploitation of Network Segmentation?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on unauthorized inter-VLAN routing flags.",
-      "back_example": "Syslog trace: ACL Drop: Workstation 192.168.10.45 blocked from database",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "Access port vs trunk port?",
+      "back_definition": "An access port belongs to one VLAN and connects an end device. A trunk carries tagged traffic for many VLANs (802.1Q) between switches and routers.",
+      "back_example": "Desk PCs plug into access ports; the uplink to the core switch is a trunk.",
+      "back_confusion": "Leaving user ports set to auto-negotiate trunking invites VLAN hopping.",
+      "back_hook": "Access = one lane; trunk = the motorway."
+    },
+    {
+      "id": "FC_3.3_4",
+      "front": "What enforces separation between VLANs?",
+      "back_definition": "The firewall or router rules at the point where traffic is routed between VLANs. If those rules allow everything, the VLANs separate nothing.",
+      "back_example": "Rule: guest VLAN may reach the internet but nothing on 10.0.0.0/8.",
+      "back_confusion": "VLANs stop direct layer 2 traffic; policy at layer 3 is what controls crossing.",
+      "back_hook": "The wall needs a guarded door."
+    },
+    {
+      "id": "FC_3.3_5",
+      "front": "What is lateral movement?",
+      "back_definition": "An attacker hopping from the first compromised machine to others inside the network to reach valuable systems.",
+      "back_example": "From a phished laptop to a file server to the domain controller.",
+      "back_confusion": "Segmentation, least privilege and monitoring east-west traffic all slow it.",
+      "back_hook": "Get in anywhere, then move sideways."
+    },
+    {
+      "id": "FC_3.3_6",
+      "front": "Why must the management VLAN be isolated?",
+      "back_definition": "It carries access to switch, router and firewall admin interfaces. A user device there could attack the network gear itself.",
+      "back_example": "Only admin workstations on VLAN 99 can reach the switches' SSH.",
+      "back_confusion": "Putting users on the management VLAN \"for convenience\" undoes the segmentation.",
+      "back_hook": "Keep the control room locked."
+    },
+    {
+      "id": "FC_3.3_7",
+      "front": "What is VLAN hopping?",
+      "back_definition": "Sending traffic into a VLAN the attacker should not reach, by tricking a port into trunking (switch spoofing) or using double 802.1Q tags.",
+      "back_example": "An attacker's laptop negotiates a trunk with a switch port left on auto.",
+      "back_confusion": "Fix it by setting user ports to access mode, disabling DTP and not using the native VLAN for users.",
+      "back_hook": "Jump the fence by pretending to be the gate."
+    },
+    {
+      "id": "FC_3.3_8",
+      "front": "What is Zero Trust?",
+      "back_definition": "Never trust a user or device because of where it sits on the network; verify identity, device health and permission on every request.",
+      "back_example": "A laptop on the office network still needs MFA and a healthy device check to open the HR app.",
+      "back_confusion": "Zero Trust is a technical posture, not distrust of employees.",
+      "back_hook": "Never trust, always verify."
+    },
+    {
+      "id": "FC_3.3_9",
+      "front": "What is implicit trust, and why is it risky?",
+      "back_definition": "Trusting a device or user because it is inside the network or already logged in once. One compromised device then reaches everything.",
+      "back_example": "A flat office network where any PC can open any server's file shares.",
+      "back_confusion": "VLANs alone still leave implicit trust inside each VLAN.",
+      "back_hook": "Inside is not the same as safe."
+    },
+    {
+      "id": "FC_3.3_10",
+      "front": "What is microsegmentation?",
+      "back_definition": "Fine-grained rules around individual workloads or applications, so each one can only talk to the specific systems it needs.",
+      "back_example": "The web server may reach the app server on 8443; nothing else may reach the app server.",
+      "back_confusion": "Ordinary segmentation separates zones; microsegmentation separates individual workloads.",
+      "back_hook": "A wall around every room, not just every floor."
+    },
+    {
+      "id": "FC_3.3_11",
+      "front": "What does a private VLAN isolated port do?",
+      "back_definition": "It can talk only to the promiscuous port (usually the gateway), not to other hosts in the same VLAN.",
+      "back_example": "Hotel rooms on one VLAN can reach the internet but not each other's laptops.",
+      "back_confusion": "Community ports can talk to each other and the gateway; isolated ports only to the gateway.",
+      "back_hook": "Everyone talks to the front desk, nobody to the neighbours."
+    },
+    {
+      "id": "FC_3.3_12",
+      "front": "How did weak segmentation hurt Target in 2013?",
+      "back_definition": "Attackers entered through an HVAC contractor's access and reached point-of-sale systems, which should have been walled off from vendor access.",
+      "back_example": "About 40 million card numbers were stolen from the payment terminals.",
+      "back_confusion": "The firewall existed; the problem was what the rules allowed between zones.",
+      "back_hook": "The air-conditioning vendor should never see the tills."
+    },
+    {
+      "id": "FC_3.3_13",
+      "front": "Why did Colonial Pipeline shut down operations in 2021?",
+      "back_definition": "Ransomware hit the business IT network, and without clear separation from the pipeline's operational technology, the company stopped the pipeline as a precaution.",
+      "back_example": "Fuel shortages followed along the US East Coast for several days.",
+      "back_confusion": "The attack did not touch the pipeline controls directly; uncertainty about the boundary forced the shutdown.",
+      "back_hook": "If you can't prove the wall holds, you close the gate."
     }
   ]
 }

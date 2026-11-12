@@ -7,27 +7,107 @@
   "flashcards": [
     {
       "id": "FC_1.2_1",
-      "front": "What is the primary threat vector for Suspicious Website Logins?",
-      "back_definition": "Adversaries exploit low-entropy passwords on authentication endpoints to bypass standard perimeter security controls.",
-      "back_example": "Example: Status: Failed logon | Attempts: 40 in 10 seconds from IP 198.51.100.99",
-      "back_confusion": "Don't confuse this threat with other layers (like physical breaches or certificate revocations) which target different assets.",
-      "back_hook": "Recall: low-entropy passwords is the unlocked door; authentication endpoints is what the attacker wants to steal."
+      "front": "Name three signs in a login log that an account is under password attack.",
+      "back_definition": "Many failed logins in a short time, logins at unusual hours for that user, and logins from a device or location never seen before.",
+      "back_example": "47 failures in 90 seconds followed by a success, from an IP the user has never used.",
+      "back_confusion": "One failed login is normal: the rate and the combination of signals matter, not the raw count.",
+      "back_hook": "Too many, too odd a time, too unfamiliar a device."
     },
     {
       "id": "FC_1.2_2",
-      "front": "How does the security team mitigate Suspicious Website Logins threats?",
-      "back_definition": "Deploying and enforcing Multi-Factor Authentication and API rate limiters directly hardens authentication endpoints and blocks unauthorized connections.",
-      "back_example": "Action: Update security configurations to require Multi-Factor Authentication and API rate limiters.",
-      "back_confusion": "Don't confuse mitigation (actively blocking the exploit) with detection (simply logging or alerting the event).",
-      "back_hook": "Mitigation is the shield; detection is the security camera."
+      "front": "Why does a brute-force alert rule use a time window, not just a count?",
+      "back_definition": "The window separates slow human mistakes from fast automated guessing, which cuts false positives.",
+      "back_example": "Rule: 5 failed logins for the same user within 60 seconds.",
+      "back_confusion": "Five failures spread across a week is a forgetful user; five in a minute is a script.",
+      "back_hook": "Rate, not raw count."
     },
     {
       "id": "FC_1.2_3",
-      "front": "How do analysts detect exploitation of Suspicious Website Logins?",
-      "back_definition": "By auditing event data and implementing logic flags built to alert on failed authentication rate threshold audits.",
-      "back_example": "Syslog trace: Status: Failed logon | Attempts: 40 in 10 seconds from IP 198.51.100.99",
-      "back_confusion": "Don't confuse signature-based detection (matching known strings) with anomaly-based detection (mapping dynamic standard deviations).",
-      "back_hook": "Detection is looking for the fingerprint left behind by the threat."
+      "front": "Brute force vs dictionary attack vs credential stuffing?",
+      "back_definition": "Brute force tries every possible combination. A dictionary attack tries likely passwords from a wordlist. Credential stuffing replays real username and password pairs stolen in another site's breach.",
+      "back_example": "In 2023 attackers stuffed reused passwords into 23andMe, got into 14,601 accounts and through a sharing feature reached data on millions more users.",
+      "back_confusion": "Credential stuffing needs no guessing at all; it works only because people reuse passwords.",
+      "back_hook": "Try everything, try the likely, try the stolen."
+    },
+    {
+      "id": "FC_1.2_4",
+      "front": "A log shows a success just before the account lockout fired. What does it mean?",
+      "back_definition": "The attacker probably guessed the password before the lockout triggered, so treat the account as compromised: reset it and investigate.",
+      "back_example": "Fail, fail, fail, fail, SUCCESS, then lockout on the next attempt.",
+      "back_confusion": "A lockout stops further guessing; it does not undo a login that already succeeded.",
+      "back_hook": "Locked after the thief got in is still robbed."
+    },
+    {
+      "id": "FC_1.2_5",
+      "front": "What are mangling rules?",
+      "back_definition": "Transformations a cracking tool applies to each wordlist entry (capitalise, swap letters for symbols, append digits) to generate the variants people actually use.",
+      "back_example": "password becomes Password, P@ssw0rd, password1 and PASSWORD!.",
+      "back_confusion": "This is why \"add a number and a symbol\" does not make a dictionary word safe.",
+      "back_hook": "Attackers already know your clever tricks."
+    },
+    {
+      "id": "FC_1.2_6",
+      "front": "What makes a password strong?",
+      "back_definition": "Length and unpredictability. Each extra character multiplies the search space, and a random multi-word passphrase beats a short complex word.",
+      "back_example": "correct-horse-battery-staple (random words) is far stronger than P@ssw0rd!.",
+      "back_confusion": "Complexity rules that just force symbols give predictable substitutions; length wins on the maths.",
+      "back_hook": "Long beats clever."
+    },
+    {
+      "id": "FC_1.2_7",
+      "front": "What does NIST SP 800-63B-4 (2025) say about password length and rules?",
+      "back_definition": "At least 15 characters for a password used on its own, 8 when it is part of MFA; allow at least 64; check new passwords against a breached-password blocklist; no forced composition rules and no scheduled expiry.",
+      "back_example": "Change a password only when there is evidence it was compromised.",
+      "back_confusion": "Older advice of 8 characters plus mandatory symbols and 90-day resets is out of date.",
+      "back_hook": "15 alone, 8 with a buddy, never on a timer."
+    },
+    {
+      "id": "FC_1.2_8",
+      "front": "What is MFA, and what are the three factor categories?",
+      "back_definition": "Multi-factor authentication requires factors from two or more different categories: something you know (password), something you have (phone, key), something you are (fingerprint).",
+      "back_example": "Password plus a code from an authenticator app.",
+      "back_confusion": "Two passwords, or a password plus a security question, is still only one category: that is not MFA.",
+      "back_hook": "Know, have, are: pick two different ones."
+    },
+    {
+      "id": "FC_1.2_9",
+      "front": "How does a TOTP code work?",
+      "back_definition": "The app and server share a secret key. Each computes HMAC(secret, time step), where the time step is floor(Unix time / 30), and turns the result into a 6-digit code (RFC 6238).",
+      "back_example": "At Unix time 1700000075 the time step is 56666669.",
+      "back_confusion": "TOTP codes are computed on the device and never travel over the phone network, unlike SMS codes.",
+      "back_hook": "Same secret plus same clock = same code."
+    },
+    {
+      "id": "FC_1.2_10",
+      "front": "Why is an authenticator app safer than SMS codes?",
+      "back_definition": "SMS codes can be stolen by SIM swapping or number porting, without touching the victim's phone. Authenticator codes are computed locally.",
+      "back_example": "An attacker convinces a phone carrier to move the victim's number to a new SIM and receives their login codes.",
+      "back_confusion": "Both can still be phished in real time by a proxy page; only origin-bound keys or passkeys stop that.",
+      "back_hook": "Your number can be stolen; your app's secret stays home."
+    },
+    {
+      "id": "FC_1.2_11",
+      "front": "Why do adversary-in-the-middle phishing kits defeat SMS and TOTP MFA?",
+      "back_definition": "The fake page relays the password and the code to the real site in real time and steals the session cookie, which is the real prize.",
+      "back_example": "In 2022 the same SMS phishing campaign breached Twilio but failed at Cloudflare, whose staff used FIDO2 security keys.",
+      "back_confusion": "MFA still blocks password-only attacks; it just is not phishing-resistant unless it is origin-bound.",
+      "back_hook": "Steal the cookie, skip the lock."
+    },
+    {
+      "id": "FC_1.2_12",
+      "front": "Why should passwords be stored salted and with a slow hash?",
+      "back_definition": "A unique salt makes identical passwords hash differently, defeating precomputed tables. A slow key-stretching function (bcrypt, scrypt, Argon2id) makes each guess expensive.",
+      "back_example": "LinkedIn's 2012 leak used unsalted SHA-1, so millions of passwords were cracked within days.",
+      "back_confusion": "Fast hashes such as SHA-256 alone are the wrong tool for passwords: speed helps the attacker.",
+      "back_hook": "Salt it, then slow it."
+    },
+    {
+      "id": "FC_1.2_13",
+      "front": "How does a password manager reduce account-takeover risk?",
+      "back_definition": "It generates and remembers a unique, random password for every site, so one breach cannot be replayed elsewhere.",
+      "back_example": "Colonial Pipeline (2021) was entered through one old VPN account with a leaked password and no MFA.",
+      "back_confusion": "The vault is encrypted with the master password; pair the manager with MFA, since each covers a different failure.",
+      "back_hook": "One strong lock opens a box of unique keys."
     }
   ]
 }

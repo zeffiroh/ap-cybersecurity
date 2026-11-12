@@ -190,8 +190,12 @@
         if (!lab || !head) return;
         var d = document.createElement("div");
         d.className = "sm-lab";
-        d.innerHTML = s.owned ? '<a class="btn dark" href="' + ROOT + "notebook.html?ref=rb-" + esc(lab.id) + "&runbook=" + esc(lab.id) + '">Open the hands-on lab</a>'
-          : '<p class="sx-note">Unlocking this seminar also unlocks its hands-on lab.</p>';
+        var nb = ROOT + "notebook.html?ref=rb-" + esc(lab.id);
+        d.innerHTML = s.owned ? '<a class="btn dark" href="' + nb + "&runbook=" + esc(lab.id) + '">Walkthrough: worked example</a> ' +
+          '<a class="btn" href="' + nb + "--guided&runbook=" + esc(lab.id) + '--guided">Practice: guided, with hints</a> ' +
+          '<a class="btn" href="' + nb + "--solo&runbook=" + esc(lab.id) + '--solo">Solo: no hints, ends in the hand-in</a> ' +
+          '<a class="btn" href="' + ROOT + "media/guides/" + esc(lab.id) + '/index.html" target="_blank" rel="noopener">Written tutorial</a>'
+          : '<p class="sx-note">Unlocking this seminar also unlocks its hands-on lab: a written tutorial, a worked walkthrough, a guided practice and a solo run that ends in the hand-in.</p>';
         head.parentNode.insertBefore(d, head.nextSibling);
       }).catch(function () {});
       box.querySelectorAll(".sm-ch").forEach(function (b) {

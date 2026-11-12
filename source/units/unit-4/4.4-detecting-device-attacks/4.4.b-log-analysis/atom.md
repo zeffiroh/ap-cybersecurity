@@ -1,7 +1,7 @@
 # 4.4.b: Log analysis
 
 > **Unit 4 · 4.4 Endpoint Threat Auditing**
-> **AP Learning Objective(s):** 4.4.B
+> **AP Learning Objective(s):** 4.4.B, 4.4.D
 > **Course skill(s):** Detect Attacks
 
 ## Learning objective (student-facing)

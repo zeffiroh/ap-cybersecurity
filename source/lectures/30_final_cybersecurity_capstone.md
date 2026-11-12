@@ -149,7 +149,7 @@ Let's walk through our scenario using ATT&CK language. The phishing email maps t
 
 Why does this precision matter? When you write an incident report using MITRE ATT&CK IDs, your findings are immediately understood by any security professional worldwide. SIEM platforms like Microsoft Sentinel and Splunk Enterprise Security use ATT&CK IDs to correlate detections automatically. Threat intelligence feeds from vendors like Recorded Future and Mandiant tag every indicator with ATT&CK technique IDs, so your team can instantly filter for relevant threats.
 
-The NIST SP 800-61r3 Computer Security Incident Handling Guide recommends documenting incidents using standardized taxonomies like ATT&CK to improve information sharing and post-incident analysis. Including ATT&CK IDs in your capstone report demonstrates professional-grade documentation standards.
+NIST SP 800-61r3 (Incident Response Recommendations and Considerations for Cybersecurity Risk Management) recommends documenting incidents using standardized taxonomies like ATT&CK to improve information sharing and post-incident analysis. Including ATT&CK IDs in your capstone report demonstrates professional-grade documentation standards.
 
 The ATT&CK Enterprise matrix, for a technique such as spearphishing link (T1566.002), gives the description, real-world procedure examples from named groups, detection guidance and mitigations, a free reference worth keeping.
 :::
@@ -1186,7 +1186,7 @@ Question 2 tests the certificate authority and public key infrastructure concept
 
 Question 3 tests detection accuracy vocabulary. A false positive is an alarm that fires when no real threat is present, the detection system incorrectly classifies benign activity as malicious. An understanding of false positive and false negative rates is essential for evaluating the quality of detection rules in a SIEM. A rule with a very high false positive rate will overwhelm analysts with spurious alerts, causing alert fatigue and reducing the chance that real alerts are investigated promptly.
 
-Question 4 tests NIST publication knowledge. NIST SP 800-61, Computer Security Incident Handling Guide (revision 3 was published in 2024), is the primary NIST reference for incident response procedures. SP 800-53 covers security and privacy controls. SP 800-207 covers Zero Trust Architecture. SP 800-115 covers technical security testing and assessment including penetration testing.
+Question 4 tests NIST publication knowledge. NIST SP 800-61 (revision 3, published in April 2025, replaced the 2012 Computer Security Incident Handling Guide) is the primary NIST reference for incident response procedures. SP 800-53 covers security and privacy controls. SP 800-207 covers Zero Trust Architecture. SP 800-115 covers technical security testing and assessment including penetration testing.
 
 Question 5 tests the distinction between file-based and fileless attack techniques, directly relevant to the EDR versus antivirus discussion from this class. PowerShell executing commands in memory without writing files is the canonical example of a living-off-the-land attack.
 

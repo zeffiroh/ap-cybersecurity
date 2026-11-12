@@ -77,7 +77,10 @@
     if (b) b.addEventListener("click", function () { if (global.Identity) global.Identity.open({}, function () { location.reload(); }); });
     var h = (access && access.history) || [];
     $("st-history").innerHTML = !access || !access.me ? '<p class="sx-empty">Sign in to see your tickets.</p>' :
-      "<p><b>" + plural(access.tickets) + "</b> available.</p>" + (h.length ? '<table class="sq-table"><tr><th>When</th><th>Change</th><th>For</th></tr>' +
+      "<p><b>" + plural(access.tickets) + "</b> available.</p>" +
+      ((access.ticketLots || []).filter(function (l) { return l.expires; }).length ? "<p class=\"sx-note\">" + access.ticketLots.filter(function (l) { return l.expires; }).map(function (l) {
+        return plural(l.left) + " expire" + (l.left === 1 ? "s" : "") + " on " + esc(day(l.expires));
+      }).join("; ") + ". The oldest are used first.</p>" : "") + (h.length ? '<table class="sq-table"><tr><th>When</th><th>Change</th><th>For</th></tr>' +
         h.map(function (x) {
           return "<tr><td>" + esc(day(x.at)) + "</td><td>" + (x.delta > 0 ? "+" : "") + x.delta + "</td><td>" + esc(x.reason) + "</td></tr>";
         }).join("") + "</table>" : "");

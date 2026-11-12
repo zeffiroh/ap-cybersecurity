@@ -1,0 +1,146 @@
+{
+ "order": 5,
+ "title": "Capstone A: the night shift",
+ "kicker": "Seminar 4 · Capstone",
+ "units": [
+  1,
+  3,
+  4,
+  5
+ ],
+ "level": "Practitioner",
+ "minutes": 270,
+ "summary": "Run an overnight shift alone for a credit union client: an unlabelled, noisy queue of twelve alerts, one real intrusion hiding in it, and a morning team waiting for your escalation, a new detection and a shift report.",
+ "tools": [
+  "Alert queue",
+  "SIEM search",
+  "Event viewer",
+  "Packet viewer",
+  "Indicators and ATT&CK",
+  "Sigma rules",
+  "Report builder",
+  "grep"
+ ],
+ "titlePrefix": "Capstone A: the night shift",
+ "teacher": true,
+ "id": "sem-s04-capstone-night-shift--guided",
+ "seminarId": 5,
+ "rubric": [
+  [
+   "Queue: all twelve alerts have a disposition and a reason backed by a log line",
+   6
+  ],
+  [
+   "Scope: the one affected host, user and domain named, with the evidence",
+   4
+  ],
+  [
+   "Escalation: the ask first, severity with its reason, know / don't know, evidence location",
+   5
+  ],
+  [
+   "New detection: a Sigma rule that catches the tunnel, tested, with a tuning note",
+   4
+  ],
+  [
+   "Shift report: open items by ID with owners, closed items, watch list, calls with times",
+   4
+  ],
+  [
+   "Hints: minus 1 point for each hint opened (write the count in the shift report)",
+   0
+  ],
+  [
+   "Working alone: every search and command kept in the notebook",
+   2
+  ]
+ ],
+ "handin": "A shift report, one escalation and one new detection rule, plus the dispositioned queue.",
+ "files": [
+  "case/alerts-night.json",
+  "case/capture.pcap",
+  "case/dns.log",
+  "case/dns_stats.csv",
+  "case/eventlogs/Security.jsonl",
+  "case/eventlogs/Sysmon.jsonl",
+  "case/eventlogs/System.jsonl",
+  "case/fw_summary.txt",
+  "case/intel.json",
+  "case/process.csv",
+  "case/proxy.log"
+ ],
+ "script": {
+  "intro": "This is Capstone A, the night shift. You're the overnight analyst at a managed SOC, covering a credit union whose working day is your night. The queue has twelve alerts and no severities. One real intrusion is hiding in it. In this capstone the steps tell you what to deliver, not how, and every hint you open costs a point. I'll walk the whole shift once so you see what good looks like.",
+  "outro": "That's the shift. Twelve alerts dispositioned, one intrusion scoped to one laptop and one domain, an escalation the client could act on, a new rule that catches the tunnel the old rule was slow to see, and a shift report that leaves nothing behind. Now do it yourself at the Practice level, then Solo, with your hints counted.",
+  "steps": [
+   "Start of shift. Before touching anything, hash the evidence and read the queue end to end. Twelve alerts. Write down your first guess of which ones belong together; we'll test it.",
+   "Every alert gets a disposition and a reason that points at evidence. Five of them are on, or about, the same Finance laptop, fin-lt04: a download, a scheduled task, a hidden PowerShell, a blocked upload and a DNS alarm. The rest are noise: Caps Lock, a patch window, a printer looking for an old share. One gets \"needs more information\", with the question we'll ask.",
+   "Before escalating, we scope it. The laptop sent fifty-nine DNS queries, twice its neighbours. Only one client ever asked for cloudmetric.example. And the proxy blocked an attempt to upload to a paste site. We write the same scoping search in KQL to check ourselves.",
+   "Search results are a summary, so we confirm on the host and on the wire. Sysmon shows the tax tool copied itself as msteams-update.exe and created the task TeamsUpdateCheck. The DNS events show which program made the lookups. In the capture, the tunnel queries start at 11:09 and go to the attacker's name server.",
+   "We pull out the indicators, check them against the client's intel feed, and map the behaviour to ATT&CK: user execution, a scheduled task, PowerShell, file discovery, and exfiltration over DNS. Defang them before they go anywhere.",
+   "One escalation for the whole intrusion. The ask first: isolate the laptop, with a time. Severity high, because data is leaving now. Then what we know, what we don't, and what we have and haven't changed. The client decides; we give them what they need to decide.",
+   "The client's rule fired thirty-two minutes after the tunnel started. We leave a better one behind: TXT lookups from a program in the user's AppData folder. Browsers and the Windows resolver don't live there. It matches the twenty-six tunnel lookups and nothing else.",
+   "We close the shift: the open incident with its owner, the one alert that needs more information, everything closed in one line, what the morning should watch including our new rule, the calls with times, and the number of hints opened.",
+   "Hand in the notebook. It carries the queue, the searches, the escalation, the rule and the shift report. The rubric is on screen."
+  ]
+ },
+ "base": "sem-s04-capstone-night-shift",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-s04-capstone-night-shift",
+  "guided": "sem-s04-capstone-night-shift--guided",
+  "solo": "sem-s04-capstone-night-shift--solo"
+ },
+ "guide": "media/guides/sem-s04-capstone-night-shift/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Capstone A: the night shift\n\nRun an overnight shift alone for a credit union client: an unlabelled, noisy queue of twelve alerts, one real intrusion hiding in it, and a morning team waiting for your escalation, a new detection and a shift report.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `alerts-night.json`, `capture.pcap`, `dns.log`, `dns_stats.csv`, `eventlogs/Security.jsonl`, `eventlogs/Sysmon.jsonl`, `eventlogs/System.jsonl`, `fw_summary.txt`, `intel.json`, `process.csv`, `proxy.log`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Start of shift\n\nYou are the overnight analyst at a managed SOC. The client, Harbourline Credit Union, is starting its working day while you are on nights. The queue has **twelve alerts and no severities**: the client's old SIEM doesn't send them. One real intrusion is in there. The rest is ordinary noise.\n\nThis is a capstone: the steps say what to deliver, not how. **Hints cost one point each** on the rubric, so open one only when you are stuck, and write down how many you opened.\n\nStart by hashing the evidence and reading the queue end to end before you touch anything.\n\n- [ ] Hash every evidence file and keep the list\n- [ ] Read all twelve alerts once, quickly\n- [ ] Write down your first guess of which ones belong together: you will test it\n\n> Hint: Group alerts by host first. Four different hosts appear more than once or not at all: which host has the most?\n\n?> How many alerts are in the night queue? :: sha256:6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with sha256sum.\n",
+   "a": "cd ~/case\nsha256sum *.* eventlogs/*\necho ---\ngrep -c '\"id\"' alerts-night.json\ngrep -E '\"(id|host|rule)\"' alerts-night.json"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Work the queue\n\nGive every alert a disposition and a reason. A reason is a log line or a fact you checked, not a feeling. Severity is yours to judge: the queue doesn't tell you.\n\n- [ ] Every alert has a disposition\n- [ ] Every reason points at evidence\n- [ ] Alerts that belong to one intrusion say so\n- [ ] Use \"needs more information\" only with a question someone can answer\n\n> Hint: Five alerts are on fin-lt04 or about it. A program downloaded at 11:02 and a scheduled task at 11:04 on the same laptop are not a coincidence.\n\n```tool alerts\n{\"file\": \"case/alerts-night.json\", \"d\": \"\", \"n\": 5, \"blank\": [\"d\"], \"a\": {\"d\": {\"AL-7301\": \"escalate\", \"AL-7302\": \"benign\", \"AL-7303\": \"escalate\", \"AL-7304\": \"escalate\", \"AL-7305\": \"benign\", \"AL-7306\": \"escalate\", \"AL-7307\": \"benign\", \"AL-7308\": \"escalate\", \"AL-7309\": \"benign\", \"AL-7310\": \"benign\", \"AL-7311\": \"benign\", \"AL-7312\": \"more\"}}}\n```\n\n?> Which host do the related alerts share? :: sha256:9c7f18f0437546d015c5b69619139d068205f95250a75001476d48ae1209344c"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Scope it with search\n\nBefore you escalate, know how big it is. Which hosts talk to the odd domain, how many times, and did anything get past the proxy?\n\n- [ ] Which client sends the most DNS queries? Is that normal for it? (dns_stats.csv)\n- [ ] Who else asked for cloudmetric.example?\n- [ ] What did the proxy let through and block for that laptop?\n- [ ] Write the same scoping search in KQL\n\n> Hint: The very long names all end in cloudmetric.example. Count by `src_ip` to see who asks for it.\n\n```tool siem\n{\"q\": \"\", \"n\": 6, \"files\": [\"case/dns.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"source=*dns.log | stats count by src_ip | sort - count\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"n\": 1, \"files\": [\"case/dns.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"source=*dns.log cloudmetric.example | stats count by src_ip\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"n\": 5, \"files\": [\"case/proxy.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"source=*proxy.log src_ip=10.70.0.44 | table _time action url category\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"lang\": \"kql\", \"n\": 1, \"files\": [\"case/dns.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"dns | where query endswith \\\"cloudmetric.example\\\" | summarize count() by src_ip\"}}\n```\n\n?> How many DNS queries did 10.70.0.44 send in dns.log? :: sha256:3e1e967e9b793e908f8eae83c74dba9bcccce6a5535b4b462bd9994537bfe15c\n?> How many different clients queried cloudmetric.example? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b\n?> Which site did the proxy block? :: sha256:c8b90cf36a28c6cc0323ae8cff9008339e52ca959632cc797fa05a6dcb626894"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Confirm on the host and the wire\n\nSearch results are a summary. Confirm on the host's own logs and on the packet capture: which program made the lookups, how it got there, and where the answers came from.\n\n- [ ] Sysmon event 1: what was downloaded, what did it copy itself as, which task did it create?\n- [ ] Sysmon event 22: which program made the TXT lookups?\n- [ ] Capture: which server answered the tunnel queries?\n\n> Hint: In the packet viewer, the filter `dns.qry.name contains cloudmetric` shows the tunnel. Look at the destination of the answers' questions.\n\n```tool events\n{\"file\": \"case/eventlogs/Sysmon.jsonl\", \"ids\": \"\", \"n\": 8, \"blank\": [\"ids\", \"src\", \"q\"], \"a\": {\"ids\": \"1\"}}\n```\n\n```tool events\n{\"file\": \"case/eventlogs/Sysmon.jsonl\", \"ids\": \"\", \"q\": \"\", \"n\": 26, \"blank\": [\"ids\", \"src\", \"q\"], \"a\": {\"ids\": \"22\", \"q\": \"cloudmetric.example\"}}\n```\n\n```tool packets\n{\"file\": \"case/capture.pcap\", \"f\": \"\", \"n\": 104, \"blank\": [\"f\"], \"a\": {\"f\": \"dns.qry.name contains cloudmetric\"}}\n```\n\n?> What file name does the malware use to look like the chat app? :: sha256:42b71d61beeb0fa200e38be8f0ac7eba00350de7c6f143afdd5ed11124b1b326\n?> What is the name of the scheduled task it created? :: sha256:dadd30394054d8b0161548a0245e9f4083a99fc3ad7d2825d29a1c59596408c3\n?> At what time (HH:MM) did the first tunnel query go out? :: sha256:829c337e4ce000aa5072d3d9d2a844cc354306cefea2c4265bae43d6ffd681c2\n?> Which IP address is the attacker's name server? :: sha256:734773eb63c17fa00eff5f7aa31c5052aba53a67b1ec751de00139dda2eae75a"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Check the indicators\n\nPull every indicator out of the evidence and check it against the client's intel feed. Map what you saw to ATT&CK so the morning team and the client speak the same language.\n\n- [ ] Extract indicators from the logs\n- [ ] Which are on the intel feed, and which are new?\n- [ ] Map the behaviour to ATT&CK techniques\n- [ ] Defang indicators before you paste them anywhere\n\n> Hint: Download, scheduled task, PowerShell discovery, exfiltration over DNS: four techniques, four tiles on the heatmap.\n\n```tool ioc\n{\"attack\": \"\", \"blank\": [\"iocs\", \"attack\"], \"a\": {\"attack\": [\"T1204.002\", \"T1053.005\", \"T1059.001\", \"T1083\", \"T1048.003\", \"T1071.004\"]}}\n```\n\n?> From which domain was the program downloaded? :: sha256:134209576bb9e3401d6c16162b7081c01eb452661db862f55737bab0d7a10448"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Escalate\n\nWrite one escalation for the whole intrusion, not one per alert. The client's duty manager reads it on a phone.\n\n- [ ] The ask first, with a time\n- [ ] Severity and the fact that decided it\n- [ ] Know / don't know\n- [ ] What you have and haven't changed\n\n> Hint: Say clearly that you have not touched the laptop. The client decides on isolation; you give them what they need to decide.\n\n```tool report\n{\"tpl\": \"escalation\", \"title\": \"Escalation: data leaving fin-lt04 through DNS\", \"text\": \"\", \"n\": 7, \"blank\": [\"text\"], \"a\": {\"text\": \"# Escalation: data leaving fin-lt04 through DNS\\n\\n## The ask\\n\\nPlease approve isolating fin-lt04 (10.70.0.44) and disabling the account m.devlin's sessions now, by 12:15 UTC. Client duty manager, please call the SOC on the bridge.\\n\\n## Severity and why\\n\\nHigh: a program installed from the internet is sending data out through DNS TXT lookups to cloudmetric.example, so data is leaving right now.\\n\\n## What we know\\n\\n- 11:02 UTC: m.devlin downloaded TaxRefundCalc_2026.exe from taxhelp-tools.example (AL-7301, proxy.log).\\n- 11:04 UTC: it copied itself to AppData as msteams-update.exe and created the task TeamsUpdateCheck (AL-7303, Sysmon event 1).\\n- 11:05 UTC: a hidden PowerShell listed the newest spreadsheets in Documents (AL-7304).\\n- 11:06 to 11:07 UTC: the proxy blocked an upload to pastebox.example (AL-7306).\\n- 11:09 UTC onwards: 26 TXT queries with long names under cloudmetric.example, all from 10.70.0.44 (dns.log, Sysmon event 22, AL-7308).\\n\\n## What we don't know\\n\\n- Which file was sent, and whether all of it got out.\\n- Whether any other host ran the same download (dns.log shows only 10.70.0.44 asking for cloudmetric.example so far).\\n\\n## Impact so far\\n\\nOne laptop, fin-lt04, and one user, m.devlin, in Finance. Board spreadsheets were open on the laptop at 11:00 UTC, so confidential data may be affected.\\n\\n## What I've done\\n\\nNothing has been changed on the host. I have added cloudmetric.example and taxhelp-tools.example to the watch list in the SIEM.\\n\\n## Evidence\\n\\ndns.log, proxy.log, Sysmon.jsonl, Security.jsonl and capture.pcap are saved in the shift folder with SHA-256 hashes; the queue with dispositions is alerts-night.json.\\n\"}}\n```"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Leave a new detection behind\n\nThe client's rule fired 32 minutes after the tunnel started. Write a better one: something the tunnel does that normal programs don't. Test it, and write what would make it noisy.\n\n- [ ] A Sigma rule on Sysmon DNS events\n- [ ] Test it: it should match the tunnel and not the browser\n- [ ] One tuning note\n\n> Hint: Browsers and the Windows resolver live in Program Files and System32. The tunnel program lives in AppData and asks for TXT records.\n\n```tool sigma\n{\"rule\": \"\", \"n\": 26, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: TXT lookups from a program in the user profile\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000401\\nstatus: experimental\\ndescription: Programs in AppData making DNS TXT queries is how DNS tunnels move data. Browsers and the OS resolver don't live there.\\nlogsource:\\n  product: windows\\n  service: sysmon\\ndetection:\\n  selection:\\n    EventID: 22\\n    QueryType: 'TXT'\\n    Image|contains: '\\\\\\\\AppData\\\\\\\\'\\n  condition: selection\\nfalsepositives:\\n  - Some chat and sync apps install per user in AppData; list the ones you allow\\nlevel: high\\ntags:\\n  - attack.exfiltration\\n  - attack.t1048.003\\n\"}}\n```\n\n?> How many events does your TXT-from-AppData rule match? :: sha256:5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Shift report\n\nClose your shift. Everything open, by ID, with an owner. Everything closed in one line. What the morning should watch. Who you called and when. How many hints you opened.\n\n- [ ] Open items by ID with owners\n- [ ] Closed items\n- [ ] Watch list including your new rule\n- [ ] Calls with times\n- [ ] Hints opened\n\n```tool report\n{\"tpl\": \"handover\", \"title\": \"Shift report: night shift, 5 Nov\", \"text\": \"\", \"n\": 5, \"blank\": [\"text\"], \"a\": {\"text\": \"# Shift report: night shift, 5 Nov\\n\\n## Still open\\n\\n- INC-0505 (AL-7301, AL-7303, AL-7304, AL-7306, AL-7308): DNS tunnel from fin-lt04. Escalated at 11:55 UTC. Next: client isolates the laptop; morning analyst rebuilds what was sent from the TXT names. Owner: morning shift lead.\\n- AL-7312: anonymising relay from guest Wi-Fi. Needs more information: ask the client whether guest Wi-Fi keeps DHCP logs. Owner: morning analyst, by 04:30 UTC.\\n\\n## Closed this shift\\n\\n- AL-7302: benign, Finance opened a workbook from the issued encrypted USB key.\\n- AL-7305: benign, the chat app's normal background start.\\n- AL-7307: benign, VPN CPU during the update push.\\n- AL-7309: benign, typing mistakes then a good logon from the same desk.\\n- AL-7310: benign, service installed under change CHG-2291.\\n- AL-7311: benign, printer looking for a retired share; the client's IT will fix the printer.\\n\\n## Watch for\\n\\n- Any host asking for cloudmetric.example or taxhelp-tools.example.\\n- Any new task named TeamsUpdateCheck, or msteams-update.exe in AppData.\\n- New rule \\\"TXT lookups from a program in the user profile\\\" goes live tonight in test mode: check its hits.\\n\\n## Calls and messages\\n\\n- 11:55 UTC: called the client duty manager; answered, approved isolation at 12:02 UTC.\\n- 12:10 UTC: messaged the morning shift lead with the escalation; read at 12:12 UTC.\\n\\n## Tools and access\\n\\nWatch list entries for cloudmetric.example and taxhelp-tools.example added at 11:50 UTC; review on 12 Nov. Hints opened: 0.\\n\"}}\n```"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Hand in\n\nHand in this notebook. It carries your queue, searches, escalation, rule and shift report.\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Queue: all twelve alerts have a disposition and a reason backed by a log line | 6 |\n| Scope: the one affected host, user and domain named, with the evidence | 4 |\n| Escalation: the ask first, severity with its reason, know / don't know, evidence location | 5 |\n| New detection: a Sigma rule that catches the tunnel, tested, with a tuning note | 4 |\n| Shift report: open items by ID with owners, closed items, watch list, calls with times | 4 |\n| Hints: minus 1 point for each hint opened (write the count in the shift report) | 0 |\n| Working alone: every search and command kept in the notebook | 2 |\n\n- [ ] All twelve alerts dispositioned\n- [ ] Escalation and shift report show every section complete\n- [ ] Rule tested\n- [ ] Hints counted\n- [ ] Press Hand in"
+  },
+  {
+   "t": "md",
+   "s": "# Lecture script: Capstone A: the night shift\n\nSeminar 4 · Capstone · about 270 minutes of lab work · the video runs about 10 minutes\n\nRead it aloud while the demo plays (add `&demo=1` to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with `./teach demo` already has subtitles.\n\n## Opening\n\nThis is Capstone A, the night shift. You're the overnight analyst at a managed SOC, covering a credit union whose working day is your night. The queue has twelve alerts and no severities. One real intrusion is hiding in it. In this capstone the steps tell you what to deliver, not how, and every hint you open costs a point. I'll walk the whole shift once so you see what good looks like.\n\n## 1. Start of shift\n\nStart of shift. Before touching anything, hash the evidence and read the queue end to end. Twelve alerts. Write down your first guess of which ones belong together; we'll test it.\n\nOn screen: the step text, the Linux cell.\n\n## 2. Work the queue\n\nEvery alert gets a disposition and a reason that points at evidence. Five of them are on, or about, the same Finance laptop, fin-lt04: a download, a scheduled task, a hidden PowerShell, a blocked upload and a DNS alarm. The rest are noise: Caps Lock, a patch window, a printer looking for an old share. One gets \"needs more information\", with the question we'll ask.\n\nOn screen: the step text, the tool with the model answer.\n\n## 3. Scope it with search\n\nBefore escalating, we scope it. The laptop sent fifty-nine DNS queries, twice its neighbours. Only one client ever asked for cloudmetric.example. And the proxy blocked an attempt to upload to a paste site. We write the same scoping search in KQL to check ourselves.\n\nOn screen: the step text, the tool with the model answer.\n\n## 4. Confirm on the host and the wire\n\nSearch results are a summary, so we confirm on the host and on the wire. Sysmon shows the tax tool copied itself as msteams-update.exe and created the task TeamsUpdateCheck. The DNS events show which program made the lookups. In the capture, the tunnel queries start at 11:09 and go to the attacker's name server.\n\nOn screen: the step text, the tool with the model answer.\n\n## 5. Check the indicators\n\nWe pull out the indicators, check them against the client's intel feed, and map the behaviour to ATT&CK: user execution, a scheduled task, PowerShell, file discovery, and exfiltration over DNS. Defang them before they go anywhere.\n\nOn screen: the step text, the tool with the model answer.\n\n## 6. Escalate\n\nOne escalation for the whole intrusion. The ask first: isolate the laptop, with a time. Severity high, because data is leaving now. Then what we know, what we don't, and what we have and haven't changed. The client decides; we give them what they need to decide.\n\nOn screen: the step text, the tool with the model answer.\n\n## 7. Leave a new detection behind\n\nThe client's rule fired thirty-two minutes after the tunnel started. We leave a better one behind: TXT lookups from a program in the user's AppData folder. Browsers and the Windows resolver don't live there. It matches the twenty-six tunnel lookups and nothing else.\n\nOn screen: the step text, the tool with the model answer.\n\n## 8. Shift report\n\nWe close the shift: the open incident with its owner, the one alert that needs more information, everything closed in one line, what the morning should watch including our new rule, the calls with times, and the number of hints opened.\n\nOn screen: the step text, the tool with the model answer.\n\n## 9. Hand in\n\nHand in the notebook. It carries the queue, the searches, the escalation, the rule and the shift report. The rubric is on screen.\n\nOn screen: the step text.\n\n## Wrap-up\n\nThat's the shift. Twelve alerts dispositioned, one intrusion scoped to one laptop and one domain, an escalation the client could act on, a new rule that catches the tunnel the old rule was slow to see, and a shift report that leaves nothing behind. Now do it yourself at the Practice level, then Solo, with your hints counted.\n\n## YouTube chapters (estimate; `./teach demo` writes the exact ones)\n\n```\n0:00 Opening\n0:30 1. Start of shift\n1:15 2. Work the queue\n2:07 3. Scope it with search\n4:12 4. Confirm on the host and the wire\n5:52 5. Check the indicators\n6:42 6. Escalate\n7:32 7. Leave a new detection behind\n8:22 8. Shift report\n9:12 9. Hand in\n9:37 Wrap-up\n```"
+  }
+ ]
+}

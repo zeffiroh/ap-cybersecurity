@@ -1,0 +1,86 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var P = {
+    IP: "(?:\\d{1,3}\\.){3}\\d{1,3}", INT: "[+-]?\\d+", NUMBER: "[+-]?\\d+(?:\\.\\d+)?", WORD: "\\w+", NOTSPACE: "\\S+", DATA: ".*?", GREEDYDATA: ".*",
+    USER: "[A-Za-z0-9._@\\\\$-]+", HOSTNAME: "[A-Za-z0-9][A-Za-z0-9.-]*", PATH: "(?:/[^\\s?#]*)+", URIPATHPARAM: "/[^\\s]*", QS: "\"(?:[^\"\\\\]|\\\\.)*\"",
+    TIMESTAMP_ISO8601: "\\d{4}-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d(?::\\d\\d(?:\\.\\d+)?)?(?:Z|[+-]\\d\\d:?\\d\\d)?", SYSLOGTIMESTAMP: "[A-Z][a-z]{2} +\\d{1,2} \\d\\d:\\d\\d:\\d\\d",
+    HTTPDATE: "\\d{2}/[A-Z][a-z]{2}/\\d{4}:\\d\\d:\\d\\d:\\d\\d [+-]\\d{4}", MAC: "(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}", POSINT: "\\d+", EMAILADDRESS: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+"
+  };
+  var EXAMPLES = {
+    "auth": "%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sshd\\[%{INT:pid}\\]: %{WORD:result} %{WORD:method} for (?:invalid user )?%{USER:user} from %{IP:src_ip} port %{INT:src_port}%{GREEDYDATA:rest}",
+    "access": "%{IP:client} - %{NOTSPACE:ident} \\[%{HTTPDATE:time}\\] \"%{WORD:method} %{NOTSPACE:uri} HTTP/%{NUMBER:http}\" %{INT:status} %{INT:bytes} %{QS:referer} %{QS:agent}",
+    "dns": "%{DATA:date} %{DATA:clock} queries: client %{IP:client}#%{INT:port}: query: %{HOSTNAME:name} IN %{WORD:type}"
+  };
+  var CSS = ".tpa-box td{font:12px ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}.tpa-box .tpa-miss{color:#a11}";
+
+  function compile(pat) {
+    var names = [];
+    var src = String(pat).replace(/%\{([A-Z0-9_]+)(?::([A-Za-z_][\w.]*))?\}/g, function (m, kind, name) {
+      if (!P[kind]) throw new Error("%{" + kind + "} isn't a known pattern. Try " + Object.keys(P).slice(0, 8).join(", ") + "…");
+      if (!name) return "(?:" + P[kind] + ")";
+      names.push(name);
+      return "(?<" + name.replace(/\./g, "_") + ">" + P[kind] + ")";
+    });
+    var re;
+    try { re = new RegExp("^" + src + "$"); } catch (e) { throw new Error("The pattern isn't valid: " + e.message); }
+    return { re: re, names: names };
+  }
+  function parse(text, pat) {
+    var c = compile(pat), rows = [], miss = [];
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (l, i) {
+      if (!l.trim()) return;
+      var m = c.re.exec(l);
+      if (m) rows.push({ line: i + 1, f: m.groups || {} }); else miss.push({ line: i + 1, text: l });
+    });
+    return { rows: rows, miss: miss, fields: c.names.map(function (n) { return n.replace(/\./g, "_"); }) };
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-parse-css", CSS);
+    var files = {}, res = null;
+    var F = K.frame(el, ctx, {
+      title: "Log parser", cls: "tpa-box",
+      body: '<div class="tl-row"><label class="tl-grow">Log file <select data-r="file"></select></label><label>Example <select data-r="ex"><option value="">-</option>' +
+        Object.keys(EXAMPLES).map(function (k) { return '<option value="' + k + '">' + k + "</option>"; }).join("") + '</select></label></div>' +
+        '<label style="display:block;font-size:12px;margin-top:6px">Pattern: %{TYPE:field} pieces and regular expressions<textarea class="tl-area" data-r="pat" rows="3" spellcheck="false"></textarea></label>' +
+        '<small>Types: ' + Object.keys(P).join(", ") + "</small>",
+      actions: '<button type="button" class="btn dark" data-r="go">Parse</button><button type="button" class="btn" data-r="dl">Download as JSON lines</button>',
+      showLabel: "Show the recorded pattern",
+      show: function (a) { if (a.pat != null) F.r("pat").value = a.pat; },
+      after: '<div class="tl-scroll" data-r="out" hidden></div>'
+    });
+    var init = F.saved || F.st;
+    F.r("pat").value = init.pat || "";
+    F.r("pat").addEventListener("input", function () { F.remember({ pat: F.r("pat").value, file: F.r("file").value }); });
+    F.r("ex").addEventListener("change", function () { if (this.value) F.r("pat").value = EXAMPLES[this.value]; });
+    F.r("go").addEventListener("click", function () {
+      var name = F.r("file").value;
+      try { res = parse(files[name], F.r("pat").value); } catch (e) { F.msg(e.message, true); return; }
+      var total = res.rows.length + res.miss.length, pct = total ? Math.round(res.rows.length / total * 100) : 0;
+      F.r("out").hidden = false;
+      F.r("out").innerHTML = '<table class="tl-table"><tr><th>Line</th>' + res.fields.map(function (f) { return "<th>" + K.esc(f) + "</th>"; }).join("") + "</tr>" +
+        res.rows.slice(0, 300).map(function (r) { return "<tr><td>" + r.line + "</td>" + res.fields.map(function (f) { return "<td>" + K.esc(r.f[f] == null ? "" : r.f[f]) + "</td>"; }).join("") + "</tr>"; }).join("") + "</table>" +
+        (res.miss.length ? '<p class="tpa-miss"><b>' + res.miss.length + " lines didn't match</b>, for example line " + res.miss[0].line + ":</p><pre class=\"tpa-miss\"></pre>" : "");
+      if (res.miss.length) F.r("out").querySelector("pre").textContent = res.miss.slice(0, 5).map(function (m) { return m.text; }).join("\n");
+      F.msg(res.rows.length + " of " + total + " lines parsed (" + pct + "%) into " + res.fields.length + " fields." + F.compare(res.rows.length, "pattern"));
+      F.ready({ file: name, pat: F.r("pat").value, n: res.rows.length, blank: ["pat"] }, "Log parser: " + res.rows.length + " of " + total + " lines of " + K.base(name) + " parsed");
+    });
+    F.r("dl").addEventListener("click", function () {
+      if (!res) return;
+      K.download(K.base(F.r("file").value).replace(/\.[^.]*$/, "") + ".jsonl", res.rows.map(function (r) { return JSON.stringify(r.f); }).join("\n") + "\n", "application/json");
+    });
+
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs, function (n) { return /\.(log|txt)$/i.test(n); });
+      var names = Object.keys(files).sort();
+      F.r("file").innerHTML = names.map(function (n) { return '<option value="' + K.esc(n) + '">' + K.esc(n) + "</option>"; }).join("");
+      var want = init.file && files[init.file] ? init.file : F.st.file && files[F.st.file] ? F.st.file : names[0];
+      if (want) F.r("file").value = want;
+      F.note(names.length + " log files");
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "parse", title: "Log parser", console: true, group: "Security engineer", mount: mount, compile: compile, parse: parse });
+})(window);

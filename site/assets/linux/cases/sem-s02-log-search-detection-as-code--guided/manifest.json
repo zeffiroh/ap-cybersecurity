@@ -1,0 +1,141 @@
+{
+ "order": 3,
+ "title": "Log search and detection as code",
+ "kicker": "Seminar 2",
+ "units": [
+  3,
+  4,
+  5
+ ],
+ "level": "Practitioner",
+ "minutes": 300,
+ "summary": "Run one hunt in SPL, KQL and SQL over real-format logs, parse a raw log into fields, then turn the hunt into Sigma rules you test for hits and false positives, tune, and convert with pySigma.",
+ "tools": [
+  "SIEM search (SPL and KQL)",
+  "SQL over logs",
+  "Log parser",
+  "Sigma rules",
+  "pySigma",
+  "grep"
+ ],
+ "titlePrefix": "Log search and detection as code",
+ "teacher": true,
+ "id": "sem-s02-log-search-detection-as-code--guided",
+ "seminarId": 3,
+ "rubric": [
+  [
+   "Hunt pack: the brute-force hunt in SPL and in KQL, both giving the same answer",
+   4
+  ],
+  [
+   "Hunt pack: the web attack hunt in SPL and KQL, with the attacker's IP and what they reached",
+   4
+  ],
+  [
+   "SQL: one query that groups and counts, with the result explained",
+   2
+  ],
+  [
+   "Sigma: four Windows rules that each match the attack and nothing else",
+   6
+  ],
+  [
+   "Sigma: the web rule, with its false-positive test and tuning note",
+   3
+  ],
+  [
+   "Conversion: each rule converted with pySigma, with one difference from your hand-written search noted",
+   3
+  ],
+  [
+   "Tuning notes: what each rule misses, and what would make it noisy",
+   3
+  ]
+ ],
+ "handin": "A hunt pack (SPL and KQL), one SQL query, and a Sigma rule pack with tests and tuning notes.",
+ "files": [
+  "case/access.log",
+  "case/auth.log",
+  "case/eventlogs/Security.jsonl",
+  "case/shop2_access.log"
+ ],
+ "script": {
+  "intro": "Welcome to Log search and detection as code. A hunt you run once finds one attack; a rule finds the next one. Today we answer one question three times, in SPL, in KQL and in SQL, on a web server called web01. Then we turn the hunt into Sigma rules, test them for false positives, tune them, and convert them with the real pySigma converter. The search engine here is a teaching subset of each language, and I'll point you to free places to run the full versions.",
+  "outro": "That's the hunt pack and the rule pack. You ran the same hunt in three languages and got the same answer, parsed a raw log into fields, and wrote five Sigma rules that each describe one thing an attacker did, each with a test and a tuning note. Hand in this notebook. In seminar three we use these skills on a live alert queue.",
+  "steps": [
+   "Every hunt starts with a question, not a tool. Ours: did anyone guess an SSH password on web01, get in, and do something with it? Before the search engine, we read the raw log with grep, so we know exactly what the engine is reading. Seven failed passwords, and one address keeps coming back.",
+   "In SPL we search, then pipe into a command. Stats count by source address, sorted biggest first: 203.0.113.7 failed six times. Now we pivot. Same address, but a success this time: the user deploy logged in with a password. And the next search shows deploy used sudo to read the shadow password file. That's the whole story in three searches.",
+   "KQL starts with a table and pipes into operators: where, summarize, project, sort. The rule is simple: the answer must match SPL. Six failures, one success. If the two languages disagree, one of the searches is wrong, and that check alone catches a lot of mistakes.",
+   "Every log is also a table. The SQL tool names each table after its file and makes a column for each field. Group by client address and the same attacker is at the top of the web log with nine requests. SQL is the language of most data lakes, so it's worth having in your pocket.",
+   "Searches only work on fields someone parsed. When a new log arrives that your SIEM doesn't know, you write the parser. This pattern parses eleven of the twelve SSH lines. The one it skips is the sudo line, which has a different shape. Try writing a second pattern for it.",
+   "The same address hit the web server. The user agent names the tool, sqlmap, and the requests show the injection. Minutes later the attacker uploaded img.php and ran commands through it. We write that hunt in SPL and in KQL, and both find the same three commands.",
+   "Now detection as code. Sigma is the open format for rules: one YAML file that converts to many SIEMs. This rule fires when Word, Excel or Outlook starts a shell, and it matches exactly one event. Then we press Convert, and the real pySigma converter turns it into SPL we can compare with our own.",
+   "A rule that fires on everything is worse than no rule. The first one here matches every new process: fifteen hits, most of them normal. The tuned rules each describe one behaviour: a program in the Public folder, shadow copies deleted, a new member of Administrators. Each matches only attack events. Write one tuning note per rule.",
+   "Sigma works on web logs too. The noisy version flags a customer searching for Union Bank and a blog post with an apostrophe in its name. The tuned version keys on the tool name and on UNION SELECT. Six hits drop to four, and all four are the attack.",
+   "Your hand-in is this notebook: the hunt pack in SPL and KQL, one SQL query, and the rule pack with tests and tuning notes. The rubric is on screen. Check that every rule shows its test result, then press Hand in."
+  ]
+ },
+ "base": "sem-s02-log-search-detection-as-code",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-s02-log-search-detection-as-code",
+  "guided": "sem-s02-log-search-detection-as-code--guided",
+  "solo": "sem-s02-log-search-detection-as-code--solo"
+ },
+ "guide": "media/guides/sem-s02-log-search-detection-as-code/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Log search and detection as code\n\nRun one hunt in SPL, KQL and SQL over real-format logs, parse a raw log into fields, then turn the hunt into Sigma rules you test for hits and false positives, tune, and convert with pySigma.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `access.log`, `auth.log`, `eventlogs/Security.jsonl`, `shop2_access.log`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. One question, three languages\n\nA hunt starts with a question, not a tool. Ours: **did anyone guess an SSH password on web01, get in, and do something with it?** You'll answer it three times: in SPL, in KQL and in SQL. Real teams use different SIEMs, and moving a hunt between them is a daily job.\n\nThe SIEM search here is a **teaching subset** of each language over the case logs, so not every command works. When you want the real thing, the free [KC7](https://kc7cyber.com) game and the free Azure Data Explorer help cluster run full KQL.\n\nFirst look at the raw log with `grep`, so you know what the search engine is reading.\n\n- [ ] How many lines does auth.log have?\n- [ ] Which line types do you see: Failed, Accepted, sudo?\n- [ ] Which address keeps failing?\n\n> Hint: `grep -c` counts matching lines. `awk '{print $(NF-3)}'` prints the fourth word from the end, which is the source address on every Failed line.\n\n?> How many lines in auth.log contain \"Failed password\"? :: sha256:7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with wc.\n",
+   "a": "cd ~/case\nwc -l auth.log access.log\ngrep -c 'Failed password' auth.log\ngrep 'Failed password' auth.log | awk '{print $(NF-3)}' | sort | uniq -c | sort -rn"
+  },
+  {
+   "t": "md",
+   "s": "## 2. SPL: count, then pivot\n\nSPL reads left to right: a search, then a pipe `|`, then a command that works on the results. `stats count by src_ip` groups the failures by address, and `sort - count` puts the biggest first.\n\nThen **pivot**: take the address you found and search for it again, this time for a success.\n\n- [ ] Run the first search and read the table\n- [ ] Change it to find the Accepted login from the same address\n- [ ] Find what that user did with sudo\n\n> Hint: Field names come from the parsed log: `action`, `src_ip`, `user`, `auth_method`. Click any field name in the results to add it to the search.\n\n```tool siem\n{\"q\": \"\", \"n\": 2, \"files\": [\"case/auth.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"sourcetype=syslog action=failure | stats count by src_ip | sort - count\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"n\": 1, \"files\": [\"case/auth.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"Accepted src_ip=203.0.113.7 | table _time user auth_method\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"n\": 1, \"files\": [\"case/auth.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"process=sudo | table _time user run_as command\"}}\n```\n\n?> Which address failed most often? :: sha256:fec52565aa0cf18f57d7cf5b3ac728503b8992d2d6f7d46da1d1201090902b02\n?> Which user did that address log in as? :: sha256:b7bd55c11b781b0ccc43aa6e57f9dadf0660e9d1d4e27e0979ee43a407d454ae\n?> Which file did that user read with sudo? (full path) :: sha256:7b5ddf499844cf05866927513cf62fee9af8c281812def040b964146b0ea87d6"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The same hunt in KQL\n\nKQL starts with a **table**, then pipes into operators: `where` filters, `summarize count() by` groups, `project` picks columns, `sort by` orders. The answer must be the same as in SPL. If it isn't, one of the two searches is wrong.\n\n- [ ] Run the failure count in KQL and compare with SPL\n- [ ] Write the success pivot in KQL\n- [ ] Note one thing that is easier in each language\n\n> Hint: In KQL the count column is called `count_`. Strings use `==` and double quotes.\n\n```tool siem\n{\"q\": \"\", \"lang\": \"kql\", \"n\": 2, \"files\": [\"case/auth.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"auth | where action == \\\"failure\\\" | summarize count() by src_ip | sort by count_ desc\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"lang\": \"kql\", \"n\": 1, \"files\": [\"case/auth.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"auth | where src_ip == \\\"203.0.113.7\\\" and action == \\\"success\\\" | project _time, user, auth_method\"}}\n```\n\n?> How many failed logins came from that address? (KQL count_) :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+  },
+  {
+   "t": "md",
+   "s": "## 4. SQL over the same logs\n\nEvery log is also a table. The SQL tool names each table after its file (`auth`, `access`, `security`) and makes a column for each field. SQL is the language behind most data lakes, so it is worth having in your pocket.\n\n- [ ] Count requests per client address in the web log\n- [ ] Find every request from 203.0.113.7 that got status 200\n- [ ] Join the idea back to the SSH hunt: same attacker?\n\n> Hint: `GROUP BY clientip ORDER BY hits DESC` is the SQL version of `stats count by clientip | sort - count`.\n\n```tool sql\n{\"q\": \"\", \"n\": 3, \"files\": [\"case/access.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"SELECT clientip, COUNT(*) AS hits FROM access GROUP BY clientip ORDER BY hits DESC\"}}\n```\n\n?> How many requests did 203.0.113.7 make to the web server? :: sha256:19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Parse a raw log into fields\n\nSearches only work on fields someone parsed. When a new log arrives that your SIEM doesn't know, you write the parser. The log parser uses `%{TYPE:name}` pieces, the same idea as Grok in log pipelines.\n\nThe pattern below parses SSH login lines. Lines it can't parse are shown in red: decide whether that is right.\n\n- [ ] Run the pattern on auth.log\n- [ ] Which line doesn't parse, and why is that fine?\n- [ ] Write a second pattern for the sudo line\n\n> Hint: The sudo line has a different shape: `sudo:   deploy : TTY=... ; COMMAND=...`. Start with `%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sudo: +%{USER:user} : %{GREEDYDATA:rest}`.\n\n```tool parse\n{\"file\": \"case/auth.log\", \"pat\": \"\", \"n\": 11, \"blank\": [\"pat\"], \"a\": {\"pat\": \"%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sshd\\\\[%{INT:pid}\\\\]: %{WORD:result} %{WORD:method} for (?:invalid user )?%{USER:user} from %{IP:src_ip} port %{INT:src_port}%{GREEDYDATA:rest}\"}}\n```\n\n?> How many of the 12 lines does the SSH pattern parse? :: sha256:4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Hunt the web attack in SPL and KQL\n\nThe same address also hit the web server. Find the scanner, the SQL injection, and what came after it. `uri_path` is the page without the query string, which makes grouping easy.\n\n- [ ] Which tool did the attacker use? (look at the user agent)\n- [ ] Which page did they upload, and what commands did they run through it?\n- [ ] Write both searches into your hunt pack\n\n> Hint: `%20` is a space and `%27` is a quote in a URL. CyberChef's URL Decode makes the commands readable.\n\n```tool siem\n{\"q\": \"\", \"n\": 4, \"files\": [\"case/access.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"sourcetype=access_combined useragent=sqlmap* | table _time clientip uri status\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"n\": 3, \"files\": [\"case/access.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"sourcetype=access_combined clientip=203.0.113.7 uri_path=/uploads/img.php | table _time uri status\"}}\n```\n\n```tool siem\n{\"q\": \"\", \"lang\": \"kql\", \"n\": 3, \"files\": [\"case/access.log\"], \"blank\": [\"q\"], \"a\": {\"q\": \"access | where clientip == \\\"203.0.113.7\\\" and uri_path == \\\"/uploads/img.php\\\" | project _time, uri, status\"}}\n```\n\n?> Which scanner's name is in the user agent? :: sha256:44b5a25dfad00357b11b2515f85217ecbcc302794bfa6d4fc888fa0a45cecb07\n?> Which file did the attacker run commands through? (file name) :: sha256:b8e585c3a8ff8b4d84273cbebef515e96c7e40d11126a5e2f578e6a07ee20376"
+  },
+  {
+   "t": "md",
+   "s": "## 7. From hunt to rule: your first Sigma rule\n\nA hunt you run once finds one attack. A **rule** finds the next one. Sigma is the open format for detection rules: one YAML file that converts to SPL, KQL and others.\n\nSwitch to the Windows case. On hr-pc07 Word started cmd.exe. The rule below fires on that, and on Excel or Outlook doing the same. Press **Test**, then **Convert with pySigma** to see the real converter's SPL.\n\n- [ ] Test the rule: how many events match?\n- [ ] Convert it with pySigma and compare with a search you would write by hand\n- [ ] Why does PowerShell not match? (look at its parent)\n\n> Hint: PowerShell's parent was cmd.exe, not Word. One rule per step of the chain, or a second rule for \"cmd.exe starts PowerShell hidden\".\n\n```tool siem\n{\"q\": \"\", \"n\": 1, \"files\": [\"case/eventlogs/Security.jsonl\"], \"blank\": [\"q\"], \"a\": {\"q\": \"EventID=4688 | stats count by Computer\"}}\n```\n\n```tool sigma\n{\"rule\": \"\", \"n\": 1, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: Office program starts a command shell\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000001\\nstatus: experimental\\ndescription: Word, Excel or Outlook starting cmd.exe or PowerShell is how most macro malware begins.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4688\\n    ParentProcessName|endswith:\\n      - '\\\\WINWORD.EXE'\\n      - '\\\\EXCEL.EXE'\\n      - '\\\\OUTLOOK.EXE'\\n    NewProcessName|endswith:\\n      - '\\\\cmd.exe'\\n      - '\\\\powershell.exe'\\n  condition: selection\\nfalsepositives:\\n  - Office add-ins that call a script on purpose (rare; list them)\\nlevel: high\\ntags:\\n  - attack.execution\\n  - attack.t1204.002\\n\"}}\n```\n\n?> How many process-creation events (4688) are in Security.jsonl? :: sha256:e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb\n?> How many events does the Office-starts-a-shell rule match? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Test for false positives, then tune\n\nA rule that fires on everything is worse than no rule: people stop reading it. Test every rule twice: does it catch the attack (**true positives**) and does it stay quiet on normal work (**false positives**)?\n\nThe first rule below is deliberately noisy. Tick the events that are really malicious; the tool scores precision. Then use the tuned rules, which each describe one thing an attacker did.\n\n- [ ] Run the noisy rule and tick the malicious events\n- [ ] Run each tuned rule: each should match only attack events\n- [ ] Write one tuning note per rule: what it misses, and what would make it noisy\n\n> Hint: Good rules describe behaviour that normal users don't have: a program in C:\\Users\\Public, shadow copies deleted, a new member of Administrators.\n\n```tool sigma\n{\"rule\": \"\", \"n\": 15, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: Any new process on a workstation\\nstatus: experimental\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4688\\n  condition: selection\\nlevel: low\\n\"}}\n```\n\n```tool sigma\n{\"rule\": \"\", \"n\": 2, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: Program started from C:\\\\Users\\\\Public\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000002\\nstatus: experimental\\ndescription: Programs should not run from the Public profile, which every user can write to.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4688\\n    NewProcessName|contains: '\\\\Users\\\\Public\\\\'\\n  condition: selection\\nfalsepositives:\\n  - Badly packaged software installed to the Public profile (check with IT)\\nlevel: high\\ntags:\\n  - attack.defense_evasion\\n  - attack.t1036.005\\n\"}}\n```\n\n```tool sigma\n{\"rule\": \"\", \"n\": 1, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: Shadow copies deleted\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000003\\nstatus: experimental\\ndescription: Ransomware deletes Volume Shadow Copies so files can't be restored.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4688\\n    CommandLine|contains|all:\\n      - 'vssadmin'\\n      - 'delete shadows'\\n  condition: selection\\nfalsepositives:\\n  - Backup software clearing old copies (it rarely uses /all /quiet)\\nlevel: critical\\ntags:\\n  - attack.impact\\n  - attack.t1490\\n\"}}\n```\n\n```tool sigma\n{\"rule\": \"\", \"n\": 1, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: Account added to the local Administrators group\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000004\\nstatus: experimental\\ndescription: A new member of Administrators on a workstation needs a change ticket.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4732\\n    TargetUserName: 'Administrators'\\n  condition: selection\\nfalsepositives:\\n  - IT adding a helpdesk account during a planned change\\nlevel: high\\ntags:\\n  - attack.persistence\\n  - attack.t1136.001\\n\"}}\n```\n\n?> How many events does the noisy \"any new process\" rule match? :: sha256:e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb\n?> Which command deleted the shadow copies? (program name) :: sha256:ff80268dfba624cd94529df29c7daed2f4ddd732fa3317dea937d41e10feb99a"
+  },
+  {
+   "t": "md",
+   "s": "## 9. A web rule, tested on the web log\n\nSigma works for web logs too. The first version below matches any `%27` (a quote) or the word UNION. `shop2_access.log` is an hour of normal shoppers: run the noisy version on it and see who it accuses. The tuned version keys on the tool's name and on `UNION%20SELECT`.\n\n- [ ] Test both versions on both web logs\n- [ ] Which requests does the noisy version catch that the tuned one doesn't? Are they attacks?\n- [ ] Write the tuning note: when would the tuned rule miss an attack?\n\n> Hint: An attacker can change the user agent in one flag. Keep a second rule for the injection itself, not just the tool.\n\n```tool sigma\n{\"rule\": \"\", \"n\": 6, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: SQL injection in a web request\\nstatus: experimental\\nlogsource:\\n  category: webserver\\ndetection:\\n  keywords:\\n    - '%27'\\n    - 'UNION'\\n    - 'sqlmap'\\n  condition: keywords\\nlevel: high\\n\"}}\n```\n\n```tool sigma\n{\"rule\": \"\", \"n\": 4, \"ls\": true, \"blank\": [\"rule\"], \"a\": {\"rule\": \"title: SQL injection tool or UNION SELECT in a web request\\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000005\\nstatus: experimental\\nlogsource:\\n  category: webserver\\ndetection:\\n  tool:\\n    - 'sqlmap/'\\n  union:\\n    - 'UNION%20SELECT'\\n  condition: tool or union\\nfalsepositives:\\n  - Your own authorised scans (exclude the scanner's address in the tuning notes)\\nlevel: high\\ntags:\\n  - attack.initial_access\\n  - attack.t1190\\n\"}}\n```\n\n?> How many web requests does the noisy version match? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683\n?> How many web requests does the tuned rule match? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Hand in your hunt pack and rule pack\n\nYour hand-in is this notebook, with every search and rule saved in it. Before you hand in:\n\n| Piece | What it must have |\n|---|---|\n| Hunt pack | The SSH hunt and the web hunt, each in SPL and KQL, with the answer they give |\n| SQL | One grouping query and one sentence on what it shows |\n| Rule pack | Five Sigma rules (four Windows, one web), each tested, with a tuning note |\n| Conversion | Each rule converted with pySigma, and one difference you noticed |\n\n- [ ] Every question answered\n- [ ] Every rule shows its test result\n- [ ] A tuning note under each rule\n- [ ] Press Hand in\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Hunt pack: the brute-force hunt in SPL and in KQL, both giving the same answer | 4 |\n| Hunt pack: the web attack hunt in SPL and KQL, with the attacker's IP and what they reached | 4 |\n| SQL: one query that groups and counts, with the result explained | 2 |\n| Sigma: four Windows rules that each match the attack and nothing else | 6 |\n| Sigma: the web rule, with its false-positive test and tuning note | 3 |\n| Conversion: each rule converted with pySigma, with one difference from your hand-written search noted | 3 |\n| Tuning notes: what each rule misses, and what would make it noisy | 3 |"
+  },
+  {
+   "t": "md",
+   "s": "# Lecture script: Log search and detection as code\n\nSeminar 2 · about 300 minutes of lab work · the video runs about 13 minutes\n\nRead it aloud while the demo plays (add `&demo=1` to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with `./teach demo` already has subtitles.\n\n## Opening\n\nWelcome to Log search and detection as code. A hunt you run once finds one attack; a rule finds the next one. Today we answer one question three times, in SPL, in KQL and in SQL, on a web server called web01. Then we turn the hunt into Sigma rules, test them for false positives, tune them, and convert them with the real pySigma converter. The search engine here is a teaching subset of each language, and I'll point you to free places to run the full versions.\n\n## 1. One question, three languages\n\nEvery hunt starts with a question, not a tool. Ours: did anyone guess an SSH password on web01, get in, and do something with it? Before the search engine, we read the raw log with grep, so we know exactly what the engine is reading. Seven failed passwords, and one address keeps coming back.\n\nOn screen: the step text, the Linux cell.\n\n## 2. SPL: count, then pivot\n\nIn SPL we search, then pipe into a command. Stats count by source address, sorted biggest first: 203.0.113.7 failed six times. Now we pivot. Same address, but a success this time: the user deploy logged in with a password. And the next search shows deploy used sudo to read the shadow password file. That's the whole story in three searches.\n\nOn screen: the step text, the tool with the model answer.\n\n## 3. The same hunt in KQL\n\nKQL starts with a table and pipes into operators: where, summarize, project, sort. The rule is simple: the answer must match SPL. Six failures, one success. If the two languages disagree, one of the searches is wrong, and that check alone catches a lot of mistakes.\n\nOn screen: the step text, the tool with the model answer.\n\n## 4. SQL over the same logs\n\nEvery log is also a table. The SQL tool names each table after its file and makes a column for each field. Group by client address and the same attacker is at the top of the web log with nine requests. SQL is the language of most data lakes, so it's worth having in your pocket.\n\nOn screen: the step text, the tool with the model answer.\n\n## 5. Parse a raw log into fields\n\nSearches only work on fields someone parsed. When a new log arrives that your SIEM doesn't know, you write the parser. This pattern parses eleven of the twelve SSH lines. The one it skips is the sudo line, which has a different shape. Try writing a second pattern for it.\n\nOn screen: the step text, the tool with the model answer.\n\n## 6. Hunt the web attack in SPL and KQL\n\nThe same address hit the web server. The user agent names the tool, sqlmap, and the requests show the injection. Minutes later the attacker uploaded img.php and ran commands through it. We write that hunt in SPL and in KQL, and both find the same three commands.\n\nOn screen: the step text, the tool with the model answer.\n\n## 7. From hunt to rule: your first Sigma rule\n\nNow detection as code. Sigma is the open format for rules: one YAML file that converts to many SIEMs. This rule fires when Word, Excel or Outlook starts a shell, and it matches exactly one event. Then we press Convert, and the real pySigma converter turns it into SPL we can compare with our own.\n\nOn screen: the step text, the tool with the model answer.\n\n## 8. Test for false positives, then tune\n\nA rule that fires on everything is worse than no rule. The first one here matches every new process: fifteen hits, most of them normal. The tuned rules each describe one behaviour: a program in the Public folder, shadow copies deleted, a new member of Administrators. Each matches only attack events. Write one tuning note per rule.\n\nOn screen: the step text, the tool with the model answer.\n\n## 9. A web rule, tested on the web log\n\nSigma works on web logs too. The noisy version flags a customer searching for Union Bank and a blog post with an apostrophe in its name. The tuned version keys on the tool name and on UNION SELECT. Six hits drop to four, and all four are the attack.\n\nOn screen: the step text, the tool with the model answer.\n\n## 10. Hand in your hunt pack and rule pack\n\nYour hand-in is this notebook: the hunt pack in SPL and KQL, one SQL query, and the rule pack with tests and tuning notes. The rubric is on screen. Check that every rule shows its test result, then press Hand in.\n\nOn screen: the step text.\n\n## Wrap-up\n\nThat's the hunt pack and the rule pack. You ran the same hunt in three languages and got the same answer, parsed a raw log into fields, and wrote five Sigma rules that each describe one thing an attacker did, each with a test and a tuning note. Hand in this notebook. In seminar three we use these skills on a live alert queue.\n\n## YouTube chapters (estimate; `./teach demo` writes the exact ones)\n\n```\n0:00 Opening\n0:36 1. One question, three languages\n1:21 2. SPL: count, then pivot\n3:01 3. The same hunt in KQL\n4:16 4. SQL over the same logs\n5:06 5. Parse a raw log into fields\n5:56 6. Hunt the web attack in SPL and KQL\n7:36 7. From hunt to rule: your first Sigma rule\n8:51 8. Test for false positives, then tune\n10:56 9. A web rule, tested on the web log\n12:11 10. Hand in your hunt pack and rule pack\n12:36 Wrap-up\n```"
+  }
+ ]
+}

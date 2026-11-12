@@ -43,7 +43,7 @@ def videos(db):
             out.append(message(to, f"new video lesson, {title}",
                                f"A new video lesson is up: {title}\n\n" + (f"{note}\n\n" if note else "")
                                + f"Watch it here (sign in first): {SITE}videos.html\n"
-                               + ("" if free else "Lesson videos are part of Labs.\n")))
+                               + ("" if free else "Lesson videos come with Labs.\n")))
         out.append(("update videos set emailed_at = now() where id = %s", (vid,)))
     return out
 

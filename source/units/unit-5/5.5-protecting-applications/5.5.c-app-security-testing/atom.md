@@ -1,7 +1,7 @@
 # 5.5.c: Application security testing (SAST/DAST)
 
 > **Unit 5 · 5.5 Secure Web Application Design**
-> **AP Learning Objective(s):** 5.5.B, 5.5.C
+> **AP Learning Objective(s):** 5.5.B
 > **Course skill(s):** Detect Attacks, Mitigate Risk
 
 ## Learning objective (student-facing)

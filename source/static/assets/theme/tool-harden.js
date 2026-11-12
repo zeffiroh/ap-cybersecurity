@@ -1,0 +1,122 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var CSS = ".th2-box textarea{min-height:200px}.th2-box tr.ok td:first-child{color:#256b3d}.th2-box tr.bad td:first-child{color:#a11;font-weight:600}.th2-box code{font-size:12px}";
+
+  function kv(text, sep) {
+    var out = {};
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (l) {
+      l = l.replace(/#.*$/, "").trim();
+      if (!l) return;
+      var m = sep === "=" ? /^([\w.\-\/]+)\s*=\s*(.*)$/.exec(l) : /^(\S+)\s+(.*)$/.exec(l);
+      if (m) out[m[1].toLowerCase()] = m[2].trim().replace(/;$/, "");
+    });
+    return out;
+  }
+  function nginx(text) {
+    var out = {};
+    String(text || "").replace(/#.*$/gm, "").split(/[;{}]/).forEach(function (s) {
+      var m = /^\s*([a-z_]+)\s+(.*?)\s*$/.exec(s);
+      if (m) (out[m[1]] = out[m[1]] || []).push(m[2]);
+    });
+    return out;
+  }
+  function eq(want) { return function (v) { return v != null && String(v).toLowerCase() === String(want).toLowerCase(); }; }
+  function num(test) { return function (v) { return v != null && /^\d+$/.test(String(v)) && test(+v); }; }
+
+  var CHECKS = [
+    { kind: "ssh", key: "permitrootlogin", want: "no", test: eq("no"), sev: "high", why: "Attackers try root first. Sign in as a named user, then use sudo.", fix: "PermitRootLogin no" },
+    { kind: "ssh", key: "passwordauthentication", want: "no", test: eq("no"), sev: "high", why: "Passwords can be guessed, as the brute force on web01 shows. Use keys.", fix: "PasswordAuthentication no" },
+    { kind: "ssh", key: "maxauthtries", want: "4 or fewer", test: num(function (n) { return n <= 4; }), sev: "medium", why: "Fewer tries per connection slow guessing down.", fix: "MaxAuthTries 4" },
+    { kind: "ssh", key: "permitemptypasswords", want: "no", test: eq("no"), sev: "high", why: "An empty password is no password.", fix: "PermitEmptyPasswords no" },
+    { kind: "ssh", key: "x11forwarding", want: "no", test: eq("no"), sev: "low", why: "A web server doesn't need to show desktop windows.", fix: "X11Forwarding no" },
+    { kind: "ssh", key: "logingracetime", want: "60 seconds or less", test: function (v) { var m = /^(\d+)(m?)$/.exec(String(v || "")); return !!m && (+m[1] * (m[2] ? 60 : 1)) <= 60; }, sev: "low", why: "Unfinished logins shouldn't hold connections open.", fix: "LoginGraceTime 60" },
+    { kind: "ssh", key: "clientaliveinterval", want: "between 1 and 900", test: num(function (n) { return n > 0 && n <= 900; }), sev: "low", why: "Idle sessions should close by themselves.", fix: "ClientAliveInterval 300" },
+    { kind: "sysctl", key: "net.ipv4.ip_forward", want: "0", test: eq("0"), sev: "medium", why: "Only routers forward packets. A web server that forwards can be used as a pivot.", fix: "net.ipv4.ip_forward = 0" },
+    { kind: "sysctl", key: "net.ipv4.conf.all.accept_redirects", want: "0", test: eq("0"), sev: "medium", why: "ICMP redirects can be faked to reroute traffic.", fix: "net.ipv4.conf.all.accept_redirects = 0" },
+    { kind: "sysctl", key: "net.ipv4.conf.all.send_redirects", want: "0", test: eq("0"), sev: "low", why: "Hosts that aren't routers shouldn't send redirects.", fix: "net.ipv4.conf.all.send_redirects = 0" },
+    { kind: "sysctl", key: "net.ipv4.conf.all.rp_filter", want: "1", test: eq("1"), sev: "low", why: "Drops packets with spoofed source addresses.", fix: "net.ipv4.conf.all.rp_filter = 1" },
+    { kind: "sysctl", key: "net.ipv4.tcp_syncookies", want: "1", test: eq("1"), sev: "medium", why: "Helps the server survive SYN floods.", fix: "net.ipv4.tcp_syncookies = 1" },
+    { kind: "sysctl", key: "kernel.randomize_va_space", want: "2", test: eq("2"), sev: "medium", why: "Address randomisation makes memory exploits harder.", fix: "kernel.randomize_va_space = 2" },
+    { kind: "sysctl", key: "fs.suid_dumpable", want: "0", test: eq("0"), sev: "low", why: "Crash dumps of privileged programs can leak secrets.", fix: "fs.suid_dumpable = 0" },
+    { kind: "login", key: "pass_max_days", want: "365 or fewer", test: num(function (n) { return n <= 365; }), sev: "low", why: "Passwords that never expire stay useful to an attacker forever. With MFA, longer is fine.", fix: "PASS_MAX_DAYS   365" },
+    { kind: "login", key: "pass_min_days", want: "1 or more", test: num(function (n) { return n >= 1; }), sev: "low", why: "Stops someone cycling straight back to an old password.", fix: "PASS_MIN_DAYS   1" },
+    { kind: "login", key: "umask", want: "027 or stricter", test: function (v) { return /^0?[0-7][2-7][7]$/.test(String(v || "")); }, sev: "low", why: "New files shouldn't be readable by every user.", fix: "UMASK           027" },
+    { kind: "nginx", key: "server_tokens", want: "off", test: function (v) { return !!v && v.every(function (x) { return x === "off"; }); }, sev: "low", why: "Hiding the version gives scanners less to go on.", fix: "server_tokens off;" },
+    { kind: "nginx", key: "ssl_protocols", want: "TLSv1.2 and TLSv1.3 only", test: function (v) { return !!v && v.every(function (x) { return !/TLSv1(\s|$)|TLSv1\.1|SSLv/.test(x); }); }, sev: "high", why: "TLS 1.0 and 1.1 are broken and no longer allowed by modern browsers.", fix: "ssl_protocols TLSv1.2 TLSv1.3;" },
+    { kind: "nginx", key: "autoindex", want: "off", test: function (v) { return !v || v.every(function (x) { return x === "off"; }); }, sev: "medium", why: "Directory listings show files that were never meant to be linked.", fix: "autoindex off;" },
+    { kind: "nginx", key: "client_max_body_size", want: "no more than you need (for example 10m)", test: function (v) { if (!v) return true; var m = /^(\d+)([kmg]?)$/i.exec(v[0]); if (!m) return false; var n = +m[1] * ({ "": 1 / 1048576, k: 1 / 1024, m: 1, g: 1024 }[m[2].toLowerCase()]); return n <= 20; }, sev: "low", why: "Huge uploads make it easier to upload tools and to fill the disk.", fix: "client_max_body_size 10m;" },
+    { kind: "nginx", key: "uploads run code", want: "no PHP in the uploads folder", test: function (v, text) { return !/location\s+[^{]*uploads[^{]*\{[^}]*fastcgi_pass/i.test(text); }, sev: "critical", why: "If uploaded files can run as PHP, any upload is a web shell. That is how web01 was taken.", fix: "location /uploads/ { try_files $uri =404; }   (no fastcgi_pass)" }
+  ];
+  function kindOf(name, text) {
+    var b = K.base(name).toLowerCase();
+    if (/sshd_config/.test(b)) return "ssh";
+    if (/sysctl/.test(b)) return "sysctl";
+    if (/login\.defs/.test(b)) return "login";
+    if (/nginx|\.conf$/.test(b) && /server\s*\{/.test(text)) return "nginx";
+    return "";
+  }
+  function audit(name, text) {
+    var kind = kindOf(name, text);
+    if (!kind) return [];
+    var vals = kind === "nginx" ? nginx(text) : kv(text, kind === "sysctl" ? "=" : " ");
+    return CHECKS.filter(function (c) { return c.kind === kind; }).map(function (c) {
+      var v = vals[c.key];
+      return { file: name, check: c, value: v == null ? "(not set)" : Array.isArray(v) ? v.join(" | ") : v, ok: !!c.test(v, text) };
+    });
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-harden-css", CSS);
+    var files = {}, edited = {}, cur = "", results = [];
+    var F = K.frame(el, ctx, {
+      title: "Hardening audit", cls: "th2-box",
+      body: '<div class="tl-row"><label class="tl-grow">Config file <select data-r="file"></select></label></div>' +
+        '<label style="display:block;font-size:12px;margin-top:6px">Edit the file to fix it, then audit again<textarea class="tl-area" data-r="text" spellcheck="false"></textarea></label>',
+      actions: '<button type="button" class="btn dark" data-r="go">Audit all config files</button><button type="button" class="btn" data-r="undo">Undo my edits to this file</button>' +
+        '<button type="button" class="btn" data-r="dl">Download the fixed file</button>',
+      showLabel: "Show the recorded result",
+      show: function (a) { if (typeof a.fails === "number") F.msg("The recorded audit left " + a.fails + " failing checks."); },
+      after: '<div class="tl-scroll" data-r="list" hidden></div>'
+    });
+    var init = F.saved || {};
+    if (init.edited && typeof init.edited === "object") edited = init.edited;
+    function text(n) { return edited[n] != null ? edited[n] : files[n]; }
+    function keep() { F.remember({ edited: edited, file: cur }); }
+    function open(n) { cur = n; F.r("text").value = text(n) || ""; }
+    F.r("file").addEventListener("change", function () { open(this.value); keep(); });
+    F.r("text").addEventListener("input", function () { edited[cur] = F.r("text").value; keep(); });
+    F.r("undo").addEventListener("click", function () { delete edited[cur]; open(cur); keep(); });
+    F.r("dl").addEventListener("click", function () { K.download(K.base(cur), text(cur), "text/plain"); });
+    F.r("go").addEventListener("click", function () {
+      results = [];
+      Object.keys(files).sort().forEach(function (n) { results = results.concat(audit(n, text(n))); });
+      var fails = results.filter(function (r) { return !r.ok; }), crit = fails.filter(function (r) { return /critical|high/.test(r.check.sev); }).length;
+      F.r("list").hidden = !results.length;
+      F.r("list").innerHTML = '<table class="tl-table"><tr><th></th><th>File</th><th>Setting</th><th>Now</th><th>Should be</th><th>Severity</th><th>Why, and the fix</th></tr>' +
+        results.sort(function (a, b) { return a.ok - b.ok; }).map(function (r) {
+          return '<tr class="' + (r.ok ? "ok" : "bad") + '"><td>' + (r.ok ? "&#10003;" : "&#10007;") + "</td><td>" + K.esc(K.base(r.file)) + "</td><td><code>" + K.esc(r.check.key) + "</code></td><td><code>" + K.esc(r.value) +
+            "</code></td><td>" + K.esc(r.check.want) + '</td><td><span class="tl-pill ' + (/critical|high/.test(r.check.sev) ? "hi" : r.check.sev === "medium" ? "mid" : "") + '">' + r.check.sev + "</span></td><td>" + K.esc(r.check.why) +
+            (r.ok ? "" : "<br><code>" + K.esc(r.check.fix) + "</code>") + "</td></tr>";
+        }).join("") + "</table>";
+      F.msg(results.length ? (results.length - fails.length) + " of " + results.length + " checks pass; " + fails.length + " fail, " + crit + " of them high or critical." +
+        (F.answer && typeof F.answer.fails === "number" ? (fails.length <= F.answer.fails ? " As good as the recorded fix or better." : " The recorded fix left only " + F.answer.fails + " failing.") : "")
+        : "No config files I know how to check (sshd_config, sysctl.conf, login.defs, nginx).");
+      F.ready({ fails: fails.length, n: results.length - fails.length, files: Object.keys(files).filter(function (n) { return kindOf(n, files[n]); }), blank: [] },
+        "Hardening audit: " + (results.length - fails.length) + " of " + results.length + " checks pass");
+    });
+
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs, function (n, t) { return !!kindOf(n, t); });
+      var names = Object.keys(files).sort();
+      F.r("file").innerHTML = names.map(function (n) { return '<option value="' + K.esc(n) + '">' + K.esc(n) + "</option>"; }).join("");
+      F.note(names.length + " config files");
+      if (!names.length) { F.msg("No config files I know how to check in this case."); F.r("go").disabled = true; return; }
+      open(init.file && files[init.file] ? init.file : names[0]);
+      F.r("file").value = cur;
+    }).catch(function () { F.note(""); F.msg("The files didn't load.", true); });
+  }
+
+  global.AayatTools.register({ id: "harden", title: "Hardening audit", console: true, group: "Security engineer", mount: mount, audit: audit, checks: CHECKS });
+})(window);

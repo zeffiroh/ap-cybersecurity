@@ -1,7 +1,7 @@
 # 4.1.c: IoT device vulnerabilities
 
 > **Unit 4 · 4.1 Device and Endpoint Vulnerabilities**
-> **AP Learning Objective(s):** 4.1.A, 4.1.C
+> **AP Learning Objective(s):** 4.1.A, 4.1.C, 4.1.D
 > **Course skill(s):** Analyze Risk
 
 ## Learning objective (student-facing)

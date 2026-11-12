@@ -1,0 +1,75 @@
+(function (global) {
+  "use strict";
+  var K = global.AayatTools.kit;
+  var MAX = 2000;
+  var CSS = ".tre-box .tre-text{white-space:pre-wrap;word-break:break-all;background:#fff;border:1px solid #bbb;padding:6px;font:12px/1.5 ui-monospace,Consolas,monospace;max-height:280px;overflow:auto;margin-top:8px}" +
+    ".tre-box mark{background:#ffe08a;color:inherit;border-bottom:2px solid #b7791f}.tre-box .tre-warn{color:#a11}";
+
+  function risky(src) {
+    var w = [];
+    if (/\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*{]/.test(src)) w.push("A repeated group that itself repeats, like (a+)+. On some inputs this can take forever (catastrophic backtracking, ReDoS).");
+    if (/\.\*.*\.\*/.test(src) && !/^\^/.test(src)) w.push("Two .* in one unanchored pattern can be slow on long lines.");
+    if (/\(\?<?[=!]/.test(src)) w.push("Lookarounds work here but not in every tool (grep -E doesn't have them).");
+    return w;
+  }
+  function run(src, flags, text) {
+    var re = new RegExp(src, flags.indexOf("g") >= 0 ? flags : flags + "g"), out = [], m, t0 = Date.now();
+    while ((m = re.exec(text)) && out.length < MAX) {
+      out.push({ at: m.index, len: m[0].length, text: m[0], groups: m.slice(1), named: m.groups || null });
+      if (m[0] === "") re.lastIndex++;
+      if (Date.now() - t0 > 1500) { out.timedOut = true; break; }
+    }
+    return out;
+  }
+
+  function mount(el, ctx) {
+    K.css("tool-regex-css", CSS);
+    var files = {};
+    var F = K.frame(el, ctx, {
+      title: "Regex tester", cls: "tre-box",
+      body: '<div class="tl-row"><label class="tl-grow">Pattern <input data-r="pat" spellcheck="false" placeholder="Failed password for (\\S+) from (\\d+\\.\\d+\\.\\d+\\.\\d+)"></label>' +
+        '<label>Flags <input data-r="flags" value="i" size="4"></label><label>Text from <select data-r="file"><option value="">Type my own</option></select></label></div>' +
+        '<textarea class="tl-area" data-r="text" rows="5" spellcheck="false" placeholder="Paste some text or pick a file"></textarea>' +
+        '<div class="tl-row"><label class="tl-grow">Replace with (optional) <input data-r="rep" placeholder="$1 from [$2]"></label></div>',
+      actions: '<button type="button" class="btn dark" data-r="go">Test</button>',
+      showLabel: "Show the recorded pattern",
+      show: function (a) { if (a.pat != null) F.r("pat").value = a.pat; if (a.flags != null) F.r("flags").value = a.flags; },
+      after: '<div data-r="warn" class="tre-warn"></div><div class="tre-text" data-r="out" hidden></div><div class="tl-scroll" data-r="groups" hidden></div>'
+    });
+    var init = F.saved || F.st;
+    if (init.pat != null) F.r("pat").value = init.pat;
+    if (init.flags != null) F.r("flags").value = init.flags;
+    function go() {
+      var src = F.r("pat").value, flags = F.r("flags").value.replace(/[^gimsuy]/g, ""), text = F.r("text").value, ms;
+      if (!src) { F.msg("Type a pattern.", true); return; }
+      try { ms = run(src, flags, text); } catch (e) { F.msg("That pattern doesn't compile: " + e.message, true); return; }
+      F.r("warn").innerHTML = risky(src).map(function (w) { return "<p>&#9888; " + K.esc(w) + "</p>"; }).join("");
+      var html = "", at = 0;
+      ms.forEach(function (m) { html += K.esc(text.slice(at, m.at)) + "<mark>" + K.esc(m.text) + "</mark>"; at = m.at + m.len; });
+      html += K.esc(text.slice(at));
+      if (F.r("rep").value) { try { html += "\n\n<b>After replace:</b>\n" + K.esc(text.replace(new RegExp(src, flags.indexOf("g") >= 0 ? flags : flags + "g"), F.r("rep").value)); } catch (e) { html += ""; } }
+      F.r("out").hidden = false;
+      F.r("out").innerHTML = html;
+      var g = ms.length && ms[0].groups.length;
+      F.r("groups").hidden = !g;
+      if (g) F.r("groups").innerHTML = '<table class="tl-table"><tr><th>#</th><th>Match</th>' + ms[0].groups.map(function (x, i) { return "<th>$" + (i + 1) + (ms[0].named ? " " + K.esc(Object.keys(ms[0].named)[i] || "") : "") + "</th>"; }).join("") + "</tr>" +
+        ms.slice(0, 200).map(function (m, i) { return "<tr><td>" + (i + 1) + "</td><td>" + K.esc(m.text) + "</td>" + m.groups.map(function (x) { return "<td>" + K.esc(x == null ? "" : x) + "</td>"; }).join("") + "</tr>"; }).join("") + "</table>";
+      F.msg(ms.length + " match" + (ms.length === 1 ? "" : "es") + (ms.timedOut ? ", stopped after 1.5 seconds: this pattern is too slow" : "") + "." + F.compare(ms.length, "pattern"));
+      F.ready({ pat: src, flags: flags, file: F.r("file").value, n: ms.length, blank: ["pat"] }, "Regex: /" + src + "/" + flags + " matches " + ms.length + " times" + (F.r("file").value ? " in " + K.base(F.r("file").value) : ""));
+      F.remember({ pat: src, flags: flags, file: F.r("file").value });
+    }
+    F.r("go").addEventListener("click", go);
+    F.r("pat").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    F.r("file").addEventListener("change", function () { if (this.value) F.r("text").value = files[this.value]; });
+    F.note("Loading…");
+    F.files().then(function (fs) {
+      files = K.textFiles(fs, function (n, t) { return t.length < 400000; });
+      F.r("file").innerHTML = '<option value="">Type my own</option>' + Object.keys(files).sort().map(function (n) { return '<option value="' + K.esc(n) + '">' + K.esc(n) + "</option>"; }).join("");
+      var want = init.file && files[init.file] ? init.file : "";
+      if (want) { F.r("file").value = want; F.r("text").value = files[want]; }
+      F.note(Object.keys(files).length + " files");
+    }).catch(function () { F.note(""); });
+  }
+
+  global.AayatTools.register({ id: "regex", title: "Regex tester", console: true, group: "Penetration tester", mount: mount, run: run, risky: risky });
+})(window);

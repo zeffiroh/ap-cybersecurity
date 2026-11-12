@@ -1,4 +1,5 @@
 import hashlib
+import html
 import io
 import json
 import re
@@ -291,8 +292,8 @@ def anki(fc):
     deck = genanki.Deck(seed, f'Aayat-AP-Prep::Cybersecurity::{tid} {fc["topic_title"]}')
     for c in fc["flashcards"]:
         deck.add_note(genanki.Note(model=model, guid=genanki.guid_for(c["id"]),
-                                   fields=[c.get("front", ""), c.get("back_definition", ""), c.get("back_example", ""),
-                                           c.get("back_confusion", ""), c.get("back_hook", "")]))
+                                   fields=[html.escape(c.get(k, ""), quote=False) for k in
+                                           ("front", "back_definition", "back_example", "back_confusion", "back_hook")]))
     return deck
 
 

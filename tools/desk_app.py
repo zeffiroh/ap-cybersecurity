@@ -7,6 +7,7 @@ from pathlib import Path
 
 NAME = "Aayat Teaching Desk"
 SAVED = Path.home() / ".aayat-teaching-desk.json"
+REPO = "https://github.com/zeffiroh/ap-cybersecurity.git"
 WIN = sys.platform == "win32"
 
 
@@ -33,6 +34,7 @@ def find_course():
     except (OSError, ValueError, KeyError):
         pass
     print(f"{NAME} needs your course folder, the one with build.py in it.")
+    print("Type its path, or type get to download the course into your home folder.")
     while True:
         try:
             typed = input("Course folder: ").strip().strip('"')
@@ -40,11 +42,35 @@ def find_course():
             return None
         if not typed:
             return None
+        if typed.lower() == "get":
+            got = download()
+            if got:
+                SAVED.write_text(json.dumps({"course": str(got)}), encoding="utf-8")
+                return got
+            continue
         p = Path(typed).expanduser()
         if is_course(p):
             SAVED.write_text(json.dumps({"course": str(p.resolve())}), encoding="utf-8")
             return p.resolve()
         print("That folder has no build.py and tools/teach.py. Try again, or press Enter to stop.")
+
+
+def download():
+    dst = Path.home() / "AayatCourse"
+    if is_course(dst):
+        return dst
+    if not shutil.which("git"):
+        print("Downloading needs Git. Install it from https://git-scm.com, then try again.")
+        return None
+    print(f"Downloading the course into {dst} (a few minutes)...")
+    if subprocess.call(["git", "clone", "--depth", "1", REPO, str(dst)]) != 0 or not is_course(dst):
+        print("The download didn't finish. Check your internet connection and try again.")
+        return None
+    py = shutil.which("python3") or shutil.which("python") or (shutil.which("py") and "py")
+    if py:
+        print("Installing the course's Python packages...")
+        subprocess.call([py] + (["-3"] if py == "py" else []) + ["-m", "pip", "install", "--user", "-r", str(dst / "requirements.txt")])
+    return dst
 
 
 def find_python(course):

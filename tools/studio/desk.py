@@ -157,7 +157,10 @@ def save_lesson(name, body):
         for c in body["cells"]:
             if c.get("t") not in ("md", "sh", "py") or not isinstance(c.get("s"), str):
                 raise RuntimeError("A step has text the site can't read.")
-            cells.append({k: c[k] for k in ("t", "s", "e", "r", "a") if k in c})
+            cell = {k: c[k] for k in ("t", "s", "e", "r", "a") if k in c}
+            if isinstance(c.get("k"), dict) and all(isinstance(v, list) and all(isinstance(x, str) for x in v) for k, v in c["k"].items() if k in ("out", "cmd")):
+                cell["k"] = {k: c["k"][k] for k in ("out", "cmd") if k in c["k"]}
+            cells.append(cell)
         (folder / "lesson.json").write_text(json.dumps(cells, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
         if session.is_dir():
             (session / "edited").write_text("1", encoding="utf-8")

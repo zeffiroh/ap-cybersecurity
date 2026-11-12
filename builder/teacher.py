@@ -128,9 +128,11 @@ def dashboard():
             '  <div class="tc-card"><h3>Class mastery by unit</h3><div id="units"></div></div>\n'
             '  <div class="tc-card"><h3>Next on the blog</h3><div id="posts"></div></div>\n'
             '</section>\n'
+            '<section class="tc-card"><h3>YouTube checklist <a class="tc-more" href="seminars.html#yt">All videos</a></h3>'
+            '<div data-yt-checklist data-mode="compact"></div></section>\n'
             '<section class="tc-card"><h3>Students <a class="tc-more" href="progress.html">Full progress</a></h3>'
             '<div id="roster" class="aa-scroll"></div></section>')
-    console(TEACHER / "index.html", "Dashboard", "dash", body, [TEACHER / "posts.js"])
+    console(TEACHER / "index.html", "Dashboard", "dash", body, [TEACHER / "posts.js", THEME / "yt-checklist.js"])
 
 
 def teach_page():
@@ -234,7 +236,9 @@ def ctf_page():
 def seminars_page():
     body = studio_head("Seminars", "Paste an unlisted YouTube link, add chapters, set the tickets and publish.", "New seminar",
                        [("Student view", SITE / "seminars.html", "", True)])
-    console(TEACHER / "seminars.html", "Seminars", "seminars", body, [THEME / "studio.js"])
+    body += ('\n<section class="tc-card" id="yt"><h3>YouTube checklist</h3>'
+             '<div data-yt-checklist data-mode="full"></div></section>')
+    console(TEACHER / "seminars.html", "Seminars", "seminars", body, [THEME / "studio.js", THEME / "yt-checklist.js"])
 
 
 def labs_page():
@@ -267,8 +271,9 @@ def videos_page():
             '<span class="tc-note" id="v-msg"></span></div></div>'
             '<aside class="tv-preview" aria-live="polite"><div class="tc-kicker">Preview</div><div class="tv-pthumb" id="v-pthumb"><span>Paste a YouTube link to see it here</span></div>'
             '<div class="tv-ptitle" id="v-ptitle">Untitled video</div><div class="tc-note" id="v-pmeta">Not tied to a lesson · Labs</div></aside></div></section>\n'
-            '<section class="tc-card"><h3>Posted <span class="tc-note tv-count" id="v-count"></span></h3><div id="list" class="tv-list"></div></section>')
-    console(TEACHER / "videos.html", "Lesson videos", "videos", body, [])
+            '<section class="tc-card"><h3>Posted <span class="tc-note tv-count" id="v-count"></span></h3><div id="list" class="tv-list"></div></section>\n'
+            '<section class="tc-card" id="yt"><h3>YouTube checklist</h3><div data-yt-checklist data-mode="full" data-only="v"></div></section>')
+    console(TEACHER / "videos.html", "Lesson videos", "videos", body, [THEME / "yt-checklist.js"])
 
 
 def lectures_page():

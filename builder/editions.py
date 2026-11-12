@@ -32,8 +32,8 @@ LONG = f"""From Aayat-AP-Prep: {TITLE}: {SUBTITLE}, by {AUTHOR}.
 
 {BLURB}
 
-Written for students taking College Board's AP Cybersecurity course (one of the AP Career Kickstart
-courses) and for teachers running it. The chapters follow the course framework topic by topic:
+Written for students preparing for AP Cybersecurity (one of the AP Career Kickstart courses) and for
+the teachers who teach it. The chapters are aligned with the AP Cybersecurity framework, topic by topic:
 
   Unit 1  Introduction to Security: social engineering, suspicious logins, public Wi-Fi sniffing,
           AI-augmented attacks and AI-powered detection
@@ -53,10 +53,10 @@ LICENSE = {
     "digital": ("This digital edition is licensed to the purchaser for personal and classroom use. Please do not "
                 "redistribute the file. No part of this edition may be reproduced or transmitted in any form "
                 "without the author's written permission, except for brief quotations in reviews and scholarly "
-                "work. The online edition of this book is included with the Aayat-AP-Prep course."),
+                "work. The online edition of this book is included with Beginner's Cybersecurity Kickstarter, the Aayat-AP-Prep course."),
     "print": ("No part of this book may be reproduced, stored or transmitted in any form or by any means without "
               "the author's written permission, except for brief quotations in reviews and scholarly work. The "
-              "online edition of this book is included with the Aayat-AP-Prep course."),
+              "online edition of this book is included with Beginner's Cybersecurity Kickstarter, the Aayat-AP-Prep course."),
 }
 
 

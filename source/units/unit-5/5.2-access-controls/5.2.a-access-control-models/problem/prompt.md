@@ -1,6 +1,6 @@
 # Coding problem 5.2.a: RBAC / DAC / MAC access decision
 
-**Skill:** Mitigate Risk · **Maps to:** 5.2.A · **Language:** Python 3 (pytest)
+**Skill:** Mitigate Risk · **Maps to:** 5.2.A, 5.2.D · **Language:** Python 3 (pytest)
 
 ## Problem
 Build the access-decision function a policy engine would run for a fictional file system that

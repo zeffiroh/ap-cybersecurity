@@ -38,8 +38,9 @@ construct target-specific wordlists using:
 **The four weakness flags.** When analyzing a password for defensive purposes, four categories
 of weakness stand out:
 
-1. **Too short.** NIST SP 800-63B recommends a minimum of 8 characters for human-chosen passwords
-   and 12 for production systems. The AP course uses 12 as the threshold. Every additional
+1. **Too short.** NIST SP 800-63B-4 requires at least 15 characters for a password used on its
+   own, and allows 8 only when the password is one factor of MFA. This course's checker uses 12 as
+   its practice threshold. Every additional
    character multiplies the search space exponentially, going from 8 to 12 characters (assuming
    a mixed-character set) increases the combinations by a factor of roughly 10 million. Short
    passwords are cracked first.

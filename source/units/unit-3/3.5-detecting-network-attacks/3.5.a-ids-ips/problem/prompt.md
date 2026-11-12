@@ -1,6 +1,6 @@
 # Coding problem 3.5.a: IDS signature matcher
 
-**Skill:** Detect Attacks · **Maps to:** 3.5.A · **Language:** Python 3 (pytest)
+**Skill:** Detect Attacks · **Maps to:** 3.5.A, 3.5.D · **Language:** Python 3 (pytest)
 
 ## Problem
 You are implementing the rule-matching core of a simple IDS. The sensor receives a stream of

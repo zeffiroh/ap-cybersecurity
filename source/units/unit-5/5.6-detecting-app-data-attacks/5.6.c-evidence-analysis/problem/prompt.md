@@ -1,6 +1,6 @@
 # Coding problem 5.6.c: Attack classifier (evidence -> category)
 
-**Skill:** Detect Attacks, Collaborate · **Maps to:** 5.6.B, 5.6.C · **Language:** Python 3 (pytest)
+**Skill:** Detect Attacks, Collaborate · **Maps to:** 5.6.B, 5.6.C, 5.6.D, 5.6.E · **Language:** Python 3 (pytest)
 
 ## Problem
 Formalize the analyst reasoning process from the lesson: given a bundle of evidence indicators

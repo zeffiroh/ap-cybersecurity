@@ -1,0 +1,160 @@
+{
+ "order": 1,
+ "title": "Evidence, notes and handoffs",
+ "kicker": "Free seminar",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Foundation",
+ "minutes": 120,
+ "summary": "Rewrite a poor helpdesk ticket into a triage note, an escalation and a shift handover that the next analyst can act on, using the evidence from a real phishing case.",
+ "tools": [
+  "Report builder",
+  "Alert queue",
+  "grep",
+  "Python"
+ ],
+ "titlePrefix": "Evidence, notes and handoffs",
+ "teacher": true,
+ "id": "sem-f-evidence-notes-handoffs--guided",
+ "seminarId": 1,
+ "rubric": [
+  [
+   "Triage note: alert ID, time with time zone, and what was checked, so someone else can repeat it",
+   4
+  ],
+  [
+   "Triage note: facts with times and sources, kept apart from guesses",
+   4
+  ],
+  [
+   "Triage note: a disposition with one sentence of reasons",
+   3
+  ],
+  [
+   "Escalation: the ask in the first line, with who and by when",
+   3
+  ],
+  [
+   "Escalation: what we know, what we don't know, and impact",
+   4
+  ],
+  [
+   "Escalation: where the evidence is saved",
+   2
+  ],
+  [
+   "Shift handover: every open item by ID, with the next step and owner",
+   4
+  ],
+  [
+   "Shift handover: things to watch and calls made, with times",
+   3
+  ],
+  [
+   "Plain writing: short sentences, no blame, no guessing presented as fact",
+   3
+  ]
+ ],
+ "handin": "A triage note for AL-2203, an escalation, and a shift handover (download each from the report builder, or hand in this notebook).",
+ "files": [
+  "case/alerts.json",
+  "case/handover-night.txt",
+  "case/invoice.eml",
+  "case/mail.log",
+  "case/process.csv",
+  "case/proxy.log",
+  "case/share_listing.txt",
+  "case/ticket-88213.txt"
+ ],
+ "script": {
+  "intro": "Welcome to Evidence, notes and handoffs. This is the free seminar, and it's about the skill every security job runs on: writing things down so the next person can act. Today we take one real case, a fake invoice that turned into ransomware at Kestrel Logistics, and a helpdesk ticket nobody can use. By the end you'll have rewritten it three ways: as a triage note, as an escalation, and as a shift handover. Everything runs in your browser. Let's start with the ticket.",
+  "outro": "That's the seminar. You turned a ticket that said \"probably spam\" into a triage note with facts and times, an escalation someone can decide on in ten seconds, and a handover that leaves nothing behind. Those three pieces are your hand-in. Use the Practice level to write them yourself with hints, then the Solo level without. In the next seminar we take the same habits into log search and detection rules.",
+  "steps": [
+   "Here is ticket 88213, exactly as the helpdesk left it. Read it with me. \"Probably spam.\" \"Maybe virus.\" \"Not sure if related.\" Every line is a guess, and not one line says which host, which user or which alert. Below it is last night's handover: \"all quiet, nothing major\". Keep both open. Our job is to replace every guess with a fact, a time and the place we saw it.",
+   "Facts come from evidence. First the mail log: we search for the message ID dev.kapoor reported, and it shows the email went to three people. Then the proxy log: one address, 10.20.0.14, downloaded the invoice successfully, and a second machine was blocked. The Python cell turns the proxy's epoch times into UTC, so every fact in our notes uses one time zone.",
+   "\"HR PC slow\" isn't evidence. The process list is. Follow the parent column: Word started cmd.exe, which started a hidden PowerShell, which started a program called svchost-upd in the Public folder. The real svchost lives in System32 and runs as SYSTEM. This one is pretending. And at 09:41 the same program reached the file share.",
+   "Now we write. The report builder has six sections and checks each one as we type: an alert ID, times with a time zone, the exact searches we ran, at least one thing we don't know, a disposition and an owner. Watch the model note. The \"What I don't know yet\" section is never empty, and every fact says where it came from.",
+   "An escalation is read in ten seconds by someone who has just been woken up, so the ask goes first: what we need, from whom, by when. Then the severity and the one fact that decided it: files on the share are being encrypted right now. The Linux cell counts the encrypted files and hashes the evidence, and we say where it's saved, so nothing gets lost.",
+   "Before handing over, we work the whole queue. Ten alerts. Some belong to the incident, and some are ordinary noise: the Singapore sign-in is the company VPN exit, and the antivirus update fixed itself. Each one gets a disposition and one line of reason a stranger could check. The queue then writes a handover for us.",
+   "Last night's note said \"all quiet\". Ours lists every open item by ID with the next step and its owner, what we closed, what to watch, who we called and when, and the temporary blocks someone must remember to review. A handover like this lets the next shift start working instead of starting over.",
+   "Your hand-in is these three pieces of writing. Your teacher scores them with the rubric on screen, and the certificate follows once it's scored. Before you press Hand in, read each piece aloud once. If a sentence needs you to explain it, rewrite it."
+  ]
+ },
+ "base": "sem-f-evidence-notes-handoffs",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-f-evidence-notes-handoffs",
+  "guided": "sem-f-evidence-notes-handoffs--guided",
+  "solo": "sem-f-evidence-notes-handoffs--solo"
+ },
+ "guide": "media/guides/sem-f-evidence-notes-handoffs/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Evidence, notes and handoffs\n\nRewrite a poor helpdesk ticket into a triage note, an escalation and a shift handover that the next analyst can act on, using the evidence from a real phishing case.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `alerts.json`, `handover-night.txt`, `invoice.eml`, `mail.log`, `process.csv`, `proxy.log`, `share_listing.txt`, `ticket-88213.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. A ticket nobody can act on\n\nMost security work is handed from one person to the next: helpdesk to SOC, SOC to the incident lead, night shift to morning shift. If the note is poor, the next person starts again from zero, and an attack keeps running while they do.\n\nRead helpdesk ticket 88213 and last night's handover. Both are real kinds of notes analysts receive every day.\n\n- [ ] Which facts in the ticket have a time and a source?\n- [ ] Which words are guesses (\"probably\", \"maybe\", \"???\")?\n- [ ] What does the next person need that isn't there: which host, which user, which alert, what was done?\n- [ ] What is wrong with \"all quiet. couple of alerts, nothing major\"?\n\n> Hint: A useful note answers five questions: what fired, what I checked, what I found, what I don't know, and what happens next.\n\n?> Which message ID did dev.kapoor report as phishing? :: sha256:3b4c868aaed95ad3038a9cf3f9d3aac10231f741a5500448dc1f2bba9fbbc5ae\n?> At what time (HH:MM) did the helpdesk pull the cable on the HR PC? :: sha256:fdf6b948b07448b5dad617e71a41f1a1fb3a25b5f9ac5e2e2adf48410cd1f02a"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "a": "cd ~/case\ncat ticket-88213.txt\necho ---\ncat handover-night.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Find the facts behind the ticket\n\nA good note is built from evidence, not from what someone said on the phone. Start with the reported message in the mail log, then see who downloaded the attachment.\n\n`nrcpt=` is the number of people the email went to. In the proxy log, `TCP_MISS/200` means the download worked and `TCP_DENIED/403` means the proxy blocked it.\n\n- [ ] How many people received the email, and who are they?\n- [ ] Which internal address downloaded the invoice, and was anyone blocked?\n- [ ] Write each fact down with its time and the file you saw it in\n\n> Hint: Proxy times are Unix epoch seconds. The Python cell turns them into UTC clock times, so every fact in your note uses one time zone.\n\n?> How many people received the fake invoice? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce\n?> Which internal IP address downloaded the invoice successfully? :: sha256:ecda40e9a719dbe5a19ca890028508dc0dffab4ef41d0accd82d2c3a46a8405d"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "a": "cd ~/case\ngrep 4A1F21C02 mail.log\necho ---\ngrep -E 'report|blocklist' mail.log\necho ---\ngrep -E 'docm|s2.bin' proxy.log"
+  },
+  {
+   "t": "py",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with from.\n",
+   "a": "from datetime import datetime, timezone\n\nfor line in open(\"case/proxy.log\"):\n    f = line.split()\n    if \"docm\" in f[6] or \"s2.bin\" in f[6]:\n        when = datetime.fromtimestamp(float(f[0]), timezone.utc).strftime(\"%H:%M:%S UTC\")\n        print(when, f[2], f[3], f[6])"
+  },
+  {
+   "t": "md",
+   "s": "## 3. What ran on the PC\n\n\"HR PC slow, maybe virus\" is a guess. The process list says exactly what ran, when and which program started it. Follow the `ppid` column: each process names its parent.\n\n- [ ] Which program started cmd.exe? Should it ever do that?\n- [ ] Where does the program PowerShell started live? Where does the real svchost.exe live?\n- [ ] When did that program reach the file share?\n\n> Hint: The real svchost.exe is in C:\\Windows\\System32 and runs as SYSTEM. A file called svchost-upd.exe in C:\\Users\\Public is pretending.\n\n?> Which program started cmd.exe? (file name) :: sha256:f8878dc09ca0bd8005c9009ae3a4aee3085d3081b5c95e2232c9d8e561ce9166\n?> What is the PID of svchost-upd.exe started by PowerShell? :: sha256:cfe35c9e498096d4463cfade00cdef305d2311d90db9949bf321f87447fc2f1a"
+  },
+  {
+   "t": "py",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with import.\n",
+   "a": "import csv\nfrom collections import defaultdict\n\nrows = [r for r in csv.DictReader(open(\"case/process.csv\")) if r[\"host\"] == \"hr-pc07\"]\nkids = defaultdict(list)\nfor r in rows:\n    kids[r[\"ppid\"]].append(r)\n\n\ndef show(pid, depth):\n    for r in kids.get(pid, []):\n        print(\"    \" * depth + r[\"time\"][11:] + \" UTC  \" + r[\"image\"].split(\"\\\\\")[-1] + \"  (pid \" + r[\"pid\"] + \")  \" + r[\"command_line\"][:60])\n        show(r[\"pid\"], depth + 1)\n\n\nshow(\"704\", 0)"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Write the triage note\n\nNow rewrite ticket 88213 as a triage note for alert **AL-2203**. The report builder checks each section as you type: it wants an alert ID, times with a time zone, the exact searches you ran, at least one gap, a disposition and an owner.\n\nRules that make notes useful:\n\n- One time zone for everything (UTC here), written every time.\n- Facts say where you saw them. Guesses go under \"What I don't know yet\".\n- Write what you ran, so the next person can repeat it without asking you.\n\n- [ ] Fill every section, then press Check the report\n- [ ] Compare yours with the model answer only after you've written your own\n- [ ] Download the Markdown: it is part of your hand-in\n\n> Hint: \"What I don't know yet\" is never empty. Here: did the other two people open the invoice, and was anything copied out?\n\n```tool report\n{\"tpl\": \"triage\", \"title\": \"Triage note: AL-2203 macro document on hr-pc07\", \"text\": \"\", \"n\": 6, \"blank\": [\"text\"], \"a\": {\"text\": \"# Triage note: AL-2203 macro document on hr-pc07\\n\\n## What fired\\n\\nAL-2203 \\\"Office document with macros opened from the internet\\\", severity high, host hr-pc07, user priya.nair, 2026-11-02 09:02:44 UTC.\\n\\n## What I checked\\n\\n- mail.log: grep 4A1F21C02 (the reported message)\\n- proxy.log: grep -E 'docm|s2.bin'\\n- process.csv: the process tree for hr-pc07 (Python cell, step 3)\\n- alerts.json: the other alerts on hr-pc07 between 09:00 and 10:00 UTC\\n\\n## What I found\\n\\n- 08:51 UTC: message 4A1F21C02 from bounce-7781@kestrel-logistlcs.com (look-alike domain, 203.0.113.45) was delivered to 3 people: priya.nair, dev.kapoor, tomas.reyes.\\n- 09:02 UTC: 10.20.0.14 downloaded INV-30412.docm from kestrel-logistlcs.com (proxy TCP_MISS/200).\\n- 09:02:55 UTC: WINWORD.EXE started cmd.exe, which started a hidden PowerShell running C:\\\\Users\\\\Public\\\\upd.ps1.\\n- 09:03:09 UTC: hr-pc07 downloaded s2.bin from cdn-update-check.net (198.51.100.140).\\n- 09:03:20 UTC: PowerShell started C:\\\\Users\\\\Public\\\\svchost-upd.exe (PID 4810).\\n- 09:41 UTC: PID 4810 mapped \\\\\\\\fs01\\\\shared and started renaming files to .kestrel-locked (AL-2208).\\n\\n## What I don't know yet\\n\\n- Whether dev.kapoor or tomas.reyes opened the attachment (10.20.0.15 was blocked at 09:20 UTC; the third person is unknown).\\n- What s2.bin does, and whether data was copied out before the encryption.\\n- Whether other hosts talked to 198.51.100.140.\\n\\n## Disposition and why\\n\\nTrue positive, escalate: a macro document from a look-alike domain started PowerShell and an unknown program, and the same program is encrypting the file share.\\n\\n## Next step and owner\\n\\nEscalate to the incident lead now (09:55 UTC). Owner: SOC analyst on shift until the incident lead takes it; keep hr-pc07 off the network and do not reboot it.\\n\"}}\n```\n\n?> Which disposition fits AL-2203? (escalate, handled, benign, false positive or more information) :: sha256:f965e5fbf98dd531b7c0fd4f9bdc8dd6df79f623c8345b8aa1b7cd756d317dd8"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Escalate\n\nAn escalation is read in ten seconds by someone who has just been woken up. Put **the ask** in the first line: what you need, from whom, by when. Then severity, what you know, what you don't know, impact, what you did, and where the evidence is.\n\nSay what you have **not** done as well: \"I have not changed anything on the host\" tells the incident lead the evidence is untouched.\n\n- [ ] First line: the ask, with a time\n- [ ] Severity, and the one fact that decided it\n- [ ] Facts with times, newest last\n- [ ] Where the evidence is saved (file names or hashes)\n\n> Hint: Critical means harm is happening now. Files being encrypted on a shared drive is the fact that decides it.\n\n```tool report\n{\"tpl\": \"escalation\", \"title\": \"Escalation: ransomware on hr-pc07 and fs01\", \"text\": \"\", \"n\": 7, \"blank\": [\"text\"], \"a\": {\"text\": \"# Escalation: ransomware on hr-pc07 and fs01\\n\\n## The ask\\n\\nPlease open a critical incident and approve isolating hr-pc07 and taking the HR and Finance shares on fs01 read-only, by 10:05 UTC. Incident lead and IT operations, please call the SOC.\\n\\n## Severity and why\\n\\nCritical: files on fs01 are being encrypted (AL-2208), so business data is being lost right now.\\n\\n## What we know\\n\\n- 08:51 UTC: a fake invoice from kestrel-logistlcs.com reached 3 people (mail.log, message 4A1F21C02).\\n- 09:02 UTC: priya.nair on hr-pc07 opened INV-30412.docm; Word started cmd.exe and a hidden PowerShell (process.csv).\\n- 09:03 UTC: PowerShell downloaded s2.bin from cdn-update-check.net and started svchost-upd.exe from C:\\\\Users\\\\Public (proxy.log, process.csv).\\n- 09:04 UTC: a new local administrator, support_svc, was created on hr-pc07 (AL-2210).\\n- 09:41 to 09:50 UTC: files on \\\\\\\\fs01\\\\shared\\\\HR and \\\\Finance were renamed to .kestrel-locked (share_listing.txt).\\n- 09:52 UTC: the helpdesk pulled the network cable on hr-pc07 (ticket 88213).\\n\\n## What we don't know\\n\\n- Whether the other two recipients opened the invoice.\\n- Whether any data was copied out before the encryption.\\n- Whether the attacker has access to any other host.\\n\\n## Impact so far\\n\\nHost hr-pc07 and user account priya.nair are compromised. 10 files on the HR and Finance shares are encrypted, including payroll and vendor bank details (personal data). Ops is not encrypted. The encryption stopped after the cable was pulled.\\n\\n## What I've done\\n\\n- 09:52 UTC: the helpdesk pulled the cable on hr-pc07 (not me; I have not changed anything on the host).\\n- 09:55 UTC: I asked the proxy team to confirm kestrel-logistlcs.com and cdn-update-check.net are blocked.\\n\\n## Evidence\\n\\nSaved in the incident folder with SHA-256 hashes: alerts.json, mail.log, proxy.log, process.csv, share_listing.txt and invoice.eml. Ticket 88213 holds the helpdesk notes.\\n\"}}\n```\n\n?> How many files on the share were encrypted? :: sha256:4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5\n?> Which folder on the share was not encrypted? :: sha256:a92c36e66a25ee99ff862faa8e87987be6c7cd13c3ee661c400a45b0f1e3b132"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
+   "a": "cd ~/case\ngrep -c 'kestrel-locked' share_listing.txt\ngrep 'Directory of' share_listing.txt\necho ---\nsha256sum alerts.json mail.log proxy.log process.csv share_listing.txt invoice.eml"
+  },
+  {
+   "t": "md",
+   "s": "## 6. Work the queue before you hand over\n\nYour shift had ten alerts, and the night shift left a note that says \"nothing major\". Give every alert a disposition and a one-line reason. Some belong to the incident; some are ordinary noise and should be closed so the next shift isn't chasing them.\n\nThe alert queue sorts by severity, then time. Pick an alert, choose a disposition, and write why.\n\n- [ ] Every alert gets a disposition: nothing left \"Not triaged\"\n- [ ] Each reason is one line a stranger could check\n- [ ] Write the notes for the next shift in the box under the queue\n- [ ] Download the handover the queue writes for you\n\n> Hint: AL-2202's \"Singapore\" address is the company VPN exit: read the detail line. AL-2206 retried and worked at 09:25.\n\n```tool alerts\n{\"file\": \"case/alerts.json\", \"d\": \"\", \"n\": 7, \"blank\": [\"d\"], \"a\": {\"d\": {\"AL-2201\": \"escalate\", \"AL-2202\": \"benign\", \"AL-2203\": \"escalate\", \"AL-2204\": \"escalate\", \"AL-2205\": \"escalate\", \"AL-2210\": \"escalate\", \"AL-2206\": \"benign\", \"AL-2209\": \"benign\", \"AL-2208\": \"escalate\", \"AL-2207\": \"escalate\"}}}\n```\n\n?> Which alert ID is the sign-in from the company VPN exit? :: sha256:a7b16ecff6a60f14396ba3105151e8473eb42064720f436cd3adef6a9720afc4\n?> Which local account did the attacker create on hr-pc07? :: sha256:bd3adca4175f142eaabf87ce2580309d9b03835634a38a8654216c9ec751e322"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Write the shift handover\n\nRewrite last night's \"all quiet\" note as a handover that leaves nothing behind. List every open item **by ID** with the next step and who owns it, what you closed, what to watch, who you called and when, and any temporary change that must be undone later.\n\n- [ ] Every open item by ID, with next step and owner\n- [ ] Closed items in one line each\n- [ ] Things to watch on the next shift\n- [ ] Calls and messages with times\n- [ ] Temporary blocks or exceptions, with a review date\n\n> Hint: A temporary block nobody remembers becomes a permanent one. Write down who may remove it, and when it should be reviewed.\n\n```tool report\n{\"tpl\": \"handover\", \"title\": \"Shift handover: morning to afternoon, 02 Nov\", \"text\": \"\", \"n\": 5, \"blank\": [\"text\"], \"a\": {\"text\": \"# Shift handover: morning to afternoon, 02 Nov\\n\\n## Still open\\n\\n- INC-0211 (from AL-2203, AL-2204, AL-2205, AL-2208, AL-2210): ransomware on hr-pc07 and fs01. Contained at 09:52 UTC. Next: incident lead decides on restore from snapshot s-1101; IT ops owns it.\\n- AL-2201: same campaign. Next: confirm whether dev.kapoor and tomas.reyes opened the invoice. Owner: afternoon analyst, by 14:00 UTC.\\n- AL-2207: 6 failed network logons from 198.51.100.140 at 09:59 UTC for support_svc and Administrator. Next: confirm the account support_svc is disabled. Owner: IT ops.\\n\\n## Closed this shift\\n\\n- AL-2202: benign, the Singapore address is the company VPN exit.\\n- AL-2206: benign, the antivirus update retried and worked at 09:25 UTC.\\n- AL-2209: benign, a large print job on the second floor printer.\\n\\n## Watch for\\n\\n- Any connection from any host to 198.51.100.140 or cdn-update-check.net.\\n- Any new account named support_svc on another host.\\n- New files ending in .kestrel-locked on any share.\\n\\n## Calls and messages\\n\\n- 09:55 UTC: escalated to the incident lead by phone; answered, incident INC-0211 opened.\\n- 10:02 UTC: messaged IT ops about the share; answered at 10:06 UTC.\\n\\n## Tools and access\\n\\nTemporary proxy block on kestrel-logistlcs.com and cdn-update-check.net added at 09:18 and 09:56 UTC. Review it on 09 Nov; do not remove it without the incident lead.\\n\"}}\n```"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Hand in\n\nHand in three pieces of writing. Your teacher scores them with the rubric below, and your certificate is issued after the hand-in is scored.\n\n| Piece | What it must have |\n|---|---|\n| Triage note for AL-2203 | Alert ID, time with time zone, searches you ran, facts with sources, gaps, disposition, owner |\n| Escalation | The ask first, severity, know / don't know, impact, actions, evidence location |\n| Shift handover | Open items by ID, closed items, watch list, calls with times, temporary changes |\n\nUse **Hand in** at the top of the notebook. Your notes, tool work and answers go with it.\n\n- [ ] All questions in this notebook answered\n- [ ] Triage note, escalation and handover each show every section complete\n- [ ] Read each one aloud once: if a sentence needs you to explain it, rewrite it\n- [ ] Press Hand in\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Triage note: alert ID, time with time zone, and what was checked, so someone else can repeat it | 4 |\n| Triage note: facts with times and sources, kept apart from guesses | 4 |\n| Triage note: a disposition with one sentence of reasons | 3 |\n| Escalation: the ask in the first line, with who and by when | 3 |\n| Escalation: what we know, what we don't know, and impact | 4 |\n| Escalation: where the evidence is saved | 2 |\n| Shift handover: every open item by ID, with the next step and owner | 4 |\n| Shift handover: things to watch and calls made, with times | 3 |\n| Plain writing: short sentences, no blame, no guessing presented as fact | 3 |"
+  },
+  {
+   "t": "md",
+   "s": "# Lecture script: Evidence, notes and handoffs\n\nFree seminar · about 120 minutes of lab work · the video runs about 8 minutes\n\nRead it aloud while the demo plays (add `&demo=1` to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with `./teach demo` already has subtitles.\n\n## Opening\n\nWelcome to Evidence, notes and handoffs. This is the free seminar, and it's about the skill every security job runs on: writing things down so the next person can act. Today we take one real case, a fake invoice that turned into ransomware at Kestrel Logistics, and a helpdesk ticket nobody can use. By the end you'll have rewritten it three ways: as a triage note, as an escalation, and as a shift handover. Everything runs in your browser. Let's start with the ticket.\n\n## 1. A ticket nobody can act on\n\nHere is ticket 88213, exactly as the helpdesk left it. Read it with me. \"Probably spam.\" \"Maybe virus.\" \"Not sure if related.\" Every line is a guess, and not one line says which host, which user or which alert. Below it is last night's handover: \"all quiet, nothing major\". Keep both open. Our job is to replace every guess with a fact, a time and the place we saw it.\n\nOn screen: the step text, the Linux cell.\n\n## 2. Find the facts behind the ticket\n\nFacts come from evidence. First the mail log: we search for the message ID dev.kapoor reported, and it shows the email went to three people. Then the proxy log: one address, 10.20.0.14, downloaded the invoice successfully, and a second machine was blocked. The Python cell turns the proxy's epoch times into UTC, so every fact in our notes uses one time zone.\n\nOn screen: the step text, the Linux cell, the Python cell.\n\n## 3. What ran on the PC\n\n\"HR PC slow\" isn't evidence. The process list is. Follow the parent column: Word started cmd.exe, which started a hidden PowerShell, which started a program called svchost-upd in the Public folder. The real svchost lives in System32 and runs as SYSTEM. This one is pretending. And at 09:41 the same program reached the file share.\n\nOn screen: the step text, the Python cell.\n\n## 4. Write the triage note\n\nNow we write. The report builder has six sections and checks each one as we type: an alert ID, times with a time zone, the exact searches we ran, at least one thing we don't know, a disposition and an owner. Watch the model note. The \"What I don't know yet\" section is never empty, and every fact says where it came from.\n\nOn screen: the step text, the tool with the model answer.\n\n## 5. Escalate\n\nAn escalation is read in ten seconds by someone who has just been woken up, so the ask goes first: what we need, from whom, by when. Then the severity and the one fact that decided it: files on the share are being encrypted right now. The Linux cell counts the encrypted files and hashes the evidence, and we say where it's saved, so nothing gets lost.\n\nOn screen: the step text, the Linux cell, the tool with the model answer.\n\n## 6. Work the queue before you hand over\n\nBefore handing over, we work the whole queue. Ten alerts. Some belong to the incident, and some are ordinary noise: the Singapore sign-in is the company VPN exit, and the antivirus update fixed itself. Each one gets a disposition and one line of reason a stranger could check. The queue then writes a handover for us.\n\nOn screen: the step text, the tool with the model answer.\n\n## 7. Write the shift handover\n\nLast night's note said \"all quiet\". Ours lists every open item by ID with the next step and its owner, what we closed, what to watch, who we called and when, and the temporary blocks someone must remember to review. A handover like this lets the next shift start working instead of starting over.\n\nOn screen: the step text, the tool with the model answer.\n\n## 8. Hand in\n\nYour hand-in is these three pieces of writing. Your teacher scores them with the rubric on screen, and the certificate follows once it's scored. Before you press Hand in, read each piece aloud once. If a sentence needs you to explain it, rewrite it.\n\nOn screen: the step text.\n\n## Wrap-up\n\nThat's the seminar. You turned a ticket that said \"probably spam\" into a triage note with facts and times, an escalation someone can decide on in ten seconds, and a handover that leaves nothing behind. Those three pieces are your hand-in. Use the Practice level to write them yourself with hints, then the Solo level without. In the next seminar we take the same habits into log search and detection rules.\n\n## YouTube chapters (estimate; `./teach demo` writes the exact ones)\n\n```\n0:00 Opening\n0:35 1. A ticket nobody can act on\n1:24 2. Find the facts behind the ticket\n2:25 3. What ran on the PC\n3:05 4. Write the triage note\n3:56 5. Escalate\n5:09 6. Work the queue before you hand over\n5:59 7. Write the shift handover\n6:49 8. Hand in\n7:14 Wrap-up\n```"
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 # 5.6.c: Digital evidence analysis and attack classification
 
 > **Unit 5 · 5.6 Application Threat Auditing**
-> **AP Learning Objective(s):** 5.6.B, 5.6.C
+> **AP Learning Objective(s):** 5.6.B, 5.6.C, 5.6.D, 5.6.E
 > **Course skill(s):** Detect Attacks, Collaborate
 
 ## Learning objective (student-facing)

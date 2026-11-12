@@ -75,7 +75,7 @@ The simulation (the simulation) lets you try three payload types against a fake 
 - **UNION SELECT**: a SQL construct that appends a second SELECT to a query; used in injection to extract data from other tables
 - **comment truncation**: using SQL comment characters (`--` or `/* */`) in an injected payload to neutralize the rest of the intended query
 - **blind injection**: an injection technique used when the application returns no visible data; time delays or boolean responses leak information indirectly
-- **WAF (Web Application Firewall)**: a network-layer filter that inspects HTTP traffic for known attack patterns including SQLi payloads
+- **WAF (Web Application Firewall)**: an application-layer (layer 7) filter that inspects HTTP traffic for known attack patterns including SQLi payloads
 
 ## Common misconceptions
 
