@@ -12,7 +12,7 @@ The alert queue sorts by severity, then time. Pick an alert, choose a dispositio
 > Hint: AL-2202's "Singapore" address is the company VPN exit: read the detail line. AL-2206 retried and worked at 09:25.
 
 ```tool alerts
-{"file": "case/alerts.json", "d": {"AL-2201": "escalate", "AL-2202": "benign", "AL-2203": "escalate", "AL-2204": "escalate", "AL-2205": "escalate", "AL-2210": "escalate", "AL-2206": "benign", "AL-2209": "benign", "AL-2208": "escalate", "AL-2207": "escalate"}, "n": 7, "blank": ["d"]}
+{"file": "alerts.json", "d": {"AL-2201": "escalate", "AL-2202": "benign", "AL-2203": "escalate", "AL-2204": "escalate", "AL-2205": "escalate", "AL-2210": "escalate", "AL-2206": "benign", "AL-2209": "benign", "AL-2208": "escalate", "AL-2207": "escalate"}, "n": 7, "blank": ["d"]}
 ```
 
 ?> Which alert ID is the sign-in from the company VPN exit? :: AL-2202

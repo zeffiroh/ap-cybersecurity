@@ -86,7 +86,7 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 <blockquote>
 <p>Hint: The sudo line has a different shape: <code>sudo:   deploy : TTY=... ; COMMAND=...</code>. Start with <code>%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sudo: +%{USER:user} : %{GREEDYDATA:rest}</code>.</p>
 </blockquote>
-<p><strong>Use the Log parser on case/auth.log.</strong></p>
+<p><strong>Use the Log parser on auth.log.</strong></p>
 <p><strong>Question:</strong> How many of the 12 lines does the SSH pattern parse?</p>
 <h2>6. Hunt the web attack in SPL and KQL</h2>
 <p>The same address also hit the web server. Find the scanner, the SQL injection, and what came after it. <code>uri_path</code> is the page without the query string, which makes grouping easy.</p>
@@ -221,56 +221,5 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 <td>3</td>
 </tr>
 </tbody>
-</table>
-<h1>Lecture script: Log search and detection as code</h1>
-<p>Seminar 2 · about 300 minutes of lab work · the video runs about 13 minutes</p>
-<p>Read it aloud while the demo plays (add <code>&amp;demo=1</code> to the lab link), or record your own screen with the Teaching Desk. The demo's captions are this text, word for word, so a recording made with <code>./teach demo</code> already has subtitles.</p>
-<h2>Opening</h2>
-<p>Welcome to Log search and detection as code. A hunt you run once finds one attack; a rule finds the next one. Today we answer one question three times, in SPL, in KQL and in SQL, on a web server called web01. Then we turn the hunt into Sigma rules, test them for false positives, tune them, and convert them with the real pySigma converter. The search engine here is a teaching subset of each language, and I'll point you to free places to run the full versions.</p>
-<h2>1. One question, three languages</h2>
-<p>Every hunt starts with a question, not a tool. Ours: did anyone guess an SSH password on web01, get in, and do something with it? Before the search engine, we read the raw log with grep, so we know exactly what the engine is reading. Seven failed passwords, and one address keeps coming back.</p>
-<p>On screen: the step text, the Linux cell.</p>
-<h2>2. SPL: count, then pivot</h2>
-<p>In SPL we search, then pipe into a command. Stats count by source address, sorted biggest first: 203.0.113.7 failed six times. Now we pivot. Same address, but a success this time: the user deploy logged in with a password. And the next search shows deploy used sudo to read the shadow password file. That's the whole story in three searches.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>3. The same hunt in KQL</h2>
-<p>KQL starts with a table and pipes into operators: where, summarize, project, sort. The rule is simple: the answer must match SPL. Six failures, one success. If the two languages disagree, one of the searches is wrong, and that check alone catches a lot of mistakes.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>4. SQL over the same logs</h2>
-<p>Every log is also a table. The SQL tool names each table after its file and makes a column for each field. Group by client address and the same attacker is at the top of the web log with nine requests. SQL is the language of most data lakes, so it's worth having in your pocket.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>5. Parse a raw log into fields</h2>
-<p>Searches only work on fields someone parsed. When a new log arrives that your SIEM doesn't know, you write the parser. This pattern parses eleven of the twelve SSH lines. The one it skips is the sudo line, which has a different shape. Try writing a second pattern for it.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>6. Hunt the web attack in SPL and KQL</h2>
-<p>The same address hit the web server. The user agent names the tool, sqlmap, and the requests show the injection. Minutes later the attacker uploaded img.php and ran commands through it. We write that hunt in SPL and in KQL, and both find the same three commands.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>7. From hunt to rule: your first Sigma rule</h2>
-<p>Now detection as code. Sigma is the open format for rules: one YAML file that converts to many SIEMs. This rule fires when Word, Excel or Outlook starts a shell, and it matches exactly one event. Then we press Convert, and the real pySigma converter turns it into SPL we can compare with our own.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>8. Test for false positives, then tune</h2>
-<p>A rule that fires on everything is worse than no rule. The first one here matches every new process: fifteen hits, most of them normal. The tuned rules each describe one behaviour: a program in the Public folder, shadow copies deleted, a new member of Administrators. Each matches only attack events. Write one tuning note per rule.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>9. A web rule, tested on the web log</h2>
-<p>Sigma works on web logs too. The noisy version flags a customer searching for Union Bank and a blog post with an apostrophe in its name. The tuned version keys on the tool name and on UNION SELECT. Six hits drop to four, and all four are the attack.</p>
-<p>On screen: the step text, the tool with the model answer.</p>
-<h2>10. Hand in your hunt pack and rule pack</h2>
-<p>Your hand-in is this notebook: the hunt pack in SPL and KQL, one SQL query, and the rule pack with tests and tuning notes. The rubric is on screen. Check that every rule shows its test result, then press Hand in.</p>
-<p>On screen: the step text.</p>
-<h2>Wrap-up</h2>
-<p>That's the hunt pack and the rule pack. You ran the same hunt in three languages and got the same answer, parsed a raw log into fields, and wrote five Sigma rules that each describe one thing an attacker did, each with a test and a tuning note. Hand in this notebook. In seminar three we use these skills on a live alert queue.</p>
-<h2>YouTube chapters (estimate; <code>./teach demo</code> writes the exact ones)</h2>
-<pre><code>0:00 Opening
-0:36 1. One question, three languages
-1:21 2. SPL: count, then pivot
-3:01 3. The same hunt in KQL
-4:16 4. SQL over the same logs
-5:06 5. Parse a raw log into fields
-5:56 6. Hunt the web attack in SPL and KQL
-7:36 7. From hunt to rule: your first Sigma rule
-8:51 8. Test for false positives, then tune
-10:56 9. A web rule, tested on the web log
-12:11 10. Hand in your hunt pack and rule pack
-12:36 Wrap-up
-</code></pre></main></body>
+</table></main></body>
 </html>

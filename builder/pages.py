@@ -232,6 +232,19 @@ def linux_page():
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
+def workstation_page():
+    path = SITE / "workstation.html"
+    body = ('<h1 class="ws-h">Analyst workstation</h1>\n<p class="aa-sub">A whole security desktop in your browser: several Linux terminals on one real computer, '
+            'and every analyst program as a window. Open a case from the taskbar to load its evidence and network.</p>\n'
+            '<div id="ws-app" class="ws-app"><div id="ws-desk" class="ws-desk"><div id="ws-icons" class="ws-icons"></div></div>'
+            '<div id="ws-start-menu" class="ws-menu" hidden></div>'
+            '<nav class="ws-bar" aria-label="Taskbar"><button type="button" id="ws-start" aria-haspopup="true">Start</button>'
+            '<div id="ws-tasks" class="ws-tasks"></div><label class="ws-case">Case <select id="ws-case"></select></label>'
+            '<span id="ws-casename"></span><span id="ws-clock"></span></nav></div>\n'
+            + theme_assets(path.parent, ["tools.css", "workstation.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation.js"]))
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
 def certificate_page():
     path = SITE / "certificate.html"
     body = ('<div id="ce-app"><div class="ce-tools"><a href="seminars.html">&larr; Seminars</a>'
@@ -348,7 +361,8 @@ def labs_page():
     attack = (card("Attack the app", "SQL injection lab", SITE / "sqli.html", "Break a staff login with SQL injection, then fix the query so it can't happen again.", "Beginner · 30 min")
               + card("Attack the app", "Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with fourteen vulnerabilities to find, each worth a CTF flag.", "Intermediate · 1 to 2 hours"))
     ctf = card("Capture the flag", "CTF board", SITE / "ctf.html", "Puzzles for every unit, points and a class leaderboard. Runbooks and attack labs hide flags too.", "All levels")
-    tools = (card("Tool", "Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with 13 step-by-step exercises.", "Start with steps 1 to 5")
+    tools = (card("Tool", "Analyst workstation", SITE / "workstation.html", "A security desktop in your browser: many terminals, every analyst program as a window, any case loaded.", "Open the desktop")
+             + card("Tool", "Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with 13 step-by-step exercises.", "Start with steps 1 to 5")
              + card("Tool", "JupyterLab", SITE / "lab" / "lab" / "index.html", "Every code book, runnable Python, nothing to install.")
              + card("Tool", "CyberChef", SITE / "cyberchef" / "index.html", "Decode, encrypt, hash and analyse data in a recipe of steps."))
     start = ('<section class="lv-start" aria-labelledby="lv-start-h"><div class="lv-sk">Start here</div><h2 id="lv-start-h">New to hands-on labs? Do these three in order</h2>'
@@ -503,6 +517,7 @@ def run():
     classes_page()
     community_page()
     linux_page()
+    workstation_page()
     store_page()
     labs_page()
     seminars_page()

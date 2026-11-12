@@ -11,7 +11,7 @@ Switch to the Windows case. On hr-pc07 Word started cmd.exe. The rule below fire
 > Hint: PowerShell's parent was cmd.exe, not Word. One rule per step of the chain, or a second rule for "cmd.exe starts PowerShell hidden".
 
 ```tool siem
-{"q": "EventID=4688 | stats count by Computer", "n": 1, "files": ["case/eventlogs/Security.jsonl"], "blank": ["q"]}
+{"q": "EventID=4688 | stats count by Computer", "n": 1, "files": ["eventlogs/Security.jsonl"], "blank": ["q"]}
 ```
 
 ```tool sigma

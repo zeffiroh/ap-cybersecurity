@@ -11,7 +11,7 @@ Five emails were reported. For each one, read who **really** sent it (Return-Pat
 > Hint: In password-expiry.eml the link text says sso.kestrel-logistics.com, but the href goes somewhere else. In bank-details.eml the display name says CFO, but the address is a free mail account, and SPF, DKIM and DMARC all pass for that free mail domain.
 
 ```tool email
-{"d": {"case/reported/bank-details.eml": "bec", "case/reported/hr-newsletter.eml": "legit", "case/reported/password-expiry.eml": "phish", "case/reported/webinar.eml": "spam", "case/invoice.eml": "phish"}, "n": 3, "files": ["case/reported/bank-details.eml", "case/reported/hr-newsletter.eml", "case/reported/password-expiry.eml", "case/reported/webinar.eml", "case/invoice.eml"], "blank": ["d"]}
+{"d": {"reported/bank-details.eml": "bec", "reported/hr-newsletter.eml": "legit", "reported/password-expiry.eml": "phish", "reported/webinar.eml": "spam", "invoice.eml": "phish"}, "n": 3, "files": ["reported/bank-details.eml", "reported/hr-newsletter.eml", "reported/password-expiry.eml", "reported/webinar.eml", "invoice.eml"], "blank": ["d"]}
 ```
 
 ?> Which domain does the password-expiry link really go to? (the host name) :: kestrel-sso.login-check.example

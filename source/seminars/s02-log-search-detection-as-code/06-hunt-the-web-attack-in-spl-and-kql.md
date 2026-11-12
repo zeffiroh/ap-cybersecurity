@@ -9,15 +9,15 @@ The same address also hit the web server. Find the scanner, the SQL injection, a
 > Hint: `%20` is a space and `%27` is a quote in a URL. CyberChef's URL Decode makes the commands readable.
 
 ```tool siem
-{"q": "sourcetype=access_combined useragent=sqlmap* | table _time clientip uri status", "n": 4, "files": ["case/access.log"], "blank": ["q"]}
+{"q": "sourcetype=access_combined useragent=sqlmap* | table _time clientip uri status", "n": 4, "files": ["access.log"], "blank": ["q"]}
 ```
 
 ```tool siem
-{"q": "sourcetype=access_combined clientip=203.0.113.7 uri_path=/uploads/img.php | table _time uri status", "n": 3, "files": ["case/access.log"], "blank": ["q"]}
+{"q": "sourcetype=access_combined clientip=203.0.113.7 uri_path=/uploads/img.php | table _time uri status", "n": 3, "files": ["access.log"], "blank": ["q"]}
 ```
 
 ```tool siem
-{"q": "access | where clientip == \"203.0.113.7\" and uri_path == \"/uploads/img.php\" | project _time, uri, status", "lang": "kql", "n": 3, "files": ["case/access.log"], "blank": ["q"]}
+{"q": "access | where clientip == \"203.0.113.7\" and uri_path == \"/uploads/img.php\" | project _time, uri, status", "lang": "kql", "n": 3, "files": ["access.log"], "blank": ["q"]}
 ```
 
 ?> Which scanner's name is in the user agent? :: sqlmap

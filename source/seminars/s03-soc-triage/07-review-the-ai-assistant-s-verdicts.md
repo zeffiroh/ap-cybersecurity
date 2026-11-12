@@ -10,7 +10,7 @@ The SOC's AI triage assistant gave a verdict on every alert. It is fast and usua
 > Hint: Three verdicts are wrong. One trusted a display name. One was alarmed by encoding without decoding it. One didn't know about the VPN exit.
 
 ```tool aisec
-{"file": "case/ai-verdicts.json", "marks": {"AL-3101": "agree", "AL-3102": "override", "AL-3103": "agree", "AL-3104": "agree", "AL-3105": "agree", "AL-3106": "override", "AL-3107": "agree", "AL-3108": "agree", "AL-3109": "override", "AL-3110": "agree"}, "n": 10, "blank": ["marks"]}
+{"file": "ai-verdicts.json", "marks": {"AL-3101": "agree", "AL-3102": "override", "AL-3103": "agree", "AL-3104": "agree", "AL-3105": "agree", "AL-3106": "override", "AL-3107": "agree", "AL-3108": "agree", "AL-3109": "override", "AL-3110": "agree"}, "n": 10, "blank": ["marks"]}
 ```
 
 ?> How many AI verdicts did you override? :: 3

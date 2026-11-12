@@ -9,6 +9,7 @@ from .util import emit, emit_bytes
 SEMINARS = SRC / "seminars"
 MEDIA = SRC / "media"
 CODE = {".sh": "sh", ".py": "py"}
+NOT_STEPS = {"script.md", "README.md"}
 TOOLS = ["grep", "awk", "sed", "sort", "uniq", "cut", "nmap", "curl", "wget", "tshark", "dig", "whois", "nc", "openssl",
          "sha256sum", "base64", "tar", "strings", "find", "nikto", "gobuster"]
 ANSWER = re.compile(r"^(\s*\?>\s*.+?\s*::\s*)(?!sha256:)(.+?)\s*$", re.M)
@@ -72,7 +73,7 @@ def problems(folder):
         return [f"seminar.json is not valid JSON: {e}"]
     if not str(info.get("title", "")).strip():
         out.append("seminar.json needs a title")
-    items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb")]
+    items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb") and p.name not in NOT_STEPS]
     if not items and not (folder / "lesson.json").exists():
         out.append("no .md, .sh, .py or .ipynb files yet")
     for p in items:
@@ -100,7 +101,7 @@ def cells_of(folder, info):
         for c in json.loads(compiled.read_text(encoding="utf-8")):
             cells.append(dict(c, s=hide_answers(c["s"])) if c["t"] == "md" else c)
         return cells
-    items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb")]
+    items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb") and p.name not in NOT_STEPS]
     for stem in sorted({p.stem for p in items}):
         group = {p.suffix: p for p in items if p.stem == stem}
         if ".md" in group:

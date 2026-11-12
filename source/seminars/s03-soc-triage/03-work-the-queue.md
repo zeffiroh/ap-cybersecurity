@@ -10,7 +10,7 @@ Now give all ten alerts a disposition and a one-line reason. **Exactly one** sho
 > Hint: AL-3106 runs every day at 09:00 under an IT service account. Decode the command in the next step before you decide.
 
 ```tool alerts
-{"file": "case/alerts-tuesday.json", "d": {"AL-3101": "handled", "AL-3102": "escalate", "AL-3103": "benign", "AL-3104": "benign", "AL-3105": "handled", "AL-3106": "false", "AL-3107": "handled", "AL-3108": "benign", "AL-3109": "false", "AL-3110": "handled"}, "n": 1, "blank": ["d"]}
+{"file": "alerts-tuesday.json", "d": {"AL-3101": "handled", "AL-3102": "escalate", "AL-3103": "benign", "AL-3104": "benign", "AL-3105": "handled", "AL-3106": "false", "AL-3107": "handled", "AL-3108": "benign", "AL-3109": "false", "AL-3110": "handled"}, "n": 1, "blank": ["d"]}
 ```
 
 ?> Which alert is the one to escalate? :: AL-3102

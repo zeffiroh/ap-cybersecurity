@@ -9,15 +9,15 @@ Search results are a summary. Confirm on the host's own logs and on the packet c
 > Hint: In the packet viewer, the filter `dns.qry.name contains cloudmetric` shows the tunnel. Look at the destination of the answers' questions.
 
 ```tool events
-{"file": "case/eventlogs/Sysmon.jsonl", "ids": "1", "n": 8, "blank": ["ids", "src", "q"]}
+{"file": "eventlogs/Sysmon.jsonl", "ids": "1", "n": 8, "blank": ["ids", "src", "q"]}
 ```
 
 ```tool events
-{"file": "case/eventlogs/Sysmon.jsonl", "ids": "22", "q": "cloudmetric.example", "n": 26, "blank": ["ids", "src", "q"]}
+{"file": "eventlogs/Sysmon.jsonl", "ids": "22", "q": "cloudmetric.example", "n": 26, "blank": ["ids", "src", "q"]}
 ```
 
 ```tool packets
-{"file": "case/capture.pcap", "f": "dns.qry.name contains cloudmetric", "n": 104, "blank": ["f"]}
+{"file": "capture.pcap", "f": "dns.qry.name contains cloudmetric", "n": 104, "blank": ["f"]}
 ```
 
 ?> What file name does the malware use to look like the chat app? :: msteams-update.exe

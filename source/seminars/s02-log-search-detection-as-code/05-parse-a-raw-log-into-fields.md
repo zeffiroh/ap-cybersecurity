@@ -11,7 +11,7 @@ The pattern below parses SSH login lines. Lines it can't parse are shown in red:
 > Hint: The sudo line has a different shape: `sudo:   deploy : TTY=... ; COMMAND=...`. Start with `%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sudo: +%{USER:user} : %{GREEDYDATA:rest}`.
 
 ```tool parse
-{"file": "case/auth.log", "pat": "%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sshd\\[%{INT:pid}\\]: %{WORD:result} %{WORD:method} for (?:invalid user )?%{USER:user} from %{IP:src_ip} port %{INT:src_port}%{GREEDYDATA:rest}", "n": 11, "blank": ["pat"]}
+{"file": "auth.log", "pat": "%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sshd\\[%{INT:pid}\\]: %{WORD:result} %{WORD:method} for (?:invalid user )?%{USER:user} from %{IP:src_ip} port %{INT:src_port}%{GREEDYDATA:rest}", "n": 11, "blank": ["pat"]}
 ```
 
 ?> How many of the 12 lines does the SSH pattern parse? :: 11
