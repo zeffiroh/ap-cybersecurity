@@ -1,0 +1,86 @@
+{
+ "order": 202,
+ "title": "Free tutorial: Who got in overnight?",
+ "kicker": "Free tutorial",
+ "units": [
+  3,
+  4
+ ],
+ "level": "Beginner",
+ "minutes": 25,
+ "summary": "Find a password-guessing attack in a Linux auth log with grep, sort and uniq, then what the attacker did next.",
+ "tools": [
+  "Browser Linux (grep, awk, sort, uniq)",
+  "Packet viewer",
+  "tshark",
+  "Zeek logs (captured)"
+ ],
+ "titlePrefix": "Free tutorial: Who got in overnight?",
+ "teacher": true,
+ "id": "sem-t-who-got-in-overnight--solo",
+ "free": true,
+ "next": {
+  "seminar": 2,
+  "title": "Seminar 1: Reading evidence: packets, Linux, Windows and network sensors"
+ },
+ "files": [
+  "case/auth.log",
+  "case/capture.pcap",
+  "case/crontab.txt",
+  "case/eventlogs/Security.jsonl",
+  "case/ps.txt",
+  "case/README.txt",
+  "case/recovered/m.sh",
+  "case/zeek/conn.log"
+ ],
+ "script": {
+  "intro": "Welcome. Tamarind Health, a small chain of clinics, had a strange night. You will find a password-guessing attack in a Linux log using only grep, sort and uniq.",
+  "outro": "That is the whole shape of an intrusion in one log. Seminar 1 reads four kinds of evidence this way.",
+  "steps": [
+   "Read the setting so you know the company, the date and the time zone. Then open the evidence in the case folder.",
+   "The server is open to the internet on port 22, and auth dot log records every SSH login, good or bad. Count the failures, then count them by source address. Grep dash o keeps only the address; sort, uniq dash c, sort dash r n ranks them. One address making dozens of guesses is a brute force.",
+   "A brute force only matters if it worked. Find the Accepted line, then read everything that account did afterwards. The sudo lines show each command run as root. Then check the two things an attacker leaves to come back: a scheduled job and a running process. The deploy account logs in with a key every night, and that one is normal. Compare the cron lines with what the script added.",
+   "That is the whole shape of an intrusion in one log. Seminar 1 reads four kinds of evidence this way."
+  ]
+ },
+ "base": "sem-t-who-got-in-overnight",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "sem-t-who-got-in-overnight",
+  "guided": "sem-t-who-got-in-overnight--guided",
+  "solo": "sem-t-who-got-in-overnight--solo"
+ },
+ "guide": "media/guides/sem-t-who-got-in-overnight/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Free tutorial: Who got in overnight?\n\nFind a password-guessing attack in a Linux auth log with grep, sort and uniq, then what the attacker did next.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `auth.log`, `capture.pcap`, `crontab.txt`, `eventlogs/Security.jsonl`, `ps.txt`, `README.txt`, `recovered/m.sh`, `zeek/conn.log`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. The setting\n\nThis free tutorial is one step from **Seminar 1: Reading evidence: packets, Linux, Windows and network sensors**. Find a password-guessing attack in a Linux auth log with grep, sort and uniq, then what the attacker did next.\n\n> Tamarind Health, night of 5 to 6 November 2026. All times are UTC (India is UTC+5:30).\n\nThe evidence is in `~/case`. Read the README there if you want the whole story."
+  },
+  {
+   "t": "md",
+   "s": "## 2. Linux: who was knocking\n\nappt01 is open to the internet on port 22. `auth.log` records every SSH login, good or bad. Count the failures, then count them **by source address**: one address making dozens of guesses is a brute force.\n\n- [ ] How many failed passwords in total?\n- [ ] Which address made most of them, and how many?\n- [ ] Which user names did it try? Which one is a real account here?\n\n\n?> How many failed passwords are in auth.log in total? :: sha256:1a6562590ef19d1045d06c4055742d38288e9e6dcd71ccde5cee80f1d5a774eb\n?> Which address made the most failed attempts? :: sha256:bfeb4c6192985efa05e7fa0740ac45708a515e569e7edaec7fc060ff72b44a0c\n?> How many failed attempts came from that address? :: sha256:25fc0e7096fc653718202dc30b0c580b8ab87eac11a700cba03a7c021bc35b0c"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\ngrep -c 'Failed password' auth.log\necho ---\ngrep 'Failed password' auth.log | grep -o 'from [0-9.]*' | sort | uniq -c | sort -rn\necho ---\ngrep 'Failed password' auth.log | grep -o 'for [a-z ]*from' | sort | uniq -c | sort -rn"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Linux: the login and what came next\n\nA brute force only matters if it worked. Find the **Accepted** line, then read everything the account did afterwards: `sudo` lines show each command run as root. Then check the two things an attacker leaves to come back: a scheduled job and a running process.\n\n- [ ] Which account logged in from 198.51.100.23, when, and with what (password or key)?\n- [ ] Which commands did it run with sudo?\n- [ ] What did the script change? Read recovered/m.sh\n- [ ] Which cron line and which process are new?\n\n\n?> Which account logged in with a password from 198.51.100.23? :: sha256:630ba09448af522154f38ef7685ef1f44b0f3e9430f80829a03ce24f400f3754\n?> What file does the new cron job run? (full path) :: sha256:b57fa7460b593d55238865605d1856f2f10920d596db667477e2b06fc4ca7e6a\n?> At what time (UTC, HH:MM:SS) did that login succeed? :: sha256:dcd0265553c98b2647b88d9fc0ae73807c06ce0d9ca87c75e1934436a0dd87f9"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\ngrep 'Accepted' auth.log\necho ---\ngrep 'sudo' auth.log | grep COMMAND\necho ---\ncat recovered/m.sh\necho ---\ncat crontab.txt\necho ---\ngrep -E 'sysmon|\\.m\\.sh' ps.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Where next\n\nThat was one step of **Seminar 1: Reading evidence: packets, Linux, Windows and network sensors**. The full seminar has the video, every step in three levels (walkthrough, practice and solo), a graded hand-in and a certificate.\n\n- [See the seminar](https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=2)\n- [Try the Hacker Room](https://zeffiroh.github.io/ap-cybersecurity/workstation.html?trial=1)\n- [All job paths](https://zeffiroh.github.io/ap-cybersecurity/careers.html)"
+  }
+ ]
+}

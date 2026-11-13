@@ -123,6 +123,7 @@
       var cell = el.closest(".nb-cell"), c = cell && H.nb().cells[+cell.getAttribute("data-i")], def = T.get(el.getAttribute("data-tool"));
       if (!c || !def) return;
       el.setAttribute("data-on", "");
+      if (global.AayatLabLocked) { el.innerHTML = '<div class="tl-lock">' + global.AayatLabLocked + "</div>"; return; }
       var all = cell.querySelectorAll(".tool-step"), key = keyOf(c) + ":" + Array.prototype.indexOf.call(all, el);
       def.mount(el, {
         state: T.parse(el.getAttribute("data-state")) || {},
@@ -164,7 +165,7 @@
         var ready = H.caseId() ? "case" : "empty";
         if (p.getAttribute("data-on") === ready) return;
         p.setAttribute("data-on", ready);
-        def.mount(p, ctxFor(def));
+        T.access().then(function (ok) { if (ok) def.mount(p, ctxFor(def)); else p.innerHTML = T.lockHtml(""); });
       };
       tabButton(k, def.title);
     });
@@ -192,7 +193,7 @@
         p.innerHTML = '<button type="button" class="tl-back" data-more-back>&larr; All tools</button><div></div>';
         def.mount(p.lastChild, ctxFor(def));
       });
-      menu();
+      T.access().then(function (ok) { if (ok) menu(); else p.innerHTML = T.lockHtml(""); });
     };
     tabButton("tool-more", "More tools");
   }

@@ -16,30 +16,41 @@ KIND_LABEL = dict(KINDS)
 
 GLOBAL = [
     ("home", "Home", SITE / "index.html"),
-    ("progress", "Progress", SITE / "progress.html"),
     ("book", "Book", BOOK / "index.html"),
     ("lectures", "Lectures", LECTURES / "index.html"),
     ("glossary", "Glossary", SITE / "glossary.html"),
     ("tests", "Unit tests", TESTS / "index.html"),
     ("hw", "CW/HW quizzes", TESTS / "hw" / "index.html"),
     ("capstone", "Capstone", CAPSTONE / "index.html"),
-    ("calendar", "Calendar", SITE / "calendar.html"),
-    ("community", "Classes & forum", SITE / "community.html"),
-    ("seminars", "Seminars", SITE / "seminars.html"),
-    ("labs", "Labs", SITE / "labs.html"),
     ("videos", "Video lessons", SITE / "videos.html"),
-    ("notebook", "Notebook", SITE / "notebook.html"),
-    ("report", "Report card", SITE / "report.html"),
     ("downloads", "Downloads", DOWNLOADS / "index.html"),
+    ("careers", "Career training", SITE / "careers.html"),
+    ("workstation", "Hacker Room", SITE / "workstation.html"),
+    ("labs", "Labs", SITE / "labs.html"),
+    ("notebook", "Notebook", SITE / "notebook.html"),
+    ("ctf", "Capture the flag", SITE / "ctf.html"),
+    ("seminars", "Seminars", SITE / "seminars.html"),
+    ("community", "Classes & forum", SITE / "community.html"),
+    ("calendar", "Calendar", SITE / "calendar.html"),
+    ("progress", "Progress", SITE / "progress.html"),
+    ("report", "Report card", SITE / "report.html"),
     ("store", "Store", SITE / "store.html"),
     ("support", "Support", SITE / "support.html"),
 ]
 
+MENU = [
+    ("Course", ["home", "book", "lectures", "glossary", "tests", "hw", "capstone", "videos", "downloads"]),
+    ("Careers", ["careers", "workstation", "seminars"]),
+    ("Practise", ["labs", "notebook", "ctf"]),
+    ("Live classes", ["community", "calendar"]),
+    ("Me", ["progress", "report", "store", "support"]),
+]
+
 GLOBAL_EXTRA = [
     ("linux", "Linux lab", SITE / "linux.html"),
-    ("ctf", "Capture the flag", SITE / "ctf.html"),
     ("sqli", "SQL injection lab", SITE / "sqli.html"),
     ("shop", "Hack the shop", SITE / "shop.html"),
+    ("certificate", "Certificate", SITE / "certificate.html"),
 ]
 
 
@@ -198,8 +209,10 @@ def nav_html(page_dir, c):
     parts = [f'<a class="apn-brand" href="{r(SITE / "index.html")}"><img class="apn-mark" src="{r(THEME / "icon.svg")}" alt="">'
              f'<span class="apn-name">{BRAND}</span></a>']
 
-    gl = "".join(f'<a{_on(k == "global" and c["key"] == key)} href="{r(p)}">{esc(label)}</a>'
-                 for key, label, p in GLOBAL)
+    byk = {key: (label, p) for key, label, p in GLOBAL}
+    gl = "".join(f'<div class="apn-h">{esc(g)}</div>' + "".join(
+        f'<a{_on(k == "global" and c["key"] == key)} href="{r(byk[key][1])}">{esc(byk[key][0])}</a>' for key in keys)
+        for g, keys in MENU)
     cur = ' class="apn-cur"' if k == "global" else ""
     glabel = c["label"] if k == "global" and c["key"] != "home" else SUBJECT
     if k == "deck":
@@ -295,8 +308,12 @@ def nav_html(page_dir, c):
     return f'<nav class="apnav" aria-label="Course"{_track(c)}>{"".join(parts)}</nav>'
 
 
+AP_NOTE = ("AP&reg; is a trademark registered by the College Board, which is not affiliated with, and does not endorse, this product. "
+           f"{BRAND} is independent.")
+
 _OLD = [
     re.compile(r'[ \t]*<nav class="apnav".*?</nav>\n?', re.S),
+    re.compile(r'[ \t]*<footer class="apn-foot">.*?</footer>\n?', re.S),
     re.compile(r'[ \t]*<link id="apnav-(?:css|icon|icon32|touch)"[^>]*>\n?'),
     re.compile(r'[ \t]*<script id="apnav-(?:js|map|progress)"[^>]*></script>\n?'),
     re.compile(r'[ \t]*<meta id="apnav-(?:og-site|og-desc|og-image|card)"[^>]*>\n?'),
@@ -329,6 +346,7 @@ def apply(path, text):
     page_dir = path.parent
     text = text.replace("</head>", head_links(page_dir) + "</head>", 1)
     text = re.sub(r"(<body[^>]*>)\n?", lambda m: m.group(1) + "\n" + nav_html(page_dir, c) + "\n", text, count=1)
+    text = re.sub(r"</body>", lambda m: f'<footer class="apn-foot">{AP_NOTE}</footer>\n</body>', text, count=1)
     t = title_for(c)
     if t:
         text = re.sub(r"<title>.*?</title>", f"<title>{esc(t)}</title>", text, count=1, flags=re.S)

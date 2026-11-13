@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud and DevSecOps: posture, pipelines, secrets and automation written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 8 · written tutorial</p>
+<h1>Cloud and DevSecOps: posture, pipelines, secrets and automation</h1>
+<p class="meta">Practitioner &middot; about 360 min</p>
+<p>Audit a start-up&#x27;s repository, pipeline and cloud account the way a cloud security engineer does: find leaked secrets (including in Git history), vulnerable packages and unsafe Dockerfile, Kubernetes and Terraform settings, read Trivy, Checkov and Prowler output, cut a leaked key down to least privilege, rank every finding, write the pipeline gate, automate the response, and test a Python check.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s08-cloud-devsecops&amp;runbook=sem-s08-cloud-devsecops">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s08-cloud-devsecops--guided&amp;runbook=sem-s08-cloud-devsecops--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s08-cloud-devsecops--solo&amp;runbook=sem-s08-cloud-devsecops--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>captured/checkov-main-tf.txt</code>, <code>captured/prowler-monsoon-prod.csv</code>, <code>captured/trivy-cart-api.txt</code>, <code>cloud/alerts-cloud.json</code>, <code>cloud/audit.json</code>, <code>cloud/intel.json</code>, <code>cloud/policies.json</code>, <code>findings-register.csv</code>, <code>README.txt</code>, <code>repo/.ci/pipeline.yml</code>, <code>repo/advisories.json</code>, <code>repo/deploy/cart-api.yaml</code>, <code>repo/Dockerfile</code>, <code>repo/git-history.patch</code>, <code>repo/infra/main.tf</code>, <code>repo/package.json</code>, <code>repo/worker/requirements.txt</code>.</p>
+<h2>1. Map the repository</h2>
+<p>Start with what's there. A repository is code <strong>and</strong> the instructions that build and run it: the Dockerfile, the Kubernetes manifest, the Terraform, the pipeline. Each is a place for a mistake.</p>
+<ul>
+<li>&#9744; List every file in repo/</li>
+<li>&#9744; Which file builds the image, which runs it, which creates the cloud resources, which deploys?</li>
+<li>&#9744; Which file is an old commit, and why does history matter?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>find repo -type f</code> lists everything, including hidden folders like .ci.</p>
+</blockquote>
+<p><strong>Question:</strong> How many files are in repo/ (including hidden folders)?</p>
+<pre><code>cd ~/case
+find repo -type f | sort
+echo ---
+cat repo/.ci/pipeline.yml</code></pre>
+<h2>2. Scan for secrets, vulnerable packages and unsafe settings</h2>
+<p>The scanner looks in three places: <strong>secrets</strong> (keys and passwords in files and in Git history), <strong>dependencies</strong> (package versions with known advisories) and <strong>configuration</strong> (Dockerfile, Kubernetes, Terraform). Scan everything, then read each tab.</p>
+<p><strong>Use the Code and config scanner.</strong></p>
+<ul>
+<li>&#9744; Secrets: which are in current files, which only in history? Which must be revoked?</li>
+<li>&#9744; Which secret findings are false positives? (a CI variable or a Terraform variable is a pointer, not a secret)</li>
+<li>&#9744; Dependencies: which packages, which advisories, which fixed version?</li>
+<li>&#9744; Config: which problems are critical?</li>
+</ul>
+<blockquote>
+<p>Hint: The patch <strong>removed</strong> the key from deploy.sh, but the line starting with <code>-</code> still holds it. Anyone who clones the repo can read it. Deleting a secret never un-leaks it: revoke it.</p>
+</blockquote>
+<p><strong>Question:</strong> Which identity does the key in Git history belong to? (see cloud/audit.json for the key ID)
+<strong>Question:</strong> Which package has a critical advisory?
+<strong>Question:</strong> How many of the scanner's secret findings are false positives?</p>
+<h2>3. Compare with the real scanners</h2>
+<p>The platform team ran Trivy on the image, Checkov on the Terraform and Prowler on the cloud account. We can't re-run them in the browser, but their output is saved. Check that our findings match, and note what each tool sees that the others don't.</p>
+<ul>
+<li>&#9744; Do Trivy's library findings match the dependency tab?</li>
+<li>&#9744; Do Checkov's five failures match the Terraform findings?</li>
+<li>&#9744; What does Prowler see that a code scan never could?</li>
+</ul>
+<blockquote>
+<p>Hint: Trivy also sees operating system packages inside the image. Prowler sees the running account: keys, regions, logging. Code scanners see only what's written down.</p>
+</blockquote>
+<p><strong>Question:</strong> How many Terraform checks failed in Checkov?
+<strong>Question:</strong> In which region were instances launched that the company doesn't use?</p>
+<pre><code>cd ~/case/captured
+grep -E &#x27;HIGH|CRITICAL|Total&#x27; trivy-cart-api.txt
+echo ---
+grep FAILED checkov-main-tf.txt | cut -c1-80
+echo ---
+grep ^FAIL prowler-monsoon-prod.csv | cut -d, -f2,4,5</code></pre>
+<h2>4. What the leaked key did</h2>
+<p>Follow the key from the history patch through the audit trail. Then check the buckets in the Cloud IAM simulator.</p>
+<ul>
+<li>&#9744; From where was ci-deployer used, besides the CI runners?</li>
+<li>&#9744; What did it launch, where, and what did it create to keep access?</li>
+<li>&#9744; Which bucket is public that shouldn't be? Which public bucket is fine?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -c RunInstances</code> counts launches. The assets bucket holds product images and is meant to be public; the invoices bucket isn't.</p>
+</blockquote>
+<p><strong>Question:</strong> How many instances did the attacker launch?
+<strong>Question:</strong> From which address was the leaked key used?</p>
+<pre><code>cd ~/case/cloud
+grep -o &#x27;&quot;source_ip&quot;: &quot;[^&quot;]*&quot;&#x27; audit.json | sort | uniq -c
+echo ---
+grep -c RunInstances audit.json
+grep -o &#x27;&quot;action&quot;: &quot;[A-Za-z]*&quot;&#x27; audit.json | sort | uniq -c</code></pre>
+<h2>5. Least privilege for the pipeline</h2>
+<p>The CI key only ever deploys cart-api, from the CI runners. Rewrite its policy to exactly that, add a guardrail, close the invoices bucket, and replay the audit trail until the attacker gets nothing and the deploys still work.</p>
+<p><strong>Use the Cloud IAM simulator.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ci-deployer: AdministratorAccess (<code>*</code> on <code>*</code>)</td>
+<td>ci-deployer: <code>DeployService</code> on <code>service/cart-api</code>, only from 203.0.113.20</td>
+</tr>
+<tr>
+<td>no guardrails</td>
+<td>Deny <code>CreateAccessKey</code> and <code>RunInstances</code> without MFA</td>
+</tr>
+<tr>
+<td>monsoon-invoices public, no versioning, no logging</td>
+<td>private, versioning on, access logging on</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; 0 attacker actions allowed, 0 deploys broken</li>
+<li>&#9744; Bucket check: only monsoon-assets is public</li>
+<li>&#9744; Better still: what replaces a long-lived key in CI? (short-lived credentials the CI asks for at deploy time)</li>
+</ul>
+<p><strong>Question:</strong> After the fix, how many normal actions are broken?</p>
+<h2>6. Rank every finding</h2>
+<p>Forty findings and one team: what first? The register gives each finding a CVSS vector and two facts that matter more than the score: is it reachable from the internet, and is it being exploited? The CVSS tool scores each vector and ranks the register.</p>
+<p><strong>Use the CVSS and patch priority.</strong></p>
+<ul>
+<li>&#9744; Score F-01's vector in the calculator, then rank the whole register</li>
+<li>&#9744; Which findings are "patch now"? Why those?</li>
+<li>&#9744; Is anything ranked high that you'd move down, or the other way? Say why</li>
+<li>&#9744; Add an owner and a date to every row</li>
+</ul>
+<blockquote>
+<p>Hint: The leaked key and the public invoices bucket are both internet-facing <strong>and</strong> already exploited. That beats a higher CVSS score on something nobody can reach.</p>
+</blockquote>
+<p><strong>Question:</strong> Which finding ID should be fixed first?</p>
+<h2>7. Write the pipeline gate</h2>
+<p>A gate is a policy the pipeline enforces. Decide what <strong>blocks a merge</strong>, what <strong>blocks a deploy</strong>, what only <strong>warns</strong>, and how exceptions work. Make it strict where a mistake is expensive and light where it isn't, or people will route around it.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; Every critical finding from today would have been stopped</li>
+<li>&#9744; Medium and low findings warn, they don't block</li>
+<li>&#9744; Exceptions have an owner and an end date</li>
+<li>&#9744; A secret is never an exception</li>
+</ul>
+<h2>8. Automate the response</h2>
+<p>Cloud alerts arrive at night. A SOAR playbook does the routine part automatically (look up indicators, open tickets, block known-bad addresses, disable a key that's being abused) and leaves judgement calls to a person. Run it on the cloud alert queue.</p>
+<p><strong>Use the SOAR playbook on cloud/alerts-cloud.json.</strong></p>
+<ul>
+<li>&#9744; The abused key is disabled and the attacker's address blocked automatically</li>
+<li>&#9744; The public product-images bucket and the intern's login are <strong>not</strong> acted on automatically</li>
+<li>&#9744; Nothing high or critical is closed automatically</li>
+<li>&#9744; Which alert would you never automate? Why?</li>
+</ul>
+<blockquote>
+<p>Hint: Disabling ci-deployer stops tonight's deploys too. That's the right trade at 21:40 with a miner running, but say so in the ticket.</p>
+</blockquote>
+<p><strong>Question:</strong> Which account does the playbook disable?</p>
+<h2>9. A tested Python check</h2>
+<p>Write the secret check yourself, in Python, and <strong>test it</strong> before you trust it. Tests prove two things: it catches what it should, and it stays quiet on what it shouldn't (a CI variable like <code>$CI_STRATUS_SECRET</code> isn't a secret). Then run it on the repository.</p>
+<ul>
+<li>&#9744; Every assert passes</li>
+<li>&#9744; It finds the secrets in the Dockerfile, the manifest, the pipeline and the history patch</li>
+<li>&#9744; It doesn't flag <code>$CI_...</code> variables or <code>var.db_password</code></li>
+<li>&#9744; Add one more test of your own: a secret it should catch that it doesn't yet</li>
+</ul>
+<blockquote>
+<p>Hint: A test you write before you fix a bug is the best kind: it fails first, then passes.</p>
+</blockquote>
+<p><strong>Question:</strong> How many secrets does the Python check find in repo/?</p>
+<pre><code>import re
+from pathlib import Path
+
+RULES = [
+    (&quot;cloud key id&quot;, re.compile(r&quot;\bSCKA[0-9A-Z]{12}\b&quot;)),
+    (&quot;cloud secret&quot;, re.compile(r&quot;\bstratus\.secret\.[A-Za-z0-9]{16,}\b&quot;)),
+    (&quot;git token&quot;, re.compile(r&quot;\bghp_[A-Za-z0-9]{20,}\b&quot;)),
+    (&quot;payment key&quot;, re.compile(r&quot;\bsk_live_[A-Za-z0-9]{16,}\b&quot;)),
+    (&quot;password in a setting&quot;, re.compile(r&quot;(?i)(password|secret|token)[A-Z_]*\s*[:=]\s*(?!\$|var\.)[^\s\&quot;&#x27;]{6,}&quot;)),
+    (&quot;password as a value&quot;, re.compile(r&quot;(?i)^\s*value:\s*\S*password\S*&quot;)),
+]
+
+
+def find_secrets(text):
+    found = []
+    for n, line in enumerate(text.splitlines(), 1):
+        for name, rx in RULES:
+            if rx.search(line):
+                found.append((n, name))
+                break
+    return found
+
+
+assert find_secrets(&quot;export STRATUS_KEY_ID=SCKA4TQ7WZ0M2RB8&quot;) == [(1, &quot;cloud key id&quot;)]
+assert find_secrets(&quot;GIT_TOKEN: ghp_7aQ2xR9mK4vL8pW3nT6yB1cD5eF0gH2jK4&quot;) == [(1, &quot;git token&quot;)]
+assert find_secrets(&quot;STRATUS_SECRET: $CI_STRATUS_SECRET&quot;) == []
+assert find_secrets(&quot;password = var.db_password&quot;) == []
+assert find_secrets(&quot;nothing to see here&quot;) == []
+print(&quot;all tests pass&quot;)
+
+total = 0
+for p in sorted(Path(&quot;case/repo&quot;).rglob(&quot;*&quot;)):
+    if p.is_file():
+        for n, name in find_secrets(p.read_text(encoding=&quot;utf-8&quot;)):
+            total += 1
+            print(f&quot;{p.relative_to(&#x27;case&#x27;)}:{n}: {name}&quot;)
+print(total, &quot;secrets found&quot;)</code></pre>
+<h2>10. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Secrets found, in current files and in Git history, each with what must be revoked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Vulnerable packages and config problems found, checked against the captured scanner output</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Cloud posture: what the leaked key did and which buckets and rules are open</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Least-privilege policy for the CI key: 0 attacker actions, 0 broken deploys</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Ranked findings register: every finding with a priority and a reason</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Pipeline gate policy: what blocks a merge, what blocks a deploy, and the exceptions</td>
+<td>4</td>
+</tr>
+<tr>
+<td>SOAR playbook that acts on the right alerts and leaves judgement calls to a person</td>
+<td>3</td>
+</tr>
+<tr>
+<td>A Python secret check with tests that pass</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Scan results recorded</li>
+<li>&#9744; Policy replay at 0 and 0</li>
+<li>&#9744; Register ranked with owners and dates</li>
+<li>&#9744; Gate policy written</li>
+<li>&#9744; Playbook run</li>
+<li>&#9744; Python tests pass</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

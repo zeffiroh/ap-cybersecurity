@@ -5,7 +5,7 @@
   var ROOT = me ? me.replace(/assets\/theme\/store\.js.*$/, "") : "";
   var $ = function (id) { return document.getElementById(id); };
   var S = global.APCYBER_STORES || {};
-  var ORDER = ["bundle", "course", "labs", "seminars", "tickets", "book"];
+  var ORDER = ["bundle", "course", "seminars", "tickets", "book", "labs"];
   var access = null;
 
   function esc(s) {

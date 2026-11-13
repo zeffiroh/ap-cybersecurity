@@ -774,6 +774,11 @@
     if (space || !global.AayatVM || guide) return;
     global.AayatVM.manifest(id).then(function (m) {
       guide = m;
+      if (m.seminarId) seminarLab().then(function (ok) {
+        if (ok) return;
+        global.AayatLabLocked = lockHtml();
+        document.querySelectorAll("#nb-cells .tool-step").forEach(function (el) { el.setAttribute("data-on", ""); el.innerHTML = '<div class="tl-lock">' + global.AayatLabLocked + "</div>"; });
+      });
       var st = gst();
       if (!st.started) st.started = new Date().toISOString();
       var main = document.querySelector(".aa-main");
@@ -916,9 +921,11 @@
 
   function hasLabs() {
     var P = global.Paywall;
-    if (labsOk || !P || P.has("labs")) return Promise.resolve(labsOk = true);
+    if (labsOk) return Promise.resolve(true);
+    if (/^sem-/.test(nb.case || "")) return seminarLab().then(function (yes) { return (labsOk = yes); });
+    if (!P || P.has("labs")) return Promise.resolve(labsOk = true);
     var labs = email() ? rpc("api_my_access").then(function (a) { return !!(a && a.labs); }, function () { return false; }) : Promise.resolve(false);
-    return labs.then(function (yes) { return yes || seminarLab(); }).then(function (yes) { return (labsOk = yes); });
+    return labs.then(function (yes) { return (labsOk = yes); });
   }
 
   function seminarId() {
@@ -927,14 +934,15 @@
   }
 
   function seminarLab() {
-    return seminarId().then(function (id) {
+    if ((global.APCYBER_PAYWALL || {}).enabled === false || (guide && guide.free)) return Promise.resolve(true);
+    return (guide && guide.seminarId ? Promise.resolve(+guide.seminarId) : seminarId()).then(function (id) {
       return id ? rpc("api_seminar_lab", { p_id: id }).then(function (r) { return !!(r && r.access); }) : false;
     }).catch(function () { return false; });
   }
 
   function lockHtml() {
     var id = guide && guide.seminarId;
-    return id ? 'This lab comes with the seminar. <a href="' + ROOT + "seminars.html?id=" + id + '">Unlock the seminar</a>, or get <a href="' + ROOT + 'store.html#labs">Labs</a>.'
+    return id ? 'This lab comes with the seminar. <a href="' + ROOT + "seminars.html?id=" + id + '">Unlock the seminar</a> with tickets, or <a href="' + ROOT + 'store.html#seminars">subscribe to all seminars</a>.'
       : 'Linux cells run with <a href="' + ROOT + 'store.html#labs">Labs</a>. Notes and Python cells work for everyone.';
   }
 

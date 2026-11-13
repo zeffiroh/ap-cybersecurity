@@ -1,0 +1,169 @@
+{
+ "order": 6,
+ "title": "Incident response: ransomware, lateral movement and memory",
+ "kicker": "Seminar 5",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Practitioner",
+ "minutes": 360,
+ "summary": "Take a ransomware incident at an engineering firm from the first call to the executive summary: keep a chain of custody, rebuild the night from VPN, Windows, Sysmon and process logs, read memory-forensics and triage output, map every step to ATT&CK, decide under pressure in a tabletop, and write the report.",
+ "tools": [
+  "Hex, strings and hashes",
+  "Merged timeline",
+  "Process tree",
+  "Event viewer",
+  "Volatility, Hayabusa and Velociraptor output (captured)",
+  "Indicators and ATT&CK",
+  "Tabletop exercise",
+  "Report builder"
+ ],
+ "titlePrefix": "Incident response: ransomware, lateral movement and memory",
+ "teacher": true,
+ "id": "sem-s05-incident-response--solo",
+ "seminarId": 6,
+ "rubric": [
+  [
+   "Evidence hashed and a chain of custody kept for every file you handled",
+   3
+  ],
+  [
+   "Entry point found and backed by evidence: the VPN, the account and the missing MFA",
+   4
+  ],
+  [
+   "Lateral movement reconstructed host by host, with times",
+   5
+  ],
+  [
+   "Credential theft shown from the process tree and the memory output",
+   4
+  ],
+  [
+   "Impact: what was encrypted, when, and which recovery options were destroyed",
+   3
+  ],
+  [
+   "Timeline mapped to ATT&CK, one technique per step with its evidence",
+   4
+  ],
+  [
+   "Tabletop decisions made and defended",
+   2
+  ],
+  [
+   "Executive summary a non-technical reader can act on, and a complete technical annex",
+   5
+  ]
+ ],
+ "handin": "An executive summary, a technical annex and a lateral-movement timeline mapped to ATT&CK.",
+ "files": [
+  "case/backups.txt",
+  "case/captured/hayabusa-fs02.csv",
+  "case/captured/velociraptor-fs02-services.csv",
+  "case/captured/volatility-eng-ws14.txt",
+  "case/eventlogs/eng-ws14-Security.jsonl",
+  "case/eventlogs/eng-ws14-Sysmon.jsonl",
+  "case/eventlogs/fs02-Security.jsonl",
+  "case/eventlogs/fs02-System.jsonl",
+  "case/hr_note.txt",
+  "case/process.csv",
+  "case/README.txt",
+  "case/share_listing.txt",
+  "case/suspect/locker.strings.txt",
+  "case/suspect/RESTORE-FILES.txt",
+  "case/tabletop-garnet-ransomware.json",
+  "case/vpn.log"
+ ],
+ "script": {
+  "intro": "Welcome to incident response. It's just after midnight on Saturday at Garnet Precision Engineering. The helpdesk says nobody can open files on the engineering share, and there's a note on every folder asking for money. You're the responder. Today you'll keep a chain of custody, rebuild the night host by host, show how the attacker got the keys to the kingdom, map it to ATT&CK, make decisions under pressure, and write a report the managing director can act on.",
+  "outro": "That's the incident from first call to report. A borrowed VPN account without MFA, an RDP session, a memory dump of lsass, an administrator's hash reused on the file server, recovery wiped, and the share encrypted. Every step has a time, a piece of evidence and an ATT&CK technique, and the executive summary says what to decide on one page. Next is seminar six, where the clocks start: who has to be told, and how fast.",
+  "steps": [
+   "Before we read a single line, we hash everything and start a chain of custody: who handled each file, when, and its hash. If this goes to the police or an insurer, that log is what makes the evidence count. We hash the ransom note in the Hex tool and add custody entries as we go.",
+   "Start from the damage and work backwards. Every file ends in dot garnet locked, the first at 23:42. The note also claims 1.8 gigabytes of drawings were copied: double extortion. The shadow copies were deleted and the NAS was on the network, so it's encrypted too. The off-site tape from Thursday survived, which means fourteen hours of restore and a day of lost work.",
+   "Now one clock for everything. At 22:44 the VPN accepts s.kale from an outside address, with no MFA, and HR says he's on medical leave at home. At 22:52 an RDP logon to eng-ws14 from the VPN address. At 23:05 something touches lsass. At 23:20 an administrator's account logs on to the file server from that workstation, a service appears, the backups are wiped and the encryption starts. Seven stars tell the whole story.",
+   "The process tree follows the attacker's hands. On eng-ws14, the RDP session's cmd runs whoami, asks who the domain admins are, finds the domain controllers, downloads a toolkit with hidden PowerShell, and then rundll32 with comsvcs dot dll dumps lsass to a file. That's where the passwords live. On fs02, a new service starts cmd, which deletes the shadow copies and turns off boot recovery, and then the locker runs.",
+   "Memory remembers what the logs half-say. lsass is PID 724; rundll32 dumped it and exited. nt dot exe read the dump. Then px dot exe connects to the file server as adm.rjoshi, using a password hash instead of a password. That's pass the hash. Sessions show the attacker in RDP session 3, while the real designer's console session from the evening is still there. Two people, one machine.",
+   "On fs02 it looks like an administrator: adm.rjoshi logs on over the network at 23:20, but with NTLM, from a design workstation, on a Friday night. Special privileges, the ADMIN share, and six seconds later a service called WinUpdSvc, running as LocalSystem. Hayabusa marks the shadow copy deletion as critical, and Velociraptor shows the service is still installed. That's the lateral movement.",
+   "ATT&CK gives every step a shared name, so an insurer or CERT-In knows exactly what we mean. External remote services and a valid account. RDP. Discovery. Tool transfer and PowerShell. LSASS memory. Pass the hash over admin shares. Service execution. Inhibit system recovery. Data encrypted for impact. Each row has its evidence. And one row stands out: MFA on the VPN would have stopped all of it.",
+   "Responders decide before they know everything. Pull the cable but keep the power on, because memory is evidence. Don't pay: it doesn't un-copy the drawings. File with CERT-In within six hours with what you know. Turn on MFA before you rebuild. And tell staff and the customer the truth early. Ten points, and a sentence of reasoning for each call.",
+   "Two readers, one report. The summary is for the managing director: what happened in plain words, what it cost, what we're doing, and the three decisions needed today. The annex is for IT, the insurer and CERT-In: timeline, scope, root cause, what we did, indicators and lessons. Notice the summary never says pass the hash.",
+   "Hand in the notebook: the chain of custody, the timeline, the process tree marks, the ATT&CK table, your tabletop path and the report. The rubric is on screen."
+  ]
+ },
+ "base": "sem-s05-incident-response",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "sem-s05-incident-response",
+  "guided": "sem-s05-incident-response--guided",
+  "solo": "sem-s05-incident-response--solo"
+ },
+ "guide": "media/guides/sem-s05-incident-response/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Incident response: ransomware, lateral movement and memory\n\nTake a ransomware incident at an engineering firm from the first call to the executive summary: keep a chain of custody, rebuild the night from VPN, Windows, Sysmon and process logs, read memory-forensics and triage output, map every step to ATT&CK, decide under pressure in a tabletop, and write the report.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `backups.txt`, `captured/hayabusa-fs02.csv`, `captured/velociraptor-fs02-services.csv`, `captured/volatility-eng-ws14.txt`, `eventlogs/eng-ws14-Security.jsonl`, `eventlogs/eng-ws14-Sysmon.jsonl`, `eventlogs/fs02-Security.jsonl`, `eventlogs/fs02-System.jsonl`, `hr_note.txt`, `process.csv`, `README.txt`, `share_listing.txt`, `suspect/locker.strings.txt`, `suspect/RESTORE-FILES.txt`, `tabletop-garnet-ransomware.json`, `vpn.log`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Take custody of the evidence\n\nBefore you read anything, hash it, and start a **chain of custody**: who handled which file, when, and what its hash was. If this ends up with the police, an insurer or a court, the custody log is what makes your evidence count.\n\n```tool hex\n{\"file\": \"suspect/RESTORE-FILES.txt\", \"sha256\": \"\", \"n\": 0, \"custody\": [], \"blank\": [\"sha256\"], \"a\": {\"sha256\": \"2958bfbf3ed6df5ef7f177fa6e8307fe21efb29172e73470fdc5aaa949659ad7\"}}\n```\n\n- [ ] Hash every file (the Linux cell)\n- [ ] In the Hex tool, open the ransom note, hash it and add a custody entry\n- [ ] Add a custody entry for locker.strings.txt too\n- [ ] Download the chain of custody\n\n\n?> How many evidence files are there, including the README and the tabletop? :: sha256:b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9\n?> What are the first 8 characters of the ransom note's SHA-256? :: sha256:7292366ed1fcc2dc5dbbdb040cc9978d56016965b2271ab61dce9858b665b0aa"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\nfind . -type f | sort\necho ---\nfind . -type f -exec sha256sum {} + | sort -k2"
+  },
+  {
+   "t": "md",
+   "s": "## 2. What happened, in one look\n\nStart from the damage and work backwards. Read the ransom note, the share listing and the backup report. Write down three facts: what was encrypted, when it started, and what is left to restore from.\n\n- [ ] Which extension do the encrypted files have?\n- [ ] When was the first file renamed?\n- [ ] What does the attacker claim besides encryption?\n- [ ] Which backup survived, and how much work will be lost?\n\n\n?> Which extension did the ransomware add? :: sha256:26c9b4933817e285fa00da3595b663087a9995ffab98b4f43d412bb20413645b\n?> At what time (UTC, HH:MM) were the first files renamed? :: sha256:737c9d01af48e77990c32fc736f4e48ad06d5a717805ccaf5ce6427327fbe056\n?> Which backup can you restore from? (one word: tape, nas or shadow) :: sha256:8ba4ec7d634f794ec260675876415c279bcd46e3705d5ffda147a65db9e15a12"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\ncat suspect/RESTORE-FILES.txt\necho ---\ncat share_listing.txt\necho ---\ncat backups.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Rebuild the night on one timeline\n\nPut every log on one clock. The merged timeline reads the VPN log, both machines' event logs and the process export together, sorted by time. Star the events that tell the story; the gaps tell you something too.\n\n```tool timeline\n{\"keys\": \"\", \"n\": 7, \"blank\": [\"keys\"], \"a\": {\"keys\": [\"vpn.log#6@1794005050\", \"eventlogs/eng-ws14-Security.jsonl#4@1794005551\", \"eventlogs/eng-ws14-Sysmon.jsonl#8@1794006344\", \"eventlogs/fs02-Security.jsonl#5@1794007203\", \"eventlogs/fs02-System.jsonl#1@1794007209\", \"process.csv#17@1794008461\", \"process.csv#19@1794008530\"]}}\n```\n\n- [ ] When did the attacker get in, and through what?\n- [ ] When did they reach eng-ws14, and how?\n- [ ] When did they reach fs02, and as whom?\n- [ ] Star the key events and download the timeline\n\n\n?> At what time (UTC, HH:MM:SS) did the VPN login succeed? :: sha256:c4cbb8e80111cf087dc1f69a2554b5f41585c8df0e66252ac27437fbd35a4ccb\n?> Which account was used for the VPN login? :: sha256:51dda2899af6a13c4800adfcda72f66d6cf332a36c5c363bd060cd7752a06b38"
+  },
+  {
+   "t": "md",
+   "s": "## 4. The process tree: from a shell to the keys\n\nEvery program has a parent. The process tree shows who started what, so you can follow the attacker's hands on each machine. The tool flags the usual tells: programs in folders anyone can write to, hidden PowerShell, downloads, deleting backups.\n\n```tool proctree\n{\"marks\": \"\", \"n\": 14, \"files\": [\"process.csv\"], \"blank\": [\"marks\"], \"a\": {\"marks\": [\"eng-ws14|6344\", \"eng-ws14|6402\", \"eng-ws14|6418\", \"eng-ws14|6440\", \"eng-ws14|6511\", \"eng-ws14|6630\", \"eng-ws14|6711\", \"eng-ws14|6790\", \"fs02|4410\", \"fs02|4422\", \"fs02|4512\", \"fs02|4514\", \"fs02|4530\", \"fs02|4601\"]}}\n```\n\n- [ ] On eng-ws14: what did the attacker run from the RDP session's cmd.exe, in order?\n- [ ] Which process read lsass's memory, and with which DLL?\n- [ ] On fs02: what started the encryption, and what ran just before it?\n- [ ] Mark every attacker process\n\n\n?> Which DLL was used to dump lsass's memory? :: sha256:17db0a0b4bdb29b87d677c3805476aeb4053029a39726a27efca6a4faac9570f\n?> Which service started the programs on fs02? :: sha256:92528560457c092bf5bd4e39bbea678634d6b3258bdc089162751da87043ad31"
+  },
+  {
+   "t": "md",
+   "s": "## 5. Memory: what the RAM remembered\n\nThe incident team took a memory image of eng-ws14 at 01:14 and ran Volatility on it. We can't re-run Volatility in the browser, but we can read its saved output. Memory shows things logs can miss: exited processes, the command lines, network connections and who was in which session.\n\n- [ ] Which PID is lsass, and which process dumped it?\n- [ ] What did nt.exe do with the dump?\n- [ ] Which account and password hash did px.exe use, against which server?\n- [ ] Which session were they in, and whose was the other one?\n\n\n?> What is lsass's PID on eng-ws14? :: sha256:68c6c6e9ad314d1a5c4d647cfb6ed84265e47cbc2a05a54fb58ae74c0085ef29\n?> Which account did px.exe use on fs02? :: sha256:44a66b8ffc2a9330a04014b11953b9348687458b4ff074d717feb09e5cf6fdd0\n?> In which RDP session number was the attacker? :: sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case/captured\ngrep -E '^(724|6630|6711|6790) ' volatility-eng-ws14.txt\necho ---\ngrep -A4 'windows.cmdline' volatility-eng-ws14.txt\necho ---\ngrep -A4 'windows.sessions' volatility-eng-ws14.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 6. The file server: how they arrived\n\nOn fs02 the same night looks like an administrator logging on over the network and installing a service. Read it in fs02's own logs, then compare with the Hayabusa and Velociraptor output the team captured.\n\n```tool events\n{\"file\": \"eventlogs/fs02-Security.jsonl\", \"ids\": \"\", \"q\": \"\", \"n\": 3, \"blank\": [\"ids\", \"src\", \"q\"], \"a\": {\"ids\": \"4624, 4672, 5140\", \"q\": \"adm.rjoshi\"}}\n```\n\n```tool events\n{\"file\": \"eventlogs/fs02-System.jsonl\", \"ids\": \"\", \"n\": 1, \"blank\": [\"ids\", \"src\", \"q\"], \"a\": {\"ids\": \"7045\"}}\n```\n\n- [ ] When did adm.rjoshi log on, from where, with which package (Kerberos or NTLM)?\n- [ ] Which share was used to copy the service file?\n- [ ] Which service was installed, running as whom?\n- [ ] What did Hayabusa flag as critical?\n\n\n?> From which IP address did adm.rjoshi log on to fs02? :: sha256:50396899c361e81bd6699f014d541234fd8745cbcff402660ceb2a41148c1b50\n?> Which command deleted the shadow copies? :: sha256:325de85e48afabcc0d53d5f6d9371314d0ed6e46d91c271abceccca58cbbd238"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case/captured\ncut -d, -f1-3 hayabusa-fs02.csv\necho ---\ngrep -i 'crit' hayabusa-fs02.csv | cut -d, -f2,8\necho ---\ngrep -i winupd velociraptor-fs02-services.csv"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Map the attack to ATT&CK\n\nATT&CK gives each step a shared name, so a reader at another company, an insurer or CERT-In knows exactly what you mean. Map every step on your timeline to one technique, with the evidence that proves it.\n\n```tool ioc\n{\"attack\": \"\", \"blank\": [\"iocs\", \"attack\"], \"a\": {\"attack\": [\"T1133\", \"T1078\", \"T1021.001\", \"T1087.002\", \"T1018\", \"T1105\", \"T1059.001\", \"T1003.001\", \"T1550.002\", \"T1021.002\", \"T1569.002\", \"T1490\", \"T1486\", \"T1657\"]}}\n```\n\n| Time (UTC) | Step | Technique | Evidence |\n|---|---|---|---|\n| 22:44 | VPN login with a valid account, no MFA | T1133, T1078 | vpn.log |\n| 22:52 | RDP to eng-ws14 | T1021.001 | eng-ws14 4624 type 10 |\n| 22:54 | whoami, net group, nltest | T1087.002, T1018 | process.csv |\n| 22:58 | Toolkit downloaded with hidden PowerShell | T1105, T1059.001 | process.csv |\n| 23:05 | lsass dumped with comsvcs.dll | T1003.001 | Sysmon 1, 10, 11; Volatility |\n| 23:20 | adm.rjoshi's hash used on fs02 over SMB | T1550.002, T1021.002 | fs02 4624 NTLM, 5140 ADMIN$ |\n| 23:20 | Service WinUpdSvc runs the payload | T1569.002 | 7045; Velociraptor |\n| 23:41 | Shadow copies deleted, recovery off | T1490 | Hayabusa; process.csv |\n| 23:42 | Share encrypted, extortion note | T1486, T1657 | share_listing.txt; note |\n\n- [ ] Every row has a technique and a piece of evidence\n- [ ] Mark the techniques on the heatmap\n- [ ] Which one step, if blocked, would have stopped the rest?\n\n?> Which ATT&CK technique ID is \"Inhibit System Recovery\"? :: sha256:2a1bbc5327fe2b8205131fa1c163bb08e2db1b184d57c84e4643874e5d7fc8a1"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Decide under pressure\n\nResponders make calls before they have all the facts. Play the tabletop as the incident lead. Each choice costs time; the debrief at the end says what good looks like.\n\n```tool tabletop\n{\"file\": \"tabletop-garnet-ransomware.json\", \"path\": \"\", \"n\": 10, \"blank\": [\"path\"], \"a\": {\"path\": [{\"node\": \"t1\", \"c\": 0, \"label\": \"Pull the network cable, cut the VPN session, keep the machines powered on\"}, {\"node\": \"t2\", \"c\": 0, \"label\": \"Don't pay; restore from the Thursday tape; get legal advice on the customer contracts\"}, {\"node\": \"t3\", \"c\": 0, \"label\": \"File with CERT-In by 06:31 UTC with what we know, and update later\"}, {\"node\": \"t4\", \"c\": 0, \"label\": \"Turn on MFA for every VPN account and reset s.kale and adm.rjoshi before bringing fs02 back\"}, {\"node\": \"t5\", \"c\": 0, \"label\": \"Tell staff and the affected customer plainly what happened and what you are doing\"}]}}\n```\n\n- [ ] Play it once as the incident lead\n- [ ] Play it again as the managing director: which call is hardest from that seat?\n- [ ] For each decision, one line on why\n\n\n?> What is the best score you can get in the tabletop? :: sha256:4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Write the executive summary and the technical annex\n\nTwo readers, one report. The **Summary** section is the executive summary: half a page a managing director can act on, with the decisions needed today. The rest is the technical annex for IT, the insurer and CERT-In.\n\n```tool report\n{\"tpl\": \"incident\", \"title\": \"Incident report: ransomware at Garnet Precision Engineering, 6 to 7 November 2026\", \"text\": \"\", \"n\": 9, \"blank\": [\"text\"], \"a\": {\"text\": \"# Incident report: ransomware at Garnet Precision Engineering, 6 to 7 November 2026\\n\\n## Summary\\n\\nOn Friday night an outsider logged in to our VPN with an engineer's password, because that account had no second factor. Within an hour they took an administrator's credentials from a design workstation, used them on the file server, deleted the recovery copies and encrypted 1,842 files in the Engineering and Quality shares. They claim to have copied 1.8 GB of drawings. We contained it at 01:10 on Saturday, nothing else is known to be affected, and we are restoring from Thursday's off-site tape (about 14 hours; Friday's work is lost). Decisions needed today: do not pay; approve MFA on every VPN account now; approve telling the affected automotive customer today.\\n\\n## Timeline\\n\\nAll times UTC. 22:43 VPN login fails for s.kale from 203.0.113.140; 22:44:10 succeeds, no MFA. 22:52:31 RDP to eng-ws14 (type 10 logon). 22:54 to 22:58 discovery and toolkit download. 23:05:44 lsass dumped with comsvcs.dll. 23:20:03 adm.rjoshi logs on to fs02 with NTLM from eng-ws14; 23:20:09 service WinUpdSvc installed. 23:41 shadow copies deleted, boot recovery disabled. 23:42:10 locker.exe starts; 23:42:31 first files renamed. 00:12 helpdesk ticket; 00:31 incident team; 00:58 VPN session cut; 01:10 both machines isolated.\\n\\n## Scope\\n\\nAffected: eng-ws14 (RDP session, credential dump), fs02 (encryption of D:\\\\Shares, 1,842 files), nas01 backup share (encrypted from fs02). Accounts: s.kale (password), adm.rjoshi (NTLM hash). Not seen: dc01 logons by the attacker, other workstations. The VPN session moved 1.84 GB out, which fits the claim of copied drawings.\\n\\n## Impact\\n\\nEngineering and Quality shares unavailable until restored; work from Friday lost; possible publication of customer drawings (confidential under the customer contract). No personal data is known to be in those shares; HR confirms.\\n\\n## Root cause\\n\\nA VPN that accepts a password alone, and an administrator who had logged on to a workstation, leaving a reusable credential in lsass memory.\\n\\n## Containment, eradication and recovery\\n\\nDone: VPN session cut, both machines isolated, s.kale and adm.rjoshi disabled. Next: rebuild eng-ws14 and fs02 from clean images; reset all admin passwords and the krbtgt key twice; MFA on every VPN account; restore from tape; administrators use separate admin workstations only.\\n\\n## Who was told, and when\\n\\nManaging director 00:45; CERT-In report due by 06:31 UTC (six hours from 00:31); cyber insurer 02:00; the automotive customer today; staff at 09:00.\\n\\n## Indicators\\n\\n203.0.113.140 (VPN source, toolkit download); C:\\\\Users\\\\Public\\\\r\\\\ (nt.exe, px.exe, locker.exe); service WinUpdSvc; C:\\\\ProgramData\\\\gpe\\\\locker.exe; extension .garnet-locked; support-desk@onion-mail[.]example.\\n\\n## Lessons learned\\n\\nOne missing control (MFA on the VPN) opened the door; one habit (admins logging on to ordinary workstations) handed over the keys. The off-site tape is why we can recover at all.\\n\"}}\n```\n\n- [ ] The summary has no jargon and ends with the decisions needed\n- [ ] The timeline is in UTC and matches your merged timeline\n- [ ] Scope says what was affected **and** what was checked and not affected\n- [ ] Each lesson leads to an action"
+  },
+  {
+   "t": "md",
+   "s": "## 10. Hand in\n\nHand in this notebook. It carries every answer, tool result and report from the steps above.\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Evidence hashed and a chain of custody kept for every file you handled | 3 |\n| Entry point found and backed by evidence: the VPN, the account and the missing MFA | 4 |\n| Lateral movement reconstructed host by host, with times | 5 |\n| Credential theft shown from the process tree and the memory output | 4 |\n| Impact: what was encrypted, when, and which recovery options were destroyed | 3 |\n| Timeline mapped to ATT&CK, one technique per step with its evidence | 4 |\n| Tabletop decisions made and defended | 2 |\n| Executive summary a non-technical reader can act on, and a complete technical annex | 5 |\n\n- [ ] Chain of custody downloaded\n- [ ] Timeline with the key events starred\n- [ ] ATT&CK table complete\n- [ ] Tabletop played\n- [ ] Report complete\n- [ ] Press Hand in"
+  }
+ ]
+}

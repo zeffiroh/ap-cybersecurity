@@ -1,0 +1,134 @@
+{
+ "order": 11,
+ "title": "Design, risk and audit",
+ "kicker": "Seminar 10",
+ "units": [
+  1,
+  2,
+  5
+ ],
+ "level": "Practitioner",
+ "minutes": 360,
+ "summary": "Review a new payments feature before it ships: threat-model it with STRIDE and an attack tree, write the design review memo, build the risk register, mark an ISO 27001 Statement of Applicability with evidence, write an audit exception that an auditor will accept, and decide on a vendor.",
+ "tools": [
+  "Threat model (STRIDE and attack trees)",
+  "Risk register",
+  "Compliance gap check (ISO 27001, PCI DSS, DPDP, CERT-In)",
+  "Report builder (vendor review)"
+ ],
+ "titlePrefix": "Design, risk and audit",
+ "teacher": true,
+ "id": "sem-s10-design-risk-audit--guided",
+ "seminarId": 11,
+ "rubric": [
+  [
+   "Threat model: every element and flow, the STRIDE threats that apply, each with a control",
+   5
+  ],
+  [
+   "Attack tree with costs, and the cheapest path found and cut",
+   2
+  ],
+  [
+   "Design review memo: risks ranked, conditions for go-live, the decision asked for",
+   5
+  ],
+  [
+   "Risk register: likelihood, impact, treatment, owner and date; high risks signed off",
+   5
+  ],
+  [
+   "Statement of Applicability: every control marked, with evidence; gaps stated honestly",
+   5
+  ],
+  [
+   "Audit exception: compensating control, owner, expiry and sign-off",
+   3
+  ],
+  [
+   "Vendor file: data, evidence, incident notice, exit plan and a decision",
+   5
+  ]
+ ],
+ "handin": "A design review memo, a risk register and Statement of Applicability, an audit exception, and a vendor file.",
+ "files": [
+  "case/audit-finding.txt",
+  "case/controls-evidence.txt",
+  "case/design.md",
+  "case/README.txt",
+  "case/risk-register-banyan.csv",
+  "case/threat-model/attack-tree.txt",
+  "case/threat-model/dataflow.txt",
+  "case/vendor-textbridge.txt"
+ ],
+ "script": {
+  "intro": "Welcome to Design, risk and audit. The cheapest security bug is the one that never ships. Banyan Learning wants to launch Parent Pay in three weeks: parents pay school fees in the app, and get receipts by SMS. Today you're the security reviewer. You'll threat-model the design, decide what has to change before launch, put the risks in a register the leadership signs, show an auditor which controls exist, write an honest exception for one that doesn't, and decide whether to trust the SMS vendor.",
+  "outro": "That's a design review that changes the design. The threat model found the gaps before an attacker did, the memo made three of them go-live conditions, the register has owners and signatures, the Statement of Applicability tells the truth with evidence, the exception has an end date, and the vendor file ends in a decision. Next is seminar eleven, AI security, where the system you review talks back.",
+  "steps": [
+   "A review starts with questions. What's new: the Fees API. What's someone else's: PayGate takes the card, TextBridge sends the SMS. Where is money decided? Worryingly, partly on the parent's phone: the amount comes from the app, and the webhook that says paid isn't signed. And the logs keep everything for ninety days.",
+   "Now the model: four outsiders, two processes, one data store, eight flows, three trust boundaries. The tool lists the STRIDE threats for each. The unsigned webhook is spoofing: anyone can say paid. The amount from the app is tampering. The admin console is spoofing and elevation: shared logins, no MFA, one-click refunds. And the SMS flow is information disclosure: a child's name and class leaving to a vendor.",
+   "The attack tree asks what's cheapest. Today: send a fake webhook, cost one. Fix it by checking PayGate's signature and confirming with PayGate, and the cheapest becomes changing the amount in the app, cost two. Fix that, and it's a stolen staff login plus a one-click refund, cost five. That's where MFA and a second approver come in. Breaking PayGate itself costs fifteen, and that's PayGate's problem.",
+   "The memo turns the model into decisions. Go live on the fourth only if three conditions are met: the webhook is signed and confirmed, the amount comes from the database, and the SMS vendor signs a data agreement with a shorter receipt. Then the shoulds, and what's good. Three musts, not twenty, or nothing ships and nothing gets fixed.",
+   "The first register had a high risk accepted by nobody. We fix every row: likelihood, impact, treatment, control, owner, date. Six risks, 4 of them high. The fake webhook is five by five. The one-click refund was accepted without sign-off; now it's mitigated with an owner in Finance. And the open vulnerability from the audit goes in too.",
+   "The Statement of Applicability. Twenty controls, each marked with evidence. Policy: met, with the approval date. Incident response: met, with the August tabletop. Most are partial, and that's normal and honest. 4 are gaps: supplier security, continuity, recovery testing, and vulnerabilities past target. An auditor trusts the company that marks its own gaps.",
+   "Three criticals are past target and can't all be fixed today. The exception says so honestly. What isn't met, why, the risk meanwhile, and compensating controls: the admin console only over VPN, a WAF rule, the VPN management page closed, daily log review. An owner, an expiry at the end of January, and approval by the risk owner, not just IT.",
+   "The vendor file. TextBridge would get mobile numbers and, as designed, children's names and classes, so first we give them less. Their ISO certificate has expired, there's no SOC 2, and incident notice is seven working days, which can't fit inside our own six-hour and without-delay clocks. Decision: approve with conditions, in the contract, before it's signed. That's the moment you have leverage.",
+   "Hand in the notebook: the threat model, the attack tree, the memo, the register, the Statement of Applicability, the exception and the vendor file. The rubric is on screen."
+  ]
+ },
+ "base": "sem-s10-design-risk-audit",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-s10-design-risk-audit",
+  "guided": "sem-s10-design-risk-audit--guided",
+  "solo": "sem-s10-design-risk-audit--solo"
+ },
+ "guide": "media/guides/sem-s10-design-risk-audit/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Design, risk and audit\n\nReview a new payments feature before it ships: threat-model it with STRIDE and an attack tree, write the design review memo, build the risk register, mark an ISO 27001 Statement of Applicability with evidence, write an audit exception that an auditor will accept, and decide on a vendor.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `audit-finding.txt`, `controls-evidence.txt`, `design.md`, `README.txt`, `risk-register-banyan.csv`, `threat-model/attack-tree.txt`, `threat-model/dataflow.txt`, `vendor-textbridge.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Read the design like a reviewer\n\nA design review starts with questions, not tools. Read the design and list, for each part: what data it holds or carries, who can reach it, and what the team has already decided. The \"decisions taken\" are where most of the risk hides.\n\n- [ ] Which parts are new, which exist already, which belong to someone else?\n- [ ] Where does money get decided? Where does personal data go?\n- [ ] Which of the five decisions worries you most, and why?\n\n> Hint: Decision 1 (unsigned webhook) and decision 3 (amount from the app) both let the parent's side decide what the school believes about money.\n\n?> Which part handles the card details? :: sha256:e734f954f14eed696786d6e47845c1e1eab87a7d458774822976c8f1db00d3d5\n?> How many outside companies does Parent Pay depend on? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "a": "cd ~/case\ncat design.md"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Threat-model it with STRIDE\n\nDraw the system as elements (people outside, processes, data stores) and flows between them, with the trust boundaries. The tool lists the STRIDE threats that apply to each kind of element: Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege. For each threat that's real here, write the control.\n\n```tool threatmodel\n{\"sys\": \"external Parent (app)\\nexternal PayGate\\nexternal TextBridge SMS\\nexternal Office staff\\nprocess Fees API\\nprocess Admin console\\nstore Student records DB\\nflow Parent (app) -> Fees API : fees, start payment (amount from the app)\\nflow Fees API -> PayGate : redirect with order and amount\\nflow PayGate -> Fees API : webhook /fees/paid (unsigned)\\nflow Fees API -> Student records DB : read fees, mark paid\\nflow Fees API -> TextBridge SMS : mobile number and receipt\\nflow Office staff -> Admin console : mark paid, refund\\nflow Admin console -> Student records DB : updates and refunds\\nboundary Internet | Fees API\\nboundary Banyan cloud | PayGate\\nboundary Banyan cloud | TextBridge SMS\\n\", \"tr\": \"OR Get a fee marked paid without paying\\n  Send a fake webhook saying order paid  cost=1\\n  Change the amount in the app to 1 rupee  cost=2\\n  AND Get refunds paid to yourself\\n    Get an office staff login  cost=4\\n    Issue a refund with one click  cost=1\\n  AND Break into PayGate\\n    Find a flaw in the provider  cost=9\\n    Use it before they patch  cost=6\\n\", \"notes\": {\"PayGate → Fees API (webhook /fees/paid (unsigned))|T\": \"Anyone can send 'paid' for any order. Control: verify PayGate's signature and confirm the payment with PayGate's API before marking paid.\", \"PayGate|S\": \"A caller can pretend to be PayGate on the webhook. Control: signature check plus PayGate's published addresses.\", \"Parent (app) → Fees API (fees, start payment (amount from the app))|T\": \"The parent can edit the amount. Control: the server looks up the amount in the database; never trust the client.\", \"Admin console|S\": \"Three shared logins and no MFA. Control: named accounts with MFA.\", \"Admin console|E\": \"Any office login can refund any amount in one click. Control: refunds over Rs 5,000 need a second approver.\", \"Student records DB|I\": \"Children's data. Control: least-privilege database user for the Fees API; encryption at rest (exists).\", \"Fees API → TextBridge SMS (mobile number and receipt)|I\": \"A child's name and class go to a vendor. Control: receipt text cut to amount and reference; DPA before go-live.\", \"Fees API|R\": \"Who changed what isn't recorded clearly. Control: an event log of every payment and refund, kept 1 year.\", \"Fees API|I\": \"Logs keep full request bodies with personal data. Control: log events, not bodies; 30 days.\", \"Fees API → PayGate (redirect with order and amount)|T\": \"The amount in the redirect can be changed. Control: PayGate checks the signed order; Banyan confirms the amount on the webhook.\", \"Office staff|R\": \"Staff can deny a refund they made with a shared login. Control: named accounts and the refund log.\"}, \"blank\": []}\n```\n\n- [ ] Every element and flow from the design is in the model\n- [ ] Each flow that crosses a boundary has at least one threat written up\n- [ ] Each threat has a control, or \"accepted\" with a reason\n- [ ] Which threats are already handled by PayGate? (card data never touches Banyan)\n\n> Hint: Flows get T, I and D; external parties S and R; processes all six. You don't have to write all of them: write the ones that are real for this system.\n\n?> Which STRIDE letter is the unsigned webhook mainly? (one letter) :: sha256:043a718774c572bd8a25adbeb1bfcd5c0256ae11cecf9f9c3f925d0e52beaf89"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The attack tree: the cheapest way in\n\nAn attack tree asks one question: what's the cheapest way to reach the goal? OR means any child will do; AND means all are needed. Costs are rough effort. The tool finds the cheapest path. Then cut it, and see what becomes cheapest next.\n\n- [ ] What's the cheapest path now, and its cost?\n- [ ] Fix it (say how): what's the cheapest path after that?\n- [ ] Keep going until the cheapest path costs more than the money it would get\n\n> Hint: Signing the webhook removes the cost=1 branch entirely. Then \"change the amount in the app\" is cheapest, until the server looks up the amount itself.\n\n?> What does the cheapest attack path cost before any fix? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Write the design review memo\n\nThe memo turns the model into decisions. Ranked, short, with **conditions for go-live** (must), things to fix soon (should), and what's good. Write it in a Notes cell. A model:\n\n<details><summary>Model memo</summary>\n\n**Design review: Parent Pay v0.9**  ·  To: Kunal Desai (Product), Sana Pillai (Engineering)  ·  From: Security  ·  16 November 2026\n\n**Decision asked for:** go-live on 4 December only if the three conditions below are met. Otherwise delay.\n\n**Go-live conditions (must):**\n1. The webhook checks PayGate's signature, and the Fees API confirms each payment with PayGate before marking it paid. (Today anyone can mark any fee paid with one request.)\n2. The Fees API takes the amount from the database, never from the app.\n3. A signed data processing agreement with the SMS vendor, and the receipt text cut to \"Fee received: Rs X, ref Y\" (no child's name or class).\n\n**Before the end of the term (should):** MFA and named accounts on the admin console; refunds over Rs 5,000 need a second approver; logs record events, not request bodies, for 30 days.\n\n**Accepted risks (need sign-off):** none proposed. The one-click refund risk is high and can't be accepted by Product alone.\n\n**What's good:** card data never touches Banyan (PayGate); the database is encrypted; OTP sign-in for parents.\n\n</details>\n\n- [ ] The decision asked for is the first line\n- [ ] At most three must-fix conditions, each with the reason in one line\n- [ ] Accepted risks say who signs them\n\n> Hint: A memo with twenty \"musts\" means nothing launches or nothing gets fixed. Choose the ones that would cost the school money or a child's data on day one."
+  },
+  {
+   "t": "md",
+   "s": "## 5. Build the risk register\n\nThe product team's first register has holes: no owner, no treatment, a high risk \"accepted\" with nobody's name on it. Load it, fix it, and add the risks your model found. The tool checks every row has an owner, a treatment and a date, and flags high risks that are accepted without sign-off.\n\n```tool risk\n{\"rows\": [{\"asset\": \"Fees API\", \"threat\": \"Fake payment confirmation\", \"weakness\": \"Webhook isn't signed\", \"likelihood\": 5, \"impact\": 5, \"treatment\": \"mitigate\", \"control\": \"Verify PayGate's signature and confirm with PayGate\", \"owner\": \"Sana Pillai\", \"due\": \"2026-12-01\"}, {\"asset\": \"Fees API\", \"threat\": \"Fee amount changed by the parent\", \"weakness\": \"Amount comes from the app\", \"likelihood\": 4, \"impact\": 4, \"treatment\": \"mitigate\", \"control\": \"Server looks up the amount\", \"owner\": \"Sana Pillai\", \"due\": \"2026-12-01\"}, {\"asset\": \"Admin console\", \"threat\": \"Refund fraud by a stolen staff login\", \"weakness\": \"No MFA; shared logins; one-click refunds\", \"likelihood\": 3, \"impact\": 5, \"treatment\": \"mitigate\", \"control\": \"MFA, named accounts, second approver over Rs 5,000\", \"owner\": \"Head of Finance\", \"due\": \"2027-01-15\"}, {\"asset\": \"App logs\", \"threat\": \"Personal data in logs\", \"weakness\": \"Full request bodies kept 90 days\", \"likelihood\": 4, \"impact\": 3, \"treatment\": \"mitigate\", \"control\": \"Log events not bodies; 30 days\", \"owner\": \"Sana Pillai\", \"due\": \"2026-12-15\"}, {\"asset\": \"SMS receipts\", \"threat\": \"Children's details exposed by the SMS vendor\", \"weakness\": \"No DPA; receipts include name and class\", \"likelihood\": 3, \"impact\": 4, \"treatment\": \"mitigate\", \"control\": \"DPA signed; minimal receipt text\", \"owner\": \"Kunal Desai\", \"due\": \"2026-12-01\"}, {\"asset\": \"Admin console\", \"threat\": \"Exploit of the outdated web framework\", \"weakness\": \"VM-311 open 41 days\", \"likelihood\": 3, \"impact\": 5, \"treatment\": \"mitigate\", \"control\": \"Upgrade; until then WAF rule and VPN-only access (exception IA-2026-07)\", \"owner\": \"IT manager\", \"due\": \"2027-01-31\"}], \"n\": 4, \"blank\": []}\n```\n\n- [ ] Every row: likelihood and impact from 1 to 5, treatment, control, owner, date\n- [ ] No high risk accepted without leadership sign-off\n- [ ] The heat map: which risks are in the red corner?\n\n> Hint: Likelihood × impact of 15 or more is high. \"Accept\" is a real choice, but it belongs to someone senior enough to pay for the consequence.\n\n?> How many risks in your register are high (score 15 or more)? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "md",
+   "s": "## 6. The Statement of Applicability\n\nAn auditor asks: which controls apply, which are in place, and where is the evidence? In the compliance tool, choose ISO/IEC 27001 and mark each control **met**, **partial**, **gap** or **not applicable**, with the evidence from controls-evidence.txt. \"Met\" without evidence isn't met.\n\n```tool compliance\n{\"fw\": \"iso\", \"ans\": {\"iso:5.1\": {\"s\": \"met\", \"e\": \"Policy v3, CEO approval 2 Feb 2026; 94% acknowledged\"}, \"iso:5.2\": {\"s\": \"partial\", \"e\": \"CISO part-time; no vendor RACI\"}, \"iso:5.9\": {\"s\": \"partial\", \"e\": \"Cloud listed automatically; 40% without owners\"}, \"iso:5.15\": {\"s\": \"partial\", \"e\": \"Policy exists; Q3 access review skipped\"}, \"iso:5.19\": {\"s\": \"gap\", \"e\": \"No standard clauses; TextBridge has no DPA\"}, \"iso:5.24\": {\"s\": \"met\", \"e\": \"IR plan v2 with CERT-In step; tabletop in August\"}, \"iso:5.29\": {\"s\": \"gap\", \"e\": \"No continuity plan for the apps\"}, \"iso:5.30\": {\"s\": \"gap\", \"e\": \"No recovery test this year\"}, \"iso:6.3\": {\"s\": \"partial\", \"e\": \"Onboarding only; no yearly refresher\"}, \"iso:7.2\": {\"s\": \"partial\", \"e\": \"Badges at Pune; key lock in Nashik\"}, \"iso:8.2\": {\"s\": \"partial\", \"e\": \"Separate admin accounts; 3 shared admin console logins\"}, \"iso:8.5\": {\"s\": \"partial\", \"e\": \"MFA on cloud and email, not on the admin console\"}, \"iso:8.7\": {\"s\": \"met\", \"e\": \"Managed anti-malware on all laptops\"}, \"iso:8.8\": {\"s\": \"gap\", \"e\": \"3 criticals past the 15-day target (IA-2026-07)\"}, \"iso:8.13\": {\"s\": \"partial\", \"e\": \"Nightly encrypted offsite; last restore test March\"}, \"iso:8.15\": {\"s\": \"partial\", \"e\": \"Audit trail on; app logs hold personal data\"}, \"iso:8.16\": {\"s\": \"partial\", \"e\": \"Alerts to an unwatched inbox at weekends\"}, \"iso:8.20\": {\"s\": \"partial\", \"e\": \"Cloud segmented; office Wi-Fi shared with guests\"}, \"iso:8.24\": {\"s\": \"partial\", \"e\": \"TLS 1.2+, DB encrypted; key rotation not documented\"}, \"iso:8.28\": {\"s\": \"partial\", \"e\": \"Code review; no security testing before release\"}}, \"n\": 4, \"blank\": []}\n```\n\n- [ ] Every control marked, every mark with evidence\n- [ ] Be honest: partial is a normal, useful answer\n- [ ] Which gaps does Parent Pay make worse? (5.19 suppliers, 8.15 logging)\n- [ ] Switch the framework to DPDP and CERT-In: which items does today's work already cover?\n\n> Hint: A Statement of Applicability is about the truth, not the score. An auditor trusts a company that marks its own gaps far more than one that marks everything met.\n\n?> How many ISO controls are gaps? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Write the audit exception\n\nInternal audit found three critical vulnerabilities past the 15-day target. Fixing all three today isn't possible. An **exception** is how a company says \"not yet\" honestly: what isn't met, why, the risk meanwhile, the **compensating controls**, an owner, an **expiry**, and who approved it. Write it in a Notes cell. A model:\n\n<details><summary>Model exception</summary>\n\n**Exception EX-2026-04 to control 8.8 (vulnerability management)**  ·  Responds to audit finding IA-2026-07\n\n**What isn't met:** VM-311, VM-318 and VM-322 are past the 15-day target for critical vulnerabilities.\n\n**Why:** VM-311's fix breaks the refund screen (fix in development); VM-318 is fixed on 20 November; VM-322 needs a 2-hour VPN outage, booked for Saturday 28 November.\n\n**Risk while open:** an attacker reaching the admin console or VPN appliance could take control of it.\n\n**Compensating controls (in place from 17 November):** the admin console is reachable only over the VPN; a WAF rule blocks the known exploit pattern for VM-311; the VPN appliance's management page is closed to the internet; daily log review of both by the SOC.\n\n**Owner:** IT manager (A. Fernandes).  **Expires:** 31 January 2027, or when the last item is fixed. No renewal without a new review.\n\n**Approved:** CISO and the risk owner (Head of Finance, for the admin console), signatures and date.\n\n</details>\n\n- [ ] A compensating control for each open item\n- [ ] An expiry date, not \"until fixed\"\n- [ ] Approved by someone who owns the risk, not only by IT\n\n> Hint: An exception without an expiry is a permanent decision dressed up as a temporary one. Auditors reject those."
+  },
+  {
+   "t": "md",
+   "s": "## 8. The vendor file\n\nTextBridge is cheapest, and the contract isn't signed yet: the best moment to ask for things. Read their answers and write the vendor review. End with a **decision**: approve, approve with conditions, or reject.\n\n```tool report\n{\"tpl\": \"vendor\", \"title\": \"Vendor security review: TextBridge Messaging (SMS receipts for Parent Pay)\", \"text\": \"\", \"n\": 8, \"blank\": [\"text\"], \"a\": {\"text\": \"# Vendor security review: TextBridge Messaging (SMS receipts for Parent Pay)\\n\\n## Vendor and service\\n\\nTextBridge Messaging Pvt Ltd, transactional SMS over an HTTPS API. 22% cheaper than the next quote.\\n\\n## Data they will handle\\n\\nParents' mobile numbers and the receipt text. Today's design adds the child's first name, class and amount; we will cut that to the amount and a reference.\\n\\n## Evidence of security\\n\\nISO 27001 certificate expired in June 2026 (renewal \\\"in progress\\\"); no SOC 2 report; yearly pen test (March 2026), summary under NDA, not yet seen.\\n\\n## Access and encryption\\n\\nTLS 1.2 in transit; storage encryption by their cloud host; support staff can read message logs; MFA \\\"for most staff\\\".\\n\\n## Incident notice\\n\\n\\\"Within 7 working days of confirmation\\\". Not acceptable: we need notice within 24 hours of them noticing, so we can meet the CERT-In six-hour rule and tell parents without delay.\\n\\n## Sub-processors and location\\n\\nMumbai, with backups in Singapore; two named operators, one named host, \\\"others as needed\\\" (must be named and notified before change).\\n\\n## Exit plan\\n\\nData deleted 90 days after termination on request: we need deletion within 30 days, with written confirmation. A second SMS provider is set up as a fallback.\\n\\n## Risk rating and decision\\n\\nMedium-high as offered. **Conditional approval:** sign only with a DPA that sets 24-hour incident notice, named sub-processors, MFA for all staff with access, logs kept 90 days not 2 years, and the renewed ISO certificate or the pen test summary before go-live. Minimal receipt text either way.\\n\"}}\n```\n\n- [ ] What data they get, and how to give them less\n- [ ] Evidence you've seen versus claims you've been told\n- [ ] Incident notice: is their promise fast enough for your own legal clocks?\n- [ ] An exit plan, and a decision with conditions\n\n> Hint: Your own breach clocks (CERT-In six hours; DPDP \"without delay\") don't stop because the breach happened at a vendor. Their notice period has to fit inside yours.\n\n?> How many working days does TextBridge offer for incident notice? :: sha256:7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
+  },
+  {
+   "t": "md",
+   "s": "## 9. Hand in\n\nHand in this notebook. It carries every answer, tool result and report from the steps above.\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Threat model: every element and flow, the STRIDE threats that apply, each with a control | 5 |\n| Attack tree with costs, and the cheapest path found and cut | 2 |\n| Design review memo: risks ranked, conditions for go-live, the decision asked for | 5 |\n| Risk register: likelihood, impact, treatment, owner and date; high risks signed off | 5 |\n| Statement of Applicability: every control marked, with evidence; gaps stated honestly | 5 |\n| Audit exception: compensating control, owner, expiry and sign-off | 3 |\n| Vendor file: data, evidence, incident notice, exit plan and a decision | 5 |\n\n- [ ] Threat model and attack tree saved\n- [ ] Design memo written\n- [ ] Risk register checked\n- [ ] Statement of Applicability complete\n- [ ] Exception and vendor file written\n- [ ] Press Hand in"
+  }
+ ]
+}

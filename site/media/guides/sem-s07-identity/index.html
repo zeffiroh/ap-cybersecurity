@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity from both sides: AD, Entra and cloud IAM written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 7 · written tutorial</p>
+<h1>Identity from both sides: AD, Entra and cloud IAM</h1>
+<p class="meta">Practitioner &middot; about 300 min</p>
+<p>Review a company&#x27;s accounts like an auditor, then walk the same directory like an attacker: find the path from a helpdesk login to Domain Admins, see the kerberoast and the DCSync in the domain controller&#x27;s logs, follow a stolen cloud key through the audit trail, and cut it all off with a least-privilege policy and detections.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s07-identity&amp;runbook=sem-s07-identity">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s07-identity--guided&amp;runbook=sem-s07-identity--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s07-identity--solo&amp;runbook=sem-s07-identity--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>captured/app02-sync-ps1.txt</code>, <code>captured/zeek-kerberos.log</code>, <code>cloud/audit.json</code>, <code>cloud/policies.json</code>, <code>eventlogs/app02-Security.jsonl</code>, <code>eventlogs/dc01-Security.jsonl</code>, <code>identity/ad_edges.csv</code>, <code>identity/users.csv</code>, <code>README.txt</code>.</p>
+<h2>1. Who's who</h2>
+<p>Start like an auditor: read the directory before you read any alert. users.csv lists every account with its groups, MFA and last logon. ad_edges.csv lists <strong>relationships</strong>: who is a member of what, who can reset whose password, who is an admin where, and who is signed in where.</p>
+<ul>
+<li>&#9744; How many accounts? How many without MFA?</li>
+<li>&#9744; Which accounts are in powerful groups (Domain-Admins, Server-Admins, Backup-Operators)?</li>
+<li>&#9744; Which relationship in ad_edges.csv surprises you?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -c</code> counts lines; <code>awk -F, '$7=="no"'</code> keeps accounts whose mfa column says no.</p>
+</blockquote>
+<p><strong>Question:</strong> How many accounts are in users.csv?
+<strong>Question:</strong> How many accounts have no MFA?</p>
+<pre><code>cd ~/case/identity
+cat users.csv
+echo ---
+grep -c . users.csv
+awk -F, &#x27;$7==&quot;no&quot; {print $1, $4}&#x27; users.csv
+echo ---
+cat ad_edges.csv</code></pre>
+<h2>2. Review access like an auditor</h2>
+<p>The <strong>Access review</strong> tab flags the classic problems: no MFA, admin rights outside IT, temporary staff with admin, stale accounts, disabled accounts still in groups, leavers. Make a decision for each flagged account and write one line of why.</p>
+<p><strong>Use the Identity and access.</strong></p>
+<ul>
+<li>&#9744; A decision for every high-risk account</li>
+<li>&#9744; For service accounts: what replaces MFA? (long random passwords, managed service accounts, no interactive logon)</li>
+<li>&#9744; Which finding would you fix first, and why?</li>
+</ul>
+<blockquote>
+<p>Hint: A contractor in Server-Admins is critical. An account unused for 140 days should be disabled, not deleted, until its owner confirms.</p>
+</blockquote>
+<p><strong>Question:</strong> Which account does the review mark as critical?</p>
+<h2>3. Walk it like an attacker</h2>
+<p>Now switch sides. In the <strong>Attack paths</strong> tab, start from h.verma (the phished account) and ask for paths to Domain-Admins. Each arrow is one thing the attacker can do with what they already have.</p>
+<p><strong>Use the Identity and access.</strong></p>
+<ul>
+<li>&#9744; Write the path hop by hop, with what each hop means</li>
+<li>&#9744; Which hop needs a password, which needs nothing new?</li>
+<li>&#9744; Which other accounts could walk the same path from Server-Admins onwards?</li>
+<li>&#9744; Which single change breaks the most paths?</li>
+</ul>
+<blockquote>
+<p>Hint: "HasSessionOn" means a saved login: whoever is admin on app02 can take adm.k.nair's credentials from it. The scheduled task keeps that login there every night.</p>
+</blockquote>
+<p><strong>Question:</strong> Which service account is on the path from h.verma to Domain-Admins?
+<strong>Question:</strong> On which server is the Domain Admin's login saved?</p>
+<h2>4. The kerberoast in the logs</h2>
+<p>The attacker didn't even need the password reset. Any domain user can ask for a <strong>service ticket</strong> for any account with a service name (SPN), and part of that ticket is encrypted with the service account's password. With the old RC4 cipher it can be cracked offline. That's kerberoasting. Find it on the domain controller, then in Zeek's Kerberos log.</p>
+<p><strong>Use the Event viewer on eventlogs/dc01-Security.jsonl.</strong></p>
+<ul>
+<li>&#9744; Who asked for RC4 tickets (0x17), from where, for which services, how fast?</li>
+<li>&#9744; What does normal look like? (0x12 is AES)</li>
+<li>&#9744; Find the same requests in zeek-kerberos.log</li>
+</ul>
+<blockquote>
+<p>Hint: Six service tickets in ten seconds, all RC4, from a helpdesk PC, is not how people work. Normal users ask for tickets to the servers they use, with AES.</p>
+</blockquote>
+<p><strong>Question:</strong> How many RC4 service tickets did h.verma request?
+<strong>Question:</strong> What does encryption type 0x17 mean? (the cipher name)</p>
+<pre><code>cd ~/case/captured
+grep -v &#x27;^#&#x27; zeek-kerberos.log | awk -F&#x27;\t&#x27; &#x27;{print $8}&#x27; | sort | uniq -c
+echo ---
+grep rc4 zeek-kerberos.log | awk -F&#x27;\t&#x27; &#x27;{print $2, $5, $6}&#x27;</code></pre>
+<h2>5. From a service account to the domain</h2>
+<p>An hour later svc-sql logs on to app02. Follow it: what did it run, what was it after, and what happened on the domain controller next? On the DC, a 4662 with the replication rights is a <strong>DCSync</strong>: asking the DC for every password hash, the way another DC would. Only domain controllers should ever do that.</p>
+<p><strong>Use the Event viewer on eventlogs/app02-Security.jsonl.</strong></p>
+<p><strong>Use the Event viewer on eventlogs/dc01-Security.jsonl.</strong></p>
+<ul>
+<li>&#9744; When did svc-sql log on to app02, from where?</li>
+<li>&#9744; Why save the SECURITY and SYSTEM hives? (what's inside)</li>
+<li>&#9744; What was the findstr looking for?</li>
+<li>&#9744; Which 4662 events are DCSync by someone who isn't a DC?</li>
+</ul>
+<blockquote>
+<p>Hint: The SECURITY hive holds LSA secrets, including the saved password of every scheduled task. DC02$ is the other domain controller; its replication is normal.</p>
+</blockquote>
+<p><strong>Question:</strong> Which account performed the DCSync?
+<strong>Question:</strong> From which address did that account log on to dc01?</p>
+<h2>6. The cloud side: one key in a script</h2>
+<p>The findstr found what it was looking for: a cloud access key in sync.ps1. Read the cloud audit trail and see what the key did, from where. Then load the policies into the Cloud IAM simulator and replay the audit log <strong>as it is</strong>: everything the attacker did was allowed.</p>
+<ul>
+<li>&#9744; Which identity, from which address, did what, in order?</li>
+<li>&#9744; What did it create so it could come back?</li>
+<li>&#9744; What was stopped, and by what?</li>
+<li>&#9744; Why did reporting-sync have permission to do any of this?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -o '"action": "[A-Za-z]*"'</code> lists the actions. The office's address is 203.0.113.60.</p>
+</blockquote>
+<p><strong>Question:</strong> From which address did the stolen key work?
+<strong>Question:</strong> Which user did the attacker create?</p>
+<pre><code>cd ~/case/cloud
+grep -o &#x27;&quot;identity&quot;: &quot;[^&quot;]*&quot;\|&quot;action&quot;: &quot;[A-Za-z]*&quot;\|&quot;source_ip&quot;: &quot;[^&quot;]*&quot;&#x27; audit.json | paste - - - | sort | uniq -c</code></pre>
+<h2>7. Least privilege: the policy diff</h2>
+<p>Rewrite the policies so the attacker's actions fail and normal work goes on. Replay the audit log after each change: the simulator says how many attacker actions would still be allowed and how many normal actions you broke. Aim for 0 and 0.</p>
+<p><strong>Use the Cloud IAM simulator.</strong></p>
+<p>The diff, in words:</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reporting-sync: Allow <code>*</code> on <code>*</code></td>
+<td>reporting-sync: Allow <code>PutObject</code> on <code>bucket/nimbus-reports/*</code>, only from 203.0.113.60</td>
+</tr>
+<tr>
+<td>(nothing)</td>
+<td>Guardrail: Deny <code>CreateUser</code>, <code>CreateAccessKey</code>, <code>AttachUserPolicy</code> without MFA</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; 0 attacker actions allowed</li>
+<li>&#9744; 0 normal actions broken</li>
+<li>&#9744; Write the diff in two lines someone can review</li>
+<li>&#9744; What else should change? (the key out of the script: a role for the server, rotated keys)</li>
+</ul>
+<blockquote>
+<p>Hint: A condition on the source address alone stops a stolen key used from elsewhere. The MFA guardrail stops anyone, even a real admin's stolen key, from minting new identities quietly.</p>
+</blockquote>
+<p><strong>Question:</strong> After your policy, how many attacker actions are still allowed?</p>
+<h2>8. Detections for next time</h2>
+<p>The review and the policy close today's doors. Detections catch the next attempt. Write two Sigma rules, test them on the domain controller's log, and check they don't fire on normal traffic.</p>
+<p><strong>Use the Sigma rules.</strong></p>
+<p><strong>Use the Sigma rules.</strong></p>
+<ul>
+<li>&#9744; The kerberoast rule matches the six RC4 tickets and no AES ones</li>
+<li>&#9744; The DCSync rule matches adm.k.nair and not DC02$</li>
+<li>&#9744; One line on how each rule could be evaded</li>
+</ul>
+<blockquote>
+<p>Hint: The DCSync rule uses a filter: match the replication right, then remove accounts ending in $. Without the filter it fires every two hours.</p>
+</blockquote>
+<p><strong>Question:</strong> How many events does the DCSync rule match?</p>
+<h2>9. The fix, hop by hop</h2>
+<p>Write it up so someone can act on it: the path, what each hop exploited, and the fix for each, <strong>in the order to do them</strong>. Containment first (the key, the new user), then the domain (krbtgt, passwords), then the root causes.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; Every hop has a fix</li>
+<li>&#9744; The order makes sense: stop the bleeding, then rebuild trust, then fix causes</li>
+<li>&#9744; The policy diff and both rules are referenced</li>
+</ul>
+<blockquote>
+<p>Hint: After a DCSync, every password in the domain is known, including krbtgt's, which signs every Kerberos ticket. Reset it twice, because the domain keeps the previous one.</p>
+</blockquote>
+<h2>10. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Access review: every high-risk account found and a decision made for each, with the reason</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Attack path from the helpdesk account to Domain Admins, every hop explained</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Kerberoasting shown in the domain controller's log and the Kerberos trace</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Service account to domain admin: the hop through app02 and the DCSync, with times</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Cloud: what the stolen key did, from the audit log</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Policy diff: least privilege that stops every attacker action and breaks no normal work</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Detections: rules for kerberoasting and DCSync, tested on the logs</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Write-up: the path, the fix for each hop, in the order to do them</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Access review decisions saved</li>
+<li>&#9744; Attack path written hop by hop</li>
+<li>&#9744; Policy replay at 0 and 0</li>
+<li>&#9744; Both Sigma rules tested</li>
+<li>&#9744; Report complete</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

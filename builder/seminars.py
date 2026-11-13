@@ -169,6 +169,10 @@ def publish_one(folder):
             "titlePrefix": info["title"], "teacher": True, "id": slug}
     if info.get("seminar_id"):
         meta["seminarId"] = int(info["seminar_id"])
+    if info.get("free"):
+        meta["free"] = True
+    if info.get("next"):
+        meta["next"] = info["next"]
     if isinstance(info.get("rubric"), list) and info["rubric"]:
         meta["rubric"] = [[str(c), int(m)] for c, m in info["rubric"]][:20]
     if info.get("handin"):

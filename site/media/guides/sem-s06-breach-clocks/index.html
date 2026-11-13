@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breach clocks: CERT-In 6 hours, DPDP, RBI and GDPR written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 6 · written tutorial</p>
+<h1>Breach clocks: CERT-In 6 hours, DPDP, RBI and GDPR</h1>
+<p class="meta">Practitioner &middot; about 300 min</p>
+<p>Rehearse a personal-data breach at a microfinance company after India&#x27;s DPDP breach rules take effect: start the clock, scope the breach from the logs, file with CERT-In inside six hours while injects arrive, work out every other clock that applies (RBI, DPDP, GDPR), and write the Board note, the notice to customers and the notification order.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s06-breach-clocks&amp;runbook=sem-s06-breach-clocks">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s06-breach-clocks--guided&amp;runbook=sem-s06-breach-clocks--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s06-breach-clocks--solo&amp;runbook=sem-s06-breach-clocks--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>affected_customers.csv</code>, <code>api_access.log</code>, <code>certin-kaveri.json</code>, <code>README.txt</code>, <code>tabletop-kaveri-clocks.json</code>, <code>waf_alert.txt</code>.</p>
+<h2>1. Start the clock</h2>
+<p>Every breach clock starts at the moment <strong>you noticed</strong>, not when the attack began and not when you finished investigating. Read the analyst's note and the README. Write down the detection time in UTC, and work out when the six-hour reports are due.</p>
+<ul>
+<li>&#9744; When did the attack start? When did Kaveri notice?</li>
+<li>&#9744; Which time starts the clocks?</li>
+<li>&#9744; When are the six-hour reports due, in UTC and in IST?</li>
+</ul>
+<blockquote>
+<p>Hint: The analyst reviewed the WAF digest at 10:20 IST. IST is UTC+5:30.</p>
+</blockquote>
+<p><strong>Question:</strong> At what time (UTC, HH:MM) did Kaveri notice the breach?
+<strong>Question:</strong> By what time (UTC, HH:MM) must CERT-In be told?</p>
+<pre><code>cd ~/case
+cat README.txt
+echo ---
+cat waf_alert.txt</code></pre>
+<h2>2. Scope it from the logs</h2>
+<p>Regulators will ask three questions first: what happened, how much, and to whom. Answer the first two from the API log. The log's times are in IST, so convert them before you write anything down.</p>
+<ul>
+<li>&#9744; How many requests came from 198.51.100.66? How many different customer IDs?</li>
+<li>&#9744; When was the first and the last one (IST, then UTC)?</li>
+<li>&#9744; What does a normal app request look like, for comparison?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -o '/customers/[0-9]*' | sort -u | wc -l</code> counts different IDs. <code>head -1</code> and <code>tail -1</code> give the first and last line.</p>
+</blockquote>
+<p><strong>Question:</strong> How many different customer records did 198.51.100.66 receive?
+<strong>Question:</strong> At what time (UTC, HH:MM) did the scraping start?</p>
+<pre><code>cd ~/case
+grep -c &#x27;^198.51.100.66 &#x27; api_access.log
+grep &#x27;^198.51.100.66 &#x27; api_access.log | grep -o &#x27;/customers/[0-9]*&#x27; | sort -u | wc -l
+echo ---
+grep &#x27;^198.51.100.66 &#x27; api_access.log | head -1
+grep &#x27;^198.51.100.66 &#x27; api_access.log | tail -1
+echo ---
+grep -v &#x27;^198.51.100.66 &#x27; api_access.log | head -3</code></pre>
+<h2>3. Who is affected</h2>
+<p>The third question: to whom. The response log lists every record the scraper received and the country each customer lives in. The countries decide which clocks apply: everyone is covered by India's rules, and residents of the EU may bring in GDPR.</p>
+<ul>
+<li>&#9744; Count the records by country</li>
+<li>&#9744; Which fields were exposed? Which are the most sensitive?</li>
+<li>&#9744; How many affected customers live in the EU?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>cut -d, -f2 | sort | uniq -c</code> counts by the second column. Skip the header line with <code>tail -n +2</code>. Germany is DE, Ireland IE; the UAE (AE) is not in the EU.</p>
+</blockquote>
+<p><strong>Question:</strong> How many affected customers live in the EU?</p>
+<pre><code>cd ~/case
+tail -n +2 affected_customers.csv | cut -d, -f2 | sort | uniq -c | sort -rn
+echo ---
+head -2 affected_customers.csv</code></pre>
+<h2>4. File with CERT-In inside six hours</h2>
+<p>File the CERT-In report now, with what you know. The form checks your times against the evidence and says what's missing. After you file, advance the clock: replies and new facts arrive in the inbox. Answer them, and send an update when the facts change.</p>
+<p><strong>Use the CERT-In filing and inbox on certin-kaveri.json.</strong></p>
+<ul>
+<li>&#9744; Detection time matches the evidence</li>
+<li>&#9744; The incident type fits; personal data marked</li>
+<li>&#9744; Indicators, affected systems and actions so far</li>
+<li>&#9744; Filed before 10:50 UTC</li>
+<li>&#9744; Inbox answered; an update sent after the CISO's message</li>
+</ul>
+<blockquote>
+<p>Hint: "Data breach" fits best: personal data was taken by someone who shouldn't have it. Partial facts are fine; say what you don't know yet in the symptoms.</p>
+</blockquote>
+<p><strong>Question:</strong> Which CERT-In incident type fits best?</p>
+<h2>5. Every clock, in order</h2>
+<p>CERT-In is only the first clock. Open the <strong>Notification clocks</strong> panel in the CERT-In tool: it shows which clocks apply to this case and when each is due. Turn it into a one-page <strong>notification order</strong>: who is told, by when, by whom, and the status.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Who</th>
+<th>Rule (from the tool's summary)</th>
+<th>Due (UTC)</th>
+<th>Owner</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>CERT-In</td>
+<td>Six hours from noticing (Directions of 28 April 2022)</td>
+<td>8 Jun 10:50</td>
+<td>CISO</td>
+<td>Filed 08:15, update 09:35</td>
+</tr>
+<tr>
+<td>2</td>
+<td>RBI</td>
+<td>Six hours from detection for regulated entities</td>
+<td>8 Jun 10:50</td>
+<td>Head of compliance</td>
+<td>Filed 08:30</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Data Protection Board, first notice</td>
+<td>Without delay</td>
+<td>8 Jun, today</td>
+<td>DPO</td>
+<td>Sent 09:10</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Each affected customer</td>
+<td>Without delay, plain language</td>
+<td>8 Jun, today</td>
+<td>DPO with customer care</td>
+<td>SMS and email from 10:00</td>
+</tr>
+<tr>
+<td>5</td>
+<td>EU lead authority (Ireland)</td>
+<td>72 hours from awareness, if GDPR applies</td>
+<td>11 Jun 04:50</td>
+<td>DPO with EU counsel</td>
+<td>Drafting</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Data Protection Board, detailed report</td>
+<td>Within 72 hours</td>
+<td>11 Jun 04:50</td>
+<td>DPO</td>
+<td>Drafting</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Every clock that applies is in the table, none that don't</li>
+<li>&#9744; One owner for each</li>
+<li>&#9744; Due times in UTC</li>
+<li>&#9744; Which two are due first?</li>
+</ul>
+<blockquote>
+<p>Hint: The DPDP Rules ask for the Board and each affected person to be told without delay, then a detailed report to the Board within 72 hours. GDPR's 72 hours runs from becoming aware.</p>
+</blockquote>
+<p><strong>Question:</strong> How many hours after noticing is the detailed report to the Data Protection Board due?</p>
+<h2>6. Decide with four regulators watching</h2>
+<p>Play the tabletop as the CISO. The pressure is real: a CEO who wants to wait, a DPO who wants a plan, a journalist with a sample.</p>
+<p><strong>Use the Tabletop exercise on tabletop-kaveri-clocks.json.</strong></p>
+<ul>
+<li>&#9744; Play it as the CISO, then as the CEO</li>
+<li>&#9744; One line for each decision: why</li>
+</ul>
+<p><strong>Question:</strong> What is the best score you can get in this tabletop?</p>
+<h2>7. The DPDP pack: the Board note and the notice</h2>
+<p>Two more readers. The <strong>Board</strong> needs to decide; the <strong>customers</strong> need to know what happened to them and what to do. The notice must be short and plain, in the language the customer uses with Kaveri, and say five things: what happened (nature, extent, timing), the likely consequences, what Kaveri has done, what the person can do, and who to contact.</p>
+<p><strong>Use the Report builder.</strong></p>
+<p>Write the notice to customers in a Notes cell. A model:</p>
+<details><summary>Model notice to customers</summary>
+
+Subject: We are writing to tell you about a problem with your Kaveri account details
+
+On 8 June 2027, between 8:40 and 9:48 in the morning, someone used a fault in the Kaveri app to see some customers' details. Your details were among them.
+
+What they saw: your name, mobile number, address, loan amount and the last four digits of your Aadhaar number. They did not see your password, your full Aadhaar number or your bank details, and no money was taken from any account.
+
+What could happen: you may get calls or messages from people pretending to be Kaveri or a bank, who already know some of your details.
+
+What we have done: we fixed the fault the same morning, blocked the person responsible, and reported it to CERT-In, the Reserve Bank of India and the Data Protection Board.
+
+What you can do: Kaveri will never ask for your OTP, PIN or password by phone or message. If someone does, hang up and call us. We are sending you free fraud-alert messages for 12 months.
+
+Questions: call 1800 000 4321 (free, 8 am to 8 pm) or write to dpo@kaveri.example. Arvind Shetty, Data Protection Officer, will answer.
+
+</details>
+
+<ul>
+<li>&#9744; Board note: the ask first, then the facts</li>
+<li>&#9744; Notice: all five parts, no jargon, no "we take your privacy seriously"</li>
+<li>&#9744; Notice: what Kaveri will never ask for</li>
+<li>&#9744; A contact who can actually answer</li>
+</ul>
+<blockquote>
+<p>Hint: Read your notice aloud. If your grandmother couldn't act on it, rewrite it.</p>
+</blockquote>
+<p><strong>Question:</strong> How many affected customers live in India?</p>
+<h2>8. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clock started at the right moment, with the evidence for it</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Scope measured from the logs: requests, records and countries</td>
+<td>4</td>
+</tr>
+<tr>
+<td>CERT-In report filed within six hours: right type, indicators, systems and actions</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Inbox answered and an update sent with the new facts</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Notification order: every clock that applies, in order, each with an owner</td>
+<td>4</td>
+</tr>
+<tr>
+<td>DPDP pack: the Board note and the plain-language notice, with every required part</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Tabletop decisions made and defended</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Plain writing: facts kept apart from guesses</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; CERT-In filed with no problems left, and the update sent</li>
+<li>&#9744; Notification order complete</li>
+<li>&#9744; Board note and the customer notice written</li>
+<li>&#9744; Tabletop played</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

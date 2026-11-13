@@ -44,7 +44,7 @@ def gate(path, text):
     d = path.parent
     tags = "".join(f'\n<script src="{rel(d, f)}"></script>'
                    for f in (ASSETS / "config.js", SHARED / "neon.js", SHARED / "identity.js", SHARED / "paywall.js")
-                   if f.name in ("config.js", "paywall.js") or f.name not in text)
+                   if f.name in ("config.js", "paywall.js") or rel(d, f) not in text)
     return text[:m.end()] + tags + text[m.end():]
 
 

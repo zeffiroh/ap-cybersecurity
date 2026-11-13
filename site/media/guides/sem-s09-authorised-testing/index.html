@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authorised testing: web, APIs and findings that get fixed written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 9 · written tutorial</p>
+<h1>Authorised testing: web, APIs and findings that get fixed</h1>
+<p class="meta">Practitioner &middot; about 360 min</p>
+<p>Run a small, authorised penetration test of the NimbuMart shop the way professionals do: rules of engagement first, recon inside scope, then three findings proved with the intercept proxy and the JWT inspector, scored with CVSS, written up so a developer can fix them, retested, and explained to the board.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s09-authorised-testing&amp;runbook=sem-s09-authorised-testing">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s09-authorised-testing--guided&amp;runbook=sem-s09-authorised-testing--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s09-authorised-testing--solo&amp;runbook=sem-s09-authorised-testing--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>engagement.txt</code>, <code>findings.csv</code>, <code>net/dns.txt</code>, <code>net/hosts.txt</code>, <code>README.txt</code>, <code>staging-bundle.js.txt</code>, <code>wordlist.txt</code>.</p>
+<h2>1. Authorisation and scope, before anything else</h2>
+<p>A test without written permission is an attack. Read the letter of authorisation all the way through, then turn it into <strong>rules of engagement</strong>: who authorised it, exactly what is in and out of scope, the window, what you may and may not do, when you stop and who you call, and how you treat data.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; Every in-scope address and URL, and every out-of-scope one</li>
+<li>&#9744; The stop contact and number, written where you'll see it</li>
+<li>&#9744; What data you may touch, and how much</li>
+</ul>
+<blockquote>
+<p>Hint: A host can be on the same network and look like part of the shop and still be out of scope. Only the owner of a system can authorise testing it.</p>
+</blockquote>
+<p><strong>Question:</strong> Which IP address is out of scope?
+<strong>Question:</strong> Who is the stop contact? (full name)</p>
+<pre><code>cd ~/case
+cat engagement.txt</code></pre>
+<h2>2. Recon, inside the lines</h2>
+<p>Scan only what's in scope. Name each address on the command line, so you can't accidentally sweep the whole range and hit the payment host. Then look at what you found.</p>
+<ul>
+<li>&#9744; Which services run on each in-scope host, with which versions?</li>
+<li>&#9744; Which one looks like it shouldn't be on the internet?</li>
+<li>&#9744; What did you find in the staging JavaScript file?</li>
+</ul>
+<blockquote>
+<p>Hint: A "debug" API on port 8080 is a classic staging leftover. Read the saved app.bundle.js: developers leave things in bundles that everyone can download.</p>
+</blockquote>
+<p><strong>Question:</strong> Which port does the staging debug API listen on?</p>
+<pre><code>nmap -sV 192.0.2.10 192.0.2.11
+echo ---
+cd ~/case
+cat staging-bundle.js.txt</code></pre>
+<h2>3. Finding 1: a login that trusts what you type</h2>
+<p>In the shop, the login puts the email straight into a SQL query inside quotes. End the quote and comment out the password check, and you're whoever you name. Prove it with <strong>one</strong> request in the web proxy, as admin, and stop there.</p>
+<p><strong>Use the Web proxy.</strong></p>
+<p>Then do the same in <strong>Hack the shop</strong> (mission "Log in as the admin"), and see the fix in the <strong>SQL injection lab</strong>: a parameterised query.</p>
+<ul>
+<li>&#9744; The request, the response status and the role you got</li>
+<li>&#9744; Why it works: the query the server built</li>
+<li>&#9744; The fix, in one line a developer can follow</li>
+<li>&#9744; The retest: the same request should now get 401</li>
+</ul>
+<blockquote>
+<p>Hint: <code>'--</code> closes the email's quote, and <code>--</code> starts a SQL comment, so <code>AND password = ...</code> is never checked.</p>
+</blockquote>
+<p><strong>Question:</strong> Which HTTP status does the injected login get?</p>
+<h2>4. Finding 2: someone else's order</h2>
+<p>Log in as the demo customer and open one of your orders. The API call is <code>/api/orders/</code> and a number. Change the number. If the shop gives you an order that isn't yours, that's an <strong>insecure direct object reference</strong> (IDOR): the API checks that you're logged in, not that the thing is yours.</p>
+<p><strong>Use the Web proxy.</strong></p>
+<ul>
+<li>&#9744; Log in as demo@nimbu.shop first (Login tab), so <code>{{token}}</code> holds your token</li>
+<li>&#9744; Your own orders are 3 and 4; ask for 2</li>
+<li>&#9744; Note what you saw, then stop: one record proves it</li>
+<li>&#9744; The fix: the query must include the caller's user ID</li>
+</ul>
+<blockquote>
+<p>Hint: Writing down someone's address in a report is itself a data leak. Say "order 2 belongs to another customer; it showed a delivery address", not the address.</p>
+</blockquote>
+<p><strong>Question:</strong> Which order number belongs to someone else and proves the finding?</p>
+<h2>5. Finding 3: a token anyone can forge</h2>
+<p>The staging bundle holds a login token. A JWT is three parts: header, payload, signature. The signature only protects the token if its secret is hard to guess. Load the token in the JWT inspector, read what it says, and check its secret against the wordlist. That's an offline check: nothing is sent to the server.</p>
+<p><strong>Use the JWT inspector.</strong></p>
+<ul>
+<li>&#9744; What's in the header and payload? Which algorithm?</li>
+<li>&#9744; Is the secret in the wordlist? Which word?</li>
+<li>&#9744; With the secret, what could an attacker change? (role: admin)</li>
+<li>&#9744; Two fixes: a long random secret from a vault, and the token out of the bundle</li>
+</ul>
+<blockquote>
+<p>Hint: The shop's own mission "Forge a token" shows the other classic JWT mistake: a server that accepts <code>alg: none</code>.</p>
+</blockquote>
+<p><strong>Question:</strong> Which signing algorithm does the token use?
+<strong>Question:</strong> What is the token's secret?</p>
+<h2>6. Score and rank</h2>
+<p>Score each finding's CVSS vector, then rank the register. CVSS describes the flaw; the ranking adds whether it's reachable from the internet and whether anyone is exploiting it.</p>
+<p><strong>Use the CVSS and patch priority.</strong></p>
+<ul>
+<li>&#9744; Score all three vectors</li>
+<li>&#9744; Rank the register: which is first, and why?</li>
+<li>&#9744; For NM-02, why is Privileges Required "Low"?</li>
+</ul>
+<blockquote>
+<p>Hint: The IDOR needs a customer account, which anyone can create for free. So PR:L is honest, but don't let it make the finding sound minor.</p>
+</blockquote>
+<p><strong>Question:</strong> What is the CVSS base score of the login bypass?</p>
+<h2>7. Write findings a developer can fix</h2>
+<p>A finding nobody can reproduce doesn't get fixed. For each one: the exact request, what came back, why it works, the fix in code terms, and the retest. Keep the data out: say what you saw, not the customer's address.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; A developer could reproduce each finding from your text alone</li>
+<li>&#9744; Each fix is specific (a query, a setting), not "improve security"</li>
+<li>&#9744; Each has a retest</li>
+<li>&#9744; "What went well" is honest: tests that only list failures get ignored</li>
+</ul>
+<h2>8. Retest, then tell the board</h2>
+<p>Retest each fix the same way you proved it: the same request should now fail. Then write the board note: no SQL, no CVSS, just what could have happened to the business, what it costs to fix, and what you need them to decide.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; The ask is the first line</li>
+<li>&#9744; Impact in business words: money, customers, regulators</li>
+<li>&#9744; What you don't know (has anyone else found these?)</li>
+</ul>
+<blockquote>
+<p>Hint: Boards decide on money, time and risk. "Two days of developer time to close three ways in" is a decision they can make.</p>
+</blockquote>
+<h2>9. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rules of engagement complete before any test: authorisation, scope, window, stop contacts</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Recon stayed inside scope, every command recorded</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Three findings, each reproducible from your steps alone</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Each finding has a fix a developer can build, and a retest step</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Severity scored with CVSS and adjusted for exposure</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Board note: the risk in business terms and the decisions asked for</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Professional conduct: test accounts only, no more data than proves the point</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Rules of engagement written before testing</li>
+<li>&#9744; Every command and request recorded</li>
+<li>&#9744; Three findings with reproduction, fix and retest</li>
+<li>&#9744; Board note written</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

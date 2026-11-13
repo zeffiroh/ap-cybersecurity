@@ -120,14 +120,6 @@
     return !p || /\/$/.test(p) ? p + "index.html" : p;
   }
 
-  function hereRel() {
-    return (pagePath() || "") + location.search + location.hash;
-  }
-
-  function unlockUrl(extra) {
-    return root + "unlock/?" + (extra ? extra + "&" : "") + "next=" + encodeURIComponent(hereRel());
-  }
-
   function payUrl(ret, extra) {
     var u = new URL(P.payUrl || "pay/", root);
     if (extra) u.search += (u.search ? "&" : "") + extra;
@@ -148,7 +140,7 @@
   if (!P.enabled || !root) return;
 
   var free = path === null || (!product && (P.free || []).some(function (f) { return glob(f).test(path); }));
-  var quiet = /^(unlock|pay|buy|ledger)\//.test(path || "");
+  var quiet = /^(unlock|pay|buy|ledger)\/|^workstation\.html$/.test(path || "");
   var framed = global.self !== global.top;
 
   var css = document.createElement("style");
@@ -219,8 +211,8 @@
       '<h2 id="pw-title">Part of the full course</h2>' +
       "<p>Unlock once and your account keeps every topic, lecture, quiz, lab, unit test, the book and the capstone " +
       "for good. One payment, or a code.</p>" +
-      '<a class="pw-btn" href="' + unlockUrl() + '">Unlock the course</a>' +
-      '<div class="pw-links"><a href="' + unlockUrl("code=1") + '">I have a code</a>' +
+      '<a class="pw-btn" href="' + root + 'store.html#course">Get the course</a>' +
+      '<div class="pw-links"><a href="' + root + 'store.html#redeem">I have a code</a>' +
       '<a href="' + root + 'unit-1/1.1/index.html">Try Topic 1.1 free</a></div>' +
       '<div class="pw-who"></div></div>';
     var box = g.querySelector(".pw-who");
@@ -253,7 +245,7 @@
     var b = bar(/^notebook\.html/.test(path || "") ? '<span>Notes and Python are free here. Linux cells and runbooks come with Labs.</span>' +
       '<a href="' + root + 'store.html#labs">See Labs &rarr;</a>' : /^seminars\.html/.test(path || "") ? '<span>Unlock one seminar with tickets, or subscribe to all of them.</span>' +
       '<a href="' + root + 'store.html#seminars">See the options &rarr;</a>' : '<span>This part is free. The rest of the course unlocks with one payment.</span>' +
-      '<a href="' + unlockUrl() + '">Unlock the full course &rarr;</a>', "pw-ribbon");
+      '<a href="' + root + 'store.html#course">Get the full course &rarr;</a>', "pw-ribbon");
     b.querySelector(".pw-x").addEventListener("click", function () {
       b.remove();
       try { sessionStorage.setItem("pw-ribbon-off", "1"); } catch (e) {}

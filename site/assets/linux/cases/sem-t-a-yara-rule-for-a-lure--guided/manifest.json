@@ -1,0 +1,76 @@
+{
+ "order": 207,
+ "title": "Free tutorial: Write a YARA rule for a lure",
+ "kicker": "Free tutorial",
+ "units": [
+  1,
+  3,
+  4
+ ],
+ "level": "Beginner",
+ "minutes": 15,
+ "summary": "Write a YARA rule that catches a phishing lure and nothing else, and test it on every file.",
+ "tools": [
+  "Alert queue",
+  "Email triage",
+  "YARA-X",
+  "Indicators and ATT&CK"
+ ],
+ "titlePrefix": "Free tutorial: Write a YARA rule for a lure",
+ "teacher": true,
+ "id": "sem-t-a-yara-rule-for-a-lure--guided",
+ "free": true,
+ "next": {
+  "seminar": 4,
+  "title": "Seminar 3: SOC triage: alerts, phishing, threat intel and AI verdicts"
+ },
+ "files": [
+  "case/ai-verdicts.json",
+  "case/alerts-tuesday.json",
+  "case/intel.json",
+  "case/invoice.eml",
+  "case/known_bad.txt",
+  "case/mail.log",
+  "case/proxy.log",
+  "case/reported/bank-details.eml",
+  "case/reported/hr-newsletter.eml",
+  "case/reported/password-expiry.eml",
+  "case/reported/webinar.eml",
+  "case/suspect/svchost-upd.strings.txt"
+ ],
+ "script": {
+  "intro": "Welcome. A YARA rule describes what a file looks like. In this tutorial you write one that catches a phishing lure and nothing else.",
+  "outro": "Tight rules are trusted rules. Seminar 3 puts this next to alert triage, threat intelligence and checking an AI's verdicts.",
+  "steps": [
+   "Read the setting so you know the company, the date and the time zone. Then open the evidence in the case folder.",
+   "The first rule matches on the lure's domain alone. Run it against every file in the case and see what else it catches: the threat-intel feed and the proxy log mention that domain too, so it is too loose. A rule for email should need things only the email has: the subject line, the link path and the threat wording. Add all three as strings, require all of them in the condition, and test again. One match, on the right file, is the goal. A rule that fires on the wrong file wastes an analyst's night.",
+   "Tight rules are trusted rules. Seminar 3 puts this next to alert triage, threat intelligence and checking an AI's verdicts."
+  ]
+ },
+ "base": "sem-t-a-yara-rule-for-a-lure",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-t-a-yara-rule-for-a-lure",
+  "guided": "sem-t-a-yara-rule-for-a-lure--guided",
+  "solo": "sem-t-a-yara-rule-for-a-lure--solo"
+ },
+ "guide": "media/guides/sem-t-a-yara-rule-for-a-lure/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Free tutorial: Write a YARA rule for a lure\n\nWrite a YARA rule that catches a phishing lure and nothing else, and test it on every file.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `ai-verdicts.json`, `alerts-tuesday.json`, `intel.json`, `invoice.eml`, `known_bad.txt`, `mail.log`, `proxy.log`, `reported/bank-details.eml`, `reported/hr-newsletter.eml`, `reported/password-expiry.eml`, `reported/webinar.eml`, `suspect/svchost-upd.strings.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. The setting\n\nThis free tutorial is one step from **Seminar 3: SOC triage: alerts, phishing, threat intel and AI verdicts**. Write a YARA rule that catches a phishing lure and nothing else, and test it on every file.\n\nThe evidence is in `~/case`. Read the README there if you want the whole story."
+  },
+  {
+   "t": "md",
+   "s": "## 2. A YARA rule for the lure\n\nWrite a YARA rule that finds the overdue-invoice lure in mail, so the mail gateway can catch the next one. Test it on **every** file in the case. The first rule below matches on the domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.\n\n- [ ] Test the noisy rule: which files does it match? Are they emails?\n- [ ] Test the tuned rule: it should match only invoice.eml\n- [ ] Test the third rule on the malware's strings\n- [ ] Write one line on what each rule would miss\n\n> Hint: The intel feed and the proxy log mention the domain too. A rule for email should need things only the email has: the subject, the link path and the threat.\n\n```tool yara\n{\"rule\": \"\", \"n\": 6, \"files\": [\"alerts-tuesday.json\", \"intel.json\", \"invoice.eml\", \"known_bad.txt\", \"mail.log\", \"proxy.log\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule kestrel_lookalike_domain\\n{\\n  meta:\\n    description = \\\"Anything that mentions the look-alike domain\\\"\\n  strings:\\n    $d = \\\"kestrel-logistlcs.com\\\"\\n  condition:\\n    $d\\n}\\n\"}}\n```\n\n```tool yara\n{\"rule\": \"\", \"n\": 1, \"files\": [\"invoice.eml\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule kestrel_invoice_lure\\n{\\n  meta:\\n    description = \\\"The overdue-invoice lure email from the look-alike domain\\\"\\n    author = \\\"SOC\\\"\\n    reference = \\\"AL-2201, message 4A1F21C02\\\"\\n  strings:\\n    $subject = \\\"Subject: FINAL NOTICE: overdue invoice\\\"\\n    $link = \\\"kestrel-logistlcs.com/invoices/INV-\\\"\\n    $press = \\\"service suspension\\\"\\n  condition:\\n    all of them\\n}\\n\"}}\n```\n\n```tool yara\n{\"rule\": \"\", \"n\": 1, \"files\": [\"suspect/svchost-upd.strings.txt\"], \"blank\": [\"rule\"], \"a\": {\"rule\": \"rule ksl_ransomware_strings\\n{\\n  meta:\\n    description = \\\"Strings from svchost-upd.exe, the KSL ransomware\\\"\\n  strings:\\n    $mutex = \\\"Global\\\\\\\\ksl-mutex-4471\\\"\\n    $ext = \\\".kestrel-locked\\\"\\n    $note = \\\"README_RESTORE.txt\\\"\\n    $walk = \\\"--walk\\\"\\n  condition:\\n    3 of them\\n}\\n\"}}\n```\n\n?> How many files does the domain-only rule match? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683\n?> How many files does the tuned lure rule match? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Where next\n\nThat was one step of **Seminar 3: SOC triage: alerts, phishing, threat intel and AI verdicts**. The full seminar has the video, every step in three levels (walkthrough, practice and solo), a graded hand-in and a certificate.\n\n- [See the seminar](https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=4)\n- [Try the Hacker Room](https://zeffiroh.github.io/ap-cybersecurity/workstation.html?trial=1)\n- [All job paths](https://zeffiroh.github.io/ap-cybersecurity/careers.html)"
+  }
+ ]
+}

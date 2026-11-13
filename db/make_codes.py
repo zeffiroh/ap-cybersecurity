@@ -44,7 +44,7 @@ def mail(codes, note, money):
     msg["To"] = os.environ["MAIL_TO"]
     msg.set_content(
         f"{len(codes)} new {COURSE} unlock codes ({note}). Each unlocks the full course for one account, once.\n"
-        "Redeem at https://zeffiroh.github.io/ap-cybersecurity/unlock/\n\n" + "\n".join(codes) + "\n\n" + money)
+        "Redeem at https://zeffiroh.github.io/ap-cybersecurity/store.html#redeem\n\n" + "\n".join(codes) + "\n\n" + money)
     sheet = io.StringIO()
     csv.writer(sheet).writerows([["code", "course", "batch"]] + [[c, COURSE, note] for c in codes])
     msg.add_attachment(sheet.getvalue().encode(), maintype="text", subtype="csv",

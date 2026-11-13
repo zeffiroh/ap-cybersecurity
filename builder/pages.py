@@ -72,6 +72,96 @@ def goes_with(page_dir, tids, label="Goes with"):
     return f'<p class="aa-goes"><span>{esc(label)}</span>{out}</p>\n'
 
 
+PATHS = [
+    ("SOC analyst", "Watch the alerts, decide what's real, escalate the one that matters.", [1, 2, 3, 4, 5]),
+    ("Incident responder", "Take a breach from first call to report, on the clock.", [1, 2, 6, 7, 13]),
+    ("Security engineer", "Build the detections, the identity controls and the hardened systems.", [1, 2, 3, 8, 9]),
+    ("Cloud and DevSecOps", "Secure the pipeline, the secrets and the cloud account.", [1, 3, 8, 9]),
+    ("Penetration tester", "Test with permission, prove findings, get them fixed.", [1, 2, 8, 10]),
+    ("Governance and risk", "Threat models, risk registers, audits, breach law and AI rules.", [1, 7, 11, 12]),
+]
+
+
+def seminar_list():
+    import re
+    from .paths import SRC
+    sql = (Path(__file__).resolve().parent.parent / "db" / "seminars.sql").read_text(encoding="utf-8")
+    seed = {int(m.group(1)): (m.group(2), int(m.group(3)), int(m.group(4))) for m in re.finditer(
+        r"\((\d+), \d+, '(?:[^']|'')*',[\s\S]*?'(Foundation|Practitioner|Advanced)', (\d+), (\d+),", sql)}
+    out = {}
+    for f in sorted((SRC / "seminars").glob("*/seminar.json")):
+        info = json.loads(f.read_text(encoding="utf-8"))
+        sid = info.get("seminar_id")
+        if sid and sid in seed:
+            level, minutes, tickets = seed[sid]
+            out[sid] = {"id": sid, "num": "F" if sid == 1 else str(sid - 1), "title": info["title"], "summary": info.get("summary", ""),
+                        "level": level, "hours": minutes / 60, "tickets": tickets, "handin": info.get("handin", ""), "tools": info.get("tools", [])}
+    return out
+
+
+def free_tutorials():
+    from .paths import SRC
+    items = []
+    for f in sorted((SRC / "seminars").glob("t-*/seminar.json")):
+        info = json.loads(f.read_text(encoding="utf-8"))
+        if not info.get("free") or not info.get("published", True):
+            continue
+        cid = "sem-" + f.parent.name
+        items.append((info.get("order", 999), f'<li><a href="notebook.html?ref=rb-{cid}&amp;runbook={cid}">{esc(info["title"].replace("Free tutorial: ", ""))}</a> '
+                      f'<small>about {info.get("minutes", 10)} min &middot; from {esc((info.get("next") or {}).get("title", ""))}</small></li>'))
+    if not items:
+        return ""
+    return ('<h2>Free tutorials</h2>\n<p class="aa-sub">Ten minutes, one tool, one finding. No account needed. Each is one step from a seminar.</p>\n'
+            f'<ul class="cr-tuts">{"".join(x for _, x in sorted(items))}</ul>\n')
+
+
+def careers_page():
+    path = SITE / "careers.html"
+    d = path.parent
+    sems = seminar_list()
+    hrs = lambda h: (f"{h:g}" if h % 1 else f"{int(h)}") + " h"
+    paths = "".join(
+        f'<div class="aa-card cr-path"><h3>{esc(name)}</h3><p>{esc(why)}</p><ol>' + "".join(
+            f'<li><a href="seminars.html?id={s}">{esc(sems[s]["num"])}. {esc(sems[s]["title"])}</a></li>' for s in ids if s in sems) +
+        f'</ol><p class="sx-note">{hrs(sum(sems[s]["hours"] for s in ids if s in sems))} of training &middot; '
+        f'{sum(sems[s]["tickets"] for s in ids if s in sems)} tickets, or the yearly pass</p></div>'
+        for name, why, ids in PATHS)
+    rows = "".join(
+        f'<tr><td><b>{esc(s["num"])}</b></td><td><a href="seminars.html?id={s["id"]}">{esc(s["title"])}</a><br><small>{esc(s["summary"])}</small></td>'
+        f'<td>{esc(s["level"])}</td><td>{hrs(s["hours"])}</td><td>{"Free" if not s["tickets"] else str(s["tickets"]) + " tickets"}</td></tr>'
+        for s in sorted(sems.values(), key=lambda x: x["id"]))
+    total = sum(s["hours"] for s in sems.values())
+    body = ('<section class="cr-hero"><p class="cr-kick">Career training</p><h1>Train like a security analyst, in a hacker room in your browser</h1>\n'
+            f'<p class="aa-sub">{len(sems)} job-skill seminars, about {int(total)} hours, on real tools and our own simulators of the programs analysts use every day. '
+            'Each one ends in a hand-in your teacher grades and a certificate with a number anyone can check.</p>\n'
+            '<p><a class="btn dark" href="workstation.html?trial=1">Try the Hacker Room free</a> '
+            f'<a class="btn" href="seminars.html?id=1">Start the free seminar</a> <a class="btn" href="store.html#seminars">Prices</a></p></section>\n'
+            '<h2>How every seminar works</h2>\n<div class="aa-grid cr-how">'
+            '<div class="aa-card"><h3>1. Watch</h3><p>A recorded seminar with chapters, and the same steps as a written tutorial.</p></div>'
+            '<div class="aa-card"><h3>2. Do it with me</h3><p><b>Walkthrough</b>: every step done in front of you, the tools open with the model answer.</p></div>'
+            '<div class="aa-card"><h3>3. Do it yourself</h3><p><b>Practice</b> with hints, then <b>Solo</b> with none, in the Hacker Room.</p></div>'
+            '<div class="aa-card"><h3>4. Hand it in</h3><p>The document a job expects: a triage note, a rule pack, an incident report. Graded with a rubric.</p></div>'
+            '<div class="aa-card"><h3>5. Get certified</h3><p>A certificate with hours and a verification number, for your CV, LinkedIn or CPE self-reporting.</p></div></div>\n'
+            + free_tutorials() +
+            '<h2>Pick a job path</h2>\n<p class="aa-sub">Each path is a set of seminars in order. Start with the free one; it belongs to every path.</p>\n'
+            f'<div class="aa-grid">{paths}</div>\n'
+            '<h2>The Hacker Room</h2>\n<p>Every lab opens in the Hacker Room: a security desktop in your browser with several Linux terminals and each analyst program as a window. '
+            'Packet viewer and tshark, event viewer, SIEM search in SPL and KQL, Sigma and YARA, a web proxy, a JWT inspector, a cloud IAM simulator, a CERT-In filing desk, '
+            'an AI security simulator and more. Nothing to install, nothing can harm your computer. '
+            '<a href="workstation.html?trial=1">Try it free on a sample case</a>.</p>\n'
+            f'<h2>All {len(sems)} seminars</h2>\n<div class="rb-tablewrap"><table class="st-what cr-table"><tr><th>#</th><th>Seminar</th><th>Level</th><th>Time</th><th>Price</th></tr>{rows}</table></div>\n'
+            '<h2>Prices</h2>\n<p><b>Yearly pass</b>: every seminar for a year, $249 or from Rs 9,999 in India. <b>Or one at a time</b> with tickets ($5 / Rs 200 each, cheaper in packs). '
+            '<a href="store.html#seminars">Go to the Store</a>.</p>\n'
+            '<h2>Questions</h2>\n<details><summary>Do I need to know Linux or programming first?</summary><p>No. The free seminar and seminar 1 start from reading files and logs. '
+            'Every command is explained.</p></details>\n'
+            '<details><summary>Is the certificate accredited?</summary><p>No. It records what you did, the hours and the date, with a number anyone can verify. '
+            'Many certification bodies let you self-report the hours as CPE; acceptance is their decision.</p></details>\n'
+            '<details><summary>Are these real tools?</summary><p>Some are the real thing running in your browser (YARA-X, Sigma with pySigma, Python, SQL, CyberChef, Linux). '
+            'Others are our own simulators that use the real syntax and output, with our own look. Some seminars read saved output from tools that cannot run in a browser.</p></details>\n'
+            '<details><summary>Can I get help?</summary><p>Book a live class or a 1:1 with tickets on <a href="community.html">Classes &amp; forum</a>.</p></details>\n')
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
 def home():
     path = SITE / "index.html"
     d = path.parent
@@ -86,7 +176,16 @@ def home():
                      f'<span class="aa-id">Unit {u["num"]}</span>{esc(u["title"])}</a> '
                      f'<span class="aa-pct" data-aa-unit="{u["num"]}"></span></h3><ol>{rows}</ol>'
                      f'<p style="margin:10px 0 0">{links(d, [("Unit test", t, q), ("Unit quiz", N.unit_quiz(u["num"]), "")])}</p></div>')
-    body = (f'<h1>{SUBJECT}</h1>\n<p class="aa-sub">{len(C.order())} topics &middot; {len(C.atom_order())} skills</p>\n'
+    doors = ('<div class="aa-grid cr-doors">'
+             '<div class="aa-card cr-door"><p class="cr-kick">For students</p><h3>Beginner&rsquo;s Cybersecurity Kickstarter</h3>'
+             f'<p>The full course, aligned with AP Cybersecurity: {len(C.order())} topics, lectures, quizzes, unit tests, the capstone and hands-on labs.</p>'
+             f'<p><a class="btn dark" href="{rel(d, N.target("1.1", "topic"))}">Start Topic 1.1 free</a> <a class="btn" href="store.html#bundle">Course + Labs</a> '
+             '<a class="btn" href="buy/">The book</a></p></div>'
+             '<div class="aa-card cr-door cr-dark"><p class="cr-kick">For careers</p><h3>The Hacker Room</h3>'
+             '<p>Job-ready training for SOC, incident response, cloud, testing and governance: 13 seminars with real tools, graded hand-ins and certificates.</p>'
+             '<p><a class="btn dark" href="workstation.html?trial=1">Try it free</a> <a class="btn" href="careers.html">Job paths</a></p></div></div>\n')
+    body = (f'<h1>{SUBJECT}</h1>\n<p class="aa-sub">Two ways in: learn the ideas, or train for the job.</p>\n{doors}'
+            f'<h2>The course</h2>\n<p class="aa-sub">{len(C.order())} topics &middot; {len(C.atom_order())} skills</p>\n'
             f'{top}\n<h2>Units</h2>\n<div class="aa-grid">{"".join(cards)}</div>')
     emit(path, N.shell(path, f"{BRAND} · {SUBJECT}", body))
 
@@ -234,14 +333,15 @@ def linux_page():
 
 def workstation_page():
     path = SITE / "workstation.html"
-    body = ('<h1 class="ws-h">Analyst workstation</h1>\n<p class="aa-sub">A whole security desktop in your browser: several Linux terminals on one real computer, '
-            'and every analyst program as a window. Open a case from the taskbar to load its evidence and network.</p>\n'
+    body = ('<h1 class="ws-h">The Hacker Room</h1>\n<p class="aa-sub">A whole security desktop in your browser: several Linux terminals on one real computer, '
+            'and every analyst program as a window. Open a case from the taskbar to load its evidence and network. '
+            '<a href="workstation.html?trial=1">Try it free</a> on a sample case.</p>\n'
             '<div id="ws-app" class="ws-app"><div id="ws-desk" class="ws-desk"><div id="ws-icons" class="ws-icons"></div></div>'
             '<div id="ws-start-menu" class="ws-menu" hidden></div>'
             '<nav class="ws-bar" aria-label="Taskbar"><button type="button" id="ws-start" aria-haspopup="true">Start</button>'
             '<div id="ws-tasks" class="ws-tasks"></div><label class="ws-case">Case <select id="ws-case"></select></label>'
             '<span id="ws-casename"></span><span id="ws-clock"></span></nav></div>\n'
-            + theme_assets(path.parent, ["tools.css", "workstation.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation.js"]))
+            + theme_assets(path.parent, ["tools.css", "workstation.css", "workstation-pro.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation-apps.js", "workstation.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -343,6 +443,13 @@ def store_page():
     path = SITE / "store.html"
     body = ('<h1>Store</h1>\n<p class="aa-sub">Each part is sold on its own. In India you pay what you want (some have a minimum); '
             'international prices are on Gumroad. Use the email you sign in with.</p>\n'
+            '<table class="st-what"><tr><th>Course</th><td>Learn the ideas: units, lectures, quizzes, unit tests and the capstone, aligned with AP Cybersecurity.</td></tr>'
+            '<tr><th>Book</th><td>The textbook to keep: PDF and EPUB.</td></tr>'
+            '<tr><th>Labs</th><td>Practise on real incidents: case files you work in the Hacker Room, attack labs and the CTF.</td></tr>'
+            '<tr><th>Seminars</th><td>Learn the programs and get certified: each seminar teaches its toolkit, simulators and the Hacker Room '
+            'step by step, with video, a hands-on lab, a graded hand-in and a certificate.</td></tr>'
+            '<tr><th>Tickets</th><td>Time with your teacher: live classes and 1:1s, or one seminar at a time.</td></tr></table>\n'
+            '<p class="sx-note">Not sure yet? <a href="workstation.html?trial=1">Try the Hacker Room free</a> on a sample case.</p>\n'
             '<div id="st-me" class="st-me"></div>\n<div id="st-products" class="st-grid"></div>\n'
             '<h2 id="redeem">Have a code?</h2>\n<div class="sx-form"><label>Code <input id="st-code" autocomplete="off" spellcheck="false" '
             'placeholder="e.g. LABS-ABCD-EFGH"></label><button class="btn dark" id="st-redeem">Redeem</button> '
@@ -361,7 +468,7 @@ def labs_page():
     attack = (card("Attack the app", "SQL injection lab", SITE / "sqli.html", "Break a staff login with SQL injection, then fix the query so it can't happen again.", "Beginner · 30 min")
               + card("Attack the app", "Hack the shop", SITE / "shop.html", "A deliberately insecure web shop with fourteen vulnerabilities to find, each worth a CTF flag.", "Intermediate · 1 to 2 hours"))
     ctf = card("Capture the flag", "CTF board", SITE / "ctf.html", "Puzzles for every unit, points and a class leaderboard. Runbooks and attack labs hide flags too.", "All levels")
-    tools = (card("Tool", "Analyst workstation", SITE / "workstation.html", "A security desktop in your browser: many terminals, every analyst program as a window, any case loaded.", "Open the desktop")
+    tools = (card("Tool", "The Hacker Room", SITE / "workstation.html", "A security desktop in your browser: many terminals, every analyst program as a window, any case loaded.", "Open the desktop")
              + card("Tool", "Linux lab", SITE / "linux.html", "A real Linux computer in your browser, with 13 step-by-step exercises.", "Start with steps 1 to 5")
              + card("Tool", "JupyterLab", SITE / "lab" / "lab" / "index.html", "Every code book, runnable Python, nothing to install.")
              + card("Tool", "CyberChef", SITE / "cyberchef" / "index.html", "Decode, encrypt, hash and analyse data in a recipe of steps."))
@@ -518,6 +625,7 @@ def run():
     community_page()
     linux_page()
     workstation_page()
+    careers_page()
     store_page()
     labs_page()
     seminars_page()

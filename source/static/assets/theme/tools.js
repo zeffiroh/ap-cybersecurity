@@ -134,8 +134,32 @@
     return api;
   }
 
+  var desk = null;
+  function access() {
+    if (desk) return desk;
+    if (global.Paywall && global.Paywall.has("labs")) return Promise.resolve(true);
+    var P = global.AayatProgress, who = global.Identity ? global.Identity.getEmail() : "";
+    if (!P || !who) return Promise.resolve(false);
+    desk = P.neon().then(function (db) {
+      if (!db) return false;
+      return db.rpc("api_my_access", {}, { attempts: 1 }).then(function (a) { return !!(a && (a.workstation || a.teacher || a.labs)); });
+    }).catch(function () { desk = null; return false; });
+    return desk;
+  }
+  function resetAccess() { desk = null; }
+  function lockHtml(root) {
+    return '<div class="tl-lock"><b>The Hacker Room&rsquo;s programs and simulators come with Seminars or Labs.</b>' +
+      "<p>Each seminar teaches its programs step by step, with a hands-on lab and a certificate. Labs gives you incident cases to work in them.</p>" +
+      '<p><a class="btn dark" href="' + esc(root || "") + 'workstation.html?trial=1">Try the Hacker Room free</a> <a class="btn" href="' + esc(root || "") + 'seminars.html">See the seminars</a> ' +
+      '<a class="btn" href="' + esc(root || "") + 'store.html">Store</a></p></div>';
+  }
+  if (typeof global.addEventListener === "function") {
+    global.addEventListener("aayat-identity", resetAccess);
+    global.addEventListener("aayat-identity-set", resetAccess);
+  }
+
   global.AayatTools = {
-    register: register, get: get, list: list, fence: fence, parse: parse, groups: GROUPS,
+    register: register, get: get, list: list, fence: fence, parse: parse, groups: GROUPS, access: access, lockHtml: lockHtml,
     kit: { esc: esc, css: css, base: base, textFiles: textFiles, json: jsonOf, csv: csv, download: download, frame: frame, md5: md5, digest: digest, bytes: bytesOf }
   };
 })(window);

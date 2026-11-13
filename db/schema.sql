@@ -2430,6 +2430,10 @@ returns jsonb language sql stable security definer set search_path = public, pg_
     'tickets', coalesce(_tickets(_me()), 0),
     'ticketLots', case when _ticket_days() is null then '[]'::jsonb else _ticket_lots(_me()) end,
     'seminarsUntil', _iso(_sub_until(_me())),
+    'seminars', _teacher() or (_me() is not null and (_sub_until(_me()) is not null
+      or exists (select 1 from seminar_access a join seminars s on s.id = a.seminar_id where a.email = _me() and s.tickets > 0))),
+    'workstation', _teacher() or coalesce(_has_labs(_me()), false) or (_me() is not null and (_sub_until(_me()) is not null
+      or exists (select 1 from seminar_access a join seminars s on s.id = a.seminar_id where a.email = _me() and s.tickets > 0))),
     'emails', coalesce((select not no_email from accounts where email = _me()), true),
     'history', coalesce((select jsonb_agg(jsonb_build_object('delta', delta, 'reason', reason, 'at', _iso(created_at)) order by created_at desc)
                  from (select * from ticket_ledger where email = _me() order by created_at desc limit 20) t), '[]'::jsonb))

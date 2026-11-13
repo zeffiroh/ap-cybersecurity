@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capstone B: a breach across teams written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 12 · written tutorial</p>
+<h1>Capstone B: a breach across teams</h1>
+<p class="meta">Advanced &middot; about 480 min</p>
+<p>A breach at a payroll company that crosses every team: a password spray on the VPN, a scan and a script with secrets on a file share, a hop to an application server, salary files copied out on-premises and from the cloud. No hints. Rebuild it, scope it, contain it, file and notify on time as a data processor, leave new detections behind, and brief the board.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s12-capstone-b&amp;runbook=sem-s12-capstone-b">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s12-capstone-b--guided&amp;runbook=sem-s12-capstone-b--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s12-capstone-b--solo&amp;runbook=sem-s12-capstone-b--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>captured/backup-config.ps1.txt</code>, <code>certin-indigo.json</code>, <code>clients.csv</code>, <code>cloud/audit.json</code>, <code>cloud/egress-alert.txt</code>, <code>cloud/policies.json</code>, <code>eventlogs/pay-app01-Security.jsonl</code>, <code>identity/users.csv</code>, <code>README.txt</code>, <code>vpn.log</code>, <code>zeek/conn.log</code>, <code>zeek/smb_files.log</code>.</p>
+<h2>1. Brief, custody, plan</h2>
+<p>Read the README and the alert, hash everything, and write a one-paragraph plan: what you'll look at, in what order, and what you need to know first for the clocks.</p>
+<ul>
+<li>&#9744; Every file hashed</li>
+<li>&#9744; The detection time written down, in UTC</li>
+<li>&#9744; A plan before you start</li>
+</ul>
+<p><strong>Question:</strong> How many evidence files are there?
+<strong>Question:</strong> At what time (UTC, HH:MM) did Indigo notice the incident?</p>
+<pre><code>cd ~/case
+find . -type f | sort
+echo ---
+find . -type f -exec sha256sum {} + | sort -k2
+echo ---
+cat cloud/egress-alert.txt</code></pre>
+<h2>2. How they got in</h2>
+<p>Find the entry point in the VPN log and the directory export.</p>
+<ul>
+<li>&#9744; What pattern do the failures show?</li>
+<li>&#9744; Which account got in, and why did that one work?</li>
+<li>&#9744; What should have happened to that account months ago?</li>
+</ul>
+<p><strong>Question:</strong> How many accounts were tried from 198.51.100.150?
+<strong>Question:</strong> Which account got in?</p>
+<pre><code>cd ~/case
+grep -c &#x27;src=198.51.100.150&#x27; vpn.log
+grep &#x27;src=198.51.100.150&#x27; vpn.log | grep success
+echo ---
+grep intern identity/users.csv</code></pre>
+<h2>3. Across the network</h2>
+<p>Use Zeek to see what the VPN address did inside.</p>
+<ul>
+<li>&#9744; How many addresses did it probe on 445? Which answered?</li>
+<li>&#9744; Which share and file did it open on files01?</li>
+<li>&#9744; What was in that file? Why does that change everything?</li>
+</ul>
+<p><strong>Question:</strong> How many different addresses did 10.80.9.33 probe on port 445?
+<strong>Question:</strong> Which file did the attacker open on the IT$ share? (file name)</p>
+<pre><code>cd ~/case/zeek
+grep -v &#x27;^#&#x27; conn.log | awk -F&#x27;\t&#x27; &#x27;$3==&quot;10.80.9.33&quot; &amp;&amp; $6==&quot;445&quot; {print $5, $12}&#x27; | sort -u | awk &#x27;{print $2}&#x27; | sort | uniq -c
+echo ---
+grep -v &#x27;^#&#x27; smb_files.log | awk -F&#x27;\t&#x27; &#x27;{print $5, $6, $7}&#x27;</code></pre>
+<h2>4. On the application server</h2>
+<p>Read pay-app01's Security log.</p>
+<p><strong>Use the Event viewer on eventlogs/pay-app01-Security.jsonl.</strong></p>
+<ul>
+<li>&#9744; Who logged on, how, from where?</li>
+<li>&#9744; What did they run, in order?</li>
+<li>&#9744; Where did the data go?</li>
+<li>&#9744; What did they try to hide?</li>
+</ul>
+<p><strong>Question:</strong> Which domain received the uploaded archive?
+<strong>Question:</strong> Which event ID shows the log was cleared?</p>
+<h2>5. In the cloud</h2>
+<p>Follow the backup key through the audit trail.</p>
+<ul>
+<li>&#9744; What did the key do, from where, and what was denied?</li>
+<li>&#9744; Which clients' files, which months?</li>
+</ul>
+<p><strong>Question:</strong> How many objects did the attacker download from the bucket?</p>
+<pre><code>cd ~/case/cloud
+grep -c GetObject audit.json
+grep -o &#x27;payroll-exports/[a-z-]*/&#x27; audit.json | sort | uniq -c</code></pre>
+<h2>6. One timeline</h2>
+<p>Put the VPN, the server and the cloud on one clock. Star the key events and download the timeline for the report.</p>
+<p><strong>Use the Merged timeline.</strong></p>
+<ul>
+<li>&#9744; Entry, movement, theft (two routes), cover-up, detection</li>
+<li>&#9744; The gap between the theft and detection</li>
+</ul>
+<p><strong>Question:</strong> How many minutes passed between the VPN login and the first cloud download? (whole minutes)</p>
+<h2>7. Scope: whose data, how much</h2>
+<p>Work out exactly whose data was taken, and who has to know.</p>
+<ul>
+<li>&#9744; People affected, by client</li>
+<li>&#9744; Which client is itself regulated, and what that means for its own clocks</li>
+<li>&#9744; Who has employees in the EU?</li>
+</ul>
+<p><strong>Question:</strong> How many people's payroll records were in the stolen exports?</p>
+<pre><code>cd ~/case
+cat clients.csv
+awk -F, &#x27;NR&gt;1 {s+=$2} END {print s, &quot;people&quot;}&#x27; clients.csv</code></pre>
+<h2>8. Contain and fix</h2>
+<p>Order the containment, then prove the cloud fix with a replay.</p>
+<p><strong>Use the Cloud IAM simulator.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Cut the VPN session; disable intern.payroll; block 198.51.100.150 and 203.0.113.230</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Revoke the backup key; reset localadmin on every server (unique passwords per server)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Isolate pay-app01; keep its disk image</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Remove secrets from the IT$ scripts; restrict the share to IT</td>
+</tr>
+<tr>
+<td>5</td>
+<td>MFA on every VPN account; disable accounts on leaving day</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Backup key: upload only, only from the office; reads of client data need MFA</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Question:</strong> After the policy change, how many attacker actions are still allowed?</p>
+<h2>9. File and notify</h2>
+<p>File with CERT-In, answer the inbox, and write the notification order. Remember who is the processor and who are the fiduciaries.</p>
+<p><strong>Use the CERT-In filing and inbox on certin-indigo.json.</strong></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Who</th>
+<th>Why</th>
+<th>Due (UTC)</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>CERT-In</td>
+<td>Six hours from noticing; Indigo is a service provider</td>
+<td>29 Nov 11:35</td>
+<td>Head of IT and security</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Each client (data fiduciary)</td>
+<td>They must notify the Board and their employees; Indigo processes for them</td>
+<td>At once, by 07:00</td>
+<td>CEO and account managers</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Coral Small Finance Bank, first</td>
+<td>It's RBI-regulated with its own six-hour clock from when it learns</td>
+<td>At once</td>
+<td>Head of IT and security</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Clients' notices to the Data Protection Board and their employees</td>
+<td>Their duty; Indigo supplies facts and a draft notice</td>
+<td>Without delay</td>
+<td>Each client's DPO, supported by Indigo</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Fjord Design's EU parent</td>
+<td>12 EU staff: GDPR, 72 hours, their decision</td>
+<td>Today</td>
+<td>Account manager</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Cyber insurer</td>
+<td>Policy terms</td>
+<td>Today</td>
+<td>CFO</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Question:</strong> Who must tell the affected employees: Indigo or its clients? (one word)</p>
+<h2>10. Leave detections behind</h2>
+<p>Two rules that would have caught this hours earlier: one for the spray, one for the local admin logon.</p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*vpn.log result=failure | stats count by src</code></p>
+<p><strong>Use the Sigma rules.</strong></p>
+<ul>
+<li>&#9744; The spray search finds one source with many failures</li>
+<li>&#9744; The Sigma rule matches the attacker's logon and nothing normal</li>
+<li>&#9744; For each, the time it would have fired, against the time Indigo noticed</li>
+</ul>
+<p><strong>Question:</strong> How many failed VPN logins came from the spraying address?</p>
+<h2>11. Brief the board, report to the team</h2>
+<p>Two documents: a one-page board briefing and the full technical report.</p>
+<p><strong>Use the Report builder.</strong></p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; The board note asks for decisions first</li>
+<li>&#9744; The technical report matches your timeline exactly</li>
+</ul>
+<h2>12. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entry, movement and theft reconstructed across VPN, network, Windows and cloud, with times</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Scope: which data, whose, and how many people, with the counts shown</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Containment and fixes in the right order; the cloud policy at 0 attacker actions and 0 broken</td>
+<td>4</td>
+</tr>
+<tr>
+<td>CERT-In filed on time, and the notification order right for a processor and its clients</td>
+<td>5</td>
+</tr>
+<tr>
+<td>New detections tested on the evidence</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Executive briefing a board can decide from</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Technical report complete and consistent with the timeline</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Every file hashed</li>
+<li>&#9744; Timeline starred and downloaded</li>
+<li>&#9744; Cloud policy at 0 and 0</li>
+<li>&#9744; CERT-In filed with no problems</li>
+<li>&#9744; Both detections tested</li>
+<li>&#9744; Board note and technical report written</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

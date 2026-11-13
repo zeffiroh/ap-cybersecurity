@@ -79,7 +79,8 @@ def cases():
         extra = {"variants": variants(d)} if (d / "variants.json").exists() else {}
         man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json")), **extra), load_expected(d / "expected.json"))
         emit(ASSETS / "linux" / "cases" / d.name / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
-        index.append(meta)
+        if not meta.get("hidden"):
+            index.append(meta)
     for path in sorted(TEACHER_CASES.glob("*.json")):
         bundle = json.loads(rd(path))
         if not bundle.get("published", True):

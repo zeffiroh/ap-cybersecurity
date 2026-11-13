@@ -212,6 +212,8 @@ def notebook_console(browser, base):
     page = browser.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
+    config = (SITE / "assets" / "config.js").read_text(encoding="utf-8") + "\nif (window.APCYBER_PAYWALL) window.APCYBER_PAYWALL.enabled = false;\n"
+    page.route("**/assets/config.js", lambda route: route.fulfill(status=200, content_type="application/javascript", body=config))
     page.goto(base + "/notebook.html?ref=rb-phish&runbook=phish")
     page.wait_for_selector("#pb-dock", state="attached", timeout=60000)
     page.wait_for_function("document.querySelectorAll('#nb-cells .nb-cell').length > 5", timeout=60000)

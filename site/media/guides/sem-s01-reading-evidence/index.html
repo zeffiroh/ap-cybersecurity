@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading evidence: packets, Linux, Windows and network sensors written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 1 · written tutorial</p>
+<h1>Reading evidence: packets, Linux, Windows and network sensors</h1>
+<p class="meta">Foundation &middot; about 360 min</p>
+<p>Read four kinds of evidence from one night at a clinic: a Linux server&#x27;s auth log and processes, a packet capture, Zeek connection logs and Windows event logs. Find a brute force, a script download, a beacon and a hop to a reception PC, then write a host triage note and a network finding.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s01-reading-evidence&amp;runbook=sem-s01-reading-evidence">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s01-reading-evidence--guided&amp;runbook=sem-s01-reading-evidence--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s01-reading-evidence--solo&amp;runbook=sem-s01-reading-evidence--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>auth.log</code>, <code>capture.pcap</code>, <code>crontab.txt</code>, <code>eventlogs/Security.jsonl</code>, <code>ps.txt</code>, <code>README.txt</code>, <code>recovered/m.sh</code>, <code>zeek/conn.log</code>.</p>
+<h2>1. Take stock of the evidence</h2>
+<p>Start every case the same way: read the README, list what you were given, and hash it before you open anything. The hashes prove later that nobody changed the evidence after you received it.</p>
+<ul>
+<li>&#9744; Read README.txt: which machines, which addresses, which times</li>
+<li>&#9744; List every file</li>
+<li>&#9744; Hash every file and keep the list</li>
+</ul>
+<blockquote>
+<p>Hint: <code>ls -R</code> lists folders inside folders. <code>sha256sum</code> prints one hash per file.</p>
+</blockquote>
+<p><strong>Question:</strong> How many evidence files are there, including the README?
+<strong>Question:</strong> What is the IP address of appt01?</p>
+<pre><code>cd ~/case
+ls -R
+echo ---
+sha256sum auth.log ps.txt crontab.txt capture.pcap README.txt recovered/m.sh zeek/conn.log eventlogs/Security.jsonl</code></pre>
+<h2>2. Linux: who was knocking</h2>
+<p>appt01 is open to the internet on port 22. <code>auth.log</code> records every SSH login, good or bad. Count the failures, then count them <strong>by source address</strong>: one address making dozens of guesses is a brute force.</p>
+<ul>
+<li>&#9744; How many failed passwords in total?</li>
+<li>&#9744; Which address made most of them, and how many?</li>
+<li>&#9744; Which user names did it try? Which one is a real account here?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -o 'from [0-9.]*'</code> keeps only the address part of each line; <code>sort | uniq -c | sort -rn</code> counts and ranks them.</p>
+</blockquote>
+<p><strong>Question:</strong> How many failed passwords are in auth.log in total?
+<strong>Question:</strong> Which address made the most failed attempts?
+<strong>Question:</strong> How many failed attempts came from that address?</p>
+<pre><code>cd ~/case
+grep -c &#x27;Failed password&#x27; auth.log
+echo ---
+grep &#x27;Failed password&#x27; auth.log | grep -o &#x27;from [0-9.]*&#x27; | sort | uniq -c | sort -rn
+echo ---
+grep &#x27;Failed password&#x27; auth.log | grep -o &#x27;for [a-z ]*from&#x27; | sort | uniq -c | sort -rn</code></pre>
+<h2>3. Linux: the login and what came next</h2>
+<p>A brute force only matters if it worked. Find the <strong>Accepted</strong> line, then read everything the account did afterwards: <code>sudo</code> lines show each command run as root. Then check the two things an attacker leaves to come back: a scheduled job and a running process.</p>
+<ul>
+<li>&#9744; Which account logged in from 198.51.100.23, when, and with what (password or key)?</li>
+<li>&#9744; Which commands did it run with sudo?</li>
+<li>&#9744; What did the script change? Read recovered/m.sh</li>
+<li>&#9744; Which cron line and which process are new?</li>
+</ul>
+<blockquote>
+<p>Hint: The deploy account logs in with a key from the IT admin PC every night; that one is normal. Compare the cron lines with what the script added.</p>
+</blockquote>
+<p><strong>Question:</strong> Which account logged in with a password from 198.51.100.23?
+<strong>Question:</strong> What file does the new cron job run? (full path)
+<strong>Question:</strong> At what time (UTC, HH:MM:SS) did that login succeed?</p>
+<pre><code>cd ~/case
+grep &#x27;Accepted&#x27; auth.log
+echo ---
+grep &#x27;sudo&#x27; auth.log | grep COMMAND
+echo ---
+cat recovered/m.sh
+echo ---
+cat crontab.txt
+echo ---
+grep -E &#x27;sysmon|\.m\.sh&#x27; ps.txt</code></pre>
+<h2>4. Packets: the download</h2>
+<p>Now the wire. The capture is the core switch mirror from 01:15. In the packet viewer a <strong>display filter</strong> keeps only the packets you ask for. Start with every HTTP request, then everything to or from the download server, and follow the stream of the first download.</p>
+<p><strong>Use the Packet viewer on capture.pcap.</strong></p>
+<p><strong>Use the Packet viewer on capture.pcap.</strong></p>
+<p>The Linux cell below asks tshark the same question on the command line.</p>
+<ul>
+<li>&#9744; Which two files were fetched, from which host name?</li>
+<li>&#9744; Which program fetched each one? (the User-Agent)</li>
+<li>&#9744; What kind of file came back each time?</li>
+</ul>
+<blockquote>
+<p>Hint: The first request's User-Agent is Wget, which matches the sudo line. The second is curl, which matches the script.</p>
+</blockquote>
+<p><strong>Question:</strong> Which host name served /m.sh?
+<strong>Question:</strong> Which User-Agent fetched /a.bin?</p>
+<pre><code>cd ~/case
+tshark -r capture.pcap -Y &#x27;http.request&#x27; -T fields -e ip.src -e http.host -e http.request.uri -e http.user_agent</code></pre>
+<h2>5. Packets: the beacon</h2>
+<p>After the download, appt01 keeps calling the same server over TLS. The content is encrypted, but the <strong>timing</strong> and the <strong>server name</strong> (SNI) are not. Regular calls at a fixed interval are a beacon: a program checking in for instructions.</p>
+<p><strong>Use the Packet viewer on capture.pcap.</strong></p>
+<p><strong>Use the Packet viewer on capture.pcap.</strong></p>
+<ul>
+<li>&#9744; When does each TLS Client Hello to 203.0.113.77 start?</li>
+<li>&#9744; How far apart are they? Does that match the cron line?</li>
+<li>&#9744; Compare with the TLS to portal and backup: why are those normal?</li>
+</ul>
+<blockquote>
+<p>Hint: Look at the Time column. The cron line runs every ten minutes.</p>
+</blockquote>
+<p><strong>Question:</strong> How many minutes apart are the TLS connections to 203.0.113.77?</p>
+<h2>6. Network sensor: who talked to whom</h2>
+<p>Zeek writes one line per connection: who opened it, to which address and port, how long it lasted and how many bytes went each way. It's the fastest way to see the whole night at once. The fields are separated by tabs; the <code>#fields</code> line names them.</p>
+<ul>
+<li>&#9744; List every pair: from, to, port, service, with a count</li>
+<li>&#9744; How many connections did appt01 open to 203.0.113.77?</li>
+<li>&#9744; Which internal machine did appt01 connect to on port 445 (Windows file sharing)? Why is that strange for an appointments server?</li>
+<li>&#9744; Which connection moved the most bytes? Is it suspicious?</li>
+</ul>
+<blockquote>
+<p>Hint: Field 3 is id.orig_h (who opened it), 5 is id.resp_h, 6 is id.resp_p, 8 is service and 11 is resp_bytes. The biggest transfer is the nightly backup, which is internal and runs at 01:30 every night.</p>
+</blockquote>
+<p><strong>Question:</strong> How many connections did appt01 open to 203.0.113.77?
+<strong>Question:</strong> Which internal address did appt01 connect to on port 445?</p>
+<pre><code>cd ~/case/zeek
+grep -v &#x27;^#&#x27; conn.log | awk -F&#x27;\t&#x27; &#x27;{print $3, &quot;-&gt;&quot;, $5&quot;:&quot;$6, $8}&#x27; | sort | uniq -c | sort -rn
+echo ---
+grep -v &#x27;^#&#x27; conn.log | awk -F&#x27;\t&#x27; &#x27;$5==&quot;10.30.2.33&quot; {print $1, $3, $6, $12, $11}&#x27;</code></pre>
+<h2>7. Windows: the hop to reception</h2>
+<p>The reception PC saw those port 445 connections as <strong>logons</strong>. In the Security log, 4625 is a failed logon and 4624 a successful one; Logon Type 3 means over the network. 5140 is a share being opened and 5145 a file in it being read.</p>
+<p><strong>Use the Event viewer on eventlogs/Security.jsonl.</strong></p>
+<p><strong>Use the Event viewer on eventlogs/Security.jsonl.</strong></p>
+<ul>
+<li>&#9744; How many failed logons came from appt01, for which account?</li>
+<li>&#9744; When did the logon succeed, and with which Logon Type?</li>
+<li>&#9744; Which share was opened, and which files were read?</li>
+<li>&#9744; What kind of data is in that share? Why does that raise the stakes?</li>
+</ul>
+<blockquote>
+<p>Hint: The one 4625 on 5 Nov at 03:31 is the receptionist mistyping at the keyboard (Logon Type 2). It isn't part of this.</p>
+</blockquote>
+<p><strong>Question:</strong> How many failed logons came from 10.30.1.20?
+<strong>Question:</strong> Which share did the attacker open on rcp-pc03?
+<strong>Question:</strong> How many files were read from it?</p>
+<h2>8. A sensor rule for next time</h2>
+<p>Turn what you found into rules the IDS can run on every packet, so the next download and the next beacon raise an alert by themselves. Run them on the capture and check two things: they catch the bad traffic, and they don't fire on the portal, the backup or the database.</p>
+<p><strong>Use the IDS rules on capture.pcap.</strong></p>
+<ul>
+<li>&#9744; Rule 1 catches both downloads</li>
+<li>&#9744; Rule 2 catches the three beacons</li>
+<li>&#9744; No alert on internal traffic</li>
+<li>&#9744; One line on what each rule would miss</li>
+</ul>
+<blockquote>
+<p>Hint: A real server rarely needs Wget or curl to reach the internet, so those User-Agents are worth an alert there. A beacon rule on one server name is easy to evade with a new name; the timing is the more lasting sign.</p>
+</blockquote>
+<p><strong>Question:</strong> How many alerts do the two rules give on the capture?</p>
+<h2>9. Write the triage note and the network finding</h2>
+<p>Two short documents carry this to the next person: a <strong>host triage note</strong> for appt01 and a <strong>network finding</strong>. Each says what you checked, with the exact commands and filters, so anyone can repeat it. Keep facts apart from guesses.</p>
+<p><strong>Use the Report builder.</strong></p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; Commands and filters written so someone else can repeat them</li>
+<li>&#9744; Times in UTC</li>
+<li>&#9744; What you don't know is said plainly</li>
+<li>&#9744; Each next step has an owner</li>
+</ul>
+<blockquote>
+<p>Hint: Write "we have not analysed the binary", not "it is probably ransomware". A guess in a triage note becomes a fact by the third person who reads it.</p>
+</blockquote>
+<h2>10. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Evidence hashed and listed before any analysis</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Brute force and the successful login found in auth.log, with the commands used</td>
+<td>4</td>
+</tr>
+<tr>
+<td>What happened after the login: the download, the cron job and the running process</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Packets: the download and the beacon found with display filters, the filters written down</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Zeek conn.log: who talked to whom, including the connection to the reception PC</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Windows: failed and successful logons and the share access, with event IDs</td>
+<td>4</td>
+</tr>
+<tr>
+<td>IDS rules that catch the download and the beacon, and nothing normal</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Host triage note and network finding: facts kept apart from guesses, next steps with owners</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; All questions answered</li>
+<li>&#9744; Every filter and command you used is in the notebook</li>
+<li>&#9744; Both notes complete</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

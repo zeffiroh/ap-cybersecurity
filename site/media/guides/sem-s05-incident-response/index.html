@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident response: ransomware, lateral movement and memory written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 5 · written tutorial</p>
+<h1>Incident response: ransomware, lateral movement and memory</h1>
+<p class="meta">Practitioner &middot; about 360 min</p>
+<p>Take a ransomware incident at an engineering firm from the first call to the executive summary: keep a chain of custody, rebuild the night from VPN, Windows, Sysmon and process logs, read memory-forensics and triage output, map every step to ATT&amp;CK, decide under pressure in a tabletop, and write the report.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s05-incident-response&amp;runbook=sem-s05-incident-response">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s05-incident-response--guided&amp;runbook=sem-s05-incident-response--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s05-incident-response--solo&amp;runbook=sem-s05-incident-response--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>backups.txt</code>, <code>captured/hayabusa-fs02.csv</code>, <code>captured/velociraptor-fs02-services.csv</code>, <code>captured/volatility-eng-ws14.txt</code>, <code>eventlogs/eng-ws14-Security.jsonl</code>, <code>eventlogs/eng-ws14-Sysmon.jsonl</code>, <code>eventlogs/fs02-Security.jsonl</code>, <code>eventlogs/fs02-System.jsonl</code>, <code>hr_note.txt</code>, <code>process.csv</code>, <code>README.txt</code>, <code>share_listing.txt</code>, <code>suspect/locker.strings.txt</code>, <code>suspect/RESTORE-FILES.txt</code>, <code>tabletop-garnet-ransomware.json</code>, <code>vpn.log</code>.</p>
+<h2>1. Take custody of the evidence</h2>
+<p>Before you read anything, hash it, and start a <strong>chain of custody</strong>: who handled which file, when, and what its hash was. If this ends up with the police, an insurer or a court, the custody log is what makes your evidence count.</p>
+<p><strong>Use the Hex, strings and hashes on suspect/RESTORE-FILES.txt.</strong></p>
+<ul>
+<li>&#9744; Hash every file (the Linux cell)</li>
+<li>&#9744; In the Hex tool, open the ransom note, hash it and add a custody entry</li>
+<li>&#9744; Add a custody entry for locker.strings.txt too</li>
+<li>&#9744; Download the chain of custody</li>
+</ul>
+<blockquote>
+<p>Hint: A custody entry says what you did ("received from IT", "hashed", "copied for analysis"), when, and who you are.</p>
+</blockquote>
+<p><strong>Question:</strong> How many evidence files are there, including the README and the tabletop?
+<strong>Question:</strong> What are the first 8 characters of the ransom note's SHA-256?</p>
+<pre><code>cd ~/case
+find . -type f | sort
+echo ---
+find . -type f -exec sha256sum {} + | sort -k2</code></pre>
+<h2>2. What happened, in one look</h2>
+<p>Start from the damage and work backwards. Read the ransom note, the share listing and the backup report. Write down three facts: what was encrypted, when it started, and what is left to restore from.</p>
+<ul>
+<li>&#9744; Which extension do the encrypted files have?</li>
+<li>&#9744; When was the first file renamed?</li>
+<li>&#9744; What does the attacker claim besides encryption?</li>
+<li>&#9744; Which backup survived, and how much work will be lost?</li>
+</ul>
+<blockquote>
+<p>Hint: The NAS backup was on the network, so it was encrypted too. The tape was taken off site.</p>
+</blockquote>
+<p><strong>Question:</strong> Which extension did the ransomware add?
+<strong>Question:</strong> At what time (UTC, HH:MM) were the first files renamed?
+<strong>Question:</strong> Which backup can you restore from? (one word: tape, nas or shadow)</p>
+<pre><code>cd ~/case
+cat suspect/RESTORE-FILES.txt
+echo ---
+cat share_listing.txt
+echo ---
+cat backups.txt</code></pre>
+<h2>3. Rebuild the night on one timeline</h2>
+<p>Put every log on one clock. The merged timeline reads the VPN log, both machines' event logs and the process export together, sorted by time. Star the events that tell the story; the gaps tell you something too.</p>
+<p><strong>Use the Merged timeline.</strong></p>
+<ul>
+<li>&#9744; When did the attacker get in, and through what?</li>
+<li>&#9744; When did they reach eng-ws14, and how?</li>
+<li>&#9744; When did they reach fs02, and as whom?</li>
+<li>&#9744; Star the key events and download the timeline</li>
+</ul>
+<blockquote>
+<p>Hint: Narrow it with From 2026-11-06 22:40 and To 2026-11-07 00:00. The VPN log uses the same UTC clock as Windows.</p>
+</blockquote>
+<p><strong>Question:</strong> At what time (UTC, HH:MM:SS) did the VPN login succeed?
+<strong>Question:</strong> Which account was used for the VPN login?</p>
+<h2>4. The process tree: from a shell to the keys</h2>
+<p>Every program has a parent. The process tree shows who started what, so you can follow the attacker's hands on each machine. The tool flags the usual tells: programs in folders anyone can write to, hidden PowerShell, downloads, deleting backups.</p>
+<p><strong>Use the Process tree.</strong></p>
+<ul>
+<li>&#9744; On eng-ws14: what did the attacker run from the RDP session's cmd.exe, in order?</li>
+<li>&#9744; Which process read lsass's memory, and with which DLL?</li>
+<li>&#9744; On fs02: what started the encryption, and what ran just before it?</li>
+<li>&#9744; Mark every attacker process</li>
+</ul>
+<blockquote>
+<p>Hint: comsvcs.dll is a real Windows DLL; its MiniDump function writes a process's memory to a file. Attackers use it because it's already on every machine.</p>
+</blockquote>
+<p><strong>Question:</strong> Which DLL was used to dump lsass's memory?
+<strong>Question:</strong> Which service started the programs on fs02?</p>
+<h2>5. Memory: what the RAM remembered</h2>
+<p>The incident team took a memory image of eng-ws14 at 01:14 and ran Volatility on it. We can't re-run Volatility in the browser, but we can read its saved output. Memory shows things logs can miss: exited processes, the command lines, network connections and who was in which session.</p>
+<ul>
+<li>&#9744; Which PID is lsass, and which process dumped it?</li>
+<li>&#9744; What did nt.exe do with the dump?</li>
+<li>&#9744; Which account and password hash did px.exe use, against which server?</li>
+<li>&#9744; Which session were they in, and whose was the other one?</li>
+</ul>
+<blockquote>
+<p>Hint: In px.exe's command line, -H is an NTLM hash. Using a hash instead of a password is "pass the hash". The netscan line shows the connection it made.</p>
+</blockquote>
+<p><strong>Question:</strong> What is lsass's PID on eng-ws14?
+<strong>Question:</strong> Which account did px.exe use on fs02?
+<strong>Question:</strong> In which RDP session number was the attacker?</p>
+<pre><code>cd ~/case/captured
+grep -E &#x27;^(724|6630|6711|6790) &#x27; volatility-eng-ws14.txt
+echo ---
+grep -A4 &#x27;windows.cmdline&#x27; volatility-eng-ws14.txt
+echo ---
+grep -A4 &#x27;windows.sessions&#x27; volatility-eng-ws14.txt</code></pre>
+<h2>6. The file server: how they arrived</h2>
+<p>On fs02 the same night looks like an administrator logging on over the network and installing a service. Read it in fs02's own logs, then compare with the Hayabusa and Velociraptor output the team captured.</p>
+<p><strong>Use the Event viewer on eventlogs/fs02-Security.jsonl.</strong></p>
+<p><strong>Use the Event viewer on eventlogs/fs02-System.jsonl.</strong></p>
+<ul>
+<li>&#9744; When did adm.rjoshi log on, from where, with which package (Kerberos or NTLM)?</li>
+<li>&#9744; Which share was used to copy the service file?</li>
+<li>&#9744; Which service was installed, running as whom?</li>
+<li>&#9744; What did Hayabusa flag as critical?</li>
+</ul>
+<blockquote>
+<p>Hint: An administrator normally logs on with Kerberos. NTLM from a design workstation at 23:20 on a Friday, six seconds before a new service, is the pass-the-hash pattern.</p>
+</blockquote>
+<p><strong>Question:</strong> From which IP address did adm.rjoshi log on to fs02?
+<strong>Question:</strong> Which command deleted the shadow copies?</p>
+<pre><code>cd ~/case/captured
+cut -d, -f1-3 hayabusa-fs02.csv
+echo ---
+grep -i &#x27;crit&#x27; hayabusa-fs02.csv | cut -d, -f2,8
+echo ---
+grep -i winupd velociraptor-fs02-services.csv</code></pre>
+<h2>7. Map the attack to ATT&amp;CK</h2>
+<p>ATT&amp;CK gives each step a shared name, so a reader at another company, an insurer or CERT-In knows exactly what you mean. Map every step on your timeline to one technique, with the evidence that proves it.</p>
+<p><strong>Use the Indicators and ATT&amp;CK.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Time (UTC)</th>
+<th>Step</th>
+<th>Technique</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>22:44</td>
+<td>VPN login with a valid account, no MFA</td>
+<td>T1133, T1078</td>
+<td>vpn.log</td>
+</tr>
+<tr>
+<td>22:52</td>
+<td>RDP to eng-ws14</td>
+<td>T1021.001</td>
+<td>eng-ws14 4624 type 10</td>
+</tr>
+<tr>
+<td>22:54</td>
+<td>whoami, net group, nltest</td>
+<td>T1087.002, T1018</td>
+<td>process.csv</td>
+</tr>
+<tr>
+<td>22:58</td>
+<td>Toolkit downloaded with hidden PowerShell</td>
+<td>T1105, T1059.001</td>
+<td>process.csv</td>
+</tr>
+<tr>
+<td>23:05</td>
+<td>lsass dumped with comsvcs.dll</td>
+<td>T1003.001</td>
+<td>Sysmon 1, 10, 11; Volatility</td>
+</tr>
+<tr>
+<td>23:20</td>
+<td>adm.rjoshi's hash used on fs02 over SMB</td>
+<td>T1550.002, T1021.002</td>
+<td>fs02 4624 NTLM, 5140 ADMIN$</td>
+</tr>
+<tr>
+<td>23:20</td>
+<td>Service WinUpdSvc runs the payload</td>
+<td>T1569.002</td>
+<td>7045; Velociraptor</td>
+</tr>
+<tr>
+<td>23:41</td>
+<td>Shadow copies deleted, recovery off</td>
+<td>T1490</td>
+<td>Hayabusa; process.csv</td>
+</tr>
+<tr>
+<td>23:42</td>
+<td>Share encrypted, extortion note</td>
+<td>T1486, T1657</td>
+<td>share_listing.txt; note</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Every row has a technique and a piece of evidence</li>
+<li>&#9744; Mark the techniques on the heatmap</li>
+<li>&#9744; Which one step, if blocked, would have stopped the rest?</li>
+</ul>
+<p><strong>Question:</strong> Which ATT&amp;CK technique ID is "Inhibit System Recovery"?</p>
+<h2>8. Decide under pressure</h2>
+<p>Responders make calls before they have all the facts. Play the tabletop as the incident lead. Each choice costs time; the debrief at the end says what good looks like.</p>
+<p><strong>Use the Tabletop exercise on tabletop-garnet-ransomware.json.</strong></p>
+<ul>
+<li>&#9744; Play it once as the incident lead</li>
+<li>&#9744; Play it again as the managing director: which call is hardest from that seat?</li>
+<li>&#9744; For each decision, one line on why</li>
+</ul>
+<blockquote>
+<p>Hint: Isolate, don't power off: memory is evidence. And the six-hour CERT-In clock starts when you noticed, not when you finish investigating.</p>
+</blockquote>
+<p><strong>Question:</strong> What is the best score you can get in the tabletop?</p>
+<h2>9. Write the executive summary and the technical annex</h2>
+<p>Two readers, one report. The <strong>Summary</strong> section is the executive summary: half a page a managing director can act on, with the decisions needed today. The rest is the technical annex for IT, the insurer and CERT-In.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; The summary has no jargon and ends with the decisions needed</li>
+<li>&#9744; The timeline is in UTC and matches your merged timeline</li>
+<li>&#9744; Scope says what was affected <strong>and</strong> what was checked and not affected</li>
+<li>&#9744; Each lesson leads to an action</li>
+</ul>
+<blockquote>
+<p>Hint: Read your summary as if you were the managing director at 08:00 on a Saturday. Can you decide from it? Is "pass the hash" in it? It shouldn't be.</p>
+</blockquote>
+<h2>10. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Evidence hashed and a chain of custody kept for every file you handled</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Entry point found and backed by evidence: the VPN, the account and the missing MFA</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Lateral movement reconstructed host by host, with times</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Credential theft shown from the process tree and the memory output</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Impact: what was encrypted, when, and which recovery options were destroyed</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Timeline mapped to ATT&amp;CK, one technique per step with its evidence</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Tabletop decisions made and defended</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Executive summary a non-technical reader can act on, and a complete technical annex</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Chain of custody downloaded</li>
+<li>&#9744; Timeline with the key events starred</li>
+<li>&#9744; ATT&amp;CK table complete</li>
+<li>&#9744; Tabletop played</li>
+<li>&#9744; Report complete</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

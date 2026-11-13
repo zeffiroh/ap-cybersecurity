@@ -1,0 +1,150 @@
+{
+ "order": 8,
+ "title": "Identity from both sides: AD, Entra and cloud IAM",
+ "kicker": "Seminar 7",
+ "units": [
+  2,
+  4
+ ],
+ "level": "Practitioner",
+ "minutes": 300,
+ "summary": "Review a company's accounts like an auditor, then walk the same directory like an attacker: find the path from a helpdesk login to Domain Admins, see the kerberoast and the DCSync in the domain controller's logs, follow a stolen cloud key through the audit trail, and cut it all off with a least-privilege policy and detections.",
+ "tools": [
+  "Identity and access (review and attack paths)",
+  "Event viewer",
+  "Kerberos trace (captured)",
+  "Cloud IAM simulator",
+  "Sigma rules",
+  "Report builder"
+ ],
+ "titlePrefix": "Identity from both sides: AD, Entra and cloud IAM",
+ "teacher": true,
+ "id": "sem-s07-identity",
+ "seminarId": 8,
+ "rubric": [
+  [
+   "Access review: every high-risk account found and a decision made for each, with the reason",
+   4
+  ],
+  [
+   "Attack path from the helpdesk account to Domain Admins, every hop explained",
+   4
+  ],
+  [
+   "Kerberoasting shown in the domain controller's log and the Kerberos trace",
+   4
+  ],
+  [
+   "Service account to domain admin: the hop through app02 and the DCSync, with times",
+   4
+  ],
+  [
+   "Cloud: what the stolen key did, from the audit log",
+   3
+  ],
+  [
+   "Policy diff: least privilege that stops every attacker action and breaks no normal work",
+   5
+  ],
+  [
+   "Detections: rules for kerberoasting and DCSync, tested on the logs",
+   3
+  ],
+  [
+   "Write-up: the path, the fix for each hop, in the order to do them",
+   3
+  ]
+ ],
+ "handin": "An attack path, a policy diff, the detections and the fix.",
+ "files": [
+  "case/captured/app02-sync-ps1.txt",
+  "case/captured/zeek-kerberos.log",
+  "case/cloud/audit.json",
+  "case/cloud/policies.json",
+  "case/eventlogs/app02-Security.jsonl",
+  "case/eventlogs/dc01-Security.jsonl",
+  "case/identity/ad_edges.csv",
+  "case/identity/users.csv",
+  "case/README.txt"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Identity from both sides: AD, Entra and cloud IAM\n\nReview a company's accounts like an auditor, then walk the same directory like an attacker: find the path from a helpdesk login to Domain Admins, see the kerberoast and the DCSync in the domain controller's logs, follow a stolen cloud key through the audit trail, and cut it all off with a least-privilege policy and detections.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `captured/app02-sync-ps1.txt`, `captured/zeek-kerberos.log`, `cloud/audit.json`, `cloud/policies.json`, `eventlogs/app02-Security.jsonl`, `eventlogs/dc01-Security.jsonl`, `identity/ad_edges.csv`, `identity/users.csv`, `README.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Who's who\n\nStart like an auditor: read the directory before you read any alert. users.csv lists every account with its groups, MFA and last logon. ad_edges.csv lists **relationships**: who is a member of what, who can reset whose password, who is an admin where, and who is signed in where.\n\n- [ ] How many accounts? How many without MFA?\n- [ ] Which accounts are in powerful groups (Domain-Admins, Server-Admins, Backup-Operators)?\n- [ ] Which relationship in ad_edges.csv surprises you?\n\n> Hint: `grep -c` counts lines; `awk -F, '$7==\"no\"'` keeps accounts whose mfa column says no.\n\n?> How many accounts are in users.csv? :: sha256:6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918\n?> How many accounts have no MFA? :: sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case/identity\ncat users.csv\necho ---\ngrep -c . users.csv\nawk -F, '$7==\"no\" {print $1, $4}' users.csv\necho ---\ncat ad_edges.csv"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Review access like an auditor\n\nThe **Access review** tab flags the classic problems: no MFA, admin rights outside IT, temporary staff with admin, stale accounts, disabled accounts still in groups, leavers. Make a decision for each flagged account and write one line of why.\n\n```tool identity\n{\"decisions\": {\"t.mehta\": \"reduce\", \"s.rao\": \"disable\", \"p.das\": \"delete\", \"svc-sql\": \"reduce\", \"a.khan\": \"keep\", \"h.verma\": \"keep\"}, \"n\": 2, \"blank\": [\"decisions\"]}\n```\n\n- [ ] A decision for every high-risk account\n- [ ] For service accounts: what replaces MFA? (long random passwords, managed service accounts, no interactive logon)\n- [ ] Which finding would you fix first, and why?\n\n> Hint: A contractor in Server-Admins is critical. An account unused for 140 days should be disabled, not deleted, until its owner confirms.\n\n?> Which account does the review mark as critical? :: sha256:929fe6389c46220a957b74f48e63bc204a58219c23663a1336b274deb7b9fad0"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Walk it like an attacker\n\nNow switch sides. In the **Attack paths** tab, start from h.verma (the phished account) and ask for paths to Domain-Admins. Each arrow is one thing the attacker can do with what they already have.\n\n```tool identity\n{}\n```\n\n- [ ] Write the path hop by hop, with what each hop means\n- [ ] Which hop needs a password, which needs nothing new?\n- [ ] Which other accounts could walk the same path from Server-Admins onwards?\n- [ ] Which single change breaks the most paths?\n\n> Hint: \"HasSessionOn\" means a saved login: whoever is admin on app02 can take adm.k.nair's credentials from it. The scheduled task keeps that login there every night.\n\n?> Which service account is on the path from h.verma to Domain-Admins? :: sha256:4730569a834f6611cf3fee57fa0f7978cffd65362d63694932b6d02bd92ecd55\n?> On which server is the Domain Admin's login saved? :: sha256:5d69c8bd4151e59b9b414d0176e43f43bc03ae1baa576a1e6dab5e398c4c0173"
+  },
+  {
+   "t": "md",
+   "s": "## 4. The kerberoast in the logs\n\nThe attacker didn't even need the password reset. Any domain user can ask for a **service ticket** for any account with a service name (SPN), and part of that ticket is encrypted with the service account's password. With the old RC4 cipher it can be cracked offline. That's kerberoasting. Find it on the domain controller, then in Zeek's Kerberos log.\n\n```tool events\n{\"file\": \"eventlogs/dc01-Security.jsonl\", \"ids\": \"4769\", \"q\": \"0x17\", \"n\": 6, \"blank\": [\"ids\", \"src\", \"q\"]}\n```\n\n- [ ] Who asked for RC4 tickets (0x17), from where, for which services, how fast?\n- [ ] What does normal look like? (0x12 is AES)\n- [ ] Find the same requests in zeek-kerberos.log\n\n> Hint: Six service tickets in ten seconds, all RC4, from a helpdesk PC, is not how people work. Normal users ask for tickets to the servers they use, with AES.\n\n?> How many RC4 service tickets did h.verma request? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683\n?> What does encryption type 0x17 mean? (the cipher name) :: sha256:d81560bef5d827d9c47f2ce8baf415f51bbd95e2193fe63771ec82c2c9a7e509"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case/captured\ngrep -v '^#' zeek-kerberos.log | awk -F'\\t' '{print $8}' | sort | uniq -c\necho ---\ngrep rc4 zeek-kerberos.log | awk -F'\\t' '{print $2, $5, $6}'"
+  },
+  {
+   "t": "md",
+   "s": "## 5. From a service account to the domain\n\nAn hour later svc-sql logs on to app02. Follow it: what did it run, what was it after, and what happened on the domain controller next? On the DC, a 4662 with the replication rights is a **DCSync**: asking the DC for every password hash, the way another DC would. Only domain controllers should ever do that.\n\n```tool events\n{\"file\": \"eventlogs/app02-Security.jsonl\", \"ids\": \"4624, 4672, 4688\", \"q\": \"svc-sql\", \"n\": 5, \"blank\": [\"ids\", \"src\", \"q\"]}\n```\n\n```tool events\n{\"file\": \"eventlogs/dc01-Security.jsonl\", \"ids\": \"4662\", \"n\": 5, \"blank\": [\"ids\", \"src\", \"q\"]}\n```\n\n- [ ] When did svc-sql log on to app02, from where?\n- [ ] Why save the SECURITY and SYSTEM hives? (what's inside)\n- [ ] What was the findstr looking for?\n- [ ] Which 4662 events are DCSync by someone who isn't a DC?\n\n> Hint: The SECURITY hive holds LSA secrets, including the saved password of every scheduled task. DC02$ is the other domain controller; its replication is normal.\n\n?> Which account performed the DCSync? :: sha256:02d29939ffdd2e5b2d52f065d35650c3b3ae92511759a319f0cce7b1df623ab0\n?> From which address did that account log on to dc01? :: sha256:f4d8c2d33b097e07a224ebd5d22f4551b374c4b9b9b99f8b02c73db7c27754ad"
+  },
+  {
+   "t": "md",
+   "s": "## 6. The cloud side: one key in a script\n\nThe findstr found what it was looking for: a cloud access key in sync.ps1. Read the cloud audit trail and see what the key did, from where. Then load the policies into the Cloud IAM simulator and replay the audit log **as it is**: everything the attacker did was allowed.\n\n- [ ] Which identity, from which address, did what, in order?\n- [ ] What did it create so it could come back?\n- [ ] What was stopped, and by what?\n- [ ] Why did reporting-sync have permission to do any of this?\n\n> Hint: `grep -o '\"action\": \"[A-Za-z]*\"'` lists the actions. The office's address is 203.0.113.60.\n\n?> From which address did the stolen key work? :: sha256:fae7833f06e0b1d7a347165c251458b16d9224a7b411f0245eeb2e471db3e00e\n?> Which user did the attacker create? :: sha256:e9458a9cdd76a71daeec0fc2f7554feda75296900e8c83dd890b0d2559f71a79"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case/cloud\ngrep -o '\"identity\": \"[^\"]*\"\\|\"action\": \"[A-Za-z]*\"\\|\"source_ip\": \"[^\"]*\"' audit.json | paste - - - | sort | uniq -c"
+  },
+  {
+   "t": "md",
+   "s": "## 7. Least privilege: the policy diff\n\nRewrite the policies so the attacker's actions fail and normal work goes on. Replay the audit log after each change: the simulator says how many attacker actions would still be allowed and how many normal actions you broke. Aim for 0 and 0.\n\n```tool cloudiam\n{\"pol\": \"{\\n \\\"account\\\": \\\"nimbus-prod\\\",\\n \\\"identities\\\": [\\n  {\\n   \\\"name\\\": \\\"reporting-sync\\\",\\n   \\\"type\\\": \\\"user\\\",\\n   \\\"note\\\": \\\"access key saved in C:\\\\\\\\Reports\\\\\\\\sync.ps1 on app02; uploads the nightly KPI files\\\",\\n   \\\"policies\\\": [\\n    {\\n     \\\"name\\\": \\\"reporting-put-only\\\",\\n     \\\"statements\\\": [\\n      {\\n       \\\"effect\\\": \\\"Allow\\\",\\n       \\\"actions\\\": [\\n        \\\"PutObject\\\"\\n       ],\\n       \\\"resources\\\": [\\n        \\\"bucket/nimbus-reports/*\\\"\\n       ],\\n       \\\"conditions\\\": {\\n        \\\"source_ip\\\": [\\n         \\\"203.0.113.60/32\\\"\\n        ]\\n       }\\n      }\\n     ]\\n    }\\n   ]\\n  },\\n  {\\n   \\\"name\\\": \\\"k.nair\\\",\\n   \\\"type\\\": \\\"user\\\",\\n   \\\"note\\\": \\\"Kavya Nair, cloud administrator\\\",\\n   \\\"policies\\\": [\\n    {\\n     \\\"name\\\": \\\"admin\\\",\\n     \\\"statements\\\": [\\n      {\\n       \\\"effect\\\": \\\"Allow\\\",\\n       \\\"actions\\\": [\\n        \\\"*\\\"\\n       ],\\n       \\\"resources\\\": [\\n        \\\"*\\\"\\n       ]\\n      }\\n     ]\\n    }\\n   ]\\n  },\\n  {\\n   \\\"name\\\": \\\"m.joshi\\\",\\n   \\\"type\\\": \\\"user\\\",\\n   \\\"note\\\": \\\"Meera Joshi, reads reports\\\",\\n   \\\"policies\\\": [\\n    {\\n     \\\"name\\\": \\\"reports-read\\\",\\n     \\\"statements\\\": [\\n      {\\n       \\\"effect\\\": \\\"Allow\\\",\\n       \\\"actions\\\": [\\n        \\\"ConsoleLogin\\\",\\n        \\\"ListBuckets\\\",\\n        \\\"GetObject\\\"\\n       ],\\n       \\\"resources\\\": [\\n        \\\"*\\\",\\n        \\\"bucket/nimbus-reports/*\\\"\\n       ]\\n      }\\n     ]\\n    }\\n   ]\\n  }\\n ],\\n \\\"org_guardrails\\\": [\\n  {\\n   \\\"name\\\": \\\"protect-audit-trail\\\",\\n   \\\"statements\\\": [\\n    {\\n     \\\"effect\\\": \\\"Deny\\\",\\n     \\\"actions\\\": [\\n      \\\"StopLogging\\\",\\n      \\\"DeleteTrail\\\"\\n     ],\\n     \\\"resources\\\": [\\n      \\\"*\\\"\\n     ]\\n    }\\n   ]\\n  },\\n  {\\n   \\\"name\\\": \\\"identity-changes-need-mfa\\\",\\n   \\\"statements\\\": [\\n    {\\n     \\\"effect\\\": \\\"Deny\\\",\\n     \\\"actions\\\": [\\n      \\\"CreateUser\\\",\\n      \\\"CreateAccessKey\\\",\\n      \\\"AttachUserPolicy\\\"\\n     ],\\n     \\\"resources\\\": [\\n      \\\"*\\\"\\n     ],\\n     \\\"conditions\\\": {\\n      \\\"mfa\\\": false\\n     }\\n    }\\n   ]\\n  }\\n ],\\n \\\"buckets\\\": [\\n  {\\n   \\\"name\\\": \\\"nimbus-reports\\\",\\n   \\\"public_read\\\": false,\\n   \\\"encrypted\\\": true,\\n   \\\"versioning\\\": true,\\n   \\\"access_logging\\\": true,\\n   \\\"note\\\": \\\"KPI files\\\"\\n  },\\n  {\\n   \\\"name\\\": \\\"client-exports\\\",\\n   \\\"public_read\\\": false,\\n   \\\"encrypted\\\": true,\\n   \\\"versioning\\\": false,\\n   \\\"access_logging\\\": false,\\n   \\\"note\\\": \\\"client data extracts for analytics\\\"\\n  }\\n ]\\n}\\n\", \"n\": 0, \"broken\": 0, \"files\": [\"cloud/policies.json\"], \"blank\": [\"pol\"]}\n```\n\nThe diff, in words:\n\n| Before | After |\n|---|---|\n| reporting-sync: Allow `*` on `*` | reporting-sync: Allow `PutObject` on `bucket/nimbus-reports/*`, only from 203.0.113.60 |\n| (nothing) | Guardrail: Deny `CreateUser`, `CreateAccessKey`, `AttachUserPolicy` without MFA |\n\n- [ ] 0 attacker actions allowed\n- [ ] 0 normal actions broken\n- [ ] Write the diff in two lines someone can review\n- [ ] What else should change? (the key out of the script: a role for the server, rotated keys)\n\n> Hint: A condition on the source address alone stops a stolen key used from elsewhere. The MFA guardrail stops anyone, even a real admin's stolen key, from minting new identities quietly.\n\n?> After your policy, how many attacker actions are still allowed? :: sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+  },
+  {
+   "t": "md",
+   "s": "## 8. Detections for next time\n\nThe review and the policy close today's doors. Detections catch the next attempt. Write two Sigma rules, test them on the domain controller's log, and check they don't fire on normal traffic.\n\n```tool sigma\n{\"rule\": \"title: Kerberoasting - many RC4 service tickets from one client\\nid: 7b2c4f10-3a51-4e7d-9a2e-0c1d00000701\\nstatus: experimental\\ndescription: RC4 (0x17) service tickets for service accounts. Normal clients ask for AES tickets; an attacker asks for RC4 because it cracks offline.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4769\\n    TicketEncryptionType: '0x17'\\n    ServiceName|startswith: 'svc-'\\n  condition: selection\\nfalsepositives:\\n  - Very old systems that only speak RC4; list them and exclude by client address\\nlevel: high\\ntags:\\n  - attack.credential_access\\n  - attack.t1558.003\\n\", \"n\": 6, \"ls\": true, \"blank\": [\"rule\"]}\n```\n\n```tool sigma\n{\"rule\": \"title: DCSync - replication rights used by an account that isn't a domain controller\\nid: 7b2c4f10-3a51-4e7d-9a2e-0c1d00000702\\nstatus: experimental\\ndescription: 4662 with DS-Replication-Get-Changes rights. Domain controllers (accounts ending in $) do this all day; a user account never should.\\nlogsource:\\n  product: windows\\n  service: security\\ndetection:\\n  selection:\\n    EventID: 4662\\n    Properties|contains:\\n      - '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'\\n      - '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'\\n  filter_dcs:\\n    SubjectUserName|endswith: '$'\\n  condition: selection and not filter_dcs\\nfalsepositives:\\n  - Directory sync tools that run as a user account; give them a named exception\\nlevel: critical\\ntags:\\n  - attack.credential_access\\n  - attack.t1003.006\\n\", \"n\": 2, \"ls\": true, \"blank\": [\"rule\"]}\n```\n\n- [ ] The kerberoast rule matches the six RC4 tickets and no AES ones\n- [ ] The DCSync rule matches adm.k.nair and not DC02$\n- [ ] One line on how each rule could be evaded\n\n> Hint: The DCSync rule uses a filter: match the replication right, then remove accounts ending in $. Without the filter it fires every two hours.\n\n?> How many events does the DCSync rule match? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+  },
+  {
+   "t": "md",
+   "s": "## 9. The fix, hop by hop\n\nWrite it up so someone can act on it: the path, what each hop exploited, and the fix for each, **in the order to do them**. Containment first (the key, the new user), then the domain (krbtgt, passwords), then the root causes.\n\n```tool report\n{\"tpl\": \"incident\", \"title\": \"Incident report: from a helpdesk password to the domain and the cloud, 10 November 2026\", \"text\": \"# Incident report: from a helpdesk password to the domain and the cloud, 10 November 2026\\n\\n## Summary\\n\\nA phished helpdesk password led, in three hours, to control of the whole Windows domain and the cloud account. The attacker downloaded four client data files and created a cloud user to come back. Nine fixes, in order below, close every step; two new alerts watch for the loudest ones.\\n\\n## Timeline\\n\\n09:12 h.verma signs in from hd-pc04. 09:14:31 six RC4 service tickets (kerberoast). 10:05 svc-sql logs on to app02 from hd-pc04. 10:09 SECURITY and SYSTEM hives saved (the scheduled task's saved password). 10:31 findstr finds the cloud key in sync.ps1. 11:40 adm.k.nair logs on to dc01 from app02; 11:41 DCSync. 12:02 to 12:15 the cloud key is used from 198.51.100.200: four client files downloaded, user ops-backup created with a key; StopLogging denied by the guardrail.\\n\\n## Scope\\n\\nDomain: every password hash (DCSync). Cloud: client-exports/2026-10 (four files), a new user ops-backup. Not seen: logons to other servers, changes to other cloud resources.\\n\\n## Impact\\n\\nEvery domain password must be treated as known. Four client data extracts were taken; the clients must be told under their contracts.\\n\\n## Root cause\\n\\nFive weak links in one chain: a password without MFA, RC4 tickets for a service account with a guessable password, a service account in Server-Admins, a domain admin's password saved in a scheduled task on a server, and a cloud key with `*` on `*` saved in a script.\\n\\n## Containment, eradication and recovery\\n\\nIn this order: 1. Disable ops-backup and revoke all reporting-sync keys. 2. Reset krbtgt twice, then every admin and service password. 3. Remove the Nightly KPI task's saved admin login; run it as a managed service account. 4. Remove svc-sql from Server-Admins; give it a 30-character random password; turn off RC4 for service accounts. 5. Remove Helpdesk's reset rights on OU=Service Accounts. 6. MFA for every user account, starting with h.verma's helpdesk group. 7. Apply the reporting-put-only policy and the MFA guardrail. 8. Replace the script's key with a role for app02. 9. Deploy the kerberoast and DCSync rules.\\n\\n## Who was told, and when\\n\\nCISO 13:10; CERT-In within 6 hours of noticing; the affected clients today.\\n\\n## Indicators\\n\\nhd-pc04 (10.60.2.31) remote control session; 198.51.100.200; cloud user ops-backup; C:\\\\Windows\\\\Temp\\\\sec.hiv and sys.hiv on app02.\\n\\n## Lessons learned\\n\\nThe access review had already flagged three of the five links. Reviews only help if someone acts on them.\\n\", \"n\": 9, \"blank\": [\"text\"]}\n```\n\n- [ ] Every hop has a fix\n- [ ] The order makes sense: stop the bleeding, then rebuild trust, then fix causes\n- [ ] The policy diff and both rules are referenced\n\n> Hint: After a DCSync, every password in the domain is known, including krbtgt's, which signs every Kerberos ticket. Reset it twice, because the domain keeps the previous one."
+  },
+  {
+   "t": "md",
+   "s": "## 10. Hand in\n\nHand in this notebook. It carries every answer, tool result and report from the steps above.\n\n**Rubric**\n\n| Criterion | Points |\n|---|---|\n| Access review: every high-risk account found and a decision made for each, with the reason | 4 |\n| Attack path from the helpdesk account to Domain Admins, every hop explained | 4 |\n| Kerberoasting shown in the domain controller's log and the Kerberos trace | 4 |\n| Service account to domain admin: the hop through app02 and the DCSync, with times | 4 |\n| Cloud: what the stolen key did, from the audit log | 3 |\n| Policy diff: least privilege that stops every attacker action and breaks no normal work | 5 |\n| Detections: rules for kerberoasting and DCSync, tested on the logs | 3 |\n| Write-up: the path, the fix for each hop, in the order to do them | 3 |\n\n- [ ] Access review decisions saved\n- [ ] Attack path written hop by hop\n- [ ] Policy replay at 0 and 0\n- [ ] Both Sigma rules tested\n- [ ] Report complete\n- [ ] Press Hand in"
+  }
+ ],
+ "script": {
+  "intro": "Welcome to Identity from both sides. Almost every serious breach goes through accounts: a password, a group, a saved login, a cloud key. Today you'll look at Nimbus Analytics twice. First as the auditor, reviewing who has what. Then as the attacker, who started with one helpdesk password on Tuesday morning and owned the domain and the cloud account by lunch. Then you'll close each door, and write rules that catch the next one.",
+  "outro": "That's identity from both sides. The review flagged the risky accounts, the graph showed the path, and the logs showed the attacker walk it: a kerberoast, a saved admin login on a server, a DCSync, and a cloud key in a script. Each hop has a fix, and two rules now watch for the loudest steps. Next is seminar eight, where the cloud and the pipeline become the attack surface.",
+  "steps": [
+   "Start like an auditor, before any alert. Twelve accounts. Four without MFA, and two of those are service accounts, which can't use it, so they need other protection. Then the relationships: who's a member of what, who can reset whose password, who's an admin where, and who's signed in where. One line stands out: the helpdesk can reset the SQL service account's password.",
+   "The review tab does the auditor's checklist. A contractor in Server Admins: critical. A salesperson nobody has seen since June: disable it. A former analyst, disabled but still in groups: clean it up. And the SQL service account is a server admin with a password nobody has changed. We decide, and write one line of why for each.",
+   "Now the attacker's view. From h.verma: member of Helpdesk, Helpdesk can reset svc-sql's password, svc-sql is a Server Admin, Server Admins are admins on app02, and on app02 the domain admin's login is saved because a scheduled task runs as her. Five hops from a helpdesk password to the whole domain. Breaking the saved login on app02 cuts the most.",
+   "The attacker didn't need the password reset. Any user can ask for a service ticket, and with the old RC4 cipher it can be cracked offline. On the domain controller: six 4769 requests in ten seconds, all 0x17, RC4, from the helpdesk PC, for every service account. Everyone else's tickets are AES. Zeek's Kerberos log shows the same six. That's kerberoasting.",
+   "An hour later, svc-sql logs on to app02 from the helpdesk PC. It saves the SECURITY and SYSTEM hives: that's where the scheduled task keeps the domain admin's password. Then it searches the report scripts for an access key. At 11:40 adm.k.nair logs on to the DC from app02, and a minute later asks for replication: a DCSync. DC02 does that every two hours; a person never should.",
+   "The key was in a script. In the audit trail, from 198.51.100.200: who am I, list the buckets, download four client export files, then create a new user called ops-backup, give it a policy and a key. That's the way back in. The only thing stopped was turning off the audit trail, by the one guardrail they had. And all of it was allowed because the nightly upload job had a policy that said star on star.",
+   "Least privilege, tested. The upload job only ever puts files in the reports bucket, from the office. So that's all it gets. And a guardrail: nobody creates users or keys without MFA. Replay the audit log: zero attacker actions allowed, zero normal actions broken. Two lines of diff that a reviewer can check. Then the real fix: no key in a script at all.",
+   "Two Sigma rules. Kerberoasting: service tickets with RC4 for service accounts. Six hits, no AES tickets. DCSync: the replication right, used by anything that isn't a domain controller. Without the filter it fires on DC02 every two hours; with it, only adm.k.nair. And one line each on how they'd be evaded, because a rule you think is perfect stops you looking.",
+   "Now the fix, in order. Stop the bleeding: kill the new cloud user and the stolen key. Rebuild trust in the domain: krbtgt twice, then every admin and service password. Then the causes: no saved admin logins on servers, no service accounts in admin groups, no RC4, no reset rights over service accounts, MFA, the policy diff, a role instead of a key, and the two rules.",
+   "Hand in the notebook: the review, the attack path, the log findings, the policy diff, both rules and the report. The rubric is on screen."
+  ]
+ },
+ "levels": {
+  "worked": "sem-s07-identity",
+  "guided": "sem-s07-identity--guided",
+  "solo": "sem-s07-identity--solo"
+ },
+ "guide": "media/guides/sem-s07-identity/index.html"
+}

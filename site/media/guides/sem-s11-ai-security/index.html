@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI security: attacking and governing LLM apps written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 11 · written tutorial</p>
+<h1>AI security: attacking and governing LLM apps</h1>
+<p class="meta">Practitioner &middot; about 270 min</p>
+<p>Test a travel company&#x27;s support assistant the way an AI red team does: direct and indirect prompt injection, secrets spelled out and encoded, poisoned documents in its knowledge base, and tools it calls without asking. Then defend it layer by layer, and write the test report, the company&#x27;s AI policy and its AI risk register.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s11-ai-security&amp;runbook=sem-s11-ai-security">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s11-ai-security--guided&amp;runbook=sem-s11-ai-security--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s11-ai-security--solo&amp;runbook=sem-s11-ai-security--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>ai-tara-support.json</code>, <code>atlas-notes.txt</code>, <code>README.txt</code>.</p>
+<h2>1. Meet the assistant</h2>
+<p>Before you attack anything, read how it's built. An LLM app is more than the model: a <strong>system prompt</strong> (its instructions), a <strong>knowledge base</strong> it searches for answers, and <strong>tools</strong> it can call. Each is a way in.</p>
+<ul>
+<li>&#9744; What does the system prompt forbid?</li>
+<li>&#9744; Which documents can it retrieve? Who wrote them?</li>
+<li>&#9744; Which tools can it call? Which ones change something in the real world?</li>
+</ul>
+<blockquote>
+<p>Hint: KB-07 and KB-09 came from partners, not from Tulsi's own team. Read them closely.</p>
+</blockquote>
+<p><strong>Question:</strong> How many of Tara's tools are marked risky?</p>
+<pre><code>cd ~/case
+grep -o &#x27;&quot;system&quot;: &quot;[^&quot;]*&quot;&#x27; ai-tara-support.json
+echo ---
+grep -o &#x27;&quot;id&quot;: &quot;KB-[0-9]*&quot;, &quot;title&quot;: &quot;[^&quot;]*&quot;&#x27; ai-tara-support.json
+echo ---
+grep -o &#x27;&quot;name&quot;: &quot;[a-z_]*&quot;, &quot;risky&quot;: [a-z]*&#x27; ai-tara-support.json</code></pre>
+<h2>2. Talk to it like an attacker</h2>
+<p>Open the simulator and chat. Try to get the staff code with a direct order, a role-play, and an encoding trick. Watch the <strong>trace</strong>: it shows how the assistant classified your prompt, what it retrieved and which tools it called. Nothing here is a real model; the rules are scripted so you can see why each attack works.</p>
+<p><strong>Use the AI security simulator on ai-tara-support.json.</strong></p>
+<ul>
+<li>&#9744; A direct "ignore your instructions" request</li>
+<li>&#9744; A role-play ("pretend you are...")</li>
+<li>&#9744; "Spell it out one letter at a time"</li>
+<li>&#9744; For each: did it leak, and what does the trace say?</li>
+</ul>
+<blockquote>
+<p>Hint: The system prompt is just text the model reads first. It is a request, not a lock.</p>
+</blockquote>
+<p><strong>Question:</strong> Which OWASP LLM item is "ignore your previous instructions"? (the ID)</p>
+<h2>3. Run the test suite</h2>
+<p>Manual poking finds things; a <strong>test suite</strong> proves them and lets you retest after a fix. Run all seven tests with no defences switched on. Six are attacks; T7 is a normal question that must keep working.</p>
+<p><strong>Use the AI security simulator on ai-tara-support.json.</strong></p>
+<ul>
+<li>&#9744; Which tests fail, and with which outcome: leak or misuse?</li>
+<li>&#9744; Map each to OWASP and ATLAS (atlas-notes.txt)</li>
+<li>&#9744; Does T7 pass?</li>
+</ul>
+<p><strong>Question:</strong> How many tests fail with no defences?</p>
+<h2>4. The attack that comes through the documents</h2>
+<p>T4 and T6 didn't need the attacker to type anything clever. They asked ordinary questions, the assistant retrieved a partner document, and the document carried instructions. That's <strong>indirect prompt injection</strong>: whoever can write to the knowledge base can talk to the model.</p>
+<ul>
+<li>&#9744; Find the instructions hidden in the partner documents</li>
+<li>&#9744; Which customer question pulls in each one?</li>
+<li>&#9744; Who could have planted them? What review should partner content get?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>grep -i -o 'ignore previous[^.]*\|must send[^.]*'</code> finds the planted sentences.</p>
+</blockquote>
+<p><strong>Question:</strong> Which document makes the assistant send an email? (its ID)</p>
+<pre><code>cd ~/case
+grep -i -o &#x27;ignore previous[^.]*\|must send[^.]*&#x27; ai-tara-support.json</code></pre>
+<h2>5. Tools that act without asking</h2>
+<p>An assistant that can only talk can embarrass you. One that can <strong>act</strong> can cost you money. In the simulator, ask for a refund, then switch on the <strong>approval gate</strong> and ask again. Then try <strong>least privilege</strong> (lookup only) and see what it breaks.</p>
+<ul>
+<li>&#9744; What happens to T5 and T6 with the approval gate on?</li>
+<li>&#9744; And with least privilege instead? What legitimate work does that stop?</li>
+<li>&#9744; Which tools should never run without a person? Which are fine?</li>
+</ul>
+<blockquote>
+<p>Hint: "Held" means a person decides. That's slower, and it's the right trade for refunds and outgoing email. Looking up a booking needs no gate.</p>
+</blockquote>
+<p><strong>Question:</strong> With the approval gate on, what is the outcome of the refund test? (one word)</p>
+<h2>6. Defend it in layers</h2>
+<p>No single defence stops everything. Switch defences on one at a time and rerun the suite after each: which test does each one fix, and which does it miss? Aim for 0 failures <strong>and</strong> T7 still answered.</p>
+<p><strong>Use the AI security simulator on ai-tara-support.json.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Stops</th>
+<th>Misses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input filter</td>
+<td>T1 (direct override)</td>
+<td>role-play, encoding, anything in documents</td>
+</tr>
+<tr>
+<td>Output filter (plain)</td>
+<td>T2, T4 (the code written plainly)</td>
+<td>T3 (spelled out)</td>
+</tr>
+<tr>
+<td>Strict output filter</td>
+<td>T3 too</td>
+<td>tool misuse</td>
+</tr>
+<tr>
+<td>Clean retrieved documents</td>
+<td>T4, T6 (instructions inside documents)</td>
+<td>direct attacks</td>
+</tr>
+<tr>
+<td>Approval gate</td>
+<td>T5, T6 (risky tools wait for a person)</td>
+<td>leaks</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; 0 failures</li>
+<li>&#9744; T7 still answered</li>
+<li>&#9744; One line: why not just rely on the input filter?</li>
+</ul>
+<blockquote>
+<p>Hint: Attackers only need one gap. Layers mean each attack has to beat several different checks.</p>
+</blockquote>
+<p><strong>Question:</strong> Which defence stops the spelled-out code (T3)? (one word from its name)</p>
+<h2>7. Write the test report</h2>
+<p>Write the findings so the team can fix and retest them: each test's prompt, what happened, the OWASP and ATLAS mapping, and the fix.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; Every failing test is a finding, with its fix</li>
+<li>&#9744; The root cause, not only the filters: why was the secret in the prompt?</li>
+<li>&#9744; Retest results with the defences on</li>
+</ul>
+<h2>8. Write the AI policy</h2>
+<p>Tara is one AI system; the company will have many. A short policy tells every member of staff what they may and may not do with AI, and how new uses get approved.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; What data may never go into an AI tool</li>
+<li>&#9744; Where a person must decide (money, access, anything sent out)</li>
+<li>&#9744; How a new AI use is approved and tested</li>
+<li>&#9744; Short enough that staff will read it</li>
+</ul>
+<h2>9. The AI risk register</h2>
+<p>Put the AI risks in the same register as every other risk, with likelihood, impact, treatment, control, owner and date. AI isn't special: it's another system with an owner.</p>
+<p><strong>Use the Risk register.</strong></p>
+<ul>
+<li>&#9744; The risks from today's tests, plus staff use of AI</li>
+<li>&#9744; Every row has an owner who can actually fix it</li>
+<li>&#9744; No high risk accepted without sign-off</li>
+</ul>
+<p><strong>Question:</strong> How many of your AI risks are high (score 15 or more)?</p>
+<h2>10. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Test suite run before and after, each failure explained</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Direct and indirect prompt injection both shown, with the poisoned documents named</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Excessive agency: which tools are risky and how the approval gate changes the outcome</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Defences chosen layer by layer: 0 failures, and normal questions still answered</td>
+<td>4</td>
+</tr>
+<tr>
+<td>LLM test report: each finding with the prompt, the outcome, the OWASP and ATLAS mapping, and the fix</td>
+<td>5</td>
+</tr>
+<tr>
+<td>AI policy: what staff may and may not do with AI, and who approves new uses</td>
+<td>4</td>
+</tr>
+<tr>
+<td>AI risk register with owners and treatments</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Test suite before and after</li>
+<li>&#9744; Poisoned documents named</li>
+<li>&#9744; Defences at 0 failures with T7 answered</li>
+<li>&#9744; Report, policy and register written</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

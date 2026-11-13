@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design, risk and audit written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Seminar 10 · written tutorial</p>
+<h1>Design, risk and audit</h1>
+<p class="meta">Practitioner &middot; about 360 min</p>
+<p>Review a new payments feature before it ships: threat-model it with STRIDE and an attack tree, write the design review memo, build the risk register, mark an ISO 27001 Statement of Applicability with evidence, write an audit exception that an auditor will accept, and decide on a vendor.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s10-design-risk-audit&amp;runbook=sem-s10-design-risk-audit">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s10-design-risk-audit--guided&amp;runbook=sem-s10-design-risk-audit--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s10-design-risk-audit--solo&amp;runbook=sem-s10-design-risk-audit--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>audit-finding.txt</code>, <code>controls-evidence.txt</code>, <code>design.md</code>, <code>README.txt</code>, <code>risk-register-banyan.csv</code>, <code>threat-model/attack-tree.txt</code>, <code>threat-model/dataflow.txt</code>, <code>vendor-textbridge.txt</code>.</p>
+<h2>1. Read the design like a reviewer</h2>
+<p>A design review starts with questions, not tools. Read the design and list, for each part: what data it holds or carries, who can reach it, and what the team has already decided. The "decisions taken" are where most of the risk hides.</p>
+<ul>
+<li>&#9744; Which parts are new, which exist already, which belong to someone else?</li>
+<li>&#9744; Where does money get decided? Where does personal data go?</li>
+<li>&#9744; Which of the five decisions worries you most, and why?</li>
+</ul>
+<blockquote>
+<p>Hint: Decision 1 (unsigned webhook) and decision 3 (amount from the app) both let the parent's side decide what the school believes about money.</p>
+</blockquote>
+<p><strong>Question:</strong> Which part handles the card details?
+<strong>Question:</strong> How many outside companies does Parent Pay depend on?</p>
+<pre><code>cd ~/case
+cat design.md</code></pre>
+<h2>2. Threat-model it with STRIDE</h2>
+<p>Draw the system as elements (people outside, processes, data stores) and flows between them, with the trust boundaries. The tool lists the STRIDE threats that apply to each kind of element: Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege. For each threat that's real here, write the control.</p>
+<p><strong>Use the Threat model.</strong></p>
+<ul>
+<li>&#9744; Every element and flow from the design is in the model</li>
+<li>&#9744; Each flow that crosses a boundary has at least one threat written up</li>
+<li>&#9744; Each threat has a control, or "accepted" with a reason</li>
+<li>&#9744; Which threats are already handled by PayGate? (card data never touches Banyan)</li>
+</ul>
+<blockquote>
+<p>Hint: Flows get T, I and D; external parties S and R; processes all six. You don't have to write all of them: write the ones that are real for this system.</p>
+</blockquote>
+<p><strong>Question:</strong> Which STRIDE letter is the unsigned webhook mainly? (one letter)</p>
+<h2>3. The attack tree: the cheapest way in</h2>
+<p>An attack tree asks one question: what's the cheapest way to reach the goal? OR means any child will do; AND means all are needed. Costs are rough effort. The tool finds the cheapest path. Then cut it, and see what becomes cheapest next.</p>
+<ul>
+<li>&#9744; What's the cheapest path now, and its cost?</li>
+<li>&#9744; Fix it (say how): what's the cheapest path after that?</li>
+<li>&#9744; Keep going until the cheapest path costs more than the money it would get</li>
+</ul>
+<blockquote>
+<p>Hint: Signing the webhook removes the cost=1 branch entirely. Then "change the amount in the app" is cheapest, until the server looks up the amount itself.</p>
+</blockquote>
+<p><strong>Question:</strong> What does the cheapest attack path cost before any fix?</p>
+<h2>4. Write the design review memo</h2>
+<p>The memo turns the model into decisions. Ranked, short, with <strong>conditions for go-live</strong> (must), things to fix soon (should), and what's good. Write it in a Notes cell. A model:</p>
+<details><summary>Model memo</summary>
+
+**Design review: Parent Pay v0.9**  ·  To: Kunal Desai (Product), Sana Pillai (Engineering)  ·  From: Security  ·  16 November 2026
+
+**Decision asked for:** go-live on 4 December only if the three conditions below are met. Otherwise delay.
+
+**Go-live conditions (must):**
+1. The webhook checks PayGate's signature, and the Fees API confirms each payment with PayGate before marking it paid. (Today anyone can mark any fee paid with one request.)
+2. The Fees API takes the amount from the database, never from the app.
+3. A signed data processing agreement with the SMS vendor, and the receipt text cut to "Fee received: Rs X, ref Y" (no child's name or class).
+
+**Before the end of the term (should):** MFA and named accounts on the admin console; refunds over Rs 5,000 need a second approver; logs record events, not request bodies, for 30 days.
+
+**Accepted risks (need sign-off):** none proposed. The one-click refund risk is high and can't be accepted by Product alone.
+
+**What's good:** card data never touches Banyan (PayGate); the database is encrypted; OTP sign-in for parents.
+
+</details>
+
+<ul>
+<li>&#9744; The decision asked for is the first line</li>
+<li>&#9744; At most three must-fix conditions, each with the reason in one line</li>
+<li>&#9744; Accepted risks say who signs them</li>
+</ul>
+<blockquote>
+<p>Hint: A memo with twenty "musts" means nothing launches or nothing gets fixed. Choose the ones that would cost the school money or a child's data on day one.</p>
+</blockquote>
+<h2>5. Build the risk register</h2>
+<p>The product team's first register has holes: no owner, no treatment, a high risk "accepted" with nobody's name on it. Load it, fix it, and add the risks your model found. The tool checks every row has an owner, a treatment and a date, and flags high risks that are accepted without sign-off.</p>
+<p><strong>Use the Risk register.</strong></p>
+<ul>
+<li>&#9744; Every row: likelihood and impact from 1 to 5, treatment, control, owner, date</li>
+<li>&#9744; No high risk accepted without leadership sign-off</li>
+<li>&#9744; The heat map: which risks are in the red corner?</li>
+</ul>
+<blockquote>
+<p>Hint: Likelihood × impact of 15 or more is high. "Accept" is a real choice, but it belongs to someone senior enough to pay for the consequence.</p>
+</blockquote>
+<p><strong>Question:</strong> How many risks in your register are high (score 15 or more)?</p>
+<h2>6. The Statement of Applicability</h2>
+<p>An auditor asks: which controls apply, which are in place, and where is the evidence? In the compliance tool, choose ISO/IEC 27001 and mark each control <strong>met</strong>, <strong>partial</strong>, <strong>gap</strong> or <strong>not applicable</strong>, with the evidence from controls-evidence.txt. "Met" without evidence isn't met.</p>
+<p><strong>Use the Compliance gap check.</strong></p>
+<ul>
+<li>&#9744; Every control marked, every mark with evidence</li>
+<li>&#9744; Be honest: partial is a normal, useful answer</li>
+<li>&#9744; Which gaps does Parent Pay make worse? (5.19 suppliers, 8.15 logging)</li>
+<li>&#9744; Switch the framework to DPDP and CERT-In: which items does today's work already cover?</li>
+</ul>
+<blockquote>
+<p>Hint: A Statement of Applicability is about the truth, not the score. An auditor trusts a company that marks its own gaps far more than one that marks everything met.</p>
+</blockquote>
+<p><strong>Question:</strong> How many ISO controls are gaps?</p>
+<h2>7. Write the audit exception</h2>
+<p>Internal audit found three critical vulnerabilities past the 15-day target. Fixing all three today isn't possible. An <strong>exception</strong> is how a company says "not yet" honestly: what isn't met, why, the risk meanwhile, the <strong>compensating controls</strong>, an owner, an <strong>expiry</strong>, and who approved it. Write it in a Notes cell. A model:</p>
+<details><summary>Model exception</summary>
+
+**Exception EX-2026-04 to control 8.8 (vulnerability management)**  ·  Responds to audit finding IA-2026-07
+
+**What isn't met:** VM-311, VM-318 and VM-322 are past the 15-day target for critical vulnerabilities.
+
+**Why:** VM-311's fix breaks the refund screen (fix in development); VM-318 is fixed on 20 November; VM-322 needs a 2-hour VPN outage, booked for Saturday 28 November.
+
+**Risk while open:** an attacker reaching the admin console or VPN appliance could take control of it.
+
+**Compensating controls (in place from 17 November):** the admin console is reachable only over the VPN; a WAF rule blocks the known exploit pattern for VM-311; the VPN appliance's management page is closed to the internet; daily log review of both by the SOC.
+
+**Owner:** IT manager (A. Fernandes).  **Expires:** 31 January 2027, or when the last item is fixed. No renewal without a new review.
+
+**Approved:** CISO and the risk owner (Head of Finance, for the admin console), signatures and date.
+
+</details>
+
+<ul>
+<li>&#9744; A compensating control for each open item</li>
+<li>&#9744; An expiry date, not "until fixed"</li>
+<li>&#9744; Approved by someone who owns the risk, not only by IT</li>
+</ul>
+<blockquote>
+<p>Hint: An exception without an expiry is a permanent decision dressed up as a temporary one. Auditors reject those.</p>
+</blockquote>
+<h2>8. The vendor file</h2>
+<p>TextBridge is cheapest, and the contract isn't signed yet: the best moment to ask for things. Read their answers and write the vendor review. End with a <strong>decision</strong>: approve, approve with conditions, or reject.</p>
+<p><strong>Use the Report builder.</strong></p>
+<ul>
+<li>&#9744; What data they get, and how to give them less</li>
+<li>&#9744; Evidence you've seen versus claims you've been told</li>
+<li>&#9744; Incident notice: is their promise fast enough for your own legal clocks?</li>
+<li>&#9744; An exit plan, and a decision with conditions</li>
+</ul>
+<blockquote>
+<p>Hint: Your own breach clocks (CERT-In six hours; DPDP "without delay") don't stop because the breach happened at a vendor. Their notice period has to fit inside yours.</p>
+</blockquote>
+<p><strong>Question:</strong> How many working days does TextBridge offer for incident notice?</p>
+<h2>9. Hand in</h2>
+<p>Hand in this notebook. It carries every answer, tool result and report from the steps above.</p>
+<p><strong>Rubric</strong></p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Threat model: every element and flow, the STRIDE threats that apply, each with a control</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Attack tree with costs, and the cheapest path found and cut</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Design review memo: risks ranked, conditions for go-live, the decision asked for</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Risk register: likelihood, impact, treatment, owner and date; high risks signed off</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Statement of Applicability: every control marked, with evidence; gaps stated honestly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Audit exception: compensating control, owner, expiry and sign-off</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Vendor file: data, evidence, incident notice, exit plan and a decision</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>&#9744; Threat model and attack tree saved</li>
+<li>&#9744; Design memo written</li>
+<li>&#9744; Risk register checked</li>
+<li>&#9744; Statement of Applicability complete</li>
+<li>&#9744; Exception and vendor file written</li>
+<li>&#9744; Press Hand in</li>
+</ul></main></body>
+</html>

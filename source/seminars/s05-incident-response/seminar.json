@@ -1,0 +1,75 @@
+{
+ "title": "Incident response: ransomware, lateral movement and memory",
+ "summary": "Take a ransomware incident at an engineering firm from the first call to the executive summary: keep a chain of custody, rebuild the night from VPN, Windows, Sysmon and process logs, read memory-forensics and triage output, map every step to ATT&CK, decide under pressure in a tabletop, and write the report.",
+ "kicker": "Seminar 5",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Practitioner",
+ "minutes": 360,
+ "order": 6,
+ "tools": [
+  "Hex, strings and hashes",
+  "Merged timeline",
+  "Process tree",
+  "Event viewer",
+  "Volatility, Hayabusa and Velociraptor output (captured)",
+  "Indicators and ATT&CK",
+  "Tabletop exercise",
+  "Report builder"
+ ],
+ "seminar_id": 6,
+ "published": true,
+ "handin": "An executive summary, a technical annex and a lateral-movement timeline mapped to ATT&CK.",
+ "rubric": [
+  [
+   "Evidence hashed and a chain of custody kept for every file you handled",
+   3
+  ],
+  [
+   "Entry point found and backed by evidence: the VPN, the account and the missing MFA",
+   4
+  ],
+  [
+   "Lateral movement reconstructed host by host, with times",
+   5
+  ],
+  [
+   "Credential theft shown from the process tree and the memory output",
+   4
+  ],
+  [
+   "Impact: what was encrypted, when, and which recovery options were destroyed",
+   3
+  ],
+  [
+   "Timeline mapped to ATT&CK, one technique per step with its evidence",
+   4
+  ],
+  [
+   "Tabletop decisions made and defended",
+   2
+  ],
+  [
+   "Executive summary a non-technical reader can act on, and a complete technical annex",
+   5
+  ]
+ ],
+ "script": {
+  "intro": "Welcome to incident response. It's just after midnight on Saturday at Garnet Precision Engineering. The helpdesk says nobody can open files on the engineering share, and there's a note on every folder asking for money. You're the responder. Today you'll keep a chain of custody, rebuild the night host by host, show how the attacker got the keys to the kingdom, map it to ATT&CK, make decisions under pressure, and write a report the managing director can act on.",
+  "outro": "That's the incident from first call to report. A borrowed VPN account without MFA, an RDP session, a memory dump of lsass, an administrator's hash reused on the file server, recovery wiped, and the share encrypted. Every step has a time, a piece of evidence and an ATT&CK technique, and the executive summary says what to decide on one page. Next is seminar six, where the clocks start: who has to be told, and how fast.",
+  "steps": [
+   "Before we read a single line, we hash everything and start a chain of custody: who handled each file, when, and its hash. If this goes to the police or an insurer, that log is what makes the evidence count. We hash the ransom note in the Hex tool and add custody entries as we go.",
+   "Start from the damage and work backwards. Every file ends in dot garnet locked, the first at 23:42. The note also claims 1.8 gigabytes of drawings were copied: double extortion. The shadow copies were deleted and the NAS was on the network, so it's encrypted too. The off-site tape from Thursday survived, which means fourteen hours of restore and a day of lost work.",
+   "Now one clock for everything. At 22:44 the VPN accepts s.kale from an outside address, with no MFA, and HR says he's on medical leave at home. At 22:52 an RDP logon to eng-ws14 from the VPN address. At 23:05 something touches lsass. At 23:20 an administrator's account logs on to the file server from that workstation, a service appears, the backups are wiped and the encryption starts. Seven stars tell the whole story.",
+   "The process tree follows the attacker's hands. On eng-ws14, the RDP session's cmd runs whoami, asks who the domain admins are, finds the domain controllers, downloads a toolkit with hidden PowerShell, and then rundll32 with comsvcs dot dll dumps lsass to a file. That's where the passwords live. On fs02, a new service starts cmd, which deletes the shadow copies and turns off boot recovery, and then the locker runs.",
+   "Memory remembers what the logs half-say. lsass is PID 724; rundll32 dumped it and exited. nt dot exe read the dump. Then px dot exe connects to the file server as adm.rjoshi, using a password hash instead of a password. That's pass the hash. Sessions show the attacker in RDP session 3, while the real designer's console session from the evening is still there. Two people, one machine.",
+   "On fs02 it looks like an administrator: adm.rjoshi logs on over the network at 23:20, but with NTLM, from a design workstation, on a Friday night. Special privileges, the ADMIN share, and six seconds later a service called WinUpdSvc, running as LocalSystem. Hayabusa marks the shadow copy deletion as critical, and Velociraptor shows the service is still installed. That's the lateral movement.",
+   "ATT&CK gives every step a shared name, so an insurer or CERT-In knows exactly what we mean. External remote services and a valid account. RDP. Discovery. Tool transfer and PowerShell. LSASS memory. Pass the hash over admin shares. Service execution. Inhibit system recovery. Data encrypted for impact. Each row has its evidence. And one row stands out: MFA on the VPN would have stopped all of it.",
+   "Responders decide before they know everything. Pull the cable but keep the power on, because memory is evidence. Don't pay: it doesn't un-copy the drawings. File with CERT-In within six hours with what you know. Turn on MFA before you rebuild. And tell staff and the customer the truth early. Ten points, and a sentence of reasoning for each call.",
+   "Two readers, one report. The summary is for the managing director: what happened in plain words, what it cost, what we're doing, and the three decisions needed today. The annex is for IT, the insurer and CERT-In: timeline, scope, root cause, what we did, indicators and lessons. Notice the summary never says pass the hash.",
+   "Hand in the notebook: the chain of custody, the timeline, the process tree marks, the ATT&CK table, your tabletop path and the report. The rubric is on screen."
+  ]
+ }
+}

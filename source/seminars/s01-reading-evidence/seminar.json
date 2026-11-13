@@ -1,0 +1,74 @@
+{
+ "title": "Reading evidence: packets, Linux, Windows and network sensors",
+ "summary": "Read four kinds of evidence from one night at a clinic: a Linux server's auth log and processes, a packet capture, Zeek connection logs and Windows event logs. Find a brute force, a script download, a beacon and a hop to a reception PC, then write a host triage note and a network finding.",
+ "kicker": "Seminar 1",
+ "units": [
+  3,
+  4
+ ],
+ "level": "Foundation",
+ "minutes": 360,
+ "order": 2,
+ "tools": [
+  "Browser Linux (grep, awk, sort, uniq)",
+  "Packet viewer",
+  "tshark",
+  "Zeek logs (captured)",
+  "Event viewer",
+  "IDS rules",
+  "Report builder"
+ ],
+ "seminar_id": 2,
+ "published": true,
+ "handin": "A host triage note for appt01 and a one-page network finding, each with the commands and filters you used.",
+ "rubric": [
+  [
+   "Evidence hashed and listed before any analysis",
+   2
+  ],
+  [
+   "Brute force and the successful login found in auth.log, with the commands used",
+   4
+  ],
+  [
+   "What happened after the login: the download, the cron job and the running process",
+   4
+  ],
+  [
+   "Packets: the download and the beacon found with display filters, the filters written down",
+   4
+  ],
+  [
+   "Zeek conn.log: who talked to whom, including the connection to the reception PC",
+   3
+  ],
+  [
+   "Windows: failed and successful logons and the share access, with event IDs",
+   4
+  ],
+  [
+   "IDS rules that catch the download and the beacon, and nothing normal",
+   3
+  ],
+  [
+   "Host triage note and network finding: facts kept apart from guesses, next steps with owners",
+   6
+  ]
+ ],
+ "script": {
+  "intro": "Welcome to Reading evidence. Every analyst job comes down to reading four kinds of evidence: what a Linux server wrote in its logs, what crossed the wire, what a network sensor summarised, and what Windows recorded. Tonight's case is Tamarind Health, a small chain of clinics. At ten past six this morning, India time, their IDS lit up. We'll read each kind of evidence in turn and finish with a host triage note and a network finding someone else can act on.",
+  "outro": "That's the night at Tamarind Health, read four ways. The Linux log told us how they got in, the packets showed what they fetched and the beacon, Zeek showed who talked to whom, and Windows showed the hop to the reception PC and the patient scans share. Two short documents carry it to the next person. Next, seminar two turns this kind of reading into searches and detection rules.",
+  "steps": [
+   "Every case starts the same way. Read the README so you know the machines, the addresses and the time zone. Then list the files and hash them before you open anything. The hashes are your proof, later, that the evidence didn't change in your hands. Eight files: a Linux server's logs, a capture, a Zeek log and a Windows log.",
+   "Port 22 is open to the internet, so auth.log is full of knocking. We count the failed passwords, then count them by address. One address made 46 guesses in about a quarter of an hour, against admin, root, test, oracle, postgres and then vendor. Vendor is a real account here, and that's the one to worry about.",
+   "The brute force worked: an Accepted password for vendor at 01:19:44 from the same address. Twenty-six seconds later, sudo wget fetches a script into a hidden file in /tmp, and runs it. The script downloads a program, names it dot sysmon agent so it looks like monitoring, and adds a cron job every ten minutes. ps shows it running as root. That's persistence.",
+   "Now the wire. A display filter keeps only what you ask for. http dot request shows two downloads: m dot sh fetched by Wget, which matches the sudo line, and a dot bin fetched by curl, which matches the script. Filter on the server's address to see every packet to and from it, including the encrypted traffic that comes next. tshark gives the same answer on the command line.",
+   "After the download, appt01 calls the same server over TLS at 01:21, 01:31 and 01:41. We can't read the content, but we can read the timing and the server name in the Client Hello. Every ten minutes, exactly like the cron line. That's a beacon. The TLS to the portal and the backup server is internal and expected, which is how you tell them apart.",
+   "Zeek is the network sensor's summary: one line per connection. Counting pairs shows the night at a glance. appt01 opened 5 connections to the download server: two downloads and three beacons. And something new: ten connections to the reception PC on port 445, Windows file sharing. An appointments server has no reason to do that. The biggest transfer is the nightly backup, internal and expected.",
+   "Windows saw those connections as logons. Nine 4625 failures for frontdesk from appt01, then a 4624 success, Logon Type 3, over the network. Then 5140, the Scans share opened, and six 5145 lines, six files read. Patient scans and referrals. That makes this a possible personal data breach, which changes who has to be told and how fast. One older 4625 is the receptionist mistyping at the keyboard, so we leave it out.",
+   "Now we turn what we found into IDS rules. One rule: a server fetching anything from the internet with Wget or curl. Another: TLS with this server name. Five alerts, two downloads and three beacons, and none on the portal, the backup or the database. Then the honest part: one line on what each rule would miss.",
+   "Two short documents. The host note: what fired, what we checked, with the commands, what we found, what we don't know, and next steps with owners. The network finding: the same shape, about traffic. Notice what isn't in them: no guess about what the program does. We haven't analysed it, so we say that.",
+   "Hand in the notebook: the evidence list and hashes, the commands, the filters, the rules and both notes. The rubric is on screen."
+  ]
+ }
+}

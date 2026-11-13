@@ -18,13 +18,13 @@ window.APCYBER_PAYWALL = {
     ]
   },
 
-  donateEveryDays: 30,
+  donateEveryDays: 0,
 
   free: [
     "index.html", "unit-*/index.html", "unit-*/*/index.html",
     "unit-1/1.1/**",
     "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html", "community.html",
-    "store.html", "labs.html", "seminars.html", "certificate.html",
+    "store.html", "labs.html", "seminars.html", "certificate.html", "workstation.html", "careers.html",
     "buy/**", "unlock/**", "pay/**", "ledger/**", "teacher/database-check.html"
   ],
 
@@ -32,7 +32,7 @@ window.APCYBER_PAYWALL = {
     labs: {
       name: "Cybersecurity Labs",
       title: "Part of Labs",
-      text: "Labs is the hands-on side of the course: incident runbooks with an analyst console, a real Linux computer, JupyterLab " +
+      text: "Labs is where you practise on real incidents: case files you work in the Hacker Room, a real Linux computer, JupyterLab " +
         "with every code book, the SQL injection lab, the hackable shop, the capture-the-flag board, every skill lab, premium notebooks and the lesson videos. " +
         "It is sold separately from the course.",
       button: "Get Labs",
@@ -66,7 +66,7 @@ window.APCYBER_STORES = {
   },
   labs: {
     name: "Cybersecurity Labs",
-    blurb: "Incident runbooks with an analyst console (terminal, script toolkit, log viewer, notes), real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
+    blurb: "Practise on real incidents: every incident case, opened in the Hacker Room with its evidence and network, plus real Linux in the browser, JupyterLab with every code book, the SQL injection lab, Hack the shop, the CTF board, " +
       "every skill lab, premium notebooks and every lesson video. Pay once, keep it.",
     india: "Pay what you want, with a minimum",
     methods: [
@@ -76,7 +76,7 @@ window.APCYBER_STORES = {
   },
   seminars: {
     name: "Cybersecurity Seminars, one year",
-    blurb: "All thirteen seminars for a year: SOC, incident response, cloud, testing, governance and AI security, each with its tutorial, hands-on lab and certificate. Or unlock single seminars with tickets.",
+    blurb: "All thirteen seminars for a year: SOC, incident response, identity, cloud, testing, governance and AI security. Each one teaches its programs, simulators and the Hacker Room (our online security desktop) step by step, with video, a written tutorial, a hands-on lab, a graded hand-in and a certificate. Or unlock single seminars with tickets.",
     india: "Pay what you want, with a minimum",
     methods: [
       { label: "Razorpay", note: "India · from Rs 9,999", url: "https://rzp.io/rzp/aayat-cybersecurity-seminars" },
@@ -106,7 +106,7 @@ window.APCYBER_STORES = {
 
 window.APCYBER_SUPPORT = {
   buttonId: "",
-  pageUrl: "https://zeffiroh.github.io/ap-cybersecurity/pay/?donate=1",
+  pageUrl: "https://zeffiroh.github.io/ap-cybersecurity/store.html",
   contactEmail: "mukumahnoor@gmail.com",
 
   rates: {
