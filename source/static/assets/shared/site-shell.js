@@ -12,13 +12,13 @@ function toggleSidebar() {
   var thisScript = document.currentScript;
   if (!thisScript) return;
   var src = thisScript.getAttribute("src") || "";
-  var base = src.replace(/assets\/site-shared\/site-shell\.js.*$/, "");
+  var base = src.replace(/assets\/shared\/site-shell\.js.*$/, "");
   var nav = document.querySelector(".site-nav");
   if (!nav || nav.querySelector(".nav-grades-link")) return;
-  var isInstructor = /\/instructor\//.test(location.pathname);
+  var isInstructor = /\/teacher\//.test(location.pathname);
   var link = document.createElement("a");
   link.className = "nav-grades-link";
-  link.href = base + "assets/reports/" + (isInstructor ? "class-report.html" : "student-report.html");
+  link.href = base + (isInstructor ? "teacher/class-report.html" : "progress.html");
   link.textContent = isInstructor ? "Class Performance" : "My Grades";
   nav.appendChild(link);
 })();

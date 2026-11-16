@@ -82,7 +82,25 @@ def check(path):
             bad.append(f"{p.name}: " + tested.stderr.strip().replace("bash: ", ""))
     for b in bad:
         print(f"  problem: {b}")
+    for w in missing_refs(path):
+        print(f"  warning: {w}")
     return not bad
+
+
+def missing_refs(path):
+    files = path / "files"
+    have = {p.relative_to(files).as_posix() for p in files.rglob("*") if p.is_file()} if files.is_dir() else set()
+    names = {h.rsplit("/", 1)[-1] for h in have}
+    out = []
+    for p in sorted(path.glob("[0-9]*.md")) + sorted(path.glob("[0-9]*.sh")):
+        text = re.sub(r"https?://\S+", "", S.read(p))
+        text = re.sub(r"```tool[\s\S]*?```", lambda m: " ".join(re.findall(r'"files?": *\[?"([^"\]]+)"', m.group(0))), text)
+        if re.search(r"\bREADME\b", text) and "README.txt" not in names:
+            out.append(f"{p.name} mentions a README, but files/README.txt is missing")
+        for ref in sorted(set(re.findall(r"(?<![\w/.-])((?:[\w-]+/)*[\w.-]+\.(?:log|jsonl|json|csv|eml|txt|pcap|yml|yaml|strings))\b", text))):
+            if ref not in have and ref.rsplit("/", 1)[-1] not in names and not re.match(r"(seminar|meta|template|manifest|index)\.json$", ref):
+                out.append(f"{p.name} names {ref}, which is not in files/")
+    return out
 
 
 def cmd_build(args):

@@ -9,7 +9,7 @@ No single defence stops everything. Switch defences on one at a time and rerun t
 | Layer | Stops | Misses |
 |---|---|---|
 | Input filter | T1 (direct override) | role-play, encoding, anything in documents |
-| Output filter (plain) | T2, T4 (the code written plainly) | T3 (spelled out) |
+| Output filter (plain) | T1, T2, T4 (any reply with the code written plainly) | T3 (spelled out) |
 | Strict output filter | T3 too | tool misuse |
 | Clean retrieved documents | T4, T6 (instructions inside documents) | direct attacks |
 | Approval gate | T5, T6 (risky tools wait for a person) | leaks |

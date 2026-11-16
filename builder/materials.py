@@ -142,12 +142,13 @@ def quizzes():
         page("quiz.html", path, page_title=esc(N.title_for(N.context(path))), toolbar=MODE_TOOLBAR, mode="simple",
              data_url=rel(path.parent, out), title=f"Topic {tid} Quiz",
              subtitle=js(f"{data['topic_title']}, {len(data['questions'])} Questions"))
-    emit(ASSETS / "quizzes" / "data" / "U1.json", dump_json(stimulus_quiz(TESTS_SRC / "quizbanks" / "unit_quizbank_U1.xml")),
-         json_equal=True)
+    if not (UNITS_SRC / "unit-1" / "classwork-quiz.json").exists():
+        emit(ASSETS / "quizzes" / "data" / "U1.json", dump_json(stimulus_quiz(TESTS_SRC / "quizbanks" / "unit_quizbank_U1.xml")),
+             json_equal=True)
     for u in C.units():
         n = u["num"]
-        src = (TESTS_SRC / "quizbanks" / "unit_quizbank_U1.xml") if n == 1 else (UNITS_SRC / f"unit-{n}" / "classwork-quiz.json")
-        data = stimulus_quiz(src) if n == 1 else json.loads(rd(src))
+        src = UNITS_SRC / f"unit-{n}" / "classwork-quiz.json"
+        data = json.loads(rd(src)) if src.exists() else stimulus_quiz(TESTS_SRC / "quizbanks" / "unit_quizbank_U1.xml")
         sets = data["stimulus_sets"]
         path = N.unit_quiz(n)
         page("quiz.html", path, page_title=esc(N.title_for(N.context(path))), toolbar=MODE_TOOLBAR, mode="stimulus",

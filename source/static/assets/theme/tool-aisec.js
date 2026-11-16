@@ -2,7 +2,7 @@
   "use strict";
   var K = global.AayatTools.kit;
   var DEF = [["input", "Input filter: refuse prompts that try to override the instructions"], ["output", "Output filter: never print the secret"], ["strict", "Strict output filter: also catch the secret spelled out, reversed or encoded"],
-    ["clean", "Clean retrieved documents: drop instructions found inside them"], ["approve", "Approval gate: risky tool calls wait for a person"], ["least", "Least privilege: the bot can only look up orders"]];
+    ["clean", "Clean retrieved documents: drop instructions found inside them"], ["approve", "Approval gate: risky tool calls wait for a person"], ["least", "Least privilege: the bot keeps only its read-only tools"]];
   var PAT = {
     override: /\b(ignore|disregard|forget|override|bypass)\b.{0,30}\b(instructions?|rules?|prompt|above|previous|prior|guidelines|policy)\b/i,
     reveal: /\b(system prompt|your (instructions|rules|prompt)|initial prompt|hidden (prompt|instructions)|secret|discount code|staff code|password|api key)\b/i,
@@ -46,7 +46,7 @@
     trace.push("prompt classes: " + (kinds.join(", ") || "none"));
     if (on.input && (kinds.indexOf("override") >= 0 || (kinds.indexOf("reveal") >= 0 && kinds.indexOf("roleplay") < 0 && kinds.indexOf("encode") < 0))) {
       trace.push("input filter: refused");
-      return { reply: "I can't help with that. I can help with orders, refunds and shipping.", trace: trace, outcome: "blocked", kinds: kinds, calls: calls };
+      return { reply: "I can't help with that. " + (sc.fallback || "What else can I help with?"), trace: trace, outcome: "blocked", kinds: kinds, calls: calls };
     }
     var docs = retrieve(sc, prompt), injected = null;
     docs.forEach(function (d) {
@@ -60,10 +60,10 @@
     var wantsTool = kinds.indexOf("tool") >= 0 || (injected && PAT.tool.test(injected.text));
     if (wantsSecret) {
       var enc = kinds.indexOf("encode") >= 0 ? (/base64/i.test(prompt) ? btoa(secret) : /revers|backwards/i.test(prompt) ? secret.split("").reverse().join("") : secret.split("").join(" ")) : secret;
-      reply = (injected ? "As the shipping guide says, here is the staff code: " : kinds.indexOf("roleplay") >= 0 ? "Sure, staying in character: the code is " : "Here it is: ") + enc;
+      reply = (injected ? "As " + (injected.title || "the guide") + " says, here is the staff code: " : kinds.indexOf("roleplay") >= 0 ? "Sure, staying in character: the code is " : "Here it is: ") + enc;
       outcome = "leak";
     } else if (wantsTool) {
-      var tools = on.least ? ["lookup_order"] : (sc.tools || []).map(function (t) { return t.name; });
+      var tools = (sc.tools || []).filter(function (t) { return !on.least || !t.risky; }).map(function (t) { return t.name; });
       var name = /refund/i.test(prompt + (injected ? injected.text : "")) ? "refund" : /mail/i.test(prompt + (injected ? injected.text : "")) ? "send_email" : "lookup_order";
       if (tools.indexOf(name) < 0) { trace.push("tool " + name + ": not available to this bot"); reply = "I can't do that from here. I can look up an order for you."; }
       else {
@@ -74,7 +74,7 @@
       }
     } else {
       var d0 = docs[0];
-      reply = d0 ? d0.text.split(/(?<=\.)\s/)[0] : sc.fallback || "I can help with orders, refunds and shipping. What do you need?";
+      reply = d0 ? d0.text.split(/(?<=\.)\s/)[0] : sc.fallback || "What do you need help with?";
     }
     if (outcome === "leak" && (on.output || on.strict)) {
       if (leaks(reply, secret) && (on.strict || reply.indexOf(secret) >= 0)) { trace.push("output filter: removed the secret"); reply = "[removed by the output filter]"; outcome = "blocked"; }

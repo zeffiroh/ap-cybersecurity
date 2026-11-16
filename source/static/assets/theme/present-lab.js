@@ -567,7 +567,7 @@
     function pick(tab) {
       if (stop) { stop(); stop = null; }
       history.replaceState(null, "", location.pathname + (typeof tab === "string" && tab ? "?tab=" + tab : ""));
-      $("p-title").textContent = "Present";
+      $("p-title").textContent = "Present a lab or case";
       $("status").textContent = "Pick a lab, a runbook case, a lesson code book, CTF challenges or a seminar. It opens as big slides, one step at a time.";
       picker(host, open, typeof tab === "string" ? tab : "");
     }

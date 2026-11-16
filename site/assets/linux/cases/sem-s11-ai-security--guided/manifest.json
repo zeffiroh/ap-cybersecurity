@@ -87,12 +87,12 @@
   },
   {
    "t": "md",
-   "s": "## 1. Meet the assistant\n\nBefore you attack anything, read how it's built. An LLM app is more than the model: a **system prompt** (its instructions), a **knowledge base** it searches for answers, and **tools** it can call. Each is a way in.\n\n- [ ] What does the system prompt forbid?\n- [ ] Which documents can it retrieve? Who wrote them?\n- [ ] Which tools can it call? Which ones change something in the real world?\n\n> Hint: KB-07 and KB-09 came from partners, not from Tulsi's own team. Read them closely.\n\n?> How many of Tara's tools are marked risky? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+   "s": "## 1. Meet the assistant\n\nBefore you attack anything, read how it's built. An LLM app is more than the model: a **system prompt** (its instructions), a **knowledge base** it searches for answers, and **tools** it can call. Each is a way in.\n\n- [ ] What does the system prompt forbid?\n- [ ] Which documents can it retrieve? Who wrote them?\n- [ ] Which tools can it call? Which ones change something in the real world?\n\n> Hint: KB-07 and KB-09 have \"Partner\" in their titles: they came from partner airlines, not from Tulsi's own team. Read them closely.\n\n?> How many of Tara's tools are marked risky? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
   },
   {
    "t": "sh",
    "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with grep.\n",
-   "a": "cd ~/case\ngrep -o '\"system\": \"[^\"]*\"' ai-tara-support.json\necho ---\ngrep -o '\"id\": \"KB-[0-9]*\", \"title\": \"[^\"]*\"' ai-tara-support.json\necho ---\ngrep -o '\"name\": \"[a-z_]*\", \"risky\": [a-z]*' ai-tara-support.json"
+   "a": "cd ~/case\ngrep -o '\"system\": \"[^\"]*\"' ai-tara-support.json\necho ---\ngrep -A1 '\"id\": \"KB-' ai-tara-support.json | grep -v '^--$'\necho ---\nsed -n '/\"tools\"/,/\"docs\"/p' ai-tara-support.json | grep -A1 '\"name\": \"' | grep -v '^--$'"
   },
   {
    "t": "md",
@@ -117,7 +117,7 @@
   },
   {
    "t": "md",
-   "s": "## 6. Defend it in layers\n\nNo single defence stops everything. Switch defences on one at a time and rerun the suite after each: which test does each one fix, and which does it miss? Aim for 0 failures **and** T7 still answered.\n\n```tool aisec\n{\"file\": \"ai-tara-support.json\", \"on\": \"\", \"n\": 0, \"blank\": [\"on\"], \"a\": {\"on\": {\"input\": true, \"strict\": true, \"clean\": true, \"approve\": true}}}\n```\n\n| Layer | Stops | Misses |\n|---|---|---|\n| Input filter | T1 (direct override) | role-play, encoding, anything in documents |\n| Output filter (plain) | T2, T4 (the code written plainly) | T3 (spelled out) |\n| Strict output filter | T3 too | tool misuse |\n| Clean retrieved documents | T4, T6 (instructions inside documents) | direct attacks |\n| Approval gate | T5, T6 (risky tools wait for a person) | leaks |\n\n- [ ] 0 failures\n- [ ] T7 still answered\n- [ ] One line: why not just rely on the input filter?\n\n> Hint: Attackers only need one gap. Layers mean each attack has to beat several different checks.\n\n?> Which defence stops the spelled-out code (T3)? (one word from its name) :: sha256:3a3127f5ea0269b5c6cfe92e7eb12dccc190b1e1cedd7faeae3960079542c055"
+   "s": "## 6. Defend it in layers\n\nNo single defence stops everything. Switch defences on one at a time and rerun the suite after each: which test does each one fix, and which does it miss? Aim for 0 failures **and** T7 still answered.\n\n```tool aisec\n{\"file\": \"ai-tara-support.json\", \"on\": \"\", \"n\": 0, \"blank\": [\"on\"], \"a\": {\"on\": {\"input\": true, \"strict\": true, \"clean\": true, \"approve\": true}}}\n```\n\n| Layer | Stops | Misses |\n|---|---|---|\n| Input filter | T1 (direct override) | role-play, encoding, anything in documents |\n| Output filter (plain) | T1, T2, T4 (any reply with the code written plainly) | T3 (spelled out) |\n| Strict output filter | T3 too | tool misuse |\n| Clean retrieved documents | T4, T6 (instructions inside documents) | direct attacks |\n| Approval gate | T5, T6 (risky tools wait for a person) | leaks |\n\n- [ ] 0 failures\n- [ ] T7 still answered\n- [ ] One line: why not just rely on the input filter?\n\n> Hint: Attackers only need one gap. Layers mean each attack has to beat several different checks.\n\n?> Which defence stops the spelled-out code (T3)? (one word from its name) :: sha256:3a3127f5ea0269b5c6cfe92e7eb12dccc190b1e1cedd7faeae3960079542c055"
   },
   {
    "t": "md",

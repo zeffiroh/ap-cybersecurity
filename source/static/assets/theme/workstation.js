@@ -37,7 +37,7 @@
     rdp: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M9 9l2 2 4-4"/>'
   };
   var TINT = { terminal: "#2b2f36", files: "#d89a2b", mail: "#2d74c4", chat: "#3a9d6a", notes: "#c9a227", help: "#5d6b7a", text: "#7a8796",
-    packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8" };
+    packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8", net: "#2c7a7b" };
   var GROUP_ICON = { "SOC analyst": "shield", "Incident responder": "flame", "Security engineer": "gear", "Cloud and DevSecOps": "cloud", "Penetration tester": "target", "Governance and risk": "scales" };
   var TOOL_ICON = { packets: "packets", events: "events", siem: "siem", alerts: "alerts", email: "mail", logsearch: "siem", timeline: "events", proctree: "events" };
 
@@ -257,6 +257,7 @@
     if (/\.eml$/.test(b)) return { app: "mail", label: "Email message", ico: "mail" };
     if (/alert.*\.json$/.test(b)) return { app: "tool-alerts", label: "Alert queue", ico: "alerts" };
     if (/tabletop.*\.json$/.test(b)) return { app: "tool-tabletop", label: "Tabletop exercise", ico: "flame" };
+    if (/risk.*\.csv$/.test(b)) return { app: "tool-risk", label: "Risk register", ico: "scales" };
     if (/certin.*\.json$/.test(b)) return { app: "tool-certin", label: "CERT-In case", ico: "scales" };
     if (/^ai.*\.json$/.test(b)) return { app: "tool-aisec", label: "AI assistant setup", ico: "scales" };
     if (/audit.*\.json$|polic.*\.json$/.test(b)) return { app: "tool-cloudiam", label: "Cloud audit or policy", ico: "cloud" };
@@ -570,7 +571,7 @@
     $("ws-lockbtn").addEventListener("click", function () { m.hidden = true; lockScreen(); });
   }
   function icons() {
-    var pick = ["files", "terminal", "mail", "chat", "tickets", "rack", "rdp", "tool-packets", "tool-events", "tool-siem", "notes", "help"], list = programs();
+    var pick = ["files", "terminal", "mail", "chat", "tickets", "rack", "rdp", "netlab", "tool-packets", "tool-events", "tool-siem", "notes", "help"], list = programs();
     $("ws-icons").innerHTML = pick.map(function (id) { return list.filter(function (p) { return p.id === id; })[0]; }).filter(Boolean).map(function (p) {
       return '<button type="button" class="ws-icon" data-p="' + esc(p.id) + '">' + icon(p.icon, 44) + "<span>" + esc(p.title) + "</span></button>";
     }).join("");
@@ -583,7 +584,7 @@
   function pins() {
     var p = document.createElement("div");
     p.className = "ws-pins";
-    p.innerHTML = ["files", "terminal", "mail", "chat", "tickets", "tool-packets", "tool-siem"].map(function (id) {
+    p.innerHTML = ["files", "terminal", "mail", "chat", "tickets", "rack", "rdp", "netlab", "tool-packets", "tool-events", "tool-siem"].map(function (id) {
       var x = prog(id);
       return x ? '<button type="button" data-p="' + id + '" title="' + esc(x.title) + '" aria-label="' + esc(x.title) + '">' + icon(x.icon, 22) + "</button>" : "";
     }).join("");

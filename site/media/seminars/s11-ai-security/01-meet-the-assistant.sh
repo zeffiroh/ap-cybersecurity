@@ -1,6 +1,6 @@
 cd ~/case
 grep -o '"system": "[^"]*"' ai-tara-support.json
 echo ---
-grep -o '"id": "KB-[0-9]*", "title": "[^"]*"' ai-tara-support.json
+grep -A1 '"id": "KB-' ai-tara-support.json | grep -v '^--$'
 echo ---
-grep -o '"name": "[a-z_]*", "risky": [a-z]*' ai-tara-support.json
+sed -n '/"tools"/,/"docs"/p' ai-tara-support.json | grep -A1 '"name": "' | grep -v '^--$'

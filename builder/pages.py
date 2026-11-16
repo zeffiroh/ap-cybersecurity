@@ -478,7 +478,13 @@ def labs_page():
              f'<li><a href="{r(SITE / "sqli.html")}"><b>Your first attack: the SQL injection lab</b><span>Get past a login, then fix it. About 30 minutes.</span></a></li>'
              f'<li><a id="lv-firstcase" href="{r(SITE / "notebook.html")}#nb-cases-h"><b>Your first incident runbook</b><span>A guided case with a briefing, hints and answer checks. About an hour.</span></a></li>'
              '</ol></section>')
-    jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-runbooks">Incident runbooks</a>'
+    def prog(name, url, d, more):
+        return (f'<a class="lv-card" href="{url}" target="_blank" rel="noopener"><span class="lv-ck">Free program</span><b>{esc(name)}</b>'
+                f'<span class="lv-cs">{esc(d)}</span><span class="lv-cp">{esc(more)} &rarr;</span></a>')
+    netprogs = (prog("Filius", "https://www.lernsoftware-filius.de", "A free network simulator made for schools: cable computers, switches and routers, then ping, DNS and a web server. Windows, macOS, Linux.", "Labs 1 to 3 · download")
+                + prog("Cisco Packet Tracer", "https://www.netacad.com", "The classroom standard for switch and router commands: VLANs, trunks, port security, access lists. Free with a Networking Academy account.", "Labs 4 to 7 · sign up and download")
+                + prog("GNS3", "https://www.gns3.com", "A free network emulator for real equipment. Its built-in computers and switch need no images, and any link can be captured in Wireshark.", "Lab 8 · download"))
+    jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-network">Network lab</a><a href="#lv-runbooks">Incident runbooks</a>'
             '<a href="#lv-attack">Attack the app</a><a href="#lv-ctf">CTF</a><a href="#lv-tools">Tools</a></nav>')
     skills = "".join(f'<li><span class="aa-id">{a["id"]}</span><a href="{r(N.lab_page(a))}">{esc(N.window_name(a, "lab"))}</a></li>'
                      for a in C.atom_order() if N.has_lab(a))
@@ -488,6 +494,9 @@ def labs_page():
             '<h2 id="lv-guided">Guided labs</h2>\n<p class="lv-gd">Step-by-step labs and notebooks from your teacher. Each step has a Done tick, copy buttons and hints.</p>\n'
             '<div id="lb-premium"><p class="sx-empty">Loading…</p></div>\n'
             f'<details class="lv-skills"><summary>Skill labs, one for each lesson</summary><ul class="aa-list lb-skills">{skills}</ul></details>\n'
+            '<h2 id="lv-network">Network lab</h2>\n<p class="lv-gd">Build and secure real networks in three free programs on your own computer: cabling, addresses and routing in Filius, '
+            'VLANs, switch hardening and access lists in Packet Tracer, and packet capture in GNS3. Each lab has step-by-step instructions, three levels and answer checks here. Lab 1 is free.</p>\n'
+            f'<div class="lv-grid">{netprogs}</div>\n<div id="lv-netlabs"><p class="sx-empty">Loading network labs…</p></div>\n'
             '<h2 id="lv-runbooks">Incident runbooks</h2>\n<p class="lv-gd">Work a real case in the Notebook: real Linux, Python and network tools on the case evidence, '
             'with a briefing, a step tracker, hints and answer checks.</p>\n<div id="lv-cases"><p class="sx-empty">Loading cases…</p></div>\n'
             f'<h2 id="lv-attack">Attack-the-app labs</h2>\n<div class="lv-grid">{attack}</div>\n'

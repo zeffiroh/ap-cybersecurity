@@ -307,7 +307,31 @@
     open(H.procs.length ? "tasks" : H.logs.length ? "evt" : "svc");
   }
 
+  function netlab() {
+    var d = D();
+    var PROGS = [
+      ["Filius", "https://www.lernsoftware-filius.de", "Free, made for schools. Cable computers, switches and routers; ping, DNS and a web server.", "Labs 1 to 3"],
+      ["Cisco Packet Tracer", "https://www.netacad.com", "Free with a Networking Academy account. Real switch and router commands: VLANs, trunks, port security, access lists.", "Labs 4 to 7"],
+      ["GNS3", "https://www.gns3.com", "Free network emulator. Built-in computers and switch, and Wireshark capture on any link.", "Lab 8"]
+    ];
+    d.win("Network lab", "net", function (w) {
+      w.body.classList.add("ws-app-body");
+      w.body.innerHTML = '<div class="ws-help"><h3>Network lab</h3><p>Networks are built in three free programs on your own computer. Install the one your lab needs, keep it open beside this desktop, and answer each step in the lab notebook.</p>' +
+        '<div class="ws-netprogs">' + PROGS.map(function (p) { return '<div class="ws-netprog"><b>' + d.esc(p[0]) + "</b><small>" + d.esc(p[3]) + "</small><p>" + d.esc(p[2]) + '</p><a class="btn dark" target="_blank" rel="noopener" href="' + p[1] + '">Get ' + d.esc(p[0]) + "</a></div>"; }).join("") + "</div>" +
+        '<h4>The labs</h4><ol class="ws-netlabs"><li>Loading…</li></ol></div>';
+      var list = w.body.querySelector(".ws-netlabs");
+      fetch(base + "assets/linux/cases/index.json").then(function (r) { return r.json(); }).then(function (all) {
+        var labs = all.filter(function (c) { return /^sem-n\d/.test(c.id); });
+        list.innerHTML = labs.map(function (c) {
+          return '<li><a target="_blank" rel="noopener" href="' + base + "notebook.html?ref=rb-" + encodeURIComponent(c.id.replace(/^sem-/, "")) + "&runbook=" + encodeURIComponent(c.id) + '">' + d.esc(c.title) + "</a> <small>" + d.esc((c.level || "") + (c.minutes ? " · about " + c.minutes + " min" : "")) + "</small></li>";
+        }).join("") || "<li>No network labs yet.</li>";
+      }).catch(function () { list.innerHTML = '<li><a target="_blank" rel="noopener" href="' + base + 'labs.html#lv-network">Open the Network lab on the Labs page</a></li>'; });
+    }, { w: 760, h: 520 });
+  }
+  var base = (document.currentScript && document.currentScript.src || "").replace(/assets\/theme\/workstation-apps\.js.*$/, "");
+
   global.AayatDeskApps = [
+    { id: "netlab", title: "Network lab", icon: "net", open: netlab },
     { id: "tickets", title: "Tickets", icon: "ticket", open: tickets },
     { id: "rack", title: "Server room", icon: "rack", open: rack },
     { id: "rdp", title: "Remote desktop", icon: "rdp", open: rdp }

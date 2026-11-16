@@ -763,10 +763,10 @@
     return '<summary><span class="rb-bk">' + esc(m.kicker || "Incident") + (m.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span>" +
       "<b>Case briefing: " + esc(m.title) + '</b><span class="rb-bmeta">' + [esc(m.level || ""), m.minutes ? "about " + m.minutes + " min" : "", units, m.variantCount ? "evidence set " + (m.variant + 1) + " of " + m.variantCount : ""].filter(Boolean).join(" &middot; ") + "</span></summary>" +
       '<div class="rb-bbody"><p class="rb-sum">' + esc(m.summary || "") + "</p>" + topicLine(m) + levelBar(m) + playbookHtml(m.playbook) +
-      '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li><li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>' +
+      '<ol class="rb-how"><li><b>Read</b> each step and its checklist.</li>' + (m.app ? "<li><b>Do</b> each step in <b>" + esc(m.app.name) + "</b>, a free program on your own computer" + (m.app.url ? ' (<a href="' + esc(m.app.url) + '" target="_blank" rel="noopener">get it here</a>)' : "") + ", then come back here.</li>" : '<li><b>Run</b> the Linux and Python cells with &#9654; Run. Press <b>Explain this command</b> to see what each part does.</li>') +
       "<li><b>Tick</b> the checklist and answer the questions. Stuck? Open a hint.</li><li><b>Next step</b> takes you on. Your progress saves with this notebook.</li></ol>" +
       (files.length ? '<h3>Evidence in <code>~/case</code></h3><div class="rb-files">' + files.map(function (f) { return "<code>" + esc(f) + "</code>"; }).join("") + "</div>" : "") +
-      (tools ? '<h3>Tools cheat sheet</h3><div class="rb-tablewrap"><table class="rb-tools"><tr><th>Tool</th><th>What it does</th><th>Example</th></tr>' + tools + "</table></div>" : "") +
+      (tools && !m.app ? '<h3>Tools cheat sheet</h3><div class="rb-tablewrap"><table class="rb-tools"><tr><th>Tool</th><th>What it does</th><th>Example</th></tr>' + tools + "</table></div>" : "") +
       '<p><button type="button" class="btn dark" id="rb-begin">Start step 1</button></p></div>';
   }
 

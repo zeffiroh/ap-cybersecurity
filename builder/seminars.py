@@ -173,6 +173,8 @@ def publish_one(folder):
         meta["free"] = True
     if info.get("next"):
         meta["next"] = info["next"]
+    if isinstance(info.get("app"), dict) and info["app"].get("name"):
+        meta["app"] = {"name": str(info["app"]["name"]), "url": str(info["app"].get("url", ""))}
     if isinstance(info.get("rubric"), list) and info["rubric"]:
         meta["rubric"] = [[str(c), int(m)] for c, m in info["rubric"]][:20]
     if info.get("handin"):

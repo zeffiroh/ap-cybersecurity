@@ -71,7 +71,7 @@ title: What Is Cybersecurity?
 - **Recover (RC):** Restores capabilities and implements improvements to prevent recurrence.
 :::
 ::col::
-:::image src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/NIST_Version_2.0.png/640px-NIST_Version_2.0.png" alt="NIST Cybersecurity Framework 2.0 Core Functions" caption="NIST CSF 2.0 Core Functions: Govern, Identify, Protect, Detect, Respond, Recover" width=full
+:::image src="images/01_nist_csf_2_core_functions.png" alt="NIST Cybersecurity Framework 2.0 Core Functions" caption="NIST CSF 2.0 Core Functions: Govern, Identify, Protect, Detect, Respond, Recover" width=full
 :::
 ::::
 

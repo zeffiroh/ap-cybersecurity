@@ -10,5 +10,8 @@ Look around with the programs on the desktop. Everything here is a lab copy: not
   intel.json                  what threat intel says about the addresses
   mail/prize.eml              an email a barista reported
   process.csv                 programs that ran on the till PC
+  risk-trial.csv              the cafe's risk list (open it in the Risk register)
+  certin-trial.json           the incident report clock (open it in CERT-In)
+  ai-trial.json               the cafe's booking chatbot (open it in AI security)
 
 Try in a terminal:  grep "Failed password" auth.log | wc -l     then    grep Accepted auth.log

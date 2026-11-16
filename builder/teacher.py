@@ -250,10 +250,10 @@ def labs_page():
 
 
 def present_lab_page():
-    body = ('<header class="tc-head pl-head"><div><p class="tc-kicker">Present to the class</p><h1 id="p-title">Present</h1>'
+    body = ('<header class="tc-head pl-head"><div><p class="tc-kicker">Present to the class</p><h1 id="p-title">Present a lab or case</h1>'
             '<p class="aa-sub" id="status">Loading…</p></div></header>\n'
             '<div id="pl"></div>')
-    console(TEACHER / "present-lab.html", "Present", "present", body, [SITE / "assets" / "ctf" / "challenges.js", THEME / "studio.js", THEME / "present-lab.js"])
+    console(TEACHER / "present-lab.html", "Present a lab or case", "present", body, [SITE / "assets" / "ctf" / "challenges.js", THEME / "studio.js", THEME / "present-lab.js"])
 
 
 def videos_page():
@@ -303,7 +303,7 @@ def lectures_page():
 
 
 def present_page():
-    body = ('<header class="tc-head"><div><p class="tc-kicker"><a href="lectures.html">Lectures</a></p><h1 id="p-title">Present</h1></div>'
+    body = ('<header class="tc-head"><div><p class="tc-kicker"><a href="lectures.html">Lectures</a></p><h1 id="p-title">Present a lecture</h1></div>'
             '<div class="tc-headtools"><span class="tc-clock" id="p-clock">00:00</span>'
             '<button class="btn" id="p-reset">Reset timer</button>'
             '<a class="btn dark" id="p-pop" target="deck-projector">Open slides for the projector</a></div></header>\n'
@@ -311,7 +311,7 @@ def present_page():
             '<aside class="tc-card tc-notes"><h3><span id="p-count">Slide 1</span><span id="p-unit" class="tc-note"></span></h3>'
             '<div class="tc-kicker" id="p-slide"></div><div id="p-notes" class="tc-notesbody">Loading notes…</div>'
             '<p class="tc-note">Arrow keys move the slides. The notes follow along here and on the projector window.</p></aside></div>')
-    console(TEACHER / "present.html", "Present", "lectures", body, [])
+    console(TEACHER / "present.html", "Present a lecture", "lectures", body, [])
 
 
 def handins_page():

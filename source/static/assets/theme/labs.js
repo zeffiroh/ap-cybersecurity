@@ -72,7 +72,7 @@
   }
 
   function caseCards(list) {
-    list = list.filter(function (c) { return !c.seminarId; });
+    list = list.filter(function (c) { return !c.seminarId && !isNet(c); });
     var first = list.filter(function (c) { return /beginner/i.test(c.level || ""); })[0] || list[0];
     if (first && $("lv-firstcase")) {
       $("lv-firstcase").href = caseLink(first);
@@ -83,6 +83,19 @@
       try { mine = JSON.parse(localStorage.getItem("aayat_nb_case_" + c.id) || "null"); } catch (e) {}
       return '<a class="lv-card" href="' + caseLink(c) + '"><span class="lv-ck">' + esc(c.kicker || "Incident") +
         ((c.units || []).length ? " &middot; Unit " + c.units.join(" &amp; ") : "") + (c.teacher ? ' <span class="rb-teacher">Made by your teacher</span>' : "") + "</span><b>" + esc(c.title) +
+        '</b><span class="lv-cs">' + esc(c.summary || "") + '</span><span class="lv-cp">' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") +
+        " &middot; " + (mine ? "continue" : "start") + " &rarr;</span></a>";
+    }).join("") + "</div>";
+  }
+
+  function isNet(c) { return /^sem-n\d/.test(c.id || ""); }
+  function netCards(list) {
+    list = list.filter(isNet);
+    if (!list.length) return '<p class="sx-empty">No network labs yet.</p>';
+    return '<div class="lv-grid">' + list.map(function (c) {
+      var mine = null;
+      try { mine = JSON.parse(localStorage.getItem("aayat_nb_case_" + c.id) || "null"); } catch (e) {}
+      return '<a class="lv-card" href="' + caseLink(c) + '"><span class="lv-ck">' + esc(c.kicker || "Network lab") + "</span><b>" + esc(c.title) +
         '</b><span class="lv-cs">' + esc(c.summary || "") + '</span><span class="lv-cp">' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") +
         " &middot; " + (mine ? "continue" : "start") + " &rarr;</span></a>";
     }).join("") + "</div>";
@@ -104,7 +117,7 @@
       $("lb-premium").innerHTML = items.length ? premiumCards(items) : '<p class="sx-empty">No guided labs from your teacher yet. The skill labs below are ready now.</p>';
     }).catch(function () { $("lb-premium").innerHTML = '<p class="sx-empty">Couldn\'t reach the course database, so your teacher\'s labs aren\'t listed. The labs below still work.</p>'; });
     if ($("lv-cases")) {
-      if (global.AayatVM) global.AayatVM.cases().then(function (list) { $("lv-cases").innerHTML = caseCards(list); },
+      if (global.AayatVM) global.AayatVM.cases().then(function (list) { $("lv-cases").innerHTML = caseCards(list); if ($("lv-netlabs")) $("lv-netlabs").innerHTML = netCards(list); },
         function () { $("lv-cases").innerHTML = '<p class="sx-empty">Couldn\'t load the cases. <a href="' + ROOT + 'notebook.html#nb-cases-h">Open them from the Notebook</a>.</p>'; });
       else $("lv-cases").innerHTML = '<p><a href="' + ROOT + 'notebook.html#nb-cases-h">Open the incident runbooks</a></p>';
     }

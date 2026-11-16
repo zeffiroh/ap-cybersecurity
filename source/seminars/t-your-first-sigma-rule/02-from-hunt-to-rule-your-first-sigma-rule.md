@@ -2,7 +2,7 @@
 
 A hunt you run once finds one attack. A **rule** finds the next one. Sigma is the open format for detection rules: one YAML file that converts to SPL, KQL and others.
 
-Switch to the Windows case. On hr-pc07 Word started cmd.exe. The rule below fires on that, and on Excel or Outlook doing the same. Press **Test**, then **Convert with pySigma** to see the real converter's SPL.
+Open the Windows log from hr-pc07 (`eventlogs/Security.jsonl`). On hr-pc07, Word started cmd.exe. The rule below fires on that, and on Excel or Outlook doing the same. Press **Test**, then **Convert with pySigma** to see the real converter's SPL.
 
 - [ ] Test the rule: how many events match?
 - [ ] Convert it with pySigma and compare with a search you would write by hand
