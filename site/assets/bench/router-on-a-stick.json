@@ -1,0 +1,36 @@
+{
+ "title": "Router on a stick",
+ "intro": "Hillview Library, part two. Staff are on VLAN 10 (10.0.10.0/24) and guests on VLAN 20 (10.0.20.0/24). One cable joins the switch to the router, and the router should route for both VLANs. Nobody can get online yet.",
+ "devices": [
+  {"id": "r1", "name": "r1", "kind": "router", "room": "comms cupboard",
+   "ifs": {"g0/0": {"ip": "", "bits": 24}, "g0/0.10": {"ip": "10.0.10.1/24", "vlan": 10}, "g0/1": "wan"}},
+  {"id": "sw1", "name": "sw1", "kind": "switch", "ports": 8, "room": "comms cupboard", "vlans": {"10": "staff", "20": "guest"}},
+  {"id": "staff1", "name": "staff1", "kind": "pc", "os": "windows", "ip": "10.0.10.11/24", "gw": "10.0.10.1", "room": "staff office"},
+  {"id": "staff2", "name": "staff2", "kind": "pc", "os": "windows", "ip": "10.0.10.12/24", "gw": "10.0.10.1", "room": "staff office"},
+  {"id": "guest1", "name": "guest1", "kind": "pc", "os": "linux", "ip": "10.0.20.11/24", "gw": "10.0.20.1", "room": "reading room"},
+  {"id": "guest2", "name": "guest2", "kind": "laptop", "os": "linux", "ip": "10.0.20.12/24", "gw": "10.0.20.254", "room": "reading room"}
+ ],
+ "ports": {
+  "sw1": [
+   {"n": 1, "socket": "-", "room": "comms cupboard", "to": "r1:g0/0", "vlan": 10},
+   {"n": 2, "socket": "S1", "room": "staff office", "to": "staff1", "vlan": 10},
+   {"n": 3, "socket": "S2", "room": "staff office", "to": "staff2", "vlan": 10},
+   {"n": 4, "socket": "R1", "room": "reading room", "to": "guest1", "vlan": 20},
+   {"n": 5, "socket": "R2", "room": "reading room", "to": "guest2", "vlan": 20},
+   {"n": 6, "socket": "R3", "room": "reading room", "vlan": 20},
+   {"n": 7, "socket": "-", "room": "comms cupboard"},
+   {"n": 8, "socket": "-", "room": "comms cupboard"}
+  ]
+ },
+ "tasks": [
+  {"id": "trunk", "text": "Make the cable to the router a trunk carrying VLANs 10 and 20", "hint": "sw1: interface fa0/1, switchport mode trunk, switchport trunk allowed vlan 10,20",
+   "check": {"all": [{"port": "sw1:1", "mode": "trunk"}, {"ping": ["staff1", "10.0.10.1"]}]}},
+  {"id": "staff-out", "text": "Staff PCs reach the internet", "check": {"all": [{"ping": ["staff1", "198.51.100.1"]}, {"ping": ["staff2", "198.51.100.1"]}]}},
+  {"id": "sub", "text": "Give the router a gateway for VLAN 20: g0/0.20, 10.0.20.1/24", "hint": "r1's console: enable, configure terminal, interface g0/0.20, encapsulation dot1Q 20, ip address 10.0.20.1 255.255.255.0",
+   "check": {"ping": ["guest1", "10.0.20.1"]}},
+  {"id": "guest2", "text": "guest1 gets online but guest2 doesn't. Find out why and fix it", "hint": "Compare ip route on both. guest2's gateway is 10.0.20.254, and nothing has that address.",
+   "check": {"ping": ["guest2", "198.51.100.1"], "proto": "tcp", "dport": 443}},
+  {"id": "rules", "text": "Guests reach websites but not staff PCs", "hint": "r1, Firewall rules: zone staff 10.0.10.0/24, zone guest 10.0.20.0/24, zone internet any, allow any staff -> any, allow tcp guest -> internet:80,443, deny any guest -> staff, default deny",
+   "check": {"all": [{"ping": ["guest1", "staff1"], "ok": false}, {"ping": ["guest1", "198.51.100.1"], "proto": "tcp", "dport": 443}, {"ping": ["staff1", "198.51.100.1"], "proto": "tcp", "dport": 443}]}}
+ ]
+}

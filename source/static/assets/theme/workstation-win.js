@@ -1,0 +1,517 @@
+(function (global) {
+  "use strict";
+  var EXE = /^([a-z]:\\.*?\.(?:exe|dll|bat|cmd|ps1|vbs|js|sys|com|scr|msi|hta))(?=\s|$|")/i;
+  var PATHKEYS = ["Image", "ParentImage", "TargetFilename", "ImagePath", "ServiceFileName", "NewProcessName", "ProcessName", "ImageLoaded", "Destination"];
+  var BUILTIN = /^(system|local service|network service|anonymous logon|dwm-\d+|umfd-\d+|font driver host|window manager)$/i;
+  var BASE = [["System", 4, 0, "NT AUTHORITY\\SYSTEM", ""], ["smss.exe", 380, 4, "NT AUTHORITY\\SYSTEM", "\\SystemRoot\\System32\\smss.exe"], ["csrss.exe", 512, 496, "NT AUTHORITY\\SYSTEM", "%SystemRoot%\\system32\\csrss.exe"],
+    ["wininit.exe", 588, 496, "NT AUTHORITY\\SYSTEM", "wininit.exe"], ["services.exe", 676, 588, "NT AUTHORITY\\SYSTEM", "C:\\Windows\\system32\\services.exe"], ["lsass.exe", 692, 588, "NT AUTHORITY\\SYSTEM", "C:\\Windows\\system32\\lsass.exe"],
+    ["svchost.exe", 820, 676, "NT AUTHORITY\\SYSTEM", "C:\\Windows\\system32\\svchost.exe -k DcomLaunch -p"], ["svchost.exe", 904, 676, "NT AUTHORITY\\NETWORK SERVICE", "C:\\Windows\\system32\\svchost.exe -k RPCSS -p"],
+    ["winlogon.exe", 640, 560, "NT AUTHORITY\\SYSTEM", "winlogon.exe"], ["explorer.exe", 4120, 4080, "USER", "C:\\Windows\\Explorer.EXE"]];
+
+  function D() { return global.AayatDesk; }
+  function esc(s) { return D().esc(s); }
+  function K() { return global.AayatTools.kit; }
+  function load(k, def) { try { return JSON.parse(D().store(k) || "null") || def; } catch (e) { return def; } }
+  function save(k, v) { D().store(k, JSON.stringify(v)); }
+  function short(h) { return String(h || "").split(".")[0].toLowerCase(); }
+  function base(p) { return String(p || "").split("\\").pop(); }
+  function pad(s, n) { s = String(s == null ? "" : s); return s.length >= n ? s.slice(0, Math.max(1, n - 1)) + " " : s + new Array(n - s.length + 1).join(" "); }
+  function table(cols, rows) {
+    var w = cols.map(function (c, i) { return Math.min(60, Math.max(c.length, rows.reduce(function (m, r) { return Math.max(m, String(r[i] == null ? "" : r[i]).length); }, 0))); });
+    var line = function (r) { return r.map(function (v, i) { return pad(v, w[i] + 1); }).join("").replace(/\s+$/, ""); };
+    return ["", line(cols), line(cols.map(function (c, i) { return new Array(Math.min(c.length, w[i]) + 1).join("-"); }))].concat(rows.map(line)).concat([""]).join("\n");
+  }
+  function exePath(s) {
+    s = String(s || "").trim();
+    if (!s) return "";
+    if (s.charAt(0) === '"') { var q = s.indexOf('"', 1); s = q > 0 ? s.slice(1, q) : s.slice(1); return /^[a-z]:\\/i.test(s) ? s : ""; }
+    var m = EXE.exec(s);
+    if (m) return m[1];
+    return /^[a-z]:\\\S+$/i.test(s) ? s : "";
+  }
+  function cmdPaths(s) {
+    var out = [], m, re = /"([a-z]:\\[^"]+)"|(?:^|\s)([a-z]:\\[^\s"]+)/gi;
+    while ((m = re.exec(String(s || "")))) out.push(m[1] || m[2]);
+    return out;
+  }
+
+  function evidence(fs) {
+    var out = {};
+    function o(h) { h = short(h); return out[h] = out[h] || { procs: [], logs: [], services: [] }; }
+    Object.keys(fs).forEach(function (n) {
+      if (/\.csv$/i.test(n) && /(^|\n)time,host,pid,ppid/.test(fs[n].slice(0, 200))) K().csv(fs[n]).forEach(function (row) { if (row.host) o(row.host).procs.push(row); });
+      if (/\.jsonl$/i.test(n)) (fs[n].match(/"Computer":\s*"([^"]+)"/g) || []).forEach(function (m) { var x = o(/"Computer":\s*"([^"]+)/.exec(m)[1]); if (x.logs.indexOf(n) < 0) x.logs.push(n); });
+      if (/services.*\.csv$/i.test(n)) { var host = (/-([a-z0-9-]+)-services/i.exec(n) || [])[1]; if (host) o(host).services = K().csv(fs[n]); }
+    });
+    Object.keys(out).forEach(function (h) { var x = out[h]; if (!x.procs.length && !x.logs.length && !x.services.length) delete out[h]; });
+    return out;
+  }
+  function events(fs, host, files) {
+    var by = {};
+    files.forEach(function (f) {
+      by[f] = String(fs[f] || "").split("\n").map(function (l) { try { return l.trim() ? JSON.parse(l) : null; } catch (e) { return null; } })
+        .filter(function (e) { return e && short(e.Computer) === host; });
+    });
+    return by;
+  }
+
+  function build(fs, host, H, live) {
+    var E = events(fs, host, H.logs), all = [];
+    Object.keys(E).forEach(function (f) { E[f].forEach(function (e) { e._file = f; all.push(e); }); });
+    var procs = H.procs.slice().sort(function (a, b) { return a.time < b.time ? -1 : 1; });
+    if (!procs.length && live) procs = BASE.map(function (b, i) { return { time: "", host: host, pid: String(b[1]), ppid: String(b[2]), user: b[3] === "USER" ? host.toUpperCase() + "\\" + live.user : b[3], image: b[4] && /^[a-z]:/i.test(b[4]) ? b[4].split(" ")[0] : b[0], command_line: b[4] || b[0], _base: 1 }; });
+    var users = {}, files = {}, logons = [], startup = [], conns = [], tasks = [];
+    function seen(p, why, t) {
+      if (!p || !/^[a-z]:\\/i.test(p)) return;
+      var k = p.toLowerCase().replace(/\\+$/, "");
+      var f = files[k] = files[k] || { path: p, why: [], t: t || "" };
+      if (why && f.why.indexOf(why) < 0 && f.why.length < 12) f.why.push(why);
+      if (t && (!f.t || t < f.t)) f.t = t;
+    }
+    procs.forEach(function (p) {
+      var u = String(p.user || "").split("\\").pop();
+      if (u && !BUILTIN.test(u) && !/^nt authority/i.test(p.user)) users[u.toLowerCase()] = u;
+      if (p._base) return;
+      seen(p.image, "process.csv: ran at " + p.time + " as " + p.user + " (PID " + p.pid + ")", p.time);
+      cmdPaths(p.command_line).forEach(function (x) { if (x.toLowerCase() !== String(p.image).toLowerCase()) seen(exePath('"' + x + '"') || x, "process.csv: named on a command line at " + p.time, p.time); });
+    });
+    H.services.forEach(function (s) {
+      var path = exePath(s.PathName || s.path);
+      seen(path, "services list: " + (s.Name || s.name), s.Created || "");
+      if (/^auto/i.test(s.StartMode || s.start || "") && path && !/^c:\\windows\\/i.test(path)) startup.push({ name: s.Name || s.name, cmd: s.PathName || s.path, from: "Service, starts automatically", key: "svc:" + (s.Name || s.name) });
+    });
+    all.forEach(function (e) {
+      var d = e.Data || {}, t = String(e.TimeCreated || "").replace("T", " ").replace("Z", "");
+      PATHKEYS.forEach(function (k) { if (d[k]) seen(k === "ImagePath" ? exePath(d[k]) || d[k] : d[k], "Event " + e.EventID + " (" + base(e._file) + "): " + (e.Task || "").replace(/ \(rule.*$/, ""), t); });
+      if (d.CommandLine) cmdPaths(d.CommandLine).forEach(function (x) { seen(x, "Event " + e.EventID + ": named on a command line", t); });
+      if (e.EventID === 4624 && d.TargetUserName && !BUILTIN.test(d.TargetUserName) && !/\$$/.test(d.TargetUserName)) {
+        users[d.TargetUserName.toLowerCase()] = users[d.TargetUserName.toLowerCase()] || d.TargetUserName;
+        logons.push({ t: t, user: (d.TargetDomainName ? d.TargetDomainName + "\\" : "") + d.TargetUserName, type: d.LogonType || "", ip: d.IpAddress || "-", ws: d.WorkstationName || "-" });
+      }
+      if (e.EventID === 13 && /\\currentversion\\run/i.test(d.TargetObject || "")) startup.push({ name: base(d.TargetObject), cmd: d.Details || "", from: "Registry Run key (" + (d.TargetObject || "").replace(/\\[^\\]+$/, "") + ")", key: "reg:" + d.TargetObject, t: t });
+      if (e.EventID === 7045) startup.push({ name: d.ServiceName || "", cmd: d.ImagePath || "", from: "Service installed " + t + (d.StartType ? ", " + d.StartType : ""), key: "svc:" + d.ServiceName, t: t });
+      if (e.EventID === 4698) { var c = /<Command>([^<]+)<\/Command>(?:\s*<Arguments>([^<]*)<\/Arguments>)?/i.exec(d.TaskContent || ""); tasks.push({ name: d.TaskName || "", cmd: c ? c[1] + (c[2] ? " " + c[2] : "") : "", t: t, user: d.SubjectUserName || "" }); startup.push({ name: d.TaskName || "", cmd: c ? c[1] : "", from: "Scheduled task created " + t, key: "task:" + d.TaskName, t: t }); }
+      if (e.EventID === 3 && d.DestinationIp) conns.push({ proto: (d.Protocol || "tcp").toUpperCase(), src: (d.SourceIp || "") + ":" + (d.SourcePort || ""), dst: d.DestinationIp + ":" + (d.DestinationPort || ""), pid: d.ProcessId || "", image: base(d.Image), t: t });
+    });
+    if (live) users[live.user.toLowerCase()] = live.user;
+    Object.keys(users).forEach(function (k) { ["Desktop", "Documents", "Downloads", "AppData\\Local", "AppData\\Roaming"].forEach(function (f) { seen("C:\\Users\\" + users[k] + "\\" + f + "\\", ""); }); });
+    ["C:\\Windows\\System32\\", "C:\\Program Files\\", "C:\\Program Files (x86)\\", "C:\\Users\\Public\\", "C:\\ProgramData\\"].forEach(function (f) { seen(f, ""); });
+    var tree = { name: "This PC", kids: {}, path: "" };
+    Object.keys(files).forEach(function (k) {
+      var f = files[k], parts = f.path.replace(/\\+$/, "").split("\\"), node = tree, dir = /\\$/.test(f.path);
+      parts.forEach(function (p, i) {
+        var lk = p.toLowerCase();
+        var leaf = i === parts.length - 1 && !dir;
+        node.kids[lk] = node.kids[lk] || { name: p, kids: {}, path: parts.slice(0, i + 1).join("\\") + (i === 0 ? "\\" : ""), file: null };
+        node = node.kids[lk];
+        if (leaf) { node.file = f; }
+      });
+    });
+    var domain = (procs.map(function (p) { return String(p.user).split("\\")[0]; }).filter(function (x) { return x && !/^nt authority$/i.test(x) && x.toUpperCase() !== host.toUpperCase(); })[0]) || "WORKGROUP";
+    return { host: host, procs: procs, services: H.services, logs: H.logs, events: E, all: all, users: Object.keys(users).map(function (k) { return users[k]; }), logons: logons, startup: startup, conns: conns, tasks: tasks, tree: tree, files: files, domain: domain, live: !!live };
+  }
+
+  function copyOf(fs, path) {
+    var b = base(path).toLowerCase(), stem = b.replace(/\.[^.]+$/, "");
+    if (!b) return null;
+    var names = Object.keys(fs);
+    return names.filter(function (n) { return base(n.replace(/\//g, "\\")).toLowerCase() === b; })[0] || (stem.length > 3 ? names.filter(function (n) { return base(n.replace(/\//g, "\\")).toLowerCase().indexOf(stem + ".") === 0; })[0] : null) || null;
+  }
+  function node(X, path) {
+    var parts = String(path || "").replace(/\\+$/, "").split("\\").filter(Boolean), n = X.tree;
+    for (var i = 0; i < parts.length; i++) { n = n.kids[parts[i].toLowerCase()]; if (!n) return null; }
+    return n;
+  }
+  function resolve(cwd, arg) {
+    arg = String(arg || "").replace(/^"|"$/g, "");
+    if (!arg) return cwd;
+    if (/^[a-z]:$/i.test(arg)) return arg.toUpperCase() + "\\";
+    if (/^[a-z]:\\/i.test(arg)) return arg;
+    var parts = cwd.replace(/\\+$/, "").split("\\");
+    arg.split("\\").forEach(function (p) { if (p === "..") { if (parts.length > 1) parts.pop(); } else if (p && p !== ".") parts.push(p); });
+    return parts.join("\\") + (parts.length === 1 ? "\\" : "");
+  }
+
+  function mount(w, opts) {
+    var d = D(), cid = d.caseId() || "bench", host = short(opts.host), fs = opts.fs || {}, H = opts.evidence || { procs: [], logs: [], services: [] };
+    var live = opts.net && !H.procs.length ? { user: "it-support" } : null;
+    var X = build(fs, host, H, live);
+    var actKey = "ws-rd-act-" + cid, acts = load(actKey, {}), A = acts[host] = acts[host] || { ended: {}, svc: {}, start: {} };
+    var cut = load("ws-rd-iso-" + cid, {}), z = 10, net = opts.net || null, netId = host;
+    function keep() { save(actKey, acts); }
+    if (!net && global.AayatBench && d.caseId()) global.AayatBench.open("case:" + d.caseId()).then(function (a) { if (a && a.model().dev[host]) net = a; });
+    w.el.querySelector(".ws-title b").textContent = (opts.net ? "" : "Remote desktop: ") + (opts.title || host);
+    w.body.innerHTML = '<div class="wm"><div class="wm-desk" data-r="desk"><div class="wm-icons" data-r="icons"></div>' +
+      '<div class="wm-note" data-r="note"></div></div><div class="wm-menu" data-r="menu" hidden></div>' +
+      '<div class="wm-bar"><button type="button" class="wm-start" data-r="start">' + d.glyph("shield") + "<span>" + esc(host.toUpperCase()) + '</span></button><span class="wm-tasks" data-r="tasks"></span><span class="wm-tray"><span data-r="netst"></span><span class="wm-clock" data-r="clock"></span></span></div></div>';
+    var r = function (n) { return w.body.querySelector('[data-r="' + n + '"]'); };
+    var APPS = [["explorer", "This PC", "folder"], ["taskmgr", "Task Manager", "events"], ["cmd", "Command Prompt", "terminal"], ["ps", "PowerShell", "terminal"], ["eventvwr", "Event Viewer", "events"], ["services", "Services", "gear"], ["settings", "Settings", "net"]];
+    r("icons").innerHTML = APPS.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 38) + "<span>" + a[1] + "</span></button>"; }).join("");
+    r("menu").innerHTML = '<div class="wm-mh"><b>' + esc(host.toUpperCase()) + "</b><small>" + esc(X.domain + "\\" + (live ? live.user : "analyst")) + "</small></div>" + APPS.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 20) + "<span>" + a[1] + "</span></button>"; }).join("") + '<hr><button type="button" data-a="bye">' + d.icon("power", 20) + "<span>Disconnect</span></button>";
+    function clock() { var t = d.now(); r("clock").textContent = t.toISOString().slice(11, 16); }
+    clock();
+    var ct = setInterval(function () { if (!document.body.contains(w.el)) { clearInterval(ct); return; } clock(); }, 15000);
+    function isolated() { return !opts.net && !!cut[host]; }
+    function note() {
+      r("netst").textContent = isolated() ? "Isolated" : "Network";
+      r("netst").className = isolated() ? "wm-iso" : "";
+      r("note").innerHTML = opts.net ? "Live computer on the bench. Network changes on the bench show here." : 'Copy of ' + esc(host) + ' rebuilt from the evidence. <button type="button" class="btn' + (isolated() ? " dark" : "") + '" data-a="iso">' + (isolated() ? "Isolated. Reconnect" : "Isolate from the network") + "</button>";
+      var b = r("note").querySelector('[data-a="iso"]');
+      if (b) b.addEventListener("click", function () {
+        cut = load("ws-rd-iso-" + cid, {});
+        if (cut[host]) delete cut[host]; else cut[host] = Date.now();
+        save("ws-rd-iso-" + cid, cut);
+        d.emit("rdp.isolate", { host: host, isolated: !!cut[host] });
+        d.toast(cut[host] ? "Isolated" : "Reconnected", host + (cut[host] ? " can only reach the security team's tools now." : " is back on the network."));
+        note();
+      });
+    }
+    note();
+
+    function iwin(title, ico, build, size) {
+      var desk = r("desk"), el = document.createElement("section"), n = desk.querySelectorAll(".wm-win").length;
+      el.className = "wm-win";
+      el.style.width = Math.min(size && size.w || 640, desk.clientWidth - 20) + "px";
+      el.style.height = Math.min(size && size.h || 380, desk.clientHeight - 20) + "px";
+      el.style.left = Math.min(110 + n * 24, Math.max(4, desk.clientWidth - 300)) + "px";
+      el.style.top = Math.min(10 + n * 22, Math.max(4, desk.clientHeight - 200)) + "px";
+      el.innerHTML = '<header class="wm-wt">' + d.icon(ico, 16) + '<b></b><button type="button" data-w="max" aria-label="Maximise">▢</button><button type="button" data-w="x" aria-label="Close">×</button></header><div class="wm-wb"></div>';
+      el.querySelector("b").textContent = title;
+      desk.appendChild(el);
+      var tb = document.createElement("button");
+      tb.type = "button";
+      tb.className = "wm-task";
+      tb.textContent = title;
+      r("tasks").appendChild(tb);
+      var me = { el: el, body: el.querySelector(".wm-wb"), btn: tb };
+      function front() { el.style.zIndex = ++z; desk.querySelectorAll(".wm-win").forEach(function (x) { x.classList.toggle("on", x === el); }); r("tasks").querySelectorAll(".wm-task").forEach(function (x) { x.classList.toggle("on", x === tb); }); }
+      function shut() { el.remove(); tb.remove(); }
+      el.addEventListener("mousedown", front);
+      tb.addEventListener("click", function () { if (el.hidden) { el.hidden = false; front(); } else if (el.classList.contains("on")) el.hidden = true; else front(); });
+      el.querySelector('[data-w="x"]').addEventListener("click", shut);
+      el.querySelector('[data-w="max"]').addEventListener("click", function () { el.classList.toggle("max"); });
+      var head = el.querySelector(".wm-wt");
+      head.addEventListener("mousedown", function (e) {
+        if (e.target.closest("button") || el.classList.contains("max")) return;
+        var sx = e.clientX, sy = e.clientY, ox = el.offsetLeft, oy = el.offsetTop;
+        function mv(ev) { el.style.left = Math.max(-200, Math.min(desk.clientWidth - 80, ox + ev.clientX - sx)) + "px"; el.style.top = Math.max(0, Math.min(desk.clientHeight - 30, oy + ev.clientY - sy)) + "px"; }
+        function up() { document.removeEventListener("mousemove", mv); document.removeEventListener("mouseup", up); }
+        document.addEventListener("mousemove", mv);
+        document.addEventListener("mouseup", up);
+        e.preventDefault();
+      });
+      front();
+      me.close = shut;
+      build(me);
+      d.emit("rdp.open", { host: host, app: title });
+      return me;
+    }
+
+    function endTask(pid, how) {
+      var p = X.procs.filter(function (y) { return String(y.pid) === String(pid); })[0];
+      if (!p) return null;
+      if (!A.ended[pid]) { A.ended[pid] = Date.now(); keep(); d.emit("rdp.endtask", { host: host, pid: String(pid), image: base(p.image), cmd: p.command_line || "", how: how || "Task Manager" }); }
+      return p;
+    }
+    function svcAct(name, act) {
+      var s = X.services.filter(function (x) { return String(x.Name || x.name).toLowerCase() === String(name).toLowerCase(); })[0];
+      var inst = X.startup.filter(function (x) { return x.key.toLowerCase() === ("svc:" + name).toLowerCase(); })[0];
+      if (!s && !inst) return null;
+      var nm = s ? s.Name || s.name : inst.name;
+      A.svc[nm] = act;
+      keep();
+      d.emit("rdp.service", { host: host, name: nm, action: act });
+      return nm;
+    }
+    function svcState(s) { var nm = s.Name || s.name, a = A.svc[nm]; return a === "stop" || a === "disable" ? "Stopped" : s.State || s.state || ""; }
+
+    function explorer() {
+      iwin("This PC", "folder", function (me) {
+        var cur = "C:\\";
+        me.body.innerHTML = '<div class="wm-ex"><div class="wm-addr"><button type="button" data-up aria-label="Up">↑</button><input data-r="addr" aria-label="Address"></div><div class="wm-tree" data-r="tree"></div><div class="wm-list" data-r="list"></div><div class="wm-props" data-r="props"><p>Pick a file to see where the evidence saw it.</p></div></div>';
+        var q = function (n) { return me.body.querySelector('[data-r="' + n + '"]'); };
+        function kids(n) { return Object.keys(n.kids).map(function (k) { return n.kids[k]; }).sort(function (a, b) { return (a.file ? 1 : 0) - (b.file ? 1 : 0) || a.name.localeCompare(b.name); }); }
+        function treeHtml(n, depth) {
+          return kids(n).filter(function (k) { return !k.file; }).map(function (k) {
+            var open = cur.toLowerCase().indexOf(k.path.toLowerCase().replace(/\\$/, "")) === 0;
+            return '<button type="button" class="' + (k.path.toLowerCase() === cur.toLowerCase().replace(/\\$/, "") || k.path.toLowerCase() === cur.toLowerCase() ? "on" : "") + '" style="padding-left:' + (6 + depth * 14) + 'px" data-dir="' + esc(k.path) + '">' + (Object.keys(k.kids).length ? (open ? "▾ " : "▸ ") : "  ") + esc(k.name) + "</button>" + (open ? treeHtml(k, depth + 1) : "");
+          }).join("");
+        }
+        function go(path) {
+          var n = node(X, path);
+          if (!n) return false;
+          cur = n.path || path;
+          q("addr").value = cur;
+          q("tree").innerHTML = '<button type="button" data-dir="">This PC</button>' + treeHtml(X.tree, 1);
+          var list = kids(n);
+          q("list").innerHTML = '<table class="ws-grid"><tr><th>Name</th><th>First seen</th><th>Type</th></tr>' + list.map(function (k) {
+            return "<tr " + (k.file ? 'data-file="' + esc(k.file.path) + '"' : 'data-dir="' + esc(k.path) + '"') + "><td>" + (k.file ? "📄 " : "📁 ") + esc(k.name) + "</td><td>" + esc(k.file ? k.file.t : "") + "</td><td>" + esc(k.file ? (k.name.indexOf(".") > 0 ? k.name.split(".").pop().toUpperCase() + " file" : "File") : "Folder") + "</td></tr>";
+          }).join("") + "</table>" + (list.length ? "" : '<p class="ws-empty">Nothing was captured in this folder.</p>');
+          return true;
+        }
+        function props(path) {
+          var f = X.files[path.toLowerCase()], c = copyOf(fs, path);
+          q("props").innerHTML = "<b>" + esc(base(path)) + '</b><p class="mono">' + esc(path) + "</p>" + (f && f.why.length ? "<ul>" + f.why.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Only its name was captured.</p>") +
+            (c ? '<p><button type="button" class="btn dark" data-open="' + esc(c) + '">Open the saved copy: ' + esc(c) + "</button></p>" : "<p><small>No copy of the file itself was saved with the case.</small></p>");
+          var b = q("props").querySelector("[data-open]");
+          if (b) b.addEventListener("click", function () { d.open(b.getAttribute("data-open")); });
+          d.emit("rdp.file", { host: host, path: path });
+        }
+        me.body.addEventListener("click", function (e) {
+          var dir = e.target.closest("[data-dir]"), fl = e.target.closest("[data-file]");
+          if (fl) { me.body.querySelectorAll("tr.on").forEach(function (x) { x.classList.remove("on"); }); fl.classList.add("on"); props(fl.getAttribute("data-file")); }
+          else if (dir) { var p = dir.getAttribute("data-dir"); if (!p) { cur = ""; q("addr").value = "This PC"; q("list").innerHTML = '<table class="ws-grid"><tr><th>Name</th></tr>' + kids(X.tree).map(function (k) { return '<tr data-dir="' + esc(k.path) + '"><td>💽 Local Disk (' + esc(k.name) + ")</td></tr>"; }).join("") + "</table>"; return; } go(p); }
+        });
+        me.body.querySelector("[data-up]").addEventListener("click", function () { go(resolve(cur || "C:\\", "..")); });
+        q("addr").addEventListener("keydown", function (e) { if (e.key === "Enter" && !go(q("addr").value.trim())) q("addr").classList.add("bad"); else q("addr").classList.remove("bad"); });
+        go("C:\\");
+      }, { w: 760, h: 440 });
+    }
+
+    function taskmgr() {
+      iwin("Task Manager", "events", function (me) {
+        var tab = "proc";
+        me.body.innerHTML = '<div class="wm-tm"><div class="wm-tabs" data-r="tabs">' + [["proc", "Processes"], ["det", "Details"], ["svc", "Services"], ["start", "Startup"], ["users", "Users"]].map(function (t) { return '<button type="button" data-t="' + t[0] + '">' + t[1] + "</button>"; }).join("") +
+          '</div><div class="ws-toolbar"><input type="search" placeholder="Filter" data-f aria-label="Filter"><small data-r="sum"></small></div><div class="wm-tb" data-r="tb"></div></div>';
+        var q = function (n) { return me.body.querySelector('[data-r="' + n + '"]'); }, f = me.body.querySelector("[data-f]");
+        function procRow(p, depth) {
+          var ended = A.ended[p.pid];
+          return '<tr class="' + (ended ? "rd-ended" : "") + '"><td style="padding-left:' + (6 + depth * 16) + 'px">' + esc(base(p.image) || p.image) + "</td><td>" + esc(p.pid) + "</td><td>" + esc(p.user) + "</td><td>" + esc(p.time) + '</td><td class="mono">' + esc(p.command_line) + '</td><td><button type="button" class="btn" data-end="' + esc(p.pid) + '"' + (ended ? " disabled>Ended" : ">End task") + "</button></td></tr>";
+        }
+        function draw() {
+          var v = f.value.toLowerCase(), b = q("tb"), hit = function (s) { return !v || s.toLowerCase().indexOf(v) >= 0; };
+          me.body.querySelectorAll("[data-t]").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-t") === tab); });
+          if (tab === "proc" || tab === "det") {
+            var ps = X.procs.filter(function (p) { return hit(p.image + " " + p.pid + " " + p.user + " " + p.command_line); });
+            q("sum").textContent = X.procs.length ? X.procs.length + " processes" + (X.live ? " running now" : " captured") + ". Look at parents, users, folders and command lines." : "";
+            if (!X.procs.length) { b.innerHTML = '<p class="ws-empty">No process list was captured for this machine.</p>'; return; }
+            var head = '<table class="ws-grid"><tr><th>Name</th><th>PID</th><th>User</th><th>Started</th><th>Command line</th><th></th></tr>';
+            if (tab === "det" || v) { b.innerHTML = head + ps.map(function (p) { return procRow(p, 0); }).join("") + "</table>"; }
+            else {
+              var pids = {}, kids = {};
+              X.procs.forEach(function (p) { pids[p.pid] = p; (kids[p.ppid] = kids[p.ppid] || []).push(p); });
+              var rows = [], done = {};
+              (function walk(list, depth) { list.forEach(function (p) { if (done[p.pid]) return; done[p.pid] = 1; rows.push(procRow(p, depth)); walk(kids[p.pid] || [], depth + 1); }); })(X.procs.filter(function (p) { return !pids[p.ppid]; }), 0);
+              b.innerHTML = head + rows.join("") + "</table>";
+            }
+            b.querySelectorAll("[data-end]").forEach(function (x) { x.addEventListener("click", function () { endTask(x.getAttribute("data-end")); draw(); }); });
+          } else if (tab === "svc") {
+            q("sum").textContent = X.services.length ? X.services.length + " services" : "";
+            b.innerHTML = X.services.length ? '<table class="ws-grid"><tr><th>Name</th><th>Description</th><th>Status</th><th>Path</th></tr>' + X.services.filter(function (s) { return hit(JSON.stringify(s)); }).map(function (s) { return "<tr><td>" + esc(s.Name || s.name) + "</td><td>" + esc(s.DisplayName || "") + "</td><td>" + esc(svcState(s)) + '</td><td class="mono">' + esc(s.PathName || s.path) + "</td></tr>"; }).join("") + "</table><p><small>Stop or disable services in the Services program.</small></p>" : '<p class="ws-empty">No service list was captured for this machine.</p>';
+          } else if (tab === "start") {
+            var st = X.startup.filter(function (s) { return hit(s.name + " " + s.cmd + " " + s.from); });
+            q("sum").textContent = X.startup.length ? X.startup.length + " things that start by themselves" : "";
+            b.innerHTML = st.length ? '<table class="ws-grid"><tr><th>Name</th><th>Command</th><th>How it starts</th><th>Status</th><th></th></tr>' + st.map(function (s) { var off = A.start[s.key]; return "<tr><td>" + esc(s.name) + '</td><td class="mono">' + esc(s.cmd) + "</td><td>" + esc(s.from) + "</td><td>" + (off ? "Disabled" : "Enabled") + '</td><td><button type="button" class="btn" data-dis="' + esc(s.key) + '"' + (off ? " disabled" : "") + ">Disable</button></td></tr>"; }).join("") + "</table>" : '<p class="ws-empty">Nothing in the evidence starts by itself on this machine.</p>';
+            b.querySelectorAll("[data-dis]").forEach(function (x) { x.addEventListener("click", function () { var k = x.getAttribute("data-dis"), s = X.startup.filter(function (y) { return y.key === k; })[0]; A.start[k] = Date.now(); keep(); d.emit("rdp.startup", { host: host, name: s.name, cmd: s.cmd, from: s.from, action: "disable" }); draw(); }); });
+          } else {
+            var lg = X.logons.filter(function (l) { return hit(l.user + " " + l.ip + " " + l.type); });
+            var TYPES = { 2: "at the keyboard", 3: "over the network", 4: "batch", 5: "service", 7: "unlock", 10: "remote desktop", 11: "cached" };
+            q("sum").textContent = X.logons.length ? X.logons.length + " sign-ins in the Security log" : "";
+            b.innerHTML = lg.length ? '<table class="ws-grid"><tr><th>Time (UTC)</th><th>User</th><th>How</th><th>From</th></tr>' + lg.map(function (l) { return "<tr><td>" + esc(l.t) + "</td><td>" + esc(l.user) + "</td><td>" + esc(l.type + (TYPES[l.type] ? " " + TYPES[l.type] : "")) + "</td><td>" + esc(l.ip !== "-" ? l.ip : l.ws) + "</td></tr>"; }).join("") + "</table>" : '<p class="ws-empty">No sign-ins were captured for this machine.</p>';
+          }
+        }
+        me.body.querySelectorAll("[data-t]").forEach(function (x) { x.addEventListener("click", function () { tab = x.getAttribute("data-t"); draw(); }); });
+        f.addEventListener("input", draw);
+        draw();
+      }, { w: 860, h: 460 });
+    }
+
+    function eventvwr() {
+      iwin("Event Viewer", "events", function (me) {
+        var files = Object.keys(X.events), cur = files[0] || "", pick = null;
+        me.body.innerHTML = '<div class="wm-ev"><div class="wm-tree" data-r="logs"></div><div class="wm-evm"><div class="ws-toolbar"><input data-r="ids" placeholder="Event IDs, e.g. 4624, 4625" aria-label="Filter by event ID"><span class="ws-tb-sp"></span><button type="button" class="btn" data-r="big">Open in the Event viewer program</button></div><div class="wm-evl" data-r="list"></div><div class="wm-evd" data-r="det"><p class="ws-empty">Pick an event.</p></div></div></div>';
+        var q = function (n) { return me.body.querySelector('[data-r="' + n + '"]'); };
+        function label(f) { var b = base(f.replace(/\//g, "\\")).replace(/\.jsonl$/i, ""); return b.replace(new RegExp("^" + host + "-", "i"), ""); }
+        function draw() {
+          q("logs").innerHTML = files.length ? "<small>Windows Logs</small>" + files.map(function (f) { return '<button type="button" class="' + (f === cur ? "on" : "") + '" data-log="' + esc(f) + '">' + esc(label(f)) + " <small>" + X.events[f].length + "</small></button>"; }).join("") : '<p class="ws-empty">No event logs were captured for this machine.</p>';
+          if (!cur) { q("list").innerHTML = ""; return; }
+          var ids = q("ids").value.split(/[\s,]+/).filter(Boolean).map(Number), evs = X.events[cur].filter(function (e) { return !ids.length || ids.indexOf(+e.EventID) >= 0; });
+          q("list").innerHTML = '<table class="ws-grid"><tr><th>Level</th><th>Date and time (UTC)</th><th>Source</th><th>Event ID</th><th>Task category</th></tr>' + evs.slice(0, 1500).map(function (e, i) {
+            return '<tr data-i="' + X.events[cur].indexOf(e) + '"' + (pick === X.events[cur].indexOf(e) ? ' class="on"' : "") + "><td>" + esc(e.Level || "Information") + (e.Keywords ? " · " + esc(e.Keywords) : "") + "</td><td>" + esc(String(e.TimeCreated || "").replace("T", " ").replace("Z", "")) + "</td><td>" + esc(e.Provider || "") + "</td><td>" + esc(e.EventID) + "</td><td>" + esc(e.Task || "") + "</td></tr>";
+          }).join("") + "</table>" + (evs.length ? "" : '<p class="ws-empty">No events match.</p>');
+        }
+        function detail(i) {
+          var e = X.events[cur][i];
+          pick = i;
+          q("det").innerHTML = "<b>Event " + esc(e.EventID) + ", " + esc(e.Provider || "") + '</b><pre class="wm-msg"></pre><details><summary>Details</summary><table class="ws-grid">' + Object.keys(e.Data || {}).map(function (k) { return "<tr><td>" + esc(k) + '</td><td class="mono">' + esc(e.Data[k]) + "</td></tr>"; }).join("") + "</table></details>";
+          q("det").querySelector("pre").textContent = e.Message || "";
+          me.body.querySelectorAll("tr.on").forEach(function (x) { x.classList.remove("on"); });
+          var tr = q("list").querySelector('[data-i="' + i + '"]');
+          if (tr) tr.classList.add("on");
+          d.emit("rdp.event", { host: host, log: cur, id: e.EventID, record: e.RecordID || "" });
+        }
+        me.body.addEventListener("click", function (e) { var l = e.target.closest("[data-log]"), tr = e.target.closest("tr[data-i]"); if (l) { cur = l.getAttribute("data-log"); pick = null; draw(); } else if (tr) detail(+tr.getAttribute("data-i")); });
+        q("ids").addEventListener("input", draw);
+        q("big").addEventListener("click", function () { if (cur) d.open(cur); });
+        draw();
+      }, { w: 900, h: 500 });
+    }
+
+    function services() {
+      iwin("Services", "gear", function (me) {
+        function draw() {
+          var list = X.services.slice();
+          X.startup.forEach(function (s) { if (/^svc:/.test(s.key) && !list.some(function (x) { return String(x.Name || x.name).toLowerCase() === s.name.toLowerCase(); })) list.push({ Name: s.name, DisplayName: "(installed " + (s.t || "") + ")", State: "Running", StartMode: /demand/i.test(s.from) ? "Manual" : "Auto", PathName: s.cmd, UserAccount: "LocalSystem" }); });
+          me.body.innerHTML = list.length ? '<table class="ws-grid"><tr><th>Name</th><th>Display name</th><th>Status</th><th>Startup</th><th>Log on as</th><th>Path</th><th></th></tr>' + list.map(function (s) {
+            var nm = s.Name || s.name, a = A.svc[nm];
+            return "<tr><td>" + esc(nm) + "</td><td>" + esc(s.DisplayName || "") + "</td><td>" + esc(svcState(s)) + "</td><td>" + esc(a === "disable" ? "Disabled" : s.StartMode || s.start || "") + "</td><td>" + esc(s.UserAccount || s.account || "") + '</td><td class="mono">' + esc(s.PathName || s.path || "") + '</td><td><button type="button" class="btn" data-s="stop" data-n="' + esc(nm) + '"' + (a ? " disabled" : "") + '>Stop</button> <button type="button" class="btn" data-s="disable" data-n="' + esc(nm) + '"' + (a === "disable" ? " disabled" : "") + ">Disable</button></td></tr>";
+          }).join("") + "</table>" : '<p class="ws-empty">No service list was captured for this machine.</p>';
+          me.body.querySelectorAll("[data-s]").forEach(function (b) { b.addEventListener("click", function () { svcAct(b.getAttribute("data-n"), b.getAttribute("data-s")); draw(); }); });
+        }
+        draw();
+      }, { w: 900, h: 420 });
+    }
+
+    function settings() {
+      iwin("Settings", "net", function (me) {
+        function draw() {
+          var M = net ? net.model() : null, dv = M && M.dev[netId], f = M ? (global.AayatNet.ifaces(M, netId)[0] || {}) : {};
+          var up = M ? global.AayatNet.linked(M, global.AayatNet.cables(M), netId + ":eth0") : !isolated();
+          me.body.innerHTML = '<div class="wm-set"><h4>Network and internet</h4><p><b>Ethernet:</b> ' + (isolated() ? "isolated by the security team" : up ? "connected" : "network cable unplugged") + "</p>" +
+            (dv ? '<div class="hb-form"><label>IP address <input data-k="ip" value="' + esc(f.ip ? f.ip + "/" + f.bits : "") + '"></label><label>Gateway <input data-k="gw" value="' + esc(dv.gw || "") + '"></label><button type="button" class="btn" data-a="ip">Save</button></div>' : "<p><small>This copy has no live network settings. ipconfig shows what the evidence knows.</small></p>") +
+            (dv && dv.usb !== undefined ? '<h4>Devices</h4><label><input type="checkbox" data-a="usb"' + (dv.usb !== false ? " checked" : "") + "> Allow USB storage (memory sticks, phones as drives)</label>" : "") +
+            "<h4>About</h4><p>Device name " + esc(host.toUpperCase()) + "<br>Domain or workgroup " + esc(X.domain) + "</p><p data-m></p></div>";
+          var b = me.body.querySelector('[data-a="ip"]');
+          if (b) b.addEventListener("click", function () {
+            var c = global.AayatNet.cidr(me.body.querySelector('[data-k="ip"]').value), g = me.body.querySelector('[data-k="gw"]').value.trim();
+            if (!c || (g && !global.AayatNet.cidr(g))) { me.body.querySelector("[data-m]").textContent = "Use an address like 10.40.0.21/24 and a gateway like 10.40.0.1."; return; }
+            net.setDev(netId, { ip: c.ip, bits: c.bits, gw: g });
+            draw();
+          });
+          var u = me.body.querySelector('[data-a="usb"]');
+          if (u) u.addEventListener("change", function () { net.setDev(netId, { usb: u.checked }); draw(); });
+        }
+        draw();
+      }, { w: 520, h: 420 });
+    }
+
+    function netCmd(line, os) {
+      var c = line.trim().split(/\s+/)[0].toLowerCase();
+      if (!/^(ipconfig|ping|tracert|arp|nslookup|route|test-connection|test-netconnection|get-netipaddress|get-netipconfiguration)$/.test(c)) return null;
+      if (isolated() && c !== "ipconfig" && c !== "get-netipaddress") return "PING: transmit failed. General failure.\n(" + host + " is isolated from the network.)";
+      if (net && net.model().dev[netId]) {
+        var M = net.model(), t = line;
+        if (/^test-(net)?connection$/.test(c)) { var tg = line.split(/\s+/).filter(function (x, i) { return i && !/^-/.test(x) && !/^\d+$/.test(x); })[0] || ""; var pm = /-port\s+(\d+)/i.exec(line); var rr = global.AayatNet.route(M, netId, tg, pm ? { proto: "tcp", port: +pm[1] } : {}); d.emit("bench.ping", { from: netId, to: tg, ok: rr.ok }); return table(["ComputerName", "RemoteAddress", pm ? "RemotePort" : "PingSucceeded", pm ? "TcpTestSucceeded" : "Reason"], [[tg, rr.dst || "", pm ? pm[1] : rr.ok ? "True" : "False", pm ? (rr.ok ? "True" : "False") : rr.ok ? "" : global.AayatNet.why[rr.why] || ""]]); }
+        if (/^get-netip/.test(c)) t = "ipconfig";
+        var o = global.AayatNet.hostShell(M, netId, t, "windows");
+        if (/^(ping|tracert)$/.test(c)) { var tgt = line.split(/\s+/).filter(function (x, i) { return i && !/^-/.test(x) && !/^\d+$/.test(x); }).pop(); if (tgt) d.emit("bench.ping", { from: netId, to: tgt, ok: global.AayatNet.route(M, netId, tgt).ok }); }
+        return o;
+      }
+      if (c === "ipconfig" || /^get-netip/.test(c)) return "\nWindows IP Configuration\n\nEthernet adapter Ethernet:\n\n   (The evidence doesn't include this machine's network settings. The Server room and the scan show its address.)";
+      return "This copy is rebuilt from saved evidence, so it can't reach the network. Use the Hacker Room terminal for live checks.";
+    }
+
+    function shell(ps) {
+      iwin(ps ? "Windows PowerShell" : "Command Prompt", "terminal", function (me) {
+        var cwd = "C:\\Users\\" + (live ? live.user : "analyst"), mode = ps;
+        me.body.classList.add("rd-cmd");
+        if (ps) me.body.classList.add("wm-ps");
+        me.body.innerHTML = '<pre class="rd-out"></pre><form><span data-p></span><input aria-label="Command" autocomplete="off" spellcheck="false"></form>';
+        var out = me.body.querySelector("pre"), inp = me.body.querySelector("input"), pr = me.body.querySelector("[data-p]"), hist = [], hi = 0;
+        function prompt() { pr.textContent = (mode ? "PS " : "") + cwd + "> "; }
+        function say(t) { out.textContent += t + "\n"; me.body.scrollTop = me.body.scrollHeight; }
+        say(mode ? "Windows PowerShell on " + host.toUpperCase() + (X.live ? "" : " (rebuilt from the evidence)") + ". Try Get-Process, Get-Service, Get-WinEvent -LogName Security -MaxEvents 5, Get-NetTCPConnection. Type help." :
+          (X.live ? "Command line on " : "Remote command line on ") + host.toUpperCase() + (X.live ? "" : " (rebuilt from the evidence)") + ". Type help.");
+        prompt();
+        function run(c) {
+          var lc = c.toLowerCase(), t = c.split(/\s+/), a0 = t[0].toLowerCase(), n = netCmd(c);
+          if (n != null) return n;
+          if (a0 === "help" || a0 === "get-help") return mode ? "Get-Process, Stop-Process -Id N, Get-Service, Stop-Service -Name X, Set-Service -Name X -StartupType Disabled,\nGet-WinEvent -LogName Security [-MaxEvents N] [-Id N], Get-NetTCPConnection, Get-ScheduledTask, Get-LocalUser,\nGet-ChildItem PATH, Test-NetConnection HOST [-Port N], ipconfig, ping, hostname, whoami, cls, exit (back to cmd if you came from it)" :
+            "hostname, whoami, systeminfo, tasklist [/v], taskkill /PID N /F, wmic process get name,processid,parentprocessid,commandline,\nsc query [NAME], sc qc NAME, sc stop NAME, sc config NAME start= disabled, net user, query user, schtasks /query,\nreg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run, netstat -ano, dir, cd, type FILE,\nipconfig, ping, tracert, arp -a, nslookup, powershell, cls, exit";
+          if (a0 === "hostname") return host.toUpperCase();
+          if (a0 === "whoami") return (X.domain + "\\" + (live ? live.user : "analyst")).toLowerCase() + (/\/(groups|all)/i.test(c) ? "\n\nGROUP INFORMATION\n-----------------\nBUILTIN\\Administrators\nBUILTIN\\Users\nNT AUTHORITY\\INTERACTIVE" : "");
+          if (!mode && a0 === "ver") return "\nMicrosoft Windows [Version 10.0.19045.5131]";
+          if (a0 === "powershell" && !mode) { mode = true; me.body.classList.add("wm-ps"); return "Windows PowerShell\nType exit to go back to the command prompt."; }
+          if (a0 === "exit") { if (mode && !ps) { mode = false; me.body.classList.remove("wm-ps"); return ""; } me.close(); return null; }
+          if (a0 === "systeminfo") return "\nHost Name:                 " + host.toUpperCase() + "\nOS Name:                   Windows 10 Pro\nOS Version:                10.0.19045 N/A Build 19045\nSystem Type:               x64-based PC\nDomain:                    " + X.domain + "\nLogon Server:              \\\\" + (X.domain === "WORKGROUP" ? host.toUpperCase() : "DC01") + "\nNetwork Card(s):           1 NIC(s) Installed.";
+          var procs = X.procs.filter(function (p) { return !A.ended[p.pid]; });
+          if (a0 === "tasklist" || (mode && /^(get-process|gps|ps)$/.test(a0))) {
+            if (!procs.length) return "INFO: No tasks were captured for this machine.";
+            var nm = /-name\s+(\S+)/i.exec(c);
+            if (mode) return table(["Id", "ProcessName", "UserName", "Path"], procs.filter(function (p) { return !nm || base(p.image).toLowerCase().replace(/\.exe$/, "") === nm[1].toLowerCase().replace(/\.exe$/, ""); }).map(function (p) { return [p.pid, base(p.image).replace(/\.exe$/i, ""), p.user, /^[a-z]:/i.test(p.image) ? p.image : ""]; }));
+            return "\nImage Name                     PID Session Name        Session#" + (/\/v/i.test(c) ? "    User Name" : "") + "\n========================= ======== ================ ===========" + (/\/v/i.test(c) ? " ==================" : "") + "\n" +
+              procs.map(function (p) { return pad(base(p.image), 26) + ("        " + p.pid).slice(-8) + " " + pad("Console", 17) + ("          1").slice(-11) + (/\/v/i.test(c) ? " " + p.user : ""); }).join("\n");
+          }
+          if (/^wmic process/.test(lc)) return procs.length ? "CommandLine  Name  ParentProcessId  ProcessId\n" + procs.map(function (p) { return p.command_line + "  " + base(p.image) + "  " + p.ppid + "  " + p.pid; }).join("\n") : "No Instance(s) Available.";
+          var pidM = /\/pid\s+(\d+)/i.exec(c) || (mode && /-id\s+(\d+)/i.exec(c)), imM = /\/im\s+(\S+)/i.exec(c);
+          if (a0 === "taskkill" || (mode && /^(stop-process|kill|spps)$/.test(a0))) {
+            var targets = pidM ? X.procs.filter(function (p) { return String(p.pid) === pidM[1]; }) : imM ? X.procs.filter(function (p) { return base(p.image).toLowerCase() === imM[1].toLowerCase(); }) : [];
+            if (!targets.length) return mode ? "Stop-Process : Cannot find a process with the process identifier " + (pidM ? pidM[1] : "") + "." : "ERROR: The process \"" + (pidM ? pidM[1] : imM ? imM[1] : "") + "\" not found.";
+            targets.forEach(function (p) { endTask(p.pid, mode ? "Stop-Process" : "taskkill"); });
+            return mode ? "" : targets.map(function (p) { return "SUCCESS: The process with PID " + p.pid + " has been terminated."; }).join("\n");
+          }
+          var svcList = X.services.concat(X.startup.filter(function (s) { return /^svc:/.test(s.key) && !X.services.some(function (x) { return String(x.Name || x.name).toLowerCase() === s.name.toLowerCase(); }); }).map(function (s) { return { Name: s.name, State: "Running", StartMode: "Manual", PathName: s.cmd, UserAccount: "LocalSystem" }; }));
+          if (mode && /^(get-service|gsv)$/.test(a0)) return svcList.length ? table(["Status", "Name", "DisplayName"], svcList.map(function (s) { return [svcState(s), s.Name || s.name, s.DisplayName || ""]; })) : "No service list was captured for this machine.";
+          if (/^sc(\.exe)?$/.test(a0)) {
+            var sub = (t[1] || "").toLowerCase(), nmS = t[2] || "";
+            if (sub === "query") { var l = svcList.filter(function (s) { return !nmS || String(s.Name || s.name).toLowerCase() === nmS.toLowerCase(); }); if (!l.length) return nmS ? "[SC] EnumQueryServicesStatus:OpenService FAILED 1060:\n\nThe specified service does not exist as an installed service." : "No service list was captured."; return l.map(function (s) { return "\nSERVICE_NAME: " + (s.Name || s.name) + "\nDISPLAY_NAME: " + (s.DisplayName || "") + "\n        STATE              : " + (svcState(s) === "Stopped" ? "1  STOPPED" : "4  RUNNING"); }).join("\n"); }
+            if (sub === "qc") { var s1 = svcList.filter(function (s) { return String(s.Name || s.name).toLowerCase() === nmS.toLowerCase(); })[0]; return s1 ? "[SC] QueryServiceConfig SUCCESS\n\nSERVICE_NAME: " + (s1.Name || s1.name) + "\n        START_TYPE         : " + (A.svc[s1.Name || s1.name] === "disable" ? "4   DISABLED" : /auto/i.test(s1.StartMode || "") ? "2   AUTO_START" : "3   DEMAND_START") + "\n        BINARY_PATH_NAME   : " + (s1.PathName || "") + "\n        SERVICE_START_NAME : " + (s1.UserAccount || "") : "[SC] OpenService FAILED 1060:\n\nThe specified service does not exist as an installed service."; }
+            if (sub === "stop" || (sub === "config" && /start=\s*disabled/i.test(c))) { var done = svcAct(nmS, sub === "stop" ? "stop" : "disable"); return done ? (sub === "stop" ? "\nSERVICE_NAME: " + done + "\n        STATE              : 3  STOP_PENDING" : "[SC] ChangeServiceConfig SUCCESS") : "[SC] OpenService FAILED 1060:\n\nThe specified service does not exist as an installed service."; }
+            return "Use: sc query [NAME], sc qc NAME, sc stop NAME, sc config NAME start= disabled";
+          }
+          if (mode && /^stop-service$/.test(a0)) { var m1 = /-name\s+(\S+)/i.exec(c) || [0, t[1]]; return svcAct(m1[1], "stop") ? "" : "Stop-Service : Cannot find any service with service name '" + m1[1] + "'."; }
+          if (mode && /^set-service$/.test(a0) && /-startuptype\s+disabled/i.test(c)) { var m2 = /-name\s+(\S+)/i.exec(c) || [0, t[1]]; return svcAct(m2[1], "disable") ? "" : "Set-Service : Service " + m2[1] + " was not found on computer '.'."; }
+          if ((a0 === "net" && /^users?$/i.test(t[1] || "")) || (mode && a0 === "get-localuser")) return mode ? table(["Name", "Enabled"], X.users.map(function (u) { return [u, "True"]; })) : "\nUser accounts for \\\\" + host.toUpperCase() + "\n\n-------------------------------------------------------------------------------\n" + X.users.join("    ") + "\nThe command completed successfully.";
+          if (/^(query|quser)$/.test(a0)) { var ls = X.logons.filter(function (l) { return l.type === "2" || l.type === "10"; }); return ls.length ? " USERNAME              SESSIONNAME        ID  STATE   LOGON TIME\n" + ls.map(function (l, i) { return " " + pad(l.user.split("\\").pop().toLowerCase(), 22) + pad(l.type === "10" ? "rdp-tcp#" + i : "console", 19) + pad(i + 1, 4) + pad("Active", 8) + l.t; }).join("\n") : "No User exists for *"; }
+          if (a0 === "schtasks" || (mode && a0 === "get-scheduledtask")) return X.tasks.length ? (mode ? table(["TaskPath", "TaskName", "State"], X.tasks.map(function (x) { return ["\\", x.name.replace(/^\\/, ""), A.start["task:" + x.name] ? "Disabled" : "Ready"]; })) : "\nFolder: \\\nTaskName                                 Next Run Time          Status\n======================================== ====================== ===============\n" + X.tasks.map(function (x) { return pad(x.name, 41) + pad("N/A", 23) + (A.start["task:" + x.name] ? "Disabled" : "Ready") + "\n    Task To Run: " + x.cmd; }).join("\n")) : "INFO: There are no scheduled tasks in the evidence for this machine.";
+          if (a0 === "reg" && /query/i.test(t[1] || "")) { var runs = X.startup.filter(function (s) { return /^reg:/.test(s.key); }); return runs.length ? "\n" + runs.map(function (s) { return s.from.replace(/^Registry Run key \(|\)$/g, "") + "\n    " + pad(s.name, 20) + "REG_SZ    " + s.cmd; }).join("\n\n") : "ERROR: No Run-key changes were captured for this machine."; }
+          if ((a0 === "netstat") || (mode && a0 === "get-netTCPconnection".toLowerCase())) { if (!X.conns.length) return "No connections were captured for this machine (Sysmon network events, ID 3)."; return mode ? table(["LocalAddress", "LocalPort", "RemoteAddress", "RemotePort", "State", "OwningProcess"], X.conns.map(function (x) { return [x.src.split(":")[0], x.src.split(":")[1], x.dst.split(":")[0], x.dst.split(":")[1], "Established", x.pid]; })) : "\nActive Connections (from the captured Sysmon network events)\n\n  Proto  Local Address          Foreign Address        State           PID\n" + X.conns.map(function (x) { return "  " + pad(x.proto, 7) + pad(x.src, 23) + pad(x.dst, 23) + pad("ESTABLISHED", 16) + x.pid + "  [" + x.image + "]"; }).join("\n"); }
+          if (/^(dir|ls|gci|get-childitem)$/.test(a0)) { var target = resolve(cwd, t.slice(1).filter(function (x) { return !/^[\/-]/.test(x); }).join(" ")), nd = node(X, target); if (!nd) return mode ? "Get-ChildItem : Cannot find path '" + target + "' because it does not exist." : "File Not Found"; var ks = Object.keys(nd.kids).map(function (k) { return nd.kids[k]; }); return "\n Directory of " + target + "\n\n" + (ks.length ? ks.map(function (k) { return pad(k.file ? (k.file.t || "").slice(0, 16) : "", 20) + pad(k.file ? "" : "<DIR>", 10) + k.name; }).join("\n") : "(nothing was captured in this folder)") + "\n"; }
+          if (a0 === "cd" || a0 === "chdir" || a0 === "set-location") { if (!t[1]) return cwd; var nx = resolve(cwd, t.slice(1).join(" ")); if (!node(X, nx)) return mode ? "Set-Location : Cannot find path '" + nx + "' because it does not exist." : "The system cannot find the path specified."; cwd = nx.replace(/\\$/, "") || nx; if (/^[a-z]:$/i.test(cwd)) cwd += "\\"; return ""; }
+          if (/^(type|cat|gc|get-content)$/.test(a0)) { var fp = resolve(cwd, t.slice(1).join(" ")), cp = copyOf(fs, fp); if (cp && base(cp.replace(/\//g, "\\")).toLowerCase() === base(fp).toLowerCase() && fs[cp] != null) return String(fs[cp]).slice(0, 20000); return X.files[fp.toLowerCase()] ? "Only this file's name and where it was seen were captured, not its contents." : mode ? "Get-Content : Cannot find path '" + fp + "' because it does not exist." : "The system cannot find the file specified."; }
+          if (mode && a0 === "get-winevent") {
+            var lgm = /-logname\s+['"]?([\w-]+)/i.exec(c) || /logname\s*=\s*['"]([\w-]+)/i.exec(c), mx = /-maxevents\s+(\d+)/i.exec(c), idm = /(?:-id|\bid)\s*=?\s*(\d+)/i.exec(c);
+            var lf = Object.keys(X.events).filter(function (f) { return !lgm || new RegExp(lgm[1] + "\\.jsonl$", "i").test(f); })[0];
+            if (!lf) return "Get-WinEvent : There is not an event log on the localhost computer that matches \"" + (lgm ? lgm[1] : "") + "\".";
+            var evs = X.events[lf].filter(function (e) { return !idm || +e.EventID === +idm[1]; }).slice().reverse().slice(0, mx ? +mx[1] : 20);
+            return "\n   ProviderName: " + (evs[0] ? evs[0].Provider : "") + "\n" + table(["TimeCreated", "Id", "LevelDisplayName", "Message"], evs.map(function (e) { return [String(e.TimeCreated).replace("T", " ").replace("Z", ""), e.EventID, e.Level || "Information", String(e.Message || "").split("\n")[0]]; }));
+          }
+          if (mode) return t[0] + " : The term '" + t[0] + "' is not recognized as the name of a cmdlet, function, script file, or operable\nprogram. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.";
+          return "'" + t[0] + "' is not recognized as an internal or external command,\noperable program or batch file.";
+        }
+        me.body.querySelector("form").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var c = inp.value.trim();
+          inp.value = "";
+          say(pr.textContent + c);
+          if (!c) return;
+          hist.push(c); hi = hist.length;
+          if (/^(cls|clear|clear-host)$/i.test(c)) { out.textContent = ""; return; }
+          var o = run(c);
+          d.emit("rdp.command", { host: host, cmd: c, shell: mode ? "powershell" : "cmd" });
+          if (o === null) return;
+          if (o) say(o.replace(/\n+$/, ""));
+          prompt();
+        });
+        inp.addEventListener("keydown", function (e) { if (e.key === "ArrowUp") { if (hi > 0) inp.value = hist[--hi] || ""; e.preventDefault(); } else if (e.key === "ArrowDown") { inp.value = hist[++hi] || ""; if (hi > hist.length) hi = hist.length; e.preventDefault(); } });
+        me.body.addEventListener("click", function () { if (!getSelection().toString()) inp.focus(); });
+        setTimeout(function () { inp.focus(); }, 30);
+      }, { w: 720, h: 400 });
+    }
+
+    var RUN = { explorer: explorer, taskmgr: taskmgr, cmd: function () { shell(false); }, ps: function () { shell(true); }, eventvwr: eventvwr, services: services, settings: settings };
+    r("icons").querySelectorAll("[data-app]").forEach(function (b) { b.addEventListener("dblclick", function () { RUN[b.getAttribute("data-app")](); }); b.addEventListener("keydown", function (e) { if (e.key === "Enter") RUN[b.getAttribute("data-app")](); }); });
+    r("start").addEventListener("click", function (e) { e.stopPropagation(); r("menu").hidden = !r("menu").hidden; });
+    r("menu").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-app],[data-a]");
+      if (!b) return;
+      r("menu").hidden = true;
+      if (b.getAttribute("data-a") === "bye") { if (opts.onclose) opts.onclose(); else d.close(w); return; }
+      RUN[b.getAttribute("data-app")]();
+    });
+    r("desk").addEventListener("mousedown", function (e) { if (!e.target.closest(".wm-menu")) r("menu").hidden = true; });
+    var first = opts.first || (X.procs.length && !X.live ? "taskmgr" : X.logs.length && !X.live ? "eventvwr" : X.live ? "" : "services");
+    if (first && RUN[first]) RUN[first]();
+    return { run: function (app) { if (RUN[app]) RUN[app](); }, model: X };
+  }
+
+  function open(opts) {
+    var d = D();
+    return d.win((opts.net ? "" : "Remote desktop: ") + (opts.title || opts.host), "rdp", function (w) {
+      var go = function (fs) { var H = evidence(fs || {})[short(opts.host)]; mount(w, Object.assign({ fs: fs || {}, evidence: H }, opts)); };
+      if (d.caseId()) d.files().then(go, function () { go({}); }); else go({});
+    }, { w: 1000, h: 620 });
+  }
+
+  global.AayatMachine = { evidence: evidence, build: build, mount: mount, open: open, exePath: exePath, copyOf: copyOf };
+})(window);

@@ -1,0 +1,491 @@
+(function (global) {
+  "use strict";
+  var me = document.currentScript && document.currentScript.src;
+  var ROOT = me ? me.replace(/assets\/theme\/workstation-bench\.js.*$/, "") : "";
+  var sessions = {}, pending = {}, listeners = [];
+  var KIND = { router: "Router", firewall: "Firewall", "switch": "Switch", ap: "Wi-Fi access point", server: "Server", pc: "Desktop PC", laptop: "Laptop", printer: "Printer",
+    camera: "CCTV recorder", phone: "Phone", wifirouter: "Wi-Fi router", internet: "Internet", nas: "Network storage" };
+  var ART = {
+    router: '<rect x="3" y="11" width="18" height="7" rx="1.5"/><path d="M7 14.5h.01M10 14.5h.01M15 11l2-6M9 11L7 5"/>',
+    firewall: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 10h18M3 14.5h18M9 5v5M15 5v5M6 10v4.5M12 10v4.5M18 10v4.5M9 14.5V19M15 14.5V19"/>',
+    "switch": '<rect x="2" y="8" width="20" height="8" rx="1"/><path d="M5 12h1.5M8.5 12H10M12 12h1.5M15.5 12H17M19 12h.01"/>',
+    ap: '<path d="M5 18h14l1 2.5H4z"/><path d="M8.5 13.5a5 5 0 0 1 7 0M6 10.5a8.5 8.5 0 0 1 12 0M12 16.5h.01"/>',
+    wifirouter: '<rect x="3" y="13" width="18" height="6" rx="1.5"/><path d="M7 16h.01M10 16h.01M9 10a4.5 4.5 0 0 1 6 0M6.5 7.5a8 8 0 0 1 11 0"/>',
+    server: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 9h14M5 15h14M8 6h.01M8 12h.01M8 18h.01"/>',
+    nas: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 9h14M5 15h14M8 6h.01M8 12h.01M8 18h.01"/>',
+    pc: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/>',
+    laptop: '<rect x="5" y="5" width="14" height="10" rx="1"/><path d="M2 19h20l-2-4H4z"/>',
+    printer: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/>',
+    camera: '<rect x="3" y="7" width="13" height="8" rx="1.5"/><path d="M16 10l5-3v8l-5-3M7 15v4h4"/>',
+    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    internet: '<path d="M7 18a4 4 0 0 1-.5-8 6 6 0 0 1 11.4 1.5A3.5 3.5 0 0 1 17.5 18z"/>'
+  };
+
+  function D() { return global.AayatDesk; }
+  function N() { return global.AayatNet; }
+  function esc(s) { return D().esc(s); }
+  function art(kind, size) { return '<svg class="hb-art" viewBox="0 0 24 24" width="' + (size || 30) + '" height="' + (size || 30) + '" aria-hidden="true">' + (ART[kind] || ART.pc) + "</svg>"; }
+  function stateKey(k) { return "ws-net-" + k; }
+  function loadState(k) { try { return JSON.parse(D().store(stateKey(k)) || "null"); } catch (e) { return null; } }
+  function text(url) { return fetch(url).then(function (r) { return r.ok ? r.text() : ""; }).catch(function () { return ""; }); }
+  function json(url) { return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); }
+
+  function open(k) {
+    if (sessions[k]) return Promise.resolve(sessions[k]);
+    if (pending[k]) return pending[k];
+    var made;
+    if (/^case:/.test(k)) {
+      var cid = k.slice(5), V = global.AayatVM;
+      if (!V) return Promise.resolve(null);
+      made = V.manifest(cid).then(function (m) {
+        var base = ROOT + "assets/linux/cases/" + (m.base || m.id) + "/", has = function (f) { return (m.files || []).indexOf(f) >= 0; };
+        if (!has("net/hosts.txt") && !has("net/bench.json")) return null;
+        return Promise.all([has("net/hosts.txt") ? text(base + "net/hosts.txt") : "", has("net/dns.txt") ? text(base + "net/dns.txt") : "", has("net/bench.json") ? json(base + "net/bench.json") : null]).then(function (t) {
+          return N().normalize(t[2], N().parseHosts(t[0], t[1]));
+        });
+      });
+    } else made = json(ROOT + "assets/bench/" + k.slice(9) + ".json").then(function (j) { return j ? N().normalize(j, []) : null; });
+    pending[k] = made.then(function (base) {
+      delete pending[k];
+      if (!base) return null;
+      var api = N().session(base, loadState(k), {
+        emit: function (t, d) { D().emit(t, d); },
+        change: function (what) { D().store(stateKey(k), JSON.stringify(api.state)); listeners.slice().forEach(function (fn) { fn(k, what); }); }
+      });
+      api.key = k;
+      sessions[k] = api;
+      return api;
+    }).catch(function () { delete pending[k]; return null; });
+    return pending[k];
+  }
+  function watch(w, fn) {
+    listeners.push(fn);
+    var t = setInterval(function () { if (!document.body.contains(w.el)) { clearInterval(t); listeners = listeners.filter(function (x) { return x !== fn; }); } }, 2000);
+  }
+
+  function portName(M, s, n) { return M.dev[s].kind === "ap" ? (M.sw[s][n].radio ? "radio " + M.sw[s][n].radio : "port " + n) : "Fa0/" + n; }
+  function peerOf(M, s, n) { var p = M.sw[s][n]; return p && p.to ? N().split(p.to) : null; }
+  function stateWord(st) { return { up: "connected", empty: "live, nothing plugged in", disabled: "shut", nolink: "cable in, no link", none: "" }[st]; }
+  function whereIs(M, id) {
+    var out = [];
+    Object.keys(M.sw).forEach(function (s) { Object.keys(M.sw[s]).forEach(function (n) { var p = M.sw[s][n]; if (p.to && N().split(p.to).id === id) out.push({ s: s, n: n, p: p }); }); });
+    return out;
+  }
+  function freePorts(M) {
+    var out = [];
+    Object.keys(M.sw).forEach(function (s) { if (M.dev[s].kind !== "switch") return; Object.keys(M.sw[s]).forEach(function (n) { if (!M.sw[s][n].to) out.push({ s: s, n: n, p: M.sw[s][n] }); }); });
+    return out;
+  }
+  function unplugged(M) {
+    return Object.keys(M.dev).filter(function (id) { var d = M.dev[id]; return !N().SWITCHES[d.kind] && d.kind !== "internet" && !whereIs(M, id).length && !M.links.some(function (l) { return l[0].split(":")[0] === id || l[1].split(":")[0] === id; }); });
+  }
+
+  function portEditor(el, api, s, n, done) {
+    var M = api.model(), p = M.sw[s][n], st = N().linkState(M, s, n), e = peerOf(M, s, n), dev = e ? M.dev[e.id] : null, trunk = p.mode === "trunk";
+    var free = unplugged(M);
+    el.innerHTML = "<h4>" + esc(M.dev[s].name.split(".")[0] + " " + portName(M, s, n)) + '</h4><dl><dt>Socket</dt><dd>' + esc(p.socket || "-") + "</dd><dt>Room</dt><dd>" + esc(p.room || "-") + (M.rooms && M.rooms[p.room] ? '<br><small>' + esc(M.rooms[p.room]) + "</small>" : "") +
+      "</dd><dt>Device</dt><dd>" + (dev ? '<button type="button" class="ws-linkbtn" data-go="' + esc(e.id) + '">' + esc(dev.name) + "</button>" + (dev.ip ? " <small>" + esc(dev.ip) + "</small>" : "") : "nothing plugged in") +
+      '</dd><dt>Link</dt><dd><span class="hb-led s-' + st + '"></span> ' + esc(stateWord(st)) + "</dd></dl>" +
+      '<div class="hb-form"><label>Mode <select data-k="mode"><option value="access">access (one VLAN)</option><option value="trunk">trunk (several VLANs, tagged)</option></select></label>' +
+      '<label data-acc>VLAN <input data-k="vlan" inputmode="numeric" value="' + esc(p.vlan || 1) + '"></label>' +
+      '<label data-tr>Allowed VLANs <input data-k="allowed" value="' + esc(N().vlanText(N().vlans(p.allowed))) + '"></label><label data-tr>Native VLAN <input data-k="native" inputmode="numeric" value="' + esc(p.native || 1) + '"></label>' +
+      '<button type="button" class="btn" data-a="apply">Apply</button></div>' +
+      '<div class="ws-toolbar hb-acts"><button type="button" class="btn' + (p.shut ? " dark" : "") + '" data-a="shut">' + (p.shut ? "Enable port" : "Shut port") + "</button>" +
+      (p.radio ? "" : p.to ? '<button type="button" class="btn" data-a="unplug">Unplug the cable</button>' : (free.length ? '<select data-a="plug" aria-label="Plug in"><option value="">Plug in…</option>' + free.map(function (id) { return '<option value="' + esc(id) + '">' + esc(M.dev[id].name) + "</option>"; }).join("") + "</select>" : "")) + "</div>" +
+      '<p class="hb-msg" data-m></p>';
+    var q = function (sel) { return el.querySelector(sel); };
+    q('[data-k="mode"]').value = trunk ? "trunk" : "access";
+    function modes() { var t = q('[data-k="mode"]').value === "trunk"; el.querySelectorAll("[data-tr]").forEach(function (x) { x.hidden = !t; }); el.querySelectorAll("[data-acc]").forEach(function (x) { x.hidden = t; }); }
+    modes();
+    q('[data-k="mode"]').addEventListener("change", modes);
+    q('[data-a="apply"]').addEventListener("click", function () {
+      var mode = q('[data-k="mode"]').value, v = +q('[data-k="vlan"]').value, nat = +q('[data-k="native"]').value, al = q('[data-k="allowed"]').value.trim() || "all";
+      if (mode === "access" && !(v >= 1 && v <= 4094)) { q("[data-m]").textContent = "A VLAN is a number from 1 to 4094."; return; }
+      if (mode === "trunk" && N().vlans(al) !== null && !N().vlans(al).length && al !== "none") { q("[data-m]").textContent = "Allowed VLANs looks like 1,10,20 or 10-20 or all."; return; }
+      api.setPort(s, n, mode === "trunk" ? { mode: "trunk", allowed: N().vlanText(N().vlans(al)), native: nat >= 1 ? nat : 1 } : { mode: "access", vlan: v });
+      if (done) done();
+    });
+    q('[data-a="shut"]').addEventListener("click", function () { api.setPort(s, n, { shut: !p.shut }); if (done) done(); });
+    var u = q('[data-a="unplug"]');
+    if (u) u.addEventListener("click", function () { api.setPort(s, n, { to: null }); D().toast("Cable out", portName(M, s, n) + (dev ? ": " + dev.name + " is off the network" : "")); if (done) done(); });
+    var pl = q('[data-a="plug"]');
+    if (pl) pl.addEventListener("change", function () { if (!pl.value) return; api.setPort(s, n, { to: pl.value + ":eth0" }); if (done) done(); });
+    var go = q("[data-go]");
+    if (go && el.closest(".hb")) go.addEventListener("click", function () { el.dispatchEvent(new CustomEvent("hb-pick", { bubbles: true, detail: go.getAttribute("data-go") })); });
+  }
+
+  function hostPanel(el, api, id, redraw) {
+    var M = api.model(), d = M.dev[id], at = whereIs(M, id), f = N().ifaces(M, id)[0] || {};
+    var cable = at.map(function (x) { return x.p.radio ? "Wi-Fi " + x.p.radio + " on " + M.dev[x.s].name : M.dev[x.s].name.split(".")[0] + " " + portName(M, x.s, x.n) + (x.p.socket && x.p.socket !== "-" ? ", socket " + x.p.socket : "") + " (" + stateWord(N().linkState(M, x.s, x.n)) + ")"; }).join("; ");
+    var free = freePorts(M);
+    el.innerHTML = '<div class="hb-head">' + art(d.kind, 34) + "<div><h4>" + esc(d.name) + "</h4><small>" + esc(KIND[d.kind] || d.kind) + " · " + esc(d.os === "windows" ? "Windows" : d.os === "linux" ? "Linux" : "") + "</small></div></div>" +
+      "<dl><dt>Room</dt><dd>" + esc(d.room || "-") + "</dd><dt>MAC</dt><dd class=\"mono\">" + esc(N().mac(id)) + "</dd><dt>Cable</dt><dd>" + esc(cable || "not plugged in") + "</dd></dl>" +
+      '<div class="hb-form"><label>IP address <input data-k="ip" value="' + esc(f.ip ? f.ip + "/" + f.bits : "") + '" placeholder="10.0.0.20/24"></label><label>Gateway <input data-k="gw" value="' + esc(d.gw || "") + '" placeholder="10.0.0.1"></label>' +
+      '<button type="button" class="btn" data-a="ip">Apply</button></div>' +
+      '<div class="hb-checks"><label><input type="checkbox" data-a="power"' + (d.power !== false ? " checked" : "") + "> Powered on</label>" +
+      (d.usb !== undefined ? '<label><input type="checkbox" data-a="usb"' + (d.usb !== false ? " checked" : "") + "> USB storage allowed</label>" : "") + "</div>" +
+      '<div class="ws-toolbar hb-acts">' + (d.os === "windows" && global.AayatMachine ? '<button type="button" class="btn dark" data-a="desk">Open its desktop</button>' : "") +
+      '<button type="button" class="btn' + (d.os === "windows" ? "" : " dark") + '" data-a="term">Open a terminal</button>' +
+      (at.length && !at[0].p.radio ? '<button type="button" class="btn" data-a="unplug">Unplug</button>' : !at.length && free.length ? '<select data-a="plug" aria-label="Plug into"><option value="">Plug into…</option>' + free.map(function (x) { return '<option value="' + esc(x.s + ":" + x.n) + '">' + esc(M.dev[x.s].name.split(".")[0] + " Fa0/" + x.n + (x.p.socket && x.p.socket !== "-" ? " · " + x.p.socket : "") + (x.p.room ? " · " + x.p.room : "")) + "</option>"; }).join("") + "</select>" : "") +
+      '</div><p class="hb-msg" data-m></p>';
+    var q = function (s) { return el.querySelector(s); };
+    q('[data-a="ip"]').addEventListener("click", function () {
+      var c = N().cidr(q('[data-k="ip"]').value), g = q('[data-k="gw"]').value.trim();
+      if (!c) { q("[data-m]").textContent = "Type an address like 10.0.0.20/24."; return; }
+      if (g && N().cidr(g) === null) { q("[data-m]").textContent = "The gateway is an address like 10.0.0.1, or leave it empty."; return; }
+      api.setDev(id, { ip: c.ip, bits: c.bits, gw: g });
+      redraw();
+    });
+    q('[data-a="power"]').addEventListener("change", function () { api.setDev(id, { power: this.checked }); redraw(); });
+    var u = q('[data-a="usb"]');
+    if (u) u.addEventListener("change", function () { api.setDev(id, { usb: this.checked }); D().toast("USB storage", d.name + (this.checked ? ": USB drives work again" : ": USB drives are blocked")); redraw(); });
+    q('[data-a="term"]').addEventListener("click", function () { hostTerm(api, id); });
+    var dk = q('[data-a="desk"]');
+    if (dk) dk.addEventListener("click", function () { global.AayatMachine.open({ host: id, title: d.name, os: "windows", net: api }); });
+    var un = q('[data-a="unplug"]');
+    if (un) un.addEventListener("click", function () { api.setPort(at[0].s, at[0].n, { to: null }); redraw(); });
+    var pl = q('[data-a="plug"]');
+    if (pl) pl.addEventListener("change", function () { if (!pl.value) return; var x = pl.value.split(":"); api.setPort(x[0], x[1], { to: id + ":eth0" }); redraw(); });
+  }
+
+  function switchPanel(el, api, id, redraw, pickPort) {
+    var M = api.model(), d = M.dev[id], sw = M.sw[id], names = M.vlanNames || {};
+    var vl = { 1: "default" };
+    Object.keys(names).forEach(function (k) { if (k.split(":")[0] === id) vl[k.split(":")[1]] = names[k]; });
+    el.innerHTML = '<div class="hb-head">' + art(d.kind, 34) + "<div><h4>" + esc(d.name) + "</h4><small>" + esc(KIND[d.kind]) + (d.ip ? " · " + esc(d.ip) : "") + "</small></div></div>" +
+      '<div class="ws-toolbar hb-acts"><button type="button" class="btn dark" data-a="con">Open the console</button><label><input type="checkbox" data-a="power"' + (d.power !== false ? " checked" : "") + "> Powered on</label></div>" +
+      '<p class="hb-vl"><b>VLANs</b> ' + Object.keys(vl).map(function (v) { return '<span class="hb-chip">' + esc(v + " " + vl[v]) + "</span>"; }).join(" ") + "</p>" +
+      '<table class="ws-grid hb-pt"><tr><th>Port</th><th>Where</th><th>Device</th><th>VLAN</th><th></th></tr>' + Object.keys(sw).map(Number).sort(function (a, b) { return a - b; }).map(function (n) {
+        var p = sw[n], st = N().linkState(M, id, n), e = peerOf(M, id, n);
+        return '<tr data-port="' + n + '"><td><span class="hb-led s-' + st + '"></span>' + esc(portName(M, id, n)) + "</td><td>" + esc((p.socket && p.socket !== "-" ? p.socket + " " : "") + (p.room || "")) + "</td><td>" + esc(e ? M.dev[e.id].name.split(".")[0] : "") + "</td><td>" + esc(p.mode === "trunk" ? "trunk " + N().vlanText(N().vlans(p.allowed)) : p.vlan || 1) + "</td><td>" + (p.shut ? "shut" : "") + "</td></tr>";
+      }).join("") + "</table><div data-r=\"port\"></div>";
+    el.querySelector('[data-a="con"]').addEventListener("click", function () { cliWin(api, id); });
+    el.querySelector('[data-a="power"]').addEventListener("change", function () { api.setDev(id, { power: this.checked }); redraw(); });
+    el.querySelectorAll("tr[data-port]").forEach(function (tr) { tr.addEventListener("click", function () { pickPort(id, tr.getAttribute("data-port")); }); });
+  }
+
+  function routerPanel(el, api, id, redraw) {
+    var M = api.model(), d = M.dev[id], C = N().cables(M);
+    var FW = global.AayatTools && global.AayatTools.get("firewall");
+    el.innerHTML = '<div class="hb-head">' + art(d.kind, 34) + "<div><h4>" + esc(d.name) + "</h4><small>" + esc(KIND[d.kind]) + "</small></div></div>" +
+      '<div class="ws-toolbar hb-acts"><button type="button" class="btn dark" data-a="con">Open the console</button><label><input type="checkbox" data-a="power"' + (d.power !== false ? " checked" : "") + "> Powered on</label></div>" +
+      '<table class="ws-grid"><tr><th>Interface</th><th>Address</th><th>VLAN</th><th>Link</th></tr>' + Object.keys(d.ifs || {}).sort().map(function (k) {
+        var f = d.ifs[k], up = !f.shut && N().linked(M, C, id + ":" + (f.parent || k));
+        return "<tr><td>" + esc(k) + (f.wan ? " <small>internet</small>" : "") + '</td><td><input data-if="' + esc(k) + '" value="' + esc(f.ip ? f.ip + "/" + f.bits : "") + '" placeholder="none"' + (f.wan ? " disabled" : "") + "></td><td>" + esc(f.vlan || (k.indexOf(".") > 0 ? "?" : "native")) + '</td><td><span class="hb-led s-' + (f.shut ? "disabled" : up ? "up" : "empty") + '"></span>' + (f.shut ? "shut" : up ? "up" : "down") + "</td></tr>";
+      }).join("") + "</table>" +
+      '<div class="ws-toolbar"><button type="button" class="btn" data-a="ifs">Save addresses</button><input data-k="sub" placeholder="g0/0.30" aria-label="New subinterface" size="9"><button type="button" class="btn" data-a="sub">Add subinterface</button></div>' +
+      '<h5>Routes</h5><p class="mono hb-routes">' + ((d.routes || []).map(function (r) { return esc(r.net + " via " + r.via); }).join("<br>") || "Only the networks it's plugged into.") + "</p>" +
+      '<h5>Firewall rules <small>first match wins, same rules as the Firewall program</small></h5><textarea data-k="rules" rows="8" spellcheck="false" placeholder="No rules: everything is allowed through.">' + esc(d.rules || "") + "</textarea>" +
+      '<div class="ws-toolbar"><button type="button" class="btn dark" data-a="rules">Apply rules</button><small data-m></small></div>';
+    var q = function (s) { return el.querySelector(s); };
+    q('[data-a="con"]').addEventListener("click", function () { cliWin(api, id); });
+    q('[data-a="power"]').addEventListener("change", function () { api.setDev(id, { power: this.checked }); redraw(); });
+    q('[data-a="ifs"]').addEventListener("click", function () {
+      var bad = "";
+      el.querySelectorAll("[data-if]").forEach(function (x) {
+        if (x.disabled) return;
+        var k = x.getAttribute("data-if"), v = x.value.trim(), c = v ? N().cidr(v) : null;
+        if (v && !c) { bad = k; return; }
+        var f = d.ifs[k];
+        if ((f.ip || "") + "/" + f.bits !== (c ? c.ip + "/" + c.bits : "/" + f.bits)) api.setIf(id, k, c ? { ip: c.ip, bits: c.bits } : { ip: "" });
+      });
+      if (bad) q("[data-m]").textContent = bad + ": type an address like 10.0.20.1/24.";
+      redraw();
+    });
+    q('[data-a="sub"]').addEventListener("click", function () {
+      var m = /^g(\d+\/\d+)\.(\d+)$/i.exec(q('[data-k="sub"]').value.trim());
+      if (!m || !d.ifs["g" + m[1]]) { q("[data-m]").textContent = "Name it after the cable's interface and the VLAN, like g0/0.30."; return; }
+      api.setIf(id, "g" + m[1] + "." + m[2], { vlan: +m[2], bits: 24 });
+      redraw();
+    });
+    q('[data-a="rules"]').addEventListener("click", function () {
+      var t = q('[data-k="rules"]').value;
+      if (FW && t.trim()) { var p = FW.parse(t); if (p.errors.length) { q("[data-m]").textContent = p.errors[0]; return; } }
+      api.setRules(id, t.trim() ? t : "");
+      D().toast("Rules applied", d.name + ": " + (t.trim() ? FW.parse(t).rules.length + " rules" : "no rules, everything passes"));
+      redraw();
+    });
+  }
+
+  function term(w, opts) {
+    var hist = [], hi = 0;
+    w.body.classList.add("ws-term");
+    if (opts.cls) w.body.classList.add(opts.cls);
+    w.body.innerHTML = '<pre class="ws-out" aria-live="polite"></pre><form class="ws-line"><span class="ws-ps"></span><input aria-label="Command" autocomplete="off" spellcheck="false"></form>';
+    var out = w.body.querySelector(".ws-out"), input = w.body.querySelector("input"), ps = w.body.querySelector(".ws-ps"), pr = opts.prompt;
+    function print(t) { out.textContent += t; if (out.textContent.length > 120000) out.textContent = out.textContent.slice(-90000); w.body.scrollTop = w.body.scrollHeight; }
+    ps.textContent = pr;
+    if (opts.banner) print(opts.banner + "\n");
+    w.body.addEventListener("click", function () { if (!getSelection().toString()) input.focus(); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowUp") { if (hi > 0) input.value = hist[--hi] || ""; e.preventDefault(); }
+      else if (e.key === "ArrowDown") { input.value = hist[++hi] || ""; if (hi > hist.length) hi = hist.length; e.preventDefault(); }
+      else if (e.key === "l" && e.ctrlKey) { out.textContent = ""; e.preventDefault(); }
+      else if (e.key === "z" && e.ctrlKey && opts.ctrlz) { var r = opts.ctrlz(); pr = r.prompt; ps.textContent = pr; print("^Z\n"); e.preventDefault(); }
+    });
+    w.body.querySelector("form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var cmd = input.value;
+      input.value = "";
+      if (cmd.trim()) { hist.push(cmd); hi = hist.length; }
+      print(pr + cmd + "\n");
+      if (/^\s*(clear|cls)\s*$/i.test(cmd)) { out.textContent = ""; return; }
+      var r = opts.run(cmd);
+      if (r.out) print(r.out.replace(/\n?$/, "\n"));
+      if (r.closed) { D().close(w); return; }
+      pr = r.prompt || pr;
+      ps.textContent = pr;
+    });
+    setTimeout(function () { input.focus(); }, 30);
+  }
+  function cliWin(api, id) {
+    var M = api.model(), d = M.dev[id], hn = d.hostname || String(d.name).split(".")[0], sess = {};
+    D().win(hn + " console", "terminal", function (w) {
+      term(w, {
+        cls: "hb-cli", prompt: hn + ">",
+        banner: "Console cable to " + d.name + ". Type ? for the commands, enable to start.\n",
+        run: function (line) {
+          if (api.model().dev[id].power === false) return { out: "(no response: the device is switched off)", prompt: hn + ">" };
+          var r = N().cli(api, id, sess, line);
+          D().emit("bench.command", { dev: id, cmd: line });
+          return r;
+        },
+        ctrlz: function () { if (sess.mode && sess.mode !== "user") sess.mode = "priv"; return { prompt: hn + "#" }; }
+      });
+    }, { w: 880, h: 460 });
+  }
+  function hostTerm(api, id) {
+    var d = api.model().dev[id], hn = String(d.name).split(".")[0].toLowerCase(), win = d.os === "windows";
+    var user = win ? "C:\\Users\\it-support>" : "it@" + hn + ":~$ ";
+    D().win((win ? "Command Prompt: " : "Terminal: it@") + hn, "terminal", function (w) {
+      term(w, {
+        prompt: user, cls: win ? "hb-cmd" : "",
+        banner: win ? "Command line on " + hn.toUpperCase() + ". Try ipconfig, ping, tracert, arp -a, nslookup. Type help." : "Shell on " + hn + ". Try ip a, ip route, ping -c 3 NAME, traceroute NAME, ip neigh. Type help.",
+        run: function (line) {
+          var M = api.model(), c = line.trim(), lc = c.toLowerCase().split(/\s+/)[0];
+          if (!c) return { out: "" };
+          if (M.dev[id].power === false) return { out: "(the computer is switched off)" };
+          if (lc === "exit") return { closed: true };
+          if (lc === "help") return { out: win ? "ipconfig [/all], ping [-n N] HOST, tracert HOST, arp -a, nslookup NAME, route print, hostname, whoami, cls, exit" : "ip a, ip route, ip neigh, ping [-c N] HOST, traceroute HOST, host NAME, hostname, whoami, uname -a, clear, exit" };
+          if (lc === "hostname") return { out: win ? hn.toUpperCase() : hn };
+          if (lc === "whoami") return { out: win ? hn + "\\it-support" : "it" };
+          if (lc === "uname" && !win) return { out: "Linux " + hn + " 6.1.0-27-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.115-1 x86_64 GNU/Linux" };
+          var o = N().hostShell(M, id, c, win ? "windows" : "linux");
+          D().emit("bench.command", { dev: id, cmd: c });
+          if (/^(ping|tracert|traceroute)$/.test(lc)) { var tgt = c.split(/\s+/).filter(function (x, i) { return i && !/^-/.test(x) && !/^\d+$/.test(x) || N().cidr(x); }).pop(); if (tgt) D().emit("bench.ping", { from: id, to: tgt, ok: N().route(M, id, tgt).ok }); }
+          if (o == null) return { out: win ? "'" + c.split(" ")[0] + "' is not recognized as an internal or external command,\noperable program or batch file." : "bash: " + c.split(" ")[0] + ": command not found" };
+          return { out: o };
+        }
+      });
+    }, { w: 720, h: 430 });
+  }
+
+  function layout(M) {
+    var rooms = [], seen = {};
+    function add(r) { if (r && !seen[r]) { seen[r] = 1; rooms.push(r); } }
+    Object.keys(M.sw).forEach(function (s) { Object.keys(M.sw[s]).map(Number).sort(function (a, b) { return a - b; }).forEach(function (n) { add(M.sw[s][n].room); }); });
+    Object.keys(M.dev).forEach(function (id) { add(M.dev[id].room); });
+    var cup = /cupboard|server room|comms|rack/i;
+    return { cup: rooms.filter(function (r) { return cup.test(r); })[0] || "comms cupboard", rooms: rooms.filter(function (r) { return !cup.test(r) && r !== "clinic"; }) };
+  }
+  function tile(M, id, sel) {
+    var d = M.dev[id], off = d.power === false, sw = M.sw[id];
+    var ip = (N().ifaces(M, id).filter(function (f) { return f.ip && !f.wan; })[0] || {}).ip || "";
+    return '<button type="button" class="hb-dev k-' + esc(d.kind) + (sel === id ? " sel" : "") + (off ? " off" : "") + '" data-dev="' + esc(id) + '">' + art(d.kind) + '<span class="hb-dn"><b>' + esc(String(d.name).split(".")[0]) + "</b><small>" + esc(d.kind === "internet" ? "your provider" : ip) + "</small></span>" +
+      (sw ? '<span class="hb-ports">' + Object.keys(sw).map(Number).sort(function (a, b) { return a - b; }).map(function (n) {
+        var st = N().linkState(M, id, n);
+        return '<i class="hb-port s-' + st + (sw[n].radio ? " radio" : "") + '" data-port="' + esc(id + ":" + n) + '" title="' + esc(portName(M, id, n) + (sw[n].room ? " · " + sw[n].room : "") + " · " + stateWord(st)) + '"></i>';
+      }).join("") + "</span>" : "") + "</button>";
+  }
+  function floorHtml(M, sel) {
+    var L = layout(M), ids = Object.keys(M.dev);
+    var inCup = ids.filter(function (id) { var d = M.dev[id]; return d.kind !== "internet" && (d.room === L.cup || (!d.room && (N().ROUTERS[d.kind] || N().SWITCHES[d.kind]))); });
+    var order = function (id) { return { router: 0, firewall: 0, "switch": 1, ap: 2 }[M.dev[id].kind] == null ? 3 : { router: 0, firewall: 0, "switch": 1, ap: 2 }[M.dev[id].kind]; };
+    inCup.sort(function (a, b) { return order(a) - order(b); });
+    var socks = {};
+    Object.keys(M.sw).forEach(function (s) { Object.keys(M.sw[s]).forEach(function (n) { var p = M.sw[s][n]; if (p.socket && p.socket !== "-" && !p.radio) (socks[p.room] = socks[p.room] || []).push({ s: s, n: n, p: p }); }); });
+    var out = '<svg class="hb-wires" data-r="wires" aria-hidden="true"></svg>';
+    if (M.dev.internet) out += '<div class="hb-sky">' + tile(M, "internet", sel) + "</div>";
+    out += '<div class="hb-cup"><h5>' + esc(L.cup) + '</h5><div class="hb-rack' + (M.door ? " locked" : "") + '">' + inCup.map(function (id) { return tile(M, id, sel); }).join("") + "</div>" +
+      '<label class="hb-door"><input type="checkbox" data-door' + (M.door ? " checked" : "") + "> Rack door locked</label></div>";
+    out += '<div class="hb-rooms">' + L.rooms.map(function (r) {
+      var devs = ids.filter(function (id) { return M.dev[id].room === r && inCup.indexOf(id) < 0 && id !== "internet"; });
+      return '<section class="hb-room"><h5>' + esc(r) + "</h5>" + (M.rooms && M.rooms[r] ? "<small>" + esc(M.rooms[r]) + "</small>" : "") +
+        '<div class="hb-socks">' + (socks[r] || []).map(function (x) { var st = N().linkState(M, x.s, x.n); return '<button type="button" class="hb-sock s-' + st + '" data-port="' + esc(x.s + ":" + x.n) + '" title="' + esc("Wall socket " + x.p.socket + " → " + portName(M, x.s, x.n) + " · " + stateWord(st)) + '">' + esc(x.p.socket) + "</button>"; }).join("") + "</div>" +
+        '<div class="hb-devs">' + devs.map(function (id) { return tile(M, id, sel); }).join("") + "</div></section>";
+    }).join("") + "</div>";
+    return out;
+  }
+  function wires(floor, M) {
+    var svg = floor.querySelector("[data-r=wires]");
+    if (!svg) return;
+    var fr = floor.getBoundingClientRect(), W = floor.scrollWidth, H = floor.scrollHeight;
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    function pt(el, side) {
+      var r = el.getBoundingClientRect();
+      return { x: r.left - fr.left + floor.scrollLeft + r.width / 2, y: r.top - fr.top + floor.scrollTop + (side === "top" ? 0 : side === "bottom" ? r.height : r.height / 2) };
+    }
+    function q(sel) { return floor.querySelector(sel); }
+    var paths = [];
+    function line(a, b, cls) {
+      if (!a || !b) return;
+      var dy = Math.max(30, Math.abs(b.y - a.y) / 2);
+      paths.push('<path class="' + cls + '" d="M' + a.x.toFixed(1) + " " + a.y.toFixed(1) + " C" + a.x.toFixed(1) + " " + (a.y + (b.y > a.y ? dy : -dy)).toFixed(1) + " " + b.x.toFixed(1) + " " + (b.y > a.y ? b.y - dy : b.y + dy).toFixed(1) + " " + b.x.toFixed(1) + " " + b.y.toFixed(1) + '"/>');
+    }
+    Object.keys(M.sw).forEach(function (s) {
+      Object.keys(M.sw[s]).forEach(function (n) {
+        var p = M.sw[s][n], st = N().linkState(M, s, n), port = q('.hb-port[data-port="' + s + ":" + n + '"]');
+        if (!port) return;
+        var e = p.to ? N().split(p.to) : null, devEl = e ? q('.hb-dev[data-dev="' + e.id + '"]') : null;
+        var sock = q('.hb-sock[data-port="' + s + ":" + n + '"]');
+        if (p.radio) { if (devEl) line(pt(port, "bottom"), pt(devEl, "top"), "w-radio s-" + st); return; }
+        if (sock) {
+          line(pt(port, "bottom"), pt(sock, "top"), "w-wall s-" + st);
+          if (devEl && devEl.closest(".hb-room") === sock.closest(".hb-room")) line(pt(sock, "bottom"), pt(devEl, "top"), "w-patch s-" + st);
+          else if (devEl) line(pt(port, "bottom"), pt(devEl, "top"), "w-patch s-" + st);
+          return;
+        }
+        if (devEl) {
+          if (M.sw[e.id] && e.id < s) return;
+          var other = M.sw[e.id] ? q('.hb-port[data-port="' + e.id + ":" + e.port + '"]') : null;
+          line(pt(port, "bottom"), other ? pt(other, "top") : pt(devEl, devEl.getBoundingClientRect().top > port.getBoundingClientRect().top ? "top" : "bottom"), "w-patch s-" + st);
+        }
+      });
+    });
+    M.links.forEach(function (l) {
+      var a = q('.hb-dev[data-dev="' + l[0].split(":")[0] + '"]'), b = q('.hb-dev[data-dev="' + l[1].split(":")[0] + '"]');
+      var up = N().linked(M, N().cables(M), l[0]);
+      if (a && b) line(pt(b, "bottom"), pt(a, "top"), "w-patch s-" + (up ? "up" : "nolink"));
+    });
+    svg.innerHTML = paths.join("");
+  }
+  function tasksHtml(api) {
+    var t = api.tasks();
+    if (!t.length) return '<p class="hb-none">No work order on this bench: explore. Pull a cable, shut a port, change a VLAN, and watch what breaks.</p>';
+    var n = t.filter(function (x) { return x.done; }).length;
+    return '<div class="hb-th"><b>Work order</b><small>' + n + " of " + t.length + " done</small></div><ol>" + t.map(function (x) {
+      return '<li class="' + (x.done ? "ok" : "") + '"><span class="hb-tick" aria-hidden="true"></span><span>' + esc(x.text) + (x.hint && !x.done ? ' <button type="button" class="ws-linkbtn" data-hint>Hint</button><small hidden>' + esc(x.hint) + "</small>" : "") + "</span></li>";
+    }).join("") + "</ol>";
+  }
+  function wireHints(el) { el.querySelectorAll("[data-hint]").forEach(function (b) { b.addEventListener("click", function () { b.nextSibling.hidden = !b.nextSibling.hidden; }); }); }
+
+  function bench(start) {
+    var d = D(), cid = d.caseId();
+    d.win("Hardware bench", "bench", function (w) {
+      w.body.innerHTML = '<div class="hb"><div class="ws-toolbar hb-bar"><select data-r="pick" aria-label="Which bench"></select><span class="ws-tb-sp"></span><small data-r="note"></small><button type="button" class="btn" data-r="reset">Reset this bench</button></div>' +
+        '<div class="hb-main"><div class="hb-floor" data-r="floor"><p class="ws-empty">Loading the bench…</p></div><aside class="hb-panel" data-r="panel"></aside></div>' +
+        '<div class="hb-foot"><div class="hb-tasks" data-r="tasks"></div><div class="hb-impact" data-r="impact"></div></div></div>';
+      var r = function (n) { return w.body.querySelector('[data-r="' + n + '"]'); };
+      var api = null, sel = null, selPort = null;
+      function panel() {
+        var el = r("panel");
+        if (!api) { el.innerHTML = ""; return; }
+        var M = api.model();
+        if (selPort) { var sp = selPort.split(":"); if (M.sw[sp[0]] && M.sw[sp[0]][sp[1]]) { portEditor(el, api, sp[0], sp[1], draw); return; } }
+        if (!sel || !M.dev[sel]) { el.innerHTML = '<div class="hb-intro"><h4>' + esc(M.title || "The bench") + "</h4><p>" + esc(M.intro || "Every device on this network, wired as it is today.") + '</p><p><small>Click a device to set it up, or a port or wall socket to see its cable. A device\'s terminal runs ping and traceroute through this wiring, and the switch and router consoles take real commands.</small></p><ul class="hb-legend"><li><span class="hb-led s-up"></span>link up</li><li><span class="hb-led s-empty"></span>live port, nothing in it</li><li><span class="hb-led s-disabled"></span>shut</li><li><span class="hb-led s-nolink"></span>cable in, no link</li></ul></div>'; return; }
+        var k = M.dev[sel].kind;
+        if (N().SWITCHES[k]) switchPanel(el, api, sel, draw, function (s, n) { selPort = s + ":" + n; draw(); });
+        else if (N().ROUTERS[k]) routerPanel(el, api, sel, draw);
+        else if (k === "internet") el.innerHTML = '<div class="hb-head">' + art("internet", 34) + "<div><h4>The internet</h4><small>your provider's gateway " + esc((N().ifaces(M, "internet")[0] || {}).ip || "") + "</small></div></div><p>Anything outside answers here, like 198.51.100.1. Websites this case knows: " + esc(Object.keys(M.outside || {}).map(function (ip) { return M.outside[ip]; }).filter(Boolean).slice(0, 8).join(", ") || "none") + ".</p>";
+        else hostPanel(el, api, sel, draw);
+      }
+      function draw() {
+        if (!api) return;
+        var M = api.model(), fl = r("floor"), keep = [fl.scrollLeft, fl.scrollTop];
+        fl.innerHTML = floorHtml(M, sel);
+        fl.scrollLeft = keep[0]; fl.scrollTop = keep[1];
+        if (selPort) fl.querySelectorAll('[data-port="' + selPort + '"]').forEach(function (x) { x.classList.add("sel"); });
+        wires(fl, M);
+        var door = fl.querySelector("[data-door]");
+        if (door) door.addEventListener("change", function () { api.setDoor(door.checked); draw(); });
+        panel();
+        r("tasks").innerHTML = tasksHtml(api);
+        wireHints(r("tasks"));
+        var imp = N().impact(N().merge(api.base, N().blank()), M);
+        r("impact").innerHTML = "<b>Compared with the start</b>" + (imp.length ? "<ul>" + imp.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Nothing that worked has stopped working.</p>");
+      }
+      r("floor").addEventListener("click", function (e) {
+        var p = e.target.closest("[data-port]"), dv = e.target.closest("[data-dev]");
+        if (p) { selPort = p.getAttribute("data-port"); sel = selPort.split(":")[0]; draw(); return; }
+        if (dv) { sel = dv.getAttribute("data-dev"); selPort = null; draw(); return; }
+        if (!e.target.closest("label")) { sel = null; selPort = null; draw(); }
+      });
+      r("floor").addEventListener("dblclick", function (e) {
+        var dv = e.target.closest("[data-dev]");
+        if (!dv || !api) return;
+        var id = dv.getAttribute("data-dev"), k = api.model().dev[id].kind;
+        if (N().SWITCHES[k] || N().ROUTERS[k]) cliWin(api, id);
+        else if (k !== "internet") { if (api.model().dev[id].os === "windows" && global.AayatMachine) global.AayatMachine.open({ host: id, title: api.model().dev[id].name, os: "windows", net: api }); else hostTerm(api, id); }
+      });
+      r("panel").addEventListener("hb-pick", function (e) { sel = e.detail; selPort = null; draw(); });
+      r("reset").addEventListener("click", function () {
+        if (!api) return;
+        if (r("reset").getAttribute("data-sure") !== "1") { r("reset").setAttribute("data-sure", "1"); r("reset").textContent = "Click again to reset"; setTimeout(function () { r("reset").removeAttribute("data-sure"); r("reset").textContent = "Reset this bench"; }, 3000); return; }
+        r("reset").removeAttribute("data-sure"); r("reset").textContent = "Reset this bench";
+        api.reset(); sel = null; selPort = null; draw();
+      });
+      var ro = global.ResizeObserver ? new ResizeObserver(function () { if (api) wires(r("floor"), api.model()); }) : null;
+      if (ro) ro.observe(r("floor"));
+      watch(w, function (k) { if (api && k === api.key) draw(); });
+      function use(k) {
+        r("floor").innerHTML = '<p class="ws-empty">Loading the bench…</p>';
+        open(k).then(function (a) {
+          api = a; sel = null; selPort = null;
+          if (!a) { r("floor").innerHTML = '<p class="ws-empty">This case has no network to put on the bench. Pick a practice bench above.</p>'; r("tasks").innerHTML = ""; r("impact").innerHTML = ""; r("panel").innerHTML = ""; return; }
+          r("note").textContent = /^case:/.test(k) ? "Changes here show in the Server room too." : "Practice bench: nothing here touches a case.";
+          D().emit("bench.open", { bench: k });
+          draw();
+        });
+      }
+      json(ROOT + "assets/bench/index.json").then(function (list) {
+        list = list || [];
+        var opts = (cid ? ['<option value="case:' + esc(cid) + '">This case: ' + esc(d.caseTitle()) + "</option>"] : []).concat(list.map(function (b) { return '<option value="practice:' + esc(b.id) + '">Practice: ' + esc(b.title) + "</option>"; }));
+        r("pick").innerHTML = opts.join("");
+        var want = start && start.bench ? start.bench : cid ? "case:" + cid : list[0] ? "practice:" + list[0].id : "";
+        if (want && !Array.prototype.some.call(r("pick").options, function (o) { return o.value === want; })) want = r("pick").options[0] ? r("pick").options[0].value : "";
+        r("pick").value = want;
+        if (want) use(want); else r("floor").innerHTML = '<p class="ws-empty">No benches yet.</p>';
+      });
+      r("pick").addEventListener("change", function () { use(r("pick").value); });
+    }, { w: 1200, h: 700 });
+  }
+
+  function patch(room, side, stat, cid) {
+    room.innerHTML = '<p class="ws-empty">Loading the patch panel…</p>';
+    return open("case:" + cid).then(function (api) {
+      if (!api) { room.innerHTML = '<p class="ws-empty">This case has no network map, so there are no cables to show.</p>'; return null; }
+      var pick = null;
+      function info() {
+        var t = api.tasks();
+        side.innerHTML = '<h4>Patch panel</h4><p>Each wall socket in the building runs to a port on the patch panel, and a short patch cable joins it to the switch. Click a port to pull or move its cable, or shut it.</p>' +
+          (t.length ? '<div class="hb-tasks">' + tasksHtml(api) + "</div>" : "");
+        wireHints(side);
+      }
+      function draw() {
+        var M = api.model();
+        room.innerHTML = Object.keys(M.sw).filter(function (s) { return M.dev[s].kind === "switch"; }).map(function (s) {
+          var ns = Object.keys(M.sw[s]).map(Number).sort(function (a, b) { return a - b; });
+          return '<div class="pp"><div class="pp-title">' + esc(M.dev[s].name) + " · patch panel and switch</div>" +
+            '<div class="pp-grid" style="grid-template-columns:repeat(' + ns.length + ',minmax(54px,1fr))">' + ns.map(function (n) {
+              var p = M.sw[s][n], st = N().linkState(M, s, n), e = p.to ? N().split(p.to) : null;
+              return '<button type="button" class="pp-col s-' + st + (pick === s + ":" + n ? " sel" : "") + '" data-port="' + esc(s + ":" + n) + '" title="' + esc("Fa0/" + n + " · " + (p.room || "") + " · " + stateWord(st)) + '">' +
+                '<span class="pp-sock">' + esc(p.socket || "-") + '</span><small class="pp-room">' + esc(p.room || "") + '</small><span class="pp-cable' + (p.to ? "" : " out") + '"></span>' +
+                '<span class="pp-jack"><b>' + n + '</b></span><small class="pp-dev">' + esc(e ? String(M.dev[e.id].name).split(".")[0] : "—") + "</small></button>";
+            }).join("") + '</div><ul class="hb-legend"><li><span class="hb-led s-up"></span>link</li><li><span class="hb-led s-empty"></span>live, nothing in it</li><li><span class="hb-led s-disabled"></span>shut</li><li><span class="hb-led s-nolink"></span>no link</li></ul></div>';
+        }).join("");
+        if (pick) { var sp = pick.split(":"); portEditor(side, api, sp[0], sp[1], draw); side.insertAdjacentHTML("afterbegin", '<p><button type="button" class="ws-linkbtn" data-back>← Work order</button></p>'); side.querySelector("[data-back]").addEventListener("click", function () { pick = null; draw(); }); }
+        else info();
+        var imp = N().impact(N().merge(api.base, N().blank()), M);
+        stat.textContent = imp.length ? "Changed since you arrived: " + imp.join(" · ") : "Everything that worked when you arrived still works.";
+      }
+      room.addEventListener("click", function (e) { var b = e.target.closest("[data-port]"); if (b) { pick = b.getAttribute("data-port"); draw(); } });
+      draw();
+      return { api: api, draw: draw };
+    });
+  }
+
+  global.AayatBench = { open: open, bench: bench, patch: patch, hostTerm: hostTerm, cliWin: cliWin, term: term, art: art };
+  (global.AayatDeskApps = global.AayatDeskApps || []).push({ id: "bench", title: "Hardware bench", icon: "bench", open: bench });
+})(window);

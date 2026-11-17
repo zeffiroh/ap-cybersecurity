@@ -1,0 +1,33 @@
+{
+ "title": "Staff and guests on one switch",
+ "intro": "Hillview Library has one switch. Staff PCs and the guest kiosks share the same network today, so a guest can reach the staff file server: try ping -c 2 files from kiosk1's terminal. Split them with VLANs: staff stay on VLAN 1, guests move to VLAN 20.",
+ "devices": [
+  {"id": "sw1", "name": "sw1", "kind": "switch", "ports": 8, "room": "comms cupboard", "ip": "10.5.0.2/24"},
+  {"id": "files", "name": "files", "kind": "server", "os": "linux", "ip": "10.5.0.10/24", "room": "comms cupboard"},
+  {"id": "desk-pc", "name": "desk-pc", "kind": "pc", "os": "windows", "ip": "10.5.0.21/24", "room": "issue desk"},
+  {"id": "office-pc", "name": "office-pc", "kind": "pc", "os": "windows", "ip": "10.5.0.22/24", "room": "staff office"},
+  {"id": "kiosk1", "name": "kiosk1", "kind": "pc", "os": "linux", "ip": "10.5.0.51/24", "room": "reading room"},
+  {"id": "kiosk2", "name": "kiosk2", "kind": "pc", "os": "linux", "ip": "10.5.0.52/24", "room": "reading room"}
+ ],
+ "ports": {
+  "sw1": [
+   {"n": 1, "socket": "-", "room": "comms cupboard", "to": "files"},
+   {"n": 2, "socket": "D1", "room": "issue desk", "to": "desk-pc"},
+   {"n": 3, "socket": "S1", "room": "staff office", "to": "office-pc"},
+   {"n": 4, "socket": "R1", "room": "reading room", "to": "kiosk1"},
+   {"n": 5, "socket": "R2", "room": "reading room", "to": "kiosk2"},
+   {"n": 6, "socket": "R3", "room": "reading room"},
+   {"n": 7, "socket": "-", "room": "comms cupboard"},
+   {"n": 8, "socket": "-", "room": "comms cupboard"}
+  ]
+ },
+ "tasks": [
+  {"id": "vlan", "text": "Make VLAN 20 called guest on sw1", "hint": "sw1's console: enable, configure terminal, vlan 20, name guest, end. Then show vlan brief.",
+   "check": {"vlanName": "sw1:20", "is": "guest"}},
+  {"id": "move", "text": "Put the reading-room sockets (R1, R2, R3) on VLAN 20", "hint": "interface range fa0/4-6, then switchport access vlan 20",
+   "check": {"all": [{"port": "sw1:4", "vlan": 20}, {"port": "sw1:5", "vlan": 20}, {"port": "sw1:6", "vlan": 20}]}},
+  {"id": "split", "text": "Guests can't reach the file server, but can reach each other", "check": {"all": [
+   {"ping": ["kiosk1", "files"], "ok": false}, {"ping": ["kiosk2", "desk-pc"], "ok": false}, {"ping": ["kiosk1", "kiosk2"]}]}},
+  {"id": "staff", "text": "Staff still reach the file server", "check": {"all": [{"ping": ["desk-pc", "files"]}, {"ping": ["office-pc", "files"]}]}}
+ ]
+}

@@ -12,6 +12,7 @@
  "tools": [
   "Terminal (nmap)",
   "Server room",
+  "Hardware bench",
   "Firewall and segmentation"
  ],
  "seminar_id": null,
@@ -25,6 +26,7 @@
    "files",
    "terminal",
    "rack",
+   "bench",
    "tool-firewall",
    "chat",
    "notes"
@@ -40,7 +42,7 @@
     "role": "Dentist and owner"
    }
   },
-  "story": "It's Saturday 14 November 2026 at Saffron Dental Care in Kochi. The clinic is closed, and you're the IT contractor on the monthly security visit.\n\nThe practice manager wants three things: find anything on the network that shouldn't be there, close the doors that don't need to be open, and keep the waiting-room Wi-Fi away from patient records.\n\nYou have a terminal with nmap, the Server room (the clinic's rack: shut a port, tag a device, export the inventory) and the Firewall program with the router's rules.",
+  "story": "It's Saturday 14 November 2026 at Saffron Dental Care in Kochi. The clinic is closed, and you're the IT contractor on the monthly security visit.\n\nThe practice manager wants three things: find anything on the network that shouldn't be there, close the doors that don't need to be open, and keep the waiting-room Wi-Fi away from patient records.\n\nYou have a terminal with nmap, the Server room (the clinic's rack: shut a port, tag a device, export the inventory, and the patch panel where every wall socket's cable ends), the Hardware bench (every device and cable in the clinic: switch and router consoles, each PC's own terminal) and the Firewall program with the router's rules.",
   "events": [
    {
     "at": 1,
@@ -104,15 +106,31 @@
    },
    {
     "id": "cut",
-    "text": "Cut the rogue device off at the switch",
+    "text": "Cut the rogue device off: shut its ports, or pull its cable at the switch",
     "after": "rogue",
     "points": 15,
     "on": {
-     "event": "rack.port",
-     "ip": "10.40.0.99",
-     "shut": true
+     "any": [
+      {
+       "event": "rack.port",
+       "ip": "10.40.0.99",
+       "shut": true
+      },
+      {
+       "event": "rack.cable",
+       "ip": "10.40.0.99",
+       "action": [
+        "unplug",
+        "shut"
+       ]
+      },
+      {
+       "event": "bench.task",
+       "id": "unplug-rogue"
+      }
+     ]
     },
-    "hint": "Server room, click 10.40.0.99, Shut its ports."
+    "hint": "Server room, Patch panel, port 9 (socket W1, waiting room): Unplug the cable. Or click 10.40.0.99 in the rack and Shut its ports."
    },
    {
     "id": "telnet1",
@@ -150,6 +168,17 @@
     "hint": "switch-ports.txt: consult room 3 (port 7) and the store room (port 11) are up with nothing plugged in."
    },
    {
+    "id": "deadports",
+    "text": "Shut the live switch ports in the rooms nobody uses",
+    "after": "rooms",
+    "points": 10,
+    "on": {
+     "event": "bench.task",
+     "id": "empty-rooms"
+    },
+    "hint": "Server room, Patch panel: ports 7 and 11, Shut port. Or the Hardware bench, sw1's console: enable, configure terminal, interface range fa0/7, fa0/11, shutdown."
+   },
+   {
     "id": "cam",
     "text": "Tag the CCTV recorder for hardening: it still has its installer's password",
     "points": 10,
@@ -162,12 +191,20 @@
    },
    {
     "id": "fw",
-    "text": "Rewrite the router rules: guests reach the internet only, and run them in the Firewall program",
+    "text": "Rewrite the router rules: guests reach the internet only (Firewall program, or gw on the Hardware bench)",
     "points": 20,
     "on": {
-     "event": "tool.result",
-     "tool": "firewall",
-     "data.rules": "~^(?![\\s\\S]*allow\\s+any\\s+guest\\s*->\\s*any\\b)[\\s\\S]*guest\\s*->\\s*internet"
+     "any": [
+      {
+       "event": "tool.result",
+       "tool": "firewall",
+       "data.rules": "~^(?![\\s\\S]*allow\\s+any\\s+guest\\s*->\\s*any\\b)[\\s\\S]*guest\\s*->\\s*internet"
+      },
+      {
+       "event": "bench.task",
+       "id": "guests-out"
+      }
+     ]
     },
     "hint": "Replace 'allow any guest -> any' with: allow udp guest -> 10.40.0.1:53, allow tcp guest -> internet:80,443, deny any guest -> clinic. Keep 'allow any clinic -> any' and 'default deny'."
    },
@@ -180,6 +217,35 @@
      "event": "rack.export"
     },
     "hint": "Server room, Export CSV."
+   },
+   {
+    "id": "usb",
+    "text": "Block USB storage on the reception PC",
+    "points": 5,
+    "on": {
+     "event": "bench.task",
+     "id": "usb"
+    },
+    "hint": "Hardware bench, click recep-pc, untick USB storage allowed."
+   },
+   {
+    "id": "lockrack",
+    "text": "Lock the rack before you leave",
+    "after": "export",
+    "points": 5,
+    "on": {
+     "any": [
+      {
+       "event": "rack.door",
+       "locked": true
+      },
+      {
+       "event": "bench.task",
+       "id": "rack"
+      }
+     ]
+    },
+    "hint": "Server room or Hardware bench: tick Rack door locked."
    }
   ],
   "debrief": "A strong visit starts with a scan of 10.40.0.0/24 compared against the clinic's own list. 10.40.0.99 isn't on it: dhcp-leases.txt says a TP-Link TL-WR840N appeared on 9 November, and switch-ports.txt puts it on wall socket W1 in the waiting room. A home router plugged into a clinic network is a back door anyone in the waiting room can use, and conn.csv shows it already talking to the NAS. Cut it off at the switch first, then explain kindly to the person who brought it.\n\nThen close the doors: Telnet on the switch and the printer, the two live sockets in empty rooms (consult room 3 and the store room), and the CCTV recorder still using its installer's password. Finally, the rule that matters most for a clinic: guests get DNS and the web, never the patient records. Run the rules in the Firewall program and check the guest-to-NAS flow is now denied, then hand the manager the updated inventory.",

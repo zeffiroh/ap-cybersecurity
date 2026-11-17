@@ -1,0 +1,40 @@
+{
+ "title": "Lock down the office",
+ "intro": "Marigold Accounts, Friday 6 pm. Everyone has gone home. The inventory lists: router gw, switch sw1, file server nas, partner-pc, clerk-pc, reception-pc and the printer. Make the office safe for the weekend without breaking Monday morning.",
+ "devices": [
+  {"id": "gw", "name": "gw", "kind": "router", "room": "server cupboard", "ifs": {"g0/0": "10.8.0.1/24", "g0/1": "wan"}},
+  {"id": "sw1", "name": "sw1", "kind": "switch", "ports": 10, "room": "server cupboard", "ip": "10.8.0.2/24"},
+  {"id": "nas", "name": "nas", "kind": "server", "os": "linux", "ip": "10.8.0.10/24", "gw": "10.8.0.1", "room": "server cupboard"},
+  {"id": "partner-pc", "name": "partner-pc", "kind": "pc", "os": "windows", "ip": "10.8.0.21/24", "gw": "10.8.0.1", "room": "partner's office", "usb": true},
+  {"id": "clerk-pc", "name": "clerk-pc", "kind": "pc", "os": "windows", "ip": "10.8.0.22/24", "gw": "10.8.0.1", "room": "open office", "usb": true},
+  {"id": "reception-pc", "name": "reception-pc", "kind": "pc", "os": "windows", "ip": "10.8.0.23/24", "gw": "10.8.0.1", "room": "reception", "usb": true},
+  {"id": "printer", "name": "printer", "kind": "printer", "os": "linux", "ip": "10.8.0.30/24", "gw": "10.8.0.1", "room": "open office"},
+  {"id": "mini-ap", "name": "WiFi-Extender-5G", "kind": "wifirouter", "os": "linux", "ip": "10.8.0.77/24", "gw": "10.8.0.1", "room": "meeting room"}
+ ],
+ "ports": {
+  "sw1": [
+   {"n": 1, "socket": "-", "room": "server cupboard", "to": "gw"},
+   {"n": 2, "socket": "-", "room": "server cupboard", "to": "nas"},
+   {"n": 3, "socket": "P1", "room": "partner's office", "to": "partner-pc"},
+   {"n": 4, "socket": "O1", "room": "open office", "to": "clerk-pc"},
+   {"n": 5, "socket": "O2", "room": "open office", "to": "printer"},
+   {"n": 6, "socket": "R1", "room": "reception", "to": "reception-pc"},
+   {"n": 7, "socket": "M1", "room": "meeting room", "to": "mini-ap"},
+   {"n": 8, "socket": "M2", "room": "meeting room"},
+   {"n": 9, "socket": "K1", "room": "kitchen"},
+   {"n": 10, "socket": "-", "room": "server cupboard", "shut": true}
+  ]
+ },
+ "rooms": {"kitchen": "Nobody needs a network socket in the kitchen.", "meeting room": "Used for client meetings. Clients use the guest Wi-Fi, not a cable."},
+ "tasks": [
+  {"id": "rogue", "text": "Something on the network isn't in the inventory. Take it off", "hint": "Compare the devices on the bench with the inventory in the introduction. Then unplug it or shut its port.",
+   "check": {"unplugged": "mini-ap"}},
+  {"id": "empty", "text": "Shut the live ports in the meeting room and the kitchen", "hint": "Sockets M2 and K1 are live with nothing in them. If M1's device is gone, shut that port too.",
+   "check": {"all": [{"port": "sw1:8", "shut": true}, {"port": "sw1:9", "shut": true}]}},
+  {"id": "usb", "text": "Block USB storage on the reception PC, where visitors sit", "check": {"usb": "reception-pc", "on": false}},
+  {"id": "rack", "text": "Lock the rack in the server cupboard", "check": {"door": true}},
+  {"id": "monday", "text": "Monday still works: every PC reaches the file server and the internet", "check": {"all": [
+   {"ping": ["partner-pc", "nas"]}, {"ping": ["clerk-pc", "nas"]}, {"ping": ["reception-pc", "nas"]}, {"ping": ["clerk-pc", "printer"]},
+   {"ping": ["partner-pc", "198.51.100.1"]}, {"ping": ["reception-pc", "198.51.100.1"]}]}}
+ ]
+}

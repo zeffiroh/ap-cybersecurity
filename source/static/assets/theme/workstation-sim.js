@@ -86,6 +86,16 @@
     if (t === "rack.tag") return "Tagged " + (ev.name || ev.ip) + ": " + ev.tag;
     if (t === "rdp.isolate") return (ev.isolated ? "Isolated " : "Reconnected ") + ev.host;
     if (t === "rdp.endtask") return "Ended " + ev.image + " (" + ev.pid + ") on " + ev.host;
+    if (t === "rack.cable") return ({ unplug: "Unplugged the cable from ", plug: "Plugged a cable into ", shut: "Shut switch port ", enable: "Enabled switch port ", vlan: "Changed the VLAN on ", mode: "Changed the mode of " })[ev.action] + ev.sw + " port " + ev.port + (ev.socket && ev.socket !== "-" ? " (socket " + ev.socket + ")" : "") + (ev.device ? ": " + ev.device : "");
+    if (t === "rack.door") return ev.locked ? "Locked the rack" : "Unlocked the rack";
+    if (t === "bench.task") return "Work order done: " + ev.text;
+    if (t === "bench.usb") return (ev.on ? "Allowed" : "Blocked") + " USB storage on " + ev.id;
+    if (t === "bench.power") return (ev.on ? "Switched on " : "Switched off ") + ev.id;
+    if (t === "bench.rules") return "Changed the firewall rules on " + ev.id;
+    if (t === "bench.command") return "On " + ev.dev + ": " + ev.cmd;
+    if (t === "rdp.service") return (ev.action === "disable" ? "Disabled" : "Stopped") + " the service " + ev.name + " on " + ev.host;
+    if (t === "rdp.startup") return "Disabled the startup item " + ev.name + " on " + ev.host;
+    if (t === "rdp.command") return "On " + ev.host + " (" + ev.shell + "): " + ev.cmd;
     if (t === "app.open") return "";
     return "";
   }

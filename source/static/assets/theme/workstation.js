@@ -62,10 +62,11 @@
     rack: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 8h14M5 13h14M5 18h14"/><path d="M8 5.5h.01M8 10.5h.01M8 15.5h.01"/>',
     rdp: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M9 9l2 2 4-4"/>',
     expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
-    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    bench: '<path d="M2 20h20M4 20v-4h16v4"/><rect x="5" y="9" width="6" height="7" rx="1"/><path d="M14 16v-5h5v5M16.5 11V8M7 12h2"/>'
   };
   var TINT = { terminal: "#2b2f36", files: "#d89a2b", mail: "#2d74c4", chat: "#3a9d6a", notes: "#c9a227", help: "#5d6b7a", text: "#7a8796",
-    packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8", net: "#2c7a7b" };
+    packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8", net: "#2c7a7b", bench: "#8a5a2b" };
   var GROUP_ICON = { "SOC analyst": "shield", "Incident responder": "flame", "Security engineer": "gear", "Cloud and DevSecOps": "cloud", "Penetration tester": "target", "Governance and risk": "scales" };
   var TOOL_ICON = { packets: "packets", events: "events", siem: "siem", alerts: "alerts", email: "mail", logsearch: "siem", timeline: "events", proctree: "events" };
 
@@ -205,21 +206,19 @@
   function allowed() {
     if (!caseId || caseId === "trial") return Promise.resolve(true);
     if (access) return access;
-    var P = global.Paywall, sem = /^sem-/.test(caseId);
+    var P = global.Paywall;
     if ((global.APCYBER_PAYWALL || {}).enabled === false) return (access = Promise.resolve(true));
-    if (!sem && P && P.has("labs")) return (access = Promise.resolve(true));
-    var tutor = rpc("api_whoami").then(function (w) { return !!(w && w.teacher); }, function () { return false; });
-    var labs = tutor.then(function (t) {
-      if (t) return true;
-      if (sem) return false;
-      return email() ? rpc("api_my_access").then(function (a) { return !!(a && a.labs); }, function () { return false; }) : false;
-    });
-    access = labs.then(function (yes) {
-      if (yes || !global.AayatVM) return yes;
-      return global.AayatVM.manifest(caseId).then(function (m) {
-        if (m.free) return true;
-        return m.seminarId ? rpc("api_seminar_lab", { p_id: +m.seminarId }).then(function (r) { return !!(r && r.access); }) : false;
-      }).catch(function () { return false; });
+    var man = global.AayatVM ? global.AayatVM.manifest(caseId).catch(function () { return {}; }) : Promise.resolve({});
+    access = man.then(function (m) {
+      m = m || {};
+      if (m.free) return true;
+      var sem = !!m.seminarId;
+      if (!sem && P && P.has("labs")) return true;
+      return rpc("api_whoami").then(function (w) { return !!(w && w.teacher); }, function () { return false; }).then(function (tutor) {
+        if (tutor) return true;
+        if (sem) return rpc("api_seminar_lab", { p_id: +m.seminarId }).then(function (r) { return !!(r && r.access); }, function () { return false; });
+        return email() ? rpc("api_my_access").then(function (a) { return !!(a && a.labs); }, function () { return false; }) : false;
+      });
     });
     return access;
   }
@@ -277,7 +276,7 @@
   function ready(status) {
     if (!readying) readying = (caseId ? allowed().then(function (ok) {
       if (!ok) {
-        status(/^sem-/.test(caseId) ? "This lab comes with its seminar, so this desktop runs plain Linux instead. Unlock it at " + ROOT + "seminars.html" : "This case comes with Labs, so this desktop runs plain Linux instead. Get Labs at " + ROOT + "store.html#labs");
+        status(caseMeta && caseMeta.seminarId ? "This lab comes with its seminar, so this desktop runs plain Linux instead. Unlock it at " + ROOT + "seminars.html" : "This case comes with Labs, so this desktop runs plain Linux instead. Get Labs at " + ROOT + "store.html#labs");
         return global.AayatVM.boot(status);
       }
       return global.AayatVM.installCase(caseId, status);
@@ -342,7 +341,7 @@
       list.innerHTML = '<p class="ws-empty">Loading…</p>';
       loadFiles().then(function (fs) {
         var all = Object.keys(fs).sort(), names = all.filter(shown);
-        if (!all.length) { list.innerHTML = '<p class="ws-empty">' + (/^sem-/.test(caseId) ? "These files come with this seminar." : "These files come with Labs.") + "</p>"; return; }
+        if (!all.length) { list.innerHTML = '<p class="ws-empty">' + (caseMeta && caseMeta.seminarId ? "These files come with this seminar." : "These files come with Labs.") + "</p>"; return; }
         var dirs = {};
         function scan() {
           names = all.filter(shown);
@@ -570,10 +569,11 @@
         "<ul><li><b>Team chat</b>: your SOC lead hands you the case. Read the briefing first.</li>" +
         "<li><b>Files</b>: the evidence. Double-click a file to open it in the right program: captures in the Packet viewer, event logs in the Event viewer, emails in Mail. Right-click for hashes, a terminal in that folder, and more.</li>" +
         "<li><b>Terminal</b>: a real Linux computer. Open as many as you like.</li>" +
+        "<li><b>Server room</b> and <b>Hardware bench</b>: the case's network, cable by cable. Pull a cable, shut a port, set a VLAN, and every device's terminal shows what changed. <b>Remote desktop</b> opens a Windows machine rebuilt from the evidence.</li>" +
         "<li><b>Start</b>: every program, grouped by job. <b>Case</b> on the taskbar switches case.</li>" +
         "<li>Drag a window to the left or right edge to fill half the screen, or to the top to fill it. Right-click the desktop for more.</li>" +
         "<li><b>Notes</b> are saved in this browser for each case.</li></ul></div>";
-    }, { w: 560, h: 380 });
+    }, { w: 560, h: 430 });
   }
   function tool(d, state) {
     if (!d) return;

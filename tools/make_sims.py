@@ -111,6 +111,9 @@ A acct-pc03.kestrel.lan 10.20.0.16
 A kestrel-logistlcs.com 203.0.113.45
 A cdn-update-check.net 198.51.100.61
 """,
+        "bench.json": json.dumps({"intro": "Kestrel Logistics' office, wired from the scan.", "tasks": [
+            {"id": "contain", "text": "Contain hr-pc07 at the switch: pull its cable or shut its port, and leave it switched on", "hint": "Click hr-pc07's wall socket, Unplug the cable. Its memory is evidence, so don't power it off.", "check": {"all": [{"unplugged": "hr-pc07"}, {"power": "hr-pc07", "on": True}]}},
+            {"id": "others", "text": "Finance and Accounts still reach the file server", "check": {"all": [{"ping": ["fin-pc02", "fs01"]}, {"ping": ["acct-pc03", "fs01"]}]}}]}, indent=1),
     }
     steps = {
         "01-the-report.md": """
@@ -218,7 +221,7 @@ If nobody contains it, at 09:41 the malware walks the file server and renames th
             {"id": "denied", "text": "Did fin-pc02 (10.20.0.15) get the document too?", "ask": "yes or no", "answer": ["no"], "points": 10, "after": "who", "hint": "Its line in proxy.log says TCP_DENIED/403: the proxy blocked it after the domain was added to the blocklist at 09:18."},
             {"id": "chain", "text": "On hr-pc07, which program did Word start?", "ask": "Program name", "answer": ["cmd.exe", "cmd"], "points": 10, "after": "who", "hint": "Remote desktop, hr-pc07, Task Manager. Find WINWORD.EXE's PID, then the row whose Parent is that PID."},
             {"id": "contain", "text": "Contain hr-pc07: isolate it, or shut its switch port", "points": 20, "after": "who",
-             "on": {"any": [{"event": "rdp.isolate", "host": "hr-pc07", "isolated": True}, {"event": "rack.port", "ip": "10.20.0.14", "shut": True}]},
+             "on": {"any": [{"event": "rdp.isolate", "host": "hr-pc07", "isolated": True}, {"event": "rack.port", "ip": "10.20.0.14", "shut": True}, {"event": "rack.cable", "ip": "10.20.0.14", "action": ["unplug", "shut"]}]},
              "hint": "Remote desktop, open hr-pc07, press Isolate from the network. Or Server room, hr-pc07, Shut its ports. Don't switch it off: memory holds evidence."},
             {"id": "intime", "text": "Bonus: contain it before the malware reaches the file server at 09:41", "with": "contain", "within": 1500, "points": 15},
             {"id": "kill", "text": "End the malware's process on hr-pc07", "points": 10, "after": "chain", "on": {"event": "rdp.endtask", "host": "hr-pc07", "image": "svchost-upd"}, "hint": "Task Manager on hr-pc07: svchost-upd.exe running from C:\\Users\\Public. A real svchost.exe lives in System32."},
@@ -389,6 +392,75 @@ A critical finding doesn't wait for the final report. Write it up in the report 
     return folder("x02-authorised-pen-test", about, files, steps, net)
 
 
+OFFICE_BENCH = json.loads(r"""
+{
+ "title": "Saffron Dental Care, Kochi",
+ "intro": "The clinic's comms cupboard and the rooms its cables run to. Everything here is wired the way switch-ports.txt says.",
+ "devices": [
+  {"id": "gw", "name": "gw.saffron.lan", "kind": "router", "room": "comms cupboard",
+   "ifs": {"g0/0": "10.40.0.1/24", "g0/0.20": {"ip": "10.40.1.1/24", "vlan": 20}, "g0/1": "wan"},
+   "rules": "zone clinic 10.40.0.0/24\nzone guest 10.40.1.0/24\nzone internet any\n\nallow any clinic -> any\nallow any guest -> any\ndefault deny\n"},
+  {"id": "sw1", "name": "sw1.saffron.lan", "kind": "switch", "ports": 12, "ip": "10.40.0.2/24", "room": "comms cupboard", "vlans": {"20": "guest"}},
+  {"id": "ap1", "name": "Wi-Fi access point", "kind": "ap", "ports": 3, "room": "comms cupboard"},
+  {"id": "nas01", "name": "nas01.saffron.lan", "kind": "server", "os": "linux", "ip": "10.40.0.10/24", "gw": "10.40.0.1", "room": "comms cupboard"},
+  {"id": "cam-nvr", "name": "cam-nvr.saffron.lan", "kind": "camera", "os": "linux", "ip": "10.40.0.40/24", "gw": "10.40.0.1", "room": "comms cupboard"},
+  {"id": "recep-pc", "name": "recep-pc", "kind": "pc", "os": "windows", "ip": "10.40.0.21/24", "gw": "10.40.0.1", "room": "reception", "usb": true},
+  {"id": "printer", "name": "printer.saffron.lan", "kind": "printer", "os": "linux", "ip": "10.40.0.30/24", "gw": "10.40.0.1", "room": "reception"},
+  {"id": "dr-pc", "name": "dr-pc", "kind": "pc", "os": "windows", "ip": "10.40.0.22/24", "gw": "10.40.0.1", "room": "surgery 1", "usb": true},
+  {"id": "xray-pc", "name": "xray-pc", "kind": "pc", "os": "windows", "ip": "10.40.0.23/24", "gw": "10.40.0.1", "room": "X-ray room", "usb": true},
+  {"id": "tl-wr840n", "name": "TL-WR840N", "kind": "wifirouter", "os": "linux", "ip": "10.40.0.99/24", "gw": "10.40.0.1", "room": "waiting room"},
+  {"id": "guest-phone", "name": "guest-phone", "kind": "phone", "os": "linux", "ip": "10.40.1.50/24", "gw": "10.40.1.1", "room": "waiting room"}
+ ],
+ "ports": {
+  "sw1": [
+   {"n": 1, "socket": "-", "room": "comms cupboard", "to": "gw:g0/0", "mode": "trunk", "allowed": "1,20"},
+   {"n": 2, "socket": "-", "room": "comms cupboard", "to": "nas01"},
+   {"n": 3, "socket": "-", "room": "comms cupboard", "to": "cam-nvr"},
+   {"n": 4, "socket": "R1", "room": "reception", "to": "recep-pc"},
+   {"n": 5, "socket": "R2", "room": "reception", "to": "printer"},
+   {"n": 6, "socket": "S1", "room": "surgery 1", "to": "dr-pc"},
+   {"n": 7, "socket": "C3", "room": "consult room 3"},
+   {"n": 8, "socket": "X1", "room": "X-ray room", "to": "xray-pc"},
+   {"n": 9, "socket": "W1", "room": "waiting room", "to": "tl-wr840n"},
+   {"n": 10, "socket": "S2", "room": "surgery 2", "shut": true},
+   {"n": 11, "socket": "ST1", "room": "store room"},
+   {"n": 12, "socket": "-", "room": "comms cupboard", "to": "ap1:1", "mode": "trunk", "allowed": "1,20"}
+  ],
+  "ap1": [
+   {"n": 1, "room": "comms cupboard", "mode": "trunk", "allowed": "1,20"},
+   {"n": 2, "room": "waiting room", "radio": "Saffron-Guest", "vlan": 20, "to": "guest-phone"},
+   {"n": 3, "room": "clinic", "radio": "Saffron-Staff", "vlan": 1}
+  ]
+ },
+ "rooms": {
+  "consult room 3": "Closed for building work since October.",
+  "store room": "Nobody works in the store room."
+ },
+ "tasks": [
+  {"id": "unplug-rogue", "text": "Take the device that isn't in the inventory off the network",
+   "hint": "Compare inventory.csv with the bench. Pull its cable at the switch, or shut its port.",
+   "check": {"unplugged": "tl-wr840n"}},
+  {"id": "empty-rooms", "text": "Shut the live switch ports in rooms nobody uses",
+   "hint": "switch-ports.txt: consult room 3 and the store room. Click the port, Shut port. Or on sw1's console: interface range fa0/7, fa0/11, then shutdown.",
+   "check": {"all": [{"port": "sw1:7", "shut": true}, {"port": "sw1:11", "shut": true}]}},
+  {"id": "guests-out", "text": "Guest phones reach websites but not the patient records",
+   "hint": "Click gw, Rules. Above 'allow any guest -> any', add: deny any guest -> clinic. Or replace it with: allow udp guest -> 10.40.0.1:53, allow tcp guest -> internet:80,443, deny any guest -> clinic.",
+   "check": {"all": [{"ping": ["guest-phone", "nas01"], "proto": "tcp", "dport": 445, "ok": false}, {"ping": ["guest-phone", "198.51.100.1"], "proto": "tcp", "dport": 443, "ok": true}]}},
+  {"id": "usb", "text": "Turn off USB storage on the reception PC: patients walk past it all day",
+   "hint": "Click recep-pc, untick USB storage.",
+   "check": {"usb": "recep-pc", "on": false}},
+  {"id": "rack", "text": "Lock the rack before you leave",
+   "check": {"door": true}},
+  {"id": "still-works", "text": "The clinic still works: every PC reaches nas01 and the internet",
+   "hint": "Ping from each PC's terminal. If one fails, undo the last change that touched its port.",
+   "check": {"all": [
+    {"ping": ["recep-pc", "nas01"], "proto": "tcp", "dport": 445}, {"ping": ["dr-pc", "nas01"], "proto": "tcp", "dport": 445}, {"ping": ["xray-pc", "nas01"], "proto": "tcp", "dport": 445},
+    {"ping": ["recep-pc", "198.51.100.1"], "proto": "tcp", "dport": 443}, {"ping": ["dr-pc", "198.51.100.1"], "proto": "tcp", "dport": 443}]}}
+ ]
+}
+""")
+
+
 def sim_office():
     files = {
         "README.txt": """
@@ -502,6 +574,7 @@ default deny
             ["os", "10.40.0.99", "Linux", "embedded Linux (TP-Link router)"],
         ]),
         "dns.txt": "SERVER 10.40.0.1\nA gw.saffron.lan 10.40.0.1\nA sw1.saffron.lan 10.40.0.2\nA nas01.saffron.lan 10.40.0.10\nA printer.saffron.lan 10.40.0.30\nA cam-nvr.saffron.lan 10.40.0.40",
+        "bench.json": json.dumps(OFFICE_BENCH, indent=1, ensure_ascii=False),
     }
     steps = {
         "01-what-is-on-the-network.md": """
@@ -548,10 +621,10 @@ Today the router lets the waiting-room Wi-Fi reach everything. conn.csv shows a 
         "role": "IT contractor, monthly security visit",
         "start": "2026-11-14T08:45:00Z",
         "speed": 1,
-        "pins": ["files", "terminal", "rack", "tool-firewall", "chat", "notes"],
+        "pins": ["files", "terminal", "rack", "bench", "tool-firewall", "chat", "notes"],
         "first": True,
         "cast": {"lead": {"name": "Anita Thomas", "role": "Practice manager"}, "dr": {"name": "Dr Menon", "role": "Dentist and owner"}},
-        "story": "It's Saturday 14 November 2026 at Saffron Dental Care in Kochi. The clinic is closed, and you're the IT contractor on the monthly security visit.\n\nThe practice manager wants three things: find anything on the network that shouldn't be there, close the doors that don't need to be open, and keep the waiting-room Wi-Fi away from patient records.\n\nYou have a terminal with nmap, the Server room (the clinic's rack: shut a port, tag a device, export the inventory) and the Firewall program with the router's rules.",
+        "story": "It's Saturday 14 November 2026 at Saffron Dental Care in Kochi. The clinic is closed, and you're the IT contractor on the monthly security visit.\n\nThe practice manager wants three things: find anything on the network that shouldn't be there, close the doors that don't need to be open, and keep the waiting-room Wi-Fi away from patient records.\n\nYou have a terminal with nmap, the Server room (the clinic's rack: shut a port, tag a device, export the inventory, and the patch panel where every wall socket's cable ends), the Hardware bench (every device and cable in the clinic: switch and router consoles, each PC's own terminal) and the Firewall program with the router's rules.",
         "events": [
             {"at": 1, "chat": "lead", "text": "Morning! The clinic's all yours till lunch. The device list and the switch map are in the case folder. Shout if you find anything odd."},
             {"after": "rogue", "chat": "lead", "text": "A TP-Link in the waiting room? Oh. One of the receptionists said the Wi-Fi was weak by the chairs. I think her husband brought a router in last Monday."},
@@ -565,13 +638,18 @@ Today the router lets the waiting-room Wi-Fi reach everything. conn.csv shows a 
             {"id": "scan", "text": "Scan the clinic network with nmap", "points": 10, "on": {"event": "terminal.command", "cmd": "~nmap.*10\\.40\\.0\\."}, "hint": "In a terminal: nmap -sV 10.40.0.0/24"},
             {"id": "rogue", "text": "Which address is on the network but not in the clinic's inventory?", "ask": "IP address", "answer": ["10.40.0.99"], "points": 15, "hint": "Compare the scan (or dhcp-leases.txt) with inventory.csv. One device appeared on 9 November."},
             {"id": "what", "text": "What kind of device is it?", "ask": "Device", "answer": ["~access ?point|router|wi-?fi|tp-?link|wr840"], "after": "rogue", "points": 10, "hint": "dhcp-leases.txt says TP-Link TL-WR840N; its web page title says Wireless N Router. It's plugged into wall socket W1 in the waiting room."},
-            {"id": "cut", "text": "Cut the rogue device off at the switch", "after": "rogue", "points": 15, "on": {"event": "rack.port", "ip": "10.40.0.99", "shut": True}, "hint": "Server room, click 10.40.0.99, Shut its ports."},
+            {"id": "cut", "text": "Cut the rogue device off: shut its ports, or pull its cable at the switch", "after": "rogue", "points": 15,
+             "on": {"any": [{"event": "rack.port", "ip": "10.40.0.99", "shut": True}, {"event": "rack.cable", "ip": "10.40.0.99", "action": ["unplug", "shut"]}, {"event": "bench.task", "id": "unplug-rogue"}]},
+             "hint": "Server room, Patch panel, port 9 (socket W1, waiting room): Unplug the cable. Or click 10.40.0.99 in the rack and Shut its ports."},
             {"id": "telnet1", "text": "Turn off Telnet on the switch", "points": 10, "on": {"event": "rack.port", "ip": "10.40.0.2", "port": "23", "shut": True}, "hint": "Server room, sw1, port 23: Shut."},
             {"id": "telnet2", "text": "Turn off Telnet on the printer", "points": 10, "on": {"event": "rack.port", "ip": "10.40.0.30", "port": "23", "shut": True}, "hint": "Server room, the printer, port 23: Shut."},
             {"id": "rooms", "text": "How many switch ports are live in rooms nobody uses?", "ask": "Number", "answer": ["2", "two"], "points": 10, "hint": "switch-ports.txt: consult room 3 (port 7) and the store room (port 11) are up with nothing plugged in."},
+            {"id": "deadports", "text": "Shut the live switch ports in the rooms nobody uses", "after": "rooms", "points": 10, "on": {"event": "bench.task", "id": "empty-rooms"}, "hint": "Server room, Patch panel: ports 7 and 11, Shut port. Or the Hardware bench, sw1's console: enable, configure terminal, interface range fa0/7, fa0/11, shutdown."},
             {"id": "cam", "text": "Tag the CCTV recorder for hardening: it still has its installer's password", "points": 10, "on": {"event": "rack.tag", "ip": "10.40.0.40", "tag": "patch"}, "hint": "Server room, cam-nvr, Review: Needs patching or hardening. Its login page title gives away admin/12345."},
-            {"id": "fw", "text": "Rewrite the router rules: guests reach the internet only, and run them in the Firewall program", "points": 20, "on": {"event": "tool.result", "tool": "firewall", "data.rules": "~^(?![\\s\\S]*allow\\s+any\\s+guest\\s*->\\s*any\\b)[\\s\\S]*guest\\s*->\\s*internet"}, "hint": "Replace 'allow any guest -> any' with: allow udp guest -> 10.40.0.1:53, allow tcp guest -> internet:80,443, deny any guest -> clinic. Keep 'allow any clinic -> any' and 'default deny'."},
+            {"id": "fw", "text": "Rewrite the router rules: guests reach the internet only (Firewall program, or gw on the Hardware bench)", "points": 20, "on": {"any": [{"event": "tool.result", "tool": "firewall", "data.rules": "~^(?![\\s\\S]*allow\\s+any\\s+guest\\s*->\\s*any\\b)[\\s\\S]*guest\\s*->\\s*internet"}, {"event": "bench.task", "id": "guests-out"}]}, "hint": "Replace 'allow any guest -> any' with: allow udp guest -> 10.40.0.1:53, allow tcp guest -> internet:80,443, deny any guest -> clinic. Keep 'allow any clinic -> any' and 'default deny'."},
             {"id": "export", "text": "Export the asset inventory for the practice manager", "after": "fw", "points": 5, "on": {"event": "rack.export"}, "hint": "Server room, Export CSV."},
+            {"id": "usb", "text": "Block USB storage on the reception PC", "points": 5, "on": {"event": "bench.task", "id": "usb"}, "hint": "Hardware bench, click recep-pc, untick USB storage allowed."},
+            {"id": "lockrack", "text": "Lock the rack before you leave", "after": "export", "points": 5, "on": {"any": [{"event": "rack.door", "locked": True}, {"event": "bench.task", "id": "rack"}]}, "hint": "Server room or Hardware bench: tick Rack door locked."},
         ],
         "debrief": "A strong visit starts with a scan of 10.40.0.0/24 compared against the clinic's own list. 10.40.0.99 isn't on it: dhcp-leases.txt says a TP-Link TL-WR840N appeared on 9 November, and switch-ports.txt puts it on wall socket W1 in the waiting room. A home router plugged into a clinic network is a back door anyone in the waiting room can use, and conn.csv shows it already talking to the NAS. Cut it off at the switch first, then explain kindly to the person who brought it.\n\nThen close the doors: Telnet on the switch and the printer, the two live sockets in empty rooms (consult room 3 and the store room), and the CCTV recorder still using its installer's password. Finally, the rule that matters most for a clinic: guests get DNS and the web, never the patient records. Run the rules in the Firewall program and check the guest-to-NAS flow is now denied, then hand the manager the updated inventory.",
         "pass": 70,
@@ -581,7 +659,7 @@ Today the router lets the waiting-room Wi-Fi reach everything. conn.csv shows a 
         "kicker": "Simulation",
         "summary": "A dental clinic's monthly security visit: find the rogue access point, close the open doors, and keep the waiting-room Wi-Fi away from patient records.",
         "units": [2, 3], "level": "Beginner", "minutes": 35, "order": 303,
-        "tools": ["Terminal (nmap)", "Server room", "Firewall and segmentation"], "seminar_id": None, "published": True, "sim": sim,
+        "tools": ["Terminal (nmap)", "Server room", "Hardware bench", "Firewall and segmentation"], "seminar_id": None, "published": True, "sim": sim,
         "script": {
             "intro": "Hello, and welcome to a simulation. Today you're the IT contractor for a small dental clinic. No attacker, no alarm, just a Saturday visit. And that's exactly when most real problems are found: the ones nobody noticed.",
             "steps": [
@@ -618,6 +696,9 @@ def sim_ransom():
             ["10.50.2.14", "eng-ws14.garnet.lan", 445, "tcp", "microsoft-ds?", "", 0, ""],
         ]),
         "dns.txt": "SERVER 10.50.1.10\nA vpn01.garnet.lan 10.50.0.1\nA dc01.garnet.lan 10.50.1.10\nA fs02.garnet.lan 10.50.1.12\nA eng-ws14.garnet.lan 10.50.2.14",
+        "bench.json": json.dumps({"intro": "Garnet's network, wired from the scan: the VPN gateway, the servers and the engineering desks.", "tasks": [
+            {"id": "isolate", "text": "Take fs02 and eng-ws14 off the network at the switch, and leave both switched on", "hint": "Pull their cables or shut their switch ports. Powered on, their memory still holds the attacker's tools and keys.", "check": {"all": [{"unplugged": "fs02"}, {"unplugged": "eng-ws14"}, {"power": "fs02", "on": True}, {"power": "eng-ws14", "on": True}]}},
+            {"id": "dc", "text": "The domain controller stays online for everyone else", "check": {"power": "dc01", "on": True}}]}, indent=1),
     }
     steps = {
         "01-what-is-happening.md": """
@@ -683,10 +764,10 @@ Cut the attacker's session, isolate the machines they're on, stop the encryption
         "objectives": [
             {"id": "what", "text": "Which program is encrypting the shares?", "ask": "Program", "answer": ["locker.exe", "locker"], "points": 10, "hint": "process.csv, or Remote desktop, fs02, Task Manager: C:\\ProgramData\\gpe\\locker.exe --path D:\\Shares."},
             {"id": "kill", "text": "Stop the encryption: end locker.exe on fs02", "after": "what", "points": 15, "on": {"event": "rdp.endtask", "host": "fs02", "image": "locker"}, "hint": "Remote desktop, fs02, Task Manager, End task on locker.exe."},
-            {"id": "isofs", "text": "Isolate fs02", "points": 10, "on": {"event": "rdp.isolate", "host": "fs02", "isolated": True}, "hint": "Remote desktop, fs02, Isolate from the network. Keep it running: memory is evidence."},
+            {"id": "isofs", "text": "Isolate fs02", "points": 10, "on": {"any": [{"event": "rdp.isolate", "host": "fs02", "isolated": True}, {"event": "rack.cable", "ip": "10.50.1.12", "action": ["unplug", "shut"]}]}, "hint": "Remote desktop, fs02, Isolate from the network. Keep it running: memory is evidence."},
             {"id": "vpn", "text": "Which account came in over the VPN?", "ask": "Account", "answer": ["s.kale"], "points": 10, "hint": "vpn.log: a failed then a successful login at 22:43 and 22:44, from 203.0.113.140, MFA not enrolled."},
             {"id": "cut", "text": "Cut the attacker's VPN session", "after": "vpn", "points": 15, "on": {"event": "rack.port", "ip": "10.50.0.1", "shut": True}, "hint": "Server room, vpn01, Shut port 443. At this hour nobody else needs the VPN; disable s.kale in the directory too."},
-            {"id": "isows", "text": "Isolate eng-ws14, the first machine they reached", "after": "vpn", "points": 10, "on": {"event": "rdp.isolate", "host": "eng-ws14", "isolated": True}, "hint": "eng-ws14 logged an RDP logon for s.kale from the VPN address at 22:52, then rundll32 opened lsass at 23:05."},
+            {"id": "isows", "text": "Isolate eng-ws14, the first machine they reached", "after": "vpn", "points": 10, "on": {"any": [{"event": "rdp.isolate", "host": "eng-ws14", "isolated": True}, {"event": "rack.cable", "ip": "10.50.2.14", "action": ["unplug", "shut"]}]}, "hint": "eng-ws14 logged an RDP logon for s.kale from the VPN address at 22:52, then rundll32 opened lsass at 23:05."},
             {"id": "admin", "text": "Which admin account reached fs02?", "ask": "Account", "answer": ["adm.rjoshi"], "after": "vpn", "points": 10, "hint": "fs02's Security log at 23:20:03: a network logon from ENG-WS14 with special privileges."},
             {"id": "exfil", "text": "Roughly how much data went out through the VPN session?", "ask": "Amount", "answer": ["~1[.,]8|1840|1\\.84"], "after": "vpn", "points": 10, "hint": "vpn.log, the session line closed by the admin: bytes_out=1840221190, about 1.8 GB."},
             {"id": "backup", "text": "Which backup can you restore from?", "ask": "Backup", "answer": ["~tape|offline|weekly|thursday"], "points": 10, "hint": "backups.txt: the NAS backup was reachable from fs02 and is encrypted too; shadow copies were deleted; the weekly LTO tape from Thursday 21:00 was taken off site and verified."},
