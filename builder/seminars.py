@@ -179,6 +179,8 @@ def publish_one(folder):
         meta["rubric"] = [[str(c), int(m)] for c, m in info["rubric"]][:20]
     if info.get("handin"):
         meta["handin"] = str(info["handin"])
+    if isinstance(info.get("sim"), dict):
+        meta["sim"] = True
     cast = folder / "replay.json"
     if cast.exists():
         meta["replay"] = True
@@ -186,6 +188,8 @@ def publish_one(folder):
     man = dict(meta, files=files, template=levels.merge_expected(cells, expected_of(folder)))
     if isinstance(info.get("script"), dict):
         man["script"] = info["script"]
+    if isinstance(info.get("sim"), dict):
+        man["sim"] = info["sim"]
     man["levels"] = levels.publish(man)
     man["guide"] = f"media/guides/{slug}/index.html"
     emit(case_dir / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")

@@ -19,6 +19,7 @@
     { id: "secrets", text: "Watched through: no passwords, keys, emails or real names on screen" },
     { id: "audio", text: "Sound level even; no long silences at the start" },
     { id: "captions", text: "Captions checked (YouTube gets security terms wrong)" },
+    { id: "srt", text: "Subtitles uploaded as English: the .srt made by teach demo (YouTube Studio, Subtitles, Upload file, With timing)" },
     { id: "thumb", text: "Custom thumbnail with the Aayat-AP-Prep look" },
     { id: "desc", text: "YouTube description has the chapters and the course link" },
     { id: "student", text: "Played it signed in as a student: locked, then unlocked" }
@@ -31,6 +32,7 @@
     { id: "kids", text: "“Made for kids” set to No" },
     { id: "secrets", text: "No passwords, keys, emails or real names on screen" },
     { id: "captions", text: "Captions checked" },
+    { id: "srt", text: "Subtitles uploaded as English: the .srt made by teach lecture or teach demo" },
     { id: "desc", text: "YouTube description has the course link" },
     { id: "student", text: "Played it signed in as a student" }
   ];

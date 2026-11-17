@@ -72,7 +72,7 @@
   }
 
   function caseCards(list) {
-    list = list.filter(function (c) { return !c.seminarId && !isNet(c); });
+    list = list.filter(function (c) { return !c.seminarId && !isNet(c) && !c.sim; });
     var first = list.filter(function (c) { return /beginner/i.test(c.level || ""); })[0] || list[0];
     if (first && $("lv-firstcase")) {
       $("lv-firstcase").href = caseLink(first);
@@ -89,6 +89,15 @@
   }
 
   function isNet(c) { return /^sem-n\d/.test(c.id || ""); }
+  function simCards(list) {
+    list = list.filter(function (c) { return c.sim && !/--/.test(c.id); });
+    if (!list.length) return '<p class="sx-empty">No simulations yet.</p>';
+    return '<div class="lv-grid">' + list.map(function (c) {
+      return '<div class="lv-card lv-sim"><span class="lv-ck">Simulation</span><b>' + esc(String(c.title || "").replace(/^Simulation:\s*/, "")) + '</b><span class="lv-cs">' + esc(c.summary || "") +
+        '</span><span class="lv-cp">' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") + "</span>" +
+        '<span class="lv-sima"><a class="btn dark" href="' + ROOT + "workstation.html?case=" + encodeURIComponent(c.id) + '">Start in the Hacker Room</a> <a class="btn" href="' + caseLink(c) + '">Written walkthrough</a></span></div>';
+    }).join("") + "</div>";
+  }
   function netCards(list) {
     list = list.filter(isNet);
     if (!list.length) return '<p class="sx-empty">No network labs yet.</p>';
@@ -117,7 +126,7 @@
       $("lb-premium").innerHTML = items.length ? premiumCards(items) : '<p class="sx-empty">No guided labs from your teacher yet. The skill labs below are ready now.</p>';
     }).catch(function () { $("lb-premium").innerHTML = '<p class="sx-empty">Couldn\'t reach the course database, so your teacher\'s labs aren\'t listed. The labs below still work.</p>'; });
     if ($("lv-cases")) {
-      if (global.AayatVM) global.AayatVM.cases().then(function (list) { $("lv-cases").innerHTML = caseCards(list); if ($("lv-netlabs")) $("lv-netlabs").innerHTML = netCards(list); },
+      if (global.AayatVM) global.AayatVM.cases().then(function (list) { $("lv-cases").innerHTML = caseCards(list); if ($("lv-netlabs")) $("lv-netlabs").innerHTML = netCards(list); if ($("lv-sims")) $("lv-sims").innerHTML = simCards(list); },
         function () { $("lv-cases").innerHTML = '<p class="sx-empty">Couldn\'t load the cases. <a href="' + ROOT + 'notebook.html#nb-cases-h">Open them from the Notebook</a>.</p>'; });
       else $("lv-cases").innerHTML = '<p><a href="' + ROOT + 'notebook.html#nb-cases-h">Open the incident runbooks</a></p>';
     }

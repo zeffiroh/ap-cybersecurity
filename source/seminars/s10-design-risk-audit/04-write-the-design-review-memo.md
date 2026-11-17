@@ -13,7 +13,7 @@ The memo turns the model into decisions. Ranked, short, with **conditions for go
 2. The Fees API takes the amount from the database, never from the app.
 3. A signed data processing agreement with the SMS vendor, and the receipt text cut to "Fee received: Rs X, ref Y" (no child's name or class).
 
-**Before the end of the term (should):** MFA and named accounts on the admin console; refunds over Rs 5,000 need a second approver; logs record events, not request bodies, for 30 days.
+**Before the end of the term (should):** MFA and named accounts on the admin console; refunds over Rs 5,000 need a second approver; logs record events, not request bodies, and the event log is kept 180 days in India (CERT-In).
 
 **Accepted risks (need sign-off):** none proposed. The one-click refund risk is high and can't be accepted by Product alone.
 

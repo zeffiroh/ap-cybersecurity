@@ -13,45 +13,71 @@
 <body><main><p class="kick">Seminar 2 · written tutorial</p>
 <h1>Log search and detection as code</h1>
 <p class="meta">Practitioner &middot; about 300 min</p>
-<p>Run one hunt in SPL, KQL and SQL over real-format logs, parse a raw log into fields, then turn the hunt into Sigma rules you test for hits and false positives, tune, and convert with pySigma.</p>
+<p>Run one hunt in SPL, KQL and SQL over an online shop&#x27;s logs, parse a raw log into fields, then turn the hunt into Sigma rules you test for hits and false positives, tune, and convert with pySigma.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s02-log-search-detection-as-code&amp;runbook=sem-s02-log-search-detection-as-code">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s02-log-search-detection-as-code--guided&amp;runbook=sem-s02-log-search-detection-as-code--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s02-log-search-detection-as-code--solo&amp;runbook=sem-s02-log-search-detection-as-code--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>access.log</code>, <code>auth.log</code>, <code>eventlogs/Security.jsonl</code>, <code>README.txt</code>, <code>shop2_access.log</code>.</p>
-<h2>1. One question, three languages</h2>
-<p>A hunt starts with a question, not a tool. Ours: <strong>did anyone guess an SSH password on web01, get in, and do something with it?</strong> You'll answer it three times: in SPL, in KQL and in SQL. Real teams use different SIEMs, and moving a hunt between them is a daily job.</p>
-<p>The SIEM search here is a <strong>teaching subset</strong> of each language over the case logs, so not every command works. When you want the real thing, the free <a href="https://kc7cyber.com">KC7</a> game and the free Azure Data Explorer help cluster run full KQL.</p>
-<p>First look at the raw log with <code>grep</code>, so you know what the search engine is reading.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>access.log</code>, <code>auth.log</code>, <code>eventlogs/Security.jsonl</code>, <code>lookbook_access.log</code>, <code>README.txt</code>.</p>
+<h2>1. How the search program works</h2>
+<p>Before you hunt, learn the program. A SIEM (security information and event management system) does four things with every log file it is given:</p>
+<ol>
+<li><strong>Reads</strong> each file and splits it into <strong>events</strong>, usually one line or one JSON record each.</li>
+<li><strong>Stamps</strong> every event with a time, <code>_time</code>, so events from different files line up on one clock.</li>
+<li><strong>Recognises the format</strong> and records it as the <code>sourcetype</code>: <code>syslog</code> for Linux logs, <code>access_combined</code> for web server logs, <code>json</code> for Windows events.</li>
+<li><strong>Extracts fields</strong> such as <code>src_ip</code>, <code>user</code>, <code>status</code> or <code>EventID</code>, so you can search on them instead of on raw text.</li>
+</ol>
+<p>On screen you have a search box with a language switch (SPL or KQL), <strong>Run</strong>, a chart of <strong>events over time</strong>, the <strong>field list</strong> on the left (click a field to see its values and add one to your search), and the results as events or as a statistics table. <strong>Help</strong> lists the commands this teaching version knows.</p>
+<p>The SIEM here is the company's: Chandni Textiles in Surat, a fabric shop that also sells online. Four logs from Monday 9 November have been loaded. Read <code>README.txt</code> first.</p>
+<ul>
+<li>&#9744; Run the first search: what did the program make of each file?</li>
+<li>&#9744; Run the second search: which programs wrote to auth.log?</li>
+<li>&#9744; Click the field <code>src_ip</code> in the field list and read its values</li>
+</ul>
+<blockquote>
+<p>Hint: <code>*</code> means every event. <code>stats count by source sourcetype</code> makes one row per file and format, with the number of events in each.</p>
+</blockquote>
+<p><strong>Use SIEM search.</strong> Search: <code>* | stats count by source sourcetype</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>sourcetype=syslog | stats count by process</code></p>
+<p><strong>Question:</strong> How many events does the program hold across the four files?
+<strong>Question:</strong> Which sourcetype did the program give auth.log?</p>
+<h2>2. Start with the raw log</h2>
+<p>A hunt starts with a question, not a tool. Ours: <strong>did anyone get into shop01, how did they do it, and what did they take?</strong> You'll answer it three times: in SPL, in KQL and in SQL. Real teams use different SIEMs, and moving a hunt between them is a daily job.</p>
+<p>The SIEM search here is a <strong>teaching subset</strong> of each language, so not every command works. When you want the real thing, the free <a href="https://kc7cyber.com">KC7</a> game and the free Azure Data Explorer help cluster run full KQL.</p>
+<p>First read the raw log with <code>grep</code>, so you know exactly what the search program is reading.</p>
 <ul>
 <li>&#9744; How many lines does auth.log have?</li>
-<li>&#9744; Which line types do you see: Failed, Accepted, sudo?</li>
-<li>&#9744; Which address keeps failing?</li>
+<li>&#9744; Which line types do you see: Failed, Accepted, sudo, CRON?</li>
+<li>&#9744; Which address keeps failing, and which accounts did it try?</li>
 </ul>
 <blockquote>
 <p>Hint: <code>grep -c</code> counts matching lines. <code>awk '{print $(NF-3)}'</code> prints the fourth word from the end, which is the source address on every Failed line.</p>
 </blockquote>
 <p><strong>Question:</strong> How many lines in auth.log contain "Failed password"?</p>
 <pre><code>cd ~/case
-wc -l auth.log access.log
+wc -l auth.log access.log lookbook_access.log
 grep -c &#x27;Failed password&#x27; auth.log
-grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | sort | uniq -c | sort -rn</code></pre>
-<h2>2. SPL: count, then pivot</h2>
+grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | sort | uniq -c | sort -rn
+grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-5)}&#x27; | sort | uniq -c</code></pre>
+<h2>3. SPL: count, then pivot</h2>
 <p>SPL reads left to right: a search, then a pipe <code>|</code>, then a command that works on the results. <code>stats count by src_ip</code> groups the failures by address, and <code>sort - count</code> puts the biggest first.</p>
-<p>Then <strong>pivot</strong>: take the address you found and search for it again, this time for a success.</p>
+<p>Then <strong>pivot</strong>: take what you found and search again from a new angle. First the address, then the account it reached, then what that account did.</p>
 <ul>
-<li>&#9744; Run the first search and read the table</li>
-<li>&#9744; Change it to find the Accepted login from the same address</li>
-<li>&#9744; Find what that user did with sudo</li>
+<li>&#9744; Run the failure count and read the table</li>
+<li>&#9744; Find the Accepted login from the same address</li>
+<li>&#9744; Find where that account normally logs in from</li>
+<li>&#9744; Find what it did with sudo, and compare with its normal sudo use</li>
 </ul>
 <blockquote>
-<p>Hint: Field names come from the parsed log: <code>action</code>, <code>src_ip</code>, <code>user</code>, <code>auth_method</code>. Click any field name in the results to add it to the search.</p>
+<p>Hint: Field names come from the parsed log: <code>action</code>, <code>src_ip</code>, <code>user</code>, <code>auth_method</code>, <code>process</code>, <code>command</code>. Click any field name in the results to add it to the search.</p>
 </blockquote>
 <p><strong>Use SIEM search.</strong> Search: <code>sourcetype=syslog action=failure | stats count by src_ip | sort - count</code></p>
-<p><strong>Use SIEM search.</strong> Search: <code>Accepted src_ip=203.0.113.7 | table _time user auth_method</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>Accepted src_ip=203.0.113.45 | table _time user auth_method</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>process=sshd user=catalog | table _time src_ip action</code></p>
 <p><strong>Use SIEM search.</strong> Search: <code>process=sudo | table _time user run_as command</code></p>
 <p><strong>Question:</strong> Which address failed most often?
-<strong>Question:</strong> Which user did that address log in as?
-<strong>Question:</strong> Which file did that user read with sudo? (full path)</p>
-<h2>3. The same hunt in KQL</h2>
-<p>KQL starts with a <strong>table</strong>, then pipes into operators: <code>where</code> filters, <code>summarize count() by</code> groups, <code>project</code> picks columns, <code>sort by</code> orders. The answer must be the same as in SPL. If it isn't, one of the two searches is wrong.</p>
+<strong>Question:</strong> Which account did that address log in as?
+<strong>Question:</strong> From which address does that account normally log in?
+<strong>Question:</strong> Which program did the attacker run with sudo to copy every database? (program name)</p>
+<h2>4. The same hunt in KQL</h2>
+<p>KQL starts with a <strong>table</strong>, then pipes into operators: <code>where</code> filters, <code>summarize count() by</code> groups, <code>project</code> picks columns, <code>sort by</code> orders. The table is named after the file: <code>auth</code> for auth.log. The answer must be the same as in SPL. If it isn't, one of the two searches is wrong.</p>
 <ul>
 <li>&#9744; Run the failure count in KQL and compare with SPL</li>
 <li>&#9744; Write the success pivot in KQL</li>
@@ -61,64 +87,68 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 <p>Hint: In KQL the count column is called <code>count_</code>. Strings use <code>==</code> and double quotes.</p>
 </blockquote>
 <p><strong>Use SIEM search (KQL).</strong> Search: <code>auth | where action == "failure" | summarize count() by src_ip | sort by count_ desc</code></p>
-<p><strong>Use SIEM search (KQL).</strong> Search: <code>auth | where src_ip == "203.0.113.7" and action == "success" | project _time, user, auth_method</code></p>
+<p><strong>Use SIEM search (KQL).</strong> Search: <code>auth | where src_ip == "203.0.113.45" and action == "success" | project _time, user, auth_method</code></p>
 <p><strong>Question:</strong> How many failed logins came from that address? (KQL count_)</p>
-<h2>4. SQL over the same logs</h2>
+<h2>5. SQL over the same logs</h2>
 <p>Every log is also a table. The SQL tool names each table after its file (<code>auth</code>, <code>access</code>, <code>security</code>) and makes a column for each field. SQL is the language behind most data lakes, so it is worth having in your pocket.</p>
 <ul>
-<li>&#9744; Count requests per client address in the web log</li>
-<li>&#9744; Find every request from 203.0.113.7 that got status 200</li>
-<li>&#9744; Join the idea back to the SSH hunt: same attacker?</li>
+<li>&#9744; Count requests per client address in the shop's web log</li>
+<li>&#9744; Find every request with UNION in it</li>
+<li>&#9744; Join the idea back to the SSH hunt: same address?</li>
 </ul>
 <blockquote>
-<p>Hint: <code>GROUP BY clientip ORDER BY hits DESC</code> is the SQL version of <code>stats count by clientip | sort - count</code>.</p>
+<p>Hint: <code>GROUP BY clientip ORDER BY hits DESC</code> is the SQL version of <code>stats count by clientip | sort - count</code>. <code>LIKE '%UNION%'</code> finds the word anywhere in a column.</p>
 </blockquote>
 <p><strong>Use the SQL over logs.</strong></p>
-<p><strong>Question:</strong> How many requests did 203.0.113.7 make to the web server?</p>
-<h2>5. Parse a raw log into fields</h2>
-<p>Searches only work on fields someone parsed. When a new log arrives that your SIEM doesn't know, you write the parser. The log parser uses <code>%{TYPE:name}</code> pieces, the same idea as Grok in log pipelines.</p>
+<p><strong>Use the SQL over logs.</strong></p>
+<p><strong>Question:</strong> How many requests did 203.0.113.45 make to the shop?</p>
+<h2>6. Parse a raw log into fields</h2>
+<p>Searches only work on fields someone parsed. When a log arrives that your SIEM doesn't know, you write the parser. The log parser uses <code>%{TYPE:name}</code> pieces, the same idea as Grok in log pipelines.</p>
 <p>The pattern below parses SSH login lines. Lines it can't parse are shown in red: decide whether that is right.</p>
 <ul>
 <li>&#9744; Run the pattern on auth.log</li>
-<li>&#9744; Which line doesn't parse, and why is that fine?</li>
-<li>&#9744; Write a second pattern for the sudo line</li>
+<li>&#9744; Which lines don't parse, and why is that fine?</li>
+<li>&#9744; Write a second pattern for the sudo lines</li>
 </ul>
 <blockquote>
-<p>Hint: The sudo line has a different shape: <code>sudo:   deploy : TTY=... ; COMMAND=...</code>. Start with <code>%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sudo: +%{USER:user} : %{GREEDYDATA:rest}</code>.</p>
+<p>Hint: The sudo line has a different shape: <code>sudo:  catalog : TTY=... ; COMMAND=...</code>. Start with <code>%{SYSLOGTIMESTAMP:time} %{HOSTNAME:host} sudo: +%{USER:user} : %{GREEDYDATA:rest}</code>.</p>
 </blockquote>
 <p><strong>Use the Log parser on auth.log.</strong></p>
-<p><strong>Question:</strong> How many of the 12 lines does the SSH pattern parse?</p>
-<h2>6. Hunt the web attack in SPL and KQL</h2>
-<p>The same address also hit the web server. Find the scanner, the SQL injection, and what came after it. <code>uri_path</code> is the page without the query string, which makes grouping easy.</p>
+<p><strong>Question:</strong> How many of the 26 lines does the SSH pattern parse?</p>
+<h2>7. Hunt the web attack in SPL and KQL</h2>
+<p>The SSH password guessing failed. So how did the attacker have catalog's password 40 minutes later? Look at the web log. <code>uri_path</code> is the page without the query string, which makes grouping easy.</p>
 <ul>
 <li>&#9744; Which tool did the attacker use? (look at the user agent)</li>
-<li>&#9744; Which page did they upload, and what commands did they run through it?</li>
+<li>&#9744; Which database table did the injection read?</li>
+<li>&#9744; What did they do in the admin pages, and how big was it?</li>
 <li>&#9744; Write both searches into your hunt pack</li>
 </ul>
 <blockquote>
-<p>Hint: <code>%20</code> is a space and <code>%27</code> is a quote in a URL. CyberChef's URL Decode makes the commands readable.</p>
+<p>Hint: <code>%20</code> is a space, <code>%27</code> is a quote and <code>%3D</code> is <code>=</code> in a URL. CyberChef's URL Decode makes the requests readable.</p>
 </blockquote>
 <p><strong>Use SIEM search.</strong> Search: <code>sourcetype=access_combined useragent=sqlmap* | table _time clientip uri status</code></p>
-<p><strong>Use SIEM search.</strong> Search: <code>sourcetype=access_combined clientip=203.0.113.7 uri_path=/uploads/img.php | table _time uri status</code></p>
-<p><strong>Use SIEM search (KQL).</strong> Search: <code>access | where clientip == "203.0.113.7" and uri_path == "/uploads/img.php" | project _time, uri, status</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>sourcetype=access_combined clientip=203.0.113.45 uri_path=/admin* | table _time method uri status bytes</code></p>
+<p><strong>Use SIEM search (KQL).</strong> Search: <code>access | where clientip == "203.0.113.45" and uri_path startswith "/admin" | project _time, method, uri, status, bytes</code></p>
 <p><strong>Question:</strong> Which scanner's name is in the user agent?
-<strong>Question:</strong> Which file did the attacker run commands through? (file name)</p>
-<h2>7. From hunt to rule: your first Sigma rule</h2>
+<strong>Question:</strong> Which table held the staff passwords?
+<strong>Question:</strong> Which admin page did the attacker download? (the path, without ?from=...)</p>
+<h2>8. From hunt to rule: your first Sigma rule</h2>
 <p>A hunt you run once finds one attack. A <strong>rule</strong> finds the next one. Sigma is the open format for detection rules: one YAML file that converts to SPL, KQL and others.</p>
-<p>Open the Windows log from hr-pc07 (<code>eventlogs/Security.jsonl</code>). On hr-pc07, Word started cmd.exe. The rule below fires on that, and on Excel or Outlook doing the same. Press <strong>Test</strong>, then <strong>Convert with pySigma</strong> to see the real converter's SPL.</p>
+<p>Open the Windows log from accts-pc02 (<code>eventlogs/Security.jsonl</code>). On Monday morning Excel opened <code>Payment_Advice_09Nov.xlsm</code> from Outlook and started cmd.exe. The rule below fires on that, and on Word or Outlook doing the same. Press <strong>Test</strong>, then <strong>Convert with pySigma</strong> to see the real converter's SPL.</p>
 <ul>
 <li>&#9744; Test the rule: how many events match?</li>
 <li>&#9744; Convert it with pySigma and compare with a search you would write by hand</li>
+<li>&#9744; Excel also started <code>splwow64.exe</code> that morning. Why doesn't that match, and why is that right?</li>
 <li>&#9744; Why does PowerShell not match? (look at its parent)</li>
 </ul>
 <blockquote>
-<p>Hint: PowerShell's parent was cmd.exe, not Word. One rule per step of the chain, or a second rule for "cmd.exe starts PowerShell hidden".</p>
+<p>Hint: splwow64.exe is the Windows printing helper: Excel starts it whenever someone prints. PowerShell's parent was cmd.exe, not Excel: one rule per step of the chain, or a second rule for "cmd.exe starts PowerShell hidden".</p>
 </blockquote>
 <p><strong>Use SIEM search.</strong> Search: <code>EventID=4688 | stats count by Computer</code></p>
 <p><strong>Use the Sigma rules.</strong></p>
 <p><strong>Question:</strong> How many process-creation events (4688) are in Security.jsonl?
 <strong>Question:</strong> How many events does the Office-starts-a-shell rule match?</p>
-<h2>8. Test for false positives, then tune</h2>
+<h2>9. Test for false positives, then tune</h2>
 <p>A rule that fires on everything is worse than no rule: people stop reading it. Test every rule twice: does it catch the attack (<strong>true positives</strong>) and does it stay quiet on normal work (<strong>false positives</strong>)?</p>
 <p>The first rule below is deliberately noisy. Tick the events that are really malicious; the tool scores precision. Then use the tuned rules, which each describe one thing an attacker did.</p>
 <ul>
@@ -134,22 +164,24 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 <p><strong>Use the Sigma rules.</strong></p>
 <p><strong>Use the Sigma rules.</strong></p>
 <p><strong>Question:</strong> How many events does the noisy "any new process" rule match?
-<strong>Question:</strong> Which command deleted the shadow copies? (program name)</p>
-<h2>9. A web rule, tested on the web log</h2>
-<p>Sigma works for web logs too. The first version below matches any <code>%27</code> (a quote) or the word UNION. <code>shop2_access.log</code> is an hour of normal shoppers: run the noisy version on it and see who it accuses. The tuned version keys on the tool's name and on <code>UNION%20SELECT</code>.</p>
+<strong>Question:</strong> Which account was added to Administrators?
+<strong>Question:</strong> Which program deleted the shadow copies? (program name)</p>
+<h2>10. A web rule, tested on two web logs</h2>
+<p>Sigma works for web logs too. The first version below matches any <code>%27</code> (a quote), the word UNION, or the tool's name. <code>lookbook_access.log</code> is an hour of normal visitors to the company's lookbook site: see who the noisy version accuses there. The tuned version keys on the tool's name and on <code>UNION%20SELECT</code>.</p>
 <ul>
 <li>&#9744; Test both versions on both web logs</li>
 <li>&#9744; Which requests does the noisy version catch that the tuned one doesn't? Are they attacks?</li>
+<li>&#9744; One attack request did not come from sqlmap. Which part of the tuned rule catches it?</li>
 <li>&#9744; Write the tuning note: when would the tuned rule miss an attack?</li>
 </ul>
 <blockquote>
-<p>Hint: An attacker can change the user agent in one flag. Keep a second rule for the injection itself, not just the tool.</p>
+<p>Hint: An attacker can change the user agent in one flag, and here they did, by pasting a payload into a browser. That's why the rule keeps a second selection for the injection itself.</p>
 </blockquote>
 <p><strong>Use the Sigma rules.</strong></p>
 <p><strong>Use the Sigma rules.</strong></p>
 <p><strong>Question:</strong> How many web requests does the noisy version match?
 <strong>Question:</strong> How many web requests does the tuned rule match?</p>
-<h2>10. Hand in your hunt pack and rule pack</h2>
+<h2>11. Hand in your hunt pack and rule pack</h2>
 <p>Your hand-in is this notebook, with every search and rule saved in it. Before you hand in:</p>
 <table>
 <thead>
@@ -175,6 +207,10 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 <td>Conversion</td>
 <td>Each rule converted with pySigma, and one difference you noticed</td>
 </tr>
+<tr>
+<td>The story</td>
+<td>Three sentences for Chandni Textiles: how the attacker got in, what they took, and the first thing to fix</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -193,11 +229,11 @@ grep &#x27;Failed password&#x27; auth.log | awk &#x27;{print $(NF-3)}&#x27; | so
 </thead>
 <tbody>
 <tr>
-<td>Hunt pack: the brute-force hunt in SPL and in KQL, both giving the same answer</td>
+<td>Hunt pack: the SSH hunt in SPL and in KQL, both giving the same answer, with the account's normal source compared</td>
 <td>4</td>
 </tr>
 <tr>
-<td>Hunt pack: the web attack hunt in SPL and KQL, with the attacker's IP and what they reached</td>
+<td>Hunt pack: the web attack hunt in SPL and KQL, with the attacker's IP, the table they read and what they downloaded</td>
 <td>4</td>
 </tr>
 <tr>

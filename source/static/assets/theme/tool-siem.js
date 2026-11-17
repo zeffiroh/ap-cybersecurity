@@ -1444,6 +1444,7 @@
       draw();
       setTab(res.table ? (tab === "viz" || (tr && tr.viz) ? "viz" : "stats") : "events");
       last = { q: q, n: res.n, files: res.sources, lang: lang };
+      if (ctx.emit) ctx.emit("result", last, "SIEM search: " + q + " (" + res.n + ")");
       if (r("save")) r("save").disabled = false;
       remember();
     }

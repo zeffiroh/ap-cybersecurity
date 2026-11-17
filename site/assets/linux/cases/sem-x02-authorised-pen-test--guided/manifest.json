@@ -1,0 +1,264 @@
+{
+ "order": 302,
+ "title": "Simulation: Authorised pen test",
+ "kicker": "Simulation",
+ "units": [
+  6
+ ],
+ "level": "Intermediate",
+ "minutes": 40,
+ "summary": "Day one of an authorised web test: read the letter, scan only what you may, prove a login bypass with one request, and report it the same day.",
+ "tools": [
+  "Terminal (nmap)",
+  "Web proxy",
+  "Report builder"
+ ],
+ "titlePrefix": "Simulation: Authorised pen test",
+ "teacher": true,
+ "id": "sem-x02-authorised-pen-test--guided",
+ "sim": {
+  "title": "Authorised pen test",
+  "role": "Penetration tester, day one",
+  "start": "2026-11-16T03:30:00Z",
+  "speed": 1,
+  "pins": [
+   "files",
+   "terminal",
+   "tool-proxy",
+   "tool-report",
+   "chat",
+   "notes",
+   "rack"
+  ],
+  "first": true,
+  "cast": {
+   "lead": {
+    "name": "Kiran Rao",
+    "role": "Test lead"
+   },
+   "client": {
+    "name": "Ritu Malhotra",
+    "role": "NimbuMart, Head of Engineering"
+   }
+  },
+  "story": "It's 09:00 IST on Monday 16 November 2026, the first hour of an authorised test of NimbuMart Retail's online shop. The taskbar clock shows UTC (03:30).\n\nYour test lead has set you up. The letter of authorisation is in the case folder. Read it before you do anything: it says what you may test, what you must not touch, and when to stop.\n\nYour goal today: map the two staging hosts, prove the login bypass the developers are worried about with as little as possible, and report it the same day. One mistake ends a career here: touching a system you weren't allowed to.",
+  "events": [
+   {
+    "at": 1,
+    "chat": "lead",
+    "text": "Morning. Window's open until Friday 18:00 IST. Letter's in ~/case/engagement.txt. Read all of it before you run anything, then map the staging hosts."
+   },
+   {
+    "at": 8,
+    "chat": "client",
+    "text": "Hi, Ritu from NimbuMart. I'm your stop contact this week. Call me first if anything looks like a real break-in."
+   },
+   {
+    "on": {
+     "event": "terminal.command",
+     "cmd": "~192\\.0\\.2\\.(12|0/)|pay\\.nimbu"
+    },
+    "chat": "client",
+    "text": "Our payment provider just called. Someone from your address scanned pay.nimbu.shop. That host is out of scope. Please stop and explain."
+   },
+   {
+    "after": "scan",
+    "chat": "lead",
+    "text": "Good. Port 8080 on the API host is a debug service that shouldn't face anyone. Note it. Now the login: one request in the Web proxy, then stop."
+   },
+   {
+    "after": "bypass",
+    "chat": "lead",
+    "text": "That's a critical. Write it up in the report builder now, and tell Ritu today. Don't wait for Friday."
+   },
+   {
+    "after": "tell",
+    "chat": "client",
+    "text": "Thank you for telling us straight away. The developers will switch to a parameterised query today. Please retest tomorrow morning."
+   }
+  ],
+  "replies": [
+   {
+    "match": "sorry|mistake|out of scope|explain",
+    "who": "client",
+    "text": "Thank you for owning it. Write it in your notes with the time, and stick to the two staging hosts from now on."
+   }
+  ],
+  "objectives": [
+   {
+    "id": "window",
+    "text": "Read the letter. When does the test window close?",
+    "ask": "Day and time",
+    "answer": [
+     "~fri|20"
+    ],
+    "points": 10,
+    "hint": "engagement.txt, the Window line: Friday 20 November 2026, 18:00 IST."
+   },
+   {
+    "id": "scope",
+    "text": "Which address is out of scope?",
+    "ask": "IP address",
+    "answer": [
+     "192.0.2.12"
+    ],
+    "points": 10,
+    "hint": "OUT OF SCOPE: 192.0.2.12, pay.nimbu.shop, run by the payment provider."
+   },
+   {
+    "id": "clean",
+    "text": "Stay in scope all day: never touch pay.nimbu.shop or scan the whole range",
+    "keep": true,
+    "points": 20,
+    "fail": {
+     "event": "terminal.command",
+     "cmd": "~192\\.0\\.2\\.(12|0/)|pay\\.nimbu"
+    }
+   },
+   {
+    "id": "scan",
+    "text": "Scan the two staging hosts with nmap, by address",
+    "after": "scope",
+    "points": 10,
+    "on": {
+     "event": "terminal.command",
+     "cmd": "~nmap.*192\\.0\\.2\\.1[01]"
+    },
+    "hint": "In a terminal: nmap -sV 192.0.2.10 192.0.2.11"
+   },
+   {
+    "id": "debug",
+    "text": "Which port is the staging debug API on?",
+    "ask": "Port",
+    "answer": [
+     "8080"
+    ],
+    "after": "scan",
+    "points": 10,
+    "hint": "The nmap output for 192.0.2.11: Node.js Express on 8080, labelled debug."
+   },
+   {
+    "id": "bypass",
+    "text": "Prove the login bypass with one request in the Web proxy",
+    "after": "scope",
+    "points": 20,
+    "on": {
+     "event": "tool.result",
+     "tool": "proxy",
+     "data.s": 200,
+     "data.b": "~'\\s*--"
+    },
+    "hint": "Web proxy: POST /api/login with the body {\"email\": \"admin@nimbu.shop'--\", \"password\": \"x\"} and Content-Type: application/json."
+   },
+   {
+    "id": "role",
+    "text": "Which role did the injected login give you?",
+    "ask": "Role",
+    "answer": [
+     "admin",
+     "administrator"
+    ],
+    "after": "bypass",
+    "points": 10,
+    "hint": "Read the response body in the Web proxy."
+   },
+   {
+    "id": "write",
+    "text": "Write finding 1 in the report builder",
+    "after": "bypass",
+    "points": 10,
+    "on": {
+     "event": "tool.result",
+     "tool": "report"
+    },
+    "hint": "Start, Report builder. Say what, where, why it works, the fix (a parameterised query) and the retest (expect 401)."
+   },
+   {
+    "id": "tell",
+    "text": "Tell the client contact about the critical finding today",
+    "after": "bypass",
+    "points": 10,
+    "on": {
+     "event": "chat.send",
+     "text": "~sql|inject|login|bypass|critical"
+    },
+    "hint": "In Team chat, one or two lines for Ritu: what you found, how bad it is, the fix, and that you'll retest."
+   }
+  ],
+  "debrief": "A strong first day starts with reading the whole letter: the window closes Friday 20 November at 18:00 IST, and 192.0.2.12 (pay.nimbu.shop) is out of scope because NimbuMart can't authorise testing its payment provider. That's why you scan the two staging hosts by address, not the /24 range.\n\nThe scan shows a debug API on 192.0.2.11:8080 that shouldn't be reachable: note it. Then one request proves the login bypass: status 200 and the admin role. Stop there. Write it up with the cause (the email goes into the SQL text), a fix a developer can follow (a parameterised query) and the retest (the same request should get 401), and tell the client contact the same day.\n\nThe mistake that ends careers is the one this simulation watches for all day: touching what you weren't allowed to.",
+  "pass": 70
+ },
+ "files": [
+  "case/engagement.txt",
+  "case/findings.csv",
+  "case/net/dns.txt",
+  "case/net/hosts.txt",
+  "case/README.txt",
+  "case/staging-bundle.js.txt",
+  "case/wordlist.txt",
+  "net/dns.txt",
+  "net/hosts.txt"
+ ],
+ "script": {
+  "intro": "Hello, and welcome to a simulation. Today you're a penetration tester on the first morning of an authorised test. The skill that matters most isn't hacking. It's staying inside the lines you were given. Let's see how a professional does day one.",
+  "steps": [
+   {
+    "say": "Before anything, the letter of authorisation. I read all of it. The window runs to Friday at 18:00 IST. Two staging hosts are in scope, and 192.0.2.12, the payment page, is out, because NimbuMart can't give permission for a system its payment provider runs.",
+    "after": "Notice the stop conditions too: real card data, real people's data, or signs someone else is already inside. If I see any of those, I stop and call Ritu."
+   },
+   {
+    "say": "Recon. I scan the two staging hosts by address, not the whole range, because the range includes the payment host.",
+    "after": "SSH and the shop on .10, and on .11 the API on 443 and a debug service on 8080 that shouldn't face anyone. That goes in my notes as a finding to check."
+   },
+   {
+    "say": "Now the login. One request in the Web proxy: a POST to /api/login with the email admin@nimbu.shop, a quote, and two dashes.",
+    "after": "Status 200, and the role is admin. That's the proof. I stop here: I don't browse as admin or change anything."
+   },
+   {
+    "say": "A critical finding doesn't wait for Friday. I write it in the report builder: what, where, why it works, the fix, a parameterised query, and the retest, which should get 401. Then I tell Ritu in chat.",
+    "after": "The debrief shows every action with its time, and it checks one thing all day: did I ever touch the payment host? That's the habit this simulation is really teaching."
+   }
+  ],
+  "outro": "Read the letter, scan by address, prove with one request, stop, report the same day. Now open the simulation and try your own first morning."
+ },
+ "base": "sem-x02-authorised-pen-test",
+ "supportLevel": "guided",
+ "levels": {
+  "worked": "sem-x02-authorised-pen-test",
+  "guided": "sem-x02-authorised-pen-test--guided",
+  "solo": "sem-x02-authorised-pen-test--solo"
+ },
+ "guide": "media/guides/sem-x02-authorised-pen-test/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Simulation: Authorised pen test\n\nDay one of an authorised web test: read the letter, scan only what you may, prove a login bypass with one request, and report it the same day.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `engagement.txt`, `findings.csv`, `net/dns.txt`, `net/hosts.txt`, `README.txt`, `staging-bundle.js.txt`, `wordlist.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. The letter first\n\nA test without written permission is an attack. Read **engagement.txt** to the end before you touch anything: what's in scope, what's out, the window, and when to stop.\n\n- [ ] When does the window close?\n- [ ] Which address must you never touch, and why?\n\n?> Which address is out of scope? :: sha256:a823b83a25d1af618351e48458d23bce176ddc6382e43243053d22f5cabffba6"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with cat.\n",
+   "a": "cd ~/case\ncat engagement.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Recon inside the lines\n\nScan only the two staging hosts, by address, never the whole range: 192.0.2.12 sits in the same range and belongs to the payment provider.\n\n- [ ] Which services and versions run on each host?\n- [ ] Which one looks like it shouldn't be reachable?\n\n> Hint: `nmap -sV 192.0.2.10 192.0.2.11` names each address. `192.0.2.0/24` would include the out-of-scope payment host.\n\n?> Which port does the staging debug API listen on? :: sha256:6c237681e70921603a306be9a1a5d9833fce5c1e268f52b1650970eaad0dce21"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n# Hint: the recording started with nmap.\n",
+   "a": "nmap -sV 192.0.2.10 192.0.2.11"
+  },
+  {
+   "t": "md",
+   "s": "## 3. One request, then stop\n\nThe login puts the email straight into a SQL query. Prove it with **one** POST to /api/login in the Web proxy, with the email `admin@nimbu.shop'--` and any password. Record the status and the role, and stop.\n\n- [ ] The request, the status and the role you got\n- [ ] Why it works, and the one-line fix\n- [ ] The retest you'll ask for\n\n> Hint: `'--` closes the quote and comments out the password check. The fix is a parameterised query.\n\n?> Which HTTP status does the injected login get? :: sha256:27badc983df1780b60c2b3fa9d3a19a00e46aac798451f0febdca52920faaddf"
+  },
+  {
+   "t": "md",
+   "s": "## 4. Report it the same day\n\nA critical finding doesn't wait for the final report. Write it up in the report builder (what, where, why it works, the fix, the retest) and tell the client's contact the same day, as the letter asks.\n\n- [ ] Finding 1 written, with a fix a developer can follow\n- [ ] The client contact told\n\n?> Who is the client's stop contact? :: sha256:6ac6c3d112d73aaf6a5500393fcf57530d60d3e37d28f76ec71acce7d8e6347f"
+  }
+ ]
+}

@@ -267,6 +267,14 @@ def theme_assets(page_dir, css, js):
             + "".join(f'<script src="{r(THEME / j)}" defer></script>\n' for j in js))
 
 
+def playground_page():
+    path = SITE / "playground.html"
+    body = ('<h1>Simulator playground</h1>\n<p class="aa-sub">Every analyst program on its own: a guided tour and three quick challenges each, on real sample data.</p>\n'
+            '<div id="pg"><p class="aa-sub">Loading the simulators…</p></div>\n'
+            + theme_assets(path.parent, ["tools.css", "playground.css"], ["tools.js", *TS.TOOL_FILES, "playground.js"]))
+    emit(path, N.shell(path, "", body, cls="aa-wide"))
+
+
 def calendar():
     path = SITE / "calendar.html"
     body = ('<h1>Calendar</h1>\n<p class="aa-sub" id="cal-who">Your class timetable, what\'s due and new videos.</p>\n'
@@ -341,7 +349,7 @@ def workstation_page():
             '<nav class="ws-bar" aria-label="Taskbar"><button type="button" id="ws-start" aria-haspopup="true">Start</button>'
             '<div id="ws-tasks" class="ws-tasks"></div><label class="ws-case">Case <select id="ws-case"></select></label>'
             '<span id="ws-casename"></span><span id="ws-clock"></span></nav></div>\n'
-            + theme_assets(path.parent, ["tools.css", "workstation.css", "workstation-pro.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation-apps.js", "workstation.js"]))
+            + theme_assets(path.parent, ["tools.css", "workstation.css", "workstation-pro.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation-apps.js", "workstation.js", "workstation-sim.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -484,7 +492,7 @@ def labs_page():
     netprogs = (prog("Filius", "https://www.lernsoftware-filius.de", "A free network simulator made for schools: cable computers, switches and routers, then ping, DNS and a web server. Windows, macOS, Linux.", "Labs 1 to 3 · download")
                 + prog("Cisco Packet Tracer", "https://www.netacad.com", "The classroom standard for switch and router commands: VLANs, trunks, port security, access lists. Free with a Networking Academy account.", "Labs 4 to 7 · sign up and download")
                 + prog("GNS3", "https://www.gns3.com", "A free network emulator for real equipment. Its built-in computers and switch need no images, and any link can be captured in Wireshark.", "Lab 8 · download"))
-    jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-network">Network lab</a><a href="#lv-runbooks">Incident runbooks</a>'
+    jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-sims">Simulations</a><a href="#lv-network">Network lab</a><a href="#lv-runbooks">Incident runbooks</a>'
             '<a href="#lv-attack">Attack the app</a><a href="#lv-ctf">CTF</a><a href="#lv-tools">Tools</a></nav>')
     skills = "".join(f'<li><span class="aa-id">{a["id"]}</span><a href="{r(N.lab_page(a))}">{esc(N.window_name(a, "lab"))}</a></li>'
                      for a in C.atom_order() if N.has_lab(a))
@@ -494,6 +502,9 @@ def labs_page():
             '<h2 id="lv-guided">Guided labs</h2>\n<p class="lv-gd">Step-by-step labs and notebooks from your teacher. Each step has a Done tick, copy buttons and hints.</p>\n'
             '<div id="lb-premium"><p class="sx-empty">Loading…</p></div>\n'
             f'<details class="lv-skills"><summary>Skill labs, one for each lesson</summary><ul class="aa-list lb-skills">{skills}</ul></details>\n'
+            '<h2 id="lv-sims">Simulations</h2>\n<p class="lv-gd">A whole working day in the Hacker Room: a story, people who message you, email that arrives while you work, and objectives you meet with the real programs. '
+            'Walkthrough, Practice or Solo, then a scored debrief for your hand-in. New to the programs? Try each one first in the <a href="playground.html">simulator playground</a>.</p>\n'
+            '<div id="lv-sims"><p class="sx-empty">Loading simulations…</p></div>\n'
             '<h2 id="lv-network">Network lab</h2>\n<p class="lv-gd">Build and secure real networks in three free programs on your own computer: cabling, addresses and routing in Filius, '
             'VLANs, switch hardening and access lists in Packet Tracer, and packet capture in GNS3. Each lab has step-by-step instructions, three levels and answer checks here. Lab 1 is free.</p>\n'
             f'<div class="lv-grid">{netprogs}</div>\n<div id="lv-netlabs"><p class="sx-empty">Loading network labs…</p></div>\n'
@@ -634,6 +645,7 @@ def run():
     community_page()
     linux_page()
     workstation_page()
+    playground_page()
     careers_page()
     store_page()
     labs_page()

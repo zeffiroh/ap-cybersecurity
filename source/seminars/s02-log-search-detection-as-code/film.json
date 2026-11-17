@@ -1,0 +1,768 @@
+{
+ "host": "chandni-soc",
+ "setup": [
+  "nohup python3 -m http.server 8088 -d /opt/cyberchef >/dev/null 2>&1 &",
+  "echo \"alias zircolite='python3 /opt/zircolite/zircolite.py -j --no-event-filter -l /tmp/zircolite.log -o /tmp/detected.json'\" >> ~/.bashrc"
+ ],
+ "files": {
+  "rules/office-shell.yml": "title: Office program starts a command shell\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000001\nstatus: experimental\ndescription: Word, Excel or Outlook starting cmd.exe or PowerShell is how most macro malware begins.\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n    ParentProcessName|endswith:\n      - '\\WINWORD.EXE'\n      - '\\EXCEL.EXE'\n      - '\\OUTLOOK.EXE'\n    NewProcessName|endswith:\n      - '\\cmd.exe'\n      - '\\powershell.exe'\n  condition: selection\nfalsepositives:\n  - Office add-ins that call a script on purpose (rare; list them)\nlevel: high\ntags:\n  - attack.execution\n  - attack.t1204.002\n",
+  "rules/noisy/any-new-process.yml": "title: Any new process on a workstation\nstatus: experimental\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n  condition: selection\nlevel: low\n",
+  "rules/tuned/public-folder.yml": "title: Program started from C:\\Users\\Public\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000002\nstatus: experimental\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n    NewProcessName|contains: '\\Users\\Public\\'\n  condition: selection\nlevel: high\n",
+  "rules/tuned/shadow-copies.yml": "title: Shadow copies deleted\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000003\nstatus: experimental\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n    CommandLine|contains|all:\n      - 'vssadmin'\n      - 'delete shadows'\n  condition: selection\nlevel: critical\n",
+  "rules/tuned/new-admin.yml": "title: Account added to the local Administrators group\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000004\nstatus: experimental\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4732\n    TargetUserName: 'Administrators'\n  condition: selection\nlevel: high\n",
+  "rules/web/noisy.yml": "title: SQL injection in a web request\nstatus: experimental\nlogsource:\n  category: webserver\ndetection:\n  quote_in_page:\n    UriStem|contains: '%27'\n  quote_or_union_in_query:\n    UriQuery|contains:\n      - '%27'\n      - 'UNION'\n  tool:\n    UserAgent|contains: 'sqlmap'\n  condition: 1 of them\nlevel: high\n",
+  "rules/web/tuned.yml": "title: SQL injection tool or UNION SELECT in a web request\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000005\nstatus: experimental\nlogsource:\n  category: webserver\ndetection:\n  tool:\n    UserAgent|contains: 'sqlmap/'\n  union:\n    UriQuery|contains: 'UNION%20SELECT'\n  condition: tool or union\nfalsepositives:\n  - Your own authorised scans (exclude the scanner's address)\nlevel: high\ntags:\n  - attack.initial_access\n  - attack.t1190\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "say": "Welcome to Log search and detection as code. Chandni Textiles is a fabric and saree business in Surat, with two shops and an online store. On Tuesday morning their developer notices that the shop server was busy overnight, and asks a simple question: did anyone get into the shop server on Monday night, how, and what did they take? Everything you'll see today is real software on a real Linux machine: the terminal, a log viewer called lnav, the DuckDB database, CyberChef, and the Sigma command-line tools. On the course website there are look-alike versions of these programs, so you can follow along even if you can't install anything."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "ls -lR",
+   "wait": 1.5,
+   "cps": 16
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat README.txt",
+   "wait": 2,
+   "cps": 16
+  },
+  {
+   "after": "These are the four files the company gave us: the shop server's login log and its web log, a second web log from the lookbook site with an hour of normal visitors, and a Windows log from the accounts PC. And a folder of Sigma rules we'll use later. Every hunt starts by reading what you've been given."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "1. How the search program works"
+  },
+  {
+   "say": "Step one: how the search program works. A SIEM, a security information and event management system, does four things with every log. It splits the file into events, gives each event a time, recognises the format, and pulls out fields like the user name or the address. lnav is a free, open-source log viewer that does exactly those four things on your own machine, so it's the clearest way to see what a SIEM is doing underneath. We open all three text logs at once."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "lnav auth.log access.log lookbook_access.log",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "lnav has merged the three files into one list, sorted by time. The shop's logins, the shop's web requests and the lookbook visitors are now on one clock. Each line is coloured by its format: lnav recognised syslog for the login log and the web server's access log format for the other two, without being told."
+  },
+  {
+   "keys": [
+    "i"
+   ],
+   "wait": 3
+  },
+  {
+   "after": "Press i and lnav shows a histogram: how many events happened in each part of the day. Look at the evening: eleven events at 18:40, then a busy hour after seven. That's where we'll find our attacker. Press i again to go back to the events."
+  },
+  {
+   "keys": [
+    "i"
+   ],
+   "wait": 1
+  },
+  {
+   "say": "Now a filter. A colon starts an lnav command, and filter-in keeps only the lines that match."
+  },
+  {
+   "type": ":filter-in Failed password",
+   "wait": 1
+  },
+  {
+   "keys": [
+    "g"
+   ],
+   "wait": 2.5
+  },
+  {
+   "after": "Thirteen lines are left, and one address repeats on almost all of them. Filters are the first thing analysts reach for. Now we remove the filter and use the most powerful part of lnav: SQL. A semicolon opens the SQL prompt, and every log format is a table."
+  },
+  {
+   "type": ":delete-filter Failed password",
+   "wait": 1
+  },
+  {
+   "type": ";SELECT log_procname, count(*) AS events FROM syslog_log GROUP BY log_procname",
+   "wait": 4,
+   "cps": 18
+  },
+  {
+   "after": "Three programs wrote to the login log: sshd, the remote login service, with seventeen events, sudo, which runs commands as the administrator, with three, and CRON, which runs scheduled jobs, with six. We never told lnav what a process name is. It read the format and made the field for us, exactly as a SIEM does. Press q to leave the results, and q again to close lnav."
+  },
+  {
+   "keys": [
+    "q"
+   ],
+   "wait": 1
+  },
+  {
+   "keys": [
+    "q"
+   ],
+   "wait": 1.5
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. Start with the raw log"
+  },
+  {
+   "say": "Step two: start with the raw log. A good analyst never trusts a search engine blindly. Before any program does the work for us, we read the raw file with grep, so we know exactly what the engine sees. First, how many lines each file has."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "wc -l auth.log access.log lookbook_access.log",
+   "wait": 2.0,
+   "cps": 16
+  },
+  {
+   "say": "Now count the failed passwords. grep finds lines, and minus c counts them instead of printing them."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep -c 'Failed password' auth.log",
+   "wait": 2.0,
+   "cps": 16
+  },
+  {
+   "say": "Thirteen. Which addresses did they come from? On every Failed line the source address is the fourth word from the end, so awk prints that word, sort lines them up, and uniq minus c counts each one."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep 'Failed password' auth.log | awk '{print $(NF-3)}' | sort | uniq -c | sort -rn",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "Two failures came from 192.0.2.81 in the afternoon: background noise, a scanner trying the same thing on every server on the internet. Eleven came from one address, 203.0.113.45. Which accounts did it try? The account name is the sixth word from the end."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep 'Failed password' auth.log | grep 203.0.113.45 | awk '{print $(NF-5)}' | sort | uniq -c",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "root, admin, ubuntu, oracle, deploy: guesses that work on lots of servers. And catalog, three times. catalog isn't a common name. It's the account the photo studio uses to upload product pictures. Whoever this is knew something about Chandni Textiles."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Count, then pivot"
+  },
+  {
+   "say": "Step three: count, then pivot. In a SIEM's search language this is a stats count by source address, followed by a new search for what you found. Here we pivot with grep. First: did that address ever get in? Accepted is the word sshd writes for a successful login."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep Accepted auth.log",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "Three logins. Two are normal: catalog from 10.30.0.30 at 05:10 in the morning, which is the photo studio's PC on the office network, and ravi with his key. The third is catalog again, at 19:20, from 203.0.113.45. Forty minutes after eleven failures, the attacker had the right password, first time. Now everything the catalog account did on its own."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep 'for catalog' auth.log",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "In the morning, from the office. At night, three failures and a success from outside. Same account, two very different stories. Now what did it do once it was in? sudo lines record every command run as the administrator."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep sudo auth.log",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "At 05:10 catalog ran resize-photos, its normal job. At 19:21 the same account ran mysqldump with all-databases, which copies every database on the server into one file, and at 19:23 it compressed that file with gzip. That's somebody packing the shop's data to take away. And notice that catalog was allowed to run anything as root, when it only ever needed one command."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "4. Check the answer with a second tool"
+  },
+  {
+   "say": "Step four: check the answer with a second tool. The seminar's notebook runs this hunt again in KQL, the language of Microsoft's cloud SIEM; you'll practise that in the look-alike on the course site. The habit behind it matters more than the language: ask the same question of a different tool, and if the answers disagree, one of them is wrong. Here the second tool is lnav's SQL. regexp_match pulls the address out of each failed login."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "lnav auth.log",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "type": ";SELECT regexp_match('from (\\S+) port', log_body) AS src_ip, count(*) AS failures FROM syslog_log WHERE log_body LIKE 'Failed password%' GROUP BY src_ip ORDER BY failures DESC",
+   "wait": 4,
+   "cps": 20
+  },
+  {
+   "after": "Eleven from 203.0.113.45 and two from 192.0.2.81: the same answer grep gave us. And the success from that address:"
+  },
+  {
+   "keys": [
+    "q"
+   ],
+   "wait": 1.5
+  },
+  {
+   "type": ";SELECT log_time, regexp_match('for (\\S+) from', log_body) AS account FROM syslog_log WHERE log_body LIKE 'Accepted%' AND log_body LIKE '%203.0.113.45%'",
+   "wait": 4,
+   "cps": 20
+  },
+  {
+   "after": "One row: catalog, at 19:20. Two tools, one answer. Now we know who and when. Next: how did they get the password?"
+  },
+  {
+   "keys": [
+    "q"
+   ],
+   "wait": 1
+  },
+  {
+   "keys": [
+    "q"
+   ],
+   "wait": 1.5
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "5. SQL over the same logs"
+  },
+  {
+   "say": "Step five: SQL over the logs. Every log is also a table, and SQL is the language behind most data lakes, where companies keep logs for a year or more. DuckDB is a free database that can read a log file directly. We open it, and create a view: regexp_extract cuts each web log line into named columns, the client address, the time, the method, the page, the query, the status, the size and the user agent."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "duckdb",
+   "wait": 2,
+   "cps": 16
+  },
+  {
+   "use": "term",
+   "type": "CREATE VIEW access AS SELECT unnest(regexp_extract(line, '^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) ([^ ?\"]+)\\??(\\S*) [^\"]*\" (\\d{3}) (\\d+) \"[^\"]*\" \"([^\"]*)\"', ['ClientIP','Time','Method','UriStem','UriQuery','Status','Bytes','UserAgent'])) FROM read_csv('access.log', columns={'line': 'VARCHAR'}, delim='\\t', header=false, quote='', escape='');",
+   "wait": 1.5,
+   "cps": 26
+  },
+  {
+   "say": "Now count the requests per client address, biggest first."
+  },
+  {
+   "use": "term",
+   "type": "SELECT ClientIP, count(*) AS hits FROM access GROUP BY ClientIP ORDER BY hits DESC;",
+   "wait": 3,
+   "cps": 18
+  },
+  {
+   "after": "Ten addresses visited the shop on Monday. At the top, with twelve requests, is 203.0.113.45 again. The shoppers made four or five each. Now look for the word UNION in the queries."
+  },
+  {
+   "use": "term",
+   "type": "SELECT ClientIP, Status, UriQuery FROM access WHERE UriQuery LIKE '%UNION%';",
+   "wait": 3,
+   "cps": 18
+  },
+  {
+   "after": "Three requests, all from the same address. UNION is a word from SQL itself, and when it appears inside a web address, someone is trying to make the website's own database answer questions it was never meant to answer. Look at the second one: it selects username and password from a table called staff_users. That's the bridge between the two logs."
+  },
+  {
+   "chapter": "6. Parse a raw log into fields"
+  },
+  {
+   "say": "Step six: parse a raw log into fields. Searches only work on fields someone parsed. That view we just made was a parser: a regular expression with a name for each part. Let's write one for the SSH lines in the login log, and count how many of the twenty-six lines it understands."
+  },
+  {
+   "use": "term",
+   "type": "CREATE VIEW auth AS SELECT line, regexp_extract(line, 'sshd\\[\\d+\\]: (\\w+) (\\w+) for (?:invalid user )?(\\S+) from (\\S+) port (\\d+)', ['result','method','account','src_ip','src_port']) AS f FROM read_csv('auth.log', columns={'line': 'VARCHAR'}, delim='\\t', header=false, quote='', escape='');",
+   "wait": 1.5,
+   "cps": 26
+  },
+  {
+   "use": "term",
+   "type": "SELECT count(*) FILTER (WHERE f.result <> '') AS parsed, count(*) AS lines FROM auth;",
+   "wait": 3,
+   "cps": 18
+  },
+  {
+   "after": "Sixteen of twenty-six. Every Failed and Accepted line parses. The ten that don't are the three sudo lines, the six CRON lines and the disconnect line, which have different shapes. That's correct: a parser should only claim the lines it understands. Now we parse both web logs and save the result as JSON lines, one record per request, so the Sigma tools can read them in a moment."
+  },
+  {
+   "use": "term",
+   "type": "COPY (SELECT * FROM access UNION ALL SELECT unnest(regexp_extract(line, '^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) ([^ ?\"]+)\\??(\\S*) [^\"]*\" (\\d{3}) (\\d+) \"[^\"]*\" \"([^\"]*)\"', ['ClientIP','Time','Method','UriStem','UriQuery','Status','Bytes','UserAgent'])) FROM read_csv('lookbook_access.log', columns={'line': 'VARCHAR'}, delim='\\t', header=false, quote='', escape='')) TO 'web.jsonl' (FORMAT JSON);",
+   "wait": 2,
+   "cps": 28
+  },
+  {
+   "use": "term",
+   "type": ".quit",
+   "wait": 1
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "wc -l web.jsonl && head -2 web.jsonl",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "Seventy-six requests, each now a record with named fields. That's exactly what a SIEM's parser produces."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "7. Hunt the web attack"
+  },
+  {
+   "say": "Step seven: hunt the web attack. First every request whose user agent names a tool. awk prints just the time, the page and the status."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep sqlmap access.log | awk '{print $4, $7, $9}'",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Seven requests from sqlmap, a free tool that automates SQL injection. Read them in order. robots.txt. Product 41. Product 41 with a single quote on the end, and the page crashed with a 500 error: the quote broke the database query, so the input goes straight into it. Then AND one equals one, and AND one equals two: the attacker is testing whether the database obeys their logic. Then two UNION SELECTs. These addresses are URL-encoded, so let's make one readable in CyberChef."
+  },
+  {
+   "open": [
+    "firefox-esr",
+    "--new-window",
+    "http://localhost:8088/index.html#recipe=URL_Decode()&input=L3Byb2R1Y3Q/aWQ9NDElMjBVTklPTiUyMFNFTEVDVCUyME5VTEwsQ09OQ0FUKHVzZXJuYW1lLDB4M2EscGFzc3dvcmQpLE5VTEwlMjBGUk9NJTIwc3RhZmZfdXNlcnMtLQ"
+   ],
+   "window": "CyberChef",
+   "as": "web",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ],
+   "timeout": 60,
+   "settle": 1
+  },
+  {
+   "say": "CyberChef is a free tool from GCHQ, Britain's signals intelligence agency, for decoding and transforming data, and it runs completely in the browser. This copy is running on our own machine. The recipe is a single operation, URL Decode, and the input is the request that read the staff table."
+  },
+  {
+   "wait": 6
+  },
+  {
+   "point": [
+    0.75,
+    0.62
+   ],
+   "in": "web",
+   "secs": 1.0,
+   "wait": 4
+  },
+  {
+   "after": "Decoded: UNION SELECT NULL, CONCAT username, colon, password, NULL, FROM staff_users. The attacker made the product page print every staff login and password. That's where catalog's password came from, and because the same password worked on SSH, the attacker could log straight in."
+  },
+  {
+   "close": "web"
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep 203.0.113.45 access.log | grep -v sqlmap | awk '{print $4, $6, $7, $9, $10}'",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "After the injection, the attacker switched to a normal browser. At 19:11 they opened the admin login and logged in: a 302 redirect means it worked. At 19:12 they downloaded orders export from the first of January: four point four megabytes, every order this year, with customers' names and addresses. At 19:14 they pasted one more UNION query by hand to pull customer email addresses. And at 19:20, SSH. The whole story fits in one evening."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "8. From hunt to rule: your first Sigma rule"
+  },
+  {
+   "say": "Step eight: from hunt to rule. A hunt you run once finds one attack; a rule finds the next one automatically. Sigma is the open format for detection rules: one YAML file that converts into many SIEM languages. To practise, we use the Windows log from the accounts PC, where on Monday morning Excel opened a spreadsheet called Payment Advice from an email. First, how many process-creation events, event ID 4688, does the log hold? jq reads JSON from the command line."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "jq -r 'select(.EventID==4688) | .Computer' eventlogs/Security.jsonl | sort | uniq -c",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "Seventeen, all from accts-pc02. Here's the rule, in a text editor."
+  },
+  {
+   "open": "mousepad rules/office-shell.yml",
+   "window": "office-shell.yml",
+   "as": "edit",
+   "geometry": [
+    260,
+    90,
+    1400,
+    900
+   ],
+   "settle": 1
+  },
+  {
+   "say": "A title, a log source, which says this rule is about the Windows Security log, and the detection: event 4688, where the parent program ends with WINWORD, EXCEL or OUTLOOK, and the new program is cmd or powershell. Then the false positives you expect, a level, and the ATT&CK technique it detects."
+  },
+  {
+   "wait": 3
+  },
+  {
+   "close": "edit"
+  },
+  {
+   "say": "sigma check tests that the rule is well written."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "sigma check rules/office-shell.yml",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "No errors. The warning is about style: it suggests the more general process-creation log source. Now sigma convert turns the rule into a real query. We ask for SQLite."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "sigma convert -t sqlite rules/office-shell.yml",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "There's the SQL: every condition spelled out, with the wildcards escaped more carefully than most people would by hand. Now we run the rule on the log. Zircolite is a free tool that loads event logs into a database and runs Sigma rules over them."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "zircolite -e eventlogs/Security.jsonl -r rules/office-shell.yml",
+   "wait": 8,
+   "cps": 16
+  },
+  {
+   "after": "Seventeen process events checked, one detection: Office program starts a command shell, and the matched event is saved to a file. Let's see which event it was."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "jq -r '.[].matches[] | [.TimeCreated, .ParentProcessName, .CommandLine] | @tsv' /tmp/detected.json | cut -c1-220",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Excel starting cmd at 05:12:58, with a hidden PowerShell download inside. Two events didn't match, and both are right. Excel also started splwow64, the printing helper, which isn't a shell. And PowerShell's parent was cmd, not Excel: that's the next link in the chain, and it needs its own rule."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "9. Test for false positives, then tune"
+  },
+  {
+   "say": "Step nine: test for false positives, then tune. A rule that fires on everything is worse than no rule, because people stop reading it. This one is deliberately noisy: any new process."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "zircolite -e eventlogs/Security.jsonl -r rules/noisy/",
+   "wait": 8,
+   "cps": 16
+  },
+  {
+   "after": "Seventeen detections, and only about half of them are the attack. Nobody can work with that. The tuned folder holds three rules, each describing one thing an attacker did that normal users don't do."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "zircolite -e eventlogs/Security.jsonl -r rules/tuned/",
+   "wait": 8,
+   "cps": 16
+  },
+  {
+   "after": "Programs started from the Public folder: two, WinSvcHost.exe, the program PowerShell downloaded, and rdpw.exe, which it started to open a connection out. Shadow copies deleted: one, vssadmin at 05:21, which is ransomware removing the copies Windows keeps for restoring files. A new member of Administrators: one, helpdesk_tmp. Each rule fires only on the attack. Under each one, the hand-in asks for a tuning note: what it would miss, and what would make it noisy."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "10. A web rule, tested on two web logs"
+  },
+  {
+   "say": "Step ten: a web rule, tested on two web logs. web.jsonl holds both the shop's requests and an hour of normal lookbook visitors. The noisy rule matches a quote, the word UNION, or the tool's name."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat rules/web/noisy.yml",
+   "wait": 2,
+   "cps": 16
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "zircolite -e web.jsonl -r rules/web/noisy.yml",
+   "wait": 8,
+   "cps": 16
+  },
+  {
+   "after": "Ten matches. Let's see who it accused."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "jq -r '.[].matches[] | [.ClientIP, .UriStem, .UriQuery] | @tsv' /tmp/detected.json | cut -c1-160",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Eight are the attack. The other two are a visitor searching for union territory delivery charges, and a blog post called a weaver's diary, with an apostrophe in its address. Both innocent. Now the tuned rule: the tool's name, or UNION SELECT together."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "zircolite -e web.jsonl -r rules/web/tuned.yml",
+   "wait": 8,
+   "cps": 16
+  },
+  {
+   "after": "Eight, all attack, including the request the attacker pasted into an ordinary browser: the user agent said Chrome, but the query still said UNION SELECT. That's why the rule keeps two selections. An attacker can change their user agent with one flag. The injection still has to say what it wants from the database."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "11. Hand in your hunt pack and rule pack"
+  },
+  {
+   "say": "Step eleven: hand in. On the course site, the seminar's notebook holds the same hunt in the look-alike SIEM, in SPL and KQL, with one SQL query and the five Sigma rules, each with its test and a tuning note. Then add three sentences for Chandni Textiles, in plain words. How the attacker got in: SQL injection on the product page gave them the staff passwords, and the catalog password worked on SSH too. What they took: every order this year, customer email addresses, and a copy of every database. And the first thing to fix: the injection bug, then new passwords for every staff account, and a sudo rule that lets catalog run only resize-photos."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "That's the hunt pack and the rule pack, done with real tools. lnav showed how a SIEM turns files into events and fields. grep and awk gave us the raw truth, and lnav's SQL confirmed it. DuckDB parsed the web log into a table, CyberChef decoded the attack, and sigma-cli and Zircolite turned the hunt into rules we tested against normal traffic until they stayed quiet. In seminar three we take these skills to a live alert queue. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

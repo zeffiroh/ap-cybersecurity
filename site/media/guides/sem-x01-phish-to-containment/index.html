@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation: Phish to containment written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Simulation · written tutorial</p>
+<h1>Simulation: Phish to containment</h1>
+<p class="meta">Beginner &middot; about 35 min</p>
+<p>A reported phishing email, a ticking clock and a laptop running malware. Find who opened it, contain it before 09:41, and hand it on.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-x01-phish-to-containment&amp;runbook=sem-x01-phish-to-containment">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-x01-phish-to-containment--guided&amp;runbook=sem-x01-phish-to-containment--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-x01-phish-to-containment--solo&amp;runbook=sem-x01-phish-to-containment--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>alerts-fs01.json</code>, <code>alerts.json</code>, <code>eventlogs/Security.jsonl</code>, <code>invoice.eml</code>, <code>mail.log</code>, <code>process.csv</code>, <code>proxy.log</code>, <code>README.txt</code>, <code>share_listing.txt</code>, <code>ticket-88213.txt</code>.</p>
+<h2>1. The report</h2>
+<p>It's Monday 2 November 2026 at <strong>Kestrel Logistics</strong>, 09:16 UTC. Dev Kapoor in Finance has just reported an email as phishing: message <strong>4A1F21C02</strong>, an overdue invoice. Read it, then the mail server's log, to find out who else got it.</p>
+<ul>
+<li>&#9744; Who really sent it? Read the From and Return-Path, and the domain, letter by letter</li>
+<li>&#9744; How many people received message 4A1F21C02, and who?</li>
+</ul>
+<blockquote>
+<p>Hint: In mail.log, <code>nrcpt=</code> is the number of recipients, and each <code>to=&lt;...&gt;</code> line is one mailbox.</p>
+</blockquote>
+<p><strong>Question:</strong> Which domain sent the invoice?
+<strong>Question:</strong> How many people received message 4A1F21C02?</p>
+<pre><code>cd ~/case
+grep -E &#x27;^(From|Return-Path|Subject):&#x27; invoice.eml
+echo ---
+grep 4A1F21C02 mail.log</code></pre>
+<h2>2. Who opened it</h2>
+<p>Receiving a phishing email is not an incident. <strong>Opening</strong> it is. The web proxy logs every download. Search it for the look-alike domain, and turn the epoch times into UTC.</p>
+<ul>
+<li>&#9744; Which internal address downloaded INV-30412.docm, and when?</li>
+<li>&#9744; Did anyone else try? Did it work?</li>
+</ul>
+<blockquote>
+<p>Hint: <code>TCP_MISS/200</code> means the file was fetched. <code>TCP_DENIED/403</code> means the proxy blocked it: the domain was added to the blocklist at 09:18.</p>
+</blockquote>
+<p><strong>Question:</strong> Which internal address downloaded INV-30412.docm?
+<strong>Question:</strong> Did fin-pc02 get the document? (yes or no)</p>
+<pre><code>cd ~/case
+grep logistlcs proxy.log
+echo ---
+grep logistlcs proxy.log | while read t ms ip code size method url rest; do echo &quot;$(date -u -d @${t%.*} &#x27;+%F %T&#x27;) $ip $code $url&quot;; done</code></pre>
+<h2>3. What ran on hr-pc07</h2>
+<p>10.20.0.14 is hr-pc07, Priya Nair's HR laptop. The EDR process list shows every program that started and which program started it. Follow the chain from Word.</p>
+<ul>
+<li>&#9744; What did Word start?</li>
+<li>&#9744; What did that start, and what was left running?</li>
+</ul>
+<blockquote>
+<p>Hint: Follow the <code>ppid</code> column: each process's parent is the row whose <code>pid</code> matches it.</p>
+</blockquote>
+<p><strong>Question:</strong> Which program did Word start?
+<strong>Question:</strong> Which program was left running from C:\Users\Public?</p>
+<pre><code>cd ~/case
+grep hr-pc07 process.csv</code></pre>
+<h2>4. Contain, then escalate</h2>
+<p>You know enough: hr-pc07 opened a macro document, and malware is running on it. <strong>Contain first, investigate second.</strong> In the Hacker Room, isolate hr-pc07 from the network (Remote desktop, or shut its switch port in the Server room), end the malware's process, and escalate alert AL-2203 with a note that says what you found and what you did.</p>
+<p>If nobody contains it, at 09:41 the malware walks the file server and renames the HR share's files to <code>.kestrel-locked</code>. <code>share_listing.txt</code> shows what that looks like.</p>
+<ul>
+<li>&#9744; Isolate hr-pc07 before 09:41</li>
+<li>&#9744; End svchost-upd.exe</li>
+<li>&#9744; Escalate AL-2203: what fired, what you found, what you did, what you don't know yet</li>
+</ul>
+<blockquote>
+<p>Hint: Don't switch the laptop off: memory holds evidence. Isolating keeps it running but cut off.</p>
+</blockquote>
+<p><strong>Question:</strong> Which alert should you escalate? (its ID)</p></main></body>
+</html>

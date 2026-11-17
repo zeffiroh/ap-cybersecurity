@@ -7,6 +7,32 @@
   var T = global.AayatTools;
   var wins = [], z = 10, seq = 0, caseId = "", caseTitle = "", caseMeta = null, files = null, access = null, trial = false, opened = false;
   var notes = [], unread = 0, chatLog = [];
+  var handlers = {}, held = {}, simClock = null, pinList = null, responder = null;
+  var BASE_PINS = ["files", "terminal", "mail", "chat", "tickets", "rack", "rdp", "netlab", "tool-packets", "tool-events", "tool-siem"];
+  var LAB_PINS = BASE_PINS.concat(["tool-alerts", "tool-timeline", "tool-firewall", "tool-report", "notes"]);
+
+  function on(type, fn) {
+    (handlers[type] = handlers[type] || []).push(fn);
+    return function () { handlers[type] = (handlers[type] || []).filter(function (f) { return f !== fn; }); };
+  }
+  function emit(type, detail) {
+    var d = detail || {};
+    d.type = type;
+    d.at = Date.now();
+    [type, type.split(".")[0] + ".*", "*"].forEach(function (t) {
+      (handlers[t] || []).slice().forEach(function (fn) { try { fn(d); } catch (e) { if (global.console) console.error(e); } });
+    });
+  }
+  function shown(name) { return !held[name]; }
+  function hold(names) { (names || []).forEach(function (n) { held[n] = 1; }); refreshAll(); }
+  function release(name) {
+    if (!held[name]) return;
+    delete held[name];
+    refreshAll();
+    emit("file.arrived", { file: name });
+  }
+  function refreshAll() { wins.forEach(function (w) { if (w.refresh) w.refresh(); }); }
+  function storyNow() { return simClock ? new Date(simClock.start + (Date.now() - simClock.real) * simClock.speed) : new Date(); }
 
   var SVG = {
     terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>',
@@ -34,7 +60,9 @@
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     ticket: '<path d="M4 7a2 2 0 0 0 2-2h12a2 2 0 0 0 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0-2 2H6a2 2 0 0 0-2-2v-3a2 2 0 0 0 0-4z"/><path d="M9 9h6M9 12h6M9 15h4"/>',
     rack: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 8h14M5 13h14M5 18h14"/><path d="M8 5.5h.01M8 10.5h.01M8 15.5h.01"/>',
-    rdp: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M9 9l2 2 4-4"/>'
+    rdp: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M9 9l2 2 4-4"/>',
+    expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'
   };
   var TINT = { terminal: "#2b2f36", files: "#d89a2b", mail: "#2d74c4", chat: "#3a9d6a", notes: "#c9a227", help: "#5d6b7a", text: "#7a8796",
     packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8", net: "#2c7a7b" };
@@ -66,11 +94,16 @@
       { id: "mail", title: "Mail", icon: "mail", group: "System", open: function () { mail(); } },
       { id: "chat", title: "Team chat", icon: "chat", group: "System", open: function () { chat(); } },
       { id: "notes", title: "Notes", icon: "notes", group: "System", open: function () { notepad(); } },
-      { id: "help", title: "How to use this desktop", icon: "help", group: "System", open: function () { help(); } }
+      { id: "help", title: "How to use this desktop", icon: "help", group: "System", open: function () { help(); } },
+      { id: "playground", title: "Simulator playground (tours)", icon: "target", group: "System", open: function () { global.open(ROOT + "playground.html", "_blank"); } }
     ];
     (global.AayatDeskApps || []).forEach(function (a) { list.push({ id: a.id, title: a.title, icon: a.icon, group: "Workplace", open: function (st) { a.open(st); } }); });
     if (T) T.list().filter(function (d) { return d.console; }).forEach(function (d) {
       list.push({ id: "tool-" + d.id, title: d.title, icon: TOOL_ICON[d.id] || GROUP_ICON[d.group] || "gear", group: d.group || "Viewers", open: function (st) { tool(d, st); } });
+    });
+    list.forEach(function (p) {
+      var go = p.open;
+      p.open = function (st) { emit("app.open", { app: p.id, title: p.title, file: st && st.file || "" }); return go(st); };
     });
     return list;
   }
@@ -127,6 +160,7 @@
   }
   function close(w) {
     if (w.onclose) w.onclose();
+    emit("window.close", { title: w.title });
     w.el.remove();
     if (w.btn) w.btn.remove();
     wins = wins.filter(function (x) { return x !== w; });
@@ -232,6 +266,7 @@
           var m = /\n?__WS_PWD__(.*)$/.exec(r.out), text = m ? r.out.slice(0, m.index) : r.out;
           if (m) cwd = m[1] || cwd;
           if (text) print(text + (/\n$/.test(text) ? "" : "\n"));
+          emit("terminal.command", { cmd: cmd, cwd: cwd, out: String(text || "").slice(0, 6000) });
         }).catch(function (err) { clearTimeout(waiting); print(String(err && err.message || err) + "\n"); }).then(function () {
           busy = false; input.disabled = false; prompt(); input.focus();
         });
@@ -269,6 +304,7 @@
       var text = fs[name];
       if (text == null) return;
       var k = how || kindOf(name, text).app;
+      emit("file.open", { file: name, app: k });
       if (k === "text") return viewer(name, text);
       if (k === "mail") return mail(name);
       if (k === "hex") return tool(T.get("hex"), { file: name });
@@ -305,11 +341,17 @@
       if (!caseId) { list.innerHTML = '<p class="ws-empty">No case is open. Pick one from Case on the taskbar.</p>'; return; }
       list.innerHTML = '<p class="ws-empty">Loading…</p>';
       loadFiles().then(function (fs) {
-        var names = Object.keys(fs).sort();
-        if (!names.length) { list.innerHTML = '<p class="ws-empty">' + (/^sem-/.test(caseId) ? "These files come with this seminar." : "These files come with Labs.") + "</p>"; return; }
+        var all = Object.keys(fs).sort(), names = all.filter(shown);
+        if (!all.length) { list.innerHTML = '<p class="ws-empty">' + (/^sem-/.test(caseId) ? "These files come with this seminar." : "These files come with Labs.") + "</p>"; return; }
         var dirs = {};
-        names.forEach(function (n) { var parts = n.split("/"); for (var i = 1; i < parts.length; i++) dirs[parts.slice(0, i).join("/")] = 1; });
+        function scan() {
+          names = all.filter(shown);
+          dirs = {};
+          names.forEach(function (n) { var parts = n.split("/"); for (var i = 1; i < parts.length; i++) dirs[parts.slice(0, i).join("/")] = 1; });
+        }
+        scan();
         var cur = start && dirs[start] ? start : "";
+        w.refresh = function () { scan(); draw(); };
         function draw() {
           tree.innerHTML = ['""'].concat(Object.keys(dirs).sort().map(function (d) { return JSON.stringify(d); })).map(function (j) {
             var d = JSON.parse(j), depth = d ? d.split("/").length : 0;
@@ -381,12 +423,18 @@
       w.body.innerHTML = '<div class="ws-mail"><div class="ws-mlist" role="list"></div><article class="ws-mread"><p class="ws-empty">Pick a message.</p></article></div>';
       var listEl = w.body.querySelector(".ws-mlist"), read = w.body.querySelector(".ws-mread");
       loadFiles().then(function (fs) {
-        var msgs = Object.keys(fs).filter(function (n) { return /\.eml$/i.test(n); }).map(function (n) { var m = parseMail(fs[n]); m.file = n; m.t = Date.parse(m.h.date || "") || 0; return m; })
-          .sort(function (a, b) { return b.t - a.t; });
-        if (!msgs.length) { listEl.innerHTML = '<p class="ws-empty">No email in this case.</p>'; return; }
+        var msgs = [], cur = pick;
+        function scan() {
+          msgs = Object.keys(fs).filter(function (n) { return /\.eml$/i.test(n) && shown(n); }).map(function (n) { var m = parseMail(fs[n]); m.file = n; m.t = Date.parse(m.h.date || "") || 0; return m; })
+            .sort(function (a, b) { return b.t - a.t; });
+        }
+        scan();
         var seen = JSON.parse(store("ws-mail-seen-" + caseId) || "{}");
         function show(m) {
+          if (!m) return;
+          cur = m.file;
           seen[m.file] = 1;
+          emit("mail.read", { file: m.file, subject: m.h.subject || "", from: m.h.from || "" });
           store("ws-mail-seen-" + caseId, JSON.stringify(seen));
           listEl.querySelectorAll(".ws-mrow").forEach(function (r) { r.classList.toggle("on", r.getAttribute("data-f") === m.file); if (seen[r.getAttribute("data-f")]) r.classList.remove("new"); });
           read.innerHTML = '<h3></h3><dl><dt>From</dt><dd data-k="from"></dd><dt>To</dt><dd data-k="to"></dd><dt>Date</dt><dd data-k="date"></dd>' + (m.h["reply-to"] ? '<dt>Reply-To</dt><dd data-k="reply-to"></dd>' : "") + "</dl>" +
@@ -398,14 +446,18 @@
           read.querySelector(".ws-mbody").textContent = m.body;
           read.querySelector(".ws-morig").textContent = m.raw;
           read.querySelector('[data-a="orig"]').addEventListener("click", function () { var o = read.querySelector(".ws-morig"); o.hidden = !o.hidden; this.textContent = o.hidden ? "Show original" : "Hide original"; });
-          read.querySelector('[data-a="triage"]').addEventListener("click", function () { var p = prog("tool-email"); if (p) p.open({ files: [m.file] }); });
-          read.querySelector('[data-a="auth"]').addEventListener("click", function () { var p = prog("tool-mailauth"); if (p) p.open({ file: m.file }); });
+          read.querySelector('[data-a="triage"]').addEventListener("click", function () { emit("mail.report", { file: m.file, subject: m.h.subject || "" }); toast("Reported", "Sent to the security team as phishing: " + (m.h.subject || m.file)); var p = prog("tool-email"); if (p) p.open({ files: [m.file] }); });
+          read.querySelector('[data-a="auth"]').addEventListener("click", function () { emit("mail.auth", { file: m.file }); var p = prog("tool-mailauth"); if (p) p.open({ file: m.file }); });
         }
-        listEl.innerHTML = msgs.map(function (m) {
-          return '<button type="button" class="ws-mrow' + (seen[m.file] ? "" : " new") + '" data-f="' + esc(m.file) + '" role="listitem"><b>' + esc((m.h.from || "").replace(/<[^>]*>/, "").replace(/"/g, "").trim() || m.h.from || "") + "</b><span>" + esc(m.h.subject || "") + "</span><small>" + esc(m.t ? new Date(m.t).toISOString().slice(0, 16).replace("T", " ") : "") + "</small></button>";
-        }).join("");
+        function rows() {
+          listEl.innerHTML = msgs.length ? msgs.map(function (m) {
+            return '<button type="button" class="ws-mrow' + (seen[m.file] ? "" : " new") + (m.file === cur ? " on" : "") + '" data-f="' + esc(m.file) + '" role="listitem"><b>' + esc((m.h.from || "").replace(/<[^>]*>/, "").replace(/"/g, "").trim() || m.h.from || "") + "</b><span>" + esc(m.h.subject || "") + "</span><small>" + esc(m.t ? new Date(m.t).toISOString().slice(0, 16).replace("T", " ") : "") + "</small></button>";
+          }).join("") : '<p class="ws-empty">No email yet.</p>';
+        }
+        rows();
         listEl.addEventListener("click", function (e) { var r = e.target.closest(".ws-mrow"); if (r) show(msgs.filter(function (m) { return m.file === r.getAttribute("data-f"); })[0]); });
-        show(msgs.filter(function (m) { return m.file === pick; })[0] || msgs[0]);
+        w.refresh = function () { scan(); rows(); };
+        if (msgs.length) show(msgs.filter(function (m) { return m.file === pick; })[0] || msgs[0]);
       });
     }, { w: 900, h: 520 });
   }
@@ -421,12 +473,17 @@
     if (trial) out.push([lead, "You're on the trial desk: this sample case only. The full Hacker Room has every case and the seminars that teach each program."]);
     return out;
   }
+  function people() {
+    var c = caseMeta && caseMeta.sim && caseMeta.sim.cast;
+    if (!c) return '<span><i class="ok"></i>Priya Shah</span><span><i class="ok"></i>Arjun (IT)</span><span><i></i>Legal</span>';
+    return Object.keys(c).map(function (k) { return '<span><i class="ok"></i>' + esc(c[k].name) + (c[k].role ? " (" + esc(c[k].role) + ")" : "") + "</span>"; }).join("");
+  }
   function chat() {
     var open = wins.filter(function (x) { return x.chat; })[0];
     if (open) { if (open.min) { open.min = false; open.el.hidden = false; } focus(open); unread = 0; badge(); return; }
     var w = win("Team chat: #soc", "chat", function (w) {
       w.body.innerHTML = '<div class="ws-chat"><aside><b>Channels</b><button type="button" class="on"># soc</button><button type="button" disabled># ir-war-room</button><button type="button" disabled># it-helpdesk</button><b>People</b>' +
-        '<span><i class="ok"></i>Priya Shah</span><span><i class="ok"></i>Arjun (IT)</span><span><i></i>Legal</span></aside><div class="ws-cmain"><div class="ws-clog" aria-live="polite"></div>' +
+        people() + '</aside><div class="ws-cmain"><div class="ws-clog" aria-live="polite"></div>' +
         '<form class="ws-csend"><input placeholder="Message #soc" aria-label="Message"><button class="btn dark">Send</button></form></div></div>';
       var log = w.body.querySelector(".ws-clog");
       function add(who, text, mine) {
@@ -434,7 +491,7 @@
         d.className = "ws-msg" + (mine ? " me" : "");
         d.innerHTML = '<span class="ws-av">' + esc((who.name || "?").charAt(0)) + '</span><div><b></b> <small></small><p></p></div>';
         d.querySelector("b").textContent = who.name;
-        d.querySelector("small").textContent = (who.role ? who.role + " · " : "") + new Date().toTimeString().slice(0, 5);
+        d.querySelector("small").textContent = (who.role ? who.role + " · " : "") + (simClock ? storyNow().toISOString().slice(11, 16) : new Date().toTimeString().slice(0, 5));
         d.querySelector("p").textContent = text;
         log.appendChild(d);
         log.scrollTop = log.scrollHeight;
@@ -448,6 +505,12 @@
         inp.value = "";
         chatLog.push([{ name: "You" }, v, true]);
         add({ name: "You" }, v, true);
+        emit("chat.send", { text: v });
+        var own = responder ? responder(v) : null;
+        if (own) {
+          if (own.text) setTimeout(function () { chatLog.push([own.who, own.text]); add(own.who, own.text); }, own.delay || 1200);
+          return;
+        }
         var r = /escalat|urgent|now|stop/i.test(v) ? "Understood. Put the ask first and say what you haven't done. I'll read it as soon as it's in the report builder."
           : /done|finished|report/i.test(v) ? "Thanks. Send me the note when it's in the report builder; I'll review it."
           : /help|stuck|hint/i.test(v) ? "Start from the README and the hashes, then follow the times. What's the first thing that looks out of place?"
@@ -534,7 +597,12 @@
       });
       var key = "ws-tool-" + (caseId || "plain") + "-" + d.id + (state && state.file ? "-" + state.file : ""), saved = null;
       try { saved = JSON.parse(store(key) || "null"); } catch (e) { saved = null; }
-      d.mount(host, { state: state || {}, saved: saved, files: loadFiles, remember: function (v) { try { store(key, JSON.stringify(v)); } catch (e) { return; } } });
+      host.addEventListener("click", function (e) {
+        var b = e.target.closest("button");
+        if (b && host.contains(b)) emit("tool.click", { tool: d.id, label: (b.textContent || b.title || "").trim().slice(0, 80), file: state && state.file || "" });
+      });
+      var emitTool = function (kind, data, text) { emit("tool." + kind, { tool: d.id, file: state && state.file || "", data: data || {}, text: text || "" }); };
+      d.mount(host, { state: state || {}, saved: saved, files: loadFiles, emit: emitTool, remember: function (v) { try { store(key, JSON.stringify(v)); } catch (e) { return; } } });
     }, { w: 880, h: 540 });
   }
 
@@ -581,20 +649,26 @@
       b.addEventListener("click", function () { $("ws-icons").querySelectorAll(".ws-icon").forEach(function (x) { x.classList.toggle("sel", x === b); }); });
     });
   }
-  function pins() {
-    var p = document.createElement("div");
-    p.className = "ws-pins";
-    p.innerHTML = ["files", "terminal", "mail", "chat", "tickets", "rack", "rdp", "netlab", "tool-packets", "tool-events", "tool-siem"].map(function (id) {
+  function pins(list) {
+    var p = document.querySelector(".ws-pins");
+    if (!p) {
+      p = document.createElement("div");
+      p.className = "ws-pins";
+      p.addEventListener("click", function (e) { var b = e.target.closest("[data-p]"); if (b) { var x = prog(b.getAttribute("data-p")); if (x) x.open(); } });
+      $("ws-start").after(p);
+    }
+    if (list) pinList = list;
+    var ids = pinList || ($("ws-app").classList.contains("ws-lab") ? LAB_PINS : BASE_PINS);
+    p.innerHTML = ids.map(function (id) {
       var x = prog(id);
-      return x ? '<button type="button" data-p="' + id + '" title="' + esc(x.title) + '" aria-label="' + esc(x.title) + '">' + icon(x.icon, 22) + "</button>" : "";
+      return x ? '<button type="button" data-p="' + esc(id) + '" title="' + esc(x.title) + '" aria-label="' + esc(x.title) + '">' + icon(x.icon, 22) + "</button>" : "";
     }).join("");
-    p.addEventListener("click", function (e) { var b = e.target.closest("[data-p]"); if (b) prog(b.getAttribute("data-p")).open(); });
-    $("ws-start").after(p);
   }
   function tray() {
     var t = document.createElement("div");
     t.className = "ws-tray";
-    t.innerHTML = '<span class="ws-net" id="ws-net" title="Not connected to a case network">' + glyph("net") + '</span><button type="button" class="ws-bellb" id="ws-bell" title="Notifications" aria-label="Notifications">' + glyph("bell") +
+    t.innerHTML = '<button type="button" class="ws-labb" id="ws-labbtn" title="Enter the lab: full screen (Ctrl+Alt+F)">' + glyph("expand") + "<span>Enter the lab</span></button>" +
+      '<span class="ws-net" id="ws-net" title="Not connected to a case network">' + glyph("net") + '</span><button type="button" class="ws-bellb" id="ws-bell" title="Notifications" aria-label="Notifications">' + glyph("bell") +
       '<i id="ws-bell-n" hidden></i></button>';
     $("ws-clock").before(t);
     var c = document.createElement("div");
@@ -603,6 +677,7 @@
     c.hidden = true;
     $("ws-app").appendChild(c);
     $("ws-bell").addEventListener("click", function (e) { e.stopPropagation(); c.hidden = !c.hidden; if (!c.hidden) center(); });
+    $("ws-labbtn").addEventListener("click", function () { labMode(); });
   }
 
   function caseMenu() {
@@ -637,8 +712,15 @@
     if (id) u.searchParams.set("case", id); else u.searchParams.delete("case");
     history.replaceState(null, "", u.toString());
     chatLog = [];
+    held = {};
+    simClock = null;
+    pinList = null;
+    responder = null;
+    pins();
     var go = id && global.AayatVM ? global.AayatVM.manifest(id).then(function (m) { caseMeta = m; }, function () {}) : Promise.resolve();
     go.then(function () {
+      emit("case.ready", { id: id, title: caseTitle, meta: caseMeta });
+      if (caseMeta && caseMeta.sim) return;
       var lines = briefing();
       lines.forEach(function (x, i) { setTimeout(function () { post(x[0], x[1]); }, 500 + i * 900); });
       if (id) setTimeout(function () { toast("Priya Shah in #soc", "New case for you: " + caseTitle, chat); }, 700);
@@ -647,8 +729,10 @@
   }
 
   function clock() {
-    var d = new Date();
+    var d = storyNow();
     $("ws-clock").innerHTML = "<b>" + d.toISOString().slice(11, 16) + " UTC</b><small>" + d.toISOString().slice(0, 10) + "</small>";
+    $("ws-clock").classList.toggle("story", !!simClock);
+    $("ws-clock").title = simClock ? "Story time in this simulation" : "";
     var l = $("ws-lock-time");
     if (l) { l.textContent = d.toTimeString().slice(0, 5); $("ws-lock-date").textContent = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }); }
   }
@@ -733,21 +817,95 @@
       e.preventDefault();
       menu(e, [["Open a terminal", function () { terminal(); }], ["Open Files", function () { browser(); }], ["Open Mail", function () { mail(); }], ["Team chat", chat], null,
         ["Change wallpaper", function () { var n = (+(store("ws-wall") || 0) + 1) % 4; store("ws-wall", String(n)); $("ws-desk").setAttribute("data-wall", n); }],
-        ["Close all windows", function () { wins.slice().forEach(close); }], null, ["How to use this desktop", help]]);
+        ["Close all windows", function () { wins.slice().forEach(close); }], ["Enter or leave the lab (full screen)", function () { labMode(); }], null, ["Keyboard shortcuts", keysHelp], ["How to use this desktop", help]]);
     });
     $("ws-desk").setAttribute("data-wall", store("ws-wall") || "0");
     startMenu();
     icons();
     clock();
-    setInterval(clock, 30000);
+    setInterval(clock, 5000);
+    if (q.get("lab")) labMode(true);
     lockScreen(function () {
       caseMenu();
       if (!q.get("case") && !trial) setTimeout(help, 400);
     });
   }
+  function active() { return wins.filter(function (w) { return w.el.classList.contains("on") && !w.min; })[0]; }
+  function cycle(back) {
+    if (!wins.length) return;
+    var order = wins.slice().sort(function (a, b) { return (+b.el.style.zIndex || 0) - (+a.el.style.zIndex || 0); });
+    var next = back ? order[order.length - 1] : order[1] || order[0];
+    if (next.min) { next.min = false; next.el.hidden = false; }
+    focus(next);
+  }
+  function showDesktop() {
+    var open = wins.filter(function (w) { return !w.min; });
+    if (open.length) open.forEach(function (w) { w.min = true; w.el.hidden = true; if (w.btn) w.btn.classList.remove("on"); });
+    else wins.forEach(function (w) { w.min = false; w.el.hidden = false; });
+  }
+  var KEYS = [["Ctrl+Alt+T", "New terminal"], ["Ctrl+Alt+E", "Files"], ["Ctrl+Alt+M", "Mail"], ["Ctrl+Alt+C", "Team chat"], ["Ctrl+Alt+N", "Notes"],
+    ["Alt+`", "Next window (Alt+Tab in lab mode)"], ["Alt+S", "Start menu, when you are not typing (the Windows key in lab mode)"], ["Ctrl+Alt+W", "Close the window"],
+    ["Ctrl+Alt+D", "Show the desktop"], ["Alt+Shift+Left / Right", "Snap to the left or right half"], ["Alt+Shift+Up / Down", "Fill the screen, or restore"],
+    ["Ctrl+Alt+F", "Enter or leave the lab (full screen)"], ["Ctrl+Alt+L", "Lock the screen"], ["Ctrl+Alt+/", "This list"]];
+  function keysHelp() {
+    win("Keyboard shortcuts", "help", function (w) {
+      w.body.innerHTML = '<div class="ws-help"><h3>Keyboard shortcuts</h3><table class="ws-grid ws-keys">' + KEYS.map(function (k) { return "<tr><td><kbd>" + esc(k[0]) + "</kbd></td><td>" + esc(k[1]) + "</td></tr>"; }).join("") +
+        "</table><p>In lab mode the desktop is full screen and the browser passes Alt+Tab, the Windows key and Alt+F4 to it. Press and hold Esc to leave.</p></div>";
+    }, { w: 520, h: 480 });
+  }
+  function lockKeys(yes) {
+    var k = navigator.keyboard;
+    if (!k || !k.lock) return;
+    if (yes) k.lock(["MetaLeft", "MetaRight", "Tab", "F4", "KeyW", "KeyT", "KeyN"]).catch(function () {});
+    else try { k.unlock(); } catch (e) { return; }
+  }
+  function labMode(want) {
+    var app = $("ws-app"), now = app.classList.contains("ws-lab");
+    if (want === undefined) want = !now;
+    if (want) {
+      app.classList.add("ws-lab");
+      document.body.classList.add("ws-labbody");
+      if (app.requestFullscreen && !document.fullscreenElement) app.requestFullscreen({ navigationUI: "hide" }).then(function () { lockKeys(true); }).catch(function () {});
+    } else {
+      app.classList.remove("ws-lab");
+      document.body.classList.remove("ws-labbody");
+      lockKeys(false);
+      if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+    }
+    var b = $("ws-labbtn");
+    if (b) { b.classList.toggle("on", want); b.lastChild.textContent = want ? "Leave the lab" : "Enter the lab"; }
+    pins();
+    emit("lab.mode", { on: want });
+  }
+  function shortcuts(e) {
+    if (!$("ws-app") || $("ws-app").classList.contains("ws-locked") || document.querySelector(".ws-lockscr")) return;
+    if (e.getModifierState && e.getModifierState("AltGraph")) return;
+    var lab = $("ws-app").classList.contains("ws-lab"), k = e.key, code = e.code, typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
+    var go = null;
+    if (e.ctrlKey && e.altKey && !e.shiftKey) {
+      go = { KeyT: function () { terminal(); }, KeyE: function () { browser(); }, KeyM: function () { mail(); }, KeyC: chat, KeyN: notepad, KeyW: function () { var a = active(); if (a) close(a); },
+        KeyD: showDesktop, KeyF: function () { labMode(); }, KeyL: function () { lockScreen(); }, Slash: keysHelp }[code];
+    } else if (e.altKey && !e.ctrlKey && (code === "Backquote" || (lab && code === "Tab"))) go = function () { cycle(e.shiftKey); };
+    else if (e.altKey && e.shiftKey && !e.ctrlKey && /^Arrow/.test(k)) {
+      go = function () { var a = active(); if (!a) return; snap(a.el, { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "max", ArrowDown: "" }[k]); };
+    } else if (e.altKey && !e.ctrlKey && !e.shiftKey && code === "KeyS" && !typing) go = function () { $("ws-start").click(); };
+    else if (lab && (code === "MetaLeft" || code === "MetaRight")) go = function () { $("ws-start").click(); };
+    else if (lab && e.altKey && code === "F4") go = function () { var a = active(); if (a) close(a); };
+    if (!go) return;
+    e.preventDefault();
+    e.stopPropagation();
+    go();
+  }
+  document.addEventListener("keydown", shortcuts, true);
+  document.addEventListener("fullscreenchange", function () { if (!document.fullscreenElement && $("ws-app") && $("ws-app").classList.contains("ws-lab")) labMode(false); });
+
   global.AayatDesk = {
     win: win, files: loadFiles, open: function (n, how) { openFile(n, how); }, toast: toast, post: post, icon: icon, glyph: glyph, esc: esc, base: base, store: store,
-    terminal: function (dir) { terminal(dir); }, caseId: function () { return caseId; }, caseTitle: function () { return caseTitle; }
+    terminal: function (dir) { terminal(dir); }, caseId: function () { return caseId; }, caseTitle: function () { return caseTitle; },
+    caseMeta: function () { return caseMeta; }, on: on, emit: emit, hold: hold, release: release, held: function () { return Object.keys(held); }, visible: shown,
+    clock: function (iso, speed) { simClock = iso ? { start: Date.parse(iso), real: Date.now(), speed: speed || 1 } : null; clock(); }, now: storyNow,
+    pins: function (list) { pins(list || null); }, run: function (id, st) { var p = prog(id); if (p) p.open(st); return !!p; }, program: prog,
+    respond: function (fn) { responder = fn || null; }, chat: function () { chat(); }, labMode: labMode, keys: keysHelp, close: function (w) { close(w); }
   };
   if (document.readyState === "complete") start();
   else global.addEventListener("load", start);

@@ -80,6 +80,7 @@
           else if (k === "esc") { var v = need(); if (!v) return; s.status = "Escalated"; note(a, "Escalated: " + v); d.post({ name: "Priya Shah", role: "SOC lead" }, "Got your escalation on " + a.id + ". Is the ask first, and does it say what you haven't done?"); }
           else if (k === "add") { var n = txt.value.trim(); if (!n) return; note(a, n); }
           else return;
+          d.emit("ticket." + ({ mine: "assign", work: "start", esc: "escalate", add: "note" })[k], { id: a.id, rule: a.rule || "", host: a.host || "", status: s.status, text: (txt.value || "").trim() });
           keep(); list(); view();
         });
         r("view").querySelector('[data-a="disp"]').addEventListener("change", function () {
@@ -88,6 +89,7 @@
           var why = need();
           if (!why) { this.value = ""; return; }
           s.status = "Closed"; s.disp = v; note(a, "Closed as " + (DISP.filter(function (x) { return x[0] === v; })[0] || [0, v])[1] + ": " + why);
+          d.emit("ticket.close", { id: a.id, rule: a.rule || "", host: a.host || "", disp: v, text: why });
           keep(); list(); view();
           d.toast("Ticket closed", a.id + " closed as " + (DISP.filter(function (x) { return x[0] === v; })[0] || [0, v])[1]);
         });
@@ -100,14 +102,21 @@
           var s = state(a); return [a.id, a.sev, a.rule, a.host, s.status, s.who, s.disp, new Date(due(a)).toISOString(), s.log.map(function (x) { return x.text; }).join(" | ")];
         })));
       });
-      d.files().then(function (fs) {
-        var A = global.AayatTools.get("alerts"), Q = A ? A.queues(global.AayatTools.kit.textFiles(fs)) : {};
-        Object.keys(Q).sort().forEach(function (n) { items = items.concat(Q[n]); });
-        if (!items.length) { r("list").innerHTML = '<p class="ws-empty">This case has no alerts, so no tickets.</p>'; return; }
-        items = A.order(items);
-        list();
-        timer = setInterval(function () { if (!document.body.contains(w.el)) { clearInterval(timer); return; } list(); }, 30000);
-      });
+      function fill() {
+        d.files().then(function (fs) {
+          var A = global.AayatTools.get("alerts"), Q = A ? A.queues(global.AayatTools.kit.textFiles(fs, function (k) { return d.visible(k); })) : {};
+          var had = items.length;
+          items = [];
+          Object.keys(Q).sort().forEach(function (n) { items = items.concat(Q[n]); });
+          if (!items.length) { r("list").innerHTML = '<p class="ws-empty">No alerts yet, so no tickets.</p>'; return; }
+          items = A.order(items);
+          list();
+          if (had && items.length > had) d.toast("New alerts", (items.length - had) + " new ticket" + (items.length - had === 1 ? "" : "s") + " in the queue");
+        });
+      }
+      w.refresh = fill;
+      fill();
+      timer = setInterval(function () { if (!document.body.contains(w.el)) { clearInterval(timer); return; } if (items.length) list(); }, 30000);
     }, { w: 1000, h: 560 });
   }
 
@@ -199,14 +208,15 @@
           '<div class="ws-toolbar"><button type="button" class="btn" data-term>Open a terminal</button><small>Try: nmap -sV ' + esc(h.ip) + "</small></div>";
         r("panel").querySelector("[data-tag]").value = st.tag[h.ip] || "";
         r("panel").querySelector("[data-note]").value = st.note[h.ip] || "";
-        r("panel").querySelector("[data-tag]").addEventListener("change", function () { if (this.value) st.tag[h.ip] = this.value; else delete st.tag[h.ip]; keep(); draw(); panel(ip); });
+        r("panel").querySelector("[data-tag]").addEventListener("change", function () { if (this.value) st.tag[h.ip] = this.value; else delete st.tag[h.ip]; d.emit("rack.tag", { ip: h.ip, name: h.name || "", tag: this.value }); keep(); draw(); panel(ip); });
         r("panel").querySelector("[data-note]").addEventListener("input", function () { st.note[h.ip] = this.value; keep(); });
         r("panel").querySelector("[data-term]").addEventListener("click", function () { d.terminal(); });
-        r("panel").querySelectorAll("[data-shut]").forEach(function (b) { b.addEventListener("click", function () { var k = b.getAttribute("data-shut"); if (st.shut[k]) delete st.shut[k]; else st.shut[k] = 1; keep(); draw(); panel(ip); }); });
+        r("panel").querySelectorAll("[data-shut]").forEach(function (b) { b.addEventListener("click", function () { var k = b.getAttribute("data-shut"); if (st.shut[k]) delete st.shut[k]; else st.shut[k] = 1; d.emit("rack.port", { ip: h.ip, name: h.name || "", port: k.split(":")[1], shut: !!st.shut[k] }); keep(); draw(); panel(ip); }); });
       }
       w.body.addEventListener("click", function (e) { var b = e.target.closest("[data-ip]"); if (b && !e.target.closest(".rk-panel")) panel(b.getAttribute("data-ip")); });
       r("door").addEventListener("change", function () { st.door = this.checked; keep(); draw(); });
       r("csv").addEventListener("click", function () {
+        d.emit("rack.export", { hosts: hosts.length, tagged: Object.keys(st.tag).length, shut: Object.keys(st.shut).length });
         download((cid || "case") + "-asset-inventory.csv", [["ip", "name", "type", "system", "open_ports", "shut_ports", "review", "note"]].concat(hosts.map(function (h) {
           return [h.ip, h.name, h.kind, h.os || "", h.ports.filter(function (p) { return !st.shut[h.ip + ":" + p.port]; }).map(function (p) { return p.port + "/" + p.svc; }).join(" "),
             h.ports.filter(function (p) { return st.shut[h.ip + ":" + p.port]; }).map(function (p) { return p.port; }).join(" "), st.tag[h.ip] || "", st.note[h.ip] || ""];
@@ -253,9 +263,19 @@
       [["tasks", "Task Manager", "events"], ["cmd", "Command Prompt", "terminal"], ["evt", "Event Viewer", "events"], ["svc", "Services", "gear"]].map(function (x) {
         return '<button type="button" data-app="' + x[0] + '">' + d.icon(x[2], 38) + "<span>" + x[1] + "</span></button>";
       }).join("") + '</div><div class="rd-win" data-r="app" hidden><div class="rd-wt"><b data-r="apptitle"></b><button type="button" data-r="appx" aria-label="Close">×</button></div><div class="rd-wb" data-r="appbody"></div></div>' +
-      '<div class="rd-note">Read-only copy of ' + esc(host) + ' from the evidence. Nothing you do here changes the case.</div></div>' +
+      '<div class="rd-note">Copy of ' + esc(host) + ' rebuilt from the evidence. <button type="button" class="btn" data-r="iso">Isolate from the network</button></div></div>' +
       '<div class="rd-bar"><span class="rd-start">' + esc(host.toUpperCase()) + "</span><span data-r=\"rtasks\"></span><span class=\"rd-clock\">" + new Date().toTimeString().slice(0, 5) + "</span></div></div>";
     var r = function (n) { return w.body.querySelector('[data-r="' + n + '"]'); };
+    var cut = load("ws-rd-iso-" + d.caseId(), {});
+    function isoLabel() { r("iso").textContent = cut[host] ? "Isolated. Reconnect" : "Isolate from the network"; r("iso").classList.toggle("dark", !!cut[host]); }
+    isoLabel();
+    r("iso").addEventListener("click", function () {
+      if (cut[host]) delete cut[host]; else cut[host] = Date.now();
+      save("ws-rd-iso-" + d.caseId(), cut);
+      isoLabel();
+      d.emit("rdp.isolate", { host: host, isolated: !!cut[host] });
+      d.toast(cut[host] ? "Isolated" : "Reconnected", host + (cut[host] ? " can only reach the security team's tools now." : " is back on the network."));
+    });
     function open(app) {
       r("app").hidden = false;
       r("apptitle").textContent = { tasks: "Task Manager", cmd: "Command Prompt", evt: "Event Viewer", svc: "Services" }[app] + " · " + host;
@@ -264,8 +284,17 @@
       b.className = "rd-wb" + (app === "cmd" ? " rd-cmd" : "");
       if (app === "tasks") {
         var rows = H.procs.slice().sort(function (a, c) { return a.time < c.time ? -1 : 1; });
-        b.innerHTML = rows.length ? '<div class="ws-toolbar"><input type="search" placeholder="Filter processes" data-f><small>' + rows.length + ' processes captured. Look at parents, users, folders and command lines.</small></div><table class="ws-grid"><tr><th>Name</th><th>PID</th><th>Parent</th><th>User</th><th>Started</th><th>Command line</th></tr>' +
-          rows.map(function (p) { return "<tr><td>" + esc((p.image || "").split("\\").pop()) + "</td><td>" + esc(p.pid) + "</td><td>" + esc(p.ppid) + "</td><td>" + esc(p.user) + "</td><td>" + esc(p.time) + '</td><td class="mono">' + esc(p.command_line) + "</td></tr>"; }).join("") + "</table>" : '<p class="ws-empty">No process list was captured for this machine.</p>';
+        b.innerHTML = rows.length ? '<div class="ws-toolbar"><input type="search" placeholder="Filter processes" data-f><small>' + rows.length + ' processes captured. Look at parents, users, folders and command lines.</small></div><table class="ws-grid"><tr><th>Name</th><th>PID</th><th>Parent</th><th>User</th><th>Started</th><th>Command line</th><th></th></tr>' +
+          rows.map(function (p) { return '<tr data-pid="' + esc(p.pid) + '"><td>' + esc((p.image || "").split("\\").pop()) + "</td><td>" + esc(p.pid) + "</td><td>" + esc(p.ppid) + "</td><td>" + esc(p.user) + "</td><td>" + esc(p.time) + '</td><td class="mono">' + esc(p.command_line) + '</td><td><button type="button" class="btn" data-end="' + esc(p.pid) + '">End task</button></td></tr>'; }).join("") + "</table>" : '<p class="ws-empty">No process list was captured for this machine.</p>';
+        b.querySelectorAll("[data-end]").forEach(function (x) {
+          x.addEventListener("click", function () {
+            var pid = x.getAttribute("data-end"), p = rows.filter(function (y) { return String(y.pid) === pid; })[0] || {};
+            x.closest("tr").classList.add("rd-ended");
+            x.disabled = true;
+            x.textContent = "Ended";
+            d.emit("rdp.endtask", { host: host, pid: pid, image: (p.image || "").split("\\").pop(), cmd: p.command_line || "" });
+          });
+        });
         var f = b.querySelector("[data-f]");
         if (f) f.addEventListener("input", function () { var v = f.value.toLowerCase(); b.querySelectorAll("tr").forEach(function (tr, i) { if (i) tr.hidden = v && tr.textContent.toLowerCase().indexOf(v) < 0; }); });
       } else if (app === "svc") {

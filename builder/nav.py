@@ -26,6 +26,7 @@ GLOBAL = [
     ("downloads", "Downloads", DOWNLOADS / "index.html"),
     ("careers", "Career training", SITE / "careers.html"),
     ("workstation", "Hacker Room", SITE / "workstation.html"),
+    ("playground", "Simulator playground", SITE / "playground.html"),
     ("labs", "Labs", SITE / "labs.html"),
     ("notebook", "Notebook", SITE / "notebook.html"),
     ("ctf", "Capture the flag", SITE / "ctf.html"),

@@ -1,0 +1,295 @@
+{
+ "order": 304,
+ "title": "Simulation: Ransomware night shift",
+ "kicker": "Simulation",
+ "units": [
+  4,
+  5
+ ],
+ "level": "Intermediate",
+ "minutes": 45,
+ "summary": "A 6 a.m. call: files are being encrypted. Stop it, close the way in, find what was taken, choose a clean backup and start the CERT-In clock.",
+ "tools": [
+  "Remote desktop",
+  "Server room",
+  "Tickets",
+  "Timeline",
+  "Terminal"
+ ],
+ "titlePrefix": "Simulation: Ransomware night shift",
+ "teacher": true,
+ "id": "sem-x04-ransomware-night-shift",
+ "sim": {
+  "title": "Ransomware night shift",
+  "role": "On-call incident responder",
+  "start": "2026-11-07T00:31:00Z",
+  "speed": 1,
+  "pins": [
+   "files",
+   "terminal",
+   "tickets",
+   "rdp",
+   "rack",
+   "tool-timeline",
+   "chat",
+   "notes"
+  ],
+  "first": true,
+  "cast": {
+   "lead": {
+    "name": "Rohan Deshpande",
+    "role": "IT manager"
+   },
+   "ceo": {
+    "name": "Vandana Joshi",
+    "role": "CEO"
+   }
+  },
+  "story": "It's 00:31 UTC on Saturday 7 November 2026, six in the morning in Pune. Your phone rings: you're the on-call incident responder for Garnet Precision Engineering in Chakan.\n\nAt 00:12 the helpdesk logged that the engineering CAD files won't open and every folder has a file called RESTORE-FILES.txt. That's ransomware. It may still be running, and whoever started it may still be inside.\n\nStop the bleeding first: cut the way in, isolate what's infected, stop the encryption. Then answer the questions the CEO will ask in an hour: how did they get in, what did they take, can we restore, and who do we have to tell, by when?",
+  "events": [
+   {
+    "at": 1,
+    "chat": "lead",
+    "text": "Thanks for picking up. Engineering share on fs02 is getting encrypted, files end in .garnet-locked. I don't know if it's still going. What do you need?"
+   },
+   {
+    "at": 8,
+    "chat": "lead",
+    "text": "Everything we have is in ~/case, alerts are in Tickets. You can isolate machines from the Remote desktop and shut ports in the Server room."
+   },
+   {
+    "after": "vpn",
+    "chat": "lead",
+    "text": "s.kale is Sachin Kale, a design engineer. HR says he's been on medical leave at home in Nashik since Monday. That wasn't him."
+   },
+   {
+    "after": "kill",
+    "chat": "lead",
+    "text": "fs02's disk activity just dropped. I think it's stopped."
+   },
+   {
+    "at": 900,
+    "chat": "ceo",
+    "text": "Rohan just woke me. I need to know in plain words: did they take anything, and can we be working on Monday?"
+   },
+   {
+    "after": "backup",
+    "chat": "ceo",
+    "text": "Fourteen hours to restore from Thursday's tape. And we lose Friday's work. Understood. Who else needs to know?"
+   }
+  ],
+  "replies": [
+   {
+    "match": "tape|backup|restore|monday",
+    "who": "ceo",
+    "text": "Then let's start the restore as soon as you're sure it's clean."
+   },
+   {
+    "match": "cert-?in|report|regulator|6 ?hours|six",
+    "who": "ceo",
+    "text": "Six hours from when we noticed? Then draft it now and I'll sign it."
+   }
+  ],
+  "objectives": [
+   {
+    "id": "what",
+    "text": "Which program is encrypting the shares?",
+    "ask": "Program",
+    "answer": [
+     "locker.exe",
+     "locker"
+    ],
+    "points": 10,
+    "hint": "process.csv, or Remote desktop, fs02, Task Manager: C:\\ProgramData\\gpe\\locker.exe --path D:\\Shares."
+   },
+   {
+    "id": "kill",
+    "text": "Stop the encryption: end locker.exe on fs02",
+    "after": "what",
+    "points": 15,
+    "on": {
+     "event": "rdp.endtask",
+     "host": "fs02",
+     "image": "locker"
+    },
+    "hint": "Remote desktop, fs02, Task Manager, End task on locker.exe."
+   },
+   {
+    "id": "isofs",
+    "text": "Isolate fs02",
+    "points": 10,
+    "on": {
+     "event": "rdp.isolate",
+     "host": "fs02",
+     "isolated": true
+    },
+    "hint": "Remote desktop, fs02, Isolate from the network. Keep it running: memory is evidence."
+   },
+   {
+    "id": "vpn",
+    "text": "Which account came in over the VPN?",
+    "ask": "Account",
+    "answer": [
+     "s.kale"
+    ],
+    "points": 10,
+    "hint": "vpn.log: a failed then a successful login at 22:43 and 22:44, from 203.0.113.140, MFA not enrolled."
+   },
+   {
+    "id": "cut",
+    "text": "Cut the attacker's VPN session",
+    "after": "vpn",
+    "points": 15,
+    "on": {
+     "event": "rack.port",
+     "ip": "10.50.0.1",
+     "shut": true
+    },
+    "hint": "Server room, vpn01, Shut port 443. At this hour nobody else needs the VPN; disable s.kale in the directory too."
+   },
+   {
+    "id": "isows",
+    "text": "Isolate eng-ws14, the first machine they reached",
+    "after": "vpn",
+    "points": 10,
+    "on": {
+     "event": "rdp.isolate",
+     "host": "eng-ws14",
+     "isolated": true
+    },
+    "hint": "eng-ws14 logged an RDP logon for s.kale from the VPN address at 22:52, then rundll32 opened lsass at 23:05."
+   },
+   {
+    "id": "admin",
+    "text": "Which admin account reached fs02?",
+    "ask": "Account",
+    "answer": [
+     "adm.rjoshi"
+    ],
+    "after": "vpn",
+    "points": 10,
+    "hint": "fs02's Security log at 23:20:03: a network logon from ENG-WS14 with special privileges."
+   },
+   {
+    "id": "exfil",
+    "text": "Roughly how much data went out through the VPN session?",
+    "ask": "Amount",
+    "answer": [
+     "~1[.,]8|1840|1\\.84"
+    ],
+    "after": "vpn",
+    "points": 10,
+    "hint": "vpn.log, the session line closed by the admin: bytes_out=1840221190, about 1.8 GB."
+   },
+   {
+    "id": "backup",
+    "text": "Which backup can you restore from?",
+    "ask": "Backup",
+    "answer": [
+     "~tape|offline|weekly|thursday"
+    ],
+    "points": 10,
+    "hint": "backups.txt: the NAS backup was reachable from fs02 and is encrypted too; shadow copies were deleted; the weekly LTO tape from Thursday 21:00 was taken off site and verified."
+   },
+   {
+    "id": "certin",
+    "text": "By what time (UTC) is the six-hour CERT-In report due?",
+    "ask": "HH:MM UTC",
+    "answer": [
+     "06:31",
+     "6:31"
+    ],
+    "points": 10,
+    "hint": "Garnet noticed at 00:31 UTC, when the incident team was called and confirmed ransomware. Six hours later: 06:31 UTC (12:01 IST)."
+   },
+   {
+    "id": "esc",
+    "text": "Escalate GA-705 in Tickets with what you know and what you did",
+    "after": "kill",
+    "points": 10,
+    "on": {
+     "event": "ticket.escalate",
+     "id": "GA-70"
+    },
+    "hint": "Tickets, GA-705: the way in, the machines, what you contained, the backup decision and the CERT-In deadline."
+   }
+  ],
+  "debrief": "A strong night goes in this order. Stop the encryption: locker.exe on fs02, ended from Task Manager, and fs02 isolated but left running. Then the way in: s.kale over the VPN at 22:44 from 203.0.113.140, with MFA not enrolled, on an account whose owner is on leave. Cut that session at the VPN gateway, and isolate eng-ws14, where the attacker landed and took credentials from lsass at 23:05. Those credentials were adm.rjoshi's, used to reach fs02 at 23:20.\n\nThen answer the CEO. About 1.8 GB left through the VPN before it was cut, so assume data was taken. The NAS backup was on the network and is encrypted too; Thursday's tape is clean, so expect fourteen hours to restore and Friday's work lost. And the six-hour CERT-In report is due at 06:31 UTC, six hours after Garnet noticed at 00:31, not after the attack began.\n\nThe usual mistakes: switching fs02 off (memory gone), restoring before the way in is closed, and starting the CERT-In clock at the wrong moment.",
+  "pass": 70
+ },
+ "files": [
+  "case/alerts-night.json",
+  "case/backups.txt",
+  "case/captured/hayabusa-fs02.csv",
+  "case/captured/velociraptor-fs02-services.csv",
+  "case/captured/volatility-eng-ws14.txt",
+  "case/eventlogs/eng-ws14-Security.jsonl",
+  "case/eventlogs/eng-ws14-Sysmon.jsonl",
+  "case/eventlogs/fs02-Security.jsonl",
+  "case/eventlogs/fs02-System.jsonl",
+  "case/hr_note.txt",
+  "case/process.csv",
+  "case/README.txt",
+  "case/share_listing.txt",
+  "case/suspect/locker.strings.txt",
+  "case/suspect/RESTORE-FILES.txt",
+  "case/tabletop-garnet-ransomware.json",
+  "case/vpn.log",
+  "net/dns.txt",
+  "net/hosts.txt"
+ ],
+ "template": [
+  {
+   "t": "md",
+   "s": "# Simulation: Ransomware night shift\n\nA 6 a.m. call: files are being encrypted. Stop it, close the way in, find what was taken, choose a clean backup and start the CERT-In clock.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `alerts-night.json`, `backups.txt`, `captured/hayabusa-fs02.csv`, `captured/velociraptor-fs02-services.csv`, `captured/volatility-eng-ws14.txt`, `eventlogs/eng-ws14-Security.jsonl`, `eventlogs/eng-ws14-Sysmon.jsonl`, `eventlogs/fs02-Security.jsonl`, `eventlogs/fs02-System.jsonl`, `hr_note.txt`, `process.csv`, `README.txt`, `share_listing.txt`, `suspect/locker.strings.txt`, `suspect/RESTORE-FILES.txt`, `tabletop-garnet-ransomware.json`, `vpn.log`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. What is happening right now\n\nIt's 00:31 UTC on Saturday 7 November at Garnet Precision Engineering. The helpdesk says CAD files won't open and every folder has RESTORE-FILES.txt. First: what is encrypting, where, and is it still running?\n\n- [ ] Which program is encrypting, on which server, which folder?\n- [ ] Which alerts in the queue tell the story?\n\n?> Which program is encrypting the shares? :: sha256:8d88079b05749819f10f36e32bcdd34fa352401c4c1ec6cf830e10c32b9fdfec"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\ngrep -i locker process.csv"
+  },
+  {
+   "t": "md",
+   "s": "## 2. How did they get in?\n\nContainment needs to know the way in, or you'll cut one door and leave another open.\n\n- [ ] Which account came in over the VPN, from where, and did it have MFA?\n- [ ] How much data went out through that session?\n\n> Hint: vpn.log has the logins and, when the session closed, `bytes_out`.\n\n?> Which account logged in over the VPN? :: sha256:51dda2899af6a13c4800adfcda72f66d6cf332a36c5c363bd060cd7752a06b38"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\ngrep s.kale vpn.log"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Contain, then decide\n\nCut the attacker's session, isolate the machines they're on, stop the encryption. Then the decisions: which backup is clean, and when must CERT-In be told?\n\n- [ ] VPN cut, fs02 and eng-ws14 isolated, locker.exe ended\n- [ ] Which backup can you restore from?\n- [ ] When is the six-hour CERT-In report due?\n\n> Hint: Garnet noticed at 00:31 UTC, when the incident team was called. The clock starts when you noticed.\n\n?> By what time (UTC, HH:MM) must CERT-In be told? :: sha256:52dd580d0b0021eb9c56282cf566908bae0a6604540cdef31b1ce0f4d4bc2867"
+  },
+  {
+   "t": "sh",
+   "s": "cd ~/case\ncat backups.txt"
+  }
+ ],
+ "script": {
+  "intro": "Hello, and welcome to a simulation. It's six in the morning in Pune and your phone is ringing: you're the on-call incident responder, and a factory's files are being encrypted right now. Watch the order things happen in, because order is everything in a ransomware night.",
+  "steps": [
+   {
+    "say": "First, stop the bleeding. The process list shows locker.exe on fs02, encrypting D colon Shares. I end it in Task Manager and isolate fs02, but I don't switch it off: memory is evidence.",
+    "after": "The IT manager confirms the disk activity dropped. Now I need the way in, or they'll just come back."
+   },
+   {
+    "say": "The VPN log: a failed login for s.kale at 22:43, then a success at 22:44, from an outside address, and MFA not enrolled. The IT manager tells me Sachin Kale is on medical leave this week.",
+    "after": "So I cut the session at the VPN gateway in the Server room, and isolate eng-ws14, where the attacker landed and took credentials from lsass. Those credentials were adm.rjoshi's, used on fs02 at 23:20."
+   },
+   {
+    "say": "Now the CEO's questions. What did they take? The VPN session sent out about 1.8 gigabytes. Can we restore? backups.txt says the NAS backup was on the network and is encrypted too, but Thursday's tape is off site and verified.",
+    "after": "And who do we tell? CERT-In within six hours of noticing. Garnet noticed at 00:31 UTC, when the incident team was called, so the report is due at 06:31 UTC. I escalate GA-705 with all of that."
+   }
+  ],
+  "outro": "Stop the encryption, close the way in, isolate without switching off, then answer the business: what was taken, how to restore, and who to tell by when. Now take the night shift yourself."
+ },
+ "levels": {
+  "worked": "sem-x04-ransomware-night-shift",
+  "guided": "sem-x04-ransomware-night-shift--guided",
+  "solo": "sem-x04-ransomware-night-shift--solo"
+ },
+ "guide": "media/guides/sem-x04-ransomware-night-shift/index.html"
+}

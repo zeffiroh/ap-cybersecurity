@@ -37,7 +37,7 @@
       b.addEventListener("click", function () {
         var f = document.createElement("iframe");
         f.className = "sx-frame";
-        f.src = "https://www.youtube-nocookie.com/embed/" + b.getAttribute("data-yt") + "?autoplay=1&rel=0";
+        f.src = "https://www.youtube-nocookie.com/embed/" + b.getAttribute("data-yt") + "?autoplay=1&rel=0&cc_load_policy=1&cc_lang_pref=en";
         f.allow = "accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen";
         f.allowFullscreen = true;
         b.replaceWith(f);

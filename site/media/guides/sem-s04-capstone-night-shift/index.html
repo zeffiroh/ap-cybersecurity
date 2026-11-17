@@ -13,11 +13,70 @@
 <body><main><p class="kick">Seminar 4 · Capstone · written tutorial</p>
 <h1>Capstone A: the night shift</h1>
 <p class="meta">Practitioner &middot; about 270 min</p>
-<p>Run an overnight shift alone for a credit union client: an unlabelled, noisy queue of twelve alerts, one real intrusion hiding in it, and a morning team waiting for your escalation, a new detection and a shift report.</p>
+<p>Run an overnight shift alone for an accounting firm in Brisbane: an unlabelled, noisy queue of twelve alerts, one real intrusion hiding in it, and a morning team waiting for your escalation, a new detection and a shift report.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift&amp;runbook=sem-s04-capstone-night-shift">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift--guided&amp;runbook=sem-s04-capstone-night-shift--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s04-capstone-night-shift--solo&amp;runbook=sem-s04-capstone-night-shift--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>alerts-night.json</code>, <code>capture.pcap</code>, <code>dns.log</code>, <code>dns_stats.csv</code>, <code>eventlogs/Security.jsonl</code>, <code>eventlogs/Sysmon.jsonl</code>, <code>eventlogs/System.jsonl</code>, <code>fw_summary.txt</code>, <code>intel.json</code>, <code>process.csv</code>, <code>proxy.log</code>, <code>README.txt</code>.</p>
-<h2>1. Start of shift</h2>
-<p>You are the overnight analyst at a managed SOC. The client, Harbourline Credit Union, is starting its working day while you are on nights. The queue has <strong>twelve alerts and no severities</strong>: the client's old SIEM doesn't send them. One real intrusion is in there. The rest is ordinary noise.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>alerts-night.json</code>, <code>capture.pcap</code>, <code>dns.log</code>, <code>eventlogs/Security.jsonl</code>, <code>eventlogs/Sysmon.jsonl</code>, <code>eventlogs/System.jsonl</code>, <code>fw_sessions.csv</code>, <code>intel.json</code>, <code>process.csv</code>, <code>README.txt</code>.</p>
+<h2>1. How the night desk works</h2>
+<p>A capstone uses every program from seminars 2 and 3 at once, so start by seeing how they fit. Each program answers one kind of question, and a night shift moves through them in order:</p>
+<table>
+<thead>
+<tr>
+<th>Program</th>
+<th>The question it answers</th>
+<th>Reads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alert queue</td>
+<td>What do I have to decide tonight?</td>
+<td>alerts-night.json</td>
+</tr>
+<tr>
+<td>SIEM search</td>
+<td>How big is it: which hosts, how often, how much data?</td>
+<td>fw_sessions.csv, dns.log, process.csv, the event logs</td>
+</tr>
+<tr>
+<td>Event viewer</td>
+<td>What exactly ran on the laptop, started by what?</td>
+<td>eventlogs/*.jsonl</td>
+</tr>
+<tr>
+<td>Packet viewer</td>
+<td>What really crossed the wire, and to where?</td>
+<td>capture.pcap</td>
+</tr>
+<tr>
+<td>Indicators and ATT&amp;CK</td>
+<td>Has anyone seen this before, and what do we call it?</td>
+<td>intel.json</td>
+</tr>
+<tr>
+<td>Sigma rules</td>
+<td>How do we catch it sooner next time?</td>
+<td>the event logs</td>
+</tr>
+<tr>
+<td>Report builder</td>
+<td>What does the client need to decide, and what does the morning shift need to know?</td>
+<td>your notes</td>
+</tr>
+</tbody>
+</table>
+<p>The client tonight is <strong>Wattle &amp; Finch Accountants</strong> in Brisbane. Their working day is your night. Read <code>README.txt</code> first, then run the inventory search below: it shows which files the SIEM can search and how many events each holds. The alert queue and the intel feed are JSON, so the SIEM reads them too. The packet capture isn't in the SIEM; the packet viewer reads it.</p>
+<ul>
+<li>&#9744; Run the inventory search</li>
+<li>&#9744; Which file holds the most events? Which one is about the whole office, and which only about one laptop?</li>
+<li>&#9744; Note which program you would open for each kind of question</li>
+</ul>
+<blockquote>
+<p>Hint: <code>stats count by source sourcetype</code> makes one row per file: eight files, from 308 events. The firewall and DNS logs cover every laptop; the event logs and process list come from one laptop only.</p>
+</blockquote>
+<p><strong>Use SIEM search.</strong> Search: <code>* | stats count by source sourcetype</code></p>
+<p><strong>Question:</strong> Which evidence file holds the most events?</p>
+<h2>2. Start of shift</h2>
+<p>You are the overnight analyst at a managed SOC. The queue has <strong>twelve alerts and no severities</strong>: the client's old SIEM doesn't send them. One real intrusion is in there. The rest is ordinary noise.</p>
 <p>This is a capstone: the steps say what to deliver, not how. <strong>Hints cost one point each</strong> on the rubric, so open one only when you are stuck, and write down how many you opened.</p>
 <p>Start by hashing the evidence and reading the queue end to end before you touch anything.</p>
 <ul>
@@ -26,7 +85,7 @@
 <li>&#9744; Write down your first guess of which ones belong together: you will test it</li>
 </ul>
 <blockquote>
-<p>Hint: Group alerts by host first. Four different hosts appear more than once or not at all: which host has the most?</p>
+<p>Hint: Group alerts by host first. One laptop appears far more often than any other.</p>
 </blockquote>
 <p><strong>Question:</strong> How many alerts are in the night queue?</p>
 <pre><code>cd ~/case
@@ -34,7 +93,7 @@ sha256sum *.* eventlogs/*
 echo ---
 grep -c &#x27;&quot;id&quot;&#x27; alerts-night.json
 grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
-<h2>2. Work the queue</h2>
+<h2>3. Work the queue</h2>
 <p>Give every alert a disposition and a reason. A reason is a log line or a fact you checked, not a feeling. Severity is yours to judge: the queue doesn't tell you.</p>
 <ul>
 <li>&#9744; Every alert has a disposition</li>
@@ -43,83 +102,91 @@ grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
 <li>&#9744; Use "needs more information" only with a question someone can answer</li>
 </ul>
 <blockquote>
-<p>Hint: Five alerts are on fin-lt04 or about it. A program downloaded at 11:02 and a scheduled task at 11:04 on the same laptop are not a coincidence.</p>
+<p>Hint: Five alerts are on acc-lt03. A program from a three-day-old domain at 00:03, a remote access tool at 00:04 and a new program in ProgramData at 00:13 on the same laptop are not a coincidence.</p>
 </blockquote>
 <p><strong>Use the Alert queue on alerts-night.json.</strong></p>
 <p><strong>Question:</strong> Which host do the related alerts share?</p>
-<h2>3. Scope it with search</h2>
-<p>Before you escalate, know how big it is. Which hosts talk to the odd domain, how many times, and did anything get past the proxy?</p>
+<h2>4. Scope it with search</h2>
+<p>Before you escalate, know how big it is. Which laptop sent the most data out, where did it go, did anyone else talk to the same places, and what did the firewall stop?</p>
 <ul>
-<li>&#9744; Which client sends the most DNS queries? Is that normal for it? (dns_stats.csv)</li>
-<li>&#9744; Who else asked for cloudmetric.example?</li>
-<li>&#9744; What did the proxy let through and block for that laptop?</li>
-<li>&#9744; Write the same scoping search in KQL</li>
+<li>&#9744; Which host sent the most bytes out? Is that normal for it?</li>
+<li>&#9744; Who sends data to storage.cloudbox.example, and how much? (check intel.json: is that site allowed?)</li>
+<li>&#9744; Who else asked DNS for ledgerpro-support.example?</li>
+<li>&#9744; What did the firewall deny?</li>
+<li>&#9744; Write the cloud-storage search in KQL</li>
 </ul>
 <blockquote>
-<p>Hint: The very long names all end in cloudmetric.example. Count by <code>src_ip</code> to see who asks for it.</p>
+<p>Hint: <code>stats sum(bytes_out) as sent by src_host</code> adds up the bytes per laptop. Reception sends files to clients through cloud storage every day; compare its numbers with acc-lt03's.</p>
 </blockquote>
-<p><strong>Use SIEM search.</strong> Search: <code>source=*dns.log | stats count by src_ip | sort - count</code></p>
-<p><strong>Use SIEM search.</strong> Search: <code>source=*dns.log cloudmetric.example | stats count by src_ip</code></p>
-<p><strong>Use SIEM search.</strong> Search: <code>source=*proxy.log src_ip=10.70.0.44 | table _time action url category</code></p>
-<p><strong>Use SIEM search (KQL).</strong> Search: <code>dns | where query endswith "cloudmetric.example" | summarize count() by src_ip</code></p>
-<p><strong>Question:</strong> How many DNS queries did 10.70.0.44 send in dns.log?
-<strong>Question:</strong> How many different clients queried cloudmetric.example?
-<strong>Question:</strong> Which site did the proxy block?</p>
-<h2>4. Confirm on the host and the wire</h2>
-<p>Search results are a summary. Confirm on the host's own logs and on the packet capture: which program made the lookups, how it got there, and where the answers came from.</p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*fw_sessions.csv | stats sum(bytes_out) as sent by src_host | sort - sent</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*fw_sessions.csv dst_host=storage.cloudbox.example | stats count sum(bytes_out) as sent by src_host</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*dns.log ledgerpro-support.example | stats count by src_ip</code></p>
+<p><strong>Use SIEM search.</strong> Search: <code>source=*fw_sessions.csv action=deny | table _time src_host dst_host dport app</code></p>
+<p><strong>Use SIEM search (KQL).</strong> Search: <code>fw_sessions | where dst_host == "storage.cloudbox.example" | summarize sum(bytes_out) by src_host</code></p>
+<p><strong>Question:</strong> Which host sent the most data out?
+<strong>Question:</strong> How many hosts sent data to storage.cloudbox.example?
+<strong>Question:</strong> Which site did the firewall block for acc-lt03?</p>
+<h2>5. Confirm on the host and the wire</h2>
+<p>Search results are a summary. Confirm on the laptop's own logs and on the packet capture: which programs ran, which one sent the data, what it really is, and where the data went.</p>
 <ul>
-<li>&#9744; Sysmon event 1: what was downloaded, what did it copy itself as, which task did it create?</li>
-<li>&#9744; Sysmon event 22: which program made the TXT lookups?</li>
-<li>&#9744; Capture: which server answered the tunnel queries?</li>
+<li>&#9744; Sysmon event 1: follow the chain from the download to the copy tool</li>
+<li>&#9744; Sysmon event 1 shows OriginalFileName, the name the program was built with. Which program is hiding under a new name?</li>
+<li>&#9744; Sysmon event 3: which program connected to 203.0.113.150, and how many times?</li>
+<li>&#9744; Capture: find the TLS Client Hellos to the storage site</li>
 </ul>
 <blockquote>
-<p>Hint: In the packet viewer, the filter <code>dns.qry.name contains cloudmetric</code> shows the tunnel. Look at the destination of the answers' questions.</p>
+<p>Hint: In the packet viewer, the filter <code>tls.handshake.extensions_server_name contains cloudbox</code> shows the start of each upload stream. rclone is a real, free copy tool for cloud storage: useful to IT, and to anyone stealing files.</p>
 </blockquote>
+<p><strong>Use the Event viewer on eventlogs/Sysmon.jsonl.</strong></p>
 <p><strong>Use the Event viewer on eventlogs/Sysmon.jsonl.</strong></p>
 <p><strong>Use the Event viewer on eventlogs/Sysmon.jsonl.</strong></p>
 <p><strong>Use the Packet viewer on capture.pcap.</strong></p>
-<p><strong>Question:</strong> What file name does the malware use to look like the chat app?
-<strong>Question:</strong> What is the name of the scheduled task it created?
-<strong>Question:</strong> At what time (HH:MM) did the first tunnel query go out?
-<strong>Question:</strong> Which IP address is the attacker's name server?</p>
-<h2>5. Check the indicators</h2>
-<p>Pull every indicator out of the evidence and check it against the client's intel feed. Map what you saw to ATT&amp;CK so the morning team and the client speak the same language.</p>
+<p><strong>Question:</strong> Which domain did the remote access tool connect to?
+<strong>Question:</strong> What file name does the copy tool run under?
+<strong>Question:</strong> What is its real program name (OriginalFileName)?
+<strong>Question:</strong> At what time (HH:MM) did the copy that worked start?
+<strong>Question:</strong> Which IP address received the data?</p>
+<h2>6. Check the indicators</h2>
+<p>Pull every indicator out of the evidence and check it against the intel feed and the client's allow list. Map what you saw to ATT&amp;CK so the morning team and the client speak the same language.</p>
 <ul>
 <li>&#9744; Extract indicators from the logs</li>
-<li>&#9744; Which are on the intel feed, and which are new?</li>
+<li>&#9744; Which are on the feed, which are new, and which are on the allow list?</li>
+<li>&#9744; An allowed destination received the stolen files. What does that mean for blocking?</li>
 <li>&#9744; Map the behaviour to ATT&amp;CK techniques</li>
 <li>&#9744; Defang indicators before you paste them anywhere</li>
 </ul>
 <blockquote>
-<p>Hint: Download, scheduled task, PowerShell discovery, exfiltration over DNS: four techniques, four tiles on the heatmap.</p>
+<p>Hint: A phone call that talked the user into it, a remote access tool, three discovery commands, a download, a renamed program, and an upload to cloud storage.</p>
 </blockquote>
 <p><strong>Use the Indicators and ATT&amp;CK.</strong></p>
-<p><strong>Question:</strong> From which domain was the program downloaded?</p>
-<h2>6. Escalate</h2>
-<p>Write one escalation for the whole intrusion, not one per alert. The client's duty manager reads it on a phone.</p>
+<p><strong>Question:</strong> From which domain was the remote access program downloaded?</p>
+<h2>7. Escalate</h2>
+<p>Write one escalation for the whole intrusion, not one per alert. The client's practice principal reads it on a phone, between clients.</p>
 <ul>
-<li>&#9744; The ask first, with a time</li>
+<li>&#9744; The ask first, with a time in UTC and in Brisbane time</li>
 <li>&#9744; Severity and the fact that decided it</li>
 <li>&#9744; Know / don't know</li>
 <li>&#9744; What you have and haven't changed</li>
 </ul>
 <blockquote>
-<p>Hint: Say clearly that you have not touched the laptop. The client decides on isolation; you give them what they need to decide.</p>
+<p>Hint: Say clearly that you have not touched the laptop. The client decides on isolation; you give them what they need to decide. Client tax files are personal information, so the client may have to tell people: say what was copied, not just that something was.</p>
 </blockquote>
 <p><strong>Use the Report builder.</strong></p>
-<h2>7. Leave a new detection behind</h2>
-<p>The client's rule fired 32 minutes after the tunnel started. Write a better one: something the tunnel does that normal programs don't. Test it, and write what would make it noisy.</p>
+<h2>8. Leave a new detection behind</h2>
+<p>The client's upload rule (AL-8406) fired at 00:46, thirty minutes after the copy started, because it waits for 1 GB. Write a better one: something the copy tool did <strong>before</strong> any data moved, that normal programs don't do. Test it, and write what would make it noisy.</p>
 <ul>
-<li>&#9744; A Sigma rule on Sysmon DNS events</li>
-<li>&#9744; Test it: it should match the tunnel and not the browser</li>
+<li>&#9744; A Sigma rule on Sysmon process events</li>
+<li>&#9744; Test it: it should match the renamed copy tool and nothing else</li>
+<li>&#9744; When would it have fired, compared with AL-8406?</li>
 <li>&#9744; One tuning note</li>
 </ul>
 <blockquote>
-<p>Hint: Browsers and the Windows resolver live in Program Files and System32. The tunnel program lives in AppData and asks for TXT records.</p>
+<p>Hint: Sysmon records OriginalFileName from inside the program, so renaming the file doesn't change it. A program whose OriginalFileName is rclone.exe but whose file name is something else is hiding.</p>
 </blockquote>
 <p><strong>Use the Sigma rules.</strong></p>
-<p><strong>Question:</strong> How many events does your TXT-from-AppData rule match?</p>
-<h2>8. Shift report</h2>
+<p><strong>Question:</strong> How many events does your renamed-rclone rule match?
+<strong>Question:</strong> How many minutes before AL-8406 would it have fired?</p>
+<h2>9. Shift report</h2>
 <p>Close your shift. Everything open, by ID, with an owner. Everything closed in one line. What the morning should watch. Who you called and when. How many hints you opened.</p>
 <ul>
 <li>&#9744; Open items by ID with owners</li>
@@ -129,7 +196,7 @@ grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
 <li>&#9744; Hints opened</li>
 </ul>
 <p><strong>Use the Report builder.</strong></p>
-<h2>9. Hand in</h2>
+<h2>10. Hand in</h2>
 <p>Hand in this notebook. It carries your queue, searches, escalation, rule and shift report.</p>
 <p><strong>Rubric</strong></p>
 <table>
@@ -145,7 +212,7 @@ grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
 <td>6</td>
 </tr>
 <tr>
-<td>Scope: the one affected host, user and domain named, with the evidence</td>
+<td>Scope: the one affected host, user, tool and destination named, with the evidence</td>
 <td>4</td>
 </tr>
 <tr>
@@ -153,7 +220,7 @@ grep -E &#x27;&quot;(id|host|rule)&quot;&#x27; alerts-night.json</code></pre>
 <td>5</td>
 </tr>
 <tr>
-<td>New detection: a Sigma rule that catches the tunnel, tested, with a tuning note</td>
+<td>New detection: a Sigma rule that catches the renamed copy tool before data moves, tested, with a tuning note</td>
 <td>4</td>
 </tr>
 <tr>

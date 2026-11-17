@@ -77,9 +77,10 @@ def cmd_from(args):
 def check(path):
     bad = S.problems(path)
     for p in sorted(path.glob("*.sh")):
-        tested = subprocess.run(["bash", "-n"], input=S.read(p) + chr(10), capture_output=True, text=True, encoding="utf-8") if shutil.which("bash") else None
-        if tested and tested.returncode and re.search(r"syntax|unexpected", tested.stderr):
-            bad.append(f"{p.name}: " + tested.stderr.strip().replace("bash: ", ""))
+        tested = subprocess.run(["bash", "-n"], input=(S.read(p) + chr(10)).encode("utf-8"), capture_output=True) if shutil.which("bash") else None
+        err = tested.stderr.decode("utf-8", "replace") if tested else ""
+        if tested and tested.returncode and re.search(r"syntax|unexpected", err):
+            bad.append(f"{p.name}: " + err.strip().replace("bash: ", ""))
     for b in bad:
         print(f"  problem: {b}")
     for w in missing_refs(path):
@@ -267,6 +268,85 @@ def cmd_demo(args):
     sys.exit(demo.run(args.name, args.speed, args.level))
 
 
+def cmd_film(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import film
+    names = [n.strip() for n in args.name.split(",") if n.strip()]
+    bad = sum(film.run(n, args.keep) or 0 for n in names)
+    sys.exit(1 if bad else 0)
+
+
+def cmd_lecture(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import lecture
+    sys.exit(lecture.run(args.which))
+
+
+def cmd_voice(args):
+    sys.path.insert(0, str(ROOT / "tools"))
+    from studio import voice
+    sys.exit(voice.run(args.name, args.port, not args.no_open, args.mix))
+
+
+def step_titles(path):
+    out = []
+    for p in sorted(path.glob("[0-9]*.md")):
+        first = S.read(p).lstrip().splitlines()[:1]
+        out.append(first[0].lstrip("# ").strip() if first and first[0].startswith("#") else S.heading(p.stem).lstrip("# ").strip())
+    return out
+
+
+def script_md(path):
+    info = S.about(path)
+    sc = info.get("script") or {}
+    words = lambda x: len(re.findall(r"\S+", x or ""))
+    steps = sc.get("steps") or []
+    talk = words(sc.get("intro")) + words(sc.get("outro")) + sum(words(x) if isinstance(x, str) else words(x.get("say") or x.get("before")) + words(x.get("after")) for x in steps)
+    kind = info.get("kicker") or ("Free tutorial" if path.name.startswith("t-") else "Seminar")
+    title = re.sub(r"^" + re.escape(kind) + r":\s*", "", info.get("title", path.name))
+    lines = [f"# Lecture script: {title}", "",
+             f"{kind} · about {info.get('minutes', 30)} minutes of lab work · about {max(1, round(talk / 150))} minutes of narration", "",
+             "This is what `python tools/teach.py demo " + path.name + "` plays and captions, word for word, and what the voice studio",
+             "(`python tools/teach.py voice " + path.name + "`) shows you to read. Edit the words in seminar.json, then run",
+             "`python tools/teach.py script " + path.name + "` to refresh this file.", "", "## Opening", "", sc.get("intro") or "", ""]
+    files = sorted(path.glob("[0-9]*.md"))
+    at = words(sc.get("intro")) / 2.5 + 6
+    marks = []
+    for i, title in enumerate(step_titles(path)):
+        st = steps[i] if i < len(steps) else ""
+        before = st if isinstance(st, str) else (st.get("say") or st.get("before") or "")
+        after = "" if isinstance(st, str) else (st.get("after") or "")
+        body = S.read(files[i]) if i < len(files) else ""
+        seen = ["the step text"]
+        if files and i < len(files) and files[i].with_suffix(".sh").exists():
+            seen.append("the Linux cell")
+        if files and i < len(files) and files[i].with_suffix(".py").exists():
+            seen.append("the Python cell")
+        tools = re.findall(r"```tool (\w+)", body)
+        if tools:
+            seen.append("the " + ", ".join(dict.fromkeys(tools)) + " tool" + ("s" if len(set(tools)) > 1 else "") + " with the model answer")
+        marks.append((at, title))
+        at += (words(before) + words(after)) / 2.5 + 3.5 * len(tools) + 4 * (len(seen) > 1)
+        lines += [f"## {title}", "", before, ""]
+        if after:
+            lines += ["*After it runs:*", "", after, ""]
+        lines += ["On screen: " + ", ".join(seen) + ".", ""]
+    marks.append((at, "Wrap-up"))
+    lines += ["## Wrap-up", "", sc.get("outro") or "", "",
+              "## YouTube chapters (estimate; `python tools/teach.py demo " + path.name + "` writes the exact ones)", "", "```", "0:00 Opening"]
+    lines += [f"{int(t + 5) // 60}:{int(t + 5) % 60:02d} {n}" for t, n in marks] + ["```", ""]
+    nl = chr(10)
+    (path / "script.md").write_text(nl.join(lines).rstrip() + nl, encoding="utf-8", newline=nl)
+    return talk
+
+
+def cmd_script(args):
+    targets = [folder_of(args.name)] if args.name and args.name != "all" else [p for p in S.folders() if S.about(p).get("script")]
+    for path in targets:
+        talk = script_md(path)
+        print(f"{path.name}: script.md written, {talk} words, about {max(1, round(talk / 150))} minutes spoken")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="teach", description="Turn your seminar scripts into notebooks for the site.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -314,10 +394,26 @@ def main():
     p.add_argument("command", nargs=argparse.REMAINDER, help="-- then the command, for example: -- nmap -sV 10.0.0.5")
     p.set_defaults(fn=cmd_capture)
     p = sub.add_parser("demo", help="play a seminar lab's walkthrough by itself and save the video, subtitles, chapters and transcript")
-    p.add_argument("name", help="the seminar folder, for example f-evidence-notes-handoffs")
+    p.add_argument("name", help="a seminar folder such as f-evidence-notes-handoffs, several joined by commas, or tutorials, seminars, network or all")
     p.add_argument("--speed", type=float, default=1.0, help="1 is reading pace; 1.5 is quicker")
     p.add_argument("--level", choices=["", "guided", "solo"], default="", help="leave out for the walkthrough")
     p.set_defaults(fn=cmd_demo)
+    p = sub.add_parser("film", help="record a seminar's walkthrough with the real programs in a Linux desktop (needs Docker)")
+    p.add_argument("name", help="a seminar folder that has a film.json, or several joined by commas")
+    p.add_argument("--keep", action="store_true", help="keep the raw recording, and keep going if a scene fails")
+    p.set_defaults(fn=cmd_film)
+    p = sub.add_parser("script", help="write a lab's script.md from the narration in its seminar.json")
+    p.add_argument("name", nargs="?", default="all")
+    p.set_defaults(fn=cmd_script)
+    p = sub.add_parser("lecture", help="turn lecture decks into silent videos paced by the speaker notes, with subtitles and a read-along script")
+    p.add_argument("which", nargs="?", default="all", help="a lecture number such as 5, several such as 1,2,3, or all")
+    p.set_defaults(fn=cmd_lecture)
+    p = sub.add_parser("voice", help="record your voice over a silent video with a read-along prompt, then make the final video")
+    p.add_argument("name", help="the video folder, for example 24_data_security or t-your-first-sigma-rule")
+    p.add_argument("--port", type=int, default=8770)
+    p.add_argument("--no-open", action="store_true", help="don't open the browser")
+    p.add_argument("--mix", action="store_true", help="only make the final video from what you already recorded")
+    p.set_defaults(fn=cmd_voice)
     p = sub.add_parser("expected", help="run labs in the in-browser Linux and save each cell's real output")
     p.add_argument("case", nargs="?", help="one case id; all of them if left out")
     p.set_defaults(fn=cmd_expected)

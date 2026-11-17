@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation: Secure a small office written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Simulation · written tutorial</p>
+<h1>Simulation: Secure a small office</h1>
+<p class="meta">Beginner &middot; about 35 min</p>
+<p>A dental clinic&#x27;s monthly security visit: find the rogue access point, close the open doors, and keep the waiting-room Wi-Fi away from patient records.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-x03-secure-a-small-office&amp;runbook=sem-x03-secure-a-small-office">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-x03-secure-a-small-office--guided&amp;runbook=sem-x03-secure-a-small-office--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-x03-secure-a-small-office--solo&amp;runbook=sem-x03-secure-a-small-office--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>conn.csv</code>, <code>dhcp-leases.txt</code>, <code>firewall-rules.txt</code>, <code>inventory.csv</code>, <code>README.txt</code>, <code>switch-ports.txt</code>.</p>
+<h2>1. What is on the network</h2>
+<p>Start by finding out what's really there, then compare it with the clinic's own list. Anything on the network and not on the list is the first thing to explain.</p>
+<ul>
+<li>&#9744; Scan 10.40.0.0/24</li>
+<li>&#9744; Which address isn't in inventory.csv? What is it, and since when?</li>
+</ul>
+<blockquote>
+<p>Hint: dhcp-leases.txt shows the vendor and the day each device first appeared. switch-ports.txt shows which wall socket it's plugged into.</p>
+</blockquote>
+<p><strong>Question:</strong> Which address is on the network but not in the inventory?</p>
+<pre><code>nmap -sV 10.40.0.0/24
+echo ---
+cd ~/case
+grep 10.40.0.99 dhcp-leases.txt switch-ports.txt</code></pre>
+<h2>2. Close the doors</h2>
+<p>Telnet sends passwords in plain text: nothing should still offer it. Live wall sockets in empty rooms are an open invitation. A recorder with its installer's password is a camera anyone can watch.</p>
+<ul>
+<li>&#9744; Which devices offer Telnet (port 23)?</li>
+<li>&#9744; Which switch ports are live in rooms nobody uses?</li>
+<li>&#9744; Which device still has a default password?</li>
+</ul>
+<p><strong>Question:</strong> How many switch ports are live in rooms nobody uses?</p>
+<pre><code>cd ~/case
+grep -i &#x27;up&#x27; switch-ports.txt | grep -i &#x27;nothing&#x27;</code></pre>
+<h2>3. Keep the guests away from the patient records</h2>
+<p>Today the router lets the waiting-room Wi-Fi reach everything. conn.csv shows a guest phone talking to the NAS on 445. Rewrite the rules so guests reach the internet (web and DNS) and nothing inside.</p>
+<ul>
+<li>&#9744; Guests: DNS to the router, web to the internet, nothing else</li>
+<li>&#9744; The clinic keeps working: PCs to the NAS, the X-ray PC to its cloud</li>
+<li>&#9744; Run your rules in the Firewall program and check the guest-to-NAS flow is denied</li>
+</ul>
+<blockquote>
+<p>Hint: Rules are read top to bottom. Put the guest rules first, and end with <code>default deny</code>.</p>
+</blockquote>
+<p><strong>Question:</strong> How many guest connections to the NAS are in conn.csv?</p></main></body>
+</html>

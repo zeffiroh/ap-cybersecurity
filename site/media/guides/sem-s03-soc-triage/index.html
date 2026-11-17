@@ -13,118 +13,171 @@
 <body><main><p class="kick">Seminar 3 · written tutorial</p>
 <h1>SOC triage: alerts, phishing, threat intel and AI verdicts</h1>
 <p class="meta">Practitioner &middot; about 360 min</p>
-<p>Work a ten-alert queue the morning after a ransomware attack: triage five reported emails, write and test a YARA rule, check indicators against intel and map them to ATT&amp;CK, decode a suspicious command in CyberChef, and review an AI assistant&#x27;s verdicts.</p>
+<p>Work a ten-alert morning queue at a lake-side hotel group: triage five reported emails, write and test a YARA rule, check indicators against intel and map them to ATT&amp;CK, decode a suspicious command in CyberChef, and review an AI assistant&#x27;s verdicts, including one that obeyed text an attacker wrote.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-s03-soc-triage&amp;runbook=sem-s03-soc-triage">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-s03-soc-triage--guided&amp;runbook=sem-s03-soc-triage--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-s03-soc-triage--solo&amp;runbook=sem-s03-soc-triage--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>ai-verdicts.json</code>, <code>alerts-tuesday.json</code>, <code>intel.json</code>, <code>invoice.eml</code>, <code>known_bad.txt</code>, <code>mail.log</code>, <code>proxy.log</code>, <code>README.txt</code>, <code>reported/bank-details.eml</code>, <code>reported/hr-newsletter.eml</code>, <code>reported/password-expiry.eml</code>, <code>reported/webinar.eml</code>, <code>suspect/svchost-upd.strings.txt</code>.</p>
-<h2>1. Morning queue</h2>
-<p>It's Tuesday 3 Nov, the morning after the ransomware at Kestrel Logistics. Everyone is nervous, so everything is being reported. You have ten alerts. Your job is to close what is noise, finish what is already handled, and escalate only what needs a person now.</p>
-<p>Read the queue once end to end before you decide anything. Then hash the evidence.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>ai-verdicts.json</code>, <code>alerts-wednesday.json</code>, <code>intel.json</code>, <code>known_bad.txt</code>, <code>mail.log</code>, <code>proxy.log</code>, <code>README.txt</code>, <code>reported/gst-refund.eml</code>, <code>reported/guest-complaint.eml</code>, <code>reported/linen-offer.eml</code>, <code>reported/payslips.eml</code>, <code>reported/supplier-bank-change.eml</code>, <code>suspect/boarding-pass.strings.txt</code>, <code>travel.csv</code>.</p>
+<h2>1. How the alert queue works</h2>
+<p>Before you triage, learn the program. An alert queue (the triage console of a SOC) takes alerts from many sources, the mail gateway, the proxy, antivirus, sign-in logs and staff who press <strong>Report phishing</strong>, and lines them up for a person to decide.</p>
+<p>Every alert carries the same fields: an <strong>ID</strong>, the <strong>time</strong>, the <strong>rule</strong> that fired, the <strong>host</strong> and <strong>user</strong> it is about, a <strong>detail</strong> line, and the <strong>evidence</strong> files to open next. The queue doesn't decide anything. You give each alert one <strong>disposition</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Disposition</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>True positive: escalate</td>
+<td>Real, and a person must act now</td>
+</tr>
+<tr>
+<td>True positive: handled</td>
+<td>Real, and already contained (blocked, removed, quarantined)</td>
+</tr>
+<tr>
+<td>Benign: expected activity</td>
+<td>The rule worked, but what it saw is normal here</td>
+</tr>
+<tr>
+<td>False positive: rule fired wrongly</td>
+<td>The rule matched something it was never meant to catch</td>
+</tr>
+<tr>
+<td>Needs more information</td>
+<td>You can't decide yet: write the question and who can answer it</td>
+</tr>
+</tbody>
+</table>
+<p>The Linux cell shows the raw queue file, so you can see that the program is only reading JSON. The queue below is the one you will work today, at <strong>Lotus Lake Hotels</strong> in Udaipur. Don't set any dispositions yet: just open it and look around. Read <code>README.txt</code> first.</p>
 <ul>
-<li>&#9744; Read all ten alerts</li>
-<li>&#9744; Which alerts are about yesterday's incident, and which are new?</li>
-<li>&#9744; Which one has a deadline today?</li>
+<li>&#9744; Compare the raw JSON with how the queue shows the same alert</li>
+<li>&#9744; Open one alert's evidence list</li>
+<li>&#9744; Find the summary line that counts dispositions</li>
 </ul>
 <blockquote>
-<p>Hint: Look for money and a deadline. Attackers who can't get in through a laptop often try the payment process instead.</p>
+<p>Hint: The difference between "handled" and "benign" is whether anything bad happened. A blocked phishing click is handled; a scanner doing its job is benign.</p>
 </blockquote>
-<p><strong>Question:</strong> How many alerts are in the Tuesday queue?</p>
+<p><strong>Use the Alert queue on alerts-wednesday.json.</strong></p>
+<p><strong>Question:</strong> Which field of an alert lists the files to open next?
+<strong>Question:</strong> How many dispositions can you choose from?</p>
+<pre><code>cd ~/case
+head -c 700 alerts-wednesday.json; echo
+grep -c &#x27;&quot;id&quot;&#x27; alerts-wednesday.json</code></pre>
+<h2>2. Read the morning queue</h2>
+<p>It's Wednesday 11 November, the first busy week of the wedding season at Lotus Lake Hotels. Hotels are a favourite target at this time of year: bookings, advances to suppliers and guests' cards all move fast. You have ten alerts. Your job is to close what is noise, finish what is already handled, and escalate only what needs a person now.</p>
+<p>Read the queue once end to end before you decide anything. Then hash the evidence, so you can show later that nothing changed while you worked.</p>
+<ul>
+<li>&#9744; Hash every evidence file</li>
+<li>&#9744; Read all ten alerts</li>
+<li>&#9744; Which alerts are reported emails, and which come from machines?</li>
+<li>&#9744; Which one has money and a deadline today?</li>
+</ul>
+<blockquote>
+<p>Hint: Look for money and a deadline. Attackers who can't get past the mail filter often go after the payment process instead.</p>
+</blockquote>
+<p><strong>Question:</strong> How many alerts are in the Wednesday queue?
+<strong>Question:</strong> At what time (IST) does today's payment run close? (HH:MM)</p>
 <pre><code>cd ~/case
 sha256sum *.* reported/* suspect/*
 echo ---
-grep -E &#x27;&quot;(id|rule|host)&quot;&#x27; alerts-tuesday.json</code></pre>
-<h2>2. Triage the reported emails</h2>
+grep -E &#x27;&quot;(id|rule|host)&quot;&#x27; alerts-wednesday.json</code></pre>
+<h2>3. Triage the reported emails</h2>
 <p>Five emails were reported. For each one, read who <strong>really</strong> sent it (Return-Path and the Received line), what SPF, DKIM and DMARC said, where the link <strong>really</strong> goes, and which pressure tactics it uses. Then give a verdict: phishing, payment fraud (BEC), spam, or genuine.</p>
 <ul>
 <li>&#9744; Sender, Reply-To and Return-Path for each email</li>
-<li>&#9744; Authentication results</li>
+<li>&#9744; Authentication results, and which domain each result is about</li>
 <li>&#9744; The real link target, not the link text</li>
-<li>&#9744; Pressure tactics: urgency, secrecy, authority</li>
+<li>&#9744; Pressure tactics: urgency, secrecy, authority, fear of loss</li>
+<li>&#9744; Anything in the email that isn't meant for a human reader</li>
 <li>&#9744; A verdict for each</li>
 </ul>
 <blockquote>
-<p>Hint: In password-expiry.eml the link text says sso.kestrel-logistics.com, but the href goes somewhere else. In bank-details.eml the display name says CFO, but the address is a free mail account, and SPF, DKIM and DMARC all pass for that free mail domain.</p>
+<p>Hint: In guest-complaint.eml the link text says extranet.bookingpartner.example, but the href goes somewhere else. In supplier-bank-change.eml the display name says General Manager, but the address is a free mail account, and SPF, DKIM and DMARC all pass for that free mail domain. gst-refund.eml has a line in 1-pixel white text.</p>
 </blockquote>
 <p><strong>Use the Email triage.</strong></p>
-<p><strong>Question:</strong> Which domain does the password-expiry link really go to? (the host name)
+<p><strong>Question:</strong> Which host does the guest-complaint link really go to?
 <strong>Question:</strong> How many of the five emails are phishing or payment fraud?</p>
 <pre><code>cd ~/case/reported
 grep -H -E &#x27;^(From|Reply-To|Return-Path):&#x27; *.eml
 echo ---
 grep -H -o &#x27;spf=[a-z]*\|dkim=[a-z]*\|dmarc=[a-z]*&#x27; *.eml
 echo ---
-grep -o &#x27;href=&quot;[^&quot;]*&quot;&#x27; password-expiry.eml</code></pre>
-<h2>3. Work the queue</h2>
-<p>Now give all ten alerts a disposition and a one-line reason. <strong>Exactly one</strong> should be escalated: the one where a person must act in the next hour. Already-contained activity is "true positive: handled". A rule that fired on something harmless is "false positive".</p>
+grep -H -o &#x27;href=&quot;[^&quot;]*&quot;&#x27; *.eml
+echo ---
+grep -H &#x27;font-size:1px&#x27; *.eml</code></pre>
+<h2>4. Work the queue</h2>
+<p>Now give all ten alerts a disposition and a one-line reason. <strong>Exactly one</strong> should be escalated: the one where a person must act in the next few hours. Already-contained activity is "true positive: handled". Normal activity that a rule noticed is "benign". A rule that fired on something it was never meant to catch is "false positive".</p>
 <ul>
 <li>&#9744; Every alert has a disposition</li>
 <li>&#9744; One escalation</li>
-<li>&#9744; Each reason points at evidence</li>
+<li>&#9744; Each reason points at evidence (a log line, a header, a file)</li>
 <li>&#9744; Write the notes for the next shift</li>
 </ul>
 <blockquote>
-<p>Hint: AL-3106 runs every day at 09:00 under an IT service account. Decode the command in the next step before you decide.</p>
+<p>Hint: AL-4106 runs every night at 21:30 UTC under an IT service account. Decode the command in the next step before you decide. For AL-4109, open travel.csv.</p>
 </blockquote>
-<p><strong>Use the Alert queue on alerts-tuesday.json.</strong></p>
+<p><strong>Use the Alert queue on alerts-wednesday.json.</strong></p>
 <p><strong>Question:</strong> Which alert is the one to escalate?</p>
-<h2>4. Decode the suspicious command</h2>
-<p>AL-3106 is an encoded PowerShell command. Encoding hides what a command does, which is why attackers use it, but IT scripts sometimes use it too. Decode it before you judge it.</p>
-<p><a href="https://zeffiroh.github.io/ap-cybersecurity/cyberchef/#recipe=From_Base64%28%27A-Za-z0-9%252B/%253D%27,true,false%29Decode_text%28%27UTF-16LE%2520%281200%29%27%29&amp;input=UndCbEFIUUFMUUJEQUc4QWJRQndBSFVBZEFCbEFISUFTUUJ1QUdZQWJ3QWdBSHdBSUFCUEFIVUFkQUF0QUVZQWFRQnNBR1VBSUFCY0FGd0FhUUJ1QUhZQU1BQXhBRndBYVFCdUFIWUFaUUJ1QUhRQWJ3QnlBSGtBWEFBa0FHVUFiZ0IyQURvQVF3QlBBRTBBVUFCVkFGUUFSUUJTQUU0QVFRQk5BRVVBTGdCMEFIZ0FkQUE9">Open the command in CyberChef</a> (From Base64, then Decode text as UTF-16LE). Or decode it in the Linux cell.</p>
+<h2>5. Decode the suspicious command</h2>
+<p>AL-4106 is an encoded PowerShell command on pms01, the server that runs the hotel's booking system. Encoding hides what a command does, which is why attackers use it, but IT scripts sometimes use it too. Decode it before you judge it.</p>
+<p><a href="https://zeffiroh.github.io/ap-cybersecurity/cyberchef/#recipe=From_Base64%28%27A-Za-z0-9%252B/%253D%27,true,false%29Decode_text%28%27UTF-16LE%2520%281200%29%27%29&amp;input=UXdCdkFHMEFjQUJ5QUdVQWN3QnpBQzBBUVFCeUFHTUFhQUJwQUhZQVpRQWdBQzBBVUFCaEFIUUFhQUFnQUVRQU9nQmNBRkFBVFFCVEFGd0FSUUI0QUhBQWJ3QnlBSFFBWEFBcUFDQUFMUUJFQUdVQWN3QjBBR2tBYmdCaEFIUUFhUUJ2QUc0QVVBQmhBSFFBYUFBZ0FGd0FYQUJ1QUdFQWN3QXdBREVBWEFCd0FHMEFjd0F0QUdJQVlRQmpBR3NBZFFCd0FGd0FjQUJ0QUhNQUxRQWtBQ2dBUndCbEFIUUFMUUJFQUdFQWRBQmxBQ0FBTFFCR0FHOEFjZ0J0QUdFQWRBQWdBSGtBZVFCNUFIa0FUUUJOQUdRQVpBQXBBQzRBZWdCcEFIQUFJQUF0QUVZQWJ3QnlBR01BWlFBPQ==">Open the command in CyberChef</a> (From Base64, then Decode text as UTF-16LE). Or decode it in the Linux cell.</p>
 <ul>
 <li>&#9744; Decode the command</li>
 <li>&#9744; What does it do? Is anything in it harmful?</li>
 <li>&#9744; Which account runs it, and when?</li>
-<li>&#9744; Write the disposition and a note to IT: an encoded command in a scheduled task trips the alert every day</li>
+<li>&#9744; Write the disposition and a note to IT: an encoded command in a scheduled task trips the alert every night</li>
 </ul>
 <blockquote>
 <p>Hint: PowerShell's -EncodedCommand is Base64 of UTF-16LE text. On Linux, <code>base64 -d</code> decodes it and <code>tr -d '\000'</code> drops the zero bytes UTF-16 puts between letters.</p>
 </blockquote>
-<p><strong>Question:</strong> Which PowerShell command does AL-3106 run first? (the cmdlet name)</p>
-<pre><code>echo &#x27;RwBlAHQALQBDAG8AbQBwAHUAdABlAHIASQBuAGYAbwAgAHwAIABPAHUAdAAtAEYAaQBsAGUAIABcAFwAaQBuAHYAMAAxAFwAaQBuAHYAZQBuAHQAbwByAHkAXAAkAGUAbgB2ADoAQwBPAE0AUABVAFQARQBSAE4AQQBNAEUALgB0AHgAdAA=&#x27; | base64 -d | tr -d &#x27;\000&#x27;; echo</code></pre>
-<h2>5. A YARA rule for the lure</h2>
-<p>Write a YARA rule that finds the overdue-invoice lure in mail, so the mail gateway can catch the next one. Test it on <strong>every</strong> file in the case. The first rule below matches on the domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.</p>
+<p><strong>Question:</strong> Which PowerShell command does AL-4106 run? (the cmdlet name)</p>
+<pre><code>echo &#x27;QwBvAG0AcAByAGUAcwBzAC0AQQByAGMAaABpAHYAZQAgAC0AUABhAHQAaAAgAEQAOgBcAFAATQBTAFwARQB4AHAAbwByAHQAXAAqACAALQBEAGUAcwB0AGkAbgBhAHQAaQBvAG4AUABhAHQAaAAgAFwAXABuAGEAcwAwADEAXABwAG0AcwAtAGIAYQBjAGsAdQBwAFwAcABtAHMALQAkACgARwBlAHQALQBEAGEAdABlACAALQBGAG8AcgBtAGEAdAAgAHkAeQB5AHkATQBNAGQAZAApAC4AegBpAHAAIAAtAEYAbwByAGMAZQA=&#x27; | base64 -d | tr -d &#x27;\000&#x27;; echo</code></pre>
+<h2>6. A YARA rule for the lure</h2>
+<p>Write a YARA rule that finds the guest-complaint lure in mail, so the mail gateway can catch the next one. Test it on <strong>every</strong> file. The first rule below matches on the phishing domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.</p>
 <ul>
 <li>&#9744; Test the noisy rule: which files does it match? Are they emails?</li>
-<li>&#9744; Test the tuned rule: it should match only invoice.eml</li>
-<li>&#9744; Test the third rule on the malware's strings</li>
+<li>&#9744; Test the tuned rule: it should match only guest-complaint.eml</li>
+<li>&#9744; Test the third rule on the quarantined file's strings</li>
 <li>&#9744; Write one line on what each rule would miss</li>
 </ul>
 <blockquote>
-<p>Hint: The intel feed and the proxy log mention the domain too. A rule for email should need things only the email has: the subject, the link path and the threat.</p>
+<p>Hint: The intel feed, the block list, the alert queue and the proxy log all mention the domain too. A rule for email should need things only the email has: the subject, the link path and the threat.</p>
 </blockquote>
 <p><strong>Use the YARA rules.</strong></p>
 <p><strong>Use the YARA rules.</strong></p>
 <p><strong>Use the YARA rules.</strong></p>
 <p><strong>Question:</strong> How many files does the domain-only rule match?
 <strong>Question:</strong> How many files does the tuned lure rule match?</p>
-<h2>6. Indicators and intel</h2>
-<p>Pull every indicator out of the evidence, check it against the intel feed, and map the campaign to ATT&amp;CK. Your intel note lists each indicator <strong>defanged</strong> (kestrel-logistlcs[.]com), says which feed knows it, and says what to do: block, watch or ignore.</p>
+<h2>7. Indicators and intel</h2>
+<p>Pull every indicator out of the evidence, check it against the intel feed, and map what you saw to ATT&amp;CK. Your intel note lists each indicator <strong>defanged</strong> (login-verify[.]example), says which source knows it, and says what to do: block, watch or ignore.</p>
 <ul>
 <li>&#9744; Extract indicators</li>
 <li>&#9744; Which are on the feed, and from which source?</li>
-<li>&#9744; Which internal names and addresses must not be blocked?</li>
-<li>&#9744; Map the campaign to ATT&amp;CK</li>
+<li>&#9744; Which names and addresses must not be blocked?</li>
+<li>&#9744; Map the three campaigns to ATT&amp;CK: the fake booking partner, the fake GST refund and the USB stealer, plus the payment fraud</li>
 <li>&#9744; Write the intel note</li>
 </ul>
 <blockquote>
-<p>Hint: The feed also lists internal assets as benign. Blocking intranet.kestrel.lan would be a bad morning.</p>
+<p>Hint: The feed also lists the real booking-partner extranet and internal systems as benign. Blocking extranet.bookingpartner.example would stop Reservations from working.</p>
 </blockquote>
 <p><strong>Use the Indicators and ATT&amp;CK.</strong></p>
-<p><strong>Question:</strong> Which source on the feed reported kestrel-logistlcs.com?</p>
-<h2>7. Review the AI assistant's verdicts</h2>
-<p>The SOC's AI triage assistant gave a verdict on every alert. It is fast and usually right, but it only sees the alert text, not your evidence. Agree, or override it and say why. <strong>Every override needs a fact</strong> from the evidence.</p>
+<p><strong>Question:</strong> Which source on the feed reported bookingpartner-extranet.login-verify.example?</p>
+<h2>8. Review the AI assistant's verdicts</h2>
+<p>The SOC's AI triage assistant gave a verdict on every alert. It is fast and usually right, but it only sees the alert text, not your evidence, and it reads <strong>everything</strong> in that text, including words an attacker wrote. Agree, or override it and say why. <strong>Every override needs a fact</strong> from the evidence.</p>
 <ul>
 <li>&#9744; Read each verdict and its reason</li>
 <li>&#9744; Agree or override</li>
 <li>&#9744; For each override, the fact that proves it wrong</li>
-<li>&#9744; Which kind of mistake does it make: too trusting, or too alarmed?</li>
+<li>&#9744; For each override, the kind of mistake: too trusting, too alarmed, missing context, or obeying text an attacker wrote</li>
 </ul>
 <blockquote>
-<p>Hint: Three verdicts are wrong. One trusted a display name. One was alarmed by encoding without decoding it. One didn't know about the VPN exit.</p>
+<p>Hint: Four verdicts are wrong. One trusted a display name. One believed a sentence inside the email that was written for it. One was alarmed by encoding without decoding it. One didn't know about the trade show.</p>
 </blockquote>
 <p><strong>Use the AI security simulator on ai-verdicts.json.</strong></p>
 <p><strong>Question:</strong> How many AI verdicts did you override?</p>
-<h2>8. Escalate the payment fraud</h2>
-<p>Write the one escalation. The person reading it is the Finance controller, who must stop a payment before 3 pm. Put the ask first, and say what you have <strong>not</strong> done (you didn't reply to the sender).</p>
+<h2>9. Escalate the payment fraud</h2>
+<p>Write the one escalation. The person reading it is the Finance Controller, Pooja Mathur, who must stop a payment before 2 pm IST. Put the ask first, and say what you have <strong>not</strong> done (you didn't reply to the sender).</p>
 <ul>
 <li>&#9744; The ask, with a time in the reader's time zone and in UTC</li>
 <li>&#9744; Why it is high</li>
@@ -132,10 +185,10 @@ grep -o &#x27;href=&quot;[^&quot;]*&quot;&#x27; password-expiry.eml</code></pre>
 <li>&#9744; Where the evidence is</li>
 </ul>
 <blockquote>
-<p>Hint: A call to the CFO on a number you already have is the fastest way to confirm. Never use contact details from the suspicious email.</p>
+<p>Hint: A call on a number you already have is the fastest way to confirm. Never use contact details from the suspicious email.</p>
 </blockquote>
 <p><strong>Use the Report builder.</strong></p>
-<h2>9. Hand in</h2>
+<h2>10. Hand in</h2>
 <p>Hand in this notebook. It carries your dispositions, email verdicts, YARA tests, intel note, AI review and escalation.</p>
 <p><strong>Rubric</strong></p>
 <table>
@@ -167,7 +220,7 @@ grep -o &#x27;href=&quot;[^&quot;]*&quot;&#x27; password-expiry.eml</code></pre>
 <td>4</td>
 </tr>
 <tr>
-<td>AI-verdict review log: every verdict agreed or overridden, each override backed by evidence</td>
+<td>AI-verdict review log: every verdict agreed or overridden, each override backed by evidence, including the alert that carried text written for the AI</td>
 <td>4</td>
 </tr>
 <tr>

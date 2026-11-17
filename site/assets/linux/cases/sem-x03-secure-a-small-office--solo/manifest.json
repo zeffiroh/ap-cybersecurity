@@ -1,0 +1,253 @@
+{
+ "order": 303,
+ "title": "Simulation: Secure a small office",
+ "kicker": "Simulation",
+ "units": [
+  2,
+  3
+ ],
+ "level": "Beginner",
+ "minutes": 35,
+ "summary": "A dental clinic's monthly security visit: find the rogue access point, close the open doors, and keep the waiting-room Wi-Fi away from patient records.",
+ "tools": [
+  "Terminal (nmap)",
+  "Server room",
+  "Firewall and segmentation"
+ ],
+ "titlePrefix": "Simulation: Secure a small office",
+ "teacher": true,
+ "id": "sem-x03-secure-a-small-office--solo",
+ "sim": {
+  "title": "Secure a small office",
+  "role": "IT contractor, monthly security visit",
+  "start": "2026-11-14T08:45:00Z",
+  "speed": 1,
+  "pins": [
+   "files",
+   "terminal",
+   "rack",
+   "tool-firewall",
+   "chat",
+   "notes"
+  ],
+  "first": true,
+  "cast": {
+   "lead": {
+    "name": "Anita Thomas",
+    "role": "Practice manager"
+   },
+   "dr": {
+    "name": "Dr Menon",
+    "role": "Dentist and owner"
+   }
+  },
+  "story": "It's Saturday 14 November 2026 at Saffron Dental Care in Kochi. The clinic is closed, and you're the IT contractor on the monthly security visit.\n\nThe practice manager wants three things: find anything on the network that shouldn't be there, close the doors that don't need to be open, and keep the waiting-room Wi-Fi away from patient records.\n\nYou have a terminal with nmap, the Server room (the clinic's rack: shut a port, tag a device, export the inventory) and the Firewall program with the router's rules.",
+  "events": [
+   {
+    "at": 1,
+    "chat": "lead",
+    "text": "Morning! The clinic's all yours till lunch. The device list and the switch map are in the case folder. Shout if you find anything odd."
+   },
+   {
+    "after": "rogue",
+    "chat": "lead",
+    "text": "A TP-Link in the waiting room? Oh. One of the receptionists said the Wi-Fi was weak by the chairs. I think her husband brought a router in last Monday."
+   },
+   {
+    "after": "cut",
+    "chat": "dr",
+    "text": "Anita told me. Thank you for catching it. Please make sure the waiting-room Wi-Fi can't see our records either."
+   },
+   {
+    "after": "fw",
+    "chat": "lead",
+    "text": "Brilliant. Can you send me the updated asset list for our files before you go?"
+   }
+  ],
+  "replies": [
+   {
+    "match": "telnet|password|camera|cctv|recorder",
+    "who": "lead",
+    "text": "The camera man set it up in 2023 and nobody's touched it since. Please fix whatever needs fixing and tell me what to ask him."
+   }
+  ],
+  "objectives": [
+   {
+    "id": "scan",
+    "text": "Scan the clinic network with nmap",
+    "points": 10,
+    "on": {
+     "event": "terminal.command",
+     "cmd": "~nmap.*10\\.40\\.0\\."
+    },
+    "hint": "In a terminal: nmap -sV 10.40.0.0/24"
+   },
+   {
+    "id": "rogue",
+    "text": "Which address is on the network but not in the clinic's inventory?",
+    "ask": "IP address",
+    "answer": [
+     "10.40.0.99"
+    ],
+    "points": 15,
+    "hint": "Compare the scan (or dhcp-leases.txt) with inventory.csv. One device appeared on 9 November."
+   },
+   {
+    "id": "what",
+    "text": "What kind of device is it?",
+    "ask": "Device",
+    "answer": [
+     "~access ?point|router|wi-?fi|tp-?link|wr840"
+    ],
+    "after": "rogue",
+    "points": 10,
+    "hint": "dhcp-leases.txt says TP-Link TL-WR840N; its web page title says Wireless N Router. It's plugged into wall socket W1 in the waiting room."
+   },
+   {
+    "id": "cut",
+    "text": "Cut the rogue device off at the switch",
+    "after": "rogue",
+    "points": 15,
+    "on": {
+     "event": "rack.port",
+     "ip": "10.40.0.99",
+     "shut": true
+    },
+    "hint": "Server room, click 10.40.0.99, Shut its ports."
+   },
+   {
+    "id": "telnet1",
+    "text": "Turn off Telnet on the switch",
+    "points": 10,
+    "on": {
+     "event": "rack.port",
+     "ip": "10.40.0.2",
+     "port": "23",
+     "shut": true
+    },
+    "hint": "Server room, sw1, port 23: Shut."
+   },
+   {
+    "id": "telnet2",
+    "text": "Turn off Telnet on the printer",
+    "points": 10,
+    "on": {
+     "event": "rack.port",
+     "ip": "10.40.0.30",
+     "port": "23",
+     "shut": true
+    },
+    "hint": "Server room, the printer, port 23: Shut."
+   },
+   {
+    "id": "rooms",
+    "text": "How many switch ports are live in rooms nobody uses?",
+    "ask": "Number",
+    "answer": [
+     "2",
+     "two"
+    ],
+    "points": 10,
+    "hint": "switch-ports.txt: consult room 3 (port 7) and the store room (port 11) are up with nothing plugged in."
+   },
+   {
+    "id": "cam",
+    "text": "Tag the CCTV recorder for hardening: it still has its installer's password",
+    "points": 10,
+    "on": {
+     "event": "rack.tag",
+     "ip": "10.40.0.40",
+     "tag": "patch"
+    },
+    "hint": "Server room, cam-nvr, Review: Needs patching or hardening. Its login page title gives away admin/12345."
+   },
+   {
+    "id": "fw",
+    "text": "Rewrite the router rules: guests reach the internet only, and run them in the Firewall program",
+    "points": 20,
+    "on": {
+     "event": "tool.result",
+     "tool": "firewall",
+     "data.rules": "~^(?![\\s\\S]*allow\\s+any\\s+guest\\s*->\\s*any\\b)[\\s\\S]*guest\\s*->\\s*internet"
+    },
+    "hint": "Replace 'allow any guest -> any' with: allow udp guest -> 10.40.0.1:53, allow tcp guest -> internet:80,443, deny any guest -> clinic. Keep 'allow any clinic -> any' and 'default deny'."
+   },
+   {
+    "id": "export",
+    "text": "Export the asset inventory for the practice manager",
+    "after": "fw",
+    "points": 5,
+    "on": {
+     "event": "rack.export"
+    },
+    "hint": "Server room, Export CSV."
+   }
+  ],
+  "debrief": "A strong visit starts with a scan of 10.40.0.0/24 compared against the clinic's own list. 10.40.0.99 isn't on it: dhcp-leases.txt says a TP-Link TL-WR840N appeared on 9 November, and switch-ports.txt puts it on wall socket W1 in the waiting room. A home router plugged into a clinic network is a back door anyone in the waiting room can use, and conn.csv shows it already talking to the NAS. Cut it off at the switch first, then explain kindly to the person who brought it.\n\nThen close the doors: Telnet on the switch and the printer, the two live sockets in empty rooms (consult room 3 and the store room), and the CCTV recorder still using its installer's password. Finally, the rule that matters most for a clinic: guests get DNS and the web, never the patient records. Run the rules in the Firewall program and check the guest-to-NAS flow is now denied, then hand the manager the updated inventory.",
+  "pass": 70
+ },
+ "files": [
+  "case/conn.csv",
+  "case/dhcp-leases.txt",
+  "case/firewall-rules.txt",
+  "case/inventory.csv",
+  "case/README.txt",
+  "case/switch-ports.txt",
+  "net/dns.txt",
+  "net/hosts.txt"
+ ],
+ "script": {
+  "intro": "Hello, and welcome to a simulation. Today you're the IT contractor for a small dental clinic. No attacker, no alarm, just a Saturday visit. And that's exactly when most real problems are found: the ones nobody noticed.",
+  "steps": [
+   {
+    "say": "First, what's really on the network. I scan 10.40.0.0/24 and compare it with the clinic's own inventory.",
+    "after": "Everything matches except 10.40.0.99. The DHCP leases say it's a TP-Link router that first appeared on Monday, and the switch map puts it on the wall socket in the waiting room. Somebody plugged in a home router to boost the Wi-Fi."
+   },
+   {
+    "say": "I cut it off at the switch from the Server room, then close the other doors: Telnet on the switch and on the printer, and I tag the CCTV recorder, which still has its installer's password.",
+    "after": "Two live sockets in empty rooms go on the list for the manager too: consult room 3 and the store room."
+   },
+   {
+    "say": "The big one: the waiting-room Wi-Fi can reach everything, and a guest phone has been talking to the NAS. I rewrite the router rules: guests get DNS and the web, nothing inside, and default deny at the end.",
+    "after": "The Firewall program replays a week of real connections against my rules. The guest-to-NAS flow is now denied and the clinic's own traffic still works. I export the updated inventory for the manager."
+   }
+  ],
+  "outro": "Know what's there, close what doesn't need to be open, separate guests from patient data, and leave the owner a clear list. Now try your own visit."
+ },
+ "base": "sem-x03-secure-a-small-office",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "sem-x03-secure-a-small-office",
+  "guided": "sem-x03-secure-a-small-office--guided",
+  "solo": "sem-x03-secure-a-small-office--solo"
+ },
+ "guide": "media/guides/sem-x03-secure-a-small-office/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Simulation: Secure a small office\n\nA dental clinic's monthly security visit: find the rogue access point, close the open doors, and keep the waiting-room Wi-Fi away from patient records.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `conn.csv`, `dhcp-leases.txt`, `firewall-rules.txt`, `inventory.csv`, `README.txt`, `switch-ports.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. What is on the network\n\nStart by finding out what's really there, then compare it with the clinic's own list. Anything on the network and not on the list is the first thing to explain.\n\n- [ ] Scan 10.40.0.0/24\n- [ ] Which address isn't in inventory.csv? What is it, and since when?\n\n\n?> Which address is on the network but not in the inventory? :: sha256:9918c7106d81ec7dad99b332eb70b2401608881d5ad15dea369e0eb46b130ded"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "nmap -sV 10.40.0.0/24\necho ---\ncd ~/case\ngrep 10.40.0.99 dhcp-leases.txt switch-ports.txt"
+  },
+  {
+   "t": "md",
+   "s": "## 2. Close the doors\n\nTelnet sends passwords in plain text: nothing should still offer it. Live wall sockets in empty rooms are an open invitation. A recorder with its installer's password is a camera anyone can watch.\n\n- [ ] Which devices offer Telnet (port 23)?\n- [ ] Which switch ports are live in rooms nobody uses?\n- [ ] Which device still has a default password?\n\n?> How many switch ports are live in rooms nobody uses? :: sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case\ngrep -i 'up' switch-ports.txt | grep -i 'nothing'"
+  },
+  {
+   "t": "md",
+   "s": "## 3. Keep the guests away from the patient records\n\nToday the router lets the waiting-room Wi-Fi reach everything. conn.csv shows a guest phone talking to the NAS on 445. Rewrite the rules so guests reach the internet (web and DNS) and nothing inside.\n\n- [ ] Guests: DNS to the router, web to the internet, nothing else\n- [ ] The clinic keeps working: PCs to the NAS, the X-ray PC to its cloud\n- [ ] Run your rules in the Firewall program and check the guest-to-NAS flow is denied\n\n\n?> How many guest connections to the NAS are in conn.csv? :: sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 ## 6. Rank every finding
 
-Forty findings and one team: what first? The register gives each finding a CVSS vector and two facts that matter more than the score: is it reachable from the internet, and is it being exploited? The CVSS tool scores each vector and ranks the register.
+Ten findings and one team: what first? The register gives each finding a CVSS vector and two facts that matter more than the score: is it reachable from the internet, and is it being exploited? The CVSS tool scores each vector and ranks the register.
 
 ```tool patch
 {"vec": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H", "n": 10, "blank": ["vec"]}

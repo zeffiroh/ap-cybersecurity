@@ -6,7 +6,7 @@ app02     10.60.1.22    reporting server: runs SQL reports and the "Nightly KPI 
 hd-pc04   10.60.2.31    helpdesk PC, used by h.verma
 
 What happened, as far as we know at 13:00: h.verma's password was phished on Monday. On Tuesday someone used it from hd-pc04
-(remote control tool left running), and by lunchtime the cloud audit trail showed a new user nobody created.
+(remote control tool left running), and at 12:09 UTC (17:39 in Hyderabad) the cloud audit trail showed a new user nobody created.
 
 What you have:
   identity/users.csv, identity/ad_edges.csv   directory export and the relationship graph (who can control what)

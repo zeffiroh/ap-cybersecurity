@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice studio</title>
+<style>
+:root{--bg:#0e1116;--panel:#171b22;--line:#2a303a;--ink:#f4f1ea;--dim:#9aa3ad;--accent:#7fd4a8;--rec:#e5484d;--warn:#e0a100}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid var(--line)}
+header h1{font:600 18px/1.2 inherit;margin:0;flex:1}
+header small{color:var(--dim)}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:18px;padding:18px 22px}
+@media (max-width:980px){main{grid-template-columns:1fr}}
+video{width:100%;background:#000;border:1px solid var(--line);border-radius:6px;display:block}
+.prompt{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;min-height:340px}
+.prompt .lab{font:600 12px/1 inherit;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+#now{font:500 30px/1.38 Georgia,serif;min-height:170px}
+#next{font:400 19px/1.45 Georgia,serif;color:var(--dim)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+button,select{font:600 14px "Segoe UI",system-ui,sans-serif;padding:9px 16px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+#rec{background:var(--rec);border-color:var(--rec)}
+#finish{background:var(--accent);border-color:var(--accent);color:#0b1a12}
+.meter{flex:1;min-width:120px;height:10px;background:#000;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .08s}
+.time{font:600 15px ui-monospace,Consolas,monospace;color:var(--dim)}
+.track{position:relative;height:16px;background:#000;border:1px solid var(--line);border-radius:4px;margin-top:12px;cursor:pointer}
+.track .seg{position:absolute;top:0;bottom:0;background:rgba(127,212,168,.45)}
+.track .chap{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--warn)}
+.track .head{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff}
+.status{color:var(--dim);margin:10px 0 0}
+.status.live{color:var(--rec);font-weight:600}
+.help{color:var(--dim);font-size:14px;border-top:1px solid var(--line);padding-top:12px}
+.help b{color:var(--ink)}
+kbd{font:12px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:3px;padding:1px 5px}
+#count{position:fixed;inset:0;display:none;place-items:center;font:700 160px Georgia,serif;background:rgba(14,17,22,.7)}
+#done a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header><h1 id="title">Voice studio</h1><small id="name"></small></header>
+<main>
+  <section>
+    <video id="v" playsinline preload="auto" muted></video>
+    <div class="track" id="track" title="Click to move to that point"><div class="head" id="head"></div></div>
+    <div class="bar">
+      <label>Start from <select id="from"></select></label>
+      <button id="rec">● Record from here</button>
+      <button id="pause" disabled>Pause</button>
+      <button id="stop" disabled>Stop and keep</button>
+      <span class="time" id="clock">0:00</span>
+    </div>
+    <div class="bar">
+      <span>Mic</span><div class="meter"><i id="lvl"></i></div>
+      <button id="finish">Make the final video</button>
+    </div>
+    <p class="status" id="status">Loading…</p>
+    <p class="status" id="done"></p>
+  </section>
+  <aside class="prompt">
+    <div class="lab" id="where">Read this</div>
+    <div id="now">Press Record. The video plays and the line to read shows here.</div>
+    <div class="lab">Next</div>
+    <div id="next"></div>
+    <div class="help">
+      <p><b>How it works.</b> The video plays silently while you read each line in your own words. Pause whenever you need to: the video waits for you, so your voice stays in step.</p>
+      <p><b>A mistake?</b> Stop, pick the chapter before it in <i>Start from</i>, and record again. Recording from a point replaces everything after it and keeps everything before it.</p>
+      <p><b>Keys:</b> <kbd>R</kbd> record, <kbd>Space</kbd> pause or resume, <kbd>S</kbd> stop and keep.</p>
+      <p>When the last chapter is done, press <b>Make the final video</b>. The voiced video is saved next to the silent one, with the sound levelled for YouTube.</p>
+    </div>
+  </aside>
+</main>
+<div id="count"></div>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var v = $("v"), cues = [], chapters = [], segs = [], info = null;
+  var stream = null, rec = null, chunks = [], at = 0, live = false, paused = false;
+
+  function clock(s) {
+    s = Math.max(0, Math.floor(s));
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0");
+  }
+  function secs(t) {
+    var p = t.split(":").map(Number);
+    return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+  }
+  function parseVtt(text) {
+    var out = [];
+    text.replace(/\r/g, "").split(/\n\n+/).forEach(function (block) {
+      var m = /(\d+:\d+:\d+\.\d+|\d+:\d+\.\d+)\s+-->\s+(\d+:\d+:\d+\.\d+|\d+:\d+\.\d+)\n([\s\S]+)/.exec(block);
+      if (m) out.push({ s: secs(m[1]), e: secs(m[2]), t: m[3].trim() });
+    });
+    return out;
+  }
+  function status(t, on) { $("status").textContent = t; $("status").className = "status" + (on ? " live" : ""); }
+  function draw() {
+    var d = v.duration || 1, tr = $("track");
+    tr.querySelectorAll(".seg,.chap").forEach(function (x) { x.remove(); });
+    chapters.forEach(function (c) { var e = document.createElement("div"); e.className = "chap"; e.style.left = (c.t / d * 100) + "%"; e.title = c.name; tr.appendChild(e); });
+    segs.forEach(function (ms, i) {
+      var s = ms / 1000, e = i + 1 < segs.length ? segs[i + 1] / 1000 : (live && i === segs.length - 1 ? v.currentTime : s);
+      var el = document.createElement("div"); el.className = "seg"; el.style.left = (s / d * 100) + "%"; el.style.width = Math.max(0.3, (e - s) / d * 100) + "%"; tr.appendChild(el);
+    });
+  }
+  function fillFrom() {
+    var sel = $("from"), opts = [{ t: 0, name: "The beginning" }].concat(chapters.filter(function (c) { return c.t > 0; }));
+    var last = segs.length ? segs[segs.length - 1] / 1000 : 0;
+    sel.innerHTML = opts.map(function (c) { return '<option value="' + c.t + '">' + clock(c.t) + "  " + c.name.replace(/</g, "&lt;") + "</option>"; }).join("");
+    var pick = 0;
+    opts.forEach(function (c) { if (c.t <= last + 0.5) pick = c.t; });
+    sel.value = String(pick);
+  }
+  function tick() {
+    var t = v.currentTime, i = 0;
+    while (i < cues.length && cues[i].e < t) i++;
+    var c = cues[i], n = cues[i + 1];
+    $("now").textContent = c ? (c.s <= t + 0.4 ? c.t : "…") : "";
+    $("next").textContent = c && c.s > t + 0.4 ? c.t : (n ? n.t : "");
+    var ch = chapters.filter(function (x) { return x.t <= t + 0.01; }).pop();
+    $("where").textContent = ch ? ch.name : "Read this";
+    $("clock").textContent = clock(t) + " / " + clock(v.duration || 0);
+    $("head").style.left = (t / (v.duration || 1) * 100) + "%";
+    if (live) draw();
+    requestAnimationFrame(tick);
+  }
+  function meter() {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)(), src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
+    an.fftSize = 512;
+    src.connect(an);
+    var buf = new Uint8Array(an.fftSize);
+    (function loop() {
+      an.getByteTimeDomainData(buf);
+      var peak = 0;
+      for (var i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+      $("lvl").style.width = Math.min(100, peak / 128 * 140) + "%";
+      $("lvl").style.background = peak > 118 ? "var(--rec)" : "var(--accent)";
+      requestAnimationFrame(loop);
+    })();
+  }
+  function mic() {
+    if (stream) return Promise.resolve(stream);
+    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } }).then(function (s) { stream = s; meter(); return s; });
+  }
+  function countdown() {
+    var box = $("count"), n = 3;
+    box.style.display = "grid";
+    return new Promise(function (ok) {
+      (function step() {
+        if (!n) { box.style.display = "none"; ok(); return; }
+        box.textContent = n--; setTimeout(step, 800);
+      })();
+    });
+  }
+  function buttons() {
+    $("rec").disabled = live;
+    $("pause").disabled = !live;
+    $("stop").disabled = !live;
+    $("finish").disabled = live || !segs.length;
+    $("from").disabled = live;
+    $("pause").textContent = paused ? "Resume" : "Pause";
+  }
+  function start() {
+    if (live) return;
+    mic().then(function () {
+      at = +$("from").value || 0;
+      v.currentTime = at;
+      return countdown();
+    }).then(function () {
+      chunks = [];
+      var type = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      rec = new MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 128000 });
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.start(1000);
+      live = true; paused = false;
+      segs = segs.filter(function (ms) { return ms < at * 1000; }).concat([Math.round(at * 1000)]);
+      v.play();
+      buttons();
+      status("Recording from " + clock(at) + ". Read the line on the right.", true);
+    }).catch(function (e) { status("The microphone didn't start: " + e.message); });
+  }
+  function pause() {
+    if (!live) return;
+    paused = !paused;
+    if (paused) { rec.pause(); v.pause(); status("Paused at " + clock(v.currentTime) + ". Take a breath, then Resume.", false); }
+    else { rec.resume(); v.play(); status("Recording.", true); }
+    buttons();
+  }
+  function stop() {
+    if (!live) return;
+    v.pause();
+    var started = at;
+    rec.onstop = function () {
+      var blob = new Blob(chunks, { type: rec.mimeType });
+      status("Saving…");
+      fetch("/segment?at=" + started, { method: "POST", body: blob }).then(function (r) { return r.json(); }).then(function (d) {
+        segs = d.segments || segs;
+        fillFrom(); draw();
+        status("Kept " + clock(v.currentTime - started) + " of voice from " + clock(started) + ". Carry on from the next chapter, or make the final video.");
+        buttons();
+      }).catch(function (e) { status("Couldn't save: " + e.message); });
+    };
+    rec.stop();
+    live = false; paused = false;
+    buttons();
+  }
+  function finish() {
+    if (live || !segs.length) return;
+    $("finish").disabled = true;
+    status("Making the final video. A long lecture takes a few minutes…");
+    fetch("/finish", { method: "POST" }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.error) { status(d.error); buttons(); return; }
+      status("Done.");
+      $("done").innerHTML = 'Saved <b>' + d.name.replace(/</g, "&lt;") + '</b> next to the silent video. <a href="/media/' + encodeURIComponent(d.name) + '" target="_blank">Watch it</a>.';
+      buttons();
+    }).catch(function (e) { status("Couldn't make it: " + e.message); buttons(); });
+  }
+  v.addEventListener("waiting", function () { if (live && !paused && rec.state === "recording") rec.pause(); });
+  v.addEventListener("playing", function () { if (live && !paused && rec.state === "paused") rec.resume(); });
+  v.addEventListener("ended", function () { if (live) stop(); });
+  $("rec").onclick = start;
+  $("pause").onclick = pause;
+  $("stop").onclick = stop;
+  $("finish").onclick = finish;
+  $("from").onchange = function () { v.currentTime = +this.value || 0; };
+  $("track").onclick = function (e) {
+    if (live) return;
+    var r = this.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * (v.duration || 0);
+    v.currentTime = t;
+  };
+  document.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "SELECT") return;
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); start(); }
+    else if (e.key === " ") { e.preventDefault(); pause(); }
+    else if (e.key === "s" || e.key === "S") { e.preventDefault(); stop(); }
+  });
+  fetch("/info").then(function (r) { return r.json(); }).then(function (d) {
+    info = d;
+    document.title = "Voice studio: " + d.title;
+    $("title").textContent = d.title;
+    $("name").textContent = d.name;
+    chapters = d.chapters || [];
+    segs = d.segments || [];
+    v.src = d.video;
+    v.addEventListener("loadedmetadata", function () { fillFrom(); draw(); buttons(); status(segs.length ? "Some voice is already saved. Carry on from the chapter shown, or start again from the beginning." : "Ready. Put your headphones on, then press Record."); });
+    if (d.done) $("done").innerHTML = 'Last final video: <a href="/media/' + encodeURIComponent(d.done) + '" target="_blank">' + d.done + "</a>";
+    return d.vtt ? fetch(d.vtt).then(function (r) { return r.text(); }).then(function (t) { cues = parseVtt(t); }) : null;
+  }).then(function () { requestAnimationFrame(tick); }).catch(function (e) { status("Couldn't load: " + e.message); });
+})();
+</script>
+</body>
+</html>

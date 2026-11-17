@@ -1,0 +1,260 @@
+{
+ "title": "Simulation: Phish to containment",
+ "kicker": "Simulation",
+ "summary": "A reported phishing email, a ticking clock and a laptop running malware. Find who opened it, contain it before 09:41, and hand it on.",
+ "units": [
+  1,
+  4
+ ],
+ "level": "Beginner",
+ "minutes": 35,
+ "order": 300,
+ "tools": [
+  "Mail",
+  "Tickets",
+  "Remote desktop",
+  "Server room",
+  "Terminal"
+ ],
+ "seminar_id": null,
+ "published": true,
+ "sim": {
+  "title": "Phish to containment",
+  "role": "SOC analyst, Monday morning",
+  "start": "2026-11-02T09:16:00Z",
+  "speed": 1,
+  "pins": [
+   "mail",
+   "files",
+   "terminal",
+   "chat",
+   "tickets",
+   "tool-siem",
+   "rdp",
+   "rack",
+   "notes"
+  ],
+  "first": true,
+  "cast": {
+   "lead": {
+    "name": "Meera Iyer",
+    "role": "SOC lead"
+   },
+   "it": {
+    "name": "Arjun",
+    "role": "IT helpdesk"
+   },
+   "dev": {
+    "name": "Dev Kapoor",
+    "role": "Finance"
+   }
+  },
+  "story": "It's 09:16 on Monday 2 November 2026 at Kestrel Logistics, a freight company. You're the SOC analyst on the morning shift.\n\nDev Kapoor in Finance has just pressed Report phishing on an email about an overdue invoice. It went to three people. Your job: find out who opened it, stop it spreading, and hand the incident on with a note the next person can act on.\n\nThe clock on the taskbar is the story clock. It runs at real speed. Something bad happens at 09:41 if nobody acts.",
+  "hold": [
+   "alerts-fs01.json",
+   "share_listing.txt"
+  ],
+  "events": [
+   {
+    "at": 1,
+    "chat": "lead",
+    "text": "Morning. Dev Kapoor just reported a suspicious invoice email, message 4A1F21C02. Ticket 88213 opened itself but it says nothing useful. It's yours."
+   },
+   {
+    "at": 6,
+    "chat": "lead",
+    "text": "The message is in Mail, the evidence in Files, the alerts in Tickets. Find who got it, who opened it, and stop it spreading. Ask me if you're stuck."
+   },
+   {
+    "at": 120,
+    "chat": "it",
+    "text": "Hi, Priya in HR says her laptop has been slow since she opened an invoice this morning. Shall I just restart it for her?"
+   },
+   {
+    "after": "who",
+    "chat": "lead",
+    "text": "Good. So it was hr-pc07. What ran after Word opened the document? The Remote desktop has the EDR process list."
+   },
+   {
+    "after": "contain",
+    "chat": "it",
+    "text": "hr-pc07 just dropped off the network. I'll tell Priya not to touch it."
+   },
+   {
+    "after": "contain",
+    "wait": 5,
+    "chat": "lead",
+    "text": "Nice. Now end the malware's process and escalate AL-2203 in Tickets with what you know."
+   },
+   {
+    "at": 1500,
+    "unless": "contain",
+    "release": [
+     "alerts-fs01.json",
+     "share_listing.txt"
+    ],
+    "chat": "lead",
+    "text": "CRITICAL: fs01's HR share is being renamed to .kestrel-locked by priya.nair's account. Contain hr-pc07 right now!"
+   },
+   {
+    "after": "escalate",
+    "chat": "lead",
+    "text": "Got your escalation. The incident lead takes it from here. Send me a one-line summary in chat when you're ready."
+   }
+  ],
+  "replies": [
+   {
+    "match": "restart|reboot|turn (it )?off|shut ?down",
+    "who": "it",
+    "text": "OK. Should I? You tell me. Restarting would wipe what's in memory."
+   },
+   {
+    "match": "don.?t|do not|leave it|isolat|unplug|cable|disconnect",
+    "who": "it",
+    "text": "Got it. I'll leave it switched on and won't touch it. Isolate it from your side when you're ready."
+   }
+  ],
+  "objectives": [
+   {
+    "id": "sender",
+    "text": "Read the reported email. Which domain really sent it?",
+    "ask": "Sender domain",
+    "answer": [
+     "kestrel-logistlcs.com"
+    ],
+    "points": 10,
+    "hint": "Open Mail. Read the From address letter by letter: logistlcs, with an L where the i should be."
+   },
+   {
+    "id": "count",
+    "text": "How many people received message 4A1F21C02?",
+    "ask": "Number of recipients",
+    "answer": [
+     "3",
+     "three"
+    ],
+    "points": 10,
+    "hint": "Open mail.log in Files and look for nrcpt= on the 4A1F21C02 lines, or run: grep 4A1F21C02 ~/case/mail.log"
+   },
+   {
+    "id": "who",
+    "text": "Which internal address downloaded the invoice document?",
+    "ask": "IP address",
+    "answer": [
+     "10.20.0.14"
+    ],
+    "points": 15,
+    "hint": "Search proxy.log for logistlcs: grep logistlcs ~/case/proxy.log. TCP_MISS/200 means the file came through."
+   },
+   {
+    "id": "denied",
+    "text": "Did fin-pc02 (10.20.0.15) get the document too?",
+    "ask": "yes or no",
+    "answer": [
+     "no"
+    ],
+    "points": 10,
+    "after": "who",
+    "hint": "Its line in proxy.log says TCP_DENIED/403: the proxy blocked it after the domain was added to the blocklist at 09:18."
+   },
+   {
+    "id": "chain",
+    "text": "On hr-pc07, which program did Word start?",
+    "ask": "Program name",
+    "answer": [
+     "cmd.exe",
+     "cmd"
+    ],
+    "points": 10,
+    "after": "who",
+    "hint": "Remote desktop, hr-pc07, Task Manager. Find WINWORD.EXE's PID, then the row whose Parent is that PID."
+   },
+   {
+    "id": "contain",
+    "text": "Contain hr-pc07: isolate it, or shut its switch port",
+    "points": 20,
+    "after": "who",
+    "on": {
+     "any": [
+      {
+       "event": "rdp.isolate",
+       "host": "hr-pc07",
+       "isolated": true
+      },
+      {
+       "event": "rack.port",
+       "ip": "10.20.0.14",
+       "shut": true
+      }
+     ]
+    },
+    "hint": "Remote desktop, open hr-pc07, press Isolate from the network. Or Server room, hr-pc07, Shut its ports. Don't switch it off: memory holds evidence."
+   },
+   {
+    "id": "intime",
+    "text": "Bonus: contain it before the malware reaches the file server at 09:41",
+    "with": "contain",
+    "within": 1500,
+    "points": 15
+   },
+   {
+    "id": "kill",
+    "text": "End the malware's process on hr-pc07",
+    "points": 10,
+    "after": "chain",
+    "on": {
+     "event": "rdp.endtask",
+     "host": "hr-pc07",
+     "image": "svchost-upd"
+    },
+    "hint": "Task Manager on hr-pc07: svchost-upd.exe running from C:\\Users\\Public. A real svchost.exe lives in System32."
+   },
+   {
+    "id": "escalate",
+    "text": "Escalate alert AL-2203 in Tickets with a note",
+    "points": 15,
+    "after": "contain",
+    "on": {
+     "event": "ticket.escalate",
+     "id": "~AL-220[34]"
+    },
+    "hint": "Tickets, AL-2203, write what fired, what you found, what you did and what you don't know yet, then press Escalate."
+   },
+   {
+    "id": "summary",
+    "text": "Send the SOC lead a one-line summary in chat that names the host",
+    "points": 5,
+    "after": "escalate",
+    "on": {
+     "event": "chat.send",
+     "text": "~hr-pc07|10\\.20\\.0\\.14"
+    },
+    "hint": "For example: hr-pc07 opened INV-30412.docm at 09:02, isolated at 09:30, malware ended, AL-2203 escalated."
+   }
+  ],
+  "debrief": "A strong run takes about twenty minutes. Read the email and spot the look-alike domain. Use mail.log to see it went to three people. Search proxy.log to see that only hr-pc07 (10.20.0.14) downloaded the document at 09:02, and that fin-pc02's try at 09:20 was blocked. Follow the process chain: Word, cmd.exe, a hidden PowerShell, then svchost-upd.exe running from C:\\Users\\Public, which is not where Windows keeps svchost.\n\nThen contain before you dig further. Isolating hr-pc07, without switching it off, stops the 09:41 encryption of the HR share and keeps the memory for the incident team. End the malware's process, escalate AL-2203 with a note that says what fired, what you found, what you did and what you don't know yet (did anyone else open it, was anything copied out), and tell your lead in one line.\n\nThe usual mistakes: restarting the laptop (evidence gone), spending twenty minutes on the low alerts, or escalating with \"probably malware ???\".",
+  "pass": 70
+ },
+ "script": {
+  "intro": "Hello, and welcome to a simulation. For the next half hour you're the SOC analyst on the Monday morning shift at Kestrel Logistics. A phishing email has been reported, and somewhere on the network, malware is already running. Watch how I work it from the first message to containment.",
+  "steps": [
+   {
+    "say": "It's 09:16. The SOC lead hands me the case in chat. First, the email itself. In Mail, the From line says Kestrel Logistics Accounts, but read the domain letter by letter: kestrel-logistlcs, with an L instead of an i. Then mail.log in a terminal: message 4A1F21C02 went to three mailboxes.",
+    "after": "Three people received it. That's three possible victims, and receiving an email isn't the incident. Opening it is. So the next question is who downloaded the document."
+   },
+   {
+    "say": "The web proxy logs every download. I search proxy.log for the look-alike domain. The times are Unix epoch seconds, so I convert them to UTC.",
+    "after": "One success: 10.20.0.14, hr-pc07, Priya Nair's HR laptop, downloaded INV-30412.docm at 09:02. fin-pc02 tried at 09:20 and was denied, because the domain went on the blocklist at 09:18. So we have one infected machine, not three."
+   },
+   {
+    "say": "Now what ran on hr-pc07. The EDR process list shows each program and its parent. I follow the chain from Word.",
+    "after": "Word started cmd.exe, which started a hidden PowerShell running a script from C:\\Users\\Public, which started svchost-upd.exe from the same folder. The real svchost lives in System32, so this is the malware, and it's still running. Meanwhile IT asks in chat whether to restart the laptop. The answer is no: restarting wipes memory, which is evidence."
+   },
+   {
+    "say": "Contain first, investigate second. In the Remote desktop I open hr-pc07 and press Isolate from the network. The laptop stays on, but it can't reach the file server any more. Then Task Manager, End task on svchost-upd.exe. Then Tickets: alert AL-2203, a note with what fired, what I found, what I did and what I don't know yet, and Escalate.",
+    "after": "Contained before 09:41, so the HR share is safe, which is the bonus objective. The debrief shows the score, every action with its story time, and what a strong run looks like. Download it: it's part of your hand-in."
+   }
+  ],
+  "outro": "That's a real morning in a SOC, compressed: read carefully, find who actually opened it, follow the process chain, contain without destroying evidence, and hand on a note someone can act on. Now it's your turn. Open the simulation in the Hacker Room and try to beat 09:41."
+ }
+}

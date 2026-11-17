@@ -35,8 +35,8 @@
     var list = (String(url).match(/[?&]list=([A-Za-z0-9_-]+)/) || [])[1];
     var vid = (String(url).match(/(?:youtu\.be\/|[?&]v=|embed\/|live\/)([A-Za-z0-9_-]{11})/) || [])[1];
     var api = "&enablejsapi=1&origin=" + encodeURIComponent(location.origin);
-    if (vid) return "https://www.youtube-nocookie.com/embed/" + vid + "?rel=0" + api + (list ? "&list=" + list : "") + (start ? "&start=" + start + "&autoplay=1" : "");
-    if (list) return "https://www.youtube-nocookie.com/embed/videoseries?list=" + list + api;
+    if (vid) return "https://www.youtube-nocookie.com/embed/" + vid + "?rel=0&cc_load_policy=1&cc_lang_pref=en" + api + (list ? "&list=" + list : "") + (start ? "&start=" + start + "&autoplay=1" : "");
+    if (list) return "https://www.youtube-nocookie.com/embed/videoseries?list=" + list + "&cc_load_policy=1&cc_lang_pref=en" + api;
     return "";
   }
 

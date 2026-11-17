@@ -139,6 +139,7 @@
       r("msg").textContent = text;
       if (!quiet) {
         last = { file: cur, ids: q.ids, src: q.src, q: q.q, lv: q.lv, n: shown.length };
+        if (ctx.emit) ctx.emit("result", last, "Event filter on " + cur + " (" + shown.length + ")");
         if (r("save")) r("save").disabled = false;
       }
       pick = null;

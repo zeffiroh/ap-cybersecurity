@@ -23,14 +23,28 @@
   "case/README.txt"
  ],
  "script": {
-  "intro": "A switch with every port live and no passwords is an open building. Today we shut the empty doors, allow one known device per desk, and lock the management access.",
-  "outro": "Hardening is a short checklist done every time. Next, an access list that keeps guests out of staff systems.",
+  "intro": "Welcome to network lab six. Think of Tulsi Travels' switch as a building. Right now every door is unlocked, even in the empty rooms, and the key to the building manager's office hangs on the front door. Today we fix that with the short checklist network teams run on every new switch: shut the unused ports, allow one known device per staff desk, and lock the management access. Then we try to get in with an unknown laptop. Open your lab five file and save a copy.",
+  "outro": "Hardening isn't clever. It's a short checklist done every time: shut what you don't use, allow only what you know, lock the management, save the configuration. When one of those steps is skipped, an intruder rarely needs anything clever either. See you in lab seven.",
   "steps": [
-   "A live, empty wall port is an open door: anyone can plug in. On the switch: Type the commands on screen, then check the result with the show command.",
-   " Type the commands on screen, then check the result with the show command.",
-   "Unplug staff-2 from Fa0/2 and plug a new Laptop into Fa0/2 instead. Give it 192.168.10.50 and ping staff-1. Look at the link light, then run show interfaces status and show port-security interface fa0/2.",
-   "Anyone with a console cable could change all of this. Add passwords: Type the commands on screen, then check the result with the show command.",
-   "Unused ports shut, known devices only, management protected. Lab 7 adds the access list that keeps guests away from staff."
+   {
+    "say": "Step one: park and shut the unused ports. On the switch, create VLAN 999 and name it PARKING. Then take ports 21 to 24, make them access ports in VLAN 999, and shut them down. End, then show interfaces status.",
+    "after": "Ports 21 to 24 now show as disabled, in VLAN 999. Why both, the parking VLAN and the shutdown? A live wall port in an empty office is an open door: anyone can plug in a laptop and they're on the network. Shutting the port closes the door. Parking it in a VLAN that leads nowhere means that if someone turns it back on by mistake, it still connects to nothing. Two locks, because one of them will fail one day. The command that switches a port off is shutdown."
+   },
+   {
+    "say": "Step two: one known device per staff port. On ports 1 to 12, turn on port security, set the maximum to one MAC address, make it sticky, and set the violation action to shutdown. Then, on staff-1, ping staff-2 at 192.168.10.12, so the switch hears from both computers. Finally, run show port-security interface fa0/1.",
+    "after": "The output says port security is enabled, the port is secure-up, the maximum is one, and the sticky MAC count is one. Sticky means the switch learned the first MAC address it saw on the port, staff-1's, and wrote it into the running configuration, so it stays. staff-2 had to answer the ping, so Fa0/2 has learned staff-2 the same way. That matters in the next step: a port that has never heard from its computer would simply learn whoever plugs in first. From now on each staff port accepts its own computer and nothing else. Each staff port may learn one MAC address."
+   },
+   {
+    "say": "Step three: plug in an unknown laptop. Unplug staff-2 from Fa0/2 and plug a new laptop into that port instead. Give it 192.168.10.50 and ping staff-1. Watch the link light. Then, on the switch, run show interfaces status and show port-security interface fa0/2.",
+    "after": "The ping fails, and the light on Fa0/2 turns red. show interfaces status says err-disabled. show port-security shows a violation count of one, and the last source address is the laptop's MAC. The switch saw an unknown device on a port that allows one known one, and shut the port, exactly as we told it to. In real life, that's someone unplugging the office PC to plug in their own machine, and the network saying no. To bring the port back once you've checked who it was, plug staff-2 back in, then on interface fa0/2 type shutdown, and then no shutdown. The blocked port's status is err-disabled."
+   },
+   {
+    "say": "Step four: protect the management access. Anyone with a console cable could undo everything we just did. So in configuration mode, set an enable secret. Then go to line console 0, set a password, and type login, so the password is actually asked for. End, and save with copy running-config startup-config. Then test it: join a PC's RS 232 port to the switch's console port with a Console cable, and open Desktop, then Terminal.",
+    "after": "The terminal asks for the console password, and enable asks for the secret. Two details matter. Use enable secret, never the older enable password: the secret is stored as a one-way hash, while enable password sits in the configuration in plain text, or behind a weak scramble that's easy to reverse. And save. The running configuration lives in memory; if the switch restarts before you copy it to the startup configuration, today's work is gone. The save command is copy running-config startup-config. Choose your own passwords, and write them in your notes, not in the lab files."
+   },
+   {
+    "say": "That's lab six: unused ports shut and parked, one known device per desk, and management locked and saved. Lab seven adds the access list that keeps guests away from staff."
+   }
   ]
  },
  "base": "sem-n06-pt-lock-down-the-switch",
@@ -52,7 +66,7 @@
   },
   {
    "t": "md",
-   "s": "## 2. One known device per staff port\n\n```\nconfigure terminal\ninterface range fa0/1 - 12\n switchport port-security\n switchport port-security maximum 1\n switchport port-security mac-address sticky\n switchport port-security violation shutdown\nend\n```\n\nPing from staff-1 so the switch learns its MAC address, then run `show port-security interface fa0/1`.\n\n- [ ] Port security on ports 1-12\n- [ ] staff-1's MAC learned (sticky)\n- [ ] show port-security checked\n\n> Hint: Sticky learns the first MAC address seen on the port and keeps it in the configuration.\n\n?> How many MAC addresses may each staff port learn? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+   "s": "## 2. One known device per staff port\n\n```\nconfigure terminal\ninterface range fa0/1 - 12\n switchport port-security\n switchport port-security maximum 1\n switchport port-security mac-address sticky\n switchport port-security violation shutdown\nend\n```\n\nFrom staff-1, ping staff-2 (192.168.10.12), so the switch learns both computers' MAC addresses, then run `show port-security interface fa0/1`. (If staff-2 never sends anything, Fa0/2 learns whatever plugs in first, and step 3 won't be blocked.)\n\n- [ ] Port security on ports 1-12\n- [ ] staff-1's MAC learned (sticky)\n- [ ] show port-security checked\n\n> Hint: Sticky learns the first MAC address seen on the port and keeps it in the configuration.\n\n?> How many MAC addresses may each staff port learn? :: sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
   },
   {
    "t": "md",

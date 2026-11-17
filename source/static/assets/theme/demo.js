@@ -7,7 +7,8 @@
   var CSS = "#dm-bar{position:fixed;left:0;right:0;bottom:0;z-index:9999;background:rgba(16,16,24,.94);color:#fff;font:18px/1.45 system-ui,sans-serif;padding:12px 18px;display:flex;gap:14px;align-items:center}" +
     "#dm-cap{flex:1;min-height:52px}#dm-cap small{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:2px}" +
     "#dm-bar button,#dm-bar select{font:13px system-ui;padding:5px 10px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer}" +
-    ".dm-rec #dm-ctl{display:none}.dm-on{outline:4px solid #e0a100;outline-offset:4px;transition:outline-color .3s}body.dm-body{padding-bottom:110px}";
+    ".dm-rec #dm-ctl,.dm-rec #dm-cap span{display:none}#dm-bar.dm-rec{left:auto;right:22px;bottom:22px;padding:7px 14px;border-radius:6px;background:rgba(16,16,24,.82)}" +
+    ".dm-rec #dm-cap{min-height:0}.dm-rec #dm-cap small{margin:0;font-size:13px;opacity:.95}body.dm-body.dm-recbody{padding-bottom:0}.dm-on{outline:4px solid #e0a100;outline-offset:4px;transition:outline-color .3s}body.dm-body{padding-bottom:110px}";
 
   function css() {
     var s = document.createElement("style");
@@ -22,6 +23,7 @@
       '<select id="dm-speed" aria-label="Speed"><option value="0.5">0.5×</option><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>';
     document.body.appendChild(b);
     document.body.classList.add("dm-body");
+    if (rec) document.body.classList.add("dm-recbody");
     document.getElementById("dm-speed").value = String(speed);
     document.getElementById("dm-speed").addEventListener("change", function () { speed = +this.value; });
     document.getElementById("dm-pause").addEventListener("click", function () { paused = !paused; this.textContent = paused ? "Play" : "Pause"; if (!paused && wake) wake(); });
@@ -109,29 +111,36 @@
   function play(m) {
     var S = m.script || {}, steps = groups();
     t0 = Date.now();
+    global.__demo.t0 = t0;
     var go = focus(document.querySelector("#nb-cells .nb-cell")).then(function () { return say("Opening", S.intro || m.summary || m.title); });
     steps.forEach(function (g) {
       go = go.then(function () {
         skip = false;
         var title = g.head.querySelector("h2, h3").textContent.trim();
         log.push({ start: now(), end: now(), text: "", chapter: title });
-        return focus(g.head).then(function () { return say(title, (S.steps || [])[g.n - 1] || ""); }).then(function () {
+        var st = (S.steps || [])[g.n - 1] || "", before = typeof st === "string" ? st : (st.say || st.before || ""), after = typeof st === "string" ? "" : (st.after || "");
+        var lastSeen = g.head;
+        return focus(g.head).then(function () { return say(title, before); }).then(function () {
           var chain = Promise.resolve();
           g.cells.forEach(function (c) {
             chain = chain.then(function () {
               if (skip) return;
               var tools = Array.prototype.slice.call(c.querySelectorAll(".tool-step")), t = Promise.resolve();
-              tools.forEach(function (el) { t = t.then(function () { return skip ? null : runTool(el); }); });
+              tools.forEach(function (el) { lastSeen = el; t = t.then(function () { return skip ? null : runTool(el); }); });
+              if (c.querySelector("[data-run]")) lastSeen = c;
               return t.then(function () { return skip ? null : runCell(c); });
             });
           });
-          return chain;
+          return chain.then(function () {
+            if (!after || skip) return;
+            return focus(lastSeen).then(function () { return say(title, after); });
+          });
         });
       });
     });
     return go.then(function () { skip = false; log.push({ start: now(), end: now(), text: "", chapter: "Wrap-up" }); return say("Wrap-up", S.outro || ""); }).then(function () {
       document.getElementById("dm-cap").innerHTML = "<small>Demo</small><span>The end.</span>";
-      global.__demo = { done: true, log: log, length: now() };
+      global.__demo = { done: true, log: log, length: now(), t0: t0 };
     });
   }
   function start() {

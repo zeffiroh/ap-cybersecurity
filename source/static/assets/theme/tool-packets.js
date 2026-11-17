@@ -334,6 +334,7 @@
       r("msg").textContent = text;
       if (!quiet) {
         last = { file: r("file").value, f: r("f").value, n: rows.length, v: view };
+        if (ctx.emit) ctx.emit("result", last, "Packet filter: " + last.f + " (" + last.n + ")");
         if (r("save")) r("save").disabled = view === "stream" && !stream;
       }
       remember();

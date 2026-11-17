@@ -257,7 +257,7 @@
       if (!s) throw new Error("That seminar was not found.");
       var vid = ytId(s.youtube), link = "seminars.html?id=" + s.id;
       var embed = function (t) {
-        return vid ? '<div class="pl-video"><iframe src="https://www.youtube-nocookie.com/embed/' + vid + "?rel=0&start=" + secs(t || "0:00") +
+        return vid ? '<div class="pl-video"><iframe src="https://www.youtube-nocookie.com/embed/' + vid + "?rel=0&cc_load_policy=1&cc_lang_pref=en&start=" + secs(t || "0:00") +
           '" title="Seminar video" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' :
           s.youtube ? '<a class="btn dark pl-tool" href="' + esc(s.youtube) + '" target="_blank" rel="noopener">Open the video</a>' : "";
       };

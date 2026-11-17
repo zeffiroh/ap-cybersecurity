@@ -110,10 +110,11 @@
     function r(n) { return el.querySelector('[data-r="' + n + '"]'); }
     var api = {
       st: st, answer: answer, r: r,
-      msg: function (t, bad) { var m = r("msg"); m.textContent = t || ""; m.classList.toggle("tl-bad", !!bad); },
+      msg: function (t, bad) { var m = r("msg"); m.textContent = t || ""; m.classList.toggle("tl-bad", !!bad); if (t && ctx.emit) ctx.emit("message", { text: t, bad: !!bad }, t); },
       note: function (t) { r("note").textContent = t || ""; },
       ready: function (state, text) {
         last = { state: state, text: text };
+        if (ctx.emit) ctx.emit("result", state, text);
         if (r("save")) r("save").disabled = false;
       },
       compare: function (n, what) {

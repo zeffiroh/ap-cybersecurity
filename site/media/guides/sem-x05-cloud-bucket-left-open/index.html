@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../../../assets/config.js"></script>
+<script src="../../../assets/shared/neon.js"></script>
+<script src="../../../assets/shared/identity.js"></script>
+<script src="../../../assets/shared/paywall.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation: Cloud bucket left open written tutorial &middot; Aayat-AP-Prep</title>
+<style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
+</head>
+<body><main><p class="kick">Simulation · written tutorial</p>
+<h1>Simulation: Cloud bucket left open</h1>
+<p class="meta">Intermediate &middot; about 40 min</p>
+<p>The cloud bill is 3.4 times normal. Follow the money to a leaked pipeline key, a public invoices bucket and a second key the attacker made, then lock it down.</p>
+<div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-x05-cloud-bucket-left-open&amp;runbook=sem-x05-cloud-bucket-left-open">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-x05-cloud-bucket-left-open--guided&amp;runbook=sem-x05-cloud-bucket-left-open--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-x05-cloud-bucket-left-open--solo&amp;runbook=sem-x05-cloud-bucket-left-open--solo">Solo</a></div>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>captured/checkov-main-tf.txt</code>, <code>captured/prowler-monsoon-prod.csv</code>, <code>captured/trivy-cart-api.txt</code>, <code>cloud/alerts-cloud.json</code>, <code>cloud/audit.json</code>, <code>cloud/intel.json</code>, <code>cloud/policies.json</code>, <code>findings-register.csv</code>, <code>README.txt</code>, <code>repo/.ci/pipeline.yml</code>, <code>repo/advisories.json</code>, <code>repo/deploy/cart-api.yaml</code>, <code>repo/Dockerfile</code>, <code>repo/git-history.patch</code>, <code>repo/infra/main.tf</code>, <code>repo/package.json</code>, <code>repo/worker/requirements.txt</code>.</p>
+<h2>1. Who is spending our money?</h2>
+<p>The bill for 11 November is 3.4 times normal. The audit trail records every call to the cloud, with the identity, the key, the address and the region.</p>
+<ul>
+<li>&#9744; Which identity, from which address, in which region?</li>
+<li>&#9744; How many GPU instances were started?</li>
+</ul>
+<blockquote>
+<p>Hint: The CI runners call from 203.0.113.20, and the company only uses ap-south-1.</p>
+</blockquote>
+<p><strong>Question:</strong> Which identity's key was used from 198.51.100.91?</p>
+<pre><code>cd ~/case/cloud
+grep 198.51.100.91 audit.json | grep -o &#x27;&quot;action&quot;: &quot;[A-Za-z]*&quot;\|&quot;region&quot;: &quot;[a-z0-9-]*&quot;&#x27; | sort | uniq -c</code></pre>
+<h2>2. How did the key leak?</h2>
+<p>A pipeline key doesn't walk out on its own. Scan the repository, including Git history.</p>
+<ul>
+<li>&#9744; Where is the key, and is it still in today's files?</li>
+<li>&#9744; What does deleting it from the file not fix?</li>
+</ul>
+<p><strong>Question:</strong> Which package has a critical advisory?</p>
+<h2>3. The buckets</h2>
+<p>Two buckets are public. One should be: product images. One shouldn't: customer invoices. And the attacker read from it.</p>
+<ul>
+<li>&#9744; Which bucket must be closed, and which public alert is expected?</li>
+<li>&#9744; What did the attacker create at 21:49 to keep access?</li>
+</ul>
+<p><strong>Question:</strong> Which public bucket holds customer invoices?</p>
+<pre><code>cd ~/case/cloud
+grep -i &#x27;bucket/monsoon-invoices\|CreateAccessKey&#x27; audit.json | cut -c1-200</code></pre></main></body>
+</html>

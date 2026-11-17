@@ -24,7 +24,7 @@ window.APCYBER_PAYWALL = {
     "index.html", "unit-*/index.html", "unit-*/*/index.html",
     "unit-1/1.1/**",
     "glossary.html", "calendar.html", "support.html", "classes.html", "videos.html", "notebook.html", "community.html",
-    "store.html", "labs.html", "seminars.html", "certificate.html", "workstation.html", "careers.html",
+    "store.html", "labs.html", "seminars.html", "certificate.html", "workstation.html", "playground.html", "careers.html",
     "buy/**", "unlock/**", "pay/**", "ledger/**", "teacher/database-check.html"
   ],
 

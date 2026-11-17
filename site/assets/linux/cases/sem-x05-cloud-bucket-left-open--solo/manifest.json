@@ -1,0 +1,268 @@
+{
+ "order": 305,
+ "title": "Simulation: Cloud bucket left open",
+ "kicker": "Simulation",
+ "units": [
+  6
+ ],
+ "level": "Intermediate",
+ "minutes": 40,
+ "summary": "The cloud bill is 3.4 times normal. Follow the money to a leaked pipeline key, a public invoices bucket and a second key the attacker made, then lock it down.",
+ "tools": [
+  "Cloud IAM",
+  "Code scan",
+  "Tickets",
+  "Terminal"
+ ],
+ "titlePrefix": "Simulation: Cloud bucket left open",
+ "teacher": true,
+ "id": "sem-x05-cloud-bucket-left-open--solo",
+ "sim": {
+  "title": "Cloud bucket left open",
+  "role": "Cloud security engineer, on call",
+  "start": "2026-11-12T06:30:00Z",
+  "speed": 1,
+  "pins": [
+   "files",
+   "terminal",
+   "tickets",
+   "tool-cloudiam",
+   "tool-codescan",
+   "chat",
+   "notes"
+  ],
+  "first": true,
+  "cast": {
+   "lead": {
+    "name": "Farah Sheikh",
+    "role": "CTO"
+   },
+   "plat": {
+    "name": "Vikram",
+    "role": "Platform team"
+   }
+  },
+  "story": "It's 06:30 UTC on Thursday 12 November 2026 at Monsoon Mart, an online grocery company in Bengaluru. The cloud bill alarm has just gone off: yesterday cost 3.4 times normal.\n\nThe CTO wants answers before the morning stand-up: who is spending our money, how did they get in, what did they see, and is it stopped? The audit trail, the cloud alerts, the repository and the platform team's scanner output are in the case folder.",
+  "events": [
+   {
+    "at": 1,
+    "chat": "lead",
+    "text": "Bill alarm just fired, 3.4x. I've put everything in ~/case. Tell me who, how, what they saw, and whether it's stopped."
+   },
+   {
+    "after": "who",
+    "chat": "plat",
+    "text": "ci-deployer is the pipeline's key. It should only ever call from our runners, 203.0.113.20, in Mumbai."
+   },
+   {
+    "after": "leak",
+    "chat": "lead",
+    "text": "So the key is in Git history? Revoke it. Vikram can issue a new one to the pipeline today."
+   },
+   {
+    "after": "policy",
+    "chat": "plat",
+    "text": "Policy looks good. The pipeline deploy still works with it. Rolling it out now."
+   }
+  ],
+  "replies": [
+   {
+    "match": "revok|rotate|disable|delete.*key|new key",
+    "who": "plat",
+    "text": "On it. Old key disabled, new key in the pipeline's secret store, not in the repo this time."
+   },
+   {
+    "match": "invoice|bucket|public",
+    "who": "lead",
+    "text": "Customer invoices? Then we may have a personal data breach to report. Find out exactly which files they read."
+   }
+  ],
+  "objectives": [
+   {
+    "id": "who",
+    "text": "Which identity's key was used from 198.51.100.91?",
+    "ask": "Identity",
+    "answer": [
+     "ci-deployer"
+    ],
+    "points": 10,
+    "hint": "cloud/audit.json, or alert CL-501 in Tickets."
+   },
+   {
+    "id": "region",
+    "text": "In which region were the GPU instances started?",
+    "ask": "Region",
+    "answer": [
+     "ap-southeast-3"
+    ],
+    "after": "who",
+    "points": 10,
+    "hint": "The RunInstances calls in audit.json. Monsoon only uses ap-south-1."
+   },
+   {
+    "id": "count",
+    "text": "How many GPU instances were started?",
+    "ask": "Number",
+    "answer": [
+     "8",
+     "eight"
+    ],
+    "after": "who",
+    "points": 10,
+    "hint": "gpu-xl-1 to gpu-xl-8, started between 21:43 and 21:45."
+   },
+   {
+    "id": "persist",
+    "text": "What did the attacker create at 21:49 to keep access?",
+    "ask": "What",
+    "answer": [
+     "~access ?key|createaccesskey|new key|key"
+    ],
+    "after": "who",
+    "points": 10,
+    "hint": "CreateAccessKey on user/ci-deployer at 21:49: a second key the attacker owns. Revoking only the old key isn't enough."
+   },
+   {
+    "id": "scan",
+    "text": "Scan the repository, including Git history, in the Code scan program",
+    "points": 10,
+    "on": {
+     "event": "tool.result",
+     "tool": "codescan"
+    },
+    "hint": "Start, Code scan, scan everything, then read the Secrets tab."
+   },
+   {
+    "id": "leak",
+    "text": "Where did the key leak from?",
+    "ask": "Where",
+    "answer": [
+     "~git|history|deploy\\.sh|patch"
+    ],
+    "after": "scan",
+    "points": 10,
+    "hint": "git-history.patch: the line removed from deploy.sh still holds the key. Anyone who clones the repo can read it."
+   },
+   {
+    "id": "bucket",
+    "text": "Which public bucket must be closed?",
+    "ask": "Bucket",
+    "answer": [
+     "monsoon-invoices"
+    ],
+    "points": 10,
+    "hint": "CL-505: monsoon-invoices allows public read. CL-504's monsoon-assets holds product images and is public on purpose."
+   },
+   {
+    "id": "benign",
+    "text": "Close CL-504 (public product images) as expected activity",
+    "points": 5,
+    "on": {
+     "event": "ticket.close",
+     "id": "CL-504",
+     "disp": "~benign|false"
+    },
+    "hint": "Tickets, CL-504, Close as Benign, with a reason: product images are meant to be public."
+   },
+   {
+    "id": "policy",
+    "text": "Write a policy that blocks every attacker action without breaking the pipeline",
+    "after": "who",
+    "points": 15,
+    "on": {
+     "event": "tool.result",
+     "tool": "cloudiam",
+     "data.n": 0,
+     "data.broken": 0
+    },
+    "hint": "Cloud IAM: allow ci-deployer only from 203.0.113.20 and only in ap-south-1. The checker shows attacker actions still allowed and normal actions broken; get both to 0."
+   },
+   {
+    "id": "esc",
+    "text": "Escalate CL-502 with who, how, what they saw and what you did",
+    "after": "policy",
+    "points": 10,
+    "on": {
+     "event": "ticket.escalate",
+     "id": "CL-50"
+    },
+    "hint": "Tickets, CL-502: the leaked key in Git history, the eight GPU instances, the invoices read, the second key, the policy and the revocation."
+   }
+  ],
+  "debrief": "A strong run follows the money. The audit trail shows ci-deployer's key used from 198.51.100.91 instead of the CI runners' 203.0.113.20, starting eight GPU instances in ap-southeast-3, a region Monsoon never uses, and then creating a second access key at 21:49 so the attacker keeps access when the first is revoked. It also read invoices from monsoon-invoices.\n\nThe code scan shows how: the key was removed from deploy.sh, but Git history still has it. Deleting a secret never un-leaks it: revoke both keys, issue a new one to the pipeline's secret store, and lock ci-deployer to its runners' address and region with a policy that breaks nothing else. Close the invoices bucket; leave the product-images bucket public and close its alert as expected. Then escalate: customer invoices read by an outsider may be a personal data breach to report.",
+  "pass": 70
+ },
+ "files": [
+  "case/captured/checkov-main-tf.txt",
+  "case/captured/prowler-monsoon-prod.csv",
+  "case/captured/trivy-cart-api.txt",
+  "case/cloud/alerts-cloud.json",
+  "case/cloud/audit.json",
+  "case/cloud/intel.json",
+  "case/cloud/policies.json",
+  "case/findings-register.csv",
+  "case/README.txt",
+  "case/repo/.ci/pipeline.yml",
+  "case/repo/advisories.json",
+  "case/repo/deploy/cart-api.yaml",
+  "case/repo/Dockerfile",
+  "case/repo/git-history.patch",
+  "case/repo/infra/main.tf",
+  "case/repo/package.json",
+  "case/repo/worker/requirements.txt"
+ ],
+ "script": {
+  "intro": "Hello, and welcome to a simulation. It's early on a Thursday and a cloud bill alarm has gone off. In the cloud, a stolen key turns straight into money and data, so let's follow the money.",
+  "steps": [
+   {
+    "say": "The audit trail records every call. I look for the address that isn't ours.",
+    "after": "ci-deployer's key, used from 198.51.100.91, started eight GPU instances in ap-southeast-3, a region Monsoon never uses. And at 21:49 it created a second access key, so revoking the first won't be enough."
+   },
+   {
+    "say": "How did the key get out? I scan the repository, including the Git history.",
+    "after": "The key was deleted from deploy.sh, but the removed line is still in the history. Anyone who clones the repo has it. So both keys get revoked and the pipeline gets a new one from a secret store."
+   },
+   {
+    "say": "Two public buckets. One is product images, public on purpose, so I close that alert as expected. The other is customer invoices, and the attacker read from it.",
+    "after": "I write a policy that only lets ci-deployer call from its runners and only in Mumbai, and the checker confirms it blocks every attacker action and breaks nothing. Then I escalate, because invoices read by an outsider may be a reportable breach."
+   }
+  ],
+  "outro": "Follow the money, find the leak, revoke every key the attacker made, lock the identity to where it belongs, and tell the business what was seen. Now try it yourself."
+ },
+ "base": "sem-x05-cloud-bucket-left-open",
+ "supportLevel": "solo",
+ "levels": {
+  "worked": "sem-x05-cloud-bucket-left-open",
+  "guided": "sem-x05-cloud-bucket-left-open--guided",
+  "solo": "sem-x05-cloud-bucket-left-open--solo"
+ },
+ "guide": "media/guides/sem-x05-cloud-bucket-left-open/index.html",
+ "template": [
+  {
+   "t": "md",
+   "s": "# Simulation: Cloud bucket left open\n\nThe cloud bill is 3.4 times normal. Follow the money to a leaked pipeline key, a public invoices bucket and a second key the attacker made, then lock it down.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `captured/checkov-main-tf.txt`, `captured/prowler-monsoon-prod.csv`, `captured/trivy-cart-api.txt`, `cloud/alerts-cloud.json`, `cloud/audit.json`, `cloud/intel.json`, `cloud/policies.json`, `findings-register.csv`, `README.txt`, `repo/.ci/pipeline.yml`, `repo/advisories.json`, `repo/deploy/cart-api.yaml`, `repo/Dockerfile`, `repo/git-history.patch`, `repo/infra/main.tf`, `repo/package.json`, `repo/worker/requirements.txt`."
+  },
+  {
+   "t": "md",
+   "s": "## 1. Who is spending our money?\n\nThe bill for 11 November is 3.4 times normal. The audit trail records every call to the cloud, with the identity, the key, the address and the region.\n\n- [ ] Which identity, from which address, in which region?\n- [ ] How many GPU instances were started?\n\n\n?> Which identity's key was used from 198.51.100.91? :: sha256:f051247f20fa1706442065a9d62f13b8ee6632155a522e2af4aa01cc01eacfbb"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case/cloud\ngrep 198.51.100.91 audit.json | grep -o '\"action\": \"[A-Za-z]*\"\\|\"region\": \"[a-z0-9-]*\"' | sort | uniq -c"
+  },
+  {
+   "t": "md",
+   "s": "## 2. How did the key leak?\n\nA pipeline key doesn't walk out on its own. Scan the repository, including Git history.\n\n- [ ] Where is the key, and is it still in today's files?\n- [ ] What does deleting it from the file not fix?\n\n?> Which package has a critical advisory? :: sha256:ebb0e16545c911bd31ec33ace57dedf84c04e673d2dc28c0290868e4adf4db77"
+  },
+  {
+   "t": "md",
+   "s": "## 3. The buckets\n\nTwo buckets are public. One should be: product images. One shouldn't: customer invoices. And the attacker read from it.\n\n- [ ] Which bucket must be closed, and which public alert is expected?\n- [ ] What did the attacker create at 21:49 to keep access?\n\n?> Which public bucket holds customer invoices? :: sha256:f28cd0a7d7a912a21a0b36416c1bfa6e626a305cd61baca9b4186c69a65a63c2"
+  },
+  {
+   "t": "sh",
+   "s": "# Your turn. Write the code for this step, then press Run.\n",
+   "a": "cd ~/case/cloud\ngrep -i 'bucket/monsoon-invoices\\|CreateAccessKey' audit.json | cut -c1-200"
+  }
+ ]
+}

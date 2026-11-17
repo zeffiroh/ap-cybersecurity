@@ -4,16 +4,19 @@ cd "$(dirname "$0")"
 
 DRY=0
 YES=0
+SKIPTESTS=0
 MSG=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -n|--dry-run) DRY=1 ;;
     -y|--yes) YES=1 ;;
+    -t|--no-tests) SKIPTESTS=1 ;;
     -h|--help)
-      echo 'Usage: ./publish [-n] [-y] "what changed"'
-      echo '  Builds the site, checks it, then commits and pushes everything to the live site.'
+      echo 'Usage: ./publish [-n] [-y] [-t] "what changed"'
+      echo '  Builds the site, checks it, runs every test, then commits and pushes everything to the live site.'
       echo '  -n  show what would go up, change nothing in git'
       echo '  -y  do not ask before pushing'
+      echo '  -t  skip the tests (only for a quick words-only fix)'
       exit 0 ;;
     *) MSG="$1" ;;
   esac
@@ -49,6 +52,13 @@ echo "Checking links..."
 
 "$PY" -c 'import sys; from builder import audit; level, lines = audit.size_report(); [print(x) for x in lines]; sys.exit(1 if level == "stop" else 0)' \
   || { echo "The site is too big for GitHub Pages. Nothing was published."; exit 1; }
+
+if [ "$SKIPTESTS" = 1 ]; then
+  echo "Skipping the tests (-t)."
+else
+  echo "Running the tests (about 2 minutes)..."
+  "$PY" tests/run_all.py || { echo "A test failed. Nothing was published. Fix it, or tell Claude what the list above says."; exit 1; }
+fi
 
 CHANGED=$(git status --porcelain --untracked-files=all | cut -c4- | sed 's/^"//; s/"$//')
 if [ -z "$CHANGED" ]; then

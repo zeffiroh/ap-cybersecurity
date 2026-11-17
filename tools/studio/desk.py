@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,8 +26,15 @@ SITE = ROOT / "site"
 PREVIEW = L.STUDIO / ".preview"
 WIN = sys.platform == "win32"
 STUDIOS = {}
+VOICES = {}
 LOCK = threading.Lock()
+JOB_LOCK = threading.Lock()
 ATOMS = []
+TEACH = [sys.executable, "-u", str(ROOT / "tools" / "teach.py")]
+ENV = dict(os.environ, AAYAT_DESK="1", PYTHONIOENCODING="utf-8")
+DEMOS = ROOT / ".cache" / "demos"
+LECTURES = ROOT / ".cache" / "lectures"
+JOB = {"label": "", "name": "", "lines": [], "started": 0, "ended": 0, "code": None, "proc": None, "stopped": False}
 
 
 def slugify(text):
@@ -117,17 +125,23 @@ def lesson_rows():
     return rows
 
 
+def step_files(folder):
+    return sorted(folder.glob("[0-9]*.md")) if folder.is_dir() else []
+
+
 def lesson_row(name):
     session, folder = L.session_dir(name), S.SEMINARS / name
     info = {}
     if (session / "session.json").exists():
         info = json.loads((session / "session.json").read_text(encoding="utf-8"))
     about = S.about(folder) if (folder / "seminar.json").exists() else {}
-    built = (folder / "lesson.json").exists()
+    pages = not (folder / "lesson.json").exists() and bool(step_files(folder))
+    built = (folder / "lesson.json").exists() or pages
     events = L.load_events(session) if session.is_dir() else []
     stamps = [p.stat().st_mtime for p in (session / "events.jsonl", folder / "lesson.json", folder / "seminar.json") if p.exists()]
     item = alive(name)
-    return {"name": name, "title": about.get("title") or info.get("title") or name, "recorded": bool(info), "built": built, "published": bool(about.get("published")),
+    return {"name": name, "title": about.get("title") or info.get("title") or name, "kind": "pages" if pages else "recorded",
+            "recorded": bool(info), "built": built, "published": bool(about.get("published")),
             "running": bool(item), "link": item["link"] if item else "", "shell": info.get("shell", ""), "minutes": round(info.get("elapsed", 0) / 60, 1),
             "steps": sum(1 for e in events if e["k"] == "step"), "commands": sum(1 for e in events if e["k"] == "cmd"), "edited": (session / "edited").exists(), "changed": max(stamps, default=0)}
 
@@ -145,7 +159,187 @@ def lesson_detail(name):
     chapters = folder / "chapters.txt"
     data["chapters"] = chapters.read_text(encoding="utf-8") if chapters.exists() else ""
     data["replay"] = (folder / "replay.json").exists()
+    data["pages"] = []
+    if data["kind"] == "pages":
+        for p in step_files(folder):
+            code = next((p.with_suffix(x) for x in (".sh", ".py") if p.with_suffix(x).exists()), None)
+            data["pages"].append({"file": p.name, "text": S.read(p), "codeFile": code.name if code else "",
+                                  "code": S.read(code) if code else ""})
     return data
+
+
+def save_pages(name, pages):
+    folder = S.SEMINARS / name
+    allowed = {p.name for p in step_files(folder)}
+    allowed |= {p.with_suffix(x).name for p in step_files(folder) for x in (".sh", ".py") if p.with_suffix(x).exists()}
+    for page in pages:
+        for key, text in (("file", "text"), ("codeFile", "code")):
+            fname = page.get(key) or ""
+            if not fname:
+                continue
+            if fname not in allowed or not isinstance(page.get(text), str):
+                raise RuntimeError(f"{fname} isn't one of this lab's step files.")
+            body = page[text].replace("\r\n", "\n")
+            (folder / fname).write_text(body.rstrip("\n") + "\n", encoding="utf-8", newline="\n")
+    return lesson_detail(name)
+
+
+def lab_group(name):
+    if name.startswith("t-"):
+        return "Free tutorials"
+    if re.match(r"(f-|s\d\d-)", name):
+        return "Seminars"
+    if re.match(r"n\d\d-", name):
+        return "Network labs"
+    return ""
+
+
+def newest(paths):
+    return max((p.stat().st_mtime for p in paths if p.exists()), default=0)
+
+
+def video_state(key, folder, source_time):
+    info = {}
+    if (folder / "info.json").exists():
+        info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
+    voiced = sorted(folder.glob("*-voiced.mp4")) if folder.is_dir() else []
+    segs = len(list((folder / "voice").glob("seg-*.webm"))) if (folder / "voice").is_dir() else 0
+    made = (folder / "info.json").stat().st_mtime if info else 0
+    voice = VOICES.get(key)
+    live = bool(voice and voice["proc"].poll() is None)
+    return {"silent": bool(info), "seconds": info.get("seconds", 0), "takes": segs, "voiced": voiced[0].name if voiced else "",
+            "stale": bool(info) and source_time > made + 1, "voicing": live, "voiceLink": voice["link"] if live else ""}
+
+
+def video_items():
+    from . import lecture as LEC
+    items = []
+    for folder in S.folders():
+        group = lab_group(folder.name)
+        if not group:
+            continue
+        about = S.about(folder)
+        changed = newest([folder / "seminar.json", *step_files(folder)])
+        items.append(dict(key=folder.name, kind="lab", group=group, title=about.get("title") or folder.name,
+                          **video_state(folder.name, DEMOS / folder.name, changed)))
+    for md in LEC.decks():
+        title = LEC.front(md)[0] or md.stem
+        items.append(dict(key=md.stem, kind="lecture", group="Lectures", title=f"Lecture {int(md.stem[:2])}: {title}",
+                          **video_state(md.stem, LECTURES / md.stem, md.stat().st_mtime)))
+    order = ["Lectures", "Free tutorials", "Seminars", "Network labs"]
+    items.sort(key=lambda r: (order.index(r["group"]), r["key"]))
+    return items
+
+
+def job_state():
+    running = bool(JOB["started"]) and not JOB["ended"]
+    return {"running": running, "label": JOB["label"], "name": JOB["name"], "lines": JOB["lines"][-40:], "code": JOB["code"],
+            "seconds": round((JOB["ended"] or time.time()) - JOB["started"]) if JOB["started"] else 0, "stopped": JOB["stopped"]}
+
+
+def kill_tree(proc):
+    if proc and proc.poll() is None:
+        if WIN:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+        else:
+            proc.kill()
+
+
+def run_job(steps):
+    code = 0
+    for args in steps:
+        JOB["lines"].append("> teach " + " ".join(args))
+        try:
+            proc = subprocess.Popen(TEACH + args, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ENV)
+        except OSError as e:
+            JOB["lines"].append(str(e))
+            code = 1
+            break
+        JOB["proc"] = proc
+        for raw in proc.stdout:
+            JOB["lines"].append(raw.decode("utf-8", "replace").rstrip())
+            del JOB["lines"][:-300]
+        code = proc.wait()
+        if code or JOB["stopped"]:
+            break
+    JOB["code"] = 1 if JOB["stopped"] else code
+    JOB["proc"] = None
+    JOB["ended"] = time.time()
+
+
+def start_job(label, name, steps):
+    with JOB_LOCK:
+        if JOB["started"] and not JOB["ended"]:
+            raise RuntimeError(f"Still making {JOB['label']}. One video at a time, or the computer runs out of memory. Wait, or press Stop.")
+        JOB.update(label=label, name=name, lines=[], started=time.time(), ended=0, code=None, proc=None, stopped=False)
+    threading.Thread(target=run_job, args=(steps,), daemon=True).start()
+    return job_state()
+
+
+def stop_job():
+    JOB["stopped"] = True
+    kill_tree(JOB["proc"])
+    return job_state()
+
+
+def start_voice(key):
+    item = VOICES.get(key)
+    if item and item["proc"].poll() is None:
+        return item["link"]
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    proc = subprocess.Popen(TEACH + ["voice", key, "--no-open", "--port", str(port)], cwd=ROOT, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ENV)
+    link, seen = None, []
+    for raw in proc.stdout:
+        line = raw.decode("utf-8", "replace")
+        seen.append(line.strip())
+        m = re.search(r"http://127\.0\.0\.1:\d+/", line)
+        if m:
+            link = m.group(0)
+            break
+    if not link:
+        raise RuntimeError(" ".join(s for s in seen[-3:] if s) or "The voice studio didn't start.")
+    threading.Thread(target=lambda: [None for _ in proc.stdout], daemon=True).start()
+    VOICES[key] = {"proc": proc, "link": link}
+    return link
+
+
+def video_action(action, key):
+    item = next((r for r in video_items() if r["key"] == key), None)
+    if not item:
+        raise RuntimeError(f"There's no video called {key}.")
+    if action == "make":
+        steps = [["lecture", key]] if item["kind"] == "lecture" else [["script", key], ["build", key], ["demo", key]]
+        with JOB_LOCK:
+            if JOB["started"] and not JOB["ended"]:
+                raise RuntimeError(f"Still making {JOB['label']}. One video at a time, or the computer runs out of memory. Wait, or press Stop.")
+            voice = VOICES.pop(key, None)
+        if voice:
+            kill_tree(voice["proc"])
+        return {"job": start_job(item["title"], key, steps)}
+    if action == "voice":
+        if not item["silent"]:
+            raise RuntimeError("Make the silent video first.")
+        return {"link": start_voice(key)}
+    if action == "mix":
+        if not item["takes"]:
+            raise RuntimeError("Nothing recorded yet. Record your voice first.")
+        voice = VOICES.pop(key, None)
+        if voice:
+            kill_tree(voice["proc"])
+        return {"job": start_job(item["title"] + " (final video)", key, [["voice", key, "--mix"]])}
+    if action == "folder":
+        folder = (LECTURES if item["kind"] == "lecture" else DEMOS) / key
+        if not folder.is_dir():
+            raise RuntimeError("There's no video folder yet. Make the silent video first.")
+        if WIN:
+            os.startfile(folder)
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])
+        return {"ok": True}
+    raise RuntimeError("Unknown action.")
 
 
 def save_lesson(name, body):
@@ -280,6 +474,10 @@ class Desk(BaseHTTPRequestHandler):
                 return self.send_json({"lessons": lesson_rows(), "sources": sources(), "shells": shells(), "windows": WIN})
             if path == "/api/lesson":
                 return self.send_json(lesson_detail(slugify(query.get("name", [""])[0])))
+            if path == "/api/videos":
+                return self.send_json({"items": video_items(), "job": job_state()})
+            if path == "/api/job":
+                return self.send_json(job_state())
         except Exception as e:
             return self.send_json({"error": str(e)}, 500)
         self.send_body(404, b"Not found", "text/plain")
@@ -294,8 +492,16 @@ class Desk(BaseHTTPRequestHandler):
             body = json.loads(raw)
             name = slugify(body.get("name", ""))
             path = urlsplit(self.path).path
+            if path == "/api/video":
+                return self.send_json(video_action(str(body.get("action", "")), str(body.get("name", ""))))
+            if path == "/api/video-stop":
+                return self.send_json(stop_job())
             if path != "/api/dryrun" and not name:
                 raise RuntimeError("Give the lesson a short name.")
+            if path == "/api/pages":
+                return self.send_json(save_pages(name, body.get("pages") or []))
+            if path == "/api/rebuild":
+                return self.send_json({"job": start_job(lesson_row(name)["title"] + " (build)", name, [["build", name]])})
             if path == "/api/new":
                 if L.session_dir(name).exists() or (S.SEMINARS / name).exists():
                     raise RuntimeError(f"You already have a lesson called {name}. Choose another name.")
@@ -333,4 +539,8 @@ def run(port=8760, open_page=True):
     finally:
         for name in list(STUDIOS):
             stop_studio(name)
+        for item in list(VOICES.values()):
+            kill_tree(item["proc"])
+        JOB["stopped"] = True
+        kill_tree(JOB["proc"])
         shutil.rmtree(PREVIEW, ignore_errors=True)

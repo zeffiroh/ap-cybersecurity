@@ -4,7 +4,7 @@ Go to design mode and break till-2 in one way: change its gateway to **192.168.1
 
 1. `ipconfig`: is the address right?
 2. `ping 192.168.1.12` (itself) and `ping 192.168.1.11` (a neighbour): is the local network fine?
-3. `ping 192.168.1.1`: is the gateway right?
+3. `ping 192.168.1.1`: is the router there? Compare it with the gateway `ipconfig` showed.
 4. `ping 192.168.2.53`, then the site by name.
 
 Fix it and test again.

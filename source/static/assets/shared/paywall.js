@@ -140,7 +140,7 @@
   if (!P.enabled || !root) return;
 
   var free = path === null || (!product && (P.free || []).some(function (f) { return glob(f).test(path); }));
-  var quiet = /^(unlock|pay|buy|ledger)\/|^workstation\.html$/.test(path || "");
+  var quiet = /^(unlock|pay|buy|ledger)\/|^(workstation|playground)\.html$/.test(path || "");
   var framed = global.self !== global.top;
 
   var css = document.createElement("style");

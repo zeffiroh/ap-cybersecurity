@@ -178,6 +178,7 @@
       r("msg").textContent = text;
       var hs = Object.keys(req.headers).filter(function (k) { return k !== "content-length"; }).map(function (k) { return cap(k) + ": " + req.headers[k]; }).join("\n");
       last = { m: req.method, p: tokenized(req.path, sh), h: tokenized(hs, sh), b: tokenized(req.body, sh), s: res.status };
+      if (ctx.emit) ctx.emit("result", { m: req.method, p: req.path, b: req.body, s: res.status, body: String(res.body || "").slice(0, 2000) }, "Web proxy: " + req.method + " " + req.path + " (" + res.status + ")");
       var sv = el.querySelector('[data-px="save"]');
       if (sv) sv.disabled = false;
     }

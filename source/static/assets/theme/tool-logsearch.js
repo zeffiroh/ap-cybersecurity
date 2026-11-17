@@ -33,6 +33,7 @@
       if (typeof st.n === "number") text += hits.length === st.n ? " Same count as the recorded search." : " The recorded search found " + st.n + ".";
       r("msg").textContent = text;
       last = { file: name, q: q, n: hits.length };
+      if (ctx.emit) ctx.emit("result", last, "Log search: " + q + " (" + hits.length + ")");
       if (r("save")) r("save").disabled = false;
       if (ctx.remember) ctx.remember({ file: name, q: q });
     }
