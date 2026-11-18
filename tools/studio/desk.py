@@ -191,6 +191,8 @@ def lab_group(name):
         return "Seminars"
     if re.match(r"n\d\d-", name):
         return "Network labs"
+    if re.match(r"x\d\d-", name):
+        return "Simulations"
     return ""
 
 
@@ -226,7 +228,7 @@ def video_items():
         title = LEC.front(md)[0] or md.stem
         items.append(dict(key=md.stem, kind="lecture", group="Lectures", title=f"Lecture {int(md.stem[:2])}: {title}",
                           **video_state(md.stem, LECTURES / md.stem, md.stat().st_mtime)))
-    order = ["Lectures", "Free tutorials", "Seminars", "Network labs"]
+    order = ["Lectures", "Free tutorials", "Seminars", "Network labs", "Simulations"]
     items.sort(key=lambda r: (order.index(r["group"]), r["key"]))
     return items
 

@@ -394,7 +394,7 @@ def main():
     p.add_argument("command", nargs=argparse.REMAINDER, help="-- then the command, for example: -- nmap -sV 10.0.0.5")
     p.set_defaults(fn=cmd_capture)
     p = sub.add_parser("demo", help="play a seminar lab's walkthrough by itself and save the video, subtitles, chapters and transcript")
-    p.add_argument("name", help="a seminar folder such as f-evidence-notes-handoffs, several joined by commas, or tutorials, seminars, network or all")
+    p.add_argument("name", help="a seminar folder such as f-evidence-notes-handoffs, several joined by commas, or tutorials, seminars, network, sims (the 5 simulations) or all")
     p.add_argument("--speed", type=float, default=1.0, help="1 is reading pace; 1.5 is quicker")
     p.add_argument("--level", choices=["", "guided", "solo"], default="", help="leave out for the walkthrough")
     p.set_defaults(fn=cmd_demo)

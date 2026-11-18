@@ -194,6 +194,116 @@ def ransom(browser, base):
     page.close()
 
 
+def linux(browser, base):
+    page, errors = desk(browser, base, "miner")
+    page.evaluate("() => AayatDesk.run('rdp')")
+    page.wait_for_selector(".rd-host[data-l=build01]", timeout=20000)
+    check("Linux" in page.inner_text(".rd-host[data-l=build01]"), "the Remote desktop lists the Linux build server")
+    page.click(".rd-host[data-l=build01]")
+    page.wait_for_selector(".wm-lin .wm-icons [data-app=term]")
+    mon = page.locator(".wm-win", has_text="System Monitor").last
+    mon.wait_for()
+    check("kswapd0" in mon.inner_text(), "System Monitor opens with the captured ps output, miner included")
+    mon.locator("[data-t=net]").click()
+    check("3333" in mon.inner_text(), "the Connections tab shows the miner's pool connection from ss.txt")
+    page.dblclick(".wm-icons [data-app=term]")
+    term = page.locator(".wm-win", has_text="analyst@build01").last
+    term.wait_for()
+    out = term_run(page, term, "cat /etc/cron.d/sysupdate")
+    check("curl" in out, "cat reads the saved cron file at its real path")
+    out = term_run(page, term, "systemctl status sysupdate")
+    check("System update helper" in out and "active (running)" in out, "systemctl status reads the unit file from the case")
+    term_run(page, term, "sudo systemctl disable --now sysupdate")
+    out = term_run(page, term, "crontab -r -u root")
+    act = page.evaluate("() => JSON.parse(localStorage.getItem('ws-lx-act-miner') || '{}')")
+    b = act.get("build01") or {}
+    check(b.get("units", {}).get("sysupdate.service") == "both", f"disable --now stops and disables the unit ({b.get('units')})")
+    check(len(b.get("cron", {})) >= 1, "crontab -r removes root's cron line and remembers it")
+    page.dblclick(".wm-icons [data-app=units]")
+    sv = page.locator(".wm-win", has_text="systemd services").last
+    sv.wait_for()
+    check("inactive (dead)" in sv.inner_text() and "Removed" in sv.inner_text(), "the Services window shows the stopped unit and the removed cron job")
+    page.dblclick(".wm-icons [data-app=files]")
+    fl = page.locator(".wm-win", has_text="Places").last
+    fl.wait_for()
+    fl.locator(".wm-addr input").fill("/var/tmp/.cache")
+    fl.locator(".wm-addr input").press("Enter")
+    page.wait_for_timeout(150)
+    check("kswapd0" in fl.locator(".wm-list").inner_text(), "Files builds /var/tmp/.cache from the evidence")
+    fl.locator("tr[data-file]", has_text="kswapd0").click()
+    check("strings" in fl.locator(".wm-props").inner_text(), "a binary with no copy points to its saved strings")
+    shot(page, "machine-linux")
+    check(not errors, f"no page errors on the Linux desktop ({errors[:3]})")
+    page.close()
+
+    page, errors = desk(browser, base, "phish")
+    page.evaluate("() => AayatDesk.run('rdp')")
+    page.wait_for_selector(".rd-host[data-h=hr-pc07]", timeout=20000)
+    page.click(".rd-host[data-h=hr-pc07]")
+    page.wait_for_selector(".wm-icons [data-app=explorer]")
+    page.dblclick(".wm-icons [data-app=explorer]")
+    ex = page.locator(".wm-win", has_text="This PC").last
+    ex.wait_for()
+    ex.locator(".wm-addr input").fill("C:\\Users\\Public")
+    ex.locator(".wm-addr input").press("Enter")
+    page.wait_for_timeout(150)
+    ex.locator("tr[data-file]", has_text="upd.ps1").click()
+    ex.locator('[data-a="note"]').click()
+    np = page.locator(".wm-win", has_text="Notepad").last
+    np.wait_for()
+    check("DownloadFile" in np.inner_text() and "4104" in np.inner_text(), "Notepad shows upd.ps1 rebuilt from the script-block log")
+    page.dblclick(".wm-icons [data-app=cmd]")
+    cmd = page.locator(".wm-win", has_text="Command Prompt").last
+    cmd.wait_for()
+    out = term_run(page, cmd, "type C:\\Users\\Public\\svchost-upd.exe")
+    check("binary data" in out and "strings" in out, "type on a program says it's binary and points to the saved strings")
+    check(not errors, f"no page errors on the phishing remote desktop ({errors[:3]})")
+    page.close()
+
+    page, errors = desk(browser, base, "trial")
+    page.evaluate("() => AayatDesk.run('bench')")
+    page.wait_for_selector(".hb-dev[data-dev=portal01]", timeout=20000)
+    page.wait_for_timeout(300)
+    check(page.locator(".hb-tasks li").count() == 3, "the trial bench has its own work order")
+    page.click(".hb-dev[data-dev=portal01]")
+    page.click('.hb-panel [data-a="desk"]')
+    page.wait_for_selector(".wm-lin .wm-icons [data-app=term]")
+    page.dblclick(".wm-icons [data-app=term]")
+    term = page.locator(".wm-win", has_text="@portal01").last
+    term.wait_for()
+    out = term_run(page, term, "ping -c 2 198.51.100.1")
+    check("2 packets transmitted, 2 received" in out, "a Linux machine on the bench pings through the wiring from its own desktop")
+    shot(page, "bench-linux")
+    check(not errors, f"no page errors on the trial bench ({errors[:3]})")
+    page.close()
+
+
+def ticket_view(page):
+    page.evaluate("() => AayatDesk.run('tickets')")
+    win = page.locator(".ws-win", has_text="Export CSV").last
+    win.wait_for()
+    page.wait_for_selector(".tk-list tr[data-id]", timeout=20000)
+    row = win.locator(".tk-list tr[data-id]", has=page.locator(".sev.critical")).first
+    row.click()
+    page.wait_for_selector(".tk-meta")
+    return win.locator(".ws-status").inner_text(), win.locator(".tk-meta").inner_text(), row.locator("td").last.inner_text()
+
+
+def sla(browser, base):
+    page, errors = desk(browser, base, "sem-x04-ransomware-night-shift")
+    stat, meta, left = ticket_view(page)
+    check("this case's SLA" in stat, f"Tickets says the ransomware case uses its own SLA ({stat})")
+    check("30m for critical" in meta and "retainer" in meta, "a critical ticket shows the case's 30-minute target and why")
+    check(left.startswith(("29m", "30m")), f"the critical ticket's clock counts down from 30 minutes ({left})")
+    check(not errors, f"no page errors in Tickets with a case SLA ({errors[:3]})")
+    page.close()
+    page, errors = desk(browser, base, "phish")
+    stat, meta, left = ticket_view(page)
+    check("standard SLA" in stat and "15m for critical (standard SLA)" in meta, f"a case without an SLA keeps the standard 15 minutes ({stat})")
+    check(not errors, f"no page errors in Tickets with the standard SLA ({errors[:3]})")
+    page.close()
+
+
 def main():
     from playwright.sync_api import sync_playwright
     handler = functools.partial(Quiet, directory=str(SITE))
@@ -202,7 +312,7 @@ def main():
         threading.Thread(target=server.serve_forever, daemon=True).start()
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            for name, fn in (("Hardware bench and Server room", clinic), ("Remote desktop", ransom)):
+            for name, fn in (("Hardware bench and Server room", clinic), ("Remote desktop", ransom), ("Linux desktop and evidence files", linux), ("Ticket SLA per case", sla)):
                 print(name)
                 try:
                     fn(browser, base)

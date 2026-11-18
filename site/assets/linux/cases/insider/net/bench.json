@@ -1,0 +1,109 @@
+{
+ "intro": "Halcyon Aero's engineering floor, wired from the scan. It's 10:00 the next morning. The badge, VPN, Git, USB and DLP records are saved, and HR and Legal have agreed to act. Close his ways out without disturbing the rest of the team.",
+ "tasks": [
+  {
+   "id": "contain",
+   "text": "Take eng-ws57 off the network, but leave it switched on for the forensic copy",
+   "hint": "eng-ws57 is the workstation r.menon used that night. Pull its cable or shut its port. Switching it off would lose what's in memory.",
+   "check": {
+    "all": [
+     {
+      "unplugged": "eng-ws57"
+     },
+     {
+      "power": "eng-ws57",
+      "on": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "usb",
+   "text": "Block USB storage on both engineering workstations",
+   "check": {
+    "all": [
+     {
+      "usb": "eng-ws57",
+      "on": false
+     },
+     {
+      "usb": "eng-ws61",
+      "on": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "upload",
+   "text": "Block uploads to FileCrate at the gateway, for everyone",
+   "hint": "FileCrate is 203.0.113.80 in the scan. Write a rule on gw that denies tcp 443 to it, then allow everything else out.",
+   "check": {
+    "ping": [
+     "eng-ws61",
+     "203.0.113.80"
+    ],
+    "proto": "tcp",
+    "dport": 443,
+    "ok": false
+   }
+  },
+  {
+   "id": "vpn",
+   "text": "Until his VPN account is disabled, block his home address (from vpn.log) at the gateway",
+   "hint": "Find the public address he connected from in vpn.log. Deny it to the VPN server on tcp 443. Everyone else must still get in.",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "198.51.100.200",
+       "vpn"
+      ],
+      "proto": "tcp",
+      "dport": 443,
+      "ok": false
+     },
+     {
+      "ping": [
+       "198.51.100.31",
+       "vpn"
+      ],
+      "proto": "tcp",
+      "dport": 443
+     }
+    ]
+   }
+  },
+  {
+   "id": "work",
+   "text": "Engineering still works: eng-ws61 reaches Git, the file server and the rest of the internet",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "eng-ws61",
+       "git"
+      ],
+      "proto": "tcp",
+      "dport": 443
+     },
+     {
+      "ping": [
+       "eng-ws61",
+       "files01"
+      ],
+      "proto": "tcp",
+      "dport": 445
+     },
+     {
+      "ping": [
+       "eng-ws61",
+       "198.51.100.1"
+      ],
+      "proto": "tcp",
+      "dport": 443
+     }
+    ]
+   }
+  }
+ ]
+}

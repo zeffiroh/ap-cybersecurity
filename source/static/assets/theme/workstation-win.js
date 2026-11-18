@@ -30,9 +30,37 @@
     return /^[a-z]:\\\S+$/i.test(s) ? s : "";
   }
   function cmdPaths(s) {
-    var out = [], m, re = /"([a-z]:\\[^"]+)"|(?:^|\s)([a-z]:\\[^\s"]+)/gi;
-    while ((m = re.exec(String(s || "")))) out.push(m[1] || m[2]);
+    var out = [], m, re = /"([a-z]:\\[^"]+)"|(?:^|[\s>=,'(])([a-z]:\\Program Files(?: \(x86\))?\\[^\s"']+|[a-z]:\\[^\s"']+)/gi;
+    while ((m = re.exec(String(s || "")))) {
+      var p = (m[1] || m[2]).replace(/[;,)'.]+$/, "");
+      if (/^[a-z]:\\Program Files( \(x86\))?$/i.test(p)) continue;
+      out.push(p);
+    }
     return out;
+  }
+  var BINARY = /\.(exe|dll|sys|scr|com|msi|dmp|zip|7z|rar|bin|iso|img|vhdx?|docm|docx|xlsx|xlsm|pptx|pdf|jpg|jpeg|png|gif|sldprt|dwg|lnk|db|pst|ost|evtx|pf)$/i;
+  function scriptText(msg) {
+    var m = /^Creating Scriptblock text \((\d+) of (\d+)\):\n([\s\S]*?)(?:\n\nScriptBlock ID:[\s\S]*)?$/.exec(String(msg || ""));
+    return m ? { part: +m[1], of: +m[2], text: m[3] } : null;
+  }
+  function mentions(fs, name, skip) {
+    var b = String(name || "").toLowerCase(), out = [];
+    if (b.length < 4) return out;
+    Object.keys(fs).sort().forEach(function (n) {
+      if (out.length >= 8 || n === skip || /\.jsonl$/i.test(n) || /^triage\//i.test(n)) return;
+      var t = String(fs[n] || ""), i = t.toLowerCase().indexOf(b);
+      if (i < 0) return;
+      var s = t.lastIndexOf("\n", i) + 1, e = t.indexOf("\n", i);
+      out.push({ file: n, line: t.slice(s, e < 0 ? t.length : e).trim().slice(0, 220) });
+    });
+    return out;
+  }
+  function hashOf(fs, E, name) {
+    var b = String(name || "").toLowerCase(), hit = null;
+    E.forEach(function (e) { var d = e.Data || {}; if (!hit && d.Hashes && String(d.Image || d.TargetFilename || "").toLowerCase().split("\\").pop() === b) { var m = /SHA256=([0-9a-f]{64})/i.exec(d.Hashes); if (m) hit = { sha256: m[1].toUpperCase(), from: "Sysmon event " + e.EventID }; } });
+    if (hit) return hit;
+    mentions(fs, name).some(function (x) { var m = /\b([0-9a-f]{64})\b/i.exec(x.line); if (m) hit = { sha256: m[1].toUpperCase(), from: x.file }; return !!hit; });
+    return hit;
   }
 
   function evidence(fs) {
@@ -60,7 +88,7 @@
     Object.keys(E).forEach(function (f) { E[f].forEach(function (e) { e._file = f; all.push(e); }); });
     var procs = H.procs.slice().sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     if (!procs.length && live) procs = BASE.map(function (b, i) { return { time: "", host: host, pid: String(b[1]), ppid: String(b[2]), user: b[3] === "USER" ? host.toUpperCase() + "\\" + live.user : b[3], image: b[4] && /^[a-z]:/i.test(b[4]) ? b[4].split(" ")[0] : b[0], command_line: b[4] || b[0], _base: 1 }; });
-    var users = {}, files = {}, logons = [], startup = [], conns = [], tasks = [];
+    var users = {}, files = {}, logons = [], startup = [], conns = [], tasks = [], contents = {}, blocks = {};
     function seen(p, why, t) {
       if (!p || !/^[a-z]:\\/i.test(p)) return;
       var k = p.toLowerCase().replace(/\\+$/, "");
@@ -90,8 +118,30 @@
       }
       if (e.EventID === 13 && /\\currentversion\\run/i.test(d.TargetObject || "")) startup.push({ name: base(d.TargetObject), cmd: d.Details || "", from: "Registry Run key (" + (d.TargetObject || "").replace(/\\[^\\]+$/, "") + ")", key: "reg:" + d.TargetObject, t: t });
       if (e.EventID === 7045) startup.push({ name: d.ServiceName || "", cmd: d.ImagePath || "", from: "Service installed " + t + (d.StartType ? ", " + d.StartType : ""), key: "svc:" + d.ServiceName, t: t });
-      if (e.EventID === 4698) { var c = /<Command>([^<]+)<\/Command>(?:\s*<Arguments>([^<]*)<\/Arguments>)?/i.exec(d.TaskContent || ""); tasks.push({ name: d.TaskName || "", cmd: c ? c[1] + (c[2] ? " " + c[2] : "") : "", t: t, user: d.SubjectUserName || "" }); startup.push({ name: d.TaskName || "", cmd: c ? c[1] : "", from: "Scheduled task created " + t, key: "task:" + d.TaskName, t: t }); }
+      if (e.EventID === 4698) { var c = /<Command>([^<]+)<\/Command>(?:\s*<Arguments>([^<]*)<\/Arguments>)?/i.exec(d.TaskContent || ""); tasks.push({ name: d.TaskName || "", cmd: c ? c[1] + (c[2] ? " " + c[2] : "") : d.Action || "", t: t, user: d.SubjectUserName || "" }); startup.push({ name: d.TaskName || "", cmd: c ? c[1] : d.Action || "", from: "Scheduled task created " + t, key: "task:" + d.TaskName, t: t }); }
+      if (e.EventID === 4104 && d.Path) { var sb = scriptText(e.Message); if (sb) { var bid = d.ScriptBlockId || d.Path; (blocks[bid] = blocks[bid] || { path: d.Path, parts: {}, of: sb.of, file: e._file }).parts[sb.part] = sb.text; seen(d.Path, "Event 4104: PowerShell logged this script's text", t); } }
+      if (e.EventID === 4698 && d.TaskName && (d.TaskContent || d.Action)) {
+        var tn = String(d.TaskName).replace(/^\\+/, ""), tp = "C:\\Windows\\System32\\Tasks\\" + tn, lf = base(e._file.replace(/\//g, "\\"));
+        seen(tp, "Event 4698: scheduled task created by " + (d.SubjectUserName || "?"), t);
+        var trig = /log ?on/i.test(d.Trigger || "") ? "    <LogonTrigger>\n      <Enabled>true</Enabled>\n    </LogonTrigger>" : /start ?up|boot/i.test(d.Trigger || "") ? "    <BootTrigger>\n      <Enabled>true</Enabled>\n    </BootTrigger>" : "    <TimeTrigger>\n      <StartBoundary>" + String(e.TimeCreated || "").replace("Z", "") + "</StartBoundary>\n      <Enabled>true</Enabled>\n    </TimeTrigger>";
+        contents[tp.toLowerCase()] = d.TaskContent ? { text: d.TaskContent, from: "rebuilt from Event 4698 in " + lf + ", which records the task's XML" } : {
+          text: '<?xml version="1.0" encoding="UTF-16"?>\n<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n  <RegistrationInfo>\n    <Date>' + String(e.TimeCreated || "").replace("Z", "") + "</Date>\n    <Author>" + (d.SubjectDomainName ? d.SubjectDomainName + "\\" : "") + (d.SubjectUserName || "") + "</Author>\n    <URI>\\" + tn + "</URI>\n  </RegistrationInfo>\n  <Triggers>\n" + trig + "\n  </Triggers>\n  <Actions Context=\"Author\">\n    <Exec>\n      <Command>" + d.Action + "</Command>\n    </Exec>\n  </Actions>\n</Task>",
+          from: "rebuilt from Event 4698 in " + lf + " (its task name, action and trigger)"
+        };
+        if (!d.TaskContent) seen(d.Action, "Event 4698: the action of scheduled task " + tn, t);
+      }
       if (e.EventID === 3 && d.DestinationIp) conns.push({ proto: (d.Protocol || "tcp").toUpperCase(), src: (d.SourceIp || "") + ":" + (d.SourcePort || ""), dst: d.DestinationIp + ":" + (d.DestinationPort || ""), pid: d.ProcessId || "", image: base(d.Image), t: t });
+    });
+    Object.keys(blocks).forEach(function (k) {
+      var b = blocks[k], n = Object.keys(b.parts).length, txt = Object.keys(b.parts).map(Number).sort(function (x, y) { return x - y; }).map(function (i) { return b.parts[i]; }).join("");
+      contents[b.path.toLowerCase()] = { text: txt, from: "rebuilt from PowerShell script-block logging (Event 4104 in " + base(b.file.replace(/\//g, "\\")) + (n < b.of ? ", " + n + " of " + b.of + " parts logged, so it is incomplete" : "") + ")" };
+    });
+    Object.keys(fs).forEach(function (k) {
+      var m = /^triage\/([^\/]+)\/([a-z])\/(.+)$/i.exec(k);
+      if (!m || short(m[1]) !== host) return;
+      var p = m[2].toUpperCase() + ":\\" + m[3].replace(/\//g, "\\");
+      seen(p, "Collected by the triage kit: triage/" + m[1] + "/…", "");
+      contents[p.toLowerCase()] = { key: k, text: fs[k], from: "copy collected by the triage kit (" + k + ")" };
     });
     if (live) users[live.user.toLowerCase()] = live.user;
     Object.keys(users).forEach(function (k) { ["Desktop", "Documents", "Downloads", "AppData\\Local", "AppData\\Roaming"].forEach(function (f) { seen("C:\\Users\\" + users[k] + "\\" + f + "\\", ""); }); });
@@ -107,8 +157,9 @@
         if (leaf) { node.file = f; }
       });
     });
+    (function fold(n) { Object.keys(n.kids).forEach(function (k) { var c = n.kids[k]; if (c.file && Object.keys(c.kids).length) c.file = null; fold(c); }); })(tree);
     var domain = (procs.map(function (p) { return String(p.user).split("\\")[0]; }).filter(function (x) { return x && !/^nt authority$/i.test(x) && x.toUpperCase() !== host.toUpperCase(); })[0]) || "WORKGROUP";
-    return { host: host, procs: procs, services: H.services, logs: H.logs, events: E, all: all, users: Object.keys(users).map(function (k) { return users[k]; }), logons: logons, startup: startup, conns: conns, tasks: tasks, tree: tree, files: files, domain: domain, live: !!live };
+    return { host: host, procs: procs, services: H.services, logs: H.logs, events: E, all: all, users: Object.keys(users).map(function (k) { return users[k]; }), logons: logons, startup: startup, conns: conns, tasks: tasks, tree: tree, files: files, contents: contents, domain: domain, live: !!live };
   }
 
   function copyOf(fs, path) {
@@ -132,42 +183,18 @@
     return parts.join("\\") + (parts.length === 1 ? "\\" : "");
   }
 
-  function mount(w, opts) {
-    var d = D(), cid = d.caseId() || "bench", host = short(opts.host), fs = opts.fs || {}, H = opts.evidence || { procs: [], logs: [], services: [] };
-    var live = opts.net && !H.procs.length ? { user: "it-support" } : null;
-    var X = build(fs, host, H, live);
-    var actKey = "ws-rd-act-" + cid, acts = load(actKey, {}), A = acts[host] = acts[host] || { ended: {}, svc: {}, start: {} };
-    var cut = load("ws-rd-iso-" + cid, {}), z = 10, net = opts.net || null, netId = host;
-    function keep() { save(actKey, acts); }
-    if (!net && global.AayatBench && d.caseId()) global.AayatBench.open("case:" + d.caseId()).then(function (a) { if (a && a.model().dev[host]) net = a; });
-    w.el.querySelector(".ws-title b").textContent = (opts.net ? "" : "Remote desktop: ") + (opts.title || host);
-    w.body.innerHTML = '<div class="wm"><div class="wm-desk" data-r="desk"><div class="wm-icons" data-r="icons"></div>' +
+  function frame(w, o) {
+    var d = D(), z = 10, host = o.host;
+    w.el.querySelector(".ws-title b").textContent = o.title;
+    w.body.innerHTML = '<div class="wm' + (o.cls ? " " + o.cls : "") + '"><div class="wm-desk" data-r="desk"><div class="wm-icons" data-r="icons"></div>' +
       '<div class="wm-note" data-r="note"></div></div><div class="wm-menu" data-r="menu" hidden></div>' +
-      '<div class="wm-bar"><button type="button" class="wm-start" data-r="start">' + d.glyph("shield") + "<span>" + esc(host.toUpperCase()) + '</span></button><span class="wm-tasks" data-r="tasks"></span><span class="wm-tray"><span data-r="netst"></span><span class="wm-clock" data-r="clock"></span></span></div></div>';
+      '<div class="wm-bar"><button type="button" class="wm-start" data-r="start">' + d.glyph(o.glyph || "shield") + "<span>" + esc(o.start || host.toUpperCase()) + '</span></button><span class="wm-tasks" data-r="tasks"></span><span class="wm-tray"><span data-r="netst"></span><span class="wm-clock" data-r="clock"></span></span></div></div>';
     var r = function (n) { return w.body.querySelector('[data-r="' + n + '"]'); };
-    var APPS = [["explorer", "This PC", "folder"], ["taskmgr", "Task Manager", "events"], ["cmd", "Command Prompt", "terminal"], ["ps", "PowerShell", "terminal"], ["eventvwr", "Event Viewer", "events"], ["services", "Services", "gear"], ["settings", "Settings", "net"]];
-    r("icons").innerHTML = APPS.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 38) + "<span>" + a[1] + "</span></button>"; }).join("");
-    r("menu").innerHTML = '<div class="wm-mh"><b>' + esc(host.toUpperCase()) + "</b><small>" + esc(X.domain + "\\" + (live ? live.user : "analyst")) + "</small></div>" + APPS.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 20) + "<span>" + a[1] + "</span></button>"; }).join("") + '<hr><button type="button" data-a="bye">' + d.icon("power", 20) + "<span>Disconnect</span></button>";
+    r("icons").innerHTML = o.apps.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 38) + "<span>" + a[1] + "</span></button>"; }).join("");
+    r("menu").innerHTML = '<div class="wm-mh"><b>' + esc(o.menuTitle || host.toUpperCase()) + "</b><small>" + esc(o.menuSub || "") + "</small></div>" + o.apps.map(function (a) { return '<button type="button" data-app="' + a[0] + '">' + d.icon(a[2], 20) + "<span>" + a[1] + "</span></button>"; }).join("") + '<hr><button type="button" data-a="bye">' + d.icon("power", 20) + "<span>" + esc(o.bye || "Disconnect") + "</span></button>";
     function clock() { var t = d.now(); r("clock").textContent = t.toISOString().slice(11, 16); }
     clock();
     var ct = setInterval(function () { if (!document.body.contains(w.el)) { clearInterval(ct); return; } clock(); }, 15000);
-    function isolated() { return !opts.net && !!cut[host]; }
-    function note() {
-      r("netst").textContent = isolated() ? "Isolated" : "Network";
-      r("netst").className = isolated() ? "wm-iso" : "";
-      r("note").innerHTML = opts.net ? "Live computer on the bench. Network changes on the bench show here." : 'Copy of ' + esc(host) + ' rebuilt from the evidence. <button type="button" class="btn' + (isolated() ? " dark" : "") + '" data-a="iso">' + (isolated() ? "Isolated. Reconnect" : "Isolate from the network") + "</button>";
-      var b = r("note").querySelector('[data-a="iso"]');
-      if (b) b.addEventListener("click", function () {
-        cut = load("ws-rd-iso-" + cid, {});
-        if (cut[host]) delete cut[host]; else cut[host] = Date.now();
-        save("ws-rd-iso-" + cid, cut);
-        d.emit("rdp.isolate", { host: host, isolated: !!cut[host] });
-        d.toast(cut[host] ? "Isolated" : "Reconnected", host + (cut[host] ? " can only reach the security team's tools now." : " is back on the network."));
-        note();
-      });
-    }
-    note();
-
     function iwin(title, ico, build, size) {
       var desk = r("desk"), el = document.createElement("section"), n = desk.querySelectorAll(".wm-win").length;
       el.className = "wm-win";
@@ -203,9 +230,56 @@
       front();
       me.close = shut;
       build(me);
-      d.emit("rdp.open", { host: host, app: title });
+      d.emit("rdp.open", { host: host, app: title, os: o.os || "windows" });
       return me;
     }
+    function go(a) { if (o.run[a]) o.run[a](); }
+    r("icons").querySelectorAll("[data-app]").forEach(function (b) { b.addEventListener("dblclick", function () { go(b.getAttribute("data-app")); }); b.addEventListener("keydown", function (e) { if (e.key === "Enter") go(b.getAttribute("data-app")); }); });
+    r("start").addEventListener("click", function (e) { e.stopPropagation(); r("menu").hidden = !r("menu").hidden; });
+    r("menu").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-app],[data-a]");
+      if (!b) return;
+      r("menu").hidden = true;
+      if (b.getAttribute("data-a") === "bye") { if (o.onclose) o.onclose(); else d.close(w); return; }
+      go(b.getAttribute("data-app"));
+    });
+    r("desk").addEventListener("mousedown", function (e) { if (!e.target.closest(".wm-menu")) r("menu").hidden = true; });
+    return { r: r, iwin: iwin, go: go };
+  }
+
+  function isolation(w, o, r) {
+    var d = D(), key = "ws-rd-iso-" + o.cid, cut = load(key, {}), host = o.host;
+    function isolated() { return !o.net && !!cut[host]; }
+    function note() {
+      r("netst").textContent = isolated() ? "Isolated" : "Network";
+      r("netst").className = isolated() ? "wm-iso" : "";
+      r("note").innerHTML = o.net ? "Live computer on the bench. Network changes on the bench show here." : "Copy of " + esc(host) + ' rebuilt from the evidence. <button type="button" class="btn' + (isolated() ? " dark" : "") + '" data-a="iso">' + (isolated() ? "Isolated. Reconnect" : "Isolate from the network") + "</button>";
+      var b = r("note").querySelector('[data-a="iso"]');
+      if (b) b.addEventListener("click", function () {
+        cut = load(key, {});
+        if (cut[host]) delete cut[host]; else cut[host] = Date.now();
+        save(key, cut);
+        d.emit("rdp.isolate", { host: host, isolated: !!cut[host], os: o.os || "windows" });
+        d.toast(cut[host] ? "Isolated" : "Reconnected", host + (cut[host] ? " can only reach the security team's tools now." : " is back on the network."));
+        note();
+      });
+    }
+    note();
+    return isolated;
+  }
+
+  function mount(w, opts) {
+    var d = D(), cid = d.caseId() || "bench", host = short(opts.host), fs = opts.fs || {}, H = opts.evidence || { procs: [], logs: [], services: [] };
+    var live = opts.net && !H.procs.length ? { user: "it-support" } : null;
+    var X = build(fs, host, H, live);
+    var actKey = "ws-rd-act-" + cid, acts = load(actKey, {}), A = acts[host] = acts[host] || { ended: {}, svc: {}, start: {} };
+    var net = opts.net || null, netId = host;
+    function keep() { save(actKey, acts); }
+    if (!net && global.AayatBench && d.caseId()) global.AayatBench.open("case:" + d.caseId()).then(function (a) { if (a && a.model().dev[host]) net = a; });
+    var RUN = {};
+    var F = frame(w, { host: host, title: (opts.net ? "" : "Remote desktop: ") + (opts.title || host), apps: [["explorer", "This PC", "folder"], ["taskmgr", "Task Manager", "events"], ["cmd", "Command Prompt", "terminal"], ["ps", "PowerShell", "terminal"], ["eventvwr", "Event Viewer", "events"], ["services", "Services", "gear"], ["settings", "Settings", "net"]],
+      menuSub: X.domain + "\\" + (live ? live.user : "analyst"), run: RUN, onclose: opts.onclose });
+    var r = F.r, iwin = F.iwin, isolated = isolation(w, { cid: cid, host: host, net: opts.net }, r);
 
     function endTask(pid, how) {
       var p = X.procs.filter(function (y) { return String(y.pid) === String(pid); })[0];
@@ -224,6 +298,26 @@
       return nm;
     }
     function svcState(s) { var nm = s.Name || s.name, a = A.svc[nm]; return a === "stop" || a === "disable" ? "Stopped" : s.State || s.state || ""; }
+
+    function about(path) {
+      var lk = String(path).toLowerCase(), c = X.contents[lk], cp = copyOf(fs, path);
+      var exact = !c && cp && base(cp.replace(/\//g, "\\")).toLowerCase() === base(path).toLowerCase() && fs[cp] != null;
+      return {
+        text: c ? c.text : exact ? String(fs[cp]) : null,
+        from: c ? c.from : exact ? "copy saved with the case as " + cp : "",
+        near: c ? (c.key || null) : exact ? cp : cp || null,
+        bin: BINARY.test(path),
+        hash: hashOf(fs, X.all, base(path)),
+        refs: mentions(fs, base(path), cp)
+      };
+    }
+    function notepad(path, a) {
+      iwin(base(path) + " - Notepad", "notes", function (me) {
+        me.body.innerHTML = '<div class="wm-np"><p class="wm-npf"><small></small></p><pre class="mono"></pre></div>';
+        me.body.querySelector("small").textContent = a.from;
+        me.body.querySelector("pre").textContent = String(a.text).slice(0, 200000);
+      }, { w: 700, h: 420 });
+    }
 
     function explorer() {
       iwin("This PC", "folder", function (me) {
@@ -250,12 +344,17 @@
           return true;
         }
         function props(path) {
-          var f = X.files[path.toLowerCase()], c = copyOf(fs, path);
-          q("props").innerHTML = "<b>" + esc(base(path)) + '</b><p class="mono">' + esc(path) + "</p>" + (f && f.why.length ? "<ul>" + f.why.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Only its name was captured.</p>") +
-            (c ? '<p><button type="button" class="btn dark" data-open="' + esc(c) + '">Open the saved copy: ' + esc(c) + "</button></p>" : "<p><small>No copy of the file itself was saved with the case.</small></p>");
-          var b = q("props").querySelector("[data-open]");
-          if (b) b.addEventListener("click", function () { d.open(b.getAttribute("data-open")); });
-          d.emit("rdp.file", { host: host, path: path });
+          var f = X.files[path.toLowerCase()], a = about(path);
+          q("props").innerHTML = "<b>" + esc(base(path)) + '</b><p class="mono">' + esc(path) + "</p>" + (f && f.why.length ? "<ul>" + f.why.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
+            (a.text != null ? '<p><button type="button" class="btn dark" data-a="note">Open in Notepad</button><br><small>' + esc(a.from) + "</small></p>" :
+              a.bin ? "<p><small>A binary file" + (/\.exe$|\.dll$/i.test(path) ? " (a program)" : "") + ": it can't be read as text." + (a.near ? "" : " Its bytes weren't collected with the case.") + "</small></p>" : "<p><small>The case didn't collect this file's contents. Only its name and where it was seen are known.</small></p>") +
+            (a.near ? '<p><button type="button" class="btn" data-open="' + esc(a.near) + '">Open the saved analysis: ' + esc(a.near) + "</button></p>" : "") +
+            (a.hash ? '<p><small>SHA256 <span class="mono">' + esc(a.hash.sha256) + "</span> (" + esc(a.hash.from) + ")</small></p>" : "") +
+            (a.refs.length ? "<p><small>Named elsewhere in the case:</small></p><ul class=\"wm-refs\">" + a.refs.map(function (x) { return '<li><button type="button" class="linkish" data-open="' + esc(x.file) + '">' + esc(x.file) + '</button> <span class="mono">' + esc(x.line) + "</span></li>"; }).join("") + "</ul>" : "");
+          q("props").querySelectorAll("[data-open]").forEach(function (b) { b.addEventListener("click", function () { d.open(b.getAttribute("data-open")); }); });
+          var nb = q("props").querySelector('[data-a="note"]');
+          if (nb) nb.addEventListener("click", function () { notepad(path, a); });
+          d.emit("rdp.file", { host: host, path: path, contents: a.text != null });
         }
         me.body.addEventListener("click", function (e) {
           var dir = e.target.closest("[data-dir]"), fl = e.target.closest("[data-file]");
@@ -416,8 +515,8 @@
         function run(c) {
           var lc = c.toLowerCase(), t = c.split(/\s+/), a0 = t[0].toLowerCase(), n = netCmd(c);
           if (n != null) return n;
-          if (a0 === "help" || a0 === "get-help") return mode ? "Get-Process, Stop-Process -Id N, Get-Service, Stop-Service -Name X, Set-Service -Name X -StartupType Disabled,\nGet-WinEvent -LogName Security [-MaxEvents N] [-Id N], Get-NetTCPConnection, Get-ScheduledTask, Get-LocalUser,\nGet-ChildItem PATH, Test-NetConnection HOST [-Port N], ipconfig, ping, hostname, whoami, cls, exit (back to cmd if you came from it)" :
-            "hostname, whoami, systeminfo, tasklist [/v], taskkill /PID N /F, wmic process get name,processid,parentprocessid,commandline,\nsc query [NAME], sc qc NAME, sc stop NAME, sc config NAME start= disabled, net user, query user, schtasks /query,\nreg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run, netstat -ano, dir, cd, type FILE,\nipconfig, ping, tracert, arp -a, nslookup, powershell, cls, exit";
+          if (a0 === "help" || a0 === "get-help") return mode ? "Get-Process, Stop-Process -Id N, Get-Service, Stop-Service -Name X, Set-Service -Name X -StartupType Disabled,\nGet-WinEvent -LogName Security [-MaxEvents N] [-Id N], Get-NetTCPConnection, Get-ScheduledTask, Get-LocalUser,\nGet-ChildItem PATH, Get-Content FILE, Get-FileHash FILE, Test-NetConnection HOST [-Port N], ipconfig, ping, hostname, whoami, cls, exit (back to cmd if you came from it)" :
+            "hostname, whoami, systeminfo, tasklist [/v], taskkill /PID N /F, wmic process get name,processid,parentprocessid,commandline,\nsc query [NAME], sc qc NAME, sc stop NAME, sc config NAME start= disabled, net user, query user, schtasks /query,\nreg query HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run, netstat -ano, dir, cd, type FILE, certutil -hashfile FILE SHA256,\nipconfig, ping, tracert, arp -a, nslookup, powershell, cls, exit";
           if (a0 === "hostname") return host.toUpperCase();
           if (a0 === "whoami") return (X.domain + "\\" + (live ? live.user : "analyst")).toLowerCase() + (/\/(groups|all)/i.test(c) ? "\n\nGROUP INFORMATION\n-----------------\nBUILTIN\\Administrators\nBUILTIN\\Users\nNT AUTHORITY\\INTERACTIVE" : "");
           if (!mode && a0 === "ver") return "\nMicrosoft Windows [Version 10.0.19045.5131]";
@@ -458,7 +557,19 @@
           if ((a0 === "netstat") || (mode && a0 === "get-netTCPconnection".toLowerCase())) { if (!X.conns.length) return "No connections were captured for this machine (Sysmon network events, ID 3)."; return mode ? table(["LocalAddress", "LocalPort", "RemoteAddress", "RemotePort", "State", "OwningProcess"], X.conns.map(function (x) { return [x.src.split(":")[0], x.src.split(":")[1], x.dst.split(":")[0], x.dst.split(":")[1], "Established", x.pid]; })) : "\nActive Connections (from the captured Sysmon network events)\n\n  Proto  Local Address          Foreign Address        State           PID\n" + X.conns.map(function (x) { return "  " + pad(x.proto, 7) + pad(x.src, 23) + pad(x.dst, 23) + pad("ESTABLISHED", 16) + x.pid + "  [" + x.image + "]"; }).join("\n"); }
           if (/^(dir|ls|gci|get-childitem)$/.test(a0)) { var target = resolve(cwd, t.slice(1).filter(function (x) { return !/^[\/-]/.test(x); }).join(" ")), nd = node(X, target); if (!nd) return mode ? "Get-ChildItem : Cannot find path '" + target + "' because it does not exist." : "File Not Found"; var ks = Object.keys(nd.kids).map(function (k) { return nd.kids[k]; }); return "\n Directory of " + target + "\n\n" + (ks.length ? ks.map(function (k) { return pad(k.file ? (k.file.t || "").slice(0, 16) : "", 20) + pad(k.file ? "" : "<DIR>", 10) + k.name; }).join("\n") : "(nothing was captured in this folder)") + "\n"; }
           if (a0 === "cd" || a0 === "chdir" || a0 === "set-location") { if (!t[1]) return cwd; var nx = resolve(cwd, t.slice(1).join(" ")); if (!node(X, nx)) return mode ? "Set-Location : Cannot find path '" + nx + "' because it does not exist." : "The system cannot find the path specified."; cwd = nx.replace(/\\$/, "") || nx; if (/^[a-z]:$/i.test(cwd)) cwd += "\\"; return ""; }
-          if (/^(type|cat|gc|get-content)$/.test(a0)) { var fp = resolve(cwd, t.slice(1).join(" ")), cp = copyOf(fs, fp); if (cp && base(cp.replace(/\//g, "\\")).toLowerCase() === base(fp).toLowerCase() && fs[cp] != null) return String(fs[cp]).slice(0, 20000); return X.files[fp.toLowerCase()] ? "Only this file's name and where it was seen were captured, not its contents." : mode ? "Get-Content : Cannot find path '" + fp + "' because it does not exist." : "The system cannot find the file specified."; }
+          if (/^(type|cat|gc|get-content|more)$/.test(a0)) {
+            var fp = resolve(cwd, t.slice(1).filter(function (x) { return !/^-/.test(x); }).join(" ")), fa = about(fp);
+            if (!X.files[fp.toLowerCase()] && fa.text == null) return mode ? "Get-Content : Cannot find path '" + fp + "' because it does not exist." : "The system cannot find the file specified.";
+            if (fa.text != null) return String(fa.text).slice(0, 20000);
+            if (fa.bin) return "(binary data: " + base(fp) + " is not a text file)" + (fa.near ? "\nThe case saved an analysis of it: " + fa.near : "") + "\nTry: " + (mode ? "Get-FileHash " + fp : "certutil -hashfile " + fp + " SHA256");
+            return "(The case didn't collect this file's contents, only its name and where it was seen.)" + (fa.near ? "\nA related saved file: " + fa.near : "");
+          }
+          if ((mode && a0 === "get-filehash") || (a0 === "certutil" && /-hashfile/i.test(c))) {
+            var hp = resolve(cwd, t.slice(1).filter(function (x) { return !/^-/.test(x) && !/^(sha256|md5|sha1)$/i.test(x); }).join(" ")), ha = about(hp);
+            if (!X.files[hp.toLowerCase()] && ha.text == null) return mode ? "Get-FileHash : Cannot find path '" + hp + "' because it does not exist." : "CertUtil: -hashfile command FAILED: 0x80070002 (WIN32: 2 ERROR_FILE_NOT_FOUND)";
+            if (!ha.hash) return "(This file's bytes weren't collected and no hash for it is recorded in the case, so its hash can't be worked out here.)";
+            return mode ? table(["Algorithm", "Hash", "Path"], [["SHA256", ha.hash.sha256, hp]]) + "(from " + ha.hash.from + ")" : "SHA256 hash of " + hp + ":\n" + ha.hash.sha256.toLowerCase() + "\nCertUtil: -hashfile command completed successfully.\n(from " + ha.hash.from + ")";
+          }
           if (mode && a0 === "get-winevent") {
             var lgm = /-logname\s+['"]?([\w-]+)/i.exec(c) || /logname\s*=\s*['"]([\w-]+)/i.exec(c), mx = /-maxevents\s+(\d+)/i.exec(c), idm = /(?:-id|\bid)\s*=?\s*(\d+)/i.exec(c);
             var lf = Object.keys(X.events).filter(function (f) { return !lgm || new RegExp(lgm[1] + "\\.jsonl$", "i").test(f); })[0];
@@ -489,17 +600,7 @@
       }, { w: 720, h: 400 });
     }
 
-    var RUN = { explorer: explorer, taskmgr: taskmgr, cmd: function () { shell(false); }, ps: function () { shell(true); }, eventvwr: eventvwr, services: services, settings: settings };
-    r("icons").querySelectorAll("[data-app]").forEach(function (b) { b.addEventListener("dblclick", function () { RUN[b.getAttribute("data-app")](); }); b.addEventListener("keydown", function (e) { if (e.key === "Enter") RUN[b.getAttribute("data-app")](); }); });
-    r("start").addEventListener("click", function (e) { e.stopPropagation(); r("menu").hidden = !r("menu").hidden; });
-    r("menu").addEventListener("click", function (e) {
-      var b = e.target.closest("[data-app],[data-a]");
-      if (!b) return;
-      r("menu").hidden = true;
-      if (b.getAttribute("data-a") === "bye") { if (opts.onclose) opts.onclose(); else d.close(w); return; }
-      RUN[b.getAttribute("data-app")]();
-    });
-    r("desk").addEventListener("mousedown", function (e) { if (!e.target.closest(".wm-menu")) r("menu").hidden = true; });
+    Object.assign(RUN, { explorer: explorer, taskmgr: taskmgr, cmd: function () { shell(false); }, ps: function () { shell(true); }, eventvwr: eventvwr, services: services, settings: settings });
     var first = opts.first || (X.procs.length && !X.live ? "taskmgr" : X.logs.length && !X.live ? "eventvwr" : X.live ? "" : "services");
     if (first && RUN[first]) RUN[first]();
     return { run: function (app) { if (RUN[app]) RUN[app](); }, model: X };
@@ -513,5 +614,5 @@
     }, { w: 1000, h: 620 });
   }
 
-  global.AayatMachine = { evidence: evidence, build: build, mount: mount, open: open, exePath: exePath, copyOf: copyOf };
+  global.AayatMachine = { evidence: evidence, build: build, mount: mount, open: open, exePath: exePath, copyOf: copyOf, frame: frame, isolation: isolation, mentions: mentions, BINARY: BINARY };
 })(window);

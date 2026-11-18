@@ -349,7 +349,7 @@ def workstation_page():
             '<nav class="ws-bar" aria-label="Taskbar"><button type="button" id="ws-start" aria-haspopup="true">Start</button>'
             '<div id="ws-tasks" class="ws-tasks"></div><label class="ws-case">Case <select id="ws-case"></select></label>'
             '<span id="ws-casename"></span><span id="ws-clock"></span></nav></div>\n'
-            + theme_assets(path.parent, ["tools.css", "workstation.css", "workstation-pro.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation-apps.js", "workstation-net.js", "workstation-bench.js", "workstation-win.js", "workstation.js", "workstation-sim.js"]))
+            + theme_assets(path.parent, ["tools.css", "workstation.css", "workstation-pro.css"], ["linux-vm.js", "tools.js", *TS.TOOL_FILES, "workstation-apps.js", "workstation-net.js", "workstation-bench.js", "workstation-win.js", "workstation-lin.js", "workstation.js", "workstation-sim.js", "workstation-demo.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 

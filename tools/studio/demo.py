@@ -25,8 +25,8 @@ def groups(which):
     from builder import seminars as S
     names = [p.name for p in S.folders()]
     if which in ("all", ""):
-        return [n for n in names if re.match(r"(t-|f-|s\d\d-|n\d\d-)", n)]
-    pick = {"tutorials": r"t-", "seminars": r"(f-|s\d\d-)", "network": r"n\d\d-"}
+        return [n for n in names if re.match(r"(t-|f-|s\d\d-|n\d\d-|x\d\d-)", n)]
+    pick = {"tutorials": r"t-", "seminars": r"(f-|s\d\d-)", "network": r"n\d\d-", "sims": r"x\d\d-"}
     if which in pick:
         return [n for n in names if re.match(pick[which], n)]
     return [w.strip() for w in which.split(",") if w.strip()]
@@ -35,7 +35,7 @@ def groups(which):
 def about(name):
     p = ROOT / "source" / "seminars" / name / "seminar.json"
     j = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-    kicker = j.get("kicker") or ("Free tutorial" if name.startswith("t-") else "Network lab" if re.match(r"n\d\d-", name) else "Seminar")
+    kicker = j.get("kicker") or ("Free tutorial" if name.startswith("t-") else "Network lab" if re.match(r"n\d\d-", name) else "Simulation" if re.match(r"x\d\d-", name) else "Seminar")
     title = j.get("title") or name
     if title.lower().startswith(kicker.lower() + ":"):
         title = title[len(kicker) + 1:].strip()
@@ -43,7 +43,7 @@ def about(name):
 
 
 def run(name, speed=1.0, level=""):
-    todo = groups(name) if name in ("all", "tutorials", "seminars", "network") or "," in name else [name]
+    todo = groups(name) if name in ("all", "tutorials", "seminars", "network", "sims") or "," in name else [name]
     bad = 0
     for one in todo:
         print(f"== {one}")
@@ -55,7 +55,8 @@ def run(name, speed=1.0, level=""):
 
 def run_one(name, speed=1.0, level=""):
     from playwright.sync_api import sync_playwright
-    cid = "sem-" + name + (f"--{level}" if level else "")
+    sim = bool(re.match(r"x\d\d-", name))
+    cid = "sem-" + name + (f"--{level}" if level and not sim else "")
     if not (SITE / "assets" / "linux" / "cases" / cid / "manifest.json").exists():
         print(f"There's no built lab called {cid}. Run: ./teach build {name}")
         return 1
@@ -75,10 +76,17 @@ def run_one(name, speed=1.0, level=""):
             cards.close()
             ctx = browser.new_context(viewport={"width": V.W, "height": V.H}, record_video_dir=str(folder / "raw"),
                                       record_video_size={"width": V.W, "height": V.H}, user_agent=V.UA)
+            if sim:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("browser_bench", ROOT / "tests" / "browser_bench.py")
+                bench = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(bench)
+                ctx.add_init_script(bench.LABS)
             page = ctx.new_page()
             began = page.evaluate("Date.now()")
             page.set_default_timeout(4 * 3600 * 1000)
-            url = f"http://127.0.0.1:{port}/notebook.html?ref=demo-{cid}&runbook={cid}&demo=rec&speed={speed}"
+            url = (f"http://127.0.0.1:{port}/workstation.html?case={cid}&lab=1&sim={level or 'walk'}&demo=rec&speed={speed}" if sim else
+                   f"http://127.0.0.1:{port}/notebook.html?ref=demo-{cid}&runbook={cid}&demo=rec&speed={speed}")
             print("Playing", url)
             page.goto(url)
             page.wait_for_function("window.__demo && window.__demo.done", polling=2000)

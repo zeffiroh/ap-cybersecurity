@@ -40,6 +40,16 @@ def finish_case(man, expected):
     return man
 
 
+def with_sla(meta, where):
+    if "sla" not in meta:
+        return meta, {}
+    meta = dict(meta)
+    sla, bad = seminars.sla_of(meta.pop("sla"))
+    if bad:
+        raise ValueError(f"{where}: " + "; ".join(bad))
+    return meta, {"sla": sla}
+
+
 def swap(text, mapping):
     for old in sorted(mapping, key=len, reverse=True):
         text = re.sub(r"(?<![A-Za-z0-9-])" + re.escape(old) + r"(?![A-Za-z0-9-])", mapping[old], text)
@@ -74,10 +84,10 @@ def cases():
     skip = {"meta.json", "template.json", "manifest.json", "answers.json", "expected.json", "variants.json"}
     index = []
     for d in sorted(x for x in src.iterdir() if x.is_dir()):
-        meta = dict(json.loads(rd(d / "meta.json")), id=d.name)
+        meta, sla = with_sla(dict(json.loads(rd(d / "meta.json")), id=d.name), d / "meta.json")
         files = sorted(p.relative_to(d).as_posix() for p in d.rglob("*") if p.is_file() and p.name not in skip)
         extra = {"variants": variants(d)} if (d / "variants.json").exists() else {}
-        man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json")), **extra), load_expected(d / "expected.json"))
+        man = finish_case(dict(meta, files=files, template=json.loads(rd(d / "template.json")), **extra, **sla), load_expected(d / "expected.json"))
         emit(ASSETS / "linux" / "cases" / d.name / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
         if not meta.get("hidden"):
             index.append(meta)
@@ -86,13 +96,13 @@ def cases():
         if not bundle.get("published", True):
             continue
         slug = "tc-" + path.stem.removeprefix("case-")
-        meta = dict(bundle["meta"], id=slug, teacher=True)
+        meta, sla = with_sla(dict(bundle["meta"], id=slug, teacher=True), path)
         if meta.get("ctf"):
             meta["ctf"] = meta["ctf"].replace("Show it to your teacher.", "Submit it on the CTF board.")
         names = sorted(bundle["files"])
         for name in names:
             emit(ASSETS / "linux" / "cases" / slug / name, bundle["files"][name])
-        man = finish_case(dict(meta, files=names, template=bundle["template"]), load_expected(TEACHER_CASES / "expected" / f"{path.stem}.json"))
+        man = finish_case(dict(meta, files=names, template=bundle["template"], **sla), load_expected(TEACHER_CASES / "expected" / f"{path.stem}.json"))
         emit(ASSETS / "linux" / "cases" / slug / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
         index.append(meta)
     index.extend(seminars.publish())

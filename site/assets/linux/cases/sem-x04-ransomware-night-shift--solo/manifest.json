@@ -268,18 +268,145 @@
   "steps": [
    {
     "say": "First, stop the bleeding. The process list shows locker.exe on fs02, encrypting D colon Shares. I end it in Task Manager and isolate fs02, but I don't switch it off: memory is evidence.",
-    "after": "The IT manager confirms the disk activity dropped. Now I need the way in, or they'll just come back."
+    "after": "The IT manager confirms the disk activity dropped. Now I need the way in, or they'll just come back.",
+    "title": "Stop the bleeding",
+    "do": [
+     {
+      "open": "rdp"
+     },
+     {
+      "click": ".rd-host[data-h=fs02]",
+      "in": "Remote desktop"
+     },
+     {
+      "wait": 1500
+     },
+     {
+      "answer": "what",
+      "value": "locker.exe"
+     },
+     {
+      "click": "[data-end]",
+      "in": "Task Manager",
+      "text": "locker.exe --path"
+     },
+     {
+      "expect": "kill"
+     },
+     {
+      "click": "[data-a=\"iso\"]",
+      "in": "Remote desktop"
+     },
+     {
+      "expect": "isofs"
+     },
+     {
+      "close": "Remote desktop"
+     }
+    ]
    },
    {
     "say": "The VPN log: a failed login for s.kale at 22:43, then a success at 22:44, from an outside address, and MFA not enrolled. The IT manager tells me Sachin Kale is on medical leave this week.",
-    "after": "So I cut the session at the VPN gateway in the Server room, and isolate eng-ws14, where the attacker landed and took credentials from lsass. Those credentials were adm.rjoshi's, used on fs02 at 23:20."
+    "after": "So I cut the session at the VPN gateway in the Server room, and isolate eng-ws14, where the attacker landed and took credentials from lsass. Those credentials were adm.rjoshi's, used on fs02 at 23:20.",
+    "title": "The way in",
+    "do": [
+     {
+      "file": "vpn.log"
+     },
+     {
+      "answer": "vpn",
+      "value": "s.kale"
+     },
+     {
+      "open": "rack"
+     },
+     {
+      "click": "[data-ip=\"10.50.0.1\"]",
+      "in": "Server room"
+     },
+     {
+      "click": "[data-shut=\"10.50.0.1:443\"]",
+      "in": "Server room"
+     },
+     {
+      "expect": "cut"
+     },
+     {
+      "open": "rdp"
+     },
+     {
+      "click": ".rd-host[data-h=eng-ws14]",
+      "in": "Remote desktop"
+     },
+     {
+      "wait": 1500
+     },
+     {
+      "click": "[data-a=\"iso\"]",
+      "in": "Remote desktop"
+     },
+     {
+      "expect": "isows"
+     },
+     {
+      "answer": "admin",
+      "value": "adm.rjoshi"
+     }
+    ]
    },
    {
     "say": "Now the CEO's questions. What did they take? The VPN session sent out about 1.8 gigabytes. Can we restore? backups.txt says the NAS backup was on the network and is encrypted too, but Thursday's tape is off site and verified.",
-    "after": "And who do we tell? CERT-In within six hours of noticing. Garnet noticed at 00:31 UTC, when the incident team was called, so the report is due at 06:31 UTC. I escalate GA-705 with all of that."
+    "after": "And who do we tell? CERT-In within six hours of noticing. Garnet noticed at 00:31 UTC, when the incident team was called, so the report is due at 06:31 UTC. I escalate GA-705 with all of that.",
+    "title": "What they took, and the way back",
+    "do": [
+     {
+      "answer": "exfil",
+      "value": "1.8 GB"
+     },
+     {
+      "file": "backups.txt"
+     },
+     {
+      "answer": "backup",
+      "value": "the weekly LTO tape from Thursday, off site"
+     },
+     {
+      "answer": "certin",
+      "value": "06:31"
+     },
+     {
+      "open": "tickets"
+     },
+     {
+      "click": "tr[data-id]",
+      "in": "Tickets",
+      "text": "GA-705"
+     },
+     {
+      "sel": "[data-a=\"txt\"]",
+      "in": "Tickets",
+      "value": "Way in: s.kale's VPN account from 203.0.113.140, no MFA. Machines: eng-ws14, then fs02 with adm.rjoshi. Contained: locker.exe ended, fs02 and eng-ws14 isolated, VPN port shut. About 1.8 GB left over the VPN. Restore from Thursday's off-site tape. CERT-In report due 06:31 UTC.",
+      "fill": "Way in: s.kale's VPN account from 203.0.113.140, no MFA. Machines: eng-ws14, then fs02 with adm.rjoshi. Contained: locker.exe ended, fs02 and eng-ws14 isolated, VPN port shut. About 1.8 GB left over the VPN. Restore from Thursday's off-site tape. CERT-In report due 06:31 UTC."
+     },
+     {
+      "click": "[data-a=\"esc\"]",
+      "in": "Tickets"
+     },
+     {
+      "expect": "esc"
+     }
+    ]
    }
   ],
   "outro": "Stop the encryption, close the way in, isolate without switching off, then answer the business: what was taken, how to restore, and who to tell by when. Now take the night shift yourself."
+ },
+ "sla": {
+  "critical": 30,
+  "high": 60,
+  "medium": 240,
+  "low": 240,
+  "info": 240,
+  "note": "Garnet's incident-response retainer: critical within 30 minutes, high within 1 hour, everything else within 4 hours"
  },
  "base": "sem-x04-ransomware-night-shift",
  "supportLevel": "solo",

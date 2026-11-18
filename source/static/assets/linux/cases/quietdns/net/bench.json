@@ -1,0 +1,81 @@
+{
+ "intro": "Harbourline Credit Union's office, wired from the scan. The router, dns, plays the edge firewall here. The bench can't sinkhole a domain on the resolver: that block is done in the case. Here you do the cable and the firewall.",
+ "tasks": [
+  {
+   "id": "contain",
+   "text": "Take fin-lt04 off the network, but leave it switched on",
+   "hint": "Pull its cable at the wall socket or shut its switch port. Its memory may still hold the tunnel's settings, so don't switch it off.",
+   "check": {
+    "all": [
+     {
+      "unplugged": "fin-lt04"
+     },
+     {
+      "power": "fin-lt04",
+      "on": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "egress",
+   "text": "Copy the edge policy from fw_summary.txt onto the router: no laptop sends DNS or web traffic straight to the internet",
+   "hint": "Click the router dns and write rules. Make a zone for the office, let only the proxy (10.70.0.5) out on tcp 80 and 443, then default deny. The router's own lookups aren't filtered, so the resolver keeps working.",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "fin-lt05",
+       "198.51.100.53"
+      ],
+      "proto": "udp",
+      "dport": 53,
+      "ok": false
+     },
+     {
+      "ping": [
+       "fin-lt05",
+       "203.0.113.140"
+      ],
+      "proto": "tcp",
+      "dport": 443,
+      "ok": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "work",
+   "text": "Finance still works: fin-lt05 reaches the file server and the proxy, and the proxy reaches the web",
+   "hint": "Ping from fin-lt05's terminal. If the proxy can't get out, your rules are too tight.",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "fin-lt05",
+       "fs01"
+      ],
+      "proto": "tcp",
+      "dport": 445
+     },
+     {
+      "ping": [
+       "fin-lt05",
+       "proxy"
+      ],
+      "proto": "tcp",
+      "dport": 3128
+     },
+     {
+      "ping": [
+       "proxy",
+       "203.0.113.88"
+      ],
+      "proto": "tcp",
+      "dport": 443
+     }
+    ]
+   }
+  }
+ ]
+}

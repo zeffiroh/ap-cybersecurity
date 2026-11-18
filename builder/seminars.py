@@ -13,6 +13,30 @@ NOT_STEPS = {"script.md", "README.md"}
 TOOLS = ["grep", "awk", "sed", "sort", "uniq", "cut", "nmap", "curl", "wget", "tshark", "dig", "whois", "nc", "openssl",
          "sha256sum", "base64", "tar", "strings", "find", "nikto", "gobuster"]
 ANSWER = re.compile(r"^(\s*\?>\s*.+?\s*::\s*)(?!sha256:)(.+?)\s*$", re.M)
+SLA_LEVELS = ("critical", "high", "medium", "low", "info")
+
+
+def sla_of(raw):
+    if raw is None:
+        return None, []
+    if not isinstance(raw, dict):
+        return None, ['"sla" must be a block like {"critical": 30, "high": 60}']
+    out, bad = {}, []
+    for k, v in raw.items():
+        if k == "note":
+            if not isinstance(v, str):
+                bad.append('"sla" note must be text')
+            elif v.strip():
+                out["note"] = v.strip()[:300]
+        elif k not in SLA_LEVELS:
+            bad.append(f'"sla" has "{k}"; use {", ".join(SLA_LEVELS)} or note')
+        elif isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 43200:
+            bad.append(f'"sla" {k} must be whole minutes from 1 to 43200, not {v!r}')
+        else:
+            out[k] = v
+    if not bad and not any(k in out for k in SLA_LEVELS):
+        bad.append('"sla" needs minutes for at least one severity')
+    return (None if bad else out), bad
 
 
 def folders():
@@ -73,6 +97,7 @@ def problems(folder):
         return [f"seminar.json is not valid JSON: {e}"]
     if not str(info.get("title", "")).strip():
         out.append("seminar.json needs a title")
+    out.extend("seminar.json: " + p for p in sla_of(info.get("sla"))[1])
     items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb") and p.name not in NOT_STEPS]
     if not items and not (folder / "lesson.json").exists():
         out.append("no .md, .sh, .py or .ipynb files yet")
@@ -190,6 +215,9 @@ def publish_one(folder):
         man["script"] = info["script"]
     if isinstance(info.get("sim"), dict):
         man["sim"] = info["sim"]
+    sla = sla_of(info.get("sla"))[0]
+    if sla:
+        man["sla"] = sla
     man["levels"] = levels.publish(man)
     man["guide"] = f"media/guides/{slug}/index.html"
     emit(case_dir / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")

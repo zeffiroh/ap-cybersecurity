@@ -21,7 +21,109 @@ def hosts(rows):
     return "\n".join("|".join(str(x) for x in r) for r in rows)
 
 
+def ask(i, v):
+    return {"answer": i, "value": v}
+
+
+def ticket(tid, note, act="esc"):
+    out = [{"open": "tickets"}, {"click": "tr[data-id]", "in": "Tickets", "text": tid}, {"fill": None, "sel": '[data-a="txt"]', "in": "Tickets", "value": note}]
+    out.append({"pick": '[data-a="disp"]', "in": "Tickets", "value": act} if act != "esc" else {"click": '[data-a="esc"]', "in": "Tickets"})
+    return out
+
+
+def chat(text):
+    return [{"open": "chat"}, {"fill": None, "sel": "form input", "in": "Team chat", "value": text, "enter": True}]
+
+
+def rdp(host):
+    return [{"open": "rdp"}, {"click": ".rd-host[data-h=" + host + "]", "in": "Remote desktop"}, {"wait": 1500}]
+
+
+def bench_dev(dev):
+    return {"click": '.hb-dev[data-dev="' + dev + '"]', "in": "Hardware bench"}
+
+
+CLOUD_POLICY = json.dumps({"account": "monsoon-prod", "identities": [
+    {"name": "ci-deployer", "type": "user", "policies": [{"name": "deploy-from-ci-runners-only", "statements": [
+        {"effect": "Allow", "actions": ["*"], "resources": ["*"], "conditions": {"source_ip": ["203.0.113.20"]}}]}]},
+    {"name": "ananya", "type": "user", "policies": [{"name": "admin", "statements": [{"effect": "Allow", "actions": ["*"], "resources": ["*"]}]}]}],
+    "org_guardrails": []}, indent=1)
+
+DEMO = {
+    "x01-phish-to-containment": [
+        {"title": "The email", "do": [{"file": "invoice.eml"}, ask("sender", "kestrel-logistlcs.com"), {"open": "terminal"}, {"type": "grep 4A1F21C02 ~/case/mail.log"}, ask("count", "3")]},
+        {"title": "Who opened it", "do": [{"type": "grep logistlcs ~/case/proxy.log"}, ask("who", "10.20.0.14"), ask("denied", "no")]},
+        {"title": "What ran", "do": rdp("hr-pc07") + [ask("chain", "cmd.exe")]},
+        {"title": "Contain and hand on", "do": [{"click": '[data-a="iso"]', "in": "Remote desktop"}, {"expect": "contain"},
+                                                 {"click": "[data-end]", "in": "Task Manager", "text": "svchost-upd"}, {"expect": "kill"}]
+         + ticket("AL-2203", "EDR fired on svchost-upd.exe from C:\\Users\\Public on hr-pc07 (10.20.0.14). Word opened INV-30412.docm at 09:02, then cmd, hidden PowerShell, the dropper. Isolated hr-pc07 and ended the process, laptop left on. Not known yet: whether anything left the network.")
+         + [{"expect": "escalate"}] + chat("hr-pc07 (10.20.0.14) opened INV-30412.docm at 09:02. Isolated and malware process ended, AL-2203 escalated, laptop left on for memory.") + [{"expect": "summary"}]},
+    ],
+    "x02-authorised-pen-test": [
+        {"title": "The letter", "do": [{"file": "engagement.txt"}, ask("window", "Friday 20 November 18:00 IST"), ask("scope", "192.0.2.12")]},
+        {"title": "Recon by address", "do": [{"open": "terminal"}, {"type": "nmap -sV 192.0.2.10 192.0.2.11"}, {"expect": "scan"}, ask("debug", "8080")]},
+        {"title": "One request", "do": [{"open": "tool-proxy"}, {"click": '[data-pv="repeat"]', "then": '[data-r="rep"]', "in": "Web proxy"},
+                                        {"fill": None, "sel": '[data-r="rep"]', "in": "Web proxy", "value": "POST /api/login HTTP/1.1\nHost: nimbu.shop\nContent-Type: application/json\n\n{\"email\": \"admin@nimbu.shop'--\", \"password\": \"x\"}"},
+                                        {"click": '[data-px="send"]', "in": "Web proxy"}, {"expect": "bypass"}, ask("role", "admin")]},
+        {"title": "Report the same day", "do": [{"open": "tool-report"}, {"pick": '[data-r="tpl"]', "in": "Report builder", "value": "findings"},
+                                                 {"fill": None, "sel": '[data-r="title"]', "in": "Report builder", "value": "NimbuMart staging: SQL injection in /api/login"},
+                                                 {"fill": None, "sel": '[data-i="0"]', "in": "Report builder", "value": "Scope: 192.0.2.10 and 192.0.2.11. Out of scope: 192.0.2.12 (payment provider). Window to Friday 18:00 IST."},
+                                                 {"fill": None, "sel": '[data-i="2"]', "in": "Report builder", "value": "Critical. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H. POST /api/login: the email ' -- comments out the password check and logs in as admin. Fix: a parameterised query. Retest: the same request should get 401."},
+                                                 {"click": '[data-r="check"]', "in": "Report builder"}, {"expect": "write"}]
+         + chat("Ritu: critical SQL injection on staging /api/login, any email with ' -- logs in as admin. Fix with a parameterised query; I'll retest after the fix.") + [{"expect": "tell"}]},
+    ],
+    "x03-secure-a-small-office": [
+        {"title": "What's on the network", "do": [{"open": "terminal"}, {"type": "nmap -sV 10.40.0.0/24", "timeout": 600000}, {"expect": "scan"}, {"file": "inventory.csv"},
+                                                  ask("rogue", "10.40.0.99"), {"file": "dhcp-leases.txt"}, ask("what", "TP-Link TL-WR840N access point")]},
+        {"title": "Close the doors", "do": [{"open": "bench"}, {"click": '.hb-sock[data-port="sw1:9"]', "in": "Hardware bench"}, {"click": '.hb-panel [data-a="unplug"]', "in": "Hardware bench"}, {"expect": "cut"},
+                                            {"open": "rack"}, {"click": '[data-ip="10.40.0.2"]', "in": "Server room"}, {"click": '[data-shut="10.40.0.2:23"]', "in": "Server room"}, {"expect": "telnet1"},
+                                            {"click": '[data-ip="10.40.0.30"]', "in": "Server room"}, {"click": '[data-shut="10.40.0.30:23"]', "in": "Server room"}, {"expect": "telnet2"},
+                                            {"click": '[data-ip="10.40.0.40"]', "in": "Server room"}, {"pick": "[data-tag]", "in": "Server room", "value": "patch"}, {"expect": "cam"},
+                                            {"file": "switch-ports.txt"}, ask("rooms", "2"),
+                                            {"open": "bench"}, bench_dev("sw1"), {"click": '.hb-panel [data-a="con"]', "in": "Hardware bench"}]
+         + [{"type": c, "in": "sw1 console", "pause": 600} for c in ["enable", "configure terminal", "interface range fa0/7, fa0/11", "shutdown", "end", "show interfaces status"]] + [{"expect": "deadports"}, {"close": "sw1 console"}]},
+        {"title": "Guests out, rack locked", "do": [bench_dev("gw"),
+                                                    {"fill": None, "sel": '.hb-panel [data-k="rules"]', "in": "Hardware bench", "value": "zone clinic 10.40.0.0/24\nzone guest 10.40.1.0/24\nzone internet any\n\nallow any clinic -> any\nallow udp guest -> 10.40.0.1:53\nallow tcp guest -> internet:80,443\ndeny any guest -> clinic\ndefault deny\n"},
+                                                    {"click": '.hb-panel [data-a="rules"]', "in": "Hardware bench"}, {"expect": "fw"},
+                                                    bench_dev("recep-pc"), {"tick": False, "sel": '.hb-panel [data-a="usb"]', "in": "Hardware bench"}, {"expect": "usb"},
+                                                    {"open": "rack"}, {"click": '[data-r="csv"]', "in": "Server room"}, {"expect": "export"},
+                                                    {"tick": True, "sel": '[data-r="door"]', "in": "Server room"}, {"expect": "lockrack"}]},
+    ],
+    "x04-ransomware-night-shift": [
+        {"title": "Stop the bleeding", "do": rdp("fs02") + [ask("what", "locker.exe"), {"click": "[data-end]", "in": "Task Manager", "text": "locker.exe --path"}, {"expect": "kill"},
+                                                            {"click": '[data-a="iso"]', "in": "Remote desktop"}, {"expect": "isofs"}, {"close": "Remote desktop"}]},
+        {"title": "The way in", "do": [{"file": "vpn.log"}, ask("vpn", "s.kale"), {"open": "rack"}, {"click": '[data-ip="10.50.0.1"]', "in": "Server room"}, {"click": '[data-shut="10.50.0.1:443"]', "in": "Server room"}, {"expect": "cut"}]
+         + rdp("eng-ws14") + [{"click": '[data-a="iso"]', "in": "Remote desktop"}, {"expect": "isows"}, ask("admin", "adm.rjoshi")]},
+        {"title": "What they took, and the way back", "do": [ask("exfil", "1.8 GB"), {"file": "backups.txt"}, ask("backup", "the weekly LTO tape from Thursday, off site"), ask("certin", "06:31")]
+         + ticket("GA-705", "Way in: s.kale's VPN account from 203.0.113.140, no MFA. Machines: eng-ws14, then fs02 with adm.rjoshi. Contained: locker.exe ended, fs02 and eng-ws14 isolated, VPN port shut. About 1.8 GB left over the VPN. Restore from Thursday's off-site tape. CERT-In report due 06:31 UTC.")
+         + [{"expect": "esc"}]},
+    ],
+    "x05-cloud-bucket-left-open": [
+        {"title": "Who is spending our money", "do": [{"file": "cloud/audit.json"}, ask("who", "ci-deployer"), ask("region", "ap-southeast-3"), ask("count", "8"), ask("persist", "CreateAccessKey: a second access key")]},
+        {"title": "How the key leaked", "do": [{"open": "tool-codescan"}, {"click": '[data-r="go"]', "in": "Code and config scanner"}, {"expect": "scan"}, {"file": "repo/git-history.patch"}, ask("leak", "Git history of deploy.sh")]},
+        {"title": "The buckets and the fix", "do": [ask("bucket", "monsoon-invoices")]
+         + ticket("CL-504", "monsoon-assets holds product images and is public on purpose.", act="benign") + [{"expect": "benign"},
+            {"open": "tool-cloudiam"}, {"fill": None, "sel": '[data-r="pol"]', "in": "Cloud IAM simulator", "value": CLOUD_POLICY},
+            {"fill": None, "sel": '[data-r="bad"]', "in": "Cloud IAM simulator", "value": "198.51.100.91"},
+            {"click": '[data-r="replay"]', "in": "Cloud IAM simulator"}, {"expect": "policy"}]
+         + ticket("CL-502", "The ci-deployer key leaked in deploy.sh's Git history. 198.51.100.91 started 8 GPU instances in ap-southeast-3, read monsoon-invoices and made a second access key. Both keys revoked; the policy now allows ci-deployer only from 203.0.113.20.")
+         + [{"expect": "esc"}]},
+    ],
+}
+
+
+def with_demo(name, about):
+    plan = DEMO.get(name)
+    if not plan:
+        return about
+    for st, extra in zip(about["script"]["steps"], plan):
+        st["title"] = extra["title"]
+        st["do"] = [{k: v for k, v in m.items() if not (k == "fill" and v is None)} | ({"fill": m["value"]} if m.get("fill", 0) is None else {}) for m in extra["do"]]
+    return about
+
+
 def folder(name, about, files, steps, net=None):
+    about = with_demo(name, about)
     d = SEM / name
     if d.exists():
         for p in d.iterdir():
@@ -783,6 +885,8 @@ Cut the attacker's session, isolate the machines they're on, stop the encryption
         "summary": "A 6 a.m. call: files are being encrypted. Stop it, close the way in, find what was taken, choose a clean backup and start the CERT-In clock.",
         "units": [4, 5], "level": "Intermediate", "minutes": 45, "order": 304,
         "tools": ["Remote desktop", "Server room", "Tickets", "Timeline", "Terminal"], "seminar_id": None, "published": True, "sim": sim,
+        "sla": {"critical": 30, "high": 60, "medium": 240, "low": 240, "info": 240,
+                "note": "Garnet's incident-response retainer: critical within 30 minutes, high within 1 hour, everything else within 4 hours"},
         "script": {
             "intro": "Hello, and welcome to a simulation. It's six in the morning in Pune and your phone is ringing: you're the on-call incident responder, and a factory's files are being encrypted right now. Watch the order things happen in, because order is everything in a ransomware night.",
             "steps": [

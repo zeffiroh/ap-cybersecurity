@@ -13,6 +13,14 @@
     var neg = ms < 0, m = Math.floor(Math.abs(ms) / 60000), h = Math.floor(m / 60);
     return (neg ? "-" : "") + (h ? h + "h " + (m % 60) + "m" : m + "m");
   }
+  function slaOf(meta) {
+    var raw = meta && meta.sla, out = {}, own = false;
+    Object.keys(SLA).forEach(function (k) {
+      var v = raw && Math.round(+raw[k]);
+      if (v >= 1 && v <= 43200) { out[k] = v; own = true; } else out[k] = SLA[k];
+    });
+    return { mins: out, own: own, note: own && raw.note ? String(raw.note) : "" };
+  }
   function csvCell(v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
   function download(name, rows) { global.AayatTools.kit.download(name, rows.map(function (r) { return r.map(csvCell).join(","); }).join("\n") + "\n", "text/csv"); }
 
@@ -29,7 +37,8 @@
       if (!t0) { t0 = Date.now(); d.store(startKey, String(t0)); }
       var st = load("ws-tk-" + cid, {}), items = [], pick = null, timer = null;
       function state(a) { return st[a.id] = st[a.id] || { status: "New", who: "", log: [], disp: "" }; }
-      function due(a) { return t0 + (SLA[a.sev] || 240) * 60000; }
+      function sla() { return slaOf(d.caseMeta()); }
+      function due(a) { return t0 + (sla().mins[a.sev] || 240) * 60000; }
       function left(a) { var s = state(a); return s.status === "Closed" ? null : due(a) - Date.now(); }
       function keep() { save("ws-tk-" + cid, st); }
       function shown() {
@@ -50,16 +59,17 @@
             "</td><td>" + esc(a.host) + "</td><td>" + esc(s.status) + (s.who ? " · " + esc(s.who) : "") + '</td><td class="' + (l != null && l < 0 ? "late" : "") + '">' + (l == null ? "done" : hm(l)) + "</td></tr>";
         }).join("") + "</table>" + (rows.length ? "" : '<p class="ws-empty">Nothing here.</p>');
         var open = items.filter(function (a) { return state(a).status !== "Closed"; }).length, late = items.filter(function (a) { var l = left(a); return l != null && l < 0; }).length;
-        r("stat").textContent = items.length + " tickets · " + open + " open · " + late + " past SLA · SLA clock started " + new Date(t0).toTimeString().slice(0, 5);
+        r("stat").textContent = items.length + " tickets · " + open + " open · " + late + " past SLA · " + (sla().own ? "this case's SLA" : "standard SLA") + " · clock started " + new Date(t0).toTimeString().slice(0, 5);
       }
       function note(a, text) { state(a).log.push({ t: Date.now(), text: text }); keep(); }
       function view() {
         var a = items.filter(function (x) { return x.id === pick; })[0];
         if (!a) return;
-        var s = state(a), l = left(a);
+        var s = state(a), l = left(a), g = sla();
         r("view").innerHTML = '<div class="tk-head"><span class="sev ' + a.sev + '">' + esc(a.sev) + "</span><h3>" + esc(a.id + " " + a.rule) + "</h3></div>" +
           '<dl class="tk-meta"><dt>Status</dt><dd>' + esc(s.status) + (s.disp ? " (" + esc((DISP.filter(function (x) { return x[0] === s.disp; })[0] || [0, s.disp])[1]) + ")" : "") + "</dd><dt>Assignee</dt><dd>" + esc(s.who || "Unassigned") +
           "</dd><dt>Raised</dt><dd>" + esc(a.time) + "</dd><dt>SLA</dt><dd" + (l != null && l < 0 ? ' class="late"' : "") + ">" + (l == null ? "met or closed" : (l < 0 ? "breached by " + hm(-l) : hm(l) + " left")) +
+          "</dd><dt>Target</dt><dd>" + esc(hm(g.mins[a.sev] * 60000) + " for " + a.sev + (g.own ? " (this case's SLA" + (g.note ? ": " + g.note : "") + ")" : " (standard SLA)")) +
           "</dd><dt>Host</dt><dd>" + esc(a.host || "-") + "</dd><dt>User</dt><dd>" + esc(a.user || "-") + "</dd>" + (a.src ? "<dt>Source</dt><dd>" + esc(a.src) + "</dd>" : "") + (a.dest ? "<dt>Destination</dt><dd>" + esc(a.dest) + "</dd>" : "") + "</dl>" +
           '<p class="tk-desc"></p>' + (a.evidence.length ? '<p class="tk-ev"><b>Evidence:</b> ' + a.evidence.map(function (f) { return '<button type="button" class="ws-linkbtn" data-ev="' + esc(f) + '">' + esc(f) + "</button>"; }).join(" ") + "</p>" : "") +
           '<div class="ws-toolbar tk-acts"><button type="button" class="btn" data-a="mine">Assign to me</button><button type="button" class="btn" data-a="work">Start work</button><button type="button" class="btn" data-a="esc">Escalate</button>' +
@@ -250,11 +260,13 @@
       w.body.innerHTML = '<div class="rd-pick"><p class="ws-empty">Loading…</p></div>';
       if (!cid) { w.body.innerHTML = '<p class="ws-empty">No case is open.</p>'; return; }
       d.files().then(function (fs) {
-        var H = global.AayatMachine.evidence(fs), names = Object.keys(H).sort();
-        if (!names.length) { w.body.innerHTML = '<p class="ws-empty">This case has no Windows machines with saved evidence.</p>'; return; }
-        w.body.innerHTML = '<div class="rd-pick"><h3>Connect to a machine</h3><p>Each machine below is rebuilt from the case\'s saved evidence: its processes, event logs, services, sign-ins and the files they mention, as the incident team captured them.</p>' +
-          names.map(function (h) { return '<button type="button" class="rd-host" data-h="' + esc(h) + '">' + d.icon("rdp", 36) + "<span><b>" + esc(h) + "</b><small>" + H[h].procs.length + " processes · " + H[h].logs.length + " event logs" + (H[h].services.length ? " · " + H[h].services.length + " services" : "") + "</small></span></button>"; }).join("") + "</div>";
+        var H = global.AayatMachine.evidence(fs), L = global.AayatLinux ? global.AayatLinux.evidence(fs) : {}, names = Object.keys(H).sort(), lnames = Object.keys(L).filter(function (h) { return !H[h]; }).sort();
+        if (!names.length && !lnames.length) { w.body.innerHTML = '<p class="ws-empty">This case has no machines with saved evidence.</p>'; return; }
+        w.body.innerHTML = '<div class="rd-pick"><h3>Connect to a machine</h3><p>Each machine below is rebuilt from the case’s saved evidence: its processes, logs, services, sign-ins and the files they mention, as the incident team captured them.</p>' +
+          names.map(function (h) { return '<button type="button" class="rd-host" data-h="' + esc(h) + '">' + d.icon("rdp", 36) + "<span><b>" + esc(h) + "</b><small>Windows · " + H[h].procs.length + " processes · " + H[h].logs.length + " event logs" + (H[h].services.length ? " · " + H[h].services.length + " services" : "") + "</small></span></button>"; }).join("") +
+          lnames.map(function (h) { var x = L[h], n = Object.keys(x.logs).reduce(function (a, f) { return a + x.logs[f].length; }, 0); return '<button type="button" class="rd-host" data-l="' + esc(h) + '">' + d.icon("terminal", 36) + "<span><b>" + esc(h) + "</b><small>Linux · " + n + " log lines" + (x.ps ? " · process list" : "") + (x.cron.length ? " · cron" : "") + (x.units.length ? " · " + x.units.length + " unit files" : "") + "</small></span></button>"; }).join("") + "</div>";
         w.body.querySelectorAll("[data-h]").forEach(function (b) { b.addEventListener("click", function () { var h = b.getAttribute("data-h"); global.AayatMachine.mount(w, { host: h, fs: fs, evidence: H[h] }); }); });
+        w.body.querySelectorAll("[data-l]").forEach(function (b) { b.addEventListener("click", function () { var h = b.getAttribute("data-l"); global.AayatLinux.mount(w, { host: h, fs: fs, evidence: L[h] }); }); });
       });
     }, { w: 1000, h: 620 });
   }

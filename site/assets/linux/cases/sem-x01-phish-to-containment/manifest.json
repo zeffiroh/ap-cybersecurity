@@ -298,19 +298,122 @@
   "steps": [
    {
     "say": "It's 09:16. The SOC lead hands me the case in chat. First, the email itself. In Mail, the From line says Kestrel Logistics Accounts, but read the domain letter by letter: kestrel-logistlcs, with an L instead of an i. Then mail.log in a terminal: message 4A1F21C02 went to three mailboxes.",
-    "after": "Three people received it. That's three possible victims, and receiving an email isn't the incident. Opening it is. So the next question is who downloaded the document."
+    "after": "Three people received it. That's three possible victims, and receiving an email isn't the incident. Opening it is. So the next question is who downloaded the document.",
+    "title": "The email",
+    "do": [
+     {
+      "file": "invoice.eml"
+     },
+     {
+      "answer": "sender",
+      "value": "kestrel-logistlcs.com"
+     },
+     {
+      "open": "terminal"
+     },
+     {
+      "type": "grep 4A1F21C02 ~/case/mail.log"
+     },
+     {
+      "answer": "count",
+      "value": "3"
+     }
+    ]
    },
    {
     "say": "The web proxy logs every download. I search proxy.log for the look-alike domain. The times are Unix epoch seconds, so I convert them to UTC.",
-    "after": "One success: 10.20.0.14, hr-pc07, Priya Nair's HR laptop, downloaded INV-30412.docm at 09:02. fin-pc02 tried at 09:20 and was denied, because the domain went on the blocklist at 09:18. So we have one infected machine, not three."
+    "after": "One success: 10.20.0.14, hr-pc07, Priya Nair's HR laptop, downloaded INV-30412.docm at 09:02. fin-pc02 tried at 09:20 and was denied, because the domain went on the blocklist at 09:18. So we have one infected machine, not three.",
+    "title": "Who opened it",
+    "do": [
+     {
+      "type": "grep logistlcs ~/case/proxy.log"
+     },
+     {
+      "answer": "who",
+      "value": "10.20.0.14"
+     },
+     {
+      "answer": "denied",
+      "value": "no"
+     }
+    ]
    },
    {
     "say": "Now what ran on hr-pc07. The EDR process list shows each program and its parent. I follow the chain from Word.",
-    "after": "Word started cmd.exe, which started a hidden PowerShell running a script from C:\\Users\\Public, which started svchost-upd.exe from the same folder. The real svchost lives in System32, so this is the malware, and it's still running. Meanwhile IT asks in chat whether to restart the laptop. The answer is no: restarting wipes memory, which is evidence."
+    "after": "Word started cmd.exe, which started a hidden PowerShell running a script from C:\\Users\\Public, which started svchost-upd.exe from the same folder. The real svchost lives in System32, so this is the malware, and it's still running. Meanwhile IT asks in chat whether to restart the laptop. The answer is no: restarting wipes memory, which is evidence.",
+    "title": "What ran",
+    "do": [
+     {
+      "open": "rdp"
+     },
+     {
+      "click": ".rd-host[data-h=hr-pc07]",
+      "in": "Remote desktop"
+     },
+     {
+      "wait": 1500
+     },
+     {
+      "answer": "chain",
+      "value": "cmd.exe"
+     }
+    ]
    },
    {
     "say": "Contain first, investigate second. In the Remote desktop I open hr-pc07 and press Isolate from the network. The laptop stays on, but it can't reach the file server any more. Then Task Manager, End task on svchost-upd.exe. Then Tickets: alert AL-2203, a note with what fired, what I found, what I did and what I don't know yet, and Escalate.",
-    "after": "Contained before 09:41, so the HR share is safe, which is the bonus objective. The debrief shows the score, every action with its story time, and what a strong run looks like. Download it: it's part of your hand-in."
+    "after": "Contained before 09:41, so the HR share is safe, which is the bonus objective. The debrief shows the score, every action with its story time, and what a strong run looks like. Download it: it's part of your hand-in.",
+    "title": "Contain and hand on",
+    "do": [
+     {
+      "click": "[data-a=\"iso\"]",
+      "in": "Remote desktop"
+     },
+     {
+      "expect": "contain"
+     },
+     {
+      "click": "[data-end]",
+      "in": "Task Manager",
+      "text": "svchost-upd"
+     },
+     {
+      "expect": "kill"
+     },
+     {
+      "open": "tickets"
+     },
+     {
+      "click": "tr[data-id]",
+      "in": "Tickets",
+      "text": "AL-2203"
+     },
+     {
+      "sel": "[data-a=\"txt\"]",
+      "in": "Tickets",
+      "value": "EDR fired on svchost-upd.exe from C:\\Users\\Public on hr-pc07 (10.20.0.14). Word opened INV-30412.docm at 09:02, then cmd, hidden PowerShell, the dropper. Isolated hr-pc07 and ended the process, laptop left on. Not known yet: whether anything left the network.",
+      "fill": "EDR fired on svchost-upd.exe from C:\\Users\\Public on hr-pc07 (10.20.0.14). Word opened INV-30412.docm at 09:02, then cmd, hidden PowerShell, the dropper. Isolated hr-pc07 and ended the process, laptop left on. Not known yet: whether anything left the network."
+     },
+     {
+      "click": "[data-a=\"esc\"]",
+      "in": "Tickets"
+     },
+     {
+      "expect": "escalate"
+     },
+     {
+      "open": "chat"
+     },
+     {
+      "sel": "form input",
+      "in": "Team chat",
+      "value": "hr-pc07 (10.20.0.14) opened INV-30412.docm at 09:02. Isolated and malware process ended, AL-2203 escalated, laptop left on for memory.",
+      "enter": true,
+      "fill": "hr-pc07 (10.20.0.14) opened INV-30412.docm at 09:02. Isolated and malware process ended, AL-2203 escalated, laptop left on for memory."
+     },
+     {
+      "expect": "summary"
+     }
+    ]
    }
   ],
   "outro": "That's a real morning in a SOC, compressed: read carefully, find who actually opened it, follow the process chain, contain without destroying evidence, and hand on a note someone can act on. Now it's your turn. Open the simulation in the Hacker Room and try to beat 09:41."

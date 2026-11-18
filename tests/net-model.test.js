@@ -246,3 +246,73 @@ test("a case without a bench is wired from its nmap scan", () => {
   s.setPort("sw1", port, { to: null });
   assert.equal(N.route(s.model(), "hr-pc07", "fs01").why, "nolink");
 });
+
+const CASES = path.join(ROOT, "source", "static", "assets", "linux", "cases");
+const CASE_SOLVE = {
+  quietdns: (s) => {
+    unplug(s, "fin-lt04");
+    s.setRules("dns", "zone office 10.70.0.0/24\nzone proxy 10.70.0.5\nzone internet any\n\nallow tcp proxy -> internet:80,443\ndefault deny\n");
+  },
+  insider: (s) => {
+    unplug(s, "eng-ws57");
+    s.setDev("eng-ws57", { usb: false });
+    s.setDev("eng-ws61", { usb: false });
+    s.setRules("gw", "zone office 10.30.0.0/24\nzone internet any\n\ndeny tcp office -> 203.0.113.80:443\nallow any office -> internet\ndeny tcp 198.51.100.200 -> 10.30.0.99:443\nallow tcp internet -> 10.30.0.99:443\ndefault deny\n");
+  },
+  ddos: (s) => {
+    s.setRules("edge-fw01", "zone office 10.50.0.0/24\nzone internet any\n\nallow any office -> internet\ndeny any 203.0.113.0/24 -> office\nallow tcp internet -> 10.50.0.10:80,443\ndefault deny\n");
+  },
+  cloudkey: (s) => {
+    s.setRules("gw", "zone app 10.40.0.0/24\nzone workers 10.40.1.0/24\nzone internet any\n\ndeny any workers -> any\nallow any app -> internet\nallow tcp internet -> 10.40.0.20:443\ndefault deny\n");
+  },
+  first: (s) => {
+    s.setDoor(true);
+    for (let n = 3; n <= 8; n++) s.setPort("sw1", String(n), { shut: true });
+  },
+  trial: (s) => {
+    unplug(s, "till-pc");
+    s.setRules("router", "zone cafe 10.9.0.0/24\nzone internet any\n\ndeny tcp internet -> 10.9.0.10:22\nallow any cafe -> internet\nallow any internet -> cafe\ndefault deny\n");
+  }
+};
+
+test("the six scan-built benches have a work order a student can finish", () => {
+  for (const [name, solve] of Object.entries(CASE_SOLVE)) {
+    const s = caseBench(path.join(CASES, name));
+    assert.ok(s.tasks().length >= 3, name + " has a work order");
+    assert.ok(s.tasks().some((t) => !t.done), name + " starts open");
+    solve(s);
+    assert.deepEqual(Array.from(s.tasks().filter((t) => !t.done).map((t) => t.id)), [], name + " solved");
+  }
+});
+
+test("the wrong moves fail the keep-working checks", () => {
+  const q = caseBench(path.join(CASES, "quietdns"));
+  q.setRules("dns", "default deny\n");
+  assert.equal(q.tasks().find((t) => t.id === "work").done, false, "blocking everything stops the proxy");
+  const c = caseBench(path.join(CASES, "cloudkey"));
+  c.setDev("worker-03", { power: false });
+  assert.equal(c.tasks().find((t) => t.id === "keep").done, false, "a miner switched off loses its evidence");
+  const d = caseBench(path.join(CASES, "ddos"));
+  d.setRules("edge-fw01", "zone office 10.50.0.0/24\nzone internet any\n\ndeny any internet -> office\ndefault allow\n");
+  assert.equal(d.tasks().find((t) => t.id === "students").done, false, "blocking the internet stops the students too");
+});
+
+test("traffic from the internet comes in through the edge router and its rules", () => {
+  const s = caseBench(path.join(CASES, "trial"));
+  let r = N.route(s.model(), "203.0.113.66", "portal01", { proto: "tcp", port: 22 });
+  assert.equal(r.ok, true);
+  assert.equal(r.hops[0].id, "out");
+  assert.equal(r.hops[1].id, "router");
+  s.setRules("router", "deny tcp 203.0.113.66 -> any:22\ndefault allow\n");
+  r = N.route(s.model(), "203.0.113.66", "portal01", { proto: "tcp", port: 22 });
+  assert.equal(r.why, "filtered");
+  assert.equal(N.route(s.model(), "203.0.113.67", "portal01", { proto: "tcp", port: 22 }).ok, true);
+  s.setDev("router", { power: false });
+  assert.equal(N.route(s.model(), "203.0.113.67", "portal01").why, "gwdown");
+});
+
+test("Windows 11 laptops in a scan are Windows on the bench", () => {
+  const M = caseBench(path.join(CASES, "quietdns")).model();
+  assert.equal(M.dev["fin-lt04"].os, "windows");
+  assert.equal(M.dev["proxy"].os, "linux");
+});

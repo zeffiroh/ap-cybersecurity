@@ -294,15 +294,200 @@
   "steps": [
    {
     "say": "First, what's really on the network. I scan 10.40.0.0/24 and compare it with the clinic's own inventory.",
-    "after": "Everything matches except 10.40.0.99. The DHCP leases say it's a TP-Link router that first appeared on Monday, and the switch map puts it on the wall socket in the waiting room. Somebody plugged in a home router to boost the Wi-Fi."
+    "after": "Everything matches except 10.40.0.99. The DHCP leases say it's a TP-Link router that first appeared on Monday, and the switch map puts it on the wall socket in the waiting room. Somebody plugged in a home router to boost the Wi-Fi.",
+    "title": "What's on the network",
+    "do": [
+     {
+      "open": "terminal"
+     },
+     {
+      "type": "nmap -sV 10.40.0.0/24",
+      "timeout": 600000
+     },
+     {
+      "expect": "scan"
+     },
+     {
+      "file": "inventory.csv"
+     },
+     {
+      "answer": "rogue",
+      "value": "10.40.0.99"
+     },
+     {
+      "file": "dhcp-leases.txt"
+     },
+     {
+      "answer": "what",
+      "value": "TP-Link TL-WR840N access point"
+     }
+    ]
    },
    {
     "say": "I cut it off at the switch from the Server room, then close the other doors: Telnet on the switch and on the printer, and I tag the CCTV recorder, which still has its installer's password.",
-    "after": "Two live sockets in empty rooms go on the list for the manager too: consult room 3 and the store room."
+    "after": "Two live sockets in empty rooms go on the list for the manager too: consult room 3 and the store room.",
+    "title": "Close the doors",
+    "do": [
+     {
+      "open": "bench"
+     },
+     {
+      "click": ".hb-sock[data-port=\"sw1:9\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "click": ".hb-panel [data-a=\"unplug\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "expect": "cut"
+     },
+     {
+      "open": "rack"
+     },
+     {
+      "click": "[data-ip=\"10.40.0.2\"]",
+      "in": "Server room"
+     },
+     {
+      "click": "[data-shut=\"10.40.0.2:23\"]",
+      "in": "Server room"
+     },
+     {
+      "expect": "telnet1"
+     },
+     {
+      "click": "[data-ip=\"10.40.0.30\"]",
+      "in": "Server room"
+     },
+     {
+      "click": "[data-shut=\"10.40.0.30:23\"]",
+      "in": "Server room"
+     },
+     {
+      "expect": "telnet2"
+     },
+     {
+      "click": "[data-ip=\"10.40.0.40\"]",
+      "in": "Server room"
+     },
+     {
+      "pick": "[data-tag]",
+      "in": "Server room",
+      "value": "patch"
+     },
+     {
+      "expect": "cam"
+     },
+     {
+      "file": "switch-ports.txt"
+     },
+     {
+      "answer": "rooms",
+      "value": "2"
+     },
+     {
+      "open": "bench"
+     },
+     {
+      "click": ".hb-dev[data-dev=\"sw1\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "click": ".hb-panel [data-a=\"con\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "type": "enable",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "type": "configure terminal",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "type": "interface range fa0/7, fa0/11",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "type": "shutdown",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "type": "end",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "type": "show interfaces status",
+      "in": "sw1 console",
+      "pause": 600
+     },
+     {
+      "expect": "deadports"
+     },
+     {
+      "close": "sw1 console"
+     }
+    ]
    },
    {
     "say": "The big one: the waiting-room Wi-Fi can reach everything, and a guest phone has been talking to the NAS. I rewrite the router rules: guests get DNS and the web, nothing inside, and default deny at the end.",
-    "after": "The Firewall program replays a week of real connections against my rules. The guest-to-NAS flow is now denied and the clinic's own traffic still works. I export the updated inventory for the manager."
+    "after": "The Firewall program replays a week of real connections against my rules. The guest-to-NAS flow is now denied and the clinic's own traffic still works. I export the updated inventory for the manager.",
+    "title": "Guests out, rack locked",
+    "do": [
+     {
+      "click": ".hb-dev[data-dev=\"gw\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "sel": ".hb-panel [data-k=\"rules\"]",
+      "in": "Hardware bench",
+      "value": "zone clinic 10.40.0.0/24\nzone guest 10.40.1.0/24\nzone internet any\n\nallow any clinic -> any\nallow udp guest -> 10.40.0.1:53\nallow tcp guest -> internet:80,443\ndeny any guest -> clinic\ndefault deny\n",
+      "fill": "zone clinic 10.40.0.0/24\nzone guest 10.40.1.0/24\nzone internet any\n\nallow any clinic -> any\nallow udp guest -> 10.40.0.1:53\nallow tcp guest -> internet:80,443\ndeny any guest -> clinic\ndefault deny\n"
+     },
+     {
+      "click": ".hb-panel [data-a=\"rules\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "expect": "fw"
+     },
+     {
+      "click": ".hb-dev[data-dev=\"recep-pc\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "tick": false,
+      "sel": ".hb-panel [data-a=\"usb\"]",
+      "in": "Hardware bench"
+     },
+     {
+      "expect": "usb"
+     },
+     {
+      "open": "rack"
+     },
+     {
+      "click": "[data-r=\"csv\"]",
+      "in": "Server room"
+     },
+     {
+      "expect": "export"
+     },
+     {
+      "tick": true,
+      "sel": "[data-r=\"door\"]",
+      "in": "Server room"
+     },
+     {
+      "expect": "lockrack"
+     }
+    ]
    }
   ],
   "outro": "Know what's there, close what doesn't need to be open, separate guests from patient data, and leave the owner a clear list. Now try your own visit."

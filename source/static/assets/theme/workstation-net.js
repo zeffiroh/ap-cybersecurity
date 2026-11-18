@@ -75,7 +75,7 @@
     String(hostsText || "").split("\n").forEach(function (l) {
       var f = l.replace(/\r$/, "").split("|");
       if (f.length < 3) return;
-      if (f[0] === "os") { (hosts[f[1]] = hosts[f[1]] || { ip: f[1], name: "", ports: [] }).os = f[3] || f[2]; return; }
+      if (f[0] === "os") { (hosts[f[1]] = hosts[f[1]] || { ip: f[1], name: "", ports: [] }).os = [f[2], f[3]].filter(Boolean).join(" "); return; }
       var h = hosts[f[0]] = hosts[f[0]] || { ip: f[0], name: "", ports: [] };
       if (f[1]) h.name = f[1];
       h.ports.push({ port: +f[2], proto: f[3], svc: f[4], ver: f[5], flag: f[6] === "1", title: f[7] || "" });

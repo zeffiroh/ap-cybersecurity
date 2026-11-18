@@ -234,19 +234,126 @@
   "steps": [
    {
     "say": "Before anything, the letter of authorisation. I read all of it. The window runs to Friday at 18:00 IST. Two staging hosts are in scope, and 192.0.2.12, the payment page, is out, because NimbuMart can't give permission for a system its payment provider runs.",
-    "after": "Notice the stop conditions too: real card data, real people's data, or signs someone else is already inside. If I see any of those, I stop and call Ritu."
+    "after": "Notice the stop conditions too: real card data, real people's data, or signs someone else is already inside. If I see any of those, I stop and call Ritu.",
+    "title": "The letter",
+    "do": [
+     {
+      "file": "engagement.txt"
+     },
+     {
+      "answer": "window",
+      "value": "Friday 20 November 18:00 IST"
+     },
+     {
+      "answer": "scope",
+      "value": "192.0.2.12"
+     }
+    ]
    },
    {
     "say": "Recon. I scan the two staging hosts by address, not the whole range, because the range includes the payment host.",
-    "after": "SSH and the shop on .10, and on .11 the API on 443 and a debug service on 8080 that shouldn't face anyone. That goes in my notes as a finding to check."
+    "after": "SSH and the shop on .10, and on .11 the API on 443 and a debug service on 8080 that shouldn't face anyone. That goes in my notes as a finding to check.",
+    "title": "Recon by address",
+    "do": [
+     {
+      "open": "terminal"
+     },
+     {
+      "type": "nmap -sV 192.0.2.10 192.0.2.11"
+     },
+     {
+      "expect": "scan"
+     },
+     {
+      "answer": "debug",
+      "value": "8080"
+     }
+    ]
    },
    {
     "say": "Now the login. One request in the Web proxy: a POST to /api/login with the email admin@nimbu.shop, a quote, and two dashes.",
-    "after": "Status 200, and the role is admin. That's the proof. I stop here: I don't browse as admin or change anything."
+    "after": "Status 200, and the role is admin. That's the proof. I stop here: I don't browse as admin or change anything.",
+    "title": "One request",
+    "do": [
+     {
+      "open": "tool-proxy"
+     },
+     {
+      "click": "[data-pv=\"repeat\"]",
+      "then": "[data-r=\"rep\"]",
+      "in": "Web proxy"
+     },
+     {
+      "sel": "[data-r=\"rep\"]",
+      "in": "Web proxy",
+      "value": "POST /api/login HTTP/1.1\nHost: nimbu.shop\nContent-Type: application/json\n\n{\"email\": \"admin@nimbu.shop'--\", \"password\": \"x\"}",
+      "fill": "POST /api/login HTTP/1.1\nHost: nimbu.shop\nContent-Type: application/json\n\n{\"email\": \"admin@nimbu.shop'--\", \"password\": \"x\"}"
+     },
+     {
+      "click": "[data-px=\"send\"]",
+      "in": "Web proxy"
+     },
+     {
+      "expect": "bypass"
+     },
+     {
+      "answer": "role",
+      "value": "admin"
+     }
+    ]
    },
    {
     "say": "A critical finding doesn't wait for Friday. I write it in the report builder: what, where, why it works, the fix, a parameterised query, and the retest, which should get 401. Then I tell Ritu in chat.",
-    "after": "The debrief shows every action with its time, and it checks one thing all day: did I ever touch the payment host? That's the habit this simulation is really teaching."
+    "after": "The debrief shows every action with its time, and it checks one thing all day: did I ever touch the payment host? That's the habit this simulation is really teaching.",
+    "title": "Report the same day",
+    "do": [
+     {
+      "open": "tool-report"
+     },
+     {
+      "pick": "[data-r=\"tpl\"]",
+      "in": "Report builder",
+      "value": "findings"
+     },
+     {
+      "sel": "[data-r=\"title\"]",
+      "in": "Report builder",
+      "value": "NimbuMart staging: SQL injection in /api/login",
+      "fill": "NimbuMart staging: SQL injection in /api/login"
+     },
+     {
+      "sel": "[data-i=\"0\"]",
+      "in": "Report builder",
+      "value": "Scope: 192.0.2.10 and 192.0.2.11. Out of scope: 192.0.2.12 (payment provider). Window to Friday 18:00 IST.",
+      "fill": "Scope: 192.0.2.10 and 192.0.2.11. Out of scope: 192.0.2.12 (payment provider). Window to Friday 18:00 IST."
+     },
+     {
+      "sel": "[data-i=\"2\"]",
+      "in": "Report builder",
+      "value": "Critical. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H. POST /api/login: the email ' -- comments out the password check and logs in as admin. Fix: a parameterised query. Retest: the same request should get 401.",
+      "fill": "Critical. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H. POST /api/login: the email ' -- comments out the password check and logs in as admin. Fix: a parameterised query. Retest: the same request should get 401."
+     },
+     {
+      "click": "[data-r=\"check\"]",
+      "in": "Report builder"
+     },
+     {
+      "expect": "write"
+     },
+     {
+      "open": "chat"
+     },
+     {
+      "sel": "form input",
+      "in": "Team chat",
+      "value": "Ritu: critical SQL injection on staging /api/login, any email with ' -- logs in as admin. Fix with a parameterised query; I'll retest after the fix.",
+      "enter": true,
+      "fill": "Ritu: critical SQL injection on staging /api/login, any email with ' -- logs in as admin. Fix with a parameterised query; I'll retest after the fix."
+     },
+     {
+      "expect": "tell"
+     }
+    ]
    }
   ],
   "outro": "Read the letter, scan by address, prove with one request, stop, report the same day. Now open the simulation and try your own first morning."

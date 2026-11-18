@@ -216,15 +216,129 @@
   "steps": [
    {
     "say": "The audit trail records every call. I look for the address that isn't ours.",
-    "after": "ci-deployer's key, used from 198.51.100.91, started eight GPU instances in ap-southeast-3, a region Monsoon never uses. And at 21:49 it created a second access key, so revoking the first won't be enough."
+    "after": "ci-deployer's key, used from 198.51.100.91, started eight GPU instances in ap-southeast-3, a region Monsoon never uses. And at 21:49 it created a second access key, so revoking the first won't be enough.",
+    "title": "Who is spending our money",
+    "do": [
+     {
+      "file": "cloud/audit.json"
+     },
+     {
+      "answer": "who",
+      "value": "ci-deployer"
+     },
+     {
+      "answer": "region",
+      "value": "ap-southeast-3"
+     },
+     {
+      "answer": "count",
+      "value": "8"
+     },
+     {
+      "answer": "persist",
+      "value": "CreateAccessKey: a second access key"
+     }
+    ]
    },
    {
     "say": "How did the key get out? I scan the repository, including the Git history.",
-    "after": "The key was deleted from deploy.sh, but the removed line is still in the history. Anyone who clones the repo has it. So both keys get revoked and the pipeline gets a new one from a secret store."
+    "after": "The key was deleted from deploy.sh, but the removed line is still in the history. Anyone who clones the repo has it. So both keys get revoked and the pipeline gets a new one from a secret store.",
+    "title": "How the key leaked",
+    "do": [
+     {
+      "open": "tool-codescan"
+     },
+     {
+      "click": "[data-r=\"go\"]",
+      "in": "Code and config scanner"
+     },
+     {
+      "expect": "scan"
+     },
+     {
+      "file": "repo/git-history.patch"
+     },
+     {
+      "answer": "leak",
+      "value": "Git history of deploy.sh"
+     }
+    ]
    },
    {
     "say": "Two public buckets. One is product images, public on purpose, so I close that alert as expected. The other is customer invoices, and the attacker read from it.",
-    "after": "I write a policy that only lets ci-deployer call from its runners and only in Mumbai, and the checker confirms it blocks every attacker action and breaks nothing. Then I escalate, because invoices read by an outsider may be a reportable breach."
+    "after": "I write a policy that only lets ci-deployer call from its runners and only in Mumbai, and the checker confirms it blocks every attacker action and breaks nothing. Then I escalate, because invoices read by an outsider may be a reportable breach.",
+    "title": "The buckets and the fix",
+    "do": [
+     {
+      "answer": "bucket",
+      "value": "monsoon-invoices"
+     },
+     {
+      "open": "tickets"
+     },
+     {
+      "click": "tr[data-id]",
+      "in": "Tickets",
+      "text": "CL-504"
+     },
+     {
+      "sel": "[data-a=\"txt\"]",
+      "in": "Tickets",
+      "value": "monsoon-assets holds product images and is public on purpose.",
+      "fill": "monsoon-assets holds product images and is public on purpose."
+     },
+     {
+      "pick": "[data-a=\"disp\"]",
+      "in": "Tickets",
+      "value": "benign"
+     },
+     {
+      "expect": "benign"
+     },
+     {
+      "open": "tool-cloudiam"
+     },
+     {
+      "sel": "[data-r=\"pol\"]",
+      "in": "Cloud IAM simulator",
+      "value": "{\n \"account\": \"monsoon-prod\",\n \"identities\": [\n  {\n   \"name\": \"ci-deployer\",\n   \"type\": \"user\",\n   \"policies\": [\n    {\n     \"name\": \"deploy-from-ci-runners-only\",\n     \"statements\": [\n      {\n       \"effect\": \"Allow\",\n       \"actions\": [\n        \"*\"\n       ],\n       \"resources\": [\n        \"*\"\n       ],\n       \"conditions\": {\n        \"source_ip\": [\n         \"203.0.113.20\"\n        ]\n       }\n      }\n     ]\n    }\n   ]\n  },\n  {\n   \"name\": \"ananya\",\n   \"type\": \"user\",\n   \"policies\": [\n    {\n     \"name\": \"admin\",\n     \"statements\": [\n      {\n       \"effect\": \"Allow\",\n       \"actions\": [\n        \"*\"\n       ],\n       \"resources\": [\n        \"*\"\n       ]\n      }\n     ]\n    }\n   ]\n  }\n ],\n \"org_guardrails\": []\n}",
+      "fill": "{\n \"account\": \"monsoon-prod\",\n \"identities\": [\n  {\n   \"name\": \"ci-deployer\",\n   \"type\": \"user\",\n   \"policies\": [\n    {\n     \"name\": \"deploy-from-ci-runners-only\",\n     \"statements\": [\n      {\n       \"effect\": \"Allow\",\n       \"actions\": [\n        \"*\"\n       ],\n       \"resources\": [\n        \"*\"\n       ],\n       \"conditions\": {\n        \"source_ip\": [\n         \"203.0.113.20\"\n        ]\n       }\n      }\n     ]\n    }\n   ]\n  },\n  {\n   \"name\": \"ananya\",\n   \"type\": \"user\",\n   \"policies\": [\n    {\n     \"name\": \"admin\",\n     \"statements\": [\n      {\n       \"effect\": \"Allow\",\n       \"actions\": [\n        \"*\"\n       ],\n       \"resources\": [\n        \"*\"\n       ]\n      }\n     ]\n    }\n   ]\n  }\n ],\n \"org_guardrails\": []\n}"
+     },
+     {
+      "sel": "[data-r=\"bad\"]",
+      "in": "Cloud IAM simulator",
+      "value": "198.51.100.91",
+      "fill": "198.51.100.91"
+     },
+     {
+      "click": "[data-r=\"replay\"]",
+      "in": "Cloud IAM simulator"
+     },
+     {
+      "expect": "policy"
+     },
+     {
+      "open": "tickets"
+     },
+     {
+      "click": "tr[data-id]",
+      "in": "Tickets",
+      "text": "CL-502"
+     },
+     {
+      "sel": "[data-a=\"txt\"]",
+      "in": "Tickets",
+      "value": "The ci-deployer key leaked in deploy.sh's Git history. 198.51.100.91 started 8 GPU instances in ap-southeast-3, read monsoon-invoices and made a second access key. Both keys revoked; the policy now allows ci-deployer only from 203.0.113.20.",
+      "fill": "The ci-deployer key leaked in deploy.sh's Git history. 198.51.100.91 started 8 GPU instances in ap-southeast-3, read monsoon-invoices and made a second access key. Both keys revoked; the policy now allows ci-deployer only from 203.0.113.20."
+     },
+     {
+      "click": "[data-a=\"esc\"]",
+      "in": "Tickets"
+     },
+     {
+      "expect": "esc"
+     }
+    ]
    }
   ],
   "outro": "Follow the money, find the leak, revoke every key the attacker made, lock the identity to where it belongs, and tell the business what was seen. Now try it yourself."

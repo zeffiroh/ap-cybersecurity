@@ -114,6 +114,13 @@
     if (go && el.closest(".hb")) go.addEventListener("click", function () { el.dispatchEvent(new CustomEvent("hb-pick", { bubbles: true, detail: go.getAttribute("data-go") })); });
   }
 
+  var DESK_KIND = { pc: 1, laptop: 1, server: 1 };
+  function hasDesk(d) { return !!d && DESK_KIND[d.kind] && (d.os === "windows" ? !!global.AayatMachine : d.os === "linux" && !!global.AayatLinux); }
+  function openDesk(api, id) {
+    var d = api.model().dev[id];
+    (d.os === "windows" ? global.AayatMachine : global.AayatLinux).open({ host: id, title: d.name, os: d.os, net: api });
+  }
+
   function hostPanel(el, api, id, redraw) {
     var M = api.model(), d = M.dev[id], at = whereIs(M, id), f = N().ifaces(M, id)[0] || {};
     var cable = at.map(function (x) { return x.p.radio ? "Wi-Fi " + x.p.radio + " on " + M.dev[x.s].name : M.dev[x.s].name.split(".")[0] + " " + portName(M, x.s, x.n) + (x.p.socket && x.p.socket !== "-" ? ", socket " + x.p.socket : "") + " (" + stateWord(N().linkState(M, x.s, x.n)) + ")"; }).join("; ");
@@ -124,8 +131,8 @@
       '<button type="button" class="btn" data-a="ip">Apply</button></div>' +
       '<div class="hb-checks"><label><input type="checkbox" data-a="power"' + (d.power !== false ? " checked" : "") + "> Powered on</label>" +
       (d.usb !== undefined ? '<label><input type="checkbox" data-a="usb"' + (d.usb !== false ? " checked" : "") + "> USB storage allowed</label>" : "") + "</div>" +
-      '<div class="ws-toolbar hb-acts">' + (d.os === "windows" && global.AayatMachine ? '<button type="button" class="btn dark" data-a="desk">Open its desktop</button>' : "") +
-      '<button type="button" class="btn' + (d.os === "windows" ? "" : " dark") + '" data-a="term">Open a terminal</button>' +
+      '<div class="ws-toolbar hb-acts">' + (hasDesk(d) ? '<button type="button" class="btn dark" data-a="desk">Open its desktop</button>' : "") +
+      '<button type="button" class="btn' + (hasDesk(d) ? "" : " dark") + '" data-a="term">Open a terminal</button>' +
       (at.length && !at[0].p.radio ? '<button type="button" class="btn" data-a="unplug">Unplug</button>' : !at.length && free.length ? '<select data-a="plug" aria-label="Plug into"><option value="">Plug into…</option>' + free.map(function (x) { return '<option value="' + esc(x.s + ":" + x.n) + '">' + esc(M.dev[x.s].name.split(".")[0] + " Fa0/" + x.n + (x.p.socket && x.p.socket !== "-" ? " · " + x.p.socket : "") + (x.p.room ? " · " + x.p.room : "")) + "</option>"; }).join("") + "</select>" : "") +
       '</div><p class="hb-msg" data-m></p>';
     var q = function (s) { return el.querySelector(s); };
@@ -141,7 +148,7 @@
     if (u) u.addEventListener("change", function () { api.setDev(id, { usb: this.checked }); D().toast("USB storage", d.name + (this.checked ? ": USB drives work again" : ": USB drives are blocked")); redraw(); });
     q('[data-a="term"]').addEventListener("click", function () { hostTerm(api, id); });
     var dk = q('[data-a="desk"]');
-    if (dk) dk.addEventListener("click", function () { global.AayatMachine.open({ host: id, title: d.name, os: "windows", net: api }); });
+    if (dk) dk.addEventListener("click", function () { openDesk(api, id); });
     var un = q('[data-a="unplug"]');
     if (un) un.addEventListener("click", function () { api.setPort(at[0].s, at[0].n, { to: null }); redraw(); });
     var pl = q('[data-a="plug"]');
@@ -417,7 +424,7 @@
         if (!dv || !api) return;
         var id = dv.getAttribute("data-dev"), k = api.model().dev[id].kind;
         if (N().SWITCHES[k] || N().ROUTERS[k]) cliWin(api, id);
-        else if (k !== "internet") { if (api.model().dev[id].os === "windows" && global.AayatMachine) global.AayatMachine.open({ host: id, title: api.model().dev[id].name, os: "windows", net: api }); else hostTerm(api, id); }
+        else if (k !== "internet") { if (hasDesk(api.model().dev[id])) openDesk(api, id); else hostTerm(api, id); }
       });
       r("panel").addEventListener("hb-pick", function (e) { sel = e.detail; selPort = null; draw(); });
       r("reset").addEventListener("click", function () {

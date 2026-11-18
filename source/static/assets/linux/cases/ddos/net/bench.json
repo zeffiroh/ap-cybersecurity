@@ -1,0 +1,96 @@
+{
+ "intro": "Northfield's exam portal, wired from the scan. Rules on edge-fw01 can turn away the HTTP flood and stray UDP. The reflected DNS flood fills the internet line before it ever reaches this router, so no rule here fixes that part: that's what the ISP's scrubbing is for.",
+ "tasks": [
+  {
+   "id": "http",
+   "text": "Turn away the HTTP flood at the edge: nothing from its /24 network reaches exam01",
+   "hint": "access.log shows which /24 the flood comes from. Deny it on edge-fw01 before you allow web traffic in. First match wins.",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "203.0.113.45",
+       "exam01"
+      ],
+      "proto": "tcp",
+      "dport": 443,
+      "ok": false
+     },
+     {
+      "ping": [
+       "203.0.113.201",
+       "exam01"
+      ],
+      "proto": "tcp",
+      "dport": 80,
+      "ok": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "udp",
+   "text": "Drop UDP from the internet to the portal: a web server only needs tcp 80 and 443",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "198.51.100.9",
+       "exam01"
+      ],
+      "proto": "udp",
+      "dport": 40000,
+      "ok": false
+     },
+     {
+      "ping": [
+       "192.0.2.140",
+       "exam01"
+      ],
+      "proto": "udp",
+      "dport": 53,
+      "ok": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "students",
+   "text": "Students at home still reach the exam on 80 and 443",
+   "hint": "Test from any address outside the flood's /24, like 198.51.100.23.",
+   "check": {
+    "all": [
+     {
+      "ping": [
+       "198.51.100.23",
+       "exam01"
+      ],
+      "proto": "tcp",
+      "dport": 443
+     },
+     {
+      "ping": [
+       "192.0.2.140",
+       "exam01"
+      ],
+      "proto": "tcp",
+      "dport": 80
+     }
+    ]
+   }
+  },
+  {
+   "id": "out",
+   "text": "exam01 can still reach the internet, so the ISP's status page and updates work",
+   "hint": "These rules don't remember connections, so outgoing traffic needs its own allow line.",
+   "check": {
+    "ping": [
+     "exam01",
+     "198.51.100.250"
+    ],
+    "proto": "tcp",
+    "dport": 443
+   }
+  }
+ ]
+}

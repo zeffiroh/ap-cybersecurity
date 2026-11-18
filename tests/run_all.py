@@ -48,31 +48,42 @@ def main():
 
     LOGS.mkdir(parents=True, exist_ok=True)
     browser_ok = has_playwright()
-    results = []
+    results = {}
     started = time.time()
-    for name, cmd in tests:
-        log = LOGS / (name.replace(" ", "_") + ".log")
-        if cmd is None:
-            results.append((name, "FAIL", 0, "Node.js isn't installed, so the JavaScript tests can't run."))
-            print(f"  FAIL  {name}  (Node.js isn't installed)")
-            continue
-        if name.startswith("browser_") and not browser_ok:
-            results.append((name, "FAIL", 0, "Playwright isn't installed: pip install playwright ; python -m playwright install chromium"))
-            print(f"  FAIL  {name}  (Playwright isn't installed)")
-            continue
-        if sys.stdout.isatty():
-            print(f"  ...   {name}", end="", flush=True)
-        t0 = time.time()
-        r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        secs = time.time() - t0
+
+    def finish(name, r, secs):
         text = (r.stdout or "") + (r.stderr or "")
-        log.write_text(text, encoding="utf-8")
+        (LOGS / (name.replace(" ", "_") + ".log")).write_text(text, encoding="utf-8")
         status = "ok" if r.returncode == 0 else "FAIL"
         note = ""
         if r.returncode == 0 and "OK (skipped=" in text:
             note = "some skipped: " + text.split("OK (skipped=")[1].split(")")[0]
-        results.append((name, status, secs, text if status == "FAIL" else note))
-        print(f"{chr(13) if sys.stdout.isatty() else ''}  {status:<5} {name}  ({secs:.0f}s){'  ' + note if note else ''}", flush=True)
+        results[name] = (name, status, secs, text if status == "FAIL" else note)
+        print(f"  {status:<5} {name}  ({secs:.0f}s){'  ' + note if note else ''}", flush=True)
+
+    def one(name, cmd):
+        t0 = time.time()
+        r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        return name, r, time.time() - t0
+
+    browsers = []
+    for name, cmd in tests:
+        if cmd is None:
+            results[name] = (name, "FAIL", 0, "Node.js isn't installed, so the JavaScript tests can't run.")
+            print(f"  FAIL  {name}  (Node.js isn't installed)")
+        elif name.startswith("browser_") and not browser_ok:
+            results[name] = (name, "FAIL", 0, "Playwright isn't installed: pip install playwright ; python -m playwright install chromium")
+            print(f"  FAIL  {name}  (Playwright isn't installed)")
+        elif name.startswith("browser_"):
+            browsers.append((name, cmd))
+        else:
+            finish(*one(name, cmd))
+    if browsers:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            for got in pool.map(lambda t: one(*t), browsers):
+                finish(*got)
+    results = [results[n] for n, _ in tests if n in results]
 
     fails = [r for r in results if r[1] == "FAIL"]
     for name, _, _, text in fails:

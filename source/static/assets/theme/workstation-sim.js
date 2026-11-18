@@ -327,6 +327,12 @@
     }, { w: 560, h: 440 });
   }
 
+  global.AayatSim = {
+    state: function () {
+      if (!sim || !run) return null;
+      return { level: run.level, done: run.done, end: !!run.end, score: score(), open: objectives().filter(function (o) { return !done(o.id) && !o.keep && !o["with"]; }).map(function (o) { return o.id; }) };
+    }
+  };
   function attach() {
     if (!global.AayatDesk) return setTimeout(attach, 200);
     (global.AayatDeskApps = global.AayatDeskApps || []).push({ id: "mission", title: "Mission", icon: "flag", open: function () { openMission(); } });

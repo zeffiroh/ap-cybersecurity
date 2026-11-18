@@ -622,8 +622,23 @@
     return out;
   }
 
+  var SLA_LEVELS = [["critical", "Critical", 15], ["high", "High", 60], ["medium", "Medium", 240], ["low", "Low", 1440], ["info", "Info", 2880]];
+  function blankSla() { return { critical: "", high: "", medium: "", low: "", info: "", note: "" }; }
+  function slaIn(s) {
+    var out = blankSla();
+    Object.keys(s || {}).forEach(function (k) { if (k in out) out[k] = k === "note" ? String(s[k] || "") : (+s[k] > 0 ? +s[k] : ""); });
+    return out;
+  }
+  function slaOut(s) {
+    var out = {}, any = false;
+    SLA_LEVELS.forEach(function (x) { var v = Math.round(+(s || {})[x[0]]); if (v >= 1 && v <= 43200) { out[x[0]] = v; any = true; } });
+    var note = String((s || {}).note || "").trim();
+    if (any && note) out.note = note.slice(0, 300);
+    return any ? out : null;
+  }
+
   function blankState() {
-    return { id: null, published: false, meta: { title: "", kicker: "", units: [], level: "Beginner", minutes: 45, summary: "", tools: [], titlePrefix: "", playbook: blankPlaybook() },
+    return { id: null, published: false, meta: { title: "", kicker: "", units: [], level: "Beginner", minutes: 45, summary: "", tools: [], titlePrefix: "", playbook: blankPlaybook(), sla: blankSla() },
       briefing: "", stdIntro: true, files: {}, www: {}, hosts: [], os: [], dns: [], pages: [], whois: [], machines: [],
       steps: [], flag: { word: "", where: "file", target: "", line: "{flag}", src: "", dst: "", capFile: "case/capture.pcap", ask: true, clue: "", ctf: false, points: 100, ctfId: "" } };
   }
@@ -632,7 +647,7 @@
     b = b || {};
     if (b.data && (b.data.files || b.data.meta)) b = b.data;
     var st = blankState(), files = b.files || {}, meta = b.meta || {}, sd = b.studio || {};
-    Object.keys(st.meta).forEach(function (k) { if (meta[k] != null) st.meta[k] = k === "playbook" ? playbookIn(meta[k]) : clone(meta[k]); });
+    Object.keys(st.meta).forEach(function (k) { if (meta[k] != null) st.meta[k] = k === "playbook" ? playbookIn(meta[k]) : k === "sla" ? slaIn(meta[k]) : clone(meta[k]); });
     var inj = sd.injected || {};
     Object.keys(inj).forEach(function (p) { if (inj[p] === null) delete files[p]; else files[p] = inj[p]; });
     Object.keys(files).forEach(function (p) {
@@ -737,6 +752,8 @@
     if (!meta.titlePrefix) meta.titlePrefix = "Incident runbook: " + meta.title;
     var pb = playbookOut(meta.playbook);
     if (pb) meta.playbook = pb; else delete meta.playbook;
+    var sla = slaOut(meta.sla);
+    if (sla) meta.sla = sla; else delete meta.sla;
     var b = buildFiles(st);
     return stepsToTemplate(st).then(function (tpl) {
       return { meta: meta, files: b.files, template: tpl, flag: flagOf(st.flag.word), steps: clone(st.steps),
@@ -1163,6 +1180,7 @@
         "<label class=\"cs-check\"><input type=\"checkbox\" data-k=\"stdIntro\"" + (st.stdIntro ? " checked" : "") + "> Add the standard paragraph about <code>~/case</code> and the network tools</label>" +
         "<div class=\"cs-f\"><span>Tools students will use</span>" + chips("meta.tools", TOOLS, m.tools, true) + btn("tools-detect", "Pick them from my runbook") + "</div>" +
         vPlaybook(m.playbook || (m.playbook = blankPlaybook())) +
+        vSla(m.sla || (m.sla = blankSla())) +
         "<details class=\"cs-adv\"><summary>Advanced</summary>" + field("Notebook title", inp("meta.titlePrefix", m.titlePrefix, "Incident runbook: " + (m.title || "…"))) + "</details>";
     }
     function vPlaybook(pb) {
@@ -1176,6 +1194,16 @@
         field("Who to notify (one per line)", area("meta.playbook.notify", pb.notify, 2, "Leadership\nCERT-In within 6 hours of noticing it")) +
         field("Done when (one per line)", area("meta.playbook.done", pb.done, 3, "Web shell removed\nPasswords rotated")) +
         "<div class=\"cs-row\">" + field("Version", inp("meta.playbook.version", pb.version, "1.0")) + field("Last reviewed", inp("meta.playbook.reviewed", pb.reviewed, "2026-11-07")) + "</div></details>";
+    }
+
+    function vSla(s) {
+      var on = SLA_LEVELS.some(function (x) { return +s[x[0]] > 0; });
+      return "<details class=\"cs-adv\"" + (on ? " open" : "") + "><summary>Ticket SLA (Hacker Room Tickets)</summary>" +
+        "<p class=\"cs-note\">How many minutes students have to handle a ticket of each severity. Leave a box empty for the standard time shown in it.</p>" +
+        "<div class=\"cs-row\">" + SLA_LEVELS.map(function (x) {
+          return field(x[1] + " (minutes)", "<input type=\"number\" min=\"1\" max=\"43200\" step=\"1\" data-num=\"1\" data-k=\"meta.sla." + x[0] + "\" value=\"" + esc(+s[x[0]] > 0 ? s[x[0]] : "") + "\" placeholder=\"" + x[2] + "\">");
+        }).join("") + "</div>" +
+        field("Why these times (students see this on each ticket)", inp("meta.sla.note", s.note, "The clinic's support contract: critical within 30 minutes")) + "</details>";
     }
 
     function vEvidence() {
