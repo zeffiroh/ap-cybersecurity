@@ -1,26 +1,26 @@
 ## 2. A YARA rule for the lure
 
-Write a YARA rule that finds the overdue-invoice lure in mail, so the mail gateway can catch the next one. Test it on **every** file in the case. The first rule below matches on the domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.
+Write a YARA rule that finds the guest-complaint lure in mail, so the mail gateway can catch the next one. Test it on **every** file. The first rule below matches on the phishing domain alone: see what else it catches. The tuned rule needs three things that only the lure email has.
 
 - [ ] Test the noisy rule: which files does it match? Are they emails?
-- [ ] Test the tuned rule: it should match only invoice.eml
-- [ ] Test the third rule on the malware's strings
+- [ ] Test the tuned rule: it should match only guest-complaint.eml
+- [ ] Test the third rule on the quarantined file's strings
 - [ ] Write one line on what each rule would miss
 
-> Hint: The intel feed and the proxy log mention the domain too. A rule for email should need things only the email has: the subject, the link path and the threat.
+> Hint: The intel feed, the block list, the alert queue and the proxy log all mention the domain too. A rule for email should need things only the email has: the subject, the link path and the threat.
 
 ```tool yara
-{"rule": "rule kestrel_lookalike_domain\n{\n  meta:\n    description = \"Anything that mentions the look-alike domain\"\n  strings:\n    $d = \"kestrel-logistlcs.com\"\n  condition:\n    $d\n}\n", "n": 6, "files": ["alerts-tuesday.json", "intel.json", "invoice.eml", "known_bad.txt", "mail.log", "proxy.log"], "blank": ["rule"]}
+{"rule": "rule llh_phishing_domain\n{\n  meta:\n    description = \"Anything that mentions the phishing domain\"\n  strings:\n    $d = \"login-verify.example\"\n  condition:\n    $d\n}\n", "n": 5, "files": ["alerts-wednesday.json", "ai-verdicts.json", "intel.json", "known_bad.txt", "mail.log", "proxy.log", "reported/guest-complaint.eml"], "blank": ["rule"]}
 ```
 
 ```tool yara
-{"rule": "rule kestrel_invoice_lure\n{\n  meta:\n    description = \"The overdue-invoice lure email from the look-alike domain\"\n    author = \"SOC\"\n    reference = \"AL-2201, message 4A1F21C02\"\n  strings:\n    $subject = \"Subject: FINAL NOTICE: overdue invoice\"\n    $link = \"kestrel-logistlcs.com/invoices/INV-\"\n    $press = \"service suspension\"\n  condition:\n    all of them\n}\n", "n": 1, "files": ["invoice.eml"], "blank": ["rule"]}
+{"rule": "rule llh_guest_complaint_lure\n{\n  meta:\n    description = \"The fake guest-complaint email aimed at hotel reservations teams\"\n    author = \"SOC\"\n    reference = \"AL-4101, message 7C1A20F11\"\n  strings:\n    $subject = \"Subject: Guest complaint BKG-\"\n    $link = \"login-verify.example/complaints/\"\n    $press = \"hidden from search results\"\n  condition:\n    all of them\n}\n", "n": 1, "files": ["reported/guest-complaint.eml"], "blank": ["rule"]}
 ```
 
 ```tool yara
-{"rule": "rule ksl_ransomware_strings\n{\n  meta:\n    description = \"Strings from svchost-upd.exe, the KSL ransomware\"\n  strings:\n    $mutex = \"Global\\\\ksl-mutex-4471\"\n    $ext = \".kestrel-locked\"\n    $note = \"README_RESTORE.txt\"\n    $walk = \"--walk\"\n  condition:\n    3 of them\n}\n", "n": 1, "files": ["suspect/svchost-upd.strings.txt"], "blank": ["rule"]}
+{"rule": "rule bp_grab_stealer_strings\n{\n  meta:\n    description = \"Strings from Boarding_Pass.pdf.exe, a password stealer left on guest USB sticks\"\n  strings:\n    $mutex = \"Global\\\\bp-grab-7731\"\n    $chrome = \"\\\\Google\\\\Chrome\\\\User Data\\\\Default\\\\Login Data\"\n    $flag = \"--grab-all\"\n    $exfil = \"telegram-relay.example/bot\"\n  condition:\n    3 of them\n}\n", "n": 1, "files": ["suspect/boarding-pass.strings.txt"], "blank": ["rule"]}
 ```
 
-?> How many files does the domain-only rule match? :: 6
+?> How many files does the domain-only rule match? :: 5
 
 ?> How many files does the tuned lure rule match? :: 1

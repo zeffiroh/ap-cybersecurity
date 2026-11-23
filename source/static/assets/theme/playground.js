@@ -20,7 +20,8 @@
   function matches(c, ev) {
     if (c.any) return c.any.some(function (x) { return matches(x, ev); });
     if (c.event && c.event !== ev.type) return false;
-    return Object.keys(c).every(function (k) { return k === "event" || test(c[k], get(ev, k)); });
+    if (c.dom && document.querySelectorAll(c.dom).length < (c.min || 1)) return false;
+    return Object.keys(c).every(function (k) { return k === "event" || k === "dom" || k === "min" || test(c[k], get(ev, k)); });
   }
 
   function caseFiles(cid) {

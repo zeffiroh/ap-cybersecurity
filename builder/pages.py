@@ -115,6 +115,23 @@ def free_tutorials():
             f'<ul class="cr-tuts">{"".join(x for _, x in sorted(items))}</ul>\n')
 
 
+def free_sims():
+    from .paths import SRC
+    items = []
+    for f in sorted((SRC / "seminars").glob("x*/seminar.json")):
+        info = json.loads(f.read_text(encoding="utf-8"))
+        if not info.get("free") or not info.get("published", True):
+            continue
+        cid = "sem-" + f.parent.name
+        items.append(f'<div class="aa-card"><h3>{esc(info["title"].replace("Simulation: ", ""))}</h3><p>{esc(info.get("summary", ""))}</p>'
+                     f'<p><a class="btn dark" href="workstation.html?case={cid}">Start the simulation</a> '
+                     f'<a class="btn" href="notebook.html?ref=rb-{cid}&amp;runbook={cid}">Written walkthrough</a></p></div>')
+    if not items:
+        return ""
+    return ('<h2>Free simulation</h2>\n<p class="aa-sub">A real morning in a SOC, against the clock, in the Hacker Room. No account needed.</p>\n'
+            f'<div class="aa-grid">{"".join(items)}</div>\n')
+
+
 def careers_page():
     path = SITE / "careers.html"
     d = path.parent
@@ -142,7 +159,7 @@ def careers_page():
             '<div class="aa-card"><h3>3. Do it yourself</h3><p><b>Practice</b> with hints, then <b>Solo</b> with none, in the Hacker Room.</p></div>'
             '<div class="aa-card"><h3>4. Hand it in</h3><p>The document a job expects: a triage note, a rule pack, an incident report. Graded with a rubric.</p></div>'
             '<div class="aa-card"><h3>5. Get certified</h3><p>A certificate with hours and a verification number, for your CV, LinkedIn or CPE self-reporting.</p></div></div>\n'
-            + free_tutorials() +
+            + free_tutorials() + free_sims() +
             '<h2>Pick a job path</h2>\n<p class="aa-sub">Each path is a set of seminars in order. Start with the free one; it belongs to every path.</p>\n'
             f'<div class="aa-grid">{paths}</div>\n'
             '<h2>The Hacker Room</h2>\n<p>Every lab opens in the Hacker Room: a security desktop in your browser with several Linux terminals and each analyst program as a window. '

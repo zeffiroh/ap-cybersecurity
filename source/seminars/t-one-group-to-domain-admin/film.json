@@ -1,0 +1,245 @@
+{
+ "host": "nimbus-soc",
+ "setup": [],
+ "files": {
+  "paths.py": "import csv\nimport sys\n\nstart, goal = sys.argv[1], sys.argv[2]\nedges = []\nfor r in csv.DictReader(open(\"identity/ad_edges.csv\")):\n    if r[\"relation\"] == \"HasSessionOn\":\n        edges.append((r[\"target\"], \"takes saved password of\", r[\"source\"]))\n    else:\n        edges.append((r[\"source\"], r[\"relation\"], r[\"target\"]))\n\n\ndef walk(node, path):\n    if node == goal:\n        yield path\n        return\n    for a, rel, b in edges:\n        if a == node and b not in [p[2] for p in path] and b != start:\n            yield from walk(b, path + [(a, rel, b)])\n\n\nbest = min(walk(start, []), key=len)\nfor a, rel, b in best:\n    print(f\"{a:12} --{rel}-->  {b}\")\non = {(a, b) for a, _, b in best}\nwith open(\"graph.dot\", \"w\") as f:\n    f.write(\"digraph AD {\\n rankdir=LR; node [shape=box, style=rounded, fontname=\\\"DejaVu Sans\\\", fontsize=16];\\n\")\n    for a, rel, b in edges:\n        hot = (a, b) in on\n        f.write(f' \"{a}\" -> \"{b}\" [label=\"{rel}\", fontsize=12, color=\"{\"red\" if hot else \"gray60\"}\", penwidth={3 if hot else 1}];\\n')\n    f.write(\"}\\n\")\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. In most companies, the attacker's goal is Domain Admins, the group that controls every Windows computer and account. They rarely get there with a single trick. They walk there, one permission at a time. Today you'll follow that walk from a helpdesk account to the top."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting. Nimbus Analytics in Hyderabad, Tuesday the tenth of November 2026. All times are UTC. A helpdesk worker, h.verma, fell for a phishing email, so the attacker has that account's password. The case folder has the company's identity data: which accounts are in which groups, and what each group is allowed to do."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. The identity data"
+  },
+  {
+   "say": "First, who's who, and which accounts are protected by multi-factor sign-in."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "column -t -s, identity/users.csv | cut -c1-170",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "column -t -s, identity/ad_edges.csv | cut -c1-150",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "Look at line two: Helpdesk can force a password change on svc-sql, inherited since 2023. And adm.k.nair has a session on app02, because a scheduled task runs as that account with a saved password."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. Walk it like an attacker"
+  },
+  {
+   "say": "Switch sides and think like the attacker. Defenders think in lists. Attackers think in graphs: from where I am, what can I reach? This short Python script follows the edges from h.verma, the phished account, to Domain-Admins, and writes the whole graph for Graphviz to draw."
+  },
+  {
+   "open": "mousepad paths.py",
+   "window": "paths.py",
+   "as": "code",
+   "geometry": [
+    200,
+    60,
+    1500,
+    950
+   ],
+   "settle": 1.5
+  },
+  {
+   "wait": 4
+  },
+  {
+   "after": "A saved password on a machine you control counts as an edge, because an administrator can take it from memory or the registry."
+  },
+  {
+   "close": "code",
+   "wait": 0.8
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "python3 paths.py h.verma Domain-Admins",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Let's read the path, hop by hop. h.verma is a member of Helpdesk. Helpdesk has ForceChangePassword on svc-sql, a service account. That hop needs no new password: the attacker simply sets a new one. svc-sql is a member of Server-Admins. Server-Admins is admin on app02. adm.k.nair has a saved login on app02, and adm.k.nair is a member of Domain-Admins."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "dot -Tpng graph.dot -o graph.png && echo drawn",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "open": [
+    "firefox-esr",
+    "--new-window",
+    "file:///case/graph.png"
+   ],
+   "window": "graph.png",
+   "as": "img",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ],
+   "timeout": 60,
+   "settle": 2
+  },
+  {
+   "wait": 4
+  },
+  {
+   "after": "The red path: phished helpdesk account, reset a service account's password, admin on a server, take the saved Domain Admin login. Game over, and no exploit anywhere. Every arrow is a setting someone chose."
+  },
+  {
+   "close": "img",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Break the path"
+  },
+  {
+   "say": "So which single change breaks the most paths? Removing the saved Domain Admin login from app02, by running that task as a low-privilege account, breaks every path that goes through it. Removing the old helpdesk reset right closes the door at the start. Do both."
+  },
+  {
+   "open": "mousepad fix.txt",
+   "window": "fix.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "FIX, HOP BY HOP   Nimbus Analytics   10 Nov 2026 (UTC)\nHop 1  Helpdesk can reset svc-sql           remove the old reset right on the Service Accounts folder\nHop 4  adm.k.nair's saved login on app02    run Nightly KPI export as a low-privilege account\nBoth together close every path to Domain-Admins that goes through app02.\n",
+   "enter": false,
+   "cps": 44
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "Where next"
+  },
+  {
+   "say": "That was one step from Seminar 7, Identity from both sides: AD, Entra and cloud IAM. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. Attackers think in graphs, not lists. Follow each permission one hop at a time, and remember that a saved password is an edge. Then fix the hop that breaks the most paths. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

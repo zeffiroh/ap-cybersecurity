@@ -12,17 +12,17 @@ Hello, and welcome. You've counted and pivoted in SPL. Now let's ask the very sa
 
 ## 1. The setting
 
-Same company, same evidence. Kestrel Logistics, the second and third of November 2026, all times in UTC. We'll search auth.log from web01, the web shop with SSH open to the internet. The question: did someone guess a password and get in?
+Same company, same evidence. Chandni Textiles in Surat, Monday the ninth of November 2026, all times in UTC. We'll search auth.log from shop01, the online shop with SSH open to the internet. The question: did someone guess a password and get in?
 
 On screen: the step text.
 
 ## 2. The same hunt in KQL
 
-KQL reads differently from SPL. It starts with a table, here the table is called auth. Then each pipe passes the rows to an operator. where filters rows. summarize count by groups them. project picks the columns you want to see, and sort by orders them. Strings go in double quotes, and you compare with two equals signs. Here's the failure count, written in KQL.
+KQL reads differently from SPL. It starts with a table. The table is named after the file, so auth.log becomes auth. Then each pipe passes the rows to an operator. where filters rows. summarize count by groups them. project picks the columns you want to see, and sort by orders them. Strings go in double quotes, and you compare with two equals signs. Here's the failure count, written in KQL.
 
 *After it runs:*
 
-Same answer as SPL: 203.0.113.7 is at the top, with six failed logins. Notice the count column is called count_ with an underscore at the end. That's KQL's default name, and you sort by it. Now the pivot. The second search filters for that address and a success, and projects the time, the user and the authentication method. One row, the account deploy. So both languages agree, and that's what you want. Now a small exercise for you: write down one thing that's easier in each language. Many analysts find KQL easier to read because every step names what it does, and SPL quicker to type for a fast count. There's no wrong answer; you'll meet both at work. Answer the question: six failed logins from that address.
+Same answer as SPL: 203.0.113.45 is at the top, with eleven failed logins. Notice the count column is called count_ with an underscore at the end. That's KQL's default name, and you sort by it. Now the pivot. The second search filters for that address and a success, and projects the time, the user and the authentication method. One row: catalog, with a password, at 19:20. So both languages agree, and that's what you want. If they didn't, one of the searches would be wrong. Now a small exercise for you: write down one thing that's easier in each language. Many analysts find SPL quicker to type for a fast count, and KQL easier to read back a week later because every step names what it does. There's no wrong answer; you'll meet both at work. If you want to practise full KQL, the free KC7 game and the free Azure Data Explorer help cluster both run it. Answer the question: eleven failed logins from that address.
 
 On screen: the step text, the siem tool with the model answer.
 
@@ -41,7 +41,7 @@ To recap. KQL starts with a table and pipes it through where, summarize, project
 ```
 0:00 Opening
 0:31 1. The setting
-0:47 2. The same hunt in KQL
-2:16 3. Where next
-2:44 Wrap-up
+0:48 2. The same hunt in KQL
+2:34 3. Where next
+3:02 Wrap-up
 ```

@@ -1,0 +1,178 @@
+{
+ "host": "garnet-ir",
+ "setup": [],
+ "files": {
+  "timeline.sql": "CREATE VIEW vpn AS\n  SELECT strptime(split_part(line, ' ', 1), '%Y-%m-%dT%H:%M:%SZ') AS ts, 'vpn01' AS source,\n         regexp_replace(line, '^\\S+ \\S+ ', '') AS event\n  FROM read_csv('vpn.log', columns = {'line': 'VARCHAR'}, delim = '\\t', header = false, quote = '', escape = '');\n\nCREATE VIEW win AS\n  SELECT json_extract_string(json, '$.TimeCreated')::TIMESTAMP AS ts,\n         split_part(json_extract_string(json, '$.Computer'), '.', 1) AS source,\n         json_extract_string(json, '$.EventID') || '  ' || coalesce(\n           json_extract_string(json, '$.Data.TargetUserName') || ' type ' || json_extract_string(json, '$.Data.LogonType')\n             || ' from ' || json_extract_string(json, '$.Data.IpAddress'),\n           json_extract_string(json, '$.Data.CommandLine'),\n           json_extract_string(json, '$.Data.ServiceName') || ' ' || json_extract_string(json, '$.Data.ImagePath'),\n           split_part(json_extract_string(json, '$.Message'), chr(10), 1)) AS event\n  FROM read_ndjson_objects('eventlogs/*.jsonl');\n\nCREATE VIEW proc AS\n  SELECT \"time\"::TIMESTAMP AS ts, host AS source, 'process  ' || command_line AS event\n  FROM read_csv('process.csv') WHERE host = 'fs02';\n\n.maxrows 80\nSELECT strftime(ts, '%d %H:%M:%S') AS utc, source, left(event, 105) AS event\nFROM (SELECT * FROM vpn UNION ALL SELECT * FROM win UNION ALL SELECT * FROM proc)\nWHERE ts BETWEEN '2026-11-06 22:40' AND '2026-11-07 00:00'\nORDER BY ts;\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. During an incident, every system keeps its own log, and none of them tells the whole story. Today you'll put a VPN log, two Windows machines' event logs and a process export on one clock, and read the night of a ransomware attack from beginning to end."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting. Garnet Precision Engineering in Chakan, near Pune. The night of Friday the sixth to Saturday the seventh of November 2026. All times are UTC, and that matters: the VPN log and the Windows logs use the same UTC clock, so we can merge them directly. Just after midnight, a helpdesk ticket said the CAD files wouldn't open and every folder had a file called RESTORE-FILES.txt."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. Rebuild the night on one timeline"
+  },
+  {
+   "say": "The merged timeline reads all the logs together and sorts every event by time. This saved DuckDB script turns each log into the same three columns, then keeps the window that matters, from 22:40 on Friday to midnight."
+  },
+  {
+   "open": "mousepad timeline.sql",
+   "window": "timeline.sql",
+   "as": "code",
+   "geometry": [
+    120,
+    60,
+    1700,
+    960
+   ],
+   "settle": 1.5
+  },
+  {
+   "wait": 5
+  },
+  {
+   "close": "code",
+   "wait": 0.8
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "duckdb < timeline.sql",
+   "wait": 6,
+   "cps": 16
+  },
+  {
+   "after": "Read it top to bottom. At 22:43 the VPN log shows a failed login for s.kale from an outside address. At 22:44:10, a success for the same account, and MFA says not enrolled. That's the way in: one password and no second factor. At 22:52 the workstation eng-ws14 logs a remote desktop logon for s.kale, coming from the address the VPN gave out. At 23:05 rundll32 opens lsass, the process that holds logged-in users' credentials. That's credential theft. At 23:20 the file server fs02 logs a network logon from ENG-WS14 as adm.rjoshi, an admin account. Six seconds later fs02 installs a new service, WinUpdSvc, a name made to look like Windows Update. At 23:41 the shadow copies are deleted, and at 23:42 locker.exe starts encrypting."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep 'user=s.kale' vpn.log | grep session | cut -c1-170",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "And the VPN session, when the admin finally closed it, had sent out about one point eight gigabytes. That means data was probably copied out before encryption."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. Star the events that tell the story"
+  },
+  {
+   "say": "Now star the events that tell the story, and notice the gaps. A quiet stretch can mean the attacker was busy somewhere you have no log for."
+  },
+  {
+   "open": "mousepad starred-events.txt",
+   "window": "starred-events.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "STARRED EVENTS  Garnet Precision Engineering  6-7 Nov 2026, all times UTC\n22:43:02  vpn01    failed VPN login for s.kale from an outside address (bad password)\n22:44:10  vpn01    success for s.kale, MFA not enrolled: the way in\n22:52     eng-ws14 remote desktop logon for s.kale from the VPN address: first machine\n23:05     eng-ws14 rundll32 opens lsass with full access: credential theft\n23:20:03  fs02     network logon from ENG-WS14 as adm.rjoshi, special privileges: stolen credentials worked\n23:20:09  fs02     new service WinUpdSvc, a name made to look like Windows Update\n23:41     fs02     shadow copies deleted with vssadmin\n23:42     fs02     locker.exe starts encrypting D:\\Shares\nNote: the VPN session sent out about 1.84 GB before it closed at 00:58: probably data theft.\n",
+   "enter": false,
+   "cps": 50
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "Where next"
+  },
+  {
+   "say": "That was one step from Seminar 5, Incident response: ransomware, lateral movement and memory. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. Put every log on one clock, in one time zone. Read the events in order and name each step: the way in, the first machine, the stolen credentials, the file server, the encryption. Star the events that tell the story, and notice the gaps. One timeline turns five confusing logs into one clear night. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

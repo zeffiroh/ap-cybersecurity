@@ -1,0 +1,178 @@
+{
+ "host": "banyan-review",
+ "setup": [],
+ "files": {
+  "check-register.sql": ".mode box\nSELECT asset, left(threat, 34) AS threat, likelihood * impact AS score, coalesce(treatment, '-') AS treatment,\n  concat_ws('; ',\n    CASE WHEN treatment IS NULL THEN 'no treatment' END,\n    CASE WHEN owner IS NULL THEN 'no owner' END,\n    CASE WHEN due IS NULL THEN 'no due date' END,\n    CASE WHEN treatment = 'mitigate' AND control IS NULL THEN 'mitigate with no control' END,\n    CASE WHEN treatment = 'accept' AND likelihood * impact >= 15 THEN 'high risk accepted without sign-off' END) AS problems\nFROM 'risk-register-banyan.csv' ORDER BY score DESC;\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. Security teams find far more problems than any company can fix at once. A risk register is how leadership decides what to fix first, what to accept, and who is responsible. Today you'll fix a weak register and see what makes each row useful."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting. Banyan Learning in Pune, which runs a school fees and learning app. Its new payment feature, Parent Pay, launches on the fourth of December 2026, and we're doing the security review before launch. The case folder has the product team's first risk register and the threat model."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. The first register has holes"
+  },
+  {
+   "say": "The product team's first register is a simple table. Each row needs: the asset, the threat, the weakness, a likelihood and an impact from one to five, a treatment, a control, an owner and a date."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "column -t -s, risk-register-banyan.csv | cut -c1-170",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "Some rows have no owner, some have no treatment, and one high risk is accepted with nobody's name on it. Likelihood times impact gives the score, and fifteen or more is high. This DuckDB query checks every row and flags any high risk that's accepted without sign-off."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "duckdb < check-register.sql",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "The worst risk, the fake payment confirmation, scores twenty-five and has nothing at all: no treatment, no owner, no date. Refund fraud scores fifteen and was simply accepted, with no sign-off. Personal data in logs is marked mitigate with no control and no owner."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. Build the fixed register"
+  },
+  {
+   "say": "Now fix it. Every row gets a treatment, a control, a named owner and a date. The webhook is the worst risk, so the treatment is mitigate, by verifying the payment gateway's signature, owned by Sana Pillai, due the first of December, before launch. Refund fraud is mitigated with multi-factor sign-in and a second approver. And the outdated web framework gets its own row."
+  },
+  {
+   "open": "mousepad risk-register-fixed.csv",
+   "window": "risk-register-fixed.csv",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "asset,threat,weakness,likelihood,impact,treatment,control,owner,due\nFees API,Fake payment confirmation,Webhook isn't signed,5,5,mitigate,Verify the gateway signature and confirm with the gateway,Sana Pillai,2026-12-01\nFees API,Fee amount changed by the parent,Amount comes from the app,4,4,mitigate,Server looks up the amount,Sana Pillai,2026-12-01\nAdmin console,Refund fraud by a stolen staff login,No MFA; one-click refunds,3,5,mitigate,MFA and a second approver for refunds,Kunal Desai,2026-12-01\nWeb framework,Exploit of the outdated web framework,Framework is two versions behind,3,5,mitigate,Upgrade and turn on automatic updates,Sana Pillai,2026-12-03\nApp logs,Personal data in logs,Full request bodies kept 90 days,4,3,mitigate,Mask personal data and keep logs 30 days,Sana Pillai,2026-12-03\n",
+   "enter": false,
+   "cps": 60
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "say": "Now run the same check on the fixed file."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "sed 's/risk-register-banyan/risk-register-fixed/' check-register.sql | duckdb",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "No problems left. Fake payment confirmation, twenty-five. Fee amount changed by the parent, sixteen. Then two at fifteen: refund fraud through a stolen staff login, and an exploit of the outdated web framework. Four high risks. Notice every row now has a named person and a date. And look at treatment. Accept is a real choice, but it belongs to someone senior enough to pay for the consequence."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "Where next"
+  },
+  {
+   "say": "That was one step from Seminar 10, Design, risk and audit. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. Every risk needs a score, a treatment, a control, an owner and a date. Score it as likelihood times impact. Mitigate what you can before launch, and when you accept a risk, get the right person's name on it. A register like this turns a list of worries into decisions. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

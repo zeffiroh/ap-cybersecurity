@@ -2,7 +2,7 @@
  "host": "chandni-soc",
  "setup": [
   "nohup python3 -m http.server 8088 -d /opt/cyberchef >/dev/null 2>&1 &",
-  "echo \"alias zircolite='python3 /opt/zircolite/zircolite.py -j --no-event-filter -l /tmp/zircolite.log -o /tmp/detected.json'\" >> ~/.bashrc"
+  "echo \"alias zircolite='python3 /opt/zircolite/zircolite.py -j --no-event-filter --flatten-backend python -l /tmp/zircolite.log -o /tmp/detected.json'\" >> ~/.bashrc"
  ],
  "files": {
   "rules/office-shell.yml": "title: Office program starts a command shell\nid: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000001\nstatus: experimental\ndescription: Word, Excel or Outlook starting cmd.exe or PowerShell is how most macro malware begins.\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n    ParentProcessName|endswith:\n      - '\\WINWORD.EXE'\n      - '\\EXCEL.EXE'\n      - '\\OUTLOOK.EXE'\n    NewProcessName|endswith:\n      - '\\cmd.exe'\n      - '\\powershell.exe'\n  condition: selection\nfalsepositives:\n  - Office add-ins that call a script on purpose (rare; list them)\nlevel: high\ntags:\n  - attack.execution\n  - attack.t1204.002\n",
@@ -18,6 +18,36 @@
    "chapter": "Opening"
   },
   {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Welcome to Log search and detection as code. Chandni Textiles is a fabric and saree business in Surat, with two shops and an online store. On Tuesday morning their developer notices that the shop server was busy overnight, and asks a simple question: did anyone get into the shop server on Monday night, how, and what did they take?"
+  },
+  {
+   "point": [
+    0.45,
+    0.35
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "This is the case folder they sent us. Everything you'll see today is real software on a real Linux machine: the terminal, a log viewer called lnav, the DuckDB database, CyberChef, and the Sigma command-line tools. On the course website there are look-alike versions of these programs, so you can follow along even if you can't install anything."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
    "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
    "window": "Terminal",
    "as": "term",
@@ -27,9 +57,6 @@
     1800,
     960
    ]
-  },
-  {
-   "say": "Welcome to Log search and detection as code. Chandni Textiles is a fabric and saree business in Surat, with two shops and an online store. On Tuesday morning their developer notices that the shop server was busy overnight, and asks a simple question: did anyone get into the shop server on Monday night, how, and what did they take? Everything you'll see today is real software on a real Linux machine: the terminal, a log viewer called lnav, the DuckDB database, CyberChef, and the Sigma command-line tools. On the course website there are look-alike versions of these programs, so you can follow along even if you can't install anything."
   },
   {
    "use": "term",
@@ -69,7 +96,28 @@
    "chapter": "1. How the search program works"
   },
   {
-   "say": "Step one: how the search program works. A SIEM, a security information and event management system, does four things with every log. It splits the file into events, gives each event a time, recognises the format, and pulls out fields like the user name or the address. lnav is a free, open-source log viewer that does exactly those four things on your own machine, so it's the clearest way to see what a SIEM is doing underneath. We open all three text logs at once."
+   "say": "Step one: how the search program works. First, three lines from the top of two of the logs."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "head -n 3 auth.log access.log",
+   "wait": 2,
+   "cps": 16
+  },
+  {
+   "after": "Two different shapes. A SIEM, a security information and event management system, does four things with every log like these. It splits the file into events, gives each event a time, recognises the format, and pulls out fields like the user name or the address. lnav is a free, open-source log viewer that does exactly those four things on your own machine, so it's the clearest way to see what a SIEM is doing underneath. We open all three text logs at once."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
   },
   {
    "use": "term",
@@ -320,13 +368,7 @@
    "cps": 20
   },
   {
-   "after": "One row: catalog, at 19:20. Two tools, one answer. Now we know who and when. Next: how did they get the password?"
-  },
-  {
-   "keys": [
-    "q"
-   ],
-   "wait": 1
+   "after": "One row, so lnav shows it on the bottom line: catalog, at 19:20. Two tools, one answer. Now we know who and when. Next: how did they get the password?"
   },
   {
    "keys": [
@@ -611,7 +653,7 @@
    "cps": 16
   },
   {
-   "after": "Seventeen process events checked, one detection: Office program starts a command shell, and the matched event is saved to a file. Let's see which event it was."
+   "after": "All sixty-one events in the log checked, one detection: Office program starts a command shell, and the matched event is saved to a file. Let's see which event it was."
   },
   {
    "use": "term",
@@ -753,7 +795,64 @@
    "chapter": "11. Hand in your hunt pack and rule pack"
   },
   {
-   "say": "Step eleven: hand in. On the course site, the seminar's notebook holds the same hunt in the look-alike SIEM, in SPL and KQL, with one SQL query and the five Sigma rules, each with its test and a tuning note. Then add three sentences for Chandni Textiles, in plain words. How the attacker got in: SQL injection on the product page gave them the staff passwords, and the catalog password worked on SSH too. What they took: every order this year, customer email addresses, and a copy of every database. And the first thing to fix: the injection bug, then new passwords for every staff account, and a sudo rule that lets catalog run only resize-photos."
+   "say": "Step eleven: hand in. On the course site, the seminar's notebook holds the same hunt in the look-alike SIEM, in SPL and KQL, with one SQL query and the five Sigma rules, each with its test and a tuning note. Then add three sentences for Chandni Textiles, in plain words. We write them here first."
+  },
+  {
+   "open": "mousepad handin.txt",
+   "window": "handin.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    110,
+    1600,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "How they got in: SQL injection on the shop's product page gave them the staff passwords, and the catalog password also worked on SSH.",
+   "enter": true,
+   "cps": 22
+  },
+  {
+   "after": "How the attacker got in: SQL injection on the product page gave them the staff passwords, and the catalog password worked on SSH too."
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "What they took: every order since 1 January, customer email addresses, and a copy of every database on shop01.",
+   "enter": true,
+   "cps": 22
+  },
+  {
+   "after": "What they took: every order this year, customer email addresses, and a copy of every database."
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "Fix first: the injection bug, then new passwords for every staff account, and a sudo rule that lets catalog run only resize-photos.",
+   "enter": false,
+   "cps": 22
+  },
+  {
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "after": "And the first thing to fix: the injection bug, then new passwords for every staff account, and a sudo rule that lets catalog run only resize-photos."
   },
   {
    "chapter": "Wrap-up"

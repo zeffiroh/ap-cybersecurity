@@ -1,0 +1,211 @@
+{
+ "host": "lotuslake-soc",
+ "setup": [],
+ "files": {},
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case/reported",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. Five emails were reported to the security team this morning. Your job is to decide which ones are dangerous, and to prove it from the email itself, not from a feeling. By the end you'll read a header the way an analyst does."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting. Lotus Lake Hotels, three lake-side hotels in Udaipur. It's Wednesday the eleventh of November 2026, the first busy week of the wedding season. Bookings are flowing, advances are being paid to decorators and caterers, and staff are pressing the Report phishing button on everything that looks odd, which is good. All times are UTC. The five reported emails are in the reported folder of the case."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case/reported --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. Who really sent it"
+  },
+  {
+   "say": "For each email, check four things. One: who really sent it. The From line is easy to fake, so also read the Return-Path, where bounces go."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep -H -E '^(From|Reply-To|Return-Path):' *.eml | cut -c1-140",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "The linen offer and the payslips come from the senders they claim. The guest complaint says BookingPartner, but its Return-Path is partner-notify.example. The GST refund comes from a refund portal nobody has heard of. And the bank change is signed as the General Manager, but comes from a free mail account."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. What SPF, DKIM and DMARC said"
+  },
+  {
+   "say": "Two: what SPF, DKIM and DMARC said, and which domain each result is about. These are the checks the receiving mail server ran on the sender's domain."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep -H -o 'spf=[a-z]*\\|dkim=[a-z]*\\|dmarc=[a-z]*' *.eml | paste - - -",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Here's the trap. Four of the five pass, including the fake General Manager. A pass only means the mail really came from the domain it names. The free mail domain really did send it. It proves nothing about who the person is. Only the guest complaint fails DMARC, for bookingpartner.example, which means it's pretending to be them."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Where the link really goes"
+  },
+  {
+   "say": "Three: where the link really goes, not what the link text says."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep -H -o 'href=\"[^\"]*\"' *.eml",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "The guest complaint's link text says the real BookingPartner site, but the host is bookingpartner-extranet dot login-verify dot example. The real domain is the last part: login-verify.example. That's a fake sign-in page. Four: the pressure tactics. Answer in twenty-four hours or your hotel disappears from search results. And one more: anything in the email that isn't meant for a human reader."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "grep -H 'font-size:1px' *.eml | cut -c1-200",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "The GST refund hides a sentence in one-pixel white text: a note to the AI triage assistant saying the email is safe. A person can't see it. A machine reads it."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "4. The verdicts"
+  },
+  {
+   "say": "Three of the five are bad: the guest complaint and the GST refund are phishing, and the supplier bank change is payment fraud, called business email compromise. The linen offer is marketing, with a working unsubscribe link. And the payslip email came through the company's own servers, from the HR system, with an internal link. Genuine: tell the reporter it's safe and thank them."
+  },
+  {
+   "open": "mousepad /case/verdicts.txt",
+   "window": "verdicts.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "EMAIL VERDICTS  reported 11 Nov 2026, all times UTC\nguest-complaint.eml        PHISHING. Return-Path partner-notify.example; DMARC fails for bookingpartner.example;\n                           link goes to bookingpartner-extranet.login-verify.example; threat to delist the hotel.\ngst-refund.eml             PHISHING. New domain gst-refund-portal.example; urgency; hidden one-pixel note to the AI.\nsupplier-bank-change.eml   PAYMENT FRAUD (BEC). Free mail account in the GM's name; checks pass for freemail only;\n                           secrecy, urgency, new bank account.\nlinen-offer.eml            SPAM. Marketing with a working unsubscribe link.\npayslips.eml               GENUINE. From the HR system through our own servers, internal link; thank the reporter.\n",
+   "enter": false,
+   "cps": 50
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "Where next"
+  },
+  {
+   "say": "That was one step from Seminar 3, SOC triage: alerts, phishing, threat intel and AI verdicts. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. Read the Return-Path, not just the From line. Remember an authentication pass only proves the domain, not the person. Read where the link really goes, and look for hidden text. Prove the verdict from the email itself. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

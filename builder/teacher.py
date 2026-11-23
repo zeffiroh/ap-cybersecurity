@@ -20,11 +20,9 @@ SIDEBAR = [
     ("seminars", "Seminars", TEACHER / "seminars.html"),
     ("labs", "Labs & notebooks", TEACHER / "labs.html"),
     ("ctf", "Capture the flag", TEACHER / "ctf.html"),
-    ("students", "Students, classes & cohorts", TEACHER / "students.html"),
+    ("students", "Students", TEACHER / "students.html"),
     ("forum", "Classes & forum", SITE / "community.html"),
     ("handins", "Hand-ins", TEACHER / "handins.html"),
-    ("progress", "Class progress", TEACHER / "progress.html"),
-    ("grades", "Gradebook", TEACHER / "class-report.html"),
     ("reports", "Reports", TEACHER / "reports.html"),
     ("tests", "Adaptive tests", TEACHER / "tests.html"),
     ("resources", "Resources", TEACHER / "resources.html"),
@@ -62,9 +60,16 @@ def have(p):
     return site_rel(p) if Path(p).exists() else ""
 
 
+def student_tabs(active):
+    items = [("students", "Students & groups", "students.html"), ("progress", "Class progress", "progress.html"),
+             ("grades", "Gradebook", "class-report.html")]
+    return '<nav class="tc-tabs" aria-label="Students">' + "".join(
+        f'<a href="{h}"{" class=on" if k == active else ""}>{esc(t)}</a>' for k, t, h in items) + '</nav>\n'
+
+
 def console(path, title, key, body, scripts=()):
     d = Path(path).parent
-    side = "".join(f'<a href="{rel(d, p)}"{" class=on" if k == key else ""}>{esc(label)}</a>' for k, label, p in SIDEBAR)
+    side = "".join(f'<a href="{rel(d, p)}"{" class=on" if k == key or (k == "students" and key == "progress") else ""}>{esc(label)}</a>' for k, label, p in SIDEBAR)
     html = (f'<link rel="stylesheet" href="{rel(d, THEME / "teacher.css")}">\n'
             f'<link rel="stylesheet" href="{rel(d, THEME / "calendar.css")}">\n'
             f'<div class="tc"><nav class="tc-side" aria-label="Teacher"><div class="tc-brand">Teacher</div>{side}'
@@ -422,7 +427,7 @@ def accounts_page():
 
 def class_progress_page():
     path = TEACHER / "progress.html"
-    body = ('<header class="tc-head"><div><h1>Class progress</h1><p class="aa-sub" id="status"></p></div></header>\n'
+    body = (student_tabs("progress") + '<header class="tc-head"><div><h1>Class progress</h1><p class="aa-sub" id="status"></p></div></header>\n'
             '<p class="aa-tools"><select id="unit"></select> <select id="sort"><option value="name">Sort by email</option>'
             '<option value="mastery">Sort by mastery</option><option value="last">Sort by last active</option></select> '
             '<input id="q" type="search" placeholder="Find a student"> <button class="btn" id="reload">Refresh</button> '
@@ -433,7 +438,7 @@ def class_progress_page():
 
 def students_page():
     path = TEACHER / "students.html"
-    body = ('<header class="tc-head"><div><h1>Students &amp; groups</h1><p class="aa-sub" id="status"></p></div>'
+    body = (student_tabs("students") + '<header class="tc-head"><div><h1>Students &amp; groups</h1><p class="aa-sub" id="status"></p></div>'
             '<button class="btn" id="reload">Refresh</button></header>\n'
             '<div class="tc-filters"><input id="q" type="search" placeholder="Find a student">'
             '<select id="f-group"></select>'

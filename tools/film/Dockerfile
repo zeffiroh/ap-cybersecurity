@@ -27,8 +27,21 @@ RUN useradd -m -s /bin/bash analyst \
  && chown analyst:analyst /case /out
 
 ENV PATH=/opt/tools/bin:$PATH
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list \
+ && apt-get update && apt-get install -y --no-install-recommends libglib2.0-bin graphviz bsdextrautils \
+ && apt-get install -y --no-install-recommends -t bookworm-backports suricata && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL -o /tmp/gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+ && tar -xzf /tmp/gl.tgz -C /usr/local/bin gitleaks && rm /tmp/gl.tgz \
+ && curl -fsSL -o /tmp/trivy.tgz https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz \
+ && tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy && rm /tmp/trivy.tgz \
+ && /opt/tools/bin/pip install --no-cache-dir pytm cvss cryptography
+USER analyst
+WORKDIR /home/analyst
+RUN printf 'title: Warm the cache\nlogsource:\n  product: windows\n  service: security\ndetection:\n  selection:\n    EventID: 4688\n  condition: selection\ntags:\n  - attack.t1204.002\n  - d3fend.d3-pa\n' > /tmp/warm.yml \
+ && (sigma check /tmp/warm.yml >/dev/null 2>&1 || true) && rm /tmp/warm.yml && ls ~/.cache/pysigma \
+ && mkdir -p /tmp/w && printf 'FROM debian\n' > /tmp/w/Dockerfile && (trivy config --quiet /tmp/w >/dev/null 2>&1 || true) && rm -rf /tmp/w && ls ~/.cache/trivy
+USER root
 COPY desktop.sh /usr/local/bin/desktop.sh
 COPY director.py /usr/local/bin/director.py
 RUN chmod +x /usr/local/bin/desktop.sh
 USER analyst
-WORKDIR /home/analyst

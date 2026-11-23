@@ -469,7 +469,7 @@
     if (m.summary) out.push([lead, m.summary]);
     out.push([lead, "Evidence is in ~/case (open Files on the desktop). Hash it before you touch it, write down what you check, and keep facts apart from guesses."]);
     out.push([{ name: "On-call bot", role: "automation" }, "Case loaded on " + hostName() + ". Terminal, Files and every program on the Start menu can read it."]);
-    if (trial) out.push([lead, "You're on the trial desk: this sample case only. The full Hacker Room has every case and the seminars that teach each program."]);
+    if (trial) out.push([lead, "You're on the trial desk: this sample case, the free tutorials and the free simulation (Case on the taskbar). The full Hacker Room has every case and the seminars that teach each program."]);
     return out;
   }
   function people() {
@@ -773,8 +773,8 @@
     g.setAttribute("aria-label", "Welcome to the Hacker Room");
     g.innerHTML = '<div class="tl-lock ws-offer"><b>Welcome to the Hacker Room</b>' +
       "<p>An analyst's computer in your browser: a team chat with your SOC lead, mail, files, Linux terminals, and the programs security teams use every day, each as a window.</p>" +
-      "<p><b>Try it free</b> on a small sample case. The real cases, the seminars that teach every program and the certificates come with Seminars or Labs.</p>" +
-      '<p><button type="button" class="btn dark" id="ws-trial">Try it free</button> <a class="btn" href="' + ROOT + 'careers.html">Career training</a> ' +
+      "<p><b>Try it free</b> on a small sample case, or play the free 15-minute simulation, Phish to containment. The real cases, the seminars that teach every program and the certificates come with Seminars or Labs.</p>" +
+      '<p><button type="button" class="btn dark" id="ws-trial">Try it free</button> <a class="btn" href="' + ROOT + 'workstation.html?case=sem-x06-phish-to-containment-short">Free simulation</a> <a class="btn" href="' + ROOT + 'careers.html">Career training</a> ' +
       '<a class="btn" href="' + ROOT + 'store.html">Store</a></p>' +
       (email() ? "<p><small>Signed in as " + esc(email()) + ".</small></p>" : '<p><small>Bought it already? <button type="button" class="ws-link" id="ws-signin">Sign in</button></small></p>') + "</div>";
     app.appendChild(g);

@@ -17,7 +17,14 @@ chapter = None
 
 
 def sh(*args, check=False):
-    r = subprocess.run(list(args), env=ENV, capture_output=True, text=True)
+    for attempt in range(3):
+        try:
+            r = subprocess.run(list(args), env=ENV, capture_output=True, text=True, timeout=25)
+            break
+        except subprocess.TimeoutExpired:
+            if attempt == 2:
+                raise SystemExit(f"{args[0]} hung three times")
+            time.sleep(1)
     if check and r.returncode:
         raise SystemExit(f"{args[0]} failed: {r.stderr.strip()[:300]}")
     return r.stdout.strip()

@@ -93,7 +93,7 @@
     list = list.filter(function (c) { return c.sim && !/--/.test(c.id); });
     if (!list.length) return '<p class="sx-empty">No simulations yet.</p>';
     return '<div class="lv-grid">' + list.map(function (c) {
-      return '<div class="lv-card lv-sim"><span class="lv-ck">Simulation</span><b>' + esc(String(c.title || "").replace(/^Simulation:\s*/, "")) + '</b><span class="lv-cs">' + esc(c.summary || "") +
+      return '<div class="lv-card lv-sim"><span class="lv-ck">' + esc(c.free ? "Free simulation" : "Simulation") + "</span><b>" + esc(String(c.title || "").replace(/^Simulation:\s*/, "")) + '</b><span class="lv-cs">' + esc(c.summary || "") +
         '</span><span class="lv-cp">' + esc(c.level || "") + (c.minutes ? " &middot; about " + c.minutes + " min" : "") + "</span>" +
         '<span class="lv-sima"><a class="btn dark" href="' + ROOT + "workstation.html?case=" + encodeURIComponent(c.id) + '">Start in the Hacker Room</a> <a class="btn" href="' + caseLink(c) + '">Written walkthrough</a></span></div>';
     }).join("") + "</div>";

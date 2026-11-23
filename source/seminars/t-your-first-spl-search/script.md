@@ -1,6 +1,6 @@
 # Lecture script: Your first SPL search
 
-Free tutorial · about 15 minutes of lab work · about 3 minutes of narration
+Free tutorial · about 15 minutes of lab work · about 4 minutes of narration
 
 This is what `python tools/teach.py demo t-your-first-spl-search` plays and captions, word for word, and what the voice studio
 (`python tools/teach.py voice t-your-first-spl-search`) shows you to read. Edit the words in seminar.json, then run
@@ -12,7 +12,7 @@ Hello, and welcome. Today you'll run your first searches in SPL, the search lang
 
 ## 1. The setting
 
-The setting first. Kestrel Logistics, a freight company. Monday the second and Tuesday the third of November 2026. All times are UTC, and India is five and a half hours ahead. The evidence is in the case folder. We'll search auth.log, the SSH and sudo log from web01, the public web shop. web01 has SSH open to the internet, so people try to guess its passwords all day. The question is whether anyone succeeded.
+The setting first. Chandni Textiles, a fabric and saree business in Surat, with two shops and an online store. Monday the ninth of November 2026. All times are UTC, and India is five and a half hours ahead, so seven in the evening UTC is half past midnight in Surat. The evidence is in the case folder. We'll search auth.log, the SSH and sudo log from shop01, the online shop. shop01 has SSH open to the internet so the photo studio can upload product pictures, which means strangers try to guess its passwords all day. The question is whether anyone succeeded, and what they did next.
 
 On screen: the step text.
 
@@ -22,7 +22,7 @@ SPL reads from left to right. First a search that picks events, then a pipe, the
 
 *After it runs:*
 
-Look at the top row. One address, 203.0.113.7, failed far more than anyone else. That's what password guessing looks like: one source, many failures. Now the second move, the pivot. Take what you found, the address, and search for it again, this time for a success. The second search looks for Accepted logins from 203.0.113.7 and shows the time, the user and the authentication method. It found one. The address logged in as deploy. So the guessing worked. The third search asks what that account did next. Every sudo line is a command run as root, and the table shows the user, who it ran as, and the command. The one that matters reads /etc/shadow, the file that holds the password hashes for every account on the server. That's an attacker collecting passwords to crack later. So in three searches you've told the whole story: guessing, a successful login as deploy, and theft of the password hashes. A tip for when you try it yourself: click any field name in the results to add it to your search. Answer the three questions: 203.0.113.7, deploy, and /etc/shadow.
+Look at the top row. One address, 203.0.113.45, failed eleven times, far more than anyone else. That's what password guessing looks like: one source, many failures. Now the second move, the pivot. Take what you found, the address, and search for it again, this time for a success. The second search looks for Accepted logins from 203.0.113.45 and shows the time, the user and the authentication method. One result. At 19:20 UTC it logged in as catalog, with a password. catalog is the account the photo studio uses to upload pictures. Now pivot again, this time on the account. The third search shows every SSH event for catalog. At 05:10 in the morning it logged in from 10.30.0.30, the photo studio PC on the office network. That's normal. Then three failures and one success from 203.0.113.45 at night. That's not. The last search asks what the account did with sudo, where every line is a command run as root. At 05:10 catalog ran resize-photos, its normal job. At 19:21 the same account ran mysqldump with all-databases, which copies every database on the server into one file, and at 19:23 it compressed that file with gzip. That's somebody packing the shop's data to take away. So in four searches you've told the whole story: guessing, a successful login as catalog from somewhere it never logs in from, and a copy of every database. A tip for when you try it yourself: click any field name in the results to add it to your search. Answer the four questions: 203.0.113.45, catalog, 10.30.0.30, and mysqldump.
 
 On screen: the step text, the siem tool with the model answer.
 
@@ -41,7 +41,7 @@ To recap. Count first, to find what stands out. Then pivot: take the address, th
 ```
 0:00 Opening
 0:27 1. The setting
-0:56 2. SPL: count, then pivot
-2:51 3. Where next
-3:20 Wrap-up
+1:09 2. SPL: count, then pivot
+3:38 3. Where next
+4:07 Wrap-up
 ```

@@ -1,0 +1,528 @@
+{
+ "host": "garnet-ir",
+ "setup": [],
+ "files": {
+  "tree.py": "import csv\nimport sys\n\nrows = [r for r in csv.DictReader(open(\"process.csv\")) if r[\"host\"] == sys.argv[1]]\nkids = {}\nfor r in rows:\n    kids.setdefault(r[\"ppid\"], []).append(r)\npids = {r[\"pid\"] for r in rows}\n\n\ndef show(r, depth):\n    print(\"    \" * depth + r[\"time\"][11:] + \"  \" + r[\"pid\"].rjust(5) + \"  \" + r[\"command_line\"][:84])\n    for k in sorted(kids.get(r[\"pid\"], []), key=lambda x: x[\"time\"]):\n        show(k, depth + 1)\n\n\nfor r in sorted(rows, key=lambda x: x[\"time\"]):\n    if r[\"ppid\"] not in pids:\n        show(r, 0)\n",
+  "timeline.sql": "CREATE VIEW vpn AS\n  SELECT strptime(split_part(line, ' ', 1), '%Y-%m-%dT%H:%M:%SZ') AS ts, 'vpn01' AS source,\n         regexp_replace(line, '^\\S+ \\S+ ', '') AS event\n  FROM read_csv('vpn.log', columns = {'line': 'VARCHAR'}, delim = '\\t', header = false, quote = '', escape = '');\n\nCREATE VIEW win AS\n  SELECT json_extract_string(json, '$.TimeCreated')::TIMESTAMP AS ts,\n         split_part(json_extract_string(json, '$.Computer'), '.', 1) AS source,\n         json_extract_string(json, '$.EventID') || '  ' || coalesce(\n           json_extract_string(json, '$.Data.TargetUserName') || ' type ' || json_extract_string(json, '$.Data.LogonType')\n             || ' from ' || json_extract_string(json, '$.Data.IpAddress'),\n           json_extract_string(json, '$.Data.CommandLine'),\n           json_extract_string(json, '$.Data.ServiceName') || ' ' || json_extract_string(json, '$.Data.ImagePath'),\n           split_part(json_extract_string(json, '$.Message'), chr(10), 1)) AS event\n  FROM read_ndjson_objects('eventlogs/*.jsonl');\n\nCREATE VIEW proc AS\n  SELECT \"time\"::TIMESTAMP AS ts, host AS source, 'process  ' || command_line AS event\n  FROM read_csv('process.csv') WHERE host = 'fs02';\n\n.maxrows 80\nSELECT strftime(ts, '%d %H:%M:%S') AS utc, source, left(event, 105) AS event\nFROM (SELECT * FROM vpn UNION ALL SELECT * FROM win UNION ALL SELECT * FROM proc)\nWHERE ts BETWEEN '2026-11-06 22:40' AND '2026-11-07 01:00'\nORDER BY ts;\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Welcome to Incident response. This is the seminar where everything comes together. Garnet Precision Engineering makes parts in Chakan, near Pune. Just after midnight on Saturday the seventh of November 2026, the helpdesk logs that the engineering CAD files won't open, and every folder has a new file called RESTORE-FILES.txt. That's ransomware."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "This is what the incident team collected: the VPN log, Windows event logs from the design workstation eng-ws14 and the file server fs02, a process export, and saved output from Volatility, Hayabusa and Velociraptor. Over the next twenty minutes we take custody, rebuild the night on one timeline, follow the attacker through the process tree and memory, name every step in ATT&CK, and write the report. Everything you'll see is real software on a real Linux machine."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. Take custody of the evidence"
+  },
+  {
+   "say": "Step one: take custody of the evidence. If this case ever reaches the police, an insurer or a court, someone will ask whether the evidence was changed after you received it. Two things answer that. Hashes, the fingerprint of each file. And a chain of custody, a log of who handled which file, when, and what its hash was. sha256sum fingerprints every file we received, and tee saves the list."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "find . -type f ! -name '*.py' ! -name '*.sql' ! -name 'custody*' | sort | xargs sha256sum | tee custody-hashes.txt | cut -c1-16,65-",
+   "wait": 3.5,
+   "cps": 16
+  },
+  {
+   "after": "Sixteen files, each with a hash. If anyone changes even one byte later, its hash changes completely. Now the custody log: who received what, and when."
+  },
+  {
+   "open": "mousepad custody.csv",
+   "window": "custody.csv",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "time_utc,file,sha256 (first 16),action,by\n2026-11-07 01:40,vpn.log,see custody-hashes.txt,received from IT (export by r.joshi),IR analyst\n2026-11-07 01:40,eventlogs/*.jsonl,see custody-hashes.txt,received from IT (exported 01:20),IR analyst\n2026-11-07 01:40,captured/volatility-eng-ws14.txt,see custody-hashes.txt,received from IR team (image taken 01:14),IR analyst\n2026-11-07 01:41,suspect/RESTORE-FILES.txt,see custody-hashes.txt,opened read-only for review,IR analyst\n",
+   "enter": false,
+   "cps": 40
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. What happened, in one look"
+  },
+  {
+   "say": "Step two: what happened, in one look. Start from the damage and work backwards. Three files: the ransom note, the listing of the encrypted share, and the backup report."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat suspect/RESTORE-FILES.txt",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "Files renamed to garnet-locked, backups and shadow copies gone, and a threat to publish 1.8 gigabytes of drawings in 72 hours. Ransom notes lie, so we check every claim."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "tail -n 12 share_listing.txt | cut -c1-90",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "The renames start at 23:42 UTC on Friday, and the file server's audit counts 1,842 files. Engineering and Quality, both hit. Now, what is left to restore from?"
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat backups.txt",
+   "wait": 3.5,
+   "cps": 16
+  },
+  {
+   "after": "The nightly backup was on a network share the file server could reach, so it's encrypted too. The shadow copies were deleted at 23:41. But the weekly tape from Thursday night was taken off site and test-restored on Friday morning. That's our way back: fourteen hours, and everything saved after Thursday 21:00 is lost unless it exists somewhere else. Three facts: what was encrypted, when it started, and what is left."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Rebuild the night on one timeline"
+  },
+  {
+   "say": "Step three: rebuild the night on one timeline. Every system keeps its own log, and none tells the whole story. This saved DuckDB script reads the VPN log, every Windows event log and the file server's process export, turns each into the same three columns, time, source and event, and sorts them together."
+  },
+  {
+   "open": "mousepad timeline.sql",
+   "window": "timeline.sql",
+   "as": "code",
+   "geometry": [
+    120,
+    60,
+    1700,
+    960
+   ],
+   "settle": 1.5
+  },
+  {
+   "wait": 5
+  },
+  {
+   "after": "Three views, one per kind of log, then one query that joins them and keeps 22:40 on Friday to one in the morning. The VPN log and Windows both use UTC, so they line up directly."
+  },
+  {
+   "close": "code",
+   "wait": 0.8
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "duckdb < timeline.sql",
+   "wait": 5,
+   "cps": 16
+  },
+  {
+   "after": "Read it top to bottom. 22:43, a failed VPN login for s.kale from 203.0.113.140, with MFA not enrolled. A minute later, the right password. 22:52, a remote desktop logon to eng-ws14, type 10, from the VPN address. Then whoami, net group Domain Admins, nltest: someone learning where they are. 22:58, a download. 23:05, a memory dump of lsass, the process that holds passwords. 23:20, adm.rjoshi logs on to fs02 over the network from eng-ws14, and a service called WinUpdSvc is installed. 23:41, shadow copies deleted. 23:42, the locker runs. And 00:58, IT cuts the VPN session."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat hr_note.txt",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "after": "And the human fact that changes everything: Sachin Kale is on medical leave in Nashik and hasn't asked for remote access. Whoever used his account wasn't him."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "4. The process tree, from a shell to the keys"
+  },
+  {
+   "say": "Step four: the process tree. Every program has a parent, and the tree shows who started what. The same short Python script we used in the foundation seminar builds it from the process export, one machine at a time. First the workstation."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "python3 tree.py eng-ws14",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "Under s.kale's remote desktop session, one cmd window starts everything: whoami, net group, nltest, then a hidden PowerShell that downloads r.zip and unpacks it to C:\\Users\\Public. Then rundll32 with comsvcs.dll MiniDump 724: a tool already on every Windows machine, used to copy the memory of process 724, which is lsass. Then nt.exe reads that dump, and px.exe connects to 10.50.1.12, the file server, as adm.rjoshi, with a hash instead of a password. Now the file server."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "python3 tree.py fs02",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "The backup agent at 21:00 is normal. At 23:20 WinUpdSvc starts as SYSTEM, copies locker.exe from the workstation, deletes the shadow copies, turns off boot recovery, and runs the locker on D:\\Shares."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "5. Memory, what the RAM remembered"
+  },
+  {
+   "say": "Step five: memory. The incident team took a memory image of eng-ws14 at 01:14 and ran Volatility 3 on it, the standard open-source tool for reading memory. The image is thirty-two gigabytes and stays in the evidence locker; this is the output they saved."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "sed -n '4,16p' captured/volatility-eng-ws14.txt | cut -c1-150",
+   "wait": 3.5,
+   "cps": 16
+  },
+  {
+   "after": "pslist shows something the logs can't: exit times. rundll32 ran for fourteen seconds and exited, nt.exe ran for twenty-eight, but px.exe was still running when the image was taken. And look at the session column: everything the attacker started is in session 3."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "sed -n '17,33p' captured/volatility-eng-ws14.txt | cut -c1-170",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "cmdline gives the full arguments, including the NTLM hash for adm.rjoshi. netscan shows px.exe connected to 10.50.1.12 on port 445, file sharing, at 23:19:51. And sessions: session 3 is RDP, GARNET slash s.kale. Session 1 is the console, n.gokhale, who was legitimately working on a drawing. Memory proves the attacker's commands came through the remote desktop, not from the person at the desk."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "6. The file server, how they arrived"
+  },
+  {
+   "say": "Step six: the file server. On fs02 the same night looks like an administrator logging on over the network and installing a service, which administrators do all the time. So we read the details. First, Hayabusa's results. Hayabusa scans Windows event logs for known attack patterns."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cut -d, -f1,2,3,6 captured/hayabusa-fs02.csv | column -s, -t | cut -c1-140",
+   "wait": 3.5,
+   "cps": 16
+  },
+  {
+   "after": "A network logon with NTLM from the workstation, admin rights, and six seconds later a new service installed from a suspicious path. Hayabusa calls that remote service creation with the pass-the-hash pattern. Then the shadow copies, boot recovery, a program in ProgramData, and a mass rename: 1,842 files in sixty seconds. Now Velociraptor's list of services."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cut -d, -f1,3,5,7 captured/velociraptor-fs02-services.csv | column -s, -t",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Every service was created in March 2025 except one: WinUpdSvc, created at 23:20:09 on the night. A name that sounds like Windows Update, a program in C:\\Windows, and running as LocalSystem. And Microsoft Defender is stopped."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "7. Map the attack to ATT&CK"
+  },
+  {
+   "say": "Step seven: map the attack to ATT&CK. MITRE ATT&CK gives each attacker behaviour a shared name and number, so a reader at the insurer or at CERT-In knows exactly what you mean. One line per step on the timeline: the time, the technique, and the evidence that proves it."
+  },
+  {
+   "open": "mousepad attack-map.txt",
+   "window": "attack-map.txt",
+   "as": "note",
+   "geometry": [
+    60,
+    60,
+    1800,
+    940
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "time_utc  technique                                   evidence\n22:44     T1133 External Remote Services, T1078 Valid  vpn.log: s.kale, no MFA, 2nd try (on leave)\n22:52     T1021.001 Remote Desktop Protocol             eng-ws14 4624 type 10 from 10.50.9.21\n22:54     T1033 / T1069.002 / T1018 Discovery           whoami /groups, net group Domain Admins, nltest\n22:58     T1105 Ingress Tool Transfer                   powershell iwr r.zip from 203.0.113.140\n23:05     T1003.001 OS Credential Dumping: LSASS        rundll32 comsvcs.dll MiniDump 724 (Volatility cmdline)\n23:19     T1550.002 Use Alternate Auth: Pass the Hash   px.exe -u adm.rjoshi -H ...; fs02 4624 NTLM type 3\n23:20     T1543.003 / T1569.002 Windows Service         7045 WinUpdSvc C:\\Windows\\WinUpdSvc.exe\n23:41     T1490 Inhibit System Recovery                 vssadmin delete shadows; bcdedit recoveryenabled no\n23:42     T1486 Data Encrypted for Impact               locker.exe; 1,842 files .garnet-locked\n(claim)   Exfiltration, to confirm                      1.84 GB out in s.kale's VPN session vs note's 1.8 GB\n",
+   "enter": false,
+   "cps": 44
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "after": "Nine techniques, each with its proof. The last line is honest: the exfiltration is a claim, and 1.84 gigabytes leaving in s.kale's VPN session supports it, but we still have to confirm it."
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "8. Decide under pressure"
+  },
+  {
+   "say": "Step eight: decide under pressure. Responders make calls before they have all the facts, and every call costs time. On the course site the tabletop puts you in the incident lead's chair. Here are the moments it puts you through."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "jq -r '.nodes[] | \"\\(.title)  \\(.text)\"' tabletop-garnet-ransomware.json | cut -c1-160",
+   "wait": 4,
+   "cps": 16
+  },
+  {
+   "after": "Play it once as the incident lead and once as the managing director. The lessons that matter most: isolate, don't switch off, because memory is evidence; close the way in before you restore; and start the CERT-In clock when you noticed."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "9. Executive summary and technical annex"
+  },
+  {
+   "say": "Step nine: one report, two readers. The summary is for the managing director: half a page, no jargon, ending with the decisions needed today. The rest is the technical annex for IT, the insurer and CERT-In."
+  },
+  {
+   "open": "mousepad report.txt",
+   "window": "report.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "EXECUTIVE SUMMARY (for the Managing Director)\nLate on Friday 6 November, someone logged in to our VPN as Sachin Kale, who is on leave, using his\npassword. MFA was not turned on for his account. Within an hour they took an administrator's\ncredentials, reached the file server and, at 23:42 UTC, locked 1,842 engineering and quality files.\nThe nightly backup on the network was locked too. The Thursday tape backup is safe and tested.\nThey claim to have copied 1.8 GB of drawings; our VPN records show 1.84 GB left in that session.\n\nDecisions needed today\n  1. Approve the 14-hour restore from Thursday's tape. Work after Thursday 21:00 must be redone.\n  2. Make MFA compulsory on the VPN before anyone reconnects.\n  3. Reset the adm.rjoshi and s.kale passwords, and all administrator passwords.\n  4. Approve the CERT-In report, due 06:31 UTC (6 hours after we noticed, at 00:31).\n  5. Do not contact or pay the attackers without legal and insurer advice.\n\nTECHNICAL ANNEX: timeline (timeline.sql), ATT&CK map (attack-map.txt), custody (custody.csv)\n",
+   "enter": false,
+   "cps": 40
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "after": "No technique numbers, no hashes, nothing the managing director has to look up. The annex points to the timeline, the ATT&CK map and the custody log we built today."
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "10. Hand in"
+  },
+  {
+   "say": "Step ten: hand in. On the course site the notebook carries every answer, every tool result, the chain of custody, the timeline and the report."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "ls -l *.txt *.csv *.sql",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "That's a full incident, from custody to the boardroom. One password with no second factor let an attacker into the VPN. A remote desktop, a few discovery commands, a credential dump with a tool that's already on every Windows machine, a stolen administrator hash, a fake service, deleted shadow copies, and an encrypted share with a threat to leak. You traced every step through logs, the process tree and memory, named it in ATT&CK, and wrote it for two readers. Turn on MFA everywhere it's missing. Next, in Breach clocks, we go deeper into exactly who you have to tell, and by when. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

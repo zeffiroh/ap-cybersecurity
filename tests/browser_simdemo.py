@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 from browser_bench import LABS, Quiet, SITE, check, FAILS
 
-SIMS = ["x01-phish-to-containment", "x02-authorised-pen-test", "x03-secure-a-small-office", "x04-ransomware-night-shift", "x05-cloud-bucket-left-open"]
+SIMS = ["x01-phish-to-containment", "x06-phish-to-containment-short", "x02-authorised-pen-test", "x03-secure-a-small-office", "x04-ransomware-night-shift", "x05-cloud-bucket-left-open"]
 
 
 def play(browser, base, name, speed=40):
@@ -32,6 +32,20 @@ def play(browser, base, name, speed=40):
     page.close()
 
 
+def free_without_labs(browser, base):
+    page = browser.new_page(viewport={"width": 1500, "height": 950})
+    page.goto(f"{base}/workstation.html?case=sem-x06-phish-to-containment-short")
+    page.wait_for_selector(".ws-signbtn, .ws-gate", timeout=60000)
+    if page.locator(".ws-signbtn").count():
+        page.click(".ws-signbtn")
+    page.wait_for_selector(".sm-over h2, .ws-gate", timeout=60000)
+    check(page.locator(".ws-gate").count() == 0 and "short" in page.inner_text(".sm-over h2").lower(), "the short phishing simulation opens free, without Seminars or Labs")
+    page.goto(f"{base}/workstation.html?case=sem-x01-phish-to-containment")
+    page.wait_for_selector(".sm-over h2, .ws-gate", timeout=60000)
+    check(page.locator(".ws-gate").count() == 1, "the full phishing simulation still needs Labs")
+    page.close()
+
+
 def main(names=None):
     from playwright.sync_api import sync_playwright
     handler = functools.partial(Quiet, directory=str(SITE))
@@ -40,6 +54,8 @@ def main(names=None):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         with sync_playwright() as p:
             browser = p.chromium.launch()
+            if not names:
+                free_without_labs(browser, base)
             for name in names or SIMS:
                 print(name)
                 try:

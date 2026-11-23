@@ -1,0 +1,211 @@
+{
+ "host": "lotuslake-soc",
+ "setup": [
+  "mkdir -p ~/rules && mv rules/* ~/rules/ && rmdir rules"
+ ],
+ "files": {
+  "rules/domain-only.yar": "rule llh_phishing_domain\n{\n  meta:\n    description = \"Anything that mentions the phishing domain\"\n  strings:\n    $d = \"login-verify.example\"\n  condition:\n    $d\n}\n",
+  "rules/guest-complaint-lure.yar": "rule llh_guest_complaint_lure\n{\n  meta:\n    description = \"The fake guest-complaint email aimed at hotel reservations teams\"\n    author = \"SOC\"\n    reference = \"AL-4101, message 7C1A20F11\"\n  strings:\n    $subject = \"Subject: Guest complaint BKG-\"\n    $link = \"login-verify.example/complaints/\"\n    $press = \"hidden from search results\"\n  condition:\n    all of them\n}\n",
+  "rules/bp-grab-stealer.yar": "rule bp_grab_stealer_strings\n{\n  meta:\n    description = \"Strings from Boarding_Pass.pdf.exe, a password stealer left on guest USB sticks\"\n  strings:\n    $mutex = \"Global\\\\bp-grab-7731\"\n    $chrome = \"\\\\Google\\\\Chrome\\\\User Data\\\\Default\\\\Login Data\"\n    $flag = \"--grab-all\"\n    $exfil = \"telegram-relay.example/bot\"\n  condition:\n    3 of them\n}\n"
+ },
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. YARA is a pattern-matching tool that security teams use to find files: malware, phishing emails, anything with a recognisable fingerprint. Today you'll write a YARA rule that catches this morning's phishing lure and nothing else. The hard part isn't catching the bad file. It's not catching the good ones."
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting. Lotus Lake Hotels, three lake-side hotels in Udaipur, Wednesday the eleventh of November 2026, the start of the wedding season. This morning the reservations team reported a fake guest complaint: an email pretending to come from a booking website, with a link to a fake sign-in page on login-verify.example. The mail gateway can scan every incoming email with a YARA rule, so a good rule stops the next one."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "chapter": "1. A YARA rule for the lure"
+  },
+  {
+   "say": "A YARA rule has three parts. meta, which describes the rule. strings, the text or bytes to look for. And condition, which says how many of those strings must be found. The first rule is the obvious one: match anything that mentions the phishing domain."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat ~/rules/domain-only.yar",
+   "wait": 2,
+   "cps": 16
+  },
+  {
+   "say": "We test it on every file in the case, not just the email, because that's how you find out what else it catches."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "yara -r ~/rules/domain-only.yar . | sort",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "Five files match. Only one of them is an email. The others are the alert queue, the threat-intel feed, the hotel association's block list and the proxy log. They all mention the domain because they're about the attack. In a file scanner or across an analyst's notes this rule would fire all day, and analysts stop trusting rules that cry wolf."
+  },
+  {
+   "say": "Now the tuned rule. It needs three things together that only the lure email has: a subject starting Guest complaint BKG, a link to login-verify.example slash complaints, and the threat in the body, hidden from search results. The condition says all of them."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "cat ~/rules/guest-complaint-lure.yar",
+   "wait": 2.5,
+   "cps": 16
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "yara -r -s ~/rules/guest-complaint-lure.yar .",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "It matches one file: guest-complaint.eml, and minus s shows the three strings it found. That's the rule you'd ship. The third rule shows how YARA is usually used: on malware. The antivirus quarantined Boarding_Pass.pdf.exe at the front desk, a password stealer left on a guest's USB stick. The rule describes it by four strings from inside the program, and the condition says three of them, so one changed string doesn't let a new version slip past."
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "yara -r -s ~/rules/bp-grab-stealer.yar .",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "after": "One match."
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. What each rule would miss"
+  },
+  {
+   "say": "Finally, write one line for each rule on what it would miss. For the tuned rule: a new email with a different subject or domain. That's the trade-off: tighter rules make fewer false alarms but miss more variations."
+  },
+  {
+   "open": "mousepad rule-notes.txt",
+   "window": "rule-notes.txt",
+   "as": "note",
+   "geometry": [
+    160,
+    90,
+    1600,
+    900
+   ],
+   "settle": 1.5
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "type": "What each rule would miss\ndomain-only.yar         nothing about this domain, but it also fires on our own alerts, intel and logs (5 files).\nguest-complaint-lure.yar a new email with a different subject, link path or threat; tighter means fewer false alarms and more misses.\nbp-grab-stealer.yar     a rebuilt version that changes more than one of the four strings; 3 of 4 gives some room.\n",
+   "enter": false,
+   "cps": 46
+  },
+  {
+   "use": "note",
+   "at": [
+    0.5,
+    0.3
+   ],
+   "keys": [
+    "ctrl+s"
+   ],
+   "wait": 1
+  },
+  {
+   "close": "note",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "Where next"
+  },
+  {
+   "say": "That was one step from Seminar 3, SOC triage: alerts, phishing, threat intel and AI verdicts. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. A YARA rule is meta, strings and a condition. Always test on every file you have, not just the bad one. Pick strings that only the bad thing has, and say what the rule would miss. That's how a rule earns the team's trust. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

@@ -66,7 +66,40 @@ def split_cues(log):
     return cues
 
 
+def hosts(film):
+    out = []
+    for name, ip in (film.get("hosts") or {}).items():
+        out += ["--add-host", f"{name}:{ip}"]
+    return out
+
+
+def ensure_image():
+    if subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True).returncode:
+        print("Building the Linux desktop image (first time only, about 10 minutes).")
+        subprocess.run(["docker", "build", "-t", IMAGE, str(FILM)], check=True)
+
+
+def check(name):
+    ensure_image()
+    film = film_of(name)
+    case = prepare(name, film)
+    lines = ["shopt -s expand_aliases", "cd /case"] + list(film.get("setup") or []) + ["eval \"$(grep '^alias ' ~/.bashrc)\""]
+    for sc in film["scenes"]:
+        t = sc.get("type")
+        if sc.get("use") != "term" or not t or "ctrl+u" not in (sc.get("keys") or []):
+            continue
+        if t.split()[0] in ("lnav", "duckdb", "less", "vim", "nano") and "<" not in t:
+            continue
+        lines.append(f"printf '\\n\\033[1m$ %s\\033[0m\\n' {shlex.quote(t)}")
+        lines.append(t)
+    cmd = ["docker", "run", "--rm", "-i", "--hostname", film.get("host", "analyst-ws")] + hosts(film) + ["-v", f"{docker_path(case)}:/case",
+           "-v", f"{docker_path(FILM)}:/film-tools:ro", "-e", "COLUMNS=200", IMAGE, "bash"]
+    r = subprocess.run(cmd, input=("\n".join(lines) + "\n").encode("utf-8"))
+    return r.returncode
+
+
 def run(name, keep=False):
+    ensure_image()
     film = film_of(name)
     case = prepare(name, film)
     raw = WORK / name / "raw"
@@ -74,9 +107,9 @@ def run(name, keep=False):
         shutil.rmtree(raw)
     raw.mkdir(parents=True)
     (WORK / name / "film.json").write_text(json.dumps(film, ensure_ascii=False, indent=1), encoding="utf-8")
-    cmd = ["docker", "run", "--rm", "--shm-size=512m", "--hostname", film.get("host", "analyst-ws"),
+    cmd = ["docker", "run", "--rm", "--shm-size=512m", "--memory=4g","--hostname", film.get("host", "analyst-ws")] + hosts(film) + [
            "-v", f"{docker_path(case)}:/case", "-v", f"{docker_path(raw)}:/out",
-           "-v", f"{docker_path(FILM)}:/film-tools:ro", "-v", f"{docker_path(ROOT / 'site' / 'cyberchef')}:/opt/cyberchef:ro", "-v", f"{docker_path(WORK / name / 'film.json')}:/film/film.json:ro",
+           "-v", f"{docker_path(FILM)}:/film-tools:ro", "-v", f"{docker_path(ROOT / 'site' / 'cyberchef')}:/opt/cyberchef:ro", "-v", f"{docker_path(ROOT / 'site')}:/opt/site:ro", "-v", f"{docker_path(WORK / name / 'film.json')}:/film/film.json:ro",
            IMAGE, "desktop.sh", "python3", "/film-tools/director.py", "/film/film.json", "/out/take"]
     print("Recording", name, "in the Linux desktop. This plays in real time.")
     r = subprocess.run(cmd)

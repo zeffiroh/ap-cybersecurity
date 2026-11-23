@@ -59,6 +59,13 @@ DEMO = {
          + ticket("AL-2203", "EDR fired on svchost-upd.exe from C:\\Users\\Public on hr-pc07 (10.20.0.14). Word opened INV-30412.docm at 09:02, then cmd, hidden PowerShell, the dropper. Isolated hr-pc07 and ended the process, laptop left on. Not known yet: whether anything left the network.")
          + [{"expect": "escalate"}] + chat("hr-pc07 (10.20.0.14) opened INV-30412.docm at 09:02. Isolated and malware process ended, AL-2203 escalated, laptop left on for memory.") + [{"expect": "summary"}]},
     ],
+    "x06-phish-to-containment-short": [
+        {"title": "The email", "do": [{"file": "invoice.eml"}, ask("sender", "kestrel-logistlcs.com")]},
+        {"title": "Who opened it", "do": [{"open": "terminal"}, {"type": "grep logistlcs ~/case/proxy.log"}, ask("who", "10.20.0.14")]},
+        {"title": "Contain and hand on", "do": rdp("hr-pc07") + [{"click": '[data-a="iso"]', "in": "Remote desktop"}, {"expect": "contain"}]
+         + ticket("AL-2203", "EDR fired on svchost-upd.exe on hr-pc07 (10.20.0.14), which downloaded INV-30412.docm from kestrel-logistlcs.com. Isolated hr-pc07, laptop left on for memory. Not known yet: what ran, and whether anything left the network.")
+         + [{"expect": "escalate"}]},
+    ],
     "x02-authorised-pen-test": [
         {"title": "The letter", "do": [{"file": "engagement.txt"}, ask("window", "Friday 20 November 18:00 IST"), ask("scope", "192.0.2.12")]},
         {"title": "Recon by address", "do": [{"open": "terminal"}, {"type": "nmap -sV 192.0.2.10 192.0.2.11"}, {"expect": "scan"}, ask("debug", "8080")]},
@@ -145,7 +152,7 @@ def folder(name, about, files, steps, net=None):
     return d
 
 
-def sim_phish():
+def phish_case():
     F = SEM / "f-evidence-notes-handoffs" / "files"
     alerts = json.loads((F / "alerts.json").read_text(encoding="utf-8"))
     rows = alerts if isinstance(alerts, list) else alerts.get("alerts", [])
@@ -217,6 +224,11 @@ A cdn-update-check.net 198.51.100.61
             {"id": "contain", "text": "Contain hr-pc07 at the switch: pull its cable or shut its port, and leave it switched on", "hint": "Click hr-pc07's wall socket, Unplug the cable. Its memory is evidence, so don't power it off.", "check": {"all": [{"unplugged": "hr-pc07"}, {"power": "hr-pc07", "on": True}]}},
             {"id": "others", "text": "Finance and Accounts still reach the file server", "check": {"all": [{"ping": ["fin-pc02", "fs01"]}, {"ping": ["acct-pc03", "fs01"]}]}}]}, indent=1),
     }
+    return files, net
+
+
+def sim_phish():
+    files, net = phish_case()
     steps = {
         "01-the-report.md": """
 ## 1. The report
@@ -361,6 +373,124 @@ If nobody contains it, at 09:41 the malware walks the file server and renames th
         },
     }
     return folder("x01-phish-to-containment", about, files, steps, net)
+
+
+def sim_phish_short():
+    files, net = phish_case()
+    steps = {
+        "01-the-report.md": """
+## 1. The report
+
+It's Monday 2 November 2026 at **Kestrel Logistics**, 09:16 UTC. Dev Kapoor in Finance has just reported an email as phishing: an overdue invoice. Read who really sent it.
+
+This is the free, short version of the **Phish to containment** simulation. The story clock runs twice as fast, so 09:41 comes about 12 minutes after you start.
+
+- [ ] Read the From and Return-Path, and the domain, letter by letter
+
+> Hint: Compare the domain with the company's own, kestrel-logistics.com, one letter at a time.
+
+?> Which domain sent the invoice? :: kestrel-logistlcs.com
+""",
+        "01-the-report.sh": """
+cd ~/case
+grep -E '^(From|Return-Path|Subject):' invoice.eml
+""",
+        "02-who-opened-it.md": """
+## 2. Who opened it
+
+Receiving a phishing email is not an incident. **Opening** it is. The web proxy logs every download. Search it for the look-alike domain.
+
+- [ ] Which internal address downloaded INV-30412.docm?
+
+> Hint: `TCP_MISS/200` means the file was fetched. `TCP_DENIED/403` means the proxy blocked it.
+
+?> Which internal address downloaded INV-30412.docm? :: 10.20.0.14
+""",
+        "02-who-opened-it.sh": """
+cd ~/case
+grep logistlcs proxy.log
+""",
+        "03-contain-and-escalate.md": """
+## 3. Contain, then escalate
+
+10.20.0.14 is hr-pc07, Priya Nair's HR laptop, and malware is running on it. **Contain first, investigate second.** In the Hacker Room, isolate hr-pc07 from the network (Remote desktop, or pull its cable in the Server room), then escalate alert AL-2203 with a note that says what you found and what you did.
+
+If nobody contains it, at 09:41 the malware walks the file server and renames the HR share's files to `.kestrel-locked`.
+
+- [ ] Isolate hr-pc07 before 09:41, and leave it switched on
+- [ ] Escalate AL-2203: what fired, what you found, what you did, what you don't know yet
+
+> Hint: Don't switch the laptop off: memory holds evidence. Isolating keeps it running but cut off.
+
+?> Which alert should you escalate? (its ID) :: AL-2203
+
+The full simulation, with Labs, goes further: who else received it, the download the proxy blocked, the process chain in Task Manager, ending the malware, and the hand-over to your lead, on a real-speed clock.
+""",
+    }
+    sim = {
+        "title": "Phish to containment (short)",
+        "role": "SOC analyst, Monday morning",
+        "start": "2026-11-02T09:16:00Z",
+        "speed": 2,
+        "pins": ["mail", "files", "terminal", "chat", "tickets", "rdp", "rack", "notes"],
+        "first": True,
+        "cast": {"lead": {"name": "Meera Iyer", "role": "SOC lead"}, "it": {"name": "Arjun", "role": "IT helpdesk"}, "dev": {"name": "Dev Kapoor", "role": "Finance"}},
+        "story": "It's 09:16 on Monday 2 November 2026 at Kestrel Logistics, a freight company. You're the SOC analyst on the morning shift.\n\nDev Kapoor in Finance has just pressed Report phishing on an email about an overdue invoice. Find who opened it, cut that laptop off before the malware spreads, and hand the incident on.\n\nThis is the free, short version: three tasks and a bonus. The clock on the taskbar runs twice as fast as real time. Something bad happens at 09:41, about 12 minutes from now, if nobody acts.",
+        "hold": ["alerts-fs01.json", "share_listing.txt"],
+        "events": [
+            {"at": 1, "chat": "lead", "text": "Morning. Dev Kapoor just reported a suspicious invoice email. It's yours."},
+            {"at": 5, "chat": "lead", "text": "The message is in Mail, the evidence in Files, the alerts in Tickets. Who sent it, who opened it, and stop it spreading. Ask me if you're stuck."},
+            {"at": 60, "chat": "it", "text": "Hi, Priya in HR says her laptop has been slow since she opened an invoice this morning. Shall I just restart it for her?"},
+            {"after": "who", "chat": "lead", "text": "Good. 10.20.0.14 is hr-pc07, Priya's laptop, and the malware is running on it now. Cut it off: Remote desktop, Isolate from the network, or pull its cable in the Server room."},
+            {"after": "contain", "chat": "it", "text": "hr-pc07 just dropped off the network. I'll tell Priya not to touch it."},
+            {"after": "contain", "wait": 5, "chat": "lead", "text": "Nice. Now escalate AL-2203 in Tickets: what fired, what you found, what you did, what you don't know yet."},
+            {"at": 750, "unless": "contain", "release": ["alerts-fs01.json", "share_listing.txt"], "chat": "lead", "text": "CRITICAL: fs01's HR share is being renamed to .kestrel-locked by priya.nair's account. Contain hr-pc07 right now!"},
+            {"after": "escalate", "chat": "lead", "text": "Got your escalation. The incident lead takes it from here. That's the short version done: the full simulation, in Labs, has the whole morning."},
+        ],
+        "replies": [
+            {"match": "restart|reboot|turn (it )?off|shut ?down", "who": "it", "text": "OK. Should I? You tell me. Restarting would wipe what's in memory."},
+            {"match": "don.?t|do not|leave it|isolat|unplug|cable|disconnect", "who": "it", "text": "Got it. I'll leave it switched on and won't touch it. Isolate it from your side when you're ready."},
+        ],
+        "objectives": [
+            {"id": "sender", "text": "Read the reported email. Which domain really sent it?", "ask": "Sender domain", "answer": ["kestrel-logistlcs.com"], "points": 20, "hint": "Open Mail. Read the From address letter by letter: logistlcs, with an L where the i should be."},
+            {"id": "who", "text": "Which internal address downloaded the invoice document?", "ask": "IP address", "answer": ["10.20.0.14"], "points": 20, "hint": "Search proxy.log for logistlcs: grep logistlcs ~/case/proxy.log. TCP_MISS/200 means the file came through."},
+            {"id": "contain", "text": "Contain hr-pc07: isolate it, or pull its cable", "points": 25, "after": "who",
+             "on": {"any": [{"event": "rdp.isolate", "host": "hr-pc07", "isolated": True}, {"event": "rack.port", "ip": "10.20.0.14", "shut": True}, {"event": "rack.cable", "ip": "10.20.0.14", "action": ["unplug", "shut"]}]},
+             "hint": "Remote desktop, open hr-pc07, press Isolate from the network. Or Server room, hr-pc07, Shut its ports. Don't switch it off: memory holds evidence."},
+            {"id": "intime", "text": "Bonus: contain it before the malware reaches the file server at 09:41", "with": "contain", "within": 750, "points": 15},
+            {"id": "escalate", "text": "Escalate alert AL-2203 in Tickets with a note", "points": 20, "after": "contain", "on": {"event": "ticket.escalate", "id": "~AL-220[34]"}, "hint": "Tickets, AL-2203, write what fired, what you found, what you did and what you don't know yet, then press Escalate."},
+        ],
+        "debrief": "A strong run takes about ten minutes. Read the email and spot the look-alike domain, kestrel-logistlcs.com. Search proxy.log to see that only 10.20.0.14, hr-pc07, downloaded the document. Then contain before you dig further: isolating hr-pc07, without switching it off, stops the 09:41 encryption of the HR share and keeps the memory for the incident team. Escalate AL-2203 with a note that says what fired, what you found, what you did and what you don't know yet.\n\nThe full Phish to containment simulation, with Labs, is the whole morning at real speed: how many people received it, the download the proxy blocked, the process chain from Word to the malware in Task Manager, ending the malware, and a one-line hand-over to your lead. Seminar F, free, teaches the triage note and the hand-over.",
+        "pass": 70,
+    }
+    about = {
+        "title": "Simulation: Phish to containment (short)",
+        "kicker": "Free simulation",
+        "summary": "Free, about 15 minutes: a reported phishing email, a laptop running malware and a deadline. Find who opened it, cut it off before 09:41, and escalate.",
+        "units": [1, 4],
+        "level": "Beginner",
+        "minutes": 15,
+        "order": 301,
+        "tools": ["Mail", "Tickets", "Remote desktop", "Server room", "Terminal"],
+        "seminar_id": None,
+        "free": True,
+        "published": True,
+        "next": {"seminar": 1, "title": "Seminar F: Evidence, notes and handoffs"},
+        "sim": sim,
+        "script": {
+            "intro": "Hello, and welcome to a free simulation. For the next ten minutes you're the SOC analyst on the Monday morning shift at Kestrel Logistics. A phishing email has been reported, and malware is already running on one laptop. The clock runs twice as fast as real time, so watch how I work it from the first message to containment.",
+            "steps": [
+                {"say": "It's 09:16. The SOC lead hands me the case in chat. First, the email itself. In Mail, the From line says Kestrel Logistics Accounts, but read the domain letter by letter.",
+                 "after": "kestrel-logistlcs, with an L instead of an i. A look-alike domain. Receiving it isn't the incident, though. Opening it is. So the next question is who downloaded the document."},
+                {"say": "The web proxy logs every download. In a terminal I search proxy.log for the look-alike domain.",
+                 "after": "One success: 10.20.0.14, hr-pc07, Priya Nair's HR laptop, fetched the invoice document. Another laptop tried later and the proxy blocked it. Meanwhile IT asks in chat whether to restart Priya's laptop. The answer is no: restarting wipes memory, which is evidence."},
+                {"say": "Contain first, investigate second. In the Remote desktop I open hr-pc07 and press Isolate from the network. The laptop stays on, but it can't reach the file server any more. Then Tickets: alert AL-2203, a note with what fired, what I found, what I did and what I don't know yet, and Escalate.",
+                 "after": "Contained before 09:41, so the HR share is safe, and that's the bonus. The debrief shows the score and every action with its story time. The full simulation, with Labs, goes further: who else got the email, the process chain from Word to the malware, ending it, and the hand-over to your lead."},
+            ],
+            "outro": "That's a SOC morning in ten minutes: read carefully, find who actually opened it, contain without destroying evidence, and hand on a note someone can act on. Now it's your turn. Open it in the Hacker Room and beat 09:41. When you want the whole morning, the full simulation is in Labs, and Seminar F, the free seminar, teaches the notes and the hand-over.",
+        },
+    }
+    return folder("x06-phish-to-containment-short", about, files, steps, net)
 
 
 def tree(src, prefix=""):
@@ -1000,7 +1130,7 @@ Two buckets are public. One should be: product images. One shouldn't: customer i
 
 
 if __name__ == "__main__":
-    which = sys.argv[1:] or ["phish", "pentest", "office", "ransom", "cloud"]
-    made = {"phish": sim_phish, "pentest": sim_pentest, "office": sim_office, "ransom": sim_ransom, "cloud": sim_cloud}
+    which = sys.argv[1:] or ["phish", "short", "pentest", "office", "ransom", "cloud"]
+    made = {"phish": sim_phish, "short": sim_phish_short, "pentest": sim_pentest, "office": sim_office, "ransom": sim_ransom, "cloud": sim_cloud}
     for w in which:
         print(made[w]())

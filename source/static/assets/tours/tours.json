@@ -43,11 +43,11 @@
    },
    {
     "text": "Pivot: find the successful login from the address that failed most",
-    "hint": "Accepted src_ip=203.0.113.7 | table _time user auth_method",
+    "hint": "Accepted src_ip=203.0.113.45 | table _time user auth_method",
     "on": {
      "event": "tool.result",
      "tool": "siem",
-     "data.q": "~(?=.*203\\.0\\.113\\.7)(?=.*(accepted|success))"
+     "data.q": "~(?=.*203\\.0\\.113\\.45)(?=.*(accepted|success))"
     }
    },
    {
@@ -170,8 +170,8 @@
     }
    },
    {
-    "text": "Write a rule for Word starting cmd.exe that matches exactly one event",
-    "hint": "EventID 4688, ParentProcessName|endswith '\\WINWORD.EXE', NewProcessName|endswith '\\cmd.exe'.",
+    "text": "Write a rule for Excel starting cmd.exe that matches exactly one event",
+    "hint": "EventID 4688, ParentProcessName|endswith '\\EXCEL.EXE', NewProcessName|endswith '\\cmd.exe'.",
     "on": {
      "event": "tool.result",
      "tool": "sigma",
@@ -215,16 +215,16 @@
   ],
   "challenges": [
    {
-    "text": "Open the password-expiry email",
+    "text": "Open the guest-complaint email",
     "hint": "Click it in the queue.",
     "on": {
      "event": "tool.click",
      "tool": "email",
-     "label": "~password expires"
+     "label": "~guest complaint"
     }
    },
    {
-    "text": "Open the bank-details email and read the address behind the CFO's name",
+    "text": "Open the supplier bank-change email and read the address behind the General Manager's name",
     "hint": "A free mail address, with SPF, DKIM and DMARC passing for that free mail domain.",
     "on": {
      "event": "tool.click",
@@ -287,8 +287,8 @@
     }
    },
    {
-    "text": "Write a rule that matches invoice.eml and nothing else",
-    "hint": "Use the subject line, the invoice link path and 'service suspension', with: condition: all of them",
+    "text": "Write a rule that matches guest-complaint.eml and nothing else",
+    "hint": "Use the subject line, the complaint link path and 'hidden from search results', with: condition: all of them",
     "on": {
      "event": "tool.result",
      "tool": "yara",
@@ -684,5 +684,1375 @@
    }
   ],
   "sim": "sem-x03-secure-a-small-office"
+ },
+ {
+  "id": "alerts",
+  "title": "Alert queue",
+  "group": "SOC analyst",
+  "case": "phish",
+  "blurb": "Work a queue of alerts: read each one, give it a disposition, hand over.",
+  "tour": [
+   {
+    "t": "[data-r=q]",
+    "text": "Every .json file with alert in its name is a queue. This one holds ten alerts from one Monday morning."
+   },
+   {
+    "t": "[data-r=f]",
+    "text": "Show all alerts, only the ones you have not triaged yet, or only the ones you escalated."
+   },
+   {
+    "t": "[data-r=list]",
+    "text": "Worst first. Click a row to read the alert."
+   },
+   {
+    "t": "[data-r=card]",
+    "text": "The details of the alert you picked: who, where, what the rule saw, and a Disposition box to record your decision."
+   },
+   {
+    "t": "[data-r=gen]",
+    "text": "Notes for the next shift: what is still open, who you called, what to watch."
+   },
+   {
+    "t": "[data-r=done]",
+    "text": "Finish triage counts what is left and what you escalated. Download handover saves it as a file."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Escalate the critical alert on fs01, then press Finish triage",
+    "hint": "Click the critical row. Set Disposition to True positive: escalate. Press Finish triage.",
+    "on": {
+     "event": "tool.result",
+     "tool": "alerts",
+     "data.d": "~\"AL-2208\":\"escalate\""
+    }
+   },
+   {
+    "text": "Escalate the three high alerts on hr-pc07 as well",
+    "hint": "The macro document, the scheduled task and the new local administrator are one attack on one machine. Escalate all three and press Finish triage.",
+    "on": {
+     "event": "tool.result",
+     "tool": "alerts",
+     "data.d": "~(?=.*\"AL-2203\":\"escalate\")(?=.*\"AL-2204\":\"escalate\")(?=.*\"AL-2210\":\"escalate\")"
+    }
+   },
+   {
+    "text": "Give every alert a disposition and finish the triage",
+    "hint": "Use the Show box set to Not triaged to find what is left. Benign, false positive and handled are all dispositions. Then press Finish triage.",
+    "on": {
+     "event": "tool.message",
+     "tool": "alerts",
+     "text": "~Every alert has a disposition"
+    }
+   }
+  ],
+  "seminar": 4
+ },
+ {
+  "id": "certin",
+  "title": "CERT-In filing and inbox",
+  "group": "Governance and risk",
+  "case": "sem-s06-breach-clocks",
+  "blurb": "Fill in the incident report for CERT-In, watch the notification clocks and answer the inbox.",
+  "tour": [
+   {
+    "t": "[data-r=sc]",
+    "text": "The case: a lender whose loan app leaked customer records. The facts you need are in the evidence files."
+   },
+   {
+    "t": "[data-r=clock]",
+    "text": "The simulated clock. Notification deadlines run from the moment the incident was noticed."
+   },
+   {
+    "t": "[data-r=form]",
+    "text": "The report form: who you are, what happened, the indicators, what you have done, and when you filed."
+   },
+   {
+    "t": "[data-r=clocks]",
+    "text": "Every deadline that applies to this case, with a count-down. Hover a row for the rule behind it."
+   },
+   {
+    "t": "[data-r=file]",
+    "text": "Check and file lists what is missing or wrong. When it passes, the report is filed and replies start to arrive."
+   },
+   {
+    "t": "[data-r=inbox]",
+    "text": "Replies and requests arrive here as the clock moves on. You can write a reply to each."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Press Check and file on the empty form and read what is missing",
+    "hint": "Check and file will list every field that is empty or wrong.",
+    "on": {
+     "event": "tool.result",
+     "tool": "certin",
+     "text": "~problems"
+    }
+   },
+   {
+    "text": "File a correct report: every field filled, and filed inside the six hours",
+    "hint": "The first sure sign was at 04:50 UTC on 2027-06-08. Type: Data breach. Indicators include 198.51.100.66. Mention the loan app API, what you blocked or fixed, the 2,060 records, and answer yes to personal data. Filing time: 2027-06-08 05:20.",
+    "on": {
+     "event": "tool.result",
+     "tool": "certin",
+     "text": "~filed, reference"
+    }
+   },
+   {
+    "text": "Advance the clock after filing until more replies from the regulator arrive in the inbox",
+    "hint": "File the correct report first. Then press Advance the clock 1 hour. The acknowledgement is there at once; later messages appear as the hours pass. Open them and read what they ask.",
+    "on": {
+     "event": "tool.click",
+     "tool": "certin",
+     "label": "~advance the clock",
+     "dom": "[data-r=inbox] .tci-mail",
+     "min": 3
+    }
+   }
+  ],
+  "seminar": 7
+ },
+ {
+  "id": "cloudiam",
+  "title": "Cloud IAM simulator",
+  "group": "Cloud and DevSecOps",
+  "case": "cloudkey",
+  "blurb": "Write cloud access policies, test who may do what, and replay an attack against them.",
+  "tour": [
+   {
+    "t": "[data-r=pol]",
+    "text": "The account's policies as JSON: who may do what on which resource. Edit them to apply least privilege."
+   },
+   {
+    "t": "[data-r=who]",
+    "text": "Ask one question: this identity, this action, this resource, from this address, with or without MFA."
+   },
+   {
+    "t": "[data-r=ask]",
+    "text": "Would it be allowed? answers allow or deny and says which statement decided it."
+   },
+   {
+    "t": "[data-r=bad]",
+    "text": "The attacker's addresses, for the replay below. Leave it empty to find them from the log."
+   },
+   {
+    "t": "[data-r=replay]",
+    "text": "Replay runs every action in the audit log against your policies and counts what the attacker could still do and what normal work you would break."
+   },
+   {
+    "t": "[data-r=buckets]",
+    "text": "Checks the storage buckets for public access, missing encryption and missing logs."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Ask whether the CI user may create a new user called support-backup",
+    "hint": "The boxes are already filled in for this. Press Would it be allowed?",
+    "on": {
+     "event": "tool.message",
+     "tool": "cloudiam",
+     "text": "~^ALLOW"
+    }
+   },
+   {
+    "text": "Replay the audit log against the current policies",
+    "hint": "Press Replay. Read how many of the attacker's actions would still be allowed.",
+    "on": {
+     "event": "tool.message",
+     "tool": "cloudiam",
+     "text": "~would still be allowed"
+    }
+   },
+   {
+    "text": "Apply least privilege so the attack fails and normal work goes on",
+    "hint": "In ci-deploy, change \"actions\": [\"*\"] to [\"DeployService\"] and \"resources\" to [\"service/mobile-api-staging\"]. Give support-backup read-only actions [\"Get*\", \"List*\"] instead of AdministratorAccess. Replay again.",
+    "on": {
+     "event": "tool.message",
+     "tool": "cloudiam",
+     "text": "~least privilege"
+    }
+   }
+  ],
+  "sim": "sem-x05-cloud-bucket-left-open",
+  "seminar": 9
+ },
+ {
+  "id": "compliance",
+  "title": "Compliance gap check",
+  "group": "Governance and risk",
+  "case": "phish",
+  "blurb": "Mark each requirement of a framework as met, partly met or a gap, and get a score.",
+  "tour": [
+   {
+    "t": "[data-r=fw]",
+    "text": "Choose a framework: ISO 27001, SOC 2, PCI DSS, India's DPDP Act or the CERT-In Directions."
+   },
+   {
+    "t": "[data-r=fnote]",
+    "text": "What the framework is and how the requirements here were written."
+   },
+   {
+    "t": "[data-r=list]",
+    "text": "One row per requirement. Choose a status, then write what proves it and who owns it."
+   },
+   {
+    "t": "[data-r=done]",
+    "text": "Score it counts what is met, partly met, a gap or not assessed. Partly met counts half."
+   },
+   {
+    "t": "[data-r=csv]",
+    "text": "Download the assessment as a spreadsheet to hand to an auditor."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Choose the CERT-In Directions framework and score it",
+    "hint": "Pick CERT-In Directions in the Framework box, then press Score it.",
+    "on": {
+     "event": "tool.result",
+     "tool": "compliance",
+     "data.fw": "certin"
+    }
+   },
+   {
+    "text": "Mark at least one requirement as a Gap and score it",
+    "hint": "Set the Status of a row to Gap, then press Score it. The gap count shows in the result.",
+    "on": {
+     "event": "tool.result",
+     "tool": "compliance",
+     "text": "~, [1-9]\\d* gaps"
+    }
+   },
+   {
+    "text": "Mark one requirement Met but leave its evidence empty, and score it",
+    "hint": "Set a row to Met and leave the Evidence box empty. The score warns you what an auditor will say.",
+    "on": {
+     "event": "tool.message",
+     "tool": "compliance",
+     "text": "~marked met with no evidence"
+    }
+   }
+  ],
+  "seminar": 11
+ },
+ {
+  "id": "crack",
+  "title": "Password cracking lab",
+  "group": "Penetration tester",
+  "case": "web01",
+  "blurb": "Try a wordlist against a stolen password store, and see why unsalted fast hashes fail.",
+  "tour": [
+   {
+    "t": "[data-r=rules]",
+    "text": "Rules turn each word into the usual variations: a capital letter, 123, !, 2026, a for @."
+   },
+   {
+    "t": "[data-r=extra]",
+    "text": "Extra words: names the attacker would try for this company, team or person."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Crack hashes every guess and compares it with the stolen hashes. This only ever runs on the lab's own data."
+   },
+   {
+    "t": "[data-r=out]",
+    "text": "Each account, its hash, the type of hash and the password once it is found."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Untick the rules and press Crack: a plain wordlist finds only a few",
+    "hint": "Untick Also try rules, then press Crack. Start with the box unticked, because cracked passwords stay found.",
+    "on": {
+     "event": "tool.message",
+     "tool": "crack",
+     "text": "~^Cracked 2 of 5"
+    }
+   },
+   {
+    "text": "Tick the rules and crack again: the variations find more",
+    "hint": "Tick Also try rules and press Crack.",
+    "on": {
+     "event": "tool.message",
+     "tool": "crack",
+     "text": "~^Cracked 4 of 5"
+    }
+   },
+   {
+    "text": "Type a name of your own in Extra words and crack again: the guess count rises",
+    "hint": "The shop's name is already built in, so choose a new word, such as nimbu or kaveri. Keep Also try rules ticked and press Crack. The guess count in the result goes above 1,310 because your word and its variations are tried too. One hash still stands: its password is not a word with a simple change.",
+    "on": {
+     "event": "tool.message",
+     "tool": "crack",
+     "text": "~^Cracked 4 of 5 with 1(31[1-9]|3[2-9]\\d|[4-9]\\d\\d) guesses"
+    }
+   }
+  ],
+  "seminar": 10
+ },
+ {
+  "id": "events",
+  "title": "Event viewer",
+  "group": "SOC analyst",
+  "case": "phish",
+  "blurb": "Read Windows event logs the way an analyst does: by event ID, source and text.",
+  "tour": [
+   {
+    "t": "[data-r=ids]",
+    "text": "Event IDs, such as 4625 for a failed logon or 4688 for a new process. Separate several with commas."
+   },
+   {
+    "t": "[data-r=src]",
+    "text": "Source: the part of Windows that wrote the event."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "Text contains: find a word anywhere in the event, such as a program name."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Filter applies all three boxes. Clear brings every event back."
+   },
+   {
+    "t": "[data-r=logs]",
+    "text": "The log files: Application, Security and System. The number is how many events each holds."
+   },
+   {
+    "t": "[data-r=list]",
+    "text": "The events that match. Click one to read its general text and its XML."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Show only failed logons: event ID 4625",
+    "hint": "Type 4625 in Event IDs and press Filter.",
+    "on": {
+     "event": "tool.result",
+     "tool": "events",
+     "data.ids": "4625"
+    }
+   },
+   {
+    "text": "Find the scheduled task someone created: search the text for schtasks",
+    "hint": "Clear the first box, type schtasks in Text contains and press Filter. Click the event and read it.",
+    "on": {
+     "event": "tool.result",
+     "tool": "events",
+     "data.q": "schtasks"
+    }
+   },
+   {
+    "text": "Open the Application log",
+    "hint": "Click Application in the list of logs on the left.",
+    "on": {
+     "event": "tool.click",
+     "tool": "events",
+     "label": "~^Application"
+    }
+   }
+  ],
+  "seminar": 2
+ },
+ {
+  "id": "harden",
+  "title": "Hardening audit",
+  "group": "Security engineer",
+  "case": "web01",
+  "blurb": "Audit server configuration files against a checklist and fix what fails.",
+  "tour": [
+   {
+    "t": "[data-r=file]",
+    "text": "The configuration files collected from the server: SSH, the web server, the kernel settings and the password rules."
+   },
+   {
+    "t": "[data-r=text]",
+    "text": "The file itself. Edit it here to fix a setting, then audit again."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Audit all config files checks every file against the checklist and counts what passes."
+   },
+   {
+    "t": "[data-r=list]",
+    "text": "Each failed check: the setting, what it is now, what it should be, how serious it is and why."
+   },
+   {
+    "t": "[data-r=dl]",
+    "text": "Download the fixed file to apply on the real server."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Audit all the configuration files and read the failures",
+    "hint": "Press Audit all config files.",
+    "on": {
+     "event": "tool.message",
+     "tool": "harden",
+     "text": "~^4 of 22 checks pass"
+    }
+   },
+   {
+    "text": "Fix the two high-severity SSH settings and audit again",
+    "hint": "Choose config/sshd_config. Change PermitRootLogin yes to no and PasswordAuthentication yes to no. Press Audit all config files.",
+    "on": {
+     "event": "tool.message",
+     "tool": "harden",
+     "text": "~^([6-9]|\\d\\d) of 22 checks pass"
+    }
+   },
+   {
+    "text": "Fix the web server file too, until no high or critical failures are left",
+    "hint": "Choose config/nginx.conf. Set ssl_protocols TLSv1.2 TLSv1.3; and delete the fastcgi_pass line in the uploads location. Audit again.",
+    "on": {
+     "event": "tool.message",
+     "tool": "harden",
+     "text": "~, 0 of them high or critical"
+    }
+   }
+  ]
+ },
+ {
+  "id": "hex",
+  "title": "Hex, strings and hashes",
+  "group": "Incident responder",
+  "case": "web01",
+  "blurb": "Look inside a file the way an examiner does: bytes, text, entropy, hashes and chain of custody.",
+  "tour": [
+   {
+    "t": "[data-r=file]",
+    "text": "Choose any file from the case. Binary files are fine."
+   },
+   {
+    "t": "[data-r=v]",
+    "text": "View the raw bytes as hex, or only the readable strings inside."
+   },
+   {
+    "t": "[data-r=hash]",
+    "text": "Hash it gives the MD5, SHA-1 and SHA-256 fingerprints. Change one byte and every one changes."
+   },
+   {
+    "t": "[data-r=by]",
+    "text": "Chain of custody: who handled the evidence, what they did and when."
+   },
+   {
+    "t": "[data-r=log]",
+    "text": "Add to the custody log writes the entry with the time and the hash."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Hash the suspect program suspect/kworkerd",
+    "hint": "Choose suspect/kworkerd in the File box and press Hash it.",
+    "on": {
+     "event": "tool.result",
+     "tool": "hex",
+     "data.file": "suspect/kworkerd",
+     "data.sha256": "~^[0-9a-f]{64}$"
+    }
+   },
+   {
+    "text": "Add it to the chain of custody log with your name",
+    "hint": "Type your name in the By box, then press Add to the custody log.",
+    "on": {
+     "event": "tool.result",
+     "tool": "hex",
+     "data.n": 1,
+     "data.custody": "~suspect/kworkerd"
+    }
+   },
+   {
+    "text": "Hash a second file, suspect/backup.sh, and add it to the log as well",
+    "hint": "Choose suspect/backup.sh, press Hash it, then Add to the custody log.",
+    "on": {
+     "event": "tool.result",
+     "tool": "hex",
+     "data.n": 2,
+     "data.custody": "~suspect/backup\\.sh"
+    }
+   }
+  ],
+  "seminar": 6
+ },
+ {
+  "id": "hunt",
+  "title": "Threat hunt",
+  "group": "SOC analyst",
+  "case": "phish",
+  "blurb": "Hunt through every file with a hypothesis, log each search and end with a verdict.",
+  "tour": [
+   {
+    "t": "[data-r=hyp]",
+    "text": "A hunt starts with a hypothesis: what you think happened and what would prove it."
+   },
+   {
+    "t": "[data-r=attack]",
+    "text": "The ATT&CK technique you are hunting, for example T1053.005 for scheduled tasks."
+   },
+   {
+    "t": "[data-r=file]",
+    "text": "Search one file or all of them."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "A word or a regular expression. Every matching line shows below with its file and line number."
+   },
+   {
+    "t": "[data-r=add]",
+    "text": "Log this search saves it, with your note, as a step of the hunt."
+   },
+   {
+    "t": "[data-r=verdict]",
+    "text": "End with a verdict: confirmed, refuted or inconclusive. Then Finish the hunt."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Search every file for schtasks",
+    "hint": "Type schtasks in the search box and press Search.",
+    "on": {
+     "event": "tool.message",
+     "tool": "hunt",
+     "text": "~matching line"
+    }
+   },
+   {
+    "text": "Log the search as a step of your hunt, with a note",
+    "hint": "Write a note beside the search box, then press Log this search.",
+    "on": {
+     "event": "tool.click",
+     "tool": "hunt",
+     "label": "~log this search"
+    }
+   },
+   {
+    "text": "Finish the hunt with a hypothesis, a verdict and a conclusion",
+    "hint": "Fill in the hypothesis at the top, choose a verdict, write one or two sentences at the end and press Finish the hunt.",
+    "on": {
+     "event": "tool.result",
+     "tool": "hunt",
+     "data.verdict": "~^(confirmed|refuted|inconclusive)$",
+     "data.end": "~\\S"
+    }
+   }
+  ],
+  "seminar": 3
+ },
+ {
+  "id": "ids",
+  "title": "IDS rules",
+  "group": "Security engineer",
+  "case": "quietdns",
+  "blurb": "Write intrusion detection rules and run them over a packet capture.",
+  "tour": [
+   {
+    "t": "[data-r=rules]",
+    "text": "One rule per line: an action, a protocol, addresses and ports, then options in brackets such as msg, content and sid."
+   },
+   {
+    "t": "[data-r=home]",
+    "text": "$HOME_NET: the addresses that count as inside your network."
+   },
+   {
+    "t": "[data-r=cap]",
+    "text": "The capture to run the rules over."
+   },
+   {
+    "t": "[data-r=starter]",
+    "text": "Example rules puts two working rules in the box."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Run the rules shows every packet that fired a rule, by rule ID."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Run the example rules over the capture",
+    "hint": "Press Run the rules. One rule fires on very long DNS names.",
+    "on": {
+     "event": "tool.result",
+     "tool": "ids",
+     "data.n": 60
+    }
+   },
+   {
+    "text": "Write your own rule that alerts on any lookup of cloudmetric.example",
+    "hint": "Add a line: alert dns any any -> any any (msg:\"cloudmetric lookup\"; dns.query; content:\"cloudmetric.example\"; nocase; sid:3000001; rev:1;)",
+    "on": {
+     "event": "tool.message",
+     "tool": "ids",
+     "text": "~sid 3000001: [1-9]"
+    }
+   },
+   {
+    "text": "Write a second rule that catches the same traffic going to the outside resolver",
+    "hint": "Add a line: alert udp any any -> 198.51.100.53 53 (msg:\"to outside resolver\"; pkt_data; content:\"cloudmetric\"; sid:3000002; rev:1;)",
+    "on": {
+     "event": "tool.message",
+     "tool": "ids",
+     "text": "~sid 3000002: [1-9]"
+    }
+   }
+  ]
+ },
+ {
+  "id": "ioc",
+  "title": "Indicators and ATT&CK",
+  "group": "SOC analyst",
+  "case": "phish",
+  "blurb": "Pull every address, domain, hash and link out of the evidence and match them with threat intel.",
+  "tour": [
+   {
+    "t": "[data-r=f]",
+    "text": "Show everything found, only what matches known-bad intel, or only external indicators."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "Filter the table by any word."
+   },
+   {
+    "t": "[data-r=tech]",
+    "text": "Map a technique: type an ATT&CK ID to add it to your findings."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Extract indicators reads every file and lists each one with where it was seen."
+   },
+   {
+    "t": "[data-r=share]",
+    "text": "Copy defanged list gives a safe copy that nobody can click by mistake."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Extract the indicators from the case files",
+    "hint": "Press Extract indicators. Six of them match known-bad intel.",
+    "on": {
+     "event": "tool.result",
+     "tool": "ioc",
+     "data.n": 6
+    }
+   },
+   {
+    "text": "Map the technique T1053, scheduled task",
+    "hint": "Type T1053 in Map a technique and press Map.",
+    "on": {
+     "event": "tool.message",
+     "tool": "ioc",
+     "text": "~^Mapped T1053"
+    }
+   },
+   {
+    "text": "Map a third technique so the case shows three: T1486, data encrypted for impact",
+    "hint": "Type T1486 and press Map. The result counts the techniques mapped so far.",
+    "on": {
+     "event": "tool.result",
+     "tool": "ioc",
+     "text": "~mapped to [3-9] ATT&CK techniques"
+    }
+   }
+  ],
+  "seminar": 4
+ },
+ {
+  "id": "jwt",
+  "title": "JWT inspector",
+  "group": "Penetration tester",
+  "case": "web01",
+  "blurb": "Decode a login token, test its signature and see why a weak secret is dangerous.",
+  "tour": [
+   {
+    "t": "[data-r=tok]",
+    "text": "The token. A JWT is three parts split by dots: header, payload and signature."
+   },
+   {
+    "t": "[data-r=secret]",
+    "text": "The secret the server signs with. Type one to test it."
+   },
+   {
+    "t": "[data-r=verify]",
+    "text": "Check the signature tells you whether the secret you typed is the right one."
+   },
+   {
+    "t": "[data-r=guess]",
+    "text": "Try a wordlist guesses secrets offline. A short or common secret falls in moments."
+   },
+   {
+    "t": "[data-r=view]",
+    "text": "The decoded header and payload, and warnings such as an expiry date."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Type a wrong secret and check the signature",
+    "hint": "Type the word secret in the Secret box and press Check the signature.",
+    "on": {
+     "event": "tool.message",
+     "tool": "jwt",
+     "text": "~doesn't match"
+    }
+   },
+   {
+    "text": "Let the wordlist find the real secret",
+    "hint": "Press Try a wordlist.",
+    "on": {
+     "event": "tool.message",
+     "tool": "jwt",
+     "text": "~Found it after"
+    }
+   },
+   {
+    "text": "Open Edit and re-sign, make a token with the role admin and the algorithm none",
+    "hint": "Open Edit and re-sign. Change the role in the payload to admin, choose none as the algorithm and press Make the token.",
+    "on": {
+     "event": "tool.message",
+     "tool": "jwt",
+     "text": "~unsigned token"
+    }
+   }
+  ],
+  "seminar": 10
+ },
+ {
+  "id": "logsearch",
+  "title": "Log search",
+  "group": "SOC analyst",
+  "case": "web01",
+  "blurb": "Search one log file for a word or pattern, the way grep does.",
+  "tour": [
+   {
+    "t": "[data-r=file]",
+    "text": "Choose a file from the case."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "Type a word or a regular expression."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Search lists every matching line with its line number."
+   },
+   {
+    "t": "[data-r=out]",
+    "text": "The matching lines. The count above says how many of the file's lines matched."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Find the failed SSH logins in auth.log",
+    "hint": "Choose auth.log, type Failed password and press Search.",
+    "on": {
+     "event": "tool.result",
+     "tool": "logsearch",
+     "data.file": "auth.log",
+     "data.q": "~failed",
+     "data.n": 7
+    }
+   },
+   {
+    "text": "Find the successful login in auth.log",
+    "hint": "Search auth.log for Accepted.",
+    "on": {
+     "event": "tool.result",
+     "tool": "logsearch",
+     "data.file": "auth.log",
+     "data.q": "~accepted",
+     "data.n": "~^[1-9]"
+    }
+   },
+   {
+    "text": "Find the SQL injection in access.log",
+    "hint": "Choose access.log and search for UNION.",
+    "on": {
+     "event": "tool.result",
+     "tool": "logsearch",
+     "data.file": "access.log",
+     "data.q": "~union",
+     "data.n": "~^[1-9]"
+    }
+   }
+  ],
+  "seminar": 3
+ },
+ {
+  "id": "mailauth",
+  "title": "SPF, DKIM and DMARC",
+  "group": "Security engineer",
+  "case": "phish",
+  "blurb": "Check whether an email really came from the domain it claims, using its DNS records.",
+  "tour": [
+   {
+    "t": "[data-r=mail]",
+    "text": "Choose one of the reported emails."
+   },
+   {
+    "t": "[data-r=dns]",
+    "text": "The DNS records that were collected for the domains involved. Edit them to see how a fix changes the result."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Check this email runs SPF, DKIM and DMARC the way a receiving mail server does."
+   },
+   {
+    "t": "[data-r=res]",
+    "text": "The result, step by step: the sending server, each check and what the receiver should do."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Check the first invoice email, sent from a look-alike domain",
+    "hint": "invoice.eml is already chosen. Press Check this email. Notice what no record at all looks like.",
+    "on": {
+     "event": "tool.result",
+     "tool": "mailauth",
+     "data.file": "invoice.eml",
+     "data.spf": "none"
+    }
+   },
+   {
+    "text": "Check reported/password-expiry.eml and read why it fails",
+    "hint": "Choose reported/password-expiry.eml and press Check this email.",
+    "on": {
+     "event": "tool.result",
+     "tool": "mailauth",
+     "data.file": "~password-expiry",
+     "data.dmarc": "fail"
+    }
+   },
+   {
+    "text": "Check reported/bank-details.eml: it passes everything. What does a pass prove?",
+    "hint": "Choose reported/bank-details.eml and press Check. A pass shows who sent it, not that what they ask for is honest.",
+    "on": {
+     "event": "tool.result",
+     "tool": "mailauth",
+     "data.file": "~bank-details",
+     "data.dmarc": "pass"
+    }
+   }
+  ],
+  "seminar": 4
+ },
+ {
+  "id": "parse",
+  "title": "Log parser",
+  "group": "Security engineer",
+  "case": "web01",
+  "blurb": "Turn lines of a log into fields, with a pattern you can reuse.",
+  "tour": [
+   {
+    "t": "[data-r=file]",
+    "text": "Choose a log file."
+   },
+   {
+    "t": "[data-r=ex]",
+    "text": "Start from an example pattern for auth, web access or DNS logs."
+   },
+   {
+    "t": "[data-r=pat]",
+    "text": "The pattern: pieces such as %{IP:src_ip} that name what they capture, mixed with plain text and regular expressions."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Parse shows each line as a row of fields and says how many lines matched."
+   },
+   {
+    "t": "[data-r=dl]",
+    "text": "Download as JSON lines to load into a SIEM or a script."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Parse auth.log with the auth example",
+    "hint": "Choose auth.log, choose the auth example and press Parse.",
+    "on": {
+     "event": "tool.result",
+     "tool": "parse",
+     "text": "~lines of auth\\.log parsed"
+    }
+   },
+   {
+    "text": "Parse access.log with the access example",
+    "hint": "Choose access.log, choose the access example and press Parse.",
+    "on": {
+     "event": "tool.result",
+     "tool": "parse",
+     "text": "~lines of access\\.log parsed"
+    }
+   },
+   {
+    "text": "Write your own pattern for auth.log that captures only the user and the source address",
+    "hint": "Choose auth.log. A pattern must match the whole line, so put %{GREEDYDATA} at both ends: %{GREEDYDATA}Failed password for %{USER:user} from %{IP:ip}%{GREEDYDATA}",
+    "on": {
+     "event": "tool.result",
+     "tool": "parse",
+     "data.file": "auth.log",
+     "data.pat": "~^(?!.*SYSLOGTIMESTAMP)(?=.*%\\{USER:\\w+\\})(?=.*%\\{IP:\\w+\\})",
+     "data.n": "~^[1-9]"
+    }
+   }
+  ],
+  "seminar": 3
+ },
+ {
+  "id": "patch",
+  "title": "CVSS and patch priority",
+  "group": "Security engineer",
+  "case": "web01",
+  "blurb": "Score a vulnerability from its vector, then rank a list to decide what to patch first.",
+  "tour": [
+   {
+    "t": "[data-r=vec]",
+    "text": "A CVSS vector: one short code for how the flaw is reached and what it does."
+   },
+   {
+    "t": "[data-r=read]",
+    "text": "Read the vector turns it into the eight choices below and a score."
+   },
+   {
+    "t": "[data-r=calc]",
+    "text": "The eight choices. Change any one and the score changes."
+   },
+   {
+    "t": "[data-r=score]",
+    "text": "The score and its rating, from None to Critical."
+   },
+   {
+    "t": "[data-r=rank]",
+    "text": "Rank the vulnerability list puts the flaws in order of what to fix first."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Read the vector of the flaw already in the box",
+    "hint": "Press Read the vector. It scores 9.8, which is Critical.",
+    "on": {
+     "event": "tool.result",
+     "tool": "patch",
+     "data.n": 9.8
+    }
+   },
+   {
+    "text": "Make the same flaw local only, with a low privilege needed: change AV:N to AV:L and PR:N to PR:L",
+    "hint": "Type CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H and press Read the vector. It falls to 7.8.",
+    "on": {
+     "event": "tool.result",
+     "tool": "patch",
+     "data.n": 7.8
+    }
+   },
+   {
+    "text": "Rank the case's vulnerability list",
+    "hint": "Press Rank the vulnerability list. The top one is exploited in the wild and reachable from the internet.",
+    "on": {
+     "event": "tool.message",
+     "tool": "patch",
+     "text": "~to patch now"
+    }
+   }
+  ],
+  "seminar": 9
+ },
+ {
+  "id": "proctree",
+  "title": "Process tree",
+  "group": "Incident responder",
+  "case": "quietdns",
+  "blurb": "See which program started which, and mark the ones that belong to the attack.",
+  "tour": [
+   {
+    "t": "[data-r=host]",
+    "text": "Choose a computer, or look at all of them."
+   },
+   {
+    "t": "[data-r=tree]",
+    "text": "The tree: a program, then every program it started. A warning sign means something looks wrong. Click a program to read it."
+   },
+   {
+    "t": "[data-r=done]",
+    "text": "Save the processes I marked records the ones you decided are part of the attack."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Click TaxRefundCalc_2026.exe, mark it as part of the attack, and save",
+    "hint": "Click it in the tree. Tick Part of the attack in the box that opens. Press Save the processes I marked.",
+    "on": {
+     "event": "tool.result",
+     "tool": "proctree",
+     "data.marks": "~4710"
+    }
+   },
+   {
+    "text": "Also mark what keeps it alive after a restart: schtasks.exe and the fake Teams updater, msteams-update.exe",
+    "hint": "Click each one, tick Part of the attack, then save again.",
+    "on": {
+     "event": "tool.result",
+     "tool": "proctree",
+     "data.marks": "~(?=.*4730)(?=.*4744)"
+    }
+   },
+   {
+    "text": "Mark the whole chain, four programs, and leave the real Teams alone",
+    "hint": "Also mark the hidden PowerShell, powershell.exe, and save. Do not mark ms-teams.exe: Windows started it.",
+    "on": {
+     "event": "tool.result",
+     "tool": "proctree",
+     "data.n": 4,
+     "data.marks": "~4790"
+    }
+   }
+  ],
+  "seminar": 6
+ },
+ {
+  "id": "regex",
+  "title": "Regex tester",
+  "group": "Penetration tester",
+  "case": "web01",
+  "blurb": "Try regular expressions on real log text and see every match and group.",
+  "tour": [
+   {
+    "t": "[data-r=pat]",
+    "text": "The pattern."
+   },
+   {
+    "t": "[data-r=flags]",
+    "text": "Flags: i ignores case, g finds every match, m treats each line separately."
+   },
+   {
+    "t": "[data-r=file]",
+    "text": "Take the text from a file in the case, or choose Type my own."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Test highlights every match and lists the groups you captured."
+   },
+   {
+    "t": "[data-r=rep]",
+    "text": "Replace with: see what a substitution would do, for example to hide an address."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Find every IP address in auth.log",
+    "hint": "Choose auth.log. Pattern: \\d+\\.\\d+\\.\\d+\\.\\d+  Press Test.",
+    "on": {
+     "event": "tool.result",
+     "tool": "regex",
+     "data.file": "auth.log",
+     "data.n": 11,
+     "data.pat": "~\\\\d"
+    }
+   },
+   {
+    "text": "Capture the user and the address of every failed login with groups",
+    "hint": "Pattern: Failed password for (\\w+) from (\\S+)  Press Test. The two groups appear in the list.",
+    "on": {
+     "event": "tool.result",
+     "tool": "regex",
+     "data.file": "auth.log",
+     "data.pat": "~Failed password for \\(.+\\) from \\(.+\\)",
+     "data.n": "~^[1-9]"
+    }
+   },
+   {
+    "text": "Type (a+)+$ and read the warning about catastrophic backtracking",
+    "hint": "Type (a+)+$ as the pattern and press Test. A pattern like this can freeze a server.",
+    "on": {
+     "event": "tool.result",
+     "tool": "regex",
+     "data.pat": "~\\(a\\+\\)\\+"
+    }
+   }
+  ]
+ },
+ {
+  "id": "report",
+  "title": "Report builder",
+  "group": "Incident responder",
+  "case": "phish",
+  "blurb": "Write a real security report from a template and check that no section is empty.",
+  "tour": [
+   {
+    "t": "[data-r=tpl]",
+    "text": "Choose the kind of document: triage note, escalation, handover, incident report, findings and more."
+   },
+   {
+    "t": "[data-r=title]",
+    "text": "Give it a title."
+   },
+   {
+    "t": "[data-r=secs]",
+    "text": "Each section says what it should hold. Write in it."
+   },
+   {
+    "t": "[data-r=check]",
+    "text": "Check the report counts which sections are complete and says what is still missing."
+   },
+   {
+    "t": "[data-r=md]",
+    "text": "Download Markdown saves it. Open printable copy makes a page you can save as a PDF."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Choose the Shift handover template, give it a title and press Check",
+    "hint": "Choose Shift handover, type a title and press Check the report.",
+    "on": {
+     "event": "tool.result",
+     "tool": "report",
+     "data.tpl": "handover",
+     "data.title": "~\\S"
+    }
+   },
+   {
+    "text": "Write at least one section properly and check again",
+    "hint": "Write a full sentence in a section, such as what is still open and who is waiting on whom, then press Check the report.",
+    "on": {
+     "event": "tool.result",
+     "tool": "report",
+     "data.tpl": "handover",
+     "data.n": "~^[1-9]"
+    }
+   },
+   {
+    "text": "Complete all five sections of the handover",
+    "hint": "Still open needs an ID such as AL-2208, Watch for needs something to watch, and Calls and messages needs times such as 09:00. Give every section its own sentence. Then press Check the report.",
+    "on": {
+     "event": "tool.result",
+     "tool": "report",
+     "data.tpl": "handover",
+     "data.n": 5
+    }
+   }
+  ],
+  "sim": "sem-x02-authorised-pen-test",
+  "seminar": 6
+ },
+ {
+  "id": "soar",
+  "title": "SOAR playbook",
+  "group": "Security engineer",
+  "case": "phish",
+  "blurb": "Write an automatic response: when an alert looks like this, do that. Then run it on a queue.",
+  "tour": [
+   {
+    "t": "[data-r=pb]",
+    "text": "The playbook. when starts a block for some alerts, and each indented line is an action or a rule."
+   },
+   {
+    "t": "[data-r=starter]",
+    "text": "Example playbook fills in a working one."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "The alert queue to run it on."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Run on the queue does the actions for every alert it matches and tells you what is left for a person."
+   },
+   {
+    "t": "[data-r=log]",
+    "text": "The log shows each alert and the actions taken on it."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Run the example playbook on the queue",
+    "hint": "Press Run on the queue.",
+    "on": {
+     "event": "tool.result",
+     "tool": "soar",
+     "data.n": 13
+    }
+   },
+   {
+    "text": "Write a playbook that only escalates the critical alert",
+    "hint": "Replace the playbook with two lines: when severity >= critical, then an indented line: escalate. Press Run on the queue.",
+    "on": {
+     "event": "tool.result",
+     "tool": "soar",
+     "data.n": 1,
+     "data.pb": "~escalate"
+    }
+   },
+   {
+    "text": "Write a playbook that enriches medium alerts, blocks known-bad indicators and isolates the host with the scheduled task",
+    "hint": "when severity >= medium  then indented lines: enrich, if intel == malicious then block, if rule contains \"scheduled task\" then isolate.",
+    "on": {
+     "event": "tool.result",
+     "tool": "soar",
+     "data.n": 4,
+     "data.pb": "~(?=[\\s\\S]*block)(?=[\\s\\S]*isolate)"
+    }
+   }
+  ],
+  "seminar": 9
+ },
+ {
+  "id": "sql",
+  "title": "SQL over logs",
+  "group": "SOC analyst",
+  "case": "web01",
+  "blurb": "Ask questions of your logs in SQL: every log file is a table.",
+  "tour": [
+   {
+    "t": "[data-r=schema]",
+    "text": "The tables: access, auth, conn, alerts, intel and more, each with its columns. events holds everything."
+   },
+   {
+    "t": "[data-r=q]",
+    "text": "Type a SELECT query. Joins, GROUP BY, ORDER BY and COUNT all work."
+   },
+   {
+    "t": "[data-r=go]",
+    "text": "Run query shows the rows below."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Show the whole intel table",
+    "hint": "select * from intel",
+    "on": {
+     "event": "tool.result",
+     "tool": "sql",
+     "data.q": "~from\\s+intel",
+     "data.n": 6
+    }
+   },
+   {
+    "text": "Count requests per client address in the web log",
+    "hint": "select clientip, count(*) as n from access group by clientip order by n desc",
+    "on": {
+     "event": "tool.result",
+     "tool": "sql",
+     "data.q": "~group\\s+by\\s+clientip",
+     "data.n": "~^[1-9]"
+    }
+   },
+   {
+    "text": "Join the web log to the threat intel to find known-bad visitors",
+    "hint": "select a.clientip, i.verdict, count(*) as n from access a join intel i on a.clientip = i.indicator group by a.clientip, i.verdict",
+    "on": {
+     "event": "tool.result",
+     "tool": "sql",
+     "data.q": "~join\\s+intel",
+     "data.n": "~^[1-9]"
+    }
+   }
+  ],
+  "seminar": 3
+ },
+ {
+  "id": "tabletop",
+  "title": "Tabletop exercise",
+  "group": "Incident responder",
+  "case": "ddos",
+  "blurb": "Play through a crisis one decision at a time, under the clock, and get scored.",
+  "tour": [
+   {
+    "t": "[data-r=file]",
+    "text": "The scenario. Each one is a real kind of incident."
+   },
+   {
+    "t": "[data-r=role]",
+    "text": "Your role changes what you are told and what you can decide."
+   },
+   {
+    "t": "[data-r=scene]",
+    "text": "What is happening now, any new information, and your choices. Each choice costs time."
+   },
+   {
+    "t": "[data-r=restart]",
+    "text": "Start again to try a different path."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "Play it badly on purpose: blackhole the address first, and finish the exercise",
+    "hint": "Choose option 1, blackhole the address, then pick any choices until the exercise ends. Read why each one cost you.",
+    "on": {
+     "event": "tool.result",
+     "tool": "tabletop",
+     "data.path": "~blackhole"
+    }
+   },
+   {
+    "text": "Start again",
+    "hint": "Press Start again.",
+    "on": {
+     "event": "tool.click",
+     "tool": "tabletop",
+     "label": "~start again"
+    }
+   },
+   {
+    "text": "Play it well and finish with full marks",
+    "hint": "Approve scrubbing in writing, keep the email as evidence and tell the Principal, then report on time and tell people plainly. The best choice is the careful one, not the fast one.",
+    "on": {
+     "event": "tool.result",
+     "tool": "tabletop",
+     "data.n": 8
+    }
+   }
+  ],
+  "seminar": 7
+ },
+ {
+  "id": "threatmodel",
+  "title": "Threat model",
+  "group": "Governance and risk",
+  "case": "sem-s10-design-risk-audit",
+  "blurb": "List what could go wrong with a system, element by element, and find the cheapest way in.",
+  "tour": [
+   {
+    "t": "[data-r=sys]",
+    "text": "Describe the system, one element per line: who is outside, what runs, what stores data and how data flows."
+   },
+   {
+    "t": "[data-r=gen]",
+    "text": "List the threats creates a row of STRIDE questions for every element."
+   },
+   {
+    "t": "[data-r=els]",
+    "text": "For each element: spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege. Say how it could happen and what stops it."
+   },
+   {
+    "t": "[data-r=done]",
+    "text": "Check the model counts your answered threats."
+   }
+  ],
+  "challenges": [
+   {
+    "text": "List the threats for the system in the box",
+    "hint": "Press List the threats.",
+    "on": {
+     "event": "tool.message",
+     "tool": "threatmodel",
+     "text": "~^\\d+ elements"
+    }
+   },
+   {
+    "text": "Find the cheapest attack in the tree",
+    "hint": "Open the Attack tree tab and press Find the cheapest attack.",
+    "on": {
+     "event": "tool.click",
+     "tool": "threatmodel",
+     "label": "~cheapest attack"
+    }
+   },
+   {
+    "text": "Answer at least three STRIDE threats and check the model",
+    "hint": "Back on the STRIDE tab, write how each threat could happen and what stops it in three boxes, then press Check the model.",
+    "on": {
+     "event": "tool.message",
+     "tool": "threatmodel",
+     "text": "~^([3-9]|1\\d) of \\d+ STRIDE threats answered"
+    }
+   }
+  ],
+  "seminar": 11
  }
 ]

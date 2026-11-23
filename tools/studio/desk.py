@@ -221,7 +221,8 @@ def video_items():
         if not group:
             continue
         about = S.about(folder)
-        changed = newest([folder / "seminar.json", *step_files(folder)])
+        film = folder / "film.json"
+        changed = film.stat().st_mtime if film.exists() else newest([folder / "seminar.json", *step_files(folder)])
         items.append(dict(key=folder.name, kind="lab", group=group, title=about.get("title") or folder.name,
                           **video_state(folder.name, DEMOS / folder.name, changed)))
     for md in LEC.decks():
@@ -313,7 +314,12 @@ def video_action(action, key):
     if not item:
         raise RuntimeError(f"There's no video called {key}.")
     if action == "make":
-        steps = [["lecture", key]] if item["kind"] == "lecture" else [["script", key], ["build", key], ["demo", key]]
+        if item["kind"] == "lecture":
+            steps = [["lecture", key]]
+        elif (S.SEMINARS / key / "film.json").exists():
+            steps = [["film", key]]
+        else:
+            steps = [["script", key], ["build", key], ["demo", key]]
         with JOB_LOCK:
             if JOB["started"] and not JOB["ended"]:
                 raise RuntimeError(f"Still making {JOB['label']}. One video at a time, or the computer runs out of memory. Wait, or press Stop.")

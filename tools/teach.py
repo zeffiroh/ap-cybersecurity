@@ -272,6 +272,8 @@ def cmd_film(args):
     sys.path.insert(0, str(ROOT / "tools"))
     from studio import film
     names = [n.strip() for n in args.name.split(",") if n.strip()]
+    if args.check:
+        sys.exit(1 if sum(film.check(n) or 0 for n in names) else 0)
     bad = sum(film.run(n, args.keep) or 0 for n in names)
     sys.exit(1 if bad else 0)
 
@@ -401,6 +403,7 @@ def main():
     p = sub.add_parser("film", help="record a seminar's walkthrough with the real programs in a Linux desktop (needs Docker)")
     p.add_argument("name", help="a seminar folder that has a film.json, or several joined by commas")
     p.add_argument("--keep", action="store_true", help="keep the raw recording, and keep going if a scene fails")
+    p.add_argument("--check", action="store_true", help="don't record: run every terminal command once and print the output, to check the narration")
     p.set_defaults(fn=cmd_film)
     p = sub.add_parser("script", help="write a lab's script.md from the narration in its seminar.json")
     p.add_argument("name", nargs="?", default="all")

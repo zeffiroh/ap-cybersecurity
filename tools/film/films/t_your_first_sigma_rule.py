@@ -1,0 +1,66 @@
+from kit import after, build, chapter, clear, close, cmd, files_window, say, term, wait
+
+RULES = {
+ "rules/office-shell.yml": """title: Office program starts a command shell
+id: 5a1c7e10-0b8f-4a59-9a3e-2c1f00000001
+status: experimental
+description: Word, Excel or Outlook starting cmd.exe or PowerShell is how most macro malware begins.
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4688
+    ParentProcessName|endswith:
+      - '\\WINWORD.EXE'
+      - '\\EXCEL.EXE'
+      - '\\OUTLOOK.EXE'
+    NewProcessName|endswith:
+      - '\\cmd.exe'
+      - '\\powershell.exe'
+  condition: selection
+falsepositives:
+  - Office add-ins that call a script on purpose (rare; list them)
+level: high
+tags:
+  - attack.execution
+  - attack.t1204.002
+""",
+}
+
+scenes = [
+ chapter("Opening"),
+ files_window(),
+ say("Hello, and welcome. In the next few minutes you'll write your first detection rule. A search you run once finds one attack. A rule keeps watching and finds the next one. We'll use Sigma, the open format that detection teams share, and we'll test it on a real-looking Windows log."),
+ {"point": [0.45, 0.3], "in": "files", "secs": 1.0},
+ say("First, the setting. Always read it, because the time zone and the date change how you read every log. We're at Chandni Textiles, a fabric and saree business in Surat. It's Monday the ninth of November 2026. That morning Hetal Desai in accounts opened a spreadsheet called Payment Advice from an email, on the accounts PC, accts-pc02. Every time in this case is in UTC. India is five and a half hours ahead. The file we need is the Windows Security log from accts-pc02, Security.jsonl, one event per line."),
+ close("files"),
+ term,
+
+ chapter("1. From hunt to rule: your first Sigma rule"),
+ say("Here's the idea behind a rule. When Word or Excel starts a command shell, that's almost never a person at work. It's usually a macro in a booby-trapped document. Windows records every new process as event 4688, with the program that started it, called the parent. Before the rule, let's count what we're searching."),
+ cmd("jq -r 'select(.EventID==4688) | .Computer' eventlogs/Security.jsonl | sort | uniq -c", 2.5),
+ after("Seventeen process-creation events on accts-pc02. That's our haystack. Here's the rule, in a text editor."),
+ {"open": "mousepad rules/office-shell.yml", "window": "office-shell.yml", "as": "edit", "geometry": [260, 90, 1400, 900], "settle": 1},
+ say("Read it top to bottom: a title, a description, the log source, which is Windows Security, then the detection block. The selection says event 4688, where the parent ends in WINWORD, EXCEL or OUTLOOK, and the new process is cmd or PowerShell. The condition says the selection must match. Notice the false-positives line. A good rule tells the next analyst when it might fire on something innocent."),
+ {"wait": 3},
+ close("edit"),
+ say("sigma check tests that the rule is well written."),
+ cmd("sigma check rules/office-shell.yml", 4),
+ after("No errors. The warning is about style. Now sigma convert turns the rule into a real query. The course's tool converts to Splunk's SPL; in this recording we ask the real converter for SQLite, because that's the backend installed here."),
+ cmd("sigma convert -t sqlite rules/office-shell.yml", 4),
+ after("There's the query: every condition spelled out, with the wildcards escaped more carefully than most people would by hand. Now we run the rule on the log. Zircolite is a free tool that loads event logs into a database and runs Sigma rules over them."),
+ cmd("zircolite -e eventlogs/Security.jsonl -r rules/office-shell.yml", 8),
+ cmd("jq -r '.[].matches[] | [.TimeCreated, .ParentProcessName, .CommandLine] | @tsv' /tmp/detected.json | cut -c1-220", 3),
+ after("It matches one event: Excel starting cmd.exe at 05:12:58, with a hidden PowerShell download inside. Two things the rule didn't match, and both are right. At 04:58 Excel started splwow64.exe, the Windows printing helper, which isn't a shell. And the attacker also ran PowerShell, so why didn't the rule catch it? Its parent was cmd.exe, not Excel. The chain went Excel, then cmd, then PowerShell, and our rule only watches the first link. You can fix that with a second rule, cmd starting a hidden PowerShell."),
+ clear,
+
+ chapter("Where next"),
+ say("That was one step from Seminar 2, Log search and detection as code. The full seminar has a longer video, every step at three levels, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen."),
+ chapter("Wrap-up"),
+ say("To recap. A hunt finds one attack, a rule finds the next. Write down what you expect it to match and what it should ignore, test it on a real log, and read what it missed. Thank you for watching."),
+ wait(2),
+]
+
+build("t-your-first-sigma-rule", scenes, host="chandni-soc", files=RULES,
+      setup=["echo \"alias zircolite='python3 /opt/zircolite/zircolite.py -j --no-event-filter --flatten-backend python -l /tmp/zircolite.log -o /tmp/detected.json'\" >> ~/.bashrc"])
