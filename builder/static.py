@@ -16,9 +16,9 @@ TEXT = {".html", ".css", ".js", ".json", ".svg", ".xml", ".txt", ".md", ".mmd", 
 
 def copy(src, dst):
     if src.suffix == ".html":
-        emit(dst, N.apply(dst, rd(src)))
+        emit(dst, N.apply(dst, C.fill_site(rd(src))))
     elif src.suffix in TEXT:
-        emit(dst, rd(src))
+        emit(dst, C.fill_site(rd(src)))
     else:
         emit_bytes(dst, src.read_bytes())
 

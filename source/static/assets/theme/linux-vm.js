@@ -199,7 +199,7 @@
     out.variantCount = m.variants.length + 1;
     if (!v) return out;
     var pick = m.variants[v - 1], map = pick.map, keys = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
-    var keep = { files: 1, variants: 1, id: 1, base: 1, levels: 1, guide: 1, variant: 1, variantCount: 1 };
+    var keep = { files: 1, variants: 1, id: 1, base: 1, caseDir: 1, levels: 1, guide: 1, variant: 1, variantCount: 1 };
     function deep(x) {
       if (typeof x === "string") return swap(x, map, keys);
       if (Array.isArray(x)) return x.map(deep);
@@ -235,7 +235,7 @@
 
   function body(m, f) {
     if (m.bodies) return Promise.resolve(m.bodies[f] == null ? "" : m.bodies[f]);
-    var p = text(LINUX + "cases/" + (m.base || m.id) + "/" + f);
+    var p = text(LINUX + "cases/" + (m.caseDir || m.base || m.id) + "/" + f);
     return m.map ? p.then(function (t) { return /\u0000/.test(t) ? t : swap(t, m.map, m.mapKeys); }) : p;
   }
 

@@ -12,8 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from builder import seminars as S
-
-LIVE = "https://zeffiroh.github.io/ap-cybersecurity/"
+from builder.course import SITE_URL as LIVE
 SOURCE_TYPES = {".md", ".sh", ".py", ".ipynb"}
 
 
@@ -94,7 +93,7 @@ def missing_refs(path):
     names = {h.rsplit("/", 1)[-1] for h in have}
     out = []
     for p in sorted(path.glob("[0-9]*.md")) + sorted(path.glob("[0-9]*.sh")):
-        text = re.sub(r"https?://\S+", "", S.read(p))
+        text = re.sub(r"(?:https?://|\{\{site\}\})\S+", "", S.read(p))
         text = re.sub(r"```tool[\s\S]*?```", lambda m: " ".join(re.findall(r'"files?": *\[?"([^"\]]+)"', m.group(0))), text)
         if re.search(r"\bREADME\b", text) and "README.txt" not in names:
             out.append(f"{p.name} mentions a README, but files/README.txt is missing")
@@ -117,6 +116,11 @@ def cmd_build(args):
         info = S.about(path)
         cells = S.cells_of(path, info)
         print(f"  {sum(c['t'] == 'md' for c in cells)} notes, {sum(c['t'] == 'sh' for c in cells)} Linux and {sum(c['t'] == 'py' for c in cells)} Python cells, {len(S.evidence(path))} files")
+        if info.get("seminar_id"):
+            _, p_files, p_notes = S.practice_cells(path, info)
+            print(f"  Practice: second evidence set, {len(p_files)} files, fewer hints" if p_files else "  Practice: harder questions on the walkthrough evidence, fewer hints")
+            for w in p_notes:
+                print(f"  practice: {w}")
         if info.get("published", True):
             S.publish_one(path)
             print(f"  Notebook link:  {LIVE}notebook.html?ref=rb-{path.name}&runbook=sem-{path.name}")

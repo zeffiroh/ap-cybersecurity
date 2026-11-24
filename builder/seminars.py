@@ -3,6 +3,7 @@ import json
 import re
 
 from . import levels
+from .course import fill_site
 from .paths import ASSETS, SITE, SRC
 from .util import emit, emit_bytes
 
@@ -76,7 +77,7 @@ def from_ipynb(path):
         if not src.strip():
             continue
         if c.get("cell_type") == "markdown":
-            cells.append({"t": "md", "s": hide_answers(src)})
+            cells.append({"t": "md", "s": hide_answers(fill_site(src))})
         elif src.lstrip().startswith("%%bash"):
             cells.append({"t": "sh", "s": src.split("\n", 1)[1] if "\n" in src else ""})
         else:
@@ -115,22 +116,21 @@ def problems(folder):
     return out
 
 
-def cells_of(folder, info):
-    names = [p.relative_to(folder / "files").as_posix() for p in evidence(folder)]
-    intro = f"# {info['title']}\n\n{info.get('summary', '')}".rstrip()
+def intro_cell(title, text, names):
+    intro = f"# {title}\n\n{text}".rstrip()
     if names:
         intro += "\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): " + ", ".join(f"`{n}`" for n in names) + "."
-    cells = [{"t": "md", "s": intro}]
-    compiled = folder / "lesson.json"
-    if compiled.exists():
-        for c in json.loads(compiled.read_text(encoding="utf-8")):
-            cells.append(dict(c, s=hide_answers(c["s"])) if c["t"] == "md" else c)
-        return cells
+    return {"t": "md", "s": intro}
+
+
+def step_groups(folder):
     items = [p for p in folder.iterdir() if p.is_file() and p.suffix in (".md", ".sh", ".py", ".ipynb") and p.name not in NOT_STEPS]
+    out = {}
     for stem in sorted({p.stem for p in items}):
         group = {p.suffix: p for p in items if p.stem == stem}
+        cells = []
         if ".md" in group:
-            text = hide_answers(read(group[".md"]))
+            text = hide_answers(fill_site(read(group[".md"])))
             cells.append({"t": "md", "s": text if text.lstrip().startswith("#") else heading(stem) + "\n\n" + text})
         elif ".sh" in group or ".py" in group:
             cells.append({"t": "md", "s": heading(stem)})
@@ -139,7 +139,122 @@ def cells_of(folder, info):
                 cells.append({"t": kind, "s": read(group[suffix])})
         if ".ipynb" in group:
             cells.extend(from_ipynb(group[".ipynb"]))
+        out[stem] = cells
+    return out
+
+
+def cells_of(folder, info):
+    names = [p.relative_to(folder / "files").as_posix() for p in evidence(folder)]
+    cells = [intro_cell(info["title"], info.get("summary", ""), names)]
+    compiled = folder / "lesson.json"
+    if compiled.exists():
+        for c in json.loads(compiled.read_text(encoding="utf-8")):
+            cells.append(dict(c, s=hide_answers(fill_site(c["s"]))) if c["t"] == "md" else c)
+        return cells
+    for group in step_groups(folder).values():
+        cells.extend(group)
     return cells
+
+
+PRACTICE = "practice"
+HINT_BLOCK = re.compile(r"(?m)^>\s*Hint:.*(?:\n>.*)*\n?")
+ASK_LINE = re.compile(r"(?m)^\s*\?>.*\n?")
+TOOL_FENCE = re.compile(r"```tool\s")
+
+
+def practice_info(folder):
+    p = folder / PRACTICE / "practice.json"
+    if not p.exists():
+        return {}, []
+    try:
+        data = json.loads(read(p))
+    except ValueError as e:
+        return {}, [f"practice/practice.json is not valid JSON: {e}"]
+    return (data, []) if isinstance(data, dict) else ({}, ["practice/practice.json must be a block like {\"steps\": {...}}"])
+
+
+def practice_evidence(folder):
+    base = folder / PRACTICE / "files"
+    return sorted(p for p in base.rglob("*") if p.is_file()) if base.is_dir() else []
+
+
+def step_rule(rules, stem):
+    num = re.match(r"^(\d+)", stem)
+    return rules.get(stem) or (rules.get(num.group(1)) if num else None) or {}
+
+
+def harder(text, rule):
+    text = HINT_BLOCK.sub("", text)
+    asks = rule.get("ask")
+    if isinstance(asks, list) and asks:
+        text = ASK_LINE.sub("", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).rstrip()
+    extra = []
+    if isinstance(rule.get("hint"), str) and rule["hint"].strip():
+        extra.append("> Hint: " + rule["hint"].strip())
+    if isinstance(asks, list):
+        extra += [hide_answers(f"?> {q} :: {a}") for q, a in asks]
+    return "\n\n".join([text] + extra) if extra else text
+
+
+def practice_problems(folder):
+    data, bad = practice_info(folder)
+    pdir = folder / PRACTICE
+    mine = step_groups(pdir) if pdir.is_dir() else {}
+    for stem, group in mine.items():
+        for c in group:
+            if c["t"] == "py":
+                try:
+                    compile(c["s"], f"practice/{stem}.py", "exec")
+                except SyntaxError as e:
+                    bad.append(f"practice/{stem}.py line {e.lineno}: {e.msg}")
+    for p in practice_evidence(folder):
+        try:
+            p.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            bad.append(f"practice/files/{p.relative_to(pdir / 'files').as_posix()} isn't text")
+    if not practice_evidence(folder) or (folder / "lesson.json").exists():
+        return bad, []
+    gaps = []
+    for stem, group in step_groups(folder).items():
+        if stem in mine:
+            continue
+        text = "\n".join(c["s"] for c in group if c["t"] == "md")
+        if TOOL_FENCE.search(text):
+            gaps.append(f"step {stem} uses a program on the first evidence: write practice/{stem}.md for the second evidence")
+        elif "?>" in text:
+            gaps.append(f"step {stem} asks about the first evidence: write practice/{stem}.md for the second evidence")
+    return bad, gaps
+
+
+def practice_cells(folder, info):
+    data, _ = practice_info(folder)
+    rules = data.get("steps") if isinstance(data.get("steps"), dict) else {}
+    bad, gaps = practice_problems(folder)
+    own = bool(practice_evidence(folder)) and not bad and not gaps
+    pdir = folder / PRACTICE
+    mine = step_groups(pdir) if pdir.is_dir() and not bad and (own or not practice_evidence(folder)) else {}
+    if own:
+        files, root = practice_evidence(folder), pdir / "files"
+        text = str(data.get("intro") or "Practice uses a different case from the walkthrough: the same skills, new evidence, fewer hints.")
+    else:
+        files, root = evidence(folder), folder / "files"
+        text = str(data.get("intro_same") or info.get("summary", ""))
+    cells = [intro_cell(info["title"] + " (Practice)", text, [p.relative_to(root).as_posix() for p in files])]
+    if (folder / "lesson.json").exists():
+        return cells + [dict(c, s=harder(c["s"], {})) if c["t"] == "md" else c for c in cells_of(folder, info)[1:]], [], bad
+    walk = step_groups(folder)
+    for stem in sorted(set(walk) | set(mine)):
+        if stem in mine:
+            cells.extend(mine[stem])
+            continue
+        rule = {} if own else step_rule(rules, stem)
+        for c in walk[stem]:
+            if c["t"] == "md":
+                cells.append(dict(c, s=harder(c["s"], rule)))
+            else:
+                cells.append({k: v for k, v in c.items() if not (own and k == "e")})
+    return cells, files if own else [], bad + gaps
 
 
 def tools_in(cells):
@@ -177,17 +292,38 @@ def publish_one(folder):
         name = "case/" + p.relative_to(folder / "files").as_posix()
         files.append(name)
         emit(case_dir / name, p.read_text(encoding="utf-8"))
+    extra = {}
     for kind in ("net", "replay"):
         base = folder / kind
         for p in sorted(base.rglob("*")) if base.is_dir() else []:
             if p.is_file():
-                name = kind + "/" + p.relative_to(base).as_posix()
-                files.append(name)
-                emit(case_dir / name, p.read_text(encoding="utf-8"))
+                extra[kind + "/" + p.relative_to(base).as_posix()] = p.read_text(encoding="utf-8")
     for tool in info.get("replayTools") or []:
-        name = "bin/" + tool
+        extra["bin/" + tool] = f'exec aayat-replay --tool {tool} "$@"\n'
+    for name, body in extra.items():
         files.append(name)
-        emit(case_dir / name, f'exec aayat-replay --tool {tool} "$@"\n')
+        emit(case_dir / name, body)
+    practice = None
+    if info.get("seminar_id"):
+        p_cells, p_files, _ = practice_cells(folder, info)
+        practice = {"template": p_cells}
+        if p_files:
+            p_dir = ASSETS / "linux" / "cases" / f"{slug}--guided"
+            names = []
+            for p in p_files:
+                name = "case/" + p.relative_to(folder / PRACTICE / "files").as_posix()
+                names.append(name)
+                emit(p_dir / name, p.read_text(encoding="utf-8"))
+            for name, body in extra.items():
+                names.append(name)
+                emit(p_dir / name, body)
+            p_expected = folder / PRACTICE / "expected.json"
+            if p_expected.exists():
+                practice["template"] = levels.merge_expected(p_cells, json.loads(p_expected.read_text(encoding="utf-8")))
+            practice.update(files=names, caseDir=f"{slug}--guided")
+            p_info = practice_info(folder)[0]
+            if p_info.get("handin"):
+                practice["handin"] = str(p_info["handin"])
     meta = {"order": int(info.get("order", 60)), "title": info["title"], "kicker": info.get("kicker", "Seminar"),
             "units": info.get("units", []), "level": info.get("level", "Beginner"), "minutes": int(info.get("minutes", 30)),
             "summary": info.get("summary", ""), "tools": info.get("tools") or tools_in(cells),
@@ -218,7 +354,7 @@ def publish_one(folder):
     sla = sla_of(info.get("sla"))[0]
     if sla:
         man["sla"] = sla
-    man["levels"] = levels.publish(man)
+    man["levels"] = levels.publish(man, practice)
     man["guide"] = f"media/guides/{slug}/index.html"
     emit(case_dir / "manifest.json", json.dumps(man, ensure_ascii=False, indent=1) + "\n")
     emit_bytes(media / f"{folder.name}.ipynb", (json.dumps(ipynb(cells), ensure_ascii=False, indent=1) + "\n").encode("utf-8"))

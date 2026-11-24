@@ -38,7 +38,7 @@
       var cid = k.slice(5), V = global.AayatVM;
       if (!V) return Promise.resolve(null);
       made = V.manifest(cid).then(function (m) {
-        var base = ROOT + "assets/linux/cases/" + (m.base || m.id) + "/", has = function (f) { return (m.files || []).indexOf(f) >= 0; };
+        var base = ROOT + "assets/linux/cases/" + (m.caseDir || m.base || m.id) + "/", has = function (f) { return (m.files || []).indexOf(f) >= 0; };
         if (!has("net/hosts.txt") && !has("net/bench.json")) return null;
         return Promise.all([has("net/hosts.txt") ? text(base + "net/hosts.txt") : "", has("net/dns.txt") ? text(base + "net/dns.txt") : "", has("net/bench.json") ? json(base + "net/bench.json") : null]).then(function (t) {
           return N().normalize(t[2], N().parseHosts(t[0], t[1]));

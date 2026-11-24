@@ -133,7 +133,7 @@ def guide_html(man, cells):
             f"<title>{e(man['title'])} written tutorial &middot; Aayat-AP-Prep</title>\n<style>{STYLE}</style>\n</head>\n<body><main>" + "\n".join(body) + "</main></body>\n</html>\n")
 
 
-def publish(man, cases_dir=None):
+def publish(man, practice=None, cases_dir=None):
     cid = man["id"]
     man["template"] = shield(man["template"])
     cases_dir = cases_dir or ASSETS / "linux" / "cases"
@@ -143,9 +143,18 @@ def publish(man, cases_dir=None):
     for level, vid in levels.items():
         if level == "worked":
             continue
-        emit(cases_dir / vid / "manifest.json", json.dumps(dict(base, id=vid, base=cid, supportLevel=level, levels=levels,
-                                                                 guide=f"media/guides/{cid}/index.html", template=variant(man["template"], level)),
-                                                            ensure_ascii=False, indent=1) + "\n")
+        out = dict(base, id=vid, base=cid, supportLevel=level, levels=levels, guide=f"media/guides/{cid}/index.html")
+        cells = man["template"]
+        if level == "guided" and practice:
+            cells = shield(practice["template"])
+            out["practice"] = "evidence" if practice.get("caseDir") else "harder"
+            if practice.get("caseDir"):
+                out.update(files=practice["files"], caseDir=practice["caseDir"])
+                out.pop("replay", None)
+                if practice.get("handin"):
+                    out["handin"] = practice["handin"]
+        out["template"] = variant(cells, level)
+        emit(cases_dir / vid / "manifest.json", json.dumps(out, ensure_ascii=False, indent=1) + "\n")
     return levels
 
 

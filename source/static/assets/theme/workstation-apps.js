@@ -133,7 +133,7 @@
     var V = global.AayatVM;
     if (!cid || !V) return Promise.resolve(null);
     return V.manifest(cid).then(function (m) {
-      var base = ROOT + "assets/linux/cases/" + (m.base || m.id) + "/";
+      var base = ROOT + "assets/linux/cases/" + (m.caseDir || m.base || m.id) + "/";
       if ((m.files || []).indexOf("net/hosts.txt") < 0) return null;
       return Promise.all(["net/hosts.txt", "net/dns.txt"].map(function (f) { return (m.files || []).indexOf(f) < 0 ? "" : fetch(base + f).then(function (x) { return x.ok ? x.text() : ""; }); }));
     }).then(function (t) {

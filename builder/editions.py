@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from .book import PDF as LOCKED_PDF, locked, pdf_password
+from .course import SITE_URL, site_host
 from .paths import BOOK, ROOT, TEXTBOOK_SRC as TEX
 
 OUT = ROOT / "publication"
@@ -269,7 +270,7 @@ def cover_wrap(dst, spine_in, dpi=300):
     y += 36 * s * ss
     y = A.text_block(d, bx, y, bw, s, [(BLURB, A.SERIF_I, 40, A.CREAM, 34),
                                        ("Read it with the course: lectures, practice, quizzes and a capstone "
-                                        "investigation at zeffiroh.github.io/ap-cybersecurity", A.SANS, 30,
+                                        "investigation at " + site_host(), A.SANS, 30,
                                         (230, 205, 195), 0)])
     A.text_block(d, bx, top + trim_h - safe - int(1.6 * dpi * ss), bw - int(2.3 * dpi * ss), s * 0.8,
                  [("AP is a registered trademark of College Board, which is not affiliated with, and does not "
@@ -399,7 +400,7 @@ Thank you for buying {TITLE}: {SUBTITLE}.
 
 Your PDF password:   {pw}
 
-1. Download the PDF: https://zeffiroh.github.io/ap-cybersecurity/downloads/AP_Cybersecurity_Textbook.pdf
+1. Download the PDF: {SITE_URL}downloads/AP_Cybersecurity_Textbook.pdf
 2. Open it and type the password above. Save a copy of this message.
 
 The licence is for you and your classroom; please don't share the file or the password.

@@ -7,6 +7,15 @@ from .paths import SRC, UNITS_SRC
 BRAND = "Aayat-AP-Prep"
 SUBJECT = "Cybersecurity"
 SITE_URL = "https://zeffiroh.github.io/ap-cybersecurity/"
+SITE_TOKEN = "{{site}}"
+
+
+def site_host():
+    return SITE_URL.split("://", 1)[-1].rstrip("/")
+
+
+def fill_site(text):
+    return text.replace(SITE_TOKEN, SITE_URL)
 
 
 def tkey(tid):
