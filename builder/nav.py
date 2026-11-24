@@ -5,7 +5,7 @@ from pathlib import Path
 from . import course as C
 from . import resources as RES
 from .course import BRAND, SITE_URL, SUBJECT
-from .paths import (BOOK, CAPSTONE, DOWNLOADS, LECTURES, LECTURES_SRC, SITE, TESTS, THEME, atom_dir,
+from .paths import (BOOK, CAPSTONE, DOWNLOADS, LECTURES, LECTURES_SRC, SITE, SRC, TESTS, THEME, atom_dir,
                     topic_dir, unit_dir)
 from .util import esc, rel
 
@@ -53,6 +53,17 @@ GLOBAL_EXTRA = [
     ("shop", "Hack the shop", SITE / "shop.html"),
     ("certificate", "Certificate", SITE / "certificate.html"),
 ]
+
+LEGAL_SRC = SRC / "legal"
+LEGAL = [("privacy", "Privacy", SITE / "privacy.html"), ("terms", "Terms", SITE / "terms.html"),
+         ("refund", "Refunds and delivery", SITE / "refund.html"), ("contact", "Contact", SITE / "contact.html"),
+         ("third-party", "Third-party notices", SITE / "third-party.html")]
+LEGAL_NEEDED = ("privacy", "terms", "refund", "contact")
+GLOBAL_EXTRA += LEGAL
+
+
+def legal_live():
+    return all((LEGAL_SRC / f"{k}.md").exists() for k in LEGAL_NEEDED)
 
 
 def target(tid, kind):
@@ -319,6 +330,23 @@ _OLD = [
     re.compile(r'[ \t]*<script id="apnav-(?:js|map|progress)"[^>]*></script>\n?'),
     re.compile(r'[ \t]*<meta id="apnav-(?:og-site|og-desc|og-image|card)"[^>]*>\n?'),
 ]
+def inline_md(text):
+    import markdown
+    html = markdown.markdown(text.strip())
+    return re.sub(r"^<p>(.*)</p>$", r"\1", html, flags=re.S).replace("\n", "<br>")
+
+
+def footer_html(page_dir):
+    if not legal_live():
+        return AP_NOTE
+    links = " · ".join(f'<a href="{rel(page_dir, p)}">{esc(label)}</a>' for _, label, p in LEGAL)
+    who = LEGAL_SRC / "footer.md"
+    lines = [f'<span class="apn-legal">{links}</span>']
+    if who.exists():
+        lines.append(inline_md(who.read_text(encoding="utf-8")))
+    return "<br>".join(lines + [AP_NOTE])
+
+
 SHARE_DESC = "Beginner's Cybersecurity Kickstarter from Aayat-AP-Prep, aligned with AP Cybersecurity: textbook, lectures, practice, quizzes and a capstone. Try Topic 1.1 free."
 
 
@@ -347,7 +375,7 @@ def apply(path, text):
     page_dir = path.parent
     text = text.replace("</head>", head_links(page_dir) + "</head>", 1)
     text = re.sub(r"(<body[^>]*>)\n?", lambda m: m.group(1) + "\n" + nav_html(page_dir, c) + "\n", text, count=1)
-    text = re.sub(r"</body>", lambda m: f'<footer class="apn-foot">{AP_NOTE}</footer>\n</body>', text, count=1)
+    text = re.sub(r"</body>", lambda m: f'<footer class="apn-foot">{footer_html(page_dir)}</footer>\n</body>', text, count=1)
     t = title_for(c)
     if t:
         text = re.sub(r"<title>.*?</title>", f"<title>{esc(t)}</title>", text, count=1, flags=re.S)

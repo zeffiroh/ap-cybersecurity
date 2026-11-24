@@ -5,14 +5,16 @@ from email.message import EmailMessage
 
 import psycopg
 
+from address import CONTACT_EMAIL, SITE_URL as SITE
+
 COURSE = "Aayat-AP-Prep"
-SITE = "https://zeffiroh.github.io/ap-cybersecurity/"
 
 
 def message(email, code):
     msg = EmailMessage()
     msg["Subject"] = f"{COURSE}: your password reset code is {code}"
     msg["From"] = f"{COURSE} <{os.environ['SMTP_USER']}>"
+    msg["Reply-To"] = CONTACT_EMAIL
     msg["To"] = email
     msg.set_content(
         f"Your {COURSE} password reset code is:\n\n    {code}\n\n"

@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 from .book import PDF as LOCKED_PDF, locked, pdf_password
-from .course import SITE_URL, site_host
+from .course import CONTACT_EMAIL, SITE_URL, site_host
 from .paths import BOOK, ROOT, TEXTBOOK_SRC as TEX
 
 OUT = ROOT / "publication"
@@ -18,7 +18,7 @@ NAME = "Cybersecurity-Textbook-Mitali-Sharma"
 TITLE = "Cybersecurity"
 SUBTITLE = "A Foundations Textbook for AP Cybersecurity"
 AUTHOR = "Mitali Sharma"
-EMAIL = "mukumahnoor@gmail.com"
+EMAIL = CONTACT_EMAIL
 YEAR = "2026"
 TRIM_W, TRIM_H, BLEED = 7.0, 9.0, 0.2
 SPINE_PER_PAGE = 0.001968

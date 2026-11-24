@@ -6,8 +6,9 @@ from urllib.parse import quote
 
 import psycopg
 
+from address import CONTACT_EMAIL, SITE_URL as SITE
+
 COURSE = "Aayat-AP-Prep"
-SITE = "https://zeffiroh.github.io/ap-cybersecurity/"
 FOOT = ("\nYou get this email because you're a student on the course. "
         f"Turn these emails off on the Store page: {SITE}store.html\n")
 OK = "not exists (select 1 from accounts acc where acc.email = {col} and acc.no_email)"
@@ -17,6 +18,7 @@ def message(to, subject, body, foot=FOOT):
     msg = EmailMessage()
     msg["Subject"] = f"{COURSE}: {subject}"
     msg["From"] = f"{COURSE} <{os.environ.get('SMTP_USER', 'noreply@example.com')}>"
+    msg["Reply-To"] = CONTACT_EMAIL
     msg["To"] = to
     msg.set_content(body + foot)
     return msg

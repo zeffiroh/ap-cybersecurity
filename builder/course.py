@@ -8,6 +8,7 @@ BRAND = "Aayat-AP-Prep"
 SUBJECT = "Cybersecurity"
 SITE_URL = "https://zeffiroh.github.io/ap-cybersecurity/"
 SITE_TOKEN = "{{site}}"
+CONTACT_EMAIL = "aayatmahnoor@proton.me"
 
 
 def site_host():

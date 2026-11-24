@@ -106,8 +106,8 @@ window.APCYBER_STORES = {
 
 window.APCYBER_SUPPORT = {
   buttonId: "",
-  pageUrl: "https://zeffiroh.github.io/ap-cybersecurity/store.html",
-  contactEmail: "mukumahnoor@gmail.com",
+  pageUrl: "{{site}}store.html",
+  contactEmail: "aayatmahnoor@proton.me",
 
   rates: {
     course: "",

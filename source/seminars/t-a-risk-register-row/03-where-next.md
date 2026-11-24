@@ -2,6 +2,6 @@
 
 That was one step of **Seminar 10: Design, risk and audit**. The full seminar has the video, every step in three levels (walkthrough, practice and solo), a graded hand-in and a certificate.
 
-- [See the seminar](https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=11)
-- [Try the Hacker Room](https://zeffiroh.github.io/ap-cybersecurity/workstation.html?trial=1)
-- [All job paths](https://zeffiroh.github.io/ap-cybersecurity/careers.html)
+- [See the seminar]({{site}}seminars.html?id=11)
+- [Try the Hacker Room]({{site}}workstation.html?trial=1)
+- [All job paths]({{site}}careers.html)

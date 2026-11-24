@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from . import course as C
+from . import legal
 from . import nav as N
 from . import resources as RES
 from . import teacher
@@ -480,6 +481,7 @@ def store_page():
             'placeholder="e.g. LABS-ABCD-EFGH"></label><button class="btn dark" id="st-redeem">Redeem</button> '
             '<span id="st-msg" class="sx-note"></span></div>\n'
             '<h2 id="tickets-history">Your tickets</h2>\n<div id="st-history"><p class="sx-empty">Sign in to see your tickets.</p></div>\n'
+            + legal.store_note()
             + theme_assets(path.parent, [], ["store.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
@@ -655,6 +657,7 @@ def downloads_page():
 
 
 def run():
+    legal.run()
     course_map()
     progress_page()
     calendar()

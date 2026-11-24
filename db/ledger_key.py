@@ -5,9 +5,8 @@ from urllib.parse import quote
 
 import psycopg
 
+from address import SITE_URL as SITE
 from sql import url
-
-SITE = "https://zeffiroh.github.io/ap-cybersecurity/"
 
 
 def main():
