@@ -1,12 +1,13 @@
-NETWORK LAB 3: DNS, a web server and a fault, in Filius
+NETWORK LAB 3: DNS, a web server and a fault, in Network Starter
 
-Start from your lab 2 network (save a copy first).
+The lab 2 network is already built and working: both networks, the router and the gateways.
 
-Add to the back office:
+In the back office (already cabled to sw-back):
   web01   192.168.2.80   runs the Web server   (name: www.banyan.lan)
   dns01   192.168.2.53   runs the DNS server
+  Gateway 192.168.2.1 for both
 Every computer: DNS server = 192.168.2.53
 
 Troubleshooting order: cable and link > own address > gateway > DNS > the service itself.
 
-Filius is free and open source, made for school network lessons. Download it from https://www.lernsoftware-filius.de (Windows installer, or the .zip that runs anywhere with Java). Start it and pick English.
+Where: this lab runs in the Hacker Room's Network Starter, with its starting network and goals. Nothing to install. In the Hacker Room open Start, Workplace, Network lab and pick this lab, or open netbuilder.json from Files.

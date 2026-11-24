@@ -1,8 +1,19 @@
 ## 1. Add the servers
 
-Add **files01** to a staff port, and **web-out** on the router's **G0/1** (`ip address 203.0.113.1 255.255.255.0` and `no shutdown` on G0/1). On web-out, check **Services → HTTP** is on. From guest-1, open web-out in **Desktop → Web Browser** and ping files01: both work for now.
+Two servers are waiting below the switch. Cable **files01** to **Fa0/3** (a staff port) with **Copper Straight-Through** and give it 192.168.10.10, gateway 192.168.10.1. Set the **Cable** list back to **Automatic** and cable **web-out** to the router: it takes the router's first free port, **G0/1**. Give web-out 203.0.113.10, gateway 203.0.113.1; its **Web server** is already ticked. On the router CLI:
 
-- [ ] files01 and web-out added
+```
+enable
+configure terminal
+interface g0/1
+ ip address 203.0.113.1 255.255.255.0
+ no shutdown
+end
+```
+
+From guest-1's Command Prompt, type `curl 203.0.113.10` (it fetches web-out's home page) and `ping 192.168.10.10`: both work for now.
+
+- [ ] files01 and web-out cabled and addressed
 - [ ] Router G0/1 up
 - [ ] Before the ACL: guest-1 reaches both
 

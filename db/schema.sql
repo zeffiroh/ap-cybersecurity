@@ -700,7 +700,7 @@ begin
   end if;
   insert into engine_sessions (id, session_type, name, email, unit, topic_id, data)
   values (v_id,
-          case when p->>'session_type' = 'hw' then 'hw' else 'adaptive' end,
+          case when p->>'session_type' in ('hw', 'practice') then p->>'session_type' else 'adaptive' end,
           _clean(coalesce(p->>'student_name', p->>'name'), 120),
           lower(trim(_clean(coalesce(p->>'student_email', p->>'email'), 254))),
           _clean(p->>'unit', 10),

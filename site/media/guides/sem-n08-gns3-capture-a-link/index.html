@@ -7,52 +7,53 @@
 <script src="../../../assets/shared/identity.js"></script>
 <script src="../../../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Network lab 8: Capture a link in Wireshark (GNS3) written tutorial &middot; Aayat-AP-Prep</title>
+<title>Network lab 8: Capture a link (Network Emulator) written tutorial &middot; Aayat-AP-Prep</title>
 <style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
 </head>
 <body><main><p class="kick">Network lab · written tutorial</p>
-<h1>Network lab 8: Capture a link in Wireshark (GNS3)</h1>
+<h1>Network lab 8: Capture a link (Network Emulator)</h1>
 <p class="meta">Intermediate &middot; about 40 min</p>
-<p>Build a tiny network in GNS3 with its built-in computers and switch, start a capture on a link, and read ARP and ICMP packets in Wireshark.</p>
+<p>Build a tiny network in Network Emulator with its virtual PCs and switch, start a capture on a link, and read ARP and ICMP packets layer by layer.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-n08-gns3-capture-a-link&amp;runbook=sem-n08-gns3-capture-a-link">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-n08-gns3-capture-a-link--guided&amp;runbook=sem-n08-gns3-capture-a-link--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-n08-gns3-capture-a-link--solo&amp;runbook=sem-n08-gns3-capture-a-link--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>README.txt</code>.</p>
-<h2>1. Install GNS3 and place three nodes</h2>
-<p>GNS3 is free and open source. Download it from https://www.gns3.com (a free account is needed), and install Wireshark when the installer offers it. This lab uses only the built-in VPCS computers and the built-in Ethernet switch, so you don't need any router images or the GNS3 VM.</p>
-<p>Start a new project. From <strong>End devices</strong>, drag two <strong>VPCS</strong> nodes; from <strong>Switches</strong>, drag one <strong>Ethernet switch</strong>. Use <strong>Add a link</strong> to join each VPCS to the switch. Press the green <strong>Start</strong> button.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>netbuilder.json</code>, <code>README.txt</code>.</p>
+<h2>1. Open Network Emulator, start and link three nodes</h2>
+<p>Lab 8 uses <strong>Network Emulator</strong>: nodes that start and stop like real virtual machines, and a capture on any link. Nothing to install: in the Hacker Room open <strong>Start → Workplace → Network lab</strong> and pick lab 8. Two <strong>VPCS</strong> computers and an <strong>Ethernet switch</strong> are on the canvas, stopped (red).</p>
+<p>Press <strong>Start all</strong>. Then press <strong>Add a link</strong>, click PC1, then SW1, pick the ports and press <strong>Connect</strong>. Do the same for PC2. Both ends of each link turn green.</p>
 <ul>
-<li>&#9744; GNS3 and Wireshark installed</li>
-<li>&#9744; Two VPCS and one Ethernet switch, linked</li>
-<li>&#9744; All nodes started (green)</li>
+<li>&#9744; Network Emulator open with PC1, PC2 and SW1</li>
+<li>&#9744; All three nodes started (green in the Topology summary)</li>
+<li>&#9744; PC1 and PC2 linked to SW1</li>
 </ul>
 <blockquote>
-<p>Hint: If GNS3 asks to run nodes on the GNS3 VM, choose to run them on your local computer for this lab.</p>
+<p>Hint: A stopped node has no console and its link ends stay red. Right-click a node to start or stop just that one.</p>
 </blockquote>
-<p><strong>Question:</strong> What are GNS3's built-in simple computers called? (four letters)</p>
+<p><strong>Question:</strong> What are Network Emulator's simple built-in computers called? (four letters)</p>
 <h2>2. Give the computers addresses</h2>
-<p>Right-click PC1 → <strong>Console</strong>, and type <code>ip 10.0.0.1/24 10.0.0.254</code>. On PC2: <code>ip 10.0.0.2/24 10.0.0.254</code>. Check with <code>show ip</code>.</p>
+<p>Double-click PC1 (or right-click it → <strong>Console</strong>), and type <code>ip 10.0.0.1/24 10.0.0.254</code>. On PC2: <code>ip 10.0.0.2/24 10.0.0.254</code>. Check each with <code>show ip</code>. Each console gets its own tab in <strong>Consoles</strong>.</p>
 <ul>
 <li>&#9744; PC1 and PC2 addressed</li>
-<li>&#9744; show ip checked on both</li>
+<li>&#9744; show ip checked on both, and PC2's MAC noted</li>
 </ul>
 <blockquote>
 <p>Hint: The VPCS <code>ip</code> command takes the address with its prefix length, then the gateway.</p>
 </blockquote>
 <p><strong>Question:</strong> Which VPCS command shows a computer's address?</p>
 <h2>3. Capture and read the packets</h2>
-<p>Right-click the link between PC1 and SW1 → <strong>Start capture</strong>. Wireshark opens. On PC1, type <code>ping 10.0.0.2</code>. In Wireshark, type the display filter <code>arp || icmp</code> and read the list from the top: an <strong>ARP</strong> request (who has 10.0.0.2?), an ARP reply, then ICMP <strong>Echo (ping) request</strong> and <strong>reply</strong> pairs. Click one echo request and open <strong>Internet Control Message Protocol</strong> in the details pane to see its type.</p>
+<p>Right-click the link between PC1 and SW1 → <strong>Start capture</strong>. In PC1's console, type <code>ping 10.0.0.2</code>. Open the <strong>Capture</strong> tab, type <code>arp</code> in the <strong>Display filter</strong> box and press Enter: an <strong>ARP</strong> request (who has 10.0.0.2?) and its reply. Click the request and read its Ethernet destination. Then filter <code>icmp</code>: five <strong>Echo (ping) request</strong> and <strong>reply</strong> pairs. Click a request and read <strong>Internet Control Message Protocol</strong> in the details to see its type; click a reply and read its <strong>Time to live</strong>.</p>
 <ul>
 <li>&#9744; Capture running on the PC1 link</li>
-<li>&#9744; arp || icmp filter applied</li>
-<li>&#9744; ARP pair and echo request/reply pairs found</li>
-<li>&#9744; ICMP type read in the details pane</li>
+<li>&#9744; arp filter: the request and reply found</li>
+<li>&#9744; icmp filter: echo request and reply pairs found</li>
+<li>&#9744; ICMP type and TTL read in the details</li>
 </ul>
 <blockquote>
 <p>Hint: Echo request is ICMP type 8, echo reply is type 0.</p>
 </blockquote>
 <p><strong>Question:</strong> Which ICMP type number is an echo request?
-<strong>Question:</strong> Which protocol asks "who has 10.0.0.2" first? (three letters)</p>
+<strong>Question:</strong> Which protocol asks "who has 10.0.0.2" first? (three letters)
+<strong>Question:</strong> What Time to live does PC2's echo reply carry?</p>
 <h2>4. Where next</h2>
-<p>You captured real packets on a link you built, the same skill the packet labs and Seminar 1 use on recorded evidence.</p>
+<p>You captured packets on a link you built, the same skill the packet labs and Seminar 1 use on recorded evidence.</p>
 <ul>
 <li><a href="https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=2">Seminar 1: Reading evidence</a></li>
 <li><a href="https://zeffiroh.github.io/ap-cybersecurity/labs.html">All network labs</a></li>

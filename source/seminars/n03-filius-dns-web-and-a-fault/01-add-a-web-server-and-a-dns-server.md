@@ -1,13 +1,13 @@
-## 1. Add a web server and a DNS server
+## 1. Set up a web server and a DNS server
 
-Open your lab 2 network and save it under a new name. Add two computers to the back-office switch: **web01** (192.168.2.80) and **dns01** (192.168.2.53), gateway 192.168.2.1.
+Your lab 2 network is already built, and two servers are cabled to the back-office switch. In **Design** mode, click **web01** and give it 192.168.2.80 with gateway 192.168.2.1, then **dns01**: 192.168.2.53, gateway 192.168.2.1.
 
-In simulation mode, install **Web server** on web01 and start it. Install **DNS server** on dns01, add a record **www.banyan.lan → 192.168.2.80** (type A), and start it.
+Press **Simulation**. Click web01, open **Web server** on its desktop and press **Start**. Click dns01, open **DNS server**, add the record **www.banyan.lan → 192.168.2.80** and press **Add**, then **Start**.
 
-- [ ] web01 and dns01 added with gateways
+- [ ] web01 and dns01 addressed with gateways
 - [ ] Web server running on web01
-- [ ] DNS record www.banyan.lan → 192.168.2.80
+- [ ] DNS record www.banyan.lan → 192.168.2.80, DNS server running
 
-> Hint: A DNS "A record" maps a name to an IPv4 address.
+> Hint: A record that maps a name to an IPv4 address is called an "A record".
 
 ?> Which protocol turns www.banyan.lan into an address? (three letters) :: dns

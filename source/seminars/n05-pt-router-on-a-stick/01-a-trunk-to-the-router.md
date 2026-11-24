@@ -1,6 +1,6 @@
 ## 1. A trunk to the router
 
-Open your lab 4 file and save a copy. Add a **1941** (or 2911) router and cable switch **Gi0/1** to router **G0/0**. On the switch CLI:
+Lab 4's office is already built, and a **1941** router is waiting below the switch. With **Copper Straight-Through** chosen, press **Connect**, click sw1, then the router, and pick switch **Gi0/1** and router **G0/0**. On the switch CLI:
 
 ```
 enable
@@ -13,9 +13,9 @@ show interfaces trunk
 
 A trunk carries many VLANs on one cable by tagging each frame with its VLAN number (802.1Q).
 
-- [ ] Router added and cabled to Gi0/1
+- [ ] Router cabled to Gi0/1
 - [ ] Gi0/1 is a trunk
-- [ ] show interfaces trunk lists VLANs 10 and 20
+- [ ] show interfaces trunk shows Gi0/1 trunking
 
 > Hint: An access port carries one VLAN untagged. A trunk carries several, tagged.
 

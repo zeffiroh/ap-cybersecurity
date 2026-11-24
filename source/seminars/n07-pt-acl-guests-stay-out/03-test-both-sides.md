@@ -1,13 +1,13 @@
 ## 3. Test both sides
 
-From guest-1: open web-out in the browser (allowed) and ping files01 (blocked). From staff-1: ping files01 and open web-out (both still fine). Run `show access-lists` again: the counters show which rule matched each test.
+From guest-1: `curl 203.0.113.10` (allowed) and `ping 192.168.10.10` (blocked: **Destination net unreachable** from the router). From staff-1: `ping 192.168.10.10` and `curl 203.0.113.10` (both still fine). Then try `ping 203.0.113.10` from guest-1: blocked too, because the policy allows the web, not ping.
 
 - [ ] Guest to web works
 - [ ] Guest to files01 blocked
 - [ ] Staff unaffected
-- [ ] Match counters read
+- [ ] Guest ping to web-out blocked, and you can say which line did it
 
-> Hint: Every allow-list ends with an invisible "deny any". Writing it yourself makes the counters show what was dropped.
+> Hint: Every allow-list ends with an invisible "deny any". Writing it yourself makes the policy plain to whoever reads it next.
 
 ?> After the ACL, can guest-1 still open the web server? (yes or no) :: yes
 

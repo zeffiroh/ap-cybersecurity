@@ -69,14 +69,16 @@ TITLES = {"siem": "SIEM search", "logsearch": "Log search tool", "packets": "Pac
           "identity": "Identity and access", "mailauth": "SPF, DKIM and DMARC", "soar": "SOAR playbook", "parse": "Log parser",
           "cloudiam": "Cloud IAM simulator", "codescan": "Code and config scanner", "jwt": "JWT inspector", "regex": "Regex tester",
           "crack": "Password cracking lab", "risk": "Risk register", "threatmodel": "Threat model", "compliance": "Compliance gap check",
-          "certin": "CERT-In filing and inbox", "aisec": "AI security simulator"}
+          "certin": "CERT-In filing and inbox", "aisec": "AI security simulator",
+          "netstarter": "Network Starter", "netsim": "Network Simulator", "netemu": "Network Emulator"}
 
 TOOL_FILES = ["tool-logsearch.js", "tool-siem.js", "tool-packets.js", "tool-proxy.js", "tool-events.js",
               "tool-yara.js", "tool-sigma.js", "tool-sql.js", "tool-alerts.js", "tool-hunt.js", "tool-ioc.js", "tool-email.js",
               "tool-timeline.js", "tool-proctree.js", "tool-hex.js", "tool-tabletop.js", "tool-report.js",
               "tool-firewall.js", "tool-ids.js", "tool-harden.js", "tool-patch.js", "tool-identity.js", "tool-mailauth.js", "tool-soar.js", "tool-parse.js",
               "tool-cloudiam.js", "tool-codescan.js", "tool-jwt.js", "tool-regex.js", "tool-crack.js", "tool-risk.js", "tool-threatmodel.js", "tool-compliance.js",
-              "tool-certin.js", "tool-aisec.js"]
+              "tool-certin.js", "tool-aisec.js", "netkit.js", "tool-netstarter.js", "tool-netsim.js", "tool-netemu.js"]
+KITS = {"netkit.js"}
 
 
 def printable(text):

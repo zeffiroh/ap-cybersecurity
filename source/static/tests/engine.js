@@ -7,6 +7,7 @@
   var GATE_THETA = 0.5;
   var MASTERY_LOGIT = 0.55;
   var STEP = 0.35;
+  var PRACTICE = { max: 10, min: 6, se: 0.5 };
   var STORE_KEY = "apcyber_engine_sessions_v1";
   var LOCAL_KEEP = 50;
 
@@ -32,9 +33,9 @@
 
   function info(theta, a, b, c) {
     var p = prob(theta, a, b, c);
-    var d = p * (1 - p);
-    if (d < 1e-9) return 0;
-    return (a * a) * (p - c) * (p - c) / ((1 - c) * (1 - c) * d);
+    if (p < 1e-9) return 0;
+    var r = (p - c) / (1 - c);
+    return a * a * r * r * (1 - p) / p;
   }
 
   function stepTheta(theta, correct, a, b, c) {
@@ -89,14 +90,41 @@
     return cache[path];
   }
 
-  function bank(unit) {
-    return getJson(unit + ".json").then(function (d) {
+  function bank(name) {
+    return getJson(name + ".json").then(function (d) {
       if (!d.byId) {
         d.byId = {};
         d.items.forEach(function (it) { d.byId[it.id] = it; });
       }
       return d;
     });
+  }
+
+  function bankOf(session) {
+    return bank(session.topic ? "topic/" + session.topic : session.unit);
+  }
+
+  function isPractice(session) { return session.session_type === "practice"; }
+
+  function limits(session) {
+    return isPractice(session) ? PRACTICE : { max: MAX_ITEMS, min: MIN_ITEMS, se: SE_STOP };
+  }
+
+  function skillName(d, sk) {
+    return (d && d.skills && d.skills[sk]) || (SKILL_META[sk] || {}).name || sk;
+  }
+
+  function history(topic, email) {
+    var store = loadStore(), mine = Object.keys(store).map(function (k) { return store[k]; }).filter(function (s) {
+      var who = (s.student_email || "").toLowerCase();
+      return s.session_type === "practice" && (!email || !who || who === email.toLowerCase());
+    }).sort(function (a, b) { return (a.timestamp || "") < (b.timestamp || "") ? -1 : 1; });
+    var prior = {}, seen = {};
+    mine.forEach(function (s) {
+      Object.keys(s.theta_estimates || {}).forEach(function (sk) { prior[sk] = s.theta_estimates[sk]; });
+      if (s.topic === topic) (s.responses || []).forEach(function (r) { seen[r.question_id] = !!r.correct; });
+    });
+    return { prior: prior, seen: seen, sessions: mine.filter(function (s) { return s.topic === topic; }).length };
   }
 
   function loadStore() {
@@ -130,8 +158,20 @@
   function now() { return Date.now() / 1000; }
 
   function finished(session) {
-    var n = session.administered.length;
-    return n >= MAX_ITEMS || (n >= MIN_ITEMS && session.overall.se < SE_STOP);
+    var n = session.administered.length, L = limits(session);
+    return n >= L.max || (n >= L.min && session.overall.se < L.se);
+  }
+
+  function weakest(items, session) {
+    var count = {}, th = session.theta_estimates || {};
+    session.administered.forEach(function (id) { var it = items.byId[id]; if (it) count[it.skill] = (count[it.skill] || 0) + 1; });
+    var skills = [];
+    items.forEach(function (it) { if (skills.indexOf(it.skill) < 0) skills.push(it.skill); });
+    skills.sort(function (a, b) {
+      var ka = (th[a] || 0) + 0.15 * (count[a] || 0), kb = (th[b] || 0) + 0.15 * (count[b] || 0);
+      return ka - kb || (a < b ? -1 : 1);
+    });
+    return skills[0];
   }
 
   function selectNext(items, session) {
@@ -143,6 +183,15 @@
     if (!pool.length) pool = items.filter(function (it) { return !given[it.id]; });
     if (!pool.length) return null;
     var th = session.overall.theta, best = null, bestScore = -1;
+    if (isPractice(session)) {
+      var target = weakest(items, session), seen = session.seen || {}, ths = session.theta_estimates || {};
+      pool.forEach(function (it) {
+        var fresh = !(it.id in seen) ? 1 : seen[it.id] ? 0 : 0.6;
+        var s = info(ths[it.skill] || 0, it.a, it.b, it.c) + (it.skill === target ? 1 : 0) + fresh + Math.random() * 0.03;
+        if (s > bestScore) { bestScore = s; best = it; }
+      });
+      return best;
+    }
     pool.forEach(function (it) {
       var s = info(th, it.a, it.b, it.c) + Math.random() * 0.03;
       if (s > bestScore) { bestScore = s; best = it; }
@@ -151,9 +200,10 @@
   }
 
   function start(student) {
+    var practice = !!student.topic, h = practice ? history(student.topic, student.student_email) : null;
     var session = {
-      id: newId(),
-      session_type: "adaptive",
+      id: newId(practice ? "P-" : ""),
+      session_type: practice ? "practice" : "adaptive",
       student_name: student.student_name || "Anonymous",
       student_id: student.student_id || "",
       student_email: student.student_email || "",
@@ -169,13 +219,33 @@
       timestamp: new Date().toISOString(),
       done: false
     };
+    if (practice) {
+      session.topic = student.topic;
+      session.topic_id = student.topic;
+      session.theta_estimates = Object.assign({}, h.prior);
+      session.prior = Object.assign({}, h.prior);
+      session.seen = h.seen;
+      session.attempt = h.sessions + 1;
+    }
     save(session);
     return session;
   }
 
+  function prepare(session) {
+    if (!isPractice(session)) return bankOf(session);
+    return bankOf(session).then(function (d) {
+      var keep = {};
+      d.items.forEach(function (it) { keep[it.skill] = true; });
+      Object.keys(session.theta_estimates).forEach(function (sk) { if (!keep[sk]) delete session.theta_estimates[sk]; });
+      Object.keys(session.prior || {}).forEach(function (sk) { if (!keep[sk]) delete session.prior[sk]; });
+      return d;
+    });
+  }
+
   function next(session, skip) {
     if (session.done) return Promise.resolve({ done: true });
-    return bank(session.unit).then(function (d) {
+    return prepare(session).then(function (d) {
+      d.items.byId = d.byId;
       var cur = session.current_qid;
       if (skip && cur && session.administered.indexOf(cur) === -1) {
         session.skipped = (session.skipped || []).filter(function (q) { return q !== cur; }).concat([cur]);
@@ -204,9 +274,11 @@
       stem: it.stem,
       choices: it.choices,
       primary_skill: it.skill,
+      skill_name: skillName(d, it.skill),
       topic_refs: it.topic_refs,
       est_time: it.est_time,
       item_number: session.administered.length + 1,
+      max_items: limits(session).max,
       theta_estimates: session.theta_estimates,
       overall: session.overall
     };
@@ -220,7 +292,7 @@
   }
 
   function respond(session, qid, answer, timeTaken) {
-    return bank(session.unit).then(function (d) {
+    return bankOf(session).then(function (d) {
       var it = d.byId[qid];
       if (!it || session.done || qid !== session.current_qid || session.administered.indexOf(qid) !== -1) {
         throw new Error("That is not the current question.");
@@ -236,6 +308,10 @@
           stepTheta(old, correct, it.a * 0.7, it.b, it.c) * it.sec_weight;
       }
 
+      if (isPractice(session)) {
+        session.skill_names = session.skill_names || {};
+        session.skill_names[it.skill] = skillName(d, it.skill);
+      }
       session.administered.push(qid);
       session.skipped = (session.skipped || []).filter(function (q) { return q !== qid; });
       session.responses.push({
@@ -285,25 +361,27 @@
   }
 
   function report(session) {
-    return bank(session.unit).then(function (d) {
+    return bankOf(session).then(function (d) {
       var resp = session.responses || [];
       var n = resp.length;
       var correct = resp.filter(function (r) { return r.correct; }).length;
       var elapsed = (session.end_time || now()) - session.start_time;
+      var practice = isPractice(session), prior = session.prior || {};
 
       var skills = {};
       Object.keys(session.theta_estimates || {}).forEach(function (sk) {
         var theta = session.theta_estimates[sk];
-        var meta = SKILL_META[sk] || { name: sk, color: "#94a3b8" };
+        var meta = SKILL_META[sk] || { color: "#94a3b8" };
         var mine = resp.filter(function (r) { return r.primary_skill === sk; });
         var lv = thetaToLevel(theta);
         skills[sk] = {
-          skill: sk, name: meta.name, color: meta.color,
+          skill: sk, name: skillName(d, sk), color: meta.color,
           theta: round(theta, 3), pct: thetaToPct(theta),
           level: lv[0], level_color: lv[1],
           mastered: theta >= MASTERY_LOGIT && mine.length >= 2,
           n_items: mine.length,
-          n_correct: mine.filter(function (r) { return r.correct; }).length
+          n_correct: mine.filter(function (r) { return r.correct; }).length,
+          before: sk in prior ? round(prior[sk], 3) : null
         };
       });
       var list = Object.keys(skills).map(function (k) { return skills[k]; });
@@ -342,6 +420,22 @@
 
       var overall = overallSummary(session);
       var recs = [];
+      if (practice) {
+        var open = list.filter(function (s) { return !s.mastered; }).sort(function (a, b) { return a.theta - b.theta; });
+        if (!list.length) recs.push("No answers yet.");
+        else if (!open.length) recs.push("Every skill in this topic is mastered. Try the unit test, or practise another topic.");
+        else recs.push("Practise again: the next round starts with **" + open[0].name + "**, and questions you got wrong come back.");
+        return {
+          session_id: session.id, session_type: "practice", topic: session.topic, topic_title: (d.topic || {}).title || "",
+          attempt: session.attempt || 1, student_name: session.student_name, student_id: session.student_id || "",
+          student_email: session.student_email || "", unit: session.unit, done: !!session.done, overall: overall,
+          summary: { total: n, correct: correct, accuracy_pct: n ? round(correct / n * 100, 1) : 0, elapsed_sec: Math.floor(elapsed),
+                     elapsed_fmt: fmtTime(elapsed), avg_sec: n ? round(elapsed / n, 1) : 0 },
+          skill_profile: skills, mastered_all: list.length > 0 && !open.length,
+          strengths: list.filter(function (s) { return s.mastered; }).map(function (s) { return s.name; }),
+          gaps: open.map(function (s) { return s.name; }), items: items, recommendations: recs
+        };
+      }
       if (session.done) {
         recs.push(overall.meets_gate
           ? "Meets the unit gate: overall θ = " + overall.theta.toFixed(2) + " (" + overall.level + ")."
@@ -408,7 +502,7 @@
       var n = (s.responses || []).filter(function (r) { return r.primary_skill === sk; }).length;
       out[sk] = {
         theta: theta,
-        name: (SKILL_META[sk] || {}).name || sk,
+        name: (s.skill_names || {})[sk] || (SKILL_META[sk] || {}).name || sk,
         level: thetaToLevel(theta)[0],
         mastered: theta >= MASTERY_LOGIT && n >= 2
       };
@@ -461,8 +555,11 @@
 
   global.Engine = {
     MAX_ITEMS: MAX_ITEMS,
+    PRACTICE: PRACTICE,
     SKILL_META: SKILL_META,
     units: function () { return getJson("units.json"); },
+    topics: function () { return getJson("topic/index.json"); },
+    limits: limits,
     hwIndex: function () { return getJson("hw/index.json"); },
     hwTopic: function (tid) { return getJson("hw/" + encodeURIComponent(tid) + ".json"); },
     start: start,

@@ -1,4 +1,4 @@
-# Lecture script: Network lab 4: VLANs for staff and guests (Packet Tracer)
+# Lecture script: Network lab 4: VLANs for staff and guests (Network Simulator)
 
 Network lab · about 45 minutes of lab work · about 5 minutes of narration
 
@@ -8,21 +8,21 @@ This is what `python tools/teach.py demo n04-pt-vlans-staff-and-guest` plays and
 
 ## Opening
 
-Welcome to network lab four, and to Cisco Packet Tracer. Packet Tracer is Cisco's own teaching simulator, so the commands you type are the real ones from the operating system on Cisco switches and routers. The scene moves to Tulsi Travels, a travel agent with one twenty-four port switch in its front office. Staff computers and the customers waiting on the sofa all plug into that same switch, and they must not share a network. We'll split the switch into two VLANs, staff and guest, with the same commands you'd type on a real switch, and then prove a visitor can't reach staff, even by guessing an address.
+Welcome to network lab four, and to Network Simulator. From here on, the commands you type are the real ones from the operating system on Cisco switches and routers, the ones you'd type at work. The scene moves to Tulsi Travels, a travel agent with one twenty-four port switch in its front office. Staff computers and the customers waiting on the sofa all plug into that same switch, and they must not share a network. We'll split the switch into two VLANs, staff and guest, with real switch commands, and then prove a visitor can't reach staff, even by guessing an address.
 
-## 1. Install Packet Tracer and build the office
+## 1. Open Network Simulator and cable the office
 
-Step one: install Packet Tracer and build the office. Packet Tracer is free, but you need a Cisco Networking Academy account. Sign up at netacad.com, enrol in the free course Getting Started with Cisco Packet Tracer, and download it from the course page. Then place one 2960 switch and four PCs, and cable them with Copper Straight-Through to the ports in README.txt: staff-1 and staff-2 on Fa0/1 and Fa0/2, guest-1 and guest-2 on Fa0/13 and Fa0/14. On each PC, open Desktop, then IP Configuration, and type its address with netmask 255.255.255.0.
+Step one: open Network Simulator and cable the office. In the Hacker Room, open Start, Workplace, Network lab, and pick lab four. The 2960 switch and four PCs are already there. In the Cable list, choose Copper Straight-Through, so you choose the ports yourself. Press Connect, click a PC, then the switch, pick its port from README.txt and press Connect: staff-1 and staff-2 on Fa0/1 and Fa0/2, guest-1 and guest-2 on Fa0/13 and Fa0/14. Then click each PC and type its address, with subnet mask 255.255.255.0.
 
 *After it runs:*
 
-Watch the link lights. They start amber and turn green after a few seconds, while the switch checks the new link. Wait for green before you test anything. Fa0/1 means FastEthernet, slot 0, port 1, and you'll type names like that all through these labs. Straight-through is the normal cable between a computer and a switch, so that's the answer.
+Watch the link lights. Each new switch link starts amber and turns green after a few seconds, while the switch checks it. Wait for green before you test anything. Fa0/1 means FastEthernet, slot 0, port 1, and you'll type names like that all through these labs. Straight-through is the normal cable between a computer and a switch, so that's the answer. If you pick Cross-Over by mistake, the light stays red: wrong cable, no link.
 
 On screen: the step text.
 
 ## 2. Make the VLANs
 
-Step two: make the VLANs. Click the switch and open the CLI tab. Type enable, then configure terminal. Create VLAN 10 and name it STAFF, then VLAN 20 and name it GUEST. Then use interface range to make ports 1 to 12 access ports in VLAN 10, and ports 13 to 20 access ports in VLAN 20. Type end, then show vlan brief.
+Step two: make the VLANs. Double-click the switch to open its CLI. Type enable, then configure terminal. Create VLAN 10 and name it STAFF, then VLAN 20 and name it GUEST. Then use interface range to make ports 1 to 12 access ports in VLAN 10, and ports 13 to 20 access ports in VLAN 20. Type end, then show vlan brief.
 
 *After it runs:*
 
@@ -32,7 +32,7 @@ On screen: the step text.
 
 ## 3. Prove the separation
 
-Step three: prove the separation. On staff-1, open Command Prompt. Ping staff-2 at 192.168.10.12, then guest-1 at 192.168.20.31. Then the real test. Change guest-1's address to 192.168.10.99, as if a visitor guessed the staff range and typed it in, and from guest-1, ping staff-1.
+Step three: prove the separation. Double-click staff-1 to open its Command Prompt. Ping staff-2 at 192.168.10.12, then guest-1 at 192.168.20.31. Then the real test. Click guest-1 and change its address to 192.168.10.99, as if a visitor guessed the staff range and typed it in, and from guest-1's Command Prompt, ping staff-1.
 
 *After it runs:*
 
@@ -54,9 +54,9 @@ Remember three things from today. A VLAN splits one switch into separate network
 
 ```
 0:00 Opening
-0:54 1. Install Packet Tracer and build the office
-1:54 2. Make the VLANs
-3:08 3. Prove the separation
-4:22 4. Where next
-4:35 Wrap-up
+0:51 1. Open Network Simulator and cable the office
+1:56 2. Make the VLANs
+3:09 3. Prove the separation
+4:26 4. Where next
+4:39 Wrap-up
 ```

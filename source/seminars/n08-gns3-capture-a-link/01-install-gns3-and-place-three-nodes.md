@@ -1,13 +1,13 @@
-## 1. Install GNS3 and place three nodes
+## 1. Open Network Emulator, start and link three nodes
 
-GNS3 is free and open source. Download it from https://www.gns3.com (a free account is needed), and install Wireshark when the installer offers it. This lab uses only the built-in VPCS computers and the built-in Ethernet switch, so you don't need any router images or the GNS3 VM.
+Lab 8 uses **Network Emulator**: nodes that start and stop like real virtual machines, and a capture on any link. Nothing to install: in the Hacker Room open **Start → Workplace → Network lab** and pick lab 8. Two **VPCS** computers and an **Ethernet switch** are on the canvas, stopped (red).
 
-Start a new project. From **End devices**, drag two **VPCS** nodes; from **Switches**, drag one **Ethernet switch**. Use **Add a link** to join each VPCS to the switch. Press the green **Start** button.
+Press **Start all**. Then press **Add a link**, click PC1, then SW1, pick the ports and press **Connect**. Do the same for PC2. Both ends of each link turn green.
 
-- [ ] GNS3 and Wireshark installed
-- [ ] Two VPCS and one Ethernet switch, linked
-- [ ] All nodes started (green)
+- [ ] Network Emulator open with PC1, PC2 and SW1
+- [ ] All three nodes started (green in the Topology summary)
+- [ ] PC1 and PC2 linked to SW1
 
-> Hint: If GNS3 asks to run nodes on the GNS3 VM, choose to run them on your local computer for this lab.
+> Hint: A stopped node has no console and its link ends stay red. Right-click a node to start or stop just that one.
 
-?> What are GNS3's built-in simple computers called? (four letters) :: vpcs
+?> What are Network Emulator's simple built-in computers called? (four letters) :: vpcs

@@ -44,7 +44,7 @@
       var hw = um.hw == null ? "CW/HW: none taken" : "CW/HW: " + um.hw + "% average over " + um.hwTaken + " quiz" +
         (um.hwTaken === 1 ? "" : "zes");
       h.push('<p class="aa-sub">' + test + " &middot; " + '<a href="' + R + 'tests/hw/index.html">' + hw + "</a></p>");
-      h.push('<table class="aa-prog"><tr><th>Topic</th><th>Skills</th><th>Mastery</th><th>Topic quiz</th><th>Opened</th></tr>');
+      h.push('<table class="aa-prog"><tr><th>Topic</th><th>Skills</th><th>Mastery</th><th>Topic quiz</th><th>Practice</th><th>Opened</th></tr>');
       u.topics.forEach(function (tid) {
         var t = M.topics[tid], tm = ms.topics[tid];
         var squares = t.atoms.map(function (aid) {
@@ -56,6 +56,7 @@
         h.push('<tr><td><span class="aa-id">' + tid + '</span><a href="' + R + t.href + '">' + esc(t.title) + "</a></td>" +
           '<td class="aa-squares">' + squares + "</td><td>" + bar(tm.pct) + " " + tm.pct + "%</td>" +
           "<td>" + (tm.quiz == null ? "&ndash;" : tm.quiz + "%") + "</td>" +
+          '<td><a href="' + R + 'tests/index.html?topic=' + encodeURIComponent(tid) + '">Practise</a></td>' +
           "<td>" + opened + " / " + kinds.length + "</td></tr>");
       });
       h.push("</table>");

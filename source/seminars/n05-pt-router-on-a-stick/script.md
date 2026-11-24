@@ -1,4 +1,4 @@
-# Lecture script: Network lab 5: Routing between VLANs (Packet Tracer)
+# Lecture script: Network lab 5: Router on a stick (Network Simulator)
 
 Network lab · about 50 minutes of lab work · about 5 minutes of narration
 
@@ -8,35 +8,35 @@ This is what `python tools/teach.py demo n05-pt-router-on-a-stick` plays and cap
 
 ## Opening
 
-Welcome to network lab five. In lab four we kept staff and guests apart. But guests at Tulsi Travels still want the internet, and one day staff might need a shared printer. So the VLANs have to meet somewhere we control: a router. The classic way to do that with one router and one cable has a funny name, router on a stick. Today we build it: one trunk, two subinterfaces, two gateways. Open your lab four file and save a copy first.
+Welcome to network lab five. In lab four we kept staff and guests apart. But guests at Tulsi Travels still want the internet, and one day staff might need a shared printer. So the VLANs have to meet somewhere we control: a router. The classic way to do that with one router and one cable has a funny name, router on a stick. Today we build it: one trunk, two subinterfaces, two gateways. Lab four's office is already built for you, with a router waiting to be cabled.
 
 ## 1. A trunk to the router
 
-Step one: a trunk to the router. Add a 1941 router, or a 2911 if your version has no 1941, and cable switch port Gi0/1 to router port G0/0. On the switch, go into interface gi0/1 and type switchport mode trunk. Then end, and show interfaces trunk.
+Step one: a trunk to the router. A 1941 router is waiting below the switch. With Copper Straight-Through chosen, press Connect, click the switch, then the router, and pick switch port Gi0/1 and router port G0/0. On the switch, go into interface gi0/1 and type switchport mode trunk. Then end, and show interfaces trunk.
 
 *After it runs:*
 
-show interfaces trunk lists Gi0/1 in trunking mode, and further down, the VLANs active on it, including 10 and 20. Here's what a trunk does. An access port carries one VLAN and sends its frames plain. A trunk carries many VLANs over one cable, and to keep them apart it adds a small tag to each frame, four bytes that say which VLAN the frame belongs to. The standard is called 802.1Q, usually written dot1Q. Without that tag, the router couldn't tell a staff frame from a guest frame. Trunks are also a favourite target. A port left to agree a trunk on its own can let an attacker's laptop pretend to be a switch and see every VLAN. That's why we set the mode by hand here, and why the staff and guest ports were set to access mode in lab four. The mode that carries both VLANs is trunk.
+show interfaces trunk lists Gi0/1, mode on, encapsulation 802.1q, status trunking, and further down the VLANs allowed on it: 1 to 4094, which includes 10 and 20. Here's what a trunk does. An access port carries one VLAN and sends its frames plain. A trunk carries many VLANs over one cable, and to keep them apart it adds a small tag to each frame, four bytes that say which VLAN the frame belongs to. The standard is called 802.1Q, usually written dot1Q. Without that tag, the router couldn't tell a staff frame from a guest frame. Trunks are also a favourite target. A port left to agree a trunk on its own can let an attacker's laptop pretend to be a switch and see every VLAN. That's why we set the mode by hand here, and why the staff and guest ports were set to access mode in lab four. The mode that carries both VLANs is trunk.
 
 On screen: the step text.
 
 ## 2. A gateway per VLAN
 
-Step two: a gateway per VLAN. On the router CLI, go into g0/0 and type no shutdown. Then make subinterface g0/0.10, with encapsulation dot1Q 10 and address 192.168.10.1. Then g0/0.20, with encapsulation dot1Q 20 and address 192.168.20.1. Both use mask 255.255.255.0. End, and show ip interface brief. Finally, give each PC its gateway: 192.168.10.1 for staff, 192.168.20.1 for guests.
+Step two: a gateway per VLAN. Double-click the router for its CLI. Go into g0/0 and type no shutdown. Then make subinterface g0/0.10, with encapsulation dot1Q 10 and address 192.168.10.1. Then g0/0.20, with encapsulation dot1Q 20 and address 192.168.20.1. Both use mask 255.255.255.0. End, and show ip interface brief. Finally, click each PC and give it its default gateway: 192.168.10.1 for staff, 192.168.20.1 for guests.
 
 *After it runs:*
 
-show ip interface brief should list G0/0 and both subinterfaces as up and up, with the two addresses. If they say administratively down, the main interface is still shut: router interfaces start switched off, unlike switch ports. A subinterface is a slice of one physical port, and its encapsulation line tells it which VLAN tag it answers to. So one cable now holds two gateways, one in each VLAN. The number after the dot doesn't have to match the VLAN, but always make it match: g0/0.10 for VLAN 10. Whoever reads this configuration at two in the morning will thank you. The command that tags a subinterface with VLAN 20 is encapsulation dot1Q 20, and the guest gateway is 192.168.20.1.
+show ip interface brief should list GigabitEthernet0/0 and both subinterfaces as up and up, with the two addresses. If they say administratively down, the main interface is still shut: router interfaces start switched off, unlike switch ports. A subinterface is a slice of one physical port, and its encapsulation line tells it which VLAN tag it answers to. So one cable now holds two gateways, one in each VLAN. The number after the dot doesn't have to match the VLAN, but always make it match: g0/0.10 for VLAN 10. Whoever reads this configuration at two in the morning will thank you. The command that tags a subinterface with VLAN 20 is encapsulation dot1Q 20, and the guest gateway is 192.168.20.1.
 
 On screen: the step text.
 
 ## 3. Test, and notice the new risk
 
-Step three: test, and notice the new risk. On guest-1, open Command Prompt and ping staff-1 at 192.168.10.11. Then stop and think about what just happened, and write a short list: what should guests be allowed to reach, and what shouldn't they? If the ping fails, ping guest-1's own gateway, 192.168.20.1, first: if that doesn't answer, check the trunk and the subinterface before anything else.
+Step three: test, and notice the new risk. Double-click guest-1 for its Command Prompt and ping staff-1 at 192.168.10.11. Then stop and think about what just happened, and write a short list: what should guests be allowed to reach, and what shouldn't they? If the ping fails, ping guest-1's own gateway, 192.168.20.1, first: if that doesn't answer, check the trunk and the subinterface before anything else.
 
 *After it runs:*
 
-The ping works. The first reply or two may time out while the router finds the addresses with ARP; that's normal. Now look at it as a security person. In lab four we proved guests couldn't reach staff. One router later, they can. Routing between VLANs is all or nothing until you add rules, which is why segmentation always comes with an access list or a firewall, never on its own. Your list might say: guests may reach the internet; guests may not reach staff computers or the file server; staff are not restricted. Keep it, because lab seven turns that list into rules. So yes, after routing, guest-1 can ping staff-1.
+The ping works, and the replies say TTL equals 127: one router hop on the way. Now look at it as a security person. In lab four we proved guests couldn't reach staff. One router later, they can. Routing between VLANs is all or nothing until you add rules, which is why segmentation always comes with an access list or a firewall, never on its own. Your list might say: guests may reach the internet; guests may not reach staff computers or the file server; staff are not restricted. Keep it, because lab seven turns that list into rules. So yes, after routing, guest-1 can ping staff-1.
 
 On screen: the step text.
 
@@ -54,9 +54,9 @@ Keep these. A trunk carries many VLANs on one cable, tagged with 802.1Q. Each VL
 
 ```
 0:00 Opening
-0:44 1. A trunk to the router
-2:03 2. A gateway per VLAN
-3:15 3. Test, and notice the new risk
-4:25 4. Where next
-4:39 Wrap-up
+0:46 1. A trunk to the router
+2:11 2. A gateway per VLAN
+3:25 3. Test, and notice the new risk
+4:34 4. Where next
+4:47 Wrap-up
 ```

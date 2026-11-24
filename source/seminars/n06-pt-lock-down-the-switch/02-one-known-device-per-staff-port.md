@@ -10,10 +10,10 @@ interface range fa0/1 - 12
 end
 ```
 
-From staff-1, ping staff-2 (192.168.10.12), so the switch learns both computers' MAC addresses, then run `show port-security interface fa0/1`. (If staff-2 never sends anything, Fa0/2 learns whatever plugs in first, and step 3 won't be blocked.)
+From staff-1's Command Prompt, ping staff-2 (192.168.10.12), so both staff ports hear from their computers, then run `show port-security` on the switch. (On a real switch, a port that has never heard from its computer learns whatever plugs in first.)
 
 - [ ] Port security on ports 1-12
-- [ ] staff-1's MAC learned (sticky)
+- [ ] Fa0/1 and Fa0/2 each show 1 current address
 - [ ] show port-security checked
 
 > Hint: Sticky learns the first MAC address seen on the port and keeps it in the configuration.

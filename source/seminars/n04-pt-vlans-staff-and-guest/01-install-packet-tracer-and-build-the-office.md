@@ -1,13 +1,13 @@
-## 1. Install Packet Tracer and build the office
+## 1. Open Network Simulator and cable the office
 
-Cisco Packet Tracer is free with a Cisco Networking Academy account. Sign up at https://www.netacad.com, enrol in the free "Getting Started with Cisco Packet Tracer" course, and download it from the course page (Windows, macOS or Linux).
+Labs 4 to 7 use **Network Simulator**, which speaks the real commands of Cisco switches and routers. Nothing to install: in the Hacker Room open **Start → Workplace → Network lab** and pick lab 4. The **2960** switch and four **PCs** are already on the canvas.
 
-Place one **2960** switch and four **PCs**. Cable them with **Copper Straight-Through** to the ports in README.txt. On each PC open **Desktop → IP Configuration** and type its address and netmask 255.255.255.0.
+In the **Cable** list choose **Copper Straight-Through**, so you can pick the ports. Press **Connect**, click a PC, then **sw1**, choose its port from README.txt and press **Connect**. Click each PC and type its **IP address** and **Subnet mask** 255.255.255.0 in the panel on the right.
 
-- [ ] Packet Tracer installed
-- [ ] 2960 switch and four PCs cabled to the right ports
+- [ ] Network Simulator open with lab 4's switch and four PCs
+- [ ] Four PCs cabled to the right ports
 - [ ] Addresses set from the plan
 
-> Hint: Wait until the link lights turn green; a new switch takes a few seconds.
+> Hint: Wait until the link lights turn green; a new switch link is amber for a few seconds while it gets ready.
 
-?> Which cable type joins a PC to a switch? (two words, as Packet Tracer names it, without "Copper") :: straight-through
+?> Which cable type joins a PC to a switch? (as named in the Cable list, without "Copper") :: straight-through

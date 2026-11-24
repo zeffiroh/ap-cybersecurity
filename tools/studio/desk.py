@@ -227,8 +227,16 @@ def video_items():
                           **video_state(folder.name, DEMOS / folder.name, changed)))
     for md in LEC.decks():
         title = LEC.front(md)[0] or md.stem
-        items.append(dict(key=md.stem, kind="lecture", group="Lectures", title=f"Lecture {int(md.stem[:2])}: {title}",
-                          **video_state(md.stem, LECTURES / md.stem, md.stat().st_mtime)))
+        parts = sorted(LECTURES.glob(md.stem + "-p[0-9]*"), key=lambda f: int(f.name.rsplit("-p", 1)[1])) if LECTURES.is_dir() else []
+        if parts:
+            for f in parts:
+                n = int(f.name.rsplit("-p", 1)[1])
+                items.append(dict(key=f.name, base=md.stem, kind="lecture", group="Lectures",
+                                  title=f"Lecture {int(md.stem[:2])}: {title} (part {n} of {len(parts)})",
+                                  **video_state(f.name, f, md.stat().st_mtime)))
+        else:
+            items.append(dict(key=md.stem, base=md.stem, kind="lecture", group="Lectures", title=f"Lecture {int(md.stem[:2])}: {title}",
+                              **video_state(md.stem, LECTURES / md.stem, md.stat().st_mtime)))
     order = ["Lectures", "Free tutorials", "Seminars", "Network labs", "Simulations"]
     items.sort(key=lambda r: (order.index(r["group"]), r["key"]))
     return items
@@ -315,7 +323,7 @@ def video_action(action, key):
         raise RuntimeError(f"There's no video called {key}.")
     if action == "make":
         if item["kind"] == "lecture":
-            steps = [["lecture", key]]
+            steps = [["lecture", item["base"]]]
         elif (S.SEMINARS / key / "film.json").exists():
             steps = [["film", key]]
         else:

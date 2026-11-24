@@ -281,7 +281,7 @@ def cmd_film(args):
 def cmd_lecture(args):
     sys.path.insert(0, str(ROOT / "tools"))
     from studio import lecture
-    sys.exit(lecture.run(args.which))
+    sys.exit(lecture.run(args.which, args.whole))
 
 
 def cmd_voice(args):
@@ -410,6 +410,7 @@ def main():
     p.set_defaults(fn=cmd_script)
     p = sub.add_parser("lecture", help="turn lecture decks into silent videos paced by the speaker notes, with subtitles and a read-along script")
     p.add_argument("which", nargs="?", default="all", help="a lecture number such as 5, several such as 1,2,3, or all")
+    p.add_argument("--whole", action="store_true", help="keep each lecture as one long video instead of splitting it into parts")
     p.set_defaults(fn=cmd_lecture)
     p = sub.add_parser("voice", help="record your voice over a silent video with a read-along prompt, then make the final video")
     p.add_argument("name", help="the video folder, for example 24_data_security or t-your-first-sigma-rule")

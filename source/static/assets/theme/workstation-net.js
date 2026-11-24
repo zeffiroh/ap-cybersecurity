@@ -236,7 +236,7 @@
   function ifaces(M, id) {
     var d = M.dev[id], out = [];
     if (!d) return out;
-    if (d.ifs) Object.keys(d.ifs).forEach(function (k) { var f = d.ifs[k]; out.push({ name: k, ip: f.ip || "", bits: f.bits == null ? 24 : f.bits, vlan: f.vlan || 0, parent: f.parent || k, shut: !!f.shut, wan: !!f.wan }); });
+    if (d.ifs) Object.keys(d.ifs).forEach(function (k) { var f = d.ifs[k], par = f.parent || k.split(".")[0], pf = par !== k && d.ifs[par]; out.push({ name: k, ip: f.ip || "", bits: f.bits == null ? 24 : f.bits, vlan: f.vlan || 0, parent: par, shut: !!f.shut || !!(pf && pf.shut), wan: !!f.wan }); });
     else if (M.sw[id]) { if (d.ip) out.push({ name: "vlan" + (d.mvlan || 1), ip: d.ip, bits: d.bits || 24, vlan: d.mvlan || 1, svi: true, parent: "", shut: false }); }
     else out.push({ name: "eth0", ip: d.ip || "", bits: d.bits == null ? 24 : d.bits, vlan: 0, parent: "eth0", shut: false });
     return out;
@@ -330,10 +330,25 @@
     return { ep: id + ":" + f.parent, tag: f.vlan || 0 };
   }
 
-  function firewall(M, R, flow) {
-    if (!R.rules) return null;
+  function entryText(e) { return e.rule + " " + e.proto + " " + e.src + " -> " + e.dst + (e.port ? ":" + e.port : ""); }
+  function aclCheck(FW, R, flow, ing, eg) {
+    var lists = [], fi = (R.ifs || {})[ing], fe = (R.ifs || {})[eg];
+    if (fi && fi.acl && fi.acl["in"]) lists.push(fi.acl["in"]);
+    if (fe && fe.acl && fe.acl.out) lists.push(fe.acl.out);
+    for (var i = 0; i < lists.length; i++) {
+      var entries = (R.acls || {})[lists[i]];
+      if (!entries) continue;
+      var text = entries.map(function (l) { return aclEntry(l, aclStd(lists[i])); }).filter(Boolean).map(entryText).join("\n") + "\ndefault deny", fw = FW.parse(text);
+      if (fw.errors.length) continue;
+      var dec = FW.decide(fw, flow);
+      if (dec.action === "deny") return dec.rule ? dec.rule.text : "implicit deny";
+    }
+    return null;
+  }
+  function firewall(M, R, flow, ing, eg) {
     var FW = global.AayatTools && global.AayatTools.get && global.AayatTools.get("firewall");
-    if (!FW) return null;
+    if (R.acls && Object.keys(R.acls).length) return FW ? aclCheck(FW, R, flow, ing, eg) : null;
+    if (!R.rules) return null;
     var fw = FW.parse(R.rules);
     if (fw.errors.length) return null;
     var dec = FW.decide(fw, flow);
@@ -392,7 +407,7 @@
         return res;
       }
       if (!(ROUTERS[H.kind] || H.kind === "internet")) { res.why = "notrouter"; res.at = hit.id; return res; }
-      var deny = firewall(M, H, { proto: opts.proto || "icmp", src: srcIp, dst: dst, dport: opts.port || 0 });
+      var egn = nextHop(M, hit.id, dst), deny = firewall(M, H, { proto: opts.proto || "icmp", src: srcIp, dst: dst, dport: opts.port || 0 }, hit.name, egn.f ? egn.f.name : "");
       res.hops.push({ id: hit.id, ip: nh.via, name: H.kind === "internet" ? "isp-gateway" : H.name });
       if (deny) { res.why = "filtered"; res.at = hit.id; res.rule = deny; return res; }
       cur = hit.id;
@@ -552,7 +567,7 @@
     if (m && M.sw[id]) return { port: String(+m[2]) };
     m = /^(?:gigabitethernet|gi|g)(\d+)\/(\d+)(?:\.(\d+))?$/.exec(s);
     if (m) {
-      if (M.sw[id] && !m[3]) return { port: String(+m[2]) };
+      if (M.sw[id] && !m[3]) return { port: M.sw[id][String(24 + +m[2])] ? String(24 + +m[2]) : String(+m[2]) };
       return { ifn: "g" + m[1] + "/" + m[2] + (m[3] ? "." + m[3] : "") };
     }
     m = /^vlan(\d+)$/.exec(s);
@@ -569,7 +584,62 @@
     return out;
   }
   function is(t, word, min) { t = String(t || "").toLowerCase(); return t.length >= (min || 1) && word.indexOf(t) === 0; }
-  function portLabel(n) { return "Fa0/" + n; }
+  function portLabel(n) { return +n > 24 ? "Gi0/" + (n - 24) : "Fa0/" + n; }
+  function portFull(n) { return +n > 24 ? "GigabitEthernet0/" + (n - 24) : "FastEthernet0/" + n; }
+  var WORDPORT = { www: 80, http: 80, https: 443, ssh: 22, telnet: 23, ftp: 21, domain: 53, smtp: 25, pop3: 110, ntp: 123 };
+  function wild(w) {
+    var n = ipNum(w);
+    if (n === null) return null;
+    if (n !== 4294967295 && (((n + 1) >>> 0) & n) !== 0) return null;
+    var k = 0;
+    while (k < 32 && ((n >>> k) & 1)) k++;
+    return 32 - k;
+  }
+  function aclAddr(t, i) {
+    if (t[i] === "any") return { v: "0.0.0.0/0", n: 1 };
+    if (t[i] === "host" && ipNum(t[i + 1]) !== null) return { v: t[i + 1] + "/32", n: 2 };
+    if (ipNum(t[i]) === null) return null;
+    if (t[i + 1] !== undefined && wild(t[i + 1]) !== null) return { v: netAddr(t[i], wild(t[i + 1])) + "/" + wild(t[i + 1]), n: 2 };
+    return { v: t[i] + "/32", n: 1 };
+  }
+  function aclEntry(line, standard) {
+    var t = String(line).trim().split(/\s+/), act = (t[0] || "").toLowerCase();
+    if (act !== "permit" && act !== "deny") return null;
+    var i = 1, proto = "ip";
+    if (!standard) { proto = (t[i++] || "").toLowerCase(); if (!/^(ip|tcp|udp|icmp)$/.test(proto)) return null; }
+    var s1 = aclAddr(t, i);
+    if (!s1) return null;
+    i += s1.n;
+    var d1 = { v: "0.0.0.0/0", n: 0 }, port = "";
+    if (!standard) {
+      d1 = aclAddr(t, i);
+      if (!d1) return null;
+      i += d1.n;
+      if (t[i] && /^eq$/i.test(t[i])) { var pw = WORDPORT[String(t[i + 1]).toLowerCase()] || (/^\d+$/.test(t[i + 1] || "") ? +t[i + 1] : 0); if (!pw) return null; port = String(pw); i += 2; }
+      if (t[i]) return null;
+    } else if (t[i]) return null;
+    return { act: act, text: t.join(" "), rule: act === "permit" ? "allow" : "deny", proto: proto === "ip" ? "any" : proto, src: s1.v, dst: d1.v, port: port };
+  }
+  function aclStd(n) { return +n < 100 || (+n >= 1300 && +n < 2000); }
+  function aclRules(d) {
+    var acls = d.acls || {}, used = {}, order = [];
+    Object.keys(d.ifs || {}).sort().forEach(function (k) {
+      var a = d.ifs[k].acl || {};
+      ["in", "out"].forEach(function (dir) { if (a[dir] && acls[a[dir]] && !used[a[dir]]) { used[a[dir]] = 1; order.push(a[dir]); } });
+    });
+    if (!order.length) return "";
+    var out = [];
+    order.forEach(function (n) { acls[n].forEach(function (l) { var e = aclEntry(l, aclStd(n)); if (e) out.push(entryText(e)); }); });
+    return out.join("\n") + "\ndefault deny";
+  }
+  function aclShow(d) {
+    var acls = d.acls || {}, out = [];
+    Object.keys(acls).sort().forEach(function (n) {
+      out.push((aclStd(n) ? "Standard" : "Extended") + " IP access list " + n);
+      acls[n].forEach(function (l, i) { out.push("    " + (i + 1) * 10 + " " + l); });
+    });
+    return out.join("\n");
+  }
   function ifLabel(n) { return n.replace(/^g/, "GigabitEthernet"); }
 
   function cli(api, id, sess, line) {
@@ -578,7 +648,7 @@
     var hn = d.hostname || String(d.name).split(".")[0];
     var raw = String(line || "").trim(), t = raw.split(/\s+/), a0 = t[0] || "";
     function say(x) { out.push(x); }
-    function prompt() { return hn + ({ user: ">", priv: "#", config: "(config)#", "if": "(config-if)#", vlan: "(config-vlan)#", range: "(config-if-range)#" })[sess.mode]; }
+    function prompt() { return hn + ({ user: ">", priv: "#", config: "(config)#", "if": "(config-if)#", vlan: "(config-vlan)#", range: "(config-if-range)#", acl: "(config-ext-nacl)#", line: "(config-line)#" })[sess.mode]; }
     function bad() { say("% Invalid input detected at '^' marker."); }
     if (!raw) return { out: "", prompt: prompt() };
     if (raw === "?" || /\s\?$/.test(raw) || raw === "help") { say(help(sess.mode, isSw)); return { out: out.join("\n"), prompt: prompt() }; }
@@ -586,7 +656,7 @@
     if (is(a0, "end", 3) || raw === "\u001a") { if (sess.mode !== "user") sess.mode = "priv"; return { out: "", prompt: prompt() }; }
     if (is(a0, "exit", 2)) {
       var was = sess.mode;
-      sess.mode = { "if": "config", range: "config", vlan: "config", config: "priv", priv: "user", user: "user" }[sess.mode];
+      sess.mode = { "if": "config", range: "config", vlan: "config", acl: "config", line: "config", config: "priv", priv: "user", user: "user" }[sess.mode];
       return { out: "", prompt: prompt(), closed: was === "user" || was === "priv" };
     }
     if (sess.mode === "user" || sess.mode === "priv") {
@@ -601,6 +671,8 @@
       say("% Unknown command or computer name, or unable to find computer address");
       return { out: out.join("\n"), prompt: prompt() };
     }
+    if (sess.mode !== "config" && ((is(a0, "vlan", 2) && /^\d+$/.test(t[1] || "") && isSw) || is(a0, "hostname", 4) || (is(a0, "enable", 2) && /^(secret|password)$/i.test(t[1] || "")) ||
+        (is(a0, "line", 2) && /^(console|vty)$/i.test(t[1] || "")) || is(a0, "access-list", 3) || (is(a0, "ip", 2) && (is(t[1], "access-list", 3) || is(t[1], "route", 2))))) sess.mode = "config";
     if (is(a0, "interface", 3)) {
       var multi = is(t[1], "range", 1) && t.length > 2, list = multi ? range(t.slice(2).join(" "), M, id) : [ifName(t.slice(1).join(""), M, id)];
       list = list.filter(Boolean);
@@ -623,6 +695,34 @@
       if (is(a0, "vlan", 2) && /^\d+$/.test(t[1] || "") && isSw) { sess.vlan = +t[1]; sess.mode = "vlan"; if (!api.model().vlanNames || api.model().vlanNames[id + ":" + t[1]] === undefined) api.vlanName(id, +t[1], "VLAN" + ("000" + t[1]).slice(-4)); return { out: "", prompt: prompt() }; }
       if (is(a0, "no", 2) && is(t[1], "vlan", 2) && /^\d+$/.test(t[2] || "") && isSw) { api.vlanName(id, +t[2], null); return { out: "", prompt: prompt() }; }
       if (is(a0, "hostname", 4) && t[1]) { api.setDev(id, { hostname: t[1] }); return { out: "", prompt: prompt() }; }
+      if (is(a0, "enable", 2) && /^(secret|password)$/i.test(t[1] || "") && t[2]) { api.setDev(id, { secrets: Object.assign({}, d.secrets, { enable: true }) }); return { out: "", prompt: prompt() }; }
+      if (is(a0, "line", 2) && /^(console|vty)$/i.test(t[1] || "")) { sess.line = t[1].toLowerCase(); sess.mode = "line"; return { out: "", prompt: prompt() }; }
+      if (/^(service|banner|security|spanning-tree|logging|clock|ntp)$/i.test(a0) || (is(a0, "no", 2) && /^(ip|service|logging)$/i.test(t[1] || "") && !/access-list/i.test(t[2] || ""))) return { out: "", prompt: prompt() };
+      if (is(a0, "access-list", 3) && /^\d+$/.test(t[1] || "")) {
+        var ent = aclEntry(t.slice(2).join(" "), aclStd(t[1]));
+        if (!ent) { bad(); return { out: out.join("\n"), prompt: prompt() }; }
+        var al = JSON.parse(JSON.stringify(d.acls || {}));
+        al[t[1]] = (al[t[1]] || []).concat([ent.text]);
+        api.setDev(id, { acls: al });
+        api.setRules(id, aclRules(api.model().dev[id]));
+        return { out: "", prompt: prompt() };
+      }
+      if (is(a0, "no", 2) && is(t[1], "access-list", 3) && t[2]) {
+        var al2 = JSON.parse(JSON.stringify(d.acls || {}));
+        delete al2[t[2]];
+        api.setDev(id, { acls: al2 });
+        api.setRules(id, aclRules(api.model().dev[id]));
+        return { out: "", prompt: prompt() };
+      }
+      if (is(a0, "ip", 2) && is(t[1], "access-list", 3) && /^(extended|standard)$/i.test(t[2] || "") && t[3]) {
+        var al3 = JSON.parse(JSON.stringify(d.acls || {}));
+        al3[t[3]] = al3[t[3]] || [];
+        api.setDev(id, { acls: al3 });
+        sess.acl = t[3];
+        sess.aclStd = /^standard$/i.test(t[2]);
+        sess.mode = "acl";
+        return { out: "", prompt: prompt() };
+      }
       if (is(a0, "ip", 2) && is(t[1], "route", 2) && !isSw) {
         var b = bitsOf(t[3]);
         if (ipNum(t[2]) === null || b === null || ipNum(t[4]) === null) { bad(); return { out: out.join("\n"), prompt: prompt() }; }
@@ -630,6 +730,21 @@
         api.setRoutes(id, rs);
         return { out: "", prompt: prompt() };
       }
+      bad();
+      return { out: out.join("\n"), prompt: prompt() };
+    }
+    if (sess.mode === "acl") {
+      var seq = /^\d+$/.test(t[0] || "") ? t.slice(1) : t, ent2 = aclEntry(seq.join(" "), sess.aclStd);
+      if (!ent2) { bad(); return { out: out.join("\n"), prompt: prompt() }; }
+      var al4 = JSON.parse(JSON.stringify(d.acls || {}));
+      al4[sess.acl] = (al4[sess.acl] || []).concat([ent2.text]);
+      api.setDev(id, { acls: al4 });
+      api.setRules(id, aclRules(api.model().dev[id]));
+      return { out: "", prompt: prompt() };
+    }
+    if (sess.mode === "line") {
+      if (is(a0, "password", 4) && t[1]) { var sc = Object.assign({}, d.secrets); sc[sess.line] = true; api.setDev(id, { secrets: sc }); return { out: "", prompt: prompt() }; }
+      if (/^(login|exec-timeout|logging|transport|privilege|no)$/i.test(a0)) return { out: "", prompt: prompt() };
       bad();
       return { out: out.join("\n"), prompt: prompt() };
     }
@@ -644,6 +759,27 @@
       var m = msgs;
       if (is(w[0], "shutdown", 2)) { if (x.port) api.setPort(id, x.port, { shut: !neg }); else if (x.ifn) api.setIf(id, x.ifn, { shut: !neg }); return; }
       if (is(w[0], "description", 4)) { if (x.port) api.setPort(id, x.port, { desc: neg ? "" : w.slice(1).join(" ") }); return; }
+      if (is(w[0], "ip", 2) && is(w[1], "access-group", 3) && x.ifn && !isSw) {
+        var dirn = (w[3] || "").toLowerCase();
+        if (!neg && (!w[2] || (dirn !== "in" && dirn !== "out"))) { m.push("bad"); return; }
+        var cur2 = Object.assign({}, (api.model().dev[id].ifs[x.ifn] || {}).acl);
+        if (neg) { delete cur2["in"]; delete cur2.out; } else cur2[dirn] = w[2];
+        api.setIf(id, x.ifn, { acl: cur2 });
+        api.setRules(id, aclRules(api.model().dev[id]));
+        return;
+      }
+      if (is(w[0], "switchport", 2) && x.port && is(w[1], "port-security", 2)) {
+        var pcur = Object.assign({ on: false, max: 1, viol: "shutdown", sticky: false }, api.model().sw[id][x.port].sec);
+        if (!w[2]) pcur.on = !neg;
+        else if (is(w[2], "maximum", 3) && /^\d+$/.test(w[3] || "")) { pcur.max = +w[3]; pcur.on = true; }
+        else if (is(w[2], "violation", 3) && /^(shutdown|restrict|protect)$/i.test(w[3] || "")) pcur.viol = w[3].toLowerCase();
+        else if (is(w[2], "mac-address", 3) && /^sticky$/i.test(w[3] || "")) pcur.sticky = !neg;
+        else if (!is(w[2], "mac-address", 3)) { m.push("bad"); return; }
+        api.setPort(id, x.port, { sec: pcur });
+        return;
+      }
+      if (/^(spanning-tree|storm-control|speed|duplex|negotiation)$/i.test(w[0])) return;
+      if (is(w[0], "switchport", 2) && (/^nonegotiate$/i.test(w[1] || "") || (is(w[1], "trunk", 2) && is(w[2], "encapsulation", 3)))) return;
       if (is(w[0], "switchport", 2) && x.port) {
         if (is(w[1], "mode", 2)) { if (is(w[2], "access", 2)) api.setPort(id, x.port, { mode: "access" }); else if (is(w[2], "trunk", 2)) api.setPort(id, x.port, { mode: "trunk" }); else m.push("bad"); return; }
         if (is(w[1], "access", 2) && is(w[2], "vlan", 1) && /^\d+$/.test(w[3] || "")) {
@@ -718,13 +854,13 @@
     if (sw && is(a[0], "interfaces", 2)) {
       return ["Port      Name               Status       Vlan       Duplex  Speed Type"].concat(Object.keys(sw).map(Number).sort(function (x, y) { return x - y; }).map(function (n) {
         var p = sw[n], ls = linkState(M, id, n), peer = p.to ? M.dev[split(p.to).id] : null;
-        return pad(portLabel(n), 10) + pad(p.desc || p.room || (peer ? String(peer.name).split(".")[0] : ""), 19) + pad(ls === "up" ? "connected" : ls === "disabled" ? "disabled" : "notconnect", 13) + pad(p.mode === "trunk" ? "trunk" : (p.vlan || 1), 11) + pad(ls === "up" ? "a-full" : "auto", 8) + pad(ls === "up" ? "a-100" : "auto", 6) + "10/100BaseTX";
+        return pad(portLabel(n), 10) + pad(p.desc || p.room || (peer ? String(peer.name).split(".")[0] : ""), 19) + pad(ls === "up" ? "connected" : ls === "disabled" ? (p.err ? "err-disabled" : "disabled") : "notconnect", 13) + pad(p.mode === "trunk" ? "trunk" : (p.vlan || 1), 11) + pad(ls === "up" ? "a-full" : "auto", 8) + pad(ls === "up" ? "a-100" : "auto", 6) + "10/100BaseTX";
       })).join("\n");
     }
     if (is(a[0], "ip", 2) && is(a[1], "interface", 2)) {
       var rows2 = ["Interface              IP-Address      OK? Method Status                Protocol"];
       if (sw) {
-        Object.keys(sw).map(Number).sort(function (x, y) { return x - y; }).forEach(function (n) { var ls = linkState(M, id, n); rows2.push(pad("FastEthernet0/" + n, 23) + pad("unassigned", 16) + "YES unset  " + pad(ls === "disabled" ? "administratively down" : ls === "up" ? "up" : "down", 22) + (ls === "up" ? "up" : "down")); });
+        Object.keys(sw).map(Number).sort(function (x, y) { return x - y; }).forEach(function (n) { var ls = linkState(M, id, n); rows2.push(pad(portFull(n), 23) + pad("unassigned", 16) + "YES unset  " + pad(ls === "disabled" ? "administratively down" : ls === "up" ? "up" : "down", 22) + (ls === "up" ? "up" : "down")); });
         rows2.push(pad("Vlan" + (d.mvlan || 1), 23) + pad(d.ip || "unassigned", 16) + "YES " + pad(d.ip ? "manual" : "unset", 7) + pad("up", 22) + "up");
       } else {
         var C = cables(M);
@@ -743,6 +879,15 @@
       (d.routes || []).forEach(function (r) { rows3.push((r.net === "0.0.0.0/0" ? "S*       " : "S        ") + r.net + " [1/0] via " + r.via); });
       return rows3.join("\n");
     }
+    if (sw && is(a[0], "port-security", 4)) {
+      var pr = ["Secure Port  MaxSecureAddr  CurrentAddr  SecurityViolation  Security Action", "                (Count)       (Count)          (Count)", "--------------------------------------------------------------------"];
+      Object.keys(sw).map(Number).sort(function (x, y) { return x - y; }).forEach(function (n) {
+        var q = sw[n].sec;
+        if (q && q.on) pr.push(pad(portLabel(n), 13) + pad(q.max, 15) + pad(sw[n].to && linkState(M, id, n) === "up" ? 1 : 0, 13) + pad(sw[n].err ? 1 : 0, 19) + (q.viol === "shutdown" ? "Shutdown" : q.viol === "restrict" ? "Restrict" : "Protect"));
+      });
+      return pr.length > 3 ? pr.join("\n") : "";
+    }
+    if (is(a[0], "access-lists", 2) && !sw && d.acls && Object.keys(d.acls).length) return aclShow(d);
     if (is(a[0], "access-lists", 2) && !sw) return d.rules ? "Rules on " + hn + " (first match wins):\n" + String(d.rules).split("\n").filter(function (l) { return l.trim(); }).map(function (l, i) { return "    " + (i + 1) * 10 + " " + l.trim(); }).join("\n") : "No rules: everything is allowed through.";
     if (sw && is(a[0], "mac", 2)) {
       var rows4 = ["          Mac Address Table", "-------------------------------------------", "", "Vlan    Mac Address       Type        Ports", "----    -----------       --------    -----"];
@@ -759,15 +904,22 @@
   }
   function running(M, id) {
     var d = M.dev[id], sw = M.sw[id], out = ["Building configuration...", "", "Current configuration:", "!", "hostname " + (d.hostname || String(d.name).split(".")[0]), "!"];
+    if (d.secrets && d.secrets.enable) out.push("enable secret 5 $1$mERr$hashed", "!");
     if (sw) {
       Object.keys(M.vlanNames || {}).filter(function (k) { return k.split(":")[0] === id; }).forEach(function (k) { out.push("vlan " + k.split(":")[1], " name " + M.vlanNames[k], "!"); });
       Object.keys(sw).map(Number).sort(function (x, y) { return x - y; }).forEach(function (n) {
         var p = sw[n];
-        out.push("interface FastEthernet0/" + n);
+        out.push("interface " + portFull(n));
         if (p.desc) out.push(" description " + p.desc);
         if (p.mode === "trunk") { out.push(" switchport mode trunk"); if (p.native && +p.native !== 1) out.push(" switchport trunk native vlan " + p.native); if (vlans(p.allowed) != null) out.push(" switchport trunk allowed vlan " + vlanText(vlans(p.allowed))); }
         else { if ((+p.vlan || 1) !== 1) out.push(" switchport access vlan " + p.vlan); out.push(" switchport mode access"); }
-        if (p.shut) out.push(" shutdown");
+        if (p.sec && p.sec.on) {
+          out.push(" switchport port-security");
+          if (p.sec.max !== 1) out.push(" switchport port-security maximum " + p.sec.max);
+          if (p.sec.viol !== "shutdown") out.push(" switchport port-security violation " + p.sec.viol);
+          if (p.sec.sticky) out.push(" switchport port-security mac-address sticky");
+        }
+        if (p.shut && !p.err) out.push(" shutdown");
         out.push("!");
       });
       out.push("interface Vlan" + (d.mvlan || 1), d.ip ? " ip address " + d.ip + " " + maskText(d.bits || 24) : " no ip address", "!");
@@ -777,11 +929,14 @@
         out.push("interface " + ifLabel(k));
         if (f.vlan && k.indexOf(".") > 0) out.push(" encapsulation dot1Q " + f.vlan);
         out.push(f.ip ? " ip address " + f.ip + " " + maskText(f.bits) : " no ip address");
+        if (f.acl && f.acl["in"]) out.push(" ip access-group " + f.acl["in"] + " in");
+        if (f.acl && f.acl.out) out.push(" ip access-group " + f.acl.out + " out");
         if (f.shut) out.push(" shutdown");
         out.push("!");
       });
       (d.routes || []).forEach(function (r) { var c = cidr(r.net); out.push("ip route " + c.ip + " " + maskText(c.bits) + " " + r.via); });
-      if (d.rules) out.push("!", "! firewall rules (show access-lists)");
+      if (d.acls) Object.keys(d.acls).sort().forEach(function (n) { d.acls[n].forEach(function (l) { out.push("access-list " + n + " " + l); }); });
+      else if (d.rules) out.push("!", "! firewall rules (show access-lists)");
     }
     out.push("!", "end");
     return out.join("\n");
@@ -874,7 +1029,7 @@
   global.AayatNet = {
     PRIV: PRIV, session: session, parseHosts: parseHosts, fromHosts: fromHosts, normalize: normalize, merge: merge, blank: blank, route: route, why: WHY, pingText: pingText, traceText: traceText,
     linkState: linkState, impact: impact, check: check, tasks: tasks, ifaces: ifaces, cables: cables, linked: linked, lookup: lookup, nameOf: nameOf, owner: owner,
-    cli: cli, hostShell: hostShell, vlans: vlans, vlanText: vlanText, mac: mac, maskText: maskText, bitsOf: bitsOf, cidr: cidr, split: split, kindOf: kindOf,
+    cli: cli, aclRules: aclRules, aclEntry: aclEntry, portLabel: portLabel, hostShell: hostShell, vlans: vlans, vlanText: vlanText, mac: mac, maskText: maskText, bitsOf: bitsOf, cidr: cidr, split: split, kindOf: kindOf,
     HOSTLIKE: HOSTLIKE, ROUTERS: ROUTERS, SWITCHES: SWITCHES
   };
 })(typeof window !== "undefined" ? window : globalThis);

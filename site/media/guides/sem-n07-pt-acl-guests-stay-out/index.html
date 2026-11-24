@@ -7,19 +7,27 @@
 <script src="../../../assets/shared/identity.js"></script>
 <script src="../../../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Network lab 7: An access list that keeps guests out (Packet Tracer) written tutorial &middot; Aayat-AP-Prep</title>
+<title>Network lab 7: An access list that keeps guests out (Network Simulator) written tutorial &middot; Aayat-AP-Prep</title>
 <style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
 </head>
 <body><main><p class="kick">Network lab · written tutorial</p>
-<h1>Network lab 7: An access list that keeps guests out (Packet Tracer)</h1>
+<h1>Network lab 7: An access list that keeps guests out (Network Simulator)</h1>
 <p class="meta">Intermediate &middot; about 50 min</p>
 <p>Write an extended access list so guests reach the internet web server but not staff computers or the file server, apply it in the right place, and test both sides.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-n07-pt-acl-guests-stay-out&amp;runbook=sem-n07-pt-acl-guests-stay-out">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-n07-pt-acl-guests-stay-out--guided&amp;runbook=sem-n07-pt-acl-guests-stay-out--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-n07-pt-acl-guests-stay-out--solo&amp;runbook=sem-n07-pt-acl-guests-stay-out--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>README.txt</code>.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>netbuilder.json</code>, <code>README.txt</code>.</p>
 <h2>1. Add the servers</h2>
-<p>Add <strong>files01</strong> to a staff port, and <strong>web-out</strong> on the router's <strong>G0/1</strong> (<code>ip address 203.0.113.1 255.255.255.0</code> and <code>no shutdown</code> on G0/1). On web-out, check <strong>Services → HTTP</strong> is on. From guest-1, open web-out in <strong>Desktop → Web Browser</strong> and ping files01: both work for now.</p>
+<p>Two servers are waiting below the switch. Cable <strong>files01</strong> to <strong>Fa0/3</strong> (a staff port) with <strong>Copper Straight-Through</strong> and give it 192.168.10.10, gateway 192.168.10.1. Set the <strong>Cable</strong> list back to <strong>Automatic</strong> and cable <strong>web-out</strong> to the router: it takes the router's first free port, <strong>G0/1</strong>. Give web-out 203.0.113.10, gateway 203.0.113.1; its <strong>Web server</strong> is already ticked. On the router CLI:</p>
+<pre><code>enable
+configure terminal
+interface g0/1
+ ip address 203.0.113.1 255.255.255.0
+ no shutdown
+end
+</code></pre>
+<p>From guest-1's Command Prompt, type <code>curl 203.0.113.10</code> (it fetches web-out's home page) and <code>ping 192.168.10.10</code>: both work for now.</p>
 <ul>
-<li>&#9744; files01 and web-out added</li>
+<li>&#9744; files01 and web-out cabled and addressed</li>
 <li>&#9744; Router G0/1 up</li>
 <li>&#9744; Before the ACL: guest-1 reaches both</li>
 </ul>
@@ -43,7 +51,7 @@ show access-lists
 <ul>
 <li>&#9744; Access list 120 written in the right order</li>
 <li>&#9744; Applied inbound on the guest subinterface</li>
-<li>&#9744; show access-lists checked</li>
+<li>&#9744; show access-lists checked: lines 10 to 40 in order</li>
 </ul>
 <blockquote>
 <p>Hint: A wildcard mask is the opposite of a netmask: 0.0.0.255 means "any value in the last number".</p>
@@ -51,20 +59,20 @@ show access-lists
 <p><strong>Question:</strong> Which wildcard mask matches a whole /24 network?
 <strong>Question:</strong> Which interface gets the list, inbound? (as typed in the command)</p>
 <h2>3. Test both sides</h2>
-<p>From guest-1: open web-out in the browser (allowed) and ping files01 (blocked). From staff-1: ping files01 and open web-out (both still fine). Run <code>show access-lists</code> again: the counters show which rule matched each test.</p>
+<p>From guest-1: <code>curl 203.0.113.10</code> (allowed) and <code>ping 192.168.10.10</code> (blocked: <strong>Destination net unreachable</strong> from the router). From staff-1: <code>ping 192.168.10.10</code> and <code>curl 203.0.113.10</code> (both still fine). Then try <code>ping 203.0.113.10</code> from guest-1: blocked too, because the policy allows the web, not ping.</p>
 <ul>
 <li>&#9744; Guest to web works</li>
 <li>&#9744; Guest to files01 blocked</li>
 <li>&#9744; Staff unaffected</li>
-<li>&#9744; Match counters read</li>
+<li>&#9744; Guest ping to web-out blocked, and you can say which line did it</li>
 </ul>
 <blockquote>
-<p>Hint: Every allow-list ends with an invisible "deny any". Writing it yourself makes the counters show what was dropped.</p>
+<p>Hint: Every allow-list ends with an invisible "deny any". Writing it yourself makes the policy plain to whoever reads it next.</p>
 </blockquote>
 <p><strong>Question:</strong> After the ACL, can guest-1 still open the web server? (yes or no)
 <strong>Question:</strong> After the ACL, can guest-1 ping files01? (yes or no)</p>
 <h2>4. Where next</h2>
-<p>Segmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. The GNS3 lab shows the same traffic as real packets in Wireshark.</p>
+<p>Segmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. Lab 8 moves to Network Emulator and captures the traffic on a link, packet by packet.</p>
 <ul>
 <li><a href="https://zeffiroh.github.io/ap-cybersecurity/labs.html">All network labs</a></li>
 </ul></main></body>

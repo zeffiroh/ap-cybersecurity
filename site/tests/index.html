@@ -29,7 +29,7 @@
     <img class="logo" src="../assets/theme/icon.svg"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
     <div class="logo-fallback" style="display:none">AP</div>
-    <span class="title-text">Unit test</span>
+    <span class="title-text" id="app-title">Unit test</span>
   </div>
 
   <div class="app-content">
@@ -63,9 +63,22 @@
             <input id="inp-id" type="text" placeholder="e.g. S12345">
           </div>
           <div class="field">
+            <label>What to do:</label>
+            <select id="inp-mode" onchange="setMode(this.value)">
+              <option value="test">Unit test (8 to 24 questions, counts towards your grade)</option>
+              <option value="practice">Topic practice (6 to 10 questions, repeat as often as you like)</option>
+            </select>
+          </div>
+          <div class="field" id="row-unit">
             <label>Unit:</label>
             <select id="inp-unit">
               <option value="">Loading units…</option>
+            </select>
+          </div>
+          <div class="field hidden" id="row-topic">
+            <label>Topic:</label>
+            <select id="inp-topic">
+              <option value="">Loading topics…</option>
             </select>
           </div>
 
@@ -82,7 +95,7 @@
     <div id="screen-quiz" class="hidden">
 
       <div class="quiz-ribbon">
-        <span class="item-counter">Item <span id="q-num">1</span> of 24</span>
+        <span class="item-counter">Item <span id="q-num">1</span> of <span id="q-max">24</span></span>
         <div class="progress-track">
           <div class="progress-fill" id="progress-fill"></div>
         </div>
@@ -198,11 +211,15 @@
 <script src="../assets/shared/neon.js"></script>
 <script src="../assets/shared/identity.js"></script>
 <script src="engine.js"></script>
-<script>let SESSION=null;let CURRENT_Q=null;let SELECTED_KEY=null;let TIMER_INT=null;let ELAPSED_SEC=0;let SESSION_START=Date.now();let REPORT_DATA=null;let VIEW_MODE='student';let SESSION_DONE=false;const SKILL_COLORS={'1.A':'#8B0000','1.B':'#A52020','1.C':'#C03030','1.D':'#D04040','2.A':'#7B2D8B','2.B':'#5B3A8B','3.A':'#1A5C8B','3.B':'#155C4A'};const SKILL_NAMES={'1.A':'Identify Concepts','1.B':'Identify Adversaries','1.C':'Explain Mechanisms','1.D':'Determine / Document','2.A':'Apply Controls','2.B':'Implement Controls','3.A':'Evaluate Posture','3.B':'Analyze Incidents'};(async()=>{try{const units=await Engine.units();const sel=document.getElementById('inp-unit');sel.innerHTML=units.map(u=>`<option value="${u.id||u.unit_id}">${u.id||u.unit_id} — ${u.title} (${u.count} items)</option>`).join('');const want=new URLSearchParams(location.search).get('unit');if(want&&units.some(u=>(u.id||u.unit_id)===want))sel.value=want;setStatus('Ready, select a unit and enter your name to begin.');}catch(e){setStatus('Error loading units: '+e.message);}})();async function startSession(){const name=document.getElementById('inp-name').value.trim();const sid=document.getElementById('inp-id').value.trim();const unit=document.getElementById('inp-unit').value;if(!name){alert('Please enter your name.');return;}
-Identity.ensureEmail(email=>{SESSION=Engine.start({student_name:name,student_id:sid,student_email:email,unit});SESSION_START=Date.now();SESSION_DONE=false;show('quiz');hide('start');setStatus(`Session ${SESSION.id} active, Unit ${unit}`);loadNext();});}
+<script>let SESSION=null;let CURRENT_Q=null;let SELECTED_KEY=null;let TIMER_INT=null;let ELAPSED_SEC=0;let SESSION_START=Date.now();let REPORT_DATA=null;let VIEW_MODE='student';let SESSION_DONE=false;const SKILL_COLORS={'1.A':'#8B0000','1.B':'#A52020','1.C':'#C03030','1.D':'#D04040','2.A':'#7B2D8B','2.B':'#5B3A8B','3.A':'#1A5C8B','3.B':'#155C4A'};const SKILL_NAMES={'1.A':'Identify Concepts','1.B':'Identify Adversaries','1.C':'Explain Mechanisms','1.D':'Determine / Document','2.A':'Apply Controls','2.B':'Implement Controls','3.A':'Evaluate Posture','3.B':'Analyze Incidents'};let TOPICS=[];function setMode(mode){const practice=mode==='practice';document.getElementById('inp-mode').value=practice?'practice':'test';document.getElementById('row-unit').classList.toggle('hidden',practice);document.getElementById('row-topic').classList.toggle('hidden',!practice);document.getElementById('app-title').textContent=practice?'Topic practice':'Unit test';}
+(async()=>{const params=new URLSearchParams(location.search);try{const units=await Engine.units();const sel=document.getElementById('inp-unit');sel.innerHTML=units.map(u=>`<option value="${u.id||u.unit_id}">${u.id||u.unit_id} — ${u.title} (${u.count} items)</option>`).join('');const want=params.get('unit');if(want&&units.some(u=>(u.id||u.unit_id)===want))sel.value=want;setStatus('Ready, choose a unit test or a topic to practise, and enter your name to begin.');}catch(e){setStatus('Error loading units: '+e.message);}
+try{TOPICS=(await Engine.topics()).topics||[];const tsel=document.getElementById('inp-topic');tsel.innerHTML=TOPICS.map(t=>`<option value="${t.id}">${t.id} — ${t.title} (${t.count} questions)</option>`).join('');const wantTopic=params.get('topic');if(wantTopic&&TOPICS.some(t=>t.id===wantTopic)){tsel.value=wantTopic;setMode('practice');}}catch(e){setStatus('Error loading topics: '+e.message);}})();async function startSession(){const name=document.getElementById('inp-name').value.trim();const sid=document.getElementById('inp-id').value.trim();const practice=document.getElementById('inp-mode').value==='practice';const topic=practice?document.getElementById('inp-topic').value:'';const tinfo=TOPICS.find(t=>t.id===topic);const unit=practice?(tinfo?tinfo.unit:''):document.getElementById('inp-unit').value;if(!name){setStatus('Please enter your name first.');document.getElementById('inp-name').focus();return;}
+if(practice&&!tinfo){setStatus('Choose a topic to practise.');return;}
+Identity.ensureEmail(email=>{SESSION=Engine.start({student_name:name,student_id:sid,student_email:email,unit,topic});SESSION_START=Date.now();SESSION_DONE=false;document.getElementById('q-max').textContent=Engine.limits(SESSION).max;show('quiz');hide('start');hide('report');setStatus(practice?`Practice ${SESSION.id} active, Topic ${topic}, round ${SESSION.attempt}`:`Session ${SESSION.id} active, Unit ${unit}`);loadNext();});}
+function practiseAgain(){setMode('practice');hide('report');show('start');startSession();}
 async function loadNext(skip){stopTimer();hide('review');setStatus('Loading next question…');const data=await Engine.next(SESSION,skip);if(data.done){loadReport();return;}
-CURRENT_Q=data;SELECTED_KEY=null;SESSION_DONE=false;document.getElementById('stim-label').textContent=data.stimulus_label||'';document.getElementById('stim-context').textContent=data.stimulus_context||'';document.getElementById('stim-body').innerHTML=data.stimulus_html||'';const skill=data.primary_skill||'1.A';const sb=document.getElementById('skill-badge');sb.textContent=`${skill} · ${SKILL_NAMES[skill] || skill}`;document.getElementById('q-stem').textContent=data.stem||'';const cc=document.getElementById('choices-container');cc.innerHTML='';for(const[key,text]of Object.entries(data.choices||{})){const btn=document.createElement('button');btn.className='choice-btn';btn.innerHTML=`<span class="key">${key}</span><span>${text}</span>`;btn.onclick=()=>selectChoice(key,btn);cc.appendChild(btn);}
-const pct=Math.min(100,((data.item_number-1)/Engine.MAX_ITEMS)*100);document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('q-num').textContent=data.item_number;updateThetaBars(data.theta_estimates||{},data.overall);document.getElementById('btn-submit').disabled=true;document.getElementById('btn-next').classList.add('hidden');document.querySelectorAll('.choice-btn').forEach(b=>{b.disabled=false;b.classList.remove('selected','correct','wrong');});ELAPSED_SEC=0;startTimer(parseInt(data.est_time,10)||60);setStatus(`Item ${data.item_number} · Skill: ${skill}`);}
+CURRENT_Q=data;SELECTED_KEY=null;SESSION_DONE=false;document.getElementById('stim-label').textContent=data.stimulus_label||'';document.getElementById('stim-context').textContent=data.stimulus_context||'';document.getElementById('stim-body').innerHTML=data.stimulus_html||'';const skill=data.primary_skill||'1.A';const sb=document.getElementById('skill-badge');sb.textContent=`${skill} · ${data.skill_name || SKILL_NAMES[skill] || skill}`;document.getElementById('q-stem').textContent=data.stem||'';const cc=document.getElementById('choices-container');cc.innerHTML='';for(const[key,text]of Object.entries(data.choices||{})){const btn=document.createElement('button');btn.className='choice-btn';btn.innerHTML=`<span class="key">${key}</span><span>${text}</span>`;btn.onclick=()=>selectChoice(key,btn);cc.appendChild(btn);}
+const pct=Math.min(100,((data.item_number-1)/(data.max_items||Engine.MAX_ITEMS))*100);document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('q-num').textContent=data.item_number;updateThetaBars(data.theta_estimates||{},data.overall);document.getElementById('btn-submit').disabled=true;document.getElementById('btn-next').classList.add('hidden');document.querySelectorAll('.choice-btn').forEach(b=>{b.disabled=false;b.classList.remove('selected','correct','wrong');});ELAPSED_SEC=0;startTimer(parseInt(data.est_time,10)||60);setStatus(`Item ${data.item_number} · Skill: ${skill}`);}
 function selectChoice(key,btn){SELECTED_KEY=key;document.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');document.getElementById('btn-submit').disabled=false;}
 async function submitAnswer(){if(!SELECTED_KEY)return;stopTimer();document.querySelectorAll('.choice-btn').forEach(b=>b.disabled=true);document.getElementById('btn-submit').disabled=true;setStatus('Submitting…');const data=await Engine.respond(SESSION,CURRENT_Q.question_id,SELECTED_KEY,ELAPSED_SEC);updateThetaBars(data.theta_estimates||{},data.overall);document.querySelectorAll('.choice-btn').forEach(btn=>{const key=btn.querySelector('.key').textContent;if(key===data.correct_answer)btn.classList.add('correct');else if(key===SELECTED_KEY&&!data.correct)btn.classList.add('wrong');});SESSION_DONE=!!data.done;showReview(data);const nb=document.getElementById('btn-next');nb.classList.remove('hidden');if(data.done){nb.textContent='View Report →';nb.onclick=loadReport;}else{nb.textContent='Next →';nb.onclick=nextQuestion;}
 const rnb=document.getElementById('btn-next-review');if(data.done){rnb.textContent='View Report →';rnb.onclick=loadReport;}else{rnb.textContent='Next Question →';rnb.onclick=nextQuestion;}
@@ -232,12 +249,13 @@ function startTimer(estSec){const el=document.getElementById('timer');ELAPSED_SE
 function stopTimer(){clearInterval(TIMER_INT);}
 async function loadReport(){hide('review');setStatus('Generating report…');REPORT_DATA=await Engine.report(SESSION);renderReport(REPORT_DATA,'student');show('report');hide('quiz');setStatus('Report complete.');}
 function setView(mode){VIEW_MODE=mode;document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim().toLowerCase().startsWith(mode)));renderReport(REPORT_DATA,mode);}
-function renderReport(d,view){if(!d)return;document.getElementById('rpt-subtitle').textContent=`${d.student_name||''}${d.student_id ? ' · '+d.student_id : ''} · Unit ${d.unit||''} · ${(d.summary||{}).elapsed_fmt||''}`;const body=document.getElementById('report-body');const s=d.summary||{};const accCol=(s.accuracy_pct||0)>=75?'#006400':(s.accuracy_pct||0)>=50?'#8B6914':'#8B0000';const o=d.overall||{};let html=`
+function renderReport(d,view){if(!d)return;const practice=d.session_type==='practice';document.getElementById('rpt-subtitle').textContent=practice?`${d.student_name||''} · Topic ${d.topic||''} ${d.topic_title||''} · round ${d.attempt||1} · ${(d.summary||{}).elapsed_fmt||''}`:`${d.student_name||''}${d.student_id ? ' · '+d.student_id : ''} · Unit ${d.unit||''} · ${(d.summary||{}).elapsed_fmt||''}`;const body=document.getElementById('report-body');const s=d.summary||{};const accCol=(s.accuracy_pct||0)>=75?'#006400':(s.accuracy_pct||0)>=50?'#8B6914':'#8B0000';const o=d.overall||{};const verdict=practice?(d.mastered_all?'✓ Every skill in this topic is mastered.':'Practice round finished. It doesn\'t count towards your grade.'):(d.done?(o.meets_gate?'✓ Meets the unit gate (Proficient or above).':'✗ Below the unit gate (Proficient, θ ≥ 0.50). Book a tutoring session before moving on.'):'Test in progress.');let html=`
   <div class="report-section">
-    <div class="rpt-ribbon">Overall Result</div>
+    <div class="rpt-ribbon">${practice ? 'Practice Result' : 'Overall Result'}</div>
     <div class="rpt-section-body">
       <div style="font-size:15px;font-weight:bold;color:${o.level_color||'#000'}">${o.level||'—'} · θ = ${(o.theta||0).toFixed(2)} <span style="font-size:11px;color:#808080">± ${(o.se||0).toFixed(2)}</span></div>
-      <div style="font-size:12px;margin-top:4px">${d.done ? (o.meets_gate ? '✓ Meets the unit gate (Proficient or above).' : '✗ Below the unit gate (Proficient, θ ≥ 0.50). Book a tutoring session before moving on.') : 'Test in progress.'}</div>
+      <div style="font-size:12px;margin-top:4px">${verdict}</div>
+      ${practice ? `<div style="font-size:12px;margin-top:4px">${(d.recommendations||[]).map(r=>r.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')).join('<br>')}</div><div style="margin-top:8px"><button class="btn95 primary"onclick="practiseAgain()">Practise again →</button></div>` : ''}
     </div>
   </div>
   <div class="report-grid">
@@ -251,8 +269,8 @@ function renderReport(d,view){if(!d)return;document.getElementById('rpt-subtitle
       <div class="skill-row-name">${sk.name||skill}<br><span style="font-size:10px;color:#808080">${skill}</span></div>
       <div class="skill-row-bar"><div class="skill-row-fill" style="width:${sk.pct||0}%;background:${sk.color||'#8B0000'}"></div></div>
       <div class="skill-row-pct">${(sk.theta||0).toFixed(2)}</div>
-      <div class="skill-row-level">${sk.level||'—'}</div>
-      <span style="font-size:10px;color:#006400">${sk.mastered ? '✓' : ''}</span>
+      <div class="skill-row-level">${sk.level||'—'}${practice && sk.before != null ? `<br><span style="font-size:10px;color:#808080">was ${sk.before.toFixed(2)}</span>` : ''}</div>
+      <span style="font-size:10px;color:#006400">${sk.mastered ? (practice ? '✓ mastered' : '✓') : ''}</span>
     </div>`;}
 html+=`<div class="chart-wrap"><canvas id="rpt-chart" height="160"></canvas></div>`;html+=`</div></div>`;const str=d.strengths||[];const gap=d.gaps||[];if(str.length||gap.length){html+=`<div class="report-section">
       <div class="rpt-ribbon">Strengths &amp; Gaps</div>

@@ -1,6 +1,6 @@
 {
  "order": 307,
- "title": "Network lab 7: An access list that keeps guests out (Packet Tracer)",
+ "title": "Network lab 7: An access list that keeps guests out (Network Simulator)",
  "kicker": "Network lab",
  "units": [
   3
@@ -9,59 +9,60 @@
  "minutes": 50,
  "summary": "Write an extended access list so guests reach the internet web server but not staff computers or the file server, apply it in the right place, and test both sides.",
  "tools": [
-  "Cisco Packet Tracer",
+  "Network Simulator",
   "Router CLI"
  ],
- "titlePrefix": "Network lab 7: An access list that keeps guests out (Packet Tracer)",
+ "titlePrefix": "Network lab 7: An access list that keeps guests out (Network Simulator)",
  "teacher": true,
  "id": "sem-n07-pt-acl-guests-stay-out",
  "app": {
-  "name": "Cisco Packet Tracer",
-  "url": "https://www.netacad.com"
+  "name": "Network Simulator",
+  "url": "workstation.html?case=sem-n07-pt-acl-guests-stay-out&open=tool-netsim"
  },
  "files": [
+  "case/netbuilder.json",
   "case/README.txt"
  ],
  "template": [
   {
    "t": "md",
-   "s": "# Network lab 7: An access list that keeps guests out (Packet Tracer)\n\nWrite an extended access list so guests reach the internet web server but not staff computers or the file server, apply it in the right place, and test both sides.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `README.txt`."
+   "s": "# Network lab 7: An access list that keeps guests out (Network Simulator)\n\nWrite an extended access list so guests reach the internet web server but not staff computers or the file server, apply it in the right place, and test both sides.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `netbuilder.json`, `README.txt`."
   },
   {
    "t": "md",
-   "s": "## 1. Add the servers\n\nAdd **files01** to a staff port, and **web-out** on the router's **G0/1** (`ip address 203.0.113.1 255.255.255.0` and `no shutdown` on G0/1). On web-out, check **Services → HTTP** is on. From guest-1, open web-out in **Desktop → Web Browser** and ping files01: both work for now.\n\n- [ ] files01 and web-out added\n- [ ] Router G0/1 up\n- [ ] Before the ACL: guest-1 reaches both\n\n> Hint: Test before you block, so you know any failure later is caused by your rule and not by a typo.\n\n?> Before the ACL, can guest-1 ping files01? (yes or no) :: sha256:8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d"
+   "s": "## 1. Add the servers\n\nTwo servers are waiting below the switch. Cable **files01** to **Fa0/3** (a staff port) with **Copper Straight-Through** and give it 192.168.10.10, gateway 192.168.10.1. Set the **Cable** list back to **Automatic** and cable **web-out** to the router: it takes the router's first free port, **G0/1**. Give web-out 203.0.113.10, gateway 203.0.113.1; its **Web server** is already ticked. On the router CLI:\n\n```\nenable\nconfigure terminal\ninterface g0/1\n ip address 203.0.113.1 255.255.255.0\n no shutdown\nend\n```\n\nFrom guest-1's Command Prompt, type `curl 203.0.113.10` (it fetches web-out's home page) and `ping 192.168.10.10`: both work for now.\n\n- [ ] files01 and web-out cabled and addressed\n- [ ] Router G0/1 up\n- [ ] Before the ACL: guest-1 reaches both\n\n> Hint: Test before you block, so you know any failure later is caused by your rule and not by a typo.\n\n?> Before the ACL, can guest-1 ping files01? (yes or no) :: sha256:8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d"
   },
   {
    "t": "md",
-   "s": "## 2. Write the access list\n\nOn the router:\n\n```\nconfigure terminal\naccess-list 120 deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255\naccess-list 120 permit tcp 192.168.20.0 0.0.0.255 any eq 80\naccess-list 120 permit udp 192.168.20.0 0.0.0.255 any eq 53\naccess-list 120 deny ip any any\ninterface g0/0.20\n ip access-group 120 in\nend\nshow access-lists\n```\n\nRules are read top to bottom and the first match wins, so the deny for the staff network comes first.\n\n- [ ] Access list 120 written in the right order\n- [ ] Applied inbound on the guest subinterface\n- [ ] show access-lists checked\n\n> Hint: A wildcard mask is the opposite of a netmask: 0.0.0.255 means \"any value in the last number\".\n\n?> Which wildcard mask matches a whole /24 network? :: sha256:dc177893bc79d6b9613a86ef3ed02b2327ecad455fe79484367a30be115a34fd\n?> Which interface gets the list, inbound? (as typed in the command) :: sha256:6d02f277b67f8ec30c16ab1dc020c5763b39bfd9ff0816429af51dbd6d7acfe2"
+   "s": "## 2. Write the access list\n\nOn the router:\n\n```\nconfigure terminal\naccess-list 120 deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255\naccess-list 120 permit tcp 192.168.20.0 0.0.0.255 any eq 80\naccess-list 120 permit udp 192.168.20.0 0.0.0.255 any eq 53\naccess-list 120 deny ip any any\ninterface g0/0.20\n ip access-group 120 in\nend\nshow access-lists\n```\n\nRules are read top to bottom and the first match wins, so the deny for the staff network comes first.\n\n- [ ] Access list 120 written in the right order\n- [ ] Applied inbound on the guest subinterface\n- [ ] show access-lists checked: lines 10 to 40 in order\n\n> Hint: A wildcard mask is the opposite of a netmask: 0.0.0.255 means \"any value in the last number\".\n\n?> Which wildcard mask matches a whole /24 network? :: sha256:dc177893bc79d6b9613a86ef3ed02b2327ecad455fe79484367a30be115a34fd\n?> Which interface gets the list, inbound? (as typed in the command) :: sha256:6d02f277b67f8ec30c16ab1dc020c5763b39bfd9ff0816429af51dbd6d7acfe2"
   },
   {
    "t": "md",
-   "s": "## 3. Test both sides\n\nFrom guest-1: open web-out in the browser (allowed) and ping files01 (blocked). From staff-1: ping files01 and open web-out (both still fine). Run `show access-lists` again: the counters show which rule matched each test.\n\n- [ ] Guest to web works\n- [ ] Guest to files01 blocked\n- [ ] Staff unaffected\n- [ ] Match counters read\n\n> Hint: Every allow-list ends with an invisible \"deny any\". Writing it yourself makes the counters show what was dropped.\n\n?> After the ACL, can guest-1 still open the web server? (yes or no) :: sha256:8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d\n?> After the ACL, can guest-1 ping files01? (yes or no) :: sha256:9390298f3fb0c5b160498935d79cb139aef28e1c47358b4bbba61862b9c26e59"
+   "s": "## 3. Test both sides\n\nFrom guest-1: `curl 203.0.113.10` (allowed) and `ping 192.168.10.10` (blocked: **Destination net unreachable** from the router). From staff-1: `ping 192.168.10.10` and `curl 203.0.113.10` (both still fine). Then try `ping 203.0.113.10` from guest-1: blocked too, because the policy allows the web, not ping.\n\n- [ ] Guest to web works\n- [ ] Guest to files01 blocked\n- [ ] Staff unaffected\n- [ ] Guest ping to web-out blocked, and you can say which line did it\n\n> Hint: Every allow-list ends with an invisible \"deny any\". Writing it yourself makes the policy plain to whoever reads it next.\n\n?> After the ACL, can guest-1 still open the web server? (yes or no) :: sha256:8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d\n?> After the ACL, can guest-1 ping files01? (yes or no) :: sha256:9390298f3fb0c5b160498935d79cb139aef28e1c47358b4bbba61862b9c26e59"
   },
   {
    "t": "md",
-   "s": "## 4. Where next\n\nSegmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. The GNS3 lab shows the same traffic as real packets in Wireshark.\n\n- [All network labs](https://zeffiroh.github.io/ap-cybersecurity/labs.html)"
+   "s": "## 4. Where next\n\nSegmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. Lab 8 moves to Network Emulator and captures the traffic on a link, packet by packet.\n\n- [All network labs](https://zeffiroh.github.io/ap-cybersecurity/labs.html)"
   }
  ],
  "script": {
-  "intro": "Welcome to network lab seven. In lab five you wrote a short policy for Tulsi Travels: guests may use the web, and must never reach staff systems. Today that sentence becomes a working rule on the router, an access list. Then we test both sides, guests and staff, because a rule you haven't tested is a guess. Open your lab six file and save a copy.",
-  "outro": "Policy, rule, test, counters. That's how every firewall change should go, whether it's one router in a travel agent or a whole data centre. Start from a sentence someone agreed, put the most specific lines first, test from both sides, and read the counters to prove it. See you in lab eight.",
+  "intro": "Welcome to network lab seven. In lab five you wrote a short policy for Tulsi Travels: guests may use the web, and must never reach staff systems. Today that sentence becomes a working rule on the router, an access list. Then we test both sides, guests and staff, because a rule you haven't tested is a guess. Lab six's network is already built, with two servers waiting to be cabled.",
+  "outro": "Policy, rule, test. That's how every firewall change should go, whether it's one router in a travel agent or a whole data centre. Start from a sentence someone agreed, put the most specific lines first, and test from both sides before you call it done. See you in lab eight.",
   "steps": [
    {
-    "say": "Step one: add the servers. Add a server called files01 on a free staff port, with address 192.168.10.10 and gateway 192.168.10.1. Then add a second server, web-out, to stand in for the internet, and cable it to the router's G0/1. A router joined straight to a server takes a Copper Cross-Over cable, or use the lightning bolt and let Packet Tracer choose. On the router, give G0/1 the address 203.0.113.1 and no shutdown, and give web-out 203.0.113.10 with gateway 203.0.113.1. Check HTTP is on in web-out's Services tab. Then, from guest-1, open the web browser at 203.0.113.10, and ping files01.",
-    "after": "Both work. The web page opens, and files01 answers. That's the point of this step: test before you block. If something fails after the access list, you'll know your rule did it, and not a typo in an address. A note on 203.0.113: it's a range set aside for documentation and examples, so it can never clash with a real site on the internet. Before the access list, guest-1 can ping files01, so the answer is yes."
+    "say": "Step one: add the servers. Cable files01 to Fa0/3, a staff port, with Copper Straight-Through, and give it 192.168.10.10 with gateway 192.168.10.1. Then set the Cable list back to Automatic and cable web-out to the router: it takes the router's first free port, G0/1. web-out stands in for the internet. Give it 203.0.113.10, gateway 203.0.113.1. On the router, give G0/1 the address 203.0.113.1 and no shutdown. Then, from guest-1's Command Prompt, type curl 203.0.113.10, and ping files01.",
+    "after": "Both work. curl fetches web-out's home page, HTTP 200 OK, and files01 answers the ping. That's the point of this step: test before you block. If something fails after the access list, you'll know your rule did it, and not a typo in an address. Why Automatic for web-out? A router joined straight to a server needs a cross-over cable, not a straight-through one, and Automatic picks the right kind. A note on 203.0.113: it's a range set aside for documentation and examples, so it can never clash with a real site on the internet. Before the access list, guest-1 can ping files01, so the answer is yes."
    },
    {
     "say": "Step two: write the access list. On the router, in configuration mode, write access list 120 with four lines, in this order. One: deny ip from the guest network to the staff network. Two: permit tcp from the guest network to any address on port 80, the web. Three: permit udp from the guest network to any address on port 53, DNS. Four: deny ip any any. Then go into interface g0/0.20 and type ip access-group 120 in. End, and show access-lists.",
-    "after": "Order matters, because the router reads the list from the top and stops at the first line that matches. If the port 80 line came first, a guest could open a web page on a staff computer. The deny for the staff network goes first, so nothing gets past it. The DNS line is there for when the office has a real DNS server; today we browse by address. The numbers after each address are wildcard masks, the opposite of a netmask: 0.0.0.255 means any value in the last number, so it matches a whole slash twenty-four network. And the place: inbound on the guest subinterface, where guest traffic first enters the router, so it's checked before it goes anywhere. The answers are 0.0.0.255, and g0/0.20."
+    "after": "show access-lists prints the four lines numbered 10, 20, 30 and 40, in the order you typed them. Order matters, because the router reads the list from the top and stops at the first line that matches. If the port 80 line came first, a guest could open a web page on a staff computer. The deny for the staff network goes first, so nothing gets past it. The DNS line is there for when the office has a real DNS server; today we browse by address. The numbers after each address are wildcard masks, the opposite of a netmask: 0.0.0.255 means any value in the last number, so it matches a whole slash twenty-four network. And the place: inbound on the guest subinterface, where guest traffic first enters the router, so it's checked before it goes anywhere. The answers are 0.0.0.255, and g0/0.20."
    },
    {
-    "say": "Step three: test both sides. From guest-1, open web-out in the browser, then ping files01. From staff-1, ping files01 and open web-out. Then run show access-lists again and read the match counts at the end of each line.",
-    "after": "guest-1 gets the web page, and the ping to files01 fails. staff-1 does both, untouched. The counters tell you which line did what: the deny for the staff network counted the guest's pings to files01, and the port 80 line counted the web visit. That's why the last line is written out. Every access list ends with an invisible deny anyway, but writing it gives you a counter for everything else that was dropped. And you'll find things there. guest-1 can't ping web-out, or even its own gateway, because ping isn't on the allowed list. That's correct: the policy said web, not ping. And if staff-1 pings guest-1, that fails too: the request gets out, but the reply comes in on the guest side and hits line one. A list like this doesn't remember conversations; a stateful firewall does. So after the access list, guest-1 can still open the web server, and can't ping files01."
+    "say": "Step three: test both sides. From guest-1, curl web-out, then ping files01. From staff-1, ping files01 and curl web-out. Then one more from guest-1: ping web-out.",
+    "after": "guest-1 still gets the web page. The ping to files01 now comes back from the router at 192.168.20.1: destination net unreachable. Line 10 matched it. staff-1 does both, untouched, because the list sits on the guest subinterface only. And the last test: guest-1 can't ping web-out either. That's correct: the policy said web, not ping, so the ping falls through lines 10, 20 and 30 and hits line 40, deny ip any any. Every access list ends with an invisible deny anyway, but writing it out makes the policy plain to whoever reads the configuration next. So after the access list, guest-1 can still open the web server, and can't ping files01."
    },
    {
-    "say": "That's lab seven, and the last of the Packet Tracer labs: segmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. The last lab, in GNS3, shows the same kind of traffic as real packets in Wireshark."
+    "say": "That's lab seven, and the last of the Network Simulator labs: segmentation with VLANs, hardened switch ports, and an access list that enforces a written policy. The last lab, in Network Emulator, captures the traffic on a link and reads it packet by packet."
    }
   ]
  },

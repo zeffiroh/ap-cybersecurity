@@ -266,7 +266,7 @@ def videos_page():
             '<a class="btn" href="../videos.html" target="_blank" rel="noopener">Student view</a></header>\n'
             '<section class="tc-card tv-post"><h3 id="v-head">Post a video</h3><div class="tv-cols"><div class="tv-fields">'
             '<label class="tv-f">YouTube link <small>Upload it as Unlisted, then paste the link</small><input id="v-yt" placeholder="https://youtu.be/…"></label>'
-            '<label class="tv-f">Title <input id="v-title" placeholder="e.g. Spotting a phishing link"></label>'
+            '<label class="tv-f">Title <small>A lecture in parts: post each part as its own video, in order, e.g. Lecture 5, part 2 of 3</small><input id="v-title" placeholder="e.g. Spotting a phishing link"></label>'
             '<div class="tv-row"><label class="tv-f">Lesson <select id="v-atom"></select></label>'
             '<label class="tv-f">Who sees it <select id="v-group"></select></label></div>'
             '<label class="tv-f">Note for students <small>optional</small><textarea id="v-note" rows="2" placeholder="e.g. Watch before Thursday\'s class."></textarea></label>'

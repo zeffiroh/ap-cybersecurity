@@ -68,7 +68,7 @@
   var TINT = { terminal: "#2b2f36", files: "#d89a2b", mail: "#2d74c4", chat: "#3a9d6a", notes: "#c9a227", help: "#5d6b7a", text: "#7a8796",
     packets: "#1f7a8c", events: "#6a4c93", siem: "#c0392b", alerts: "#d35400", shield: "#2c5f8a", flame: "#b03a2e", gear: "#4a5a6a", cloud: "#2980b9", target: "#7d3c98", scales: "#5b6c3a", folder: "#d89a2b", ticket: "#16a085", rack: "#34495e", rdp: "#1e5aa8", net: "#2c7a7b", bench: "#8a5a2b" };
   var GROUP_ICON = { "SOC analyst": "shield", "Incident responder": "flame", "Security engineer": "gear", "Cloud and DevSecOps": "cloud", "Penetration tester": "target", "Governance and risk": "scales" };
-  var TOOL_ICON = { packets: "packets", events: "events", siem: "siem", alerts: "alerts", email: "mail", logsearch: "siem", timeline: "events", proctree: "events" };
+  var TOOL_ICON = { packets: "packets", events: "events", siem: "siem", alerts: "alerts", email: "mail", logsearch: "siem", timeline: "events", proctree: "events", netstarter: "net", netsim: "net", netemu: "net" };
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function icon(name, size) {
@@ -293,6 +293,7 @@
     if (/tabletop.*\.json$/.test(b)) return { app: "tool-tabletop", label: "Tabletop exercise", ico: "flame" };
     if (/risk.*\.csv$/.test(b)) return { app: "tool-risk", label: "Risk register", ico: "scales" };
     if (/certin.*\.json$/.test(b)) return { app: "tool-certin", label: "CERT-In case", ico: "scales" };
+    if (/^netbuilder.*\.json$/.test(b)) { var np = (/"program"\s*:\s*"(netstarter|netsim|netemu)"/.exec(text || "") || [])[1] || "netstarter"; return { app: "tool-" + np, label: "Network topology", ico: "net" }; }
     if (/^ai.*\.json$/.test(b)) return { app: "tool-aisec", label: "AI assistant setup", ico: "scales" };
     if (/audit.*\.json$|polic.*\.json$/.test(b)) return { app: "tool-cloudiam", label: "Cloud audit or policy", ico: "cloud" };
     if (/\.(log|txt|csv|json|md|conf|ya?ml|tf|sh|py|patch)$|^dockerfile/.test(b)) return { app: "text", label: ({ log: "Log file", csv: "Spreadsheet (CSV)", json: "JSON data" })[(b.match(/\.([a-z]+)$/) || [])[1]] || "Text file", ico: "text" };
@@ -825,7 +826,11 @@
     clock();
     setInterval(clock, 5000);
     if (q.get("lab")) labMode(true);
+    var want = String(q.get("open") || "").replace(/[^a-z0-9-]/g, "");
+    function openWanted() { var p = want && prog(want); want = ""; if (p) setTimeout(function () { p.open({}); }, 300); }
+    if (want && q.get("case")) { var off = on("case.ready", function () { off(); openWanted(); }); }
     lockScreen(function () {
+      if (want && !q.get("case")) openWanted();
       caseMenu();
       if (!q.get("case") && !trial) setTimeout(help, 400);
     });

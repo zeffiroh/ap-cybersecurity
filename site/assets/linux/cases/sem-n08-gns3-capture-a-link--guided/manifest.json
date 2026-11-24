@@ -1,46 +1,47 @@
 {
  "order": 308,
- "title": "Network lab 8: Capture a link in Wireshark (GNS3)",
+ "title": "Network lab 8: Capture a link (Network Emulator)",
  "kicker": "Network lab",
  "units": [
   3
  ],
  "level": "Intermediate",
  "minutes": 40,
- "summary": "Build a tiny network in GNS3 with its built-in computers and switch, start a capture on a link, and read ARP and ICMP packets in Wireshark.",
+ "summary": "Build a tiny network in Network Emulator with its virtual PCs and switch, start a capture on a link, and read ARP and ICMP packets layer by layer.",
  "tools": [
-  "GNS3",
+  "Network Emulator",
   "VPCS",
-  "Wireshark"
+  "Capture tab"
  ],
- "titlePrefix": "Network lab 8: Capture a link in Wireshark (GNS3)",
+ "titlePrefix": "Network lab 8: Capture a link (Network Emulator)",
  "teacher": true,
  "id": "sem-n08-gns3-capture-a-link--guided",
  "app": {
-  "name": "GNS3",
-  "url": "https://www.gns3.com"
+  "name": "Network Emulator",
+  "url": "workstation.html?case=sem-n08-gns3-capture-a-link&open=tool-netemu"
  },
  "files": [
+  "case/netbuilder.json",
   "case/README.txt"
  ],
  "script": {
-  "intro": "Welcome to network lab eight, the last one. Until now we've trusted the simulator to tell us what the packets were doing. Today we look at them ourselves. We'll build a tiny network in GNS3, put a capture on the cable, and watch ARP and ping happen in Wireshark, field by field. It's the same skill a security analyst uses on recorded evidence, and it starts with knowing what normal looks like.",
+  "intro": "Welcome to network lab eight, the last one. Until now the programs have told us whether a ping worked. Today we look at the packets ourselves. We'll build a tiny network in Network Emulator, put a capture on the cable, and watch ARP and ping happen, field by field. It's the same skill a security analyst uses on recorded evidence, and it starts with knowing what normal looks like.",
   "outro": "Eight labs ago you cabled four computers to a switch. Since then you've routed, named, split, trunked, hardened and filtered a network, and now you've read its packets yourself. Keep the habit from today: when a tool tells you what happened on the wire, capture it and look. See you in the seminars.",
   "steps": [
    {
-    "say": "Step one: install GNS3 and place three nodes. GNS3 is free and open source. Download it from gns3.com, which asks for a free account, and say yes when the installer offers Wireshark. We only use GNS3's built-in parts, so you don't need router images or the GNS3 virtual machine; if it asks where to run nodes, choose your own computer. Start a new project. From End devices, drag two VPCS nodes; from Switches, one Ethernet switch. Use Add a link to join each VPCS to the switch, then press the green Start button.",
-    "after": "All three nodes turn green in the topology summary, and so do the ends of the links. VPCS stands for Virtual PC Simulator. It isn't a full computer, just enough of one to have an address, ping and trace. That's all we need, and it starts in a second. Network engineers use GNS3 to test real router software before it goes near a live network; today we use only its lightest parts. GNS3's built-in simple computers are called VPCS."
+    "say": "Step one: open Network Emulator, start and link three nodes. In the Hacker Room, open Start, Workplace, Network lab, and pick lab eight. Two VPCS computers and an Ethernet switch are already on the canvas, and they're stopped. Press Start all. Then press Add a link, click PC1, then SW1, pick the ports and press Connect. Do the same for PC2.",
+    "after": "All three nodes turn green in the topology summary, and so do the ends of the links. In an emulator, nodes behave like real machines: they have to be running before they do anything, and a stopped node shows red at the end of its links. VPCS stands for Virtual PC Simulator. It isn't a full computer, just enough of one to have an address, ping and trace. That's all we need, and it starts in a second. Network engineers use emulators to test real router software before it goes near a live network; today we use only the lightest parts. The simple built-in computers are called VPCS."
    },
    {
-    "say": "Step two: give the computers addresses. Right-click PC1 and choose Console. Type ip 10.0.0.1/24 10.0.0.254. Open PC2's console and type ip 10.0.0.2/24 10.0.0.254. Then check each one with show ip.",
-    "after": "The ip command takes the address with its prefix length, then the gateway. VPCS checks first that nobody else has the address, which takes a moment. Slash twenty-four is the short way to write 255.255.255.0, the same mask as in every lab so far. The gateway, 10.0.0.254, doesn't exist here; we set it out of good habit, and nothing leaves this network today. show ip prints the name, the address, the gateway and the MAC address VPCS gave the PC. Note PC2's MAC: you'll see it again in a minute. The command is show ip."
+    "say": "Step two: give the computers addresses. Double-click PC1 to open its console. Type ip 10.0.0.1/24 10.0.0.254. Open PC2's console and type ip 10.0.0.2/24 10.0.0.254. Then check each one with show ip.",
+    "after": "The ip command takes the address with its prefix length, then the gateway. VPCS checks first that nobody else has the address, and prints Checking for duplicate address. Slash twenty-four is the short way to write 255.255.255.0, the same mask as in every lab so far. The gateway, 10.0.0.254, doesn't exist here; we set it out of good habit, and nothing leaves this network today. show ip prints the name, the address, the gateway and the MAC address VPCS gave the PC. Note PC2's MAC: you'll see it again in a minute. Each console has its own tab, so you can switch between them. The command is show ip."
    },
    {
-    "say": "Step three: capture and read the packets. Right-click the link between PC1 and SW1 and choose Start capture. Wireshark opens. On PC1, type ping 10.0.0.2. In Wireshark, type the display filter arp, two vertical bars, icmp, and press Enter. Read the list from the top. Then click one echo request, and in the details pane open Internet Control Message Protocol.",
-    "after": "The first two lines are ARP, just like lab one, but now you're reading the real packets. PC1 asks everyone: who has 10.0.0.2? Tell 10.0.0.1. PC2 replies: 10.0.0.2 is at, followed by the MAC address you noted. Then come the echo request and echo reply pairs; VPCS sends five pings by default, so five pairs. In the details of a request, the ICMP type is 8, echo request. A reply is type 0. Now open the Ethernet layer of the ARP request: its destination is ff:ff:ff:ff:ff:ff, the broadcast address, which is how the switch knows to send it out of every port. The reply goes straight back to PC1's own MAC. Notice the sequence numbers counting up, and Wireshark linking each reply to the request it answers. This is what normal looks like. When you meet a capture with ARP replies nobody asked for, or pings carrying far more data than a ping needs, you'll notice, because you know this picture. If you want one more, ping 10.0.0.9, an address nobody has. You'll see ARP asking again and again, and no echo request at all, because PC1 never found anyone to send it to. The answers are 8, and ARP."
+    "say": "Step three: capture and read the packets. Right-click the link between PC1 and SW1 and choose Start capture. In PC1's console, type ping 10.0.0.2. Open the Capture tab, type arp in the display filter box and press Enter, and click the first row. Then change the filter to icmp. Click an echo request and read Internet Control Message Protocol in the details, then click a reply and read its time to live.",
+    "after": "The arp filter leaves two rows, just like lab one, but now you're reading the packets yourself. PC1 asks: who has 10.0.0.2? Tell 10.0.0.1. Its Ethernet destination is ff:ff:ff:ff:ff:ff, the broadcast address, which is how the switch knows to send it out of every port. PC2 replies: 10.0.0.2 is at, followed by the MAC address you noted, and that reply goes straight back to PC1's own MAC. The icmp filter shows the echo request and echo reply pairs; VPCS sends five pings, so five pairs, with the sequence numbers counting up. In the details of a request, the ICMP type is 8, echo request. A reply is type 0. And the reply's time to live is 64, the starting value for this kind of computer, with no router in between to take any off. This is what normal looks like. When you meet a capture with ARP replies nobody asked for, or pings carrying far more data than a ping needs, you'll notice, because you know this picture. If you want one more, ping 10.0.0.9, an address nobody has. VPCS says host not reachable, and the capture shows ARP asking again and again, and no echo request at all, because PC1 never found anyone to send it to. The answers are 8, ARP, and 64."
    },
    {
-    "say": "That's the end of the network labs. You captured real packets on a link you built. Seminar one, Reading evidence, uses the same skill on recorded evidence from an incident, and the packet cases in Labs build on it."
+    "say": "That's the end of the network labs. You captured packets on a link you built. Seminar one, Reading evidence, uses the same skill on recorded evidence from an incident, and the packet cases in Labs build on it."
    }
   ]
  },
@@ -55,23 +56,23 @@
  "template": [
   {
    "t": "md",
-   "s": "# Network lab 8: Capture a link in Wireshark (GNS3)\n\nBuild a tiny network in GNS3 with its built-in computers and switch, start a capture on a link, and read ARP and ICMP packets in Wireshark.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `README.txt`."
+   "s": "# Network lab 8: Capture a link (Network Emulator)\n\nBuild a tiny network in Network Emulator with its virtual PCs and switch, start a capture on a link, and read ARP and ICMP packets layer by layer.\n\nThe files for this seminar are in `~/case` (Linux) and `case/` (Python): `netbuilder.json`, `README.txt`."
   },
   {
    "t": "md",
-   "s": "## 1. Install GNS3 and place three nodes\n\nGNS3 is free and open source. Download it from https://www.gns3.com (a free account is needed), and install Wireshark when the installer offers it. This lab uses only the built-in VPCS computers and the built-in Ethernet switch, so you don't need any router images or the GNS3 VM.\n\nStart a new project. From **End devices**, drag two **VPCS** nodes; from **Switches**, drag one **Ethernet switch**. Use **Add a link** to join each VPCS to the switch. Press the green **Start** button.\n\n- [ ] GNS3 and Wireshark installed\n- [ ] Two VPCS and one Ethernet switch, linked\n- [ ] All nodes started (green)\n\n> Hint: If GNS3 asks to run nodes on the GNS3 VM, choose to run them on your local computer for this lab.\n\n?> What are GNS3's built-in simple computers called? (four letters) :: sha256:b3e4536cf6d46f9353e565ffa1fa84ba487afadce856a5bd5f04e1fbb6e070df"
+   "s": "## 1. Open Network Emulator, start and link three nodes\n\nLab 8 uses **Network Emulator**: nodes that start and stop like real virtual machines, and a capture on any link. Nothing to install: in the Hacker Room open **Start → Workplace → Network lab** and pick lab 8. Two **VPCS** computers and an **Ethernet switch** are on the canvas, stopped (red).\n\nPress **Start all**. Then press **Add a link**, click PC1, then SW1, pick the ports and press **Connect**. Do the same for PC2. Both ends of each link turn green.\n\n- [ ] Network Emulator open with PC1, PC2 and SW1\n- [ ] All three nodes started (green in the Topology summary)\n- [ ] PC1 and PC2 linked to SW1\n\n> Hint: A stopped node has no console and its link ends stay red. Right-click a node to start or stop just that one.\n\n?> What are Network Emulator's simple built-in computers called? (four letters) :: sha256:b3e4536cf6d46f9353e565ffa1fa84ba487afadce856a5bd5f04e1fbb6e070df"
   },
   {
    "t": "md",
-   "s": "## 2. Give the computers addresses\n\nRight-click PC1 → **Console**, and type `ip 10.0.0.1/24 10.0.0.254`. On PC2: `ip 10.0.0.2/24 10.0.0.254`. Check with `show ip`.\n\n- [ ] PC1 and PC2 addressed\n- [ ] show ip checked on both\n\n> Hint: The VPCS `ip` command takes the address with its prefix length, then the gateway.\n\n?> Which VPCS command shows a computer's address? :: sha256:0955ec6cf90dfd41291cff2e86699b9378b9eac0bbae103e45d4867524230e16"
+   "s": "## 2. Give the computers addresses\n\nDouble-click PC1 (or right-click it → **Console**), and type `ip 10.0.0.1/24 10.0.0.254`. On PC2: `ip 10.0.0.2/24 10.0.0.254`. Check each with `show ip`. Each console gets its own tab in **Consoles**.\n\n- [ ] PC1 and PC2 addressed\n- [ ] show ip checked on both, and PC2's MAC noted\n\n> Hint: The VPCS `ip` command takes the address with its prefix length, then the gateway.\n\n?> Which VPCS command shows a computer's address? :: sha256:0955ec6cf90dfd41291cff2e86699b9378b9eac0bbae103e45d4867524230e16"
   },
   {
    "t": "md",
-   "s": "## 3. Capture and read the packets\n\nRight-click the link between PC1 and SW1 → **Start capture**. Wireshark opens. On PC1, type `ping 10.0.0.2`. In Wireshark, type the display filter `arp || icmp` and read the list from the top: an **ARP** request (who has 10.0.0.2?), an ARP reply, then ICMP **Echo (ping) request** and **reply** pairs. Click one echo request and open **Internet Control Message Protocol** in the details pane to see its type.\n\n- [ ] Capture running on the PC1 link\n- [ ] arp || icmp filter applied\n- [ ] ARP pair and echo request/reply pairs found\n- [ ] ICMP type read in the details pane\n\n> Hint: Echo request is ICMP type 8, echo reply is type 0.\n\n?> Which ICMP type number is an echo request? :: sha256:2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3\n?> Which protocol asks \"who has 10.0.0.2\" first? (three letters) :: sha256:cf835fc094349f22c2214fc8256cb895fcbcc01c77083c0f94114703d9e79a29"
+   "s": "## 3. Capture and read the packets\n\nRight-click the link between PC1 and SW1 → **Start capture**. In PC1's console, type `ping 10.0.0.2`. Open the **Capture** tab, type `arp` in the **Display filter** box and press Enter: an **ARP** request (who has 10.0.0.2?) and its reply. Click the request and read its Ethernet destination. Then filter `icmp`: five **Echo (ping) request** and **reply** pairs. Click a request and read **Internet Control Message Protocol** in the details to see its type; click a reply and read its **Time to live**.\n\n- [ ] Capture running on the PC1 link\n- [ ] arp filter: the request and reply found\n- [ ] icmp filter: echo request and reply pairs found\n- [ ] ICMP type and TTL read in the details\n\n> Hint: Echo request is ICMP type 8, echo reply is type 0.\n\n?> Which ICMP type number is an echo request? :: sha256:2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3\n?> Which protocol asks \"who has 10.0.0.2\" first? (three letters) :: sha256:cf835fc094349f22c2214fc8256cb895fcbcc01c77083c0f94114703d9e79a29\n?> What Time to live does PC2's echo reply carry? :: sha256:a68b412c4282555f15546cf6e1fc42893b7e07f271557ceb021821098dd66c1b"
   },
   {
    "t": "md",
-   "s": "## 4. Where next\n\nYou captured real packets on a link you built, the same skill the packet labs and Seminar 1 use on recorded evidence.\n\n- [Seminar 1: Reading evidence](https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=2)\n- [All network labs](https://zeffiroh.github.io/ap-cybersecurity/labs.html)"
+   "s": "## 4. Where next\n\nYou captured packets on a link you built, the same skill the packet labs and Seminar 1 use on recorded evidence.\n\n- [Seminar 1: Reading evidence](https://zeffiroh.github.io/ap-cybersecurity/seminars.html?id=2)\n- [All network labs](https://zeffiroh.github.io/ap-cybersecurity/labs.html)"
   }
  ]
 }

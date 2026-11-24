@@ -7,17 +7,17 @@
 <script src="../../../assets/shared/identity.js"></script>
 <script src="../../../assets/shared/paywall.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Network lab 6: Lock down the switch (Packet Tracer) written tutorial &middot; Aayat-AP-Prep</title>
+<title>Network lab 6: Lock down the switch (Network Simulator) written tutorial &middot; Aayat-AP-Prep</title>
 <style>body{margin:0;background:#f6f6f2;color:#17171f;font:17px/1.6 Georgia,'Times New Roman',serif}main{max-width:800px;margin:0 auto;padding:40px 24px 80px}h1{font-size:34px;line-height:1.15;margin:8px 0 12px}h2{margin-top:44px;padding-top:18px;border-top:2px solid #17171f;font-size:23px}.kick{font:700 12px/1 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555}.meta{font:14px Arial,sans-serif;color:#555}.go{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.go a{font:700 14px Arial,sans-serif;padding:10px 14px;border:2px solid #17171f;color:#17171f;text-decoration:none;background:#fff}.go a.main{background:#17171f;color:#fff}pre{background:#101018;color:#e8e8e8;padding:12px 14px;overflow:auto;font:13.5px/1.5 Consolas,Menlo,monospace}pre.want{background:#fff;color:#222;border:1px solid #bbb;max-height:320px}code{font:.9em Consolas,Menlo,monospace}.lab{font:700 12px Arial,sans-serif;color:#555;margin:14px 0 4px}blockquote{border-left:4px solid #17171f;margin:14px 0;padding:2px 14px;background:#fff}@media print{.go{display:none}pre{white-space:pre-wrap}pre.want{max-height:none}body{background:#fff}}</style>
 </head>
 <body><main><p class="kick">Network lab · written tutorial</p>
-<h1>Network lab 6: Lock down the switch (Packet Tracer)</h1>
+<h1>Network lab 6: Lock down the switch (Network Simulator)</h1>
 <p class="meta">Intermediate &middot; about 45 min</p>
 <p>Shut unused ports, allow one known device per staff port with port security, protect the console and enable modes, and watch an unknown laptop get blocked.</p>
 <div class="go"><a class="main" href="../../../notebook.html?ref=rb-sem-n06-pt-lock-down-the-switch&amp;runbook=sem-n06-pt-lock-down-the-switch">Walkthrough</a><a href="../../../notebook.html?ref=rb-sem-n06-pt-lock-down-the-switch--guided&amp;runbook=sem-n06-pt-lock-down-the-switch--guided">Practice</a><a href="../../../notebook.html?ref=rb-sem-n06-pt-lock-down-the-switch--solo&amp;runbook=sem-n06-pt-lock-down-the-switch--solo">Solo</a></div>
-<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>README.txt</code>.</p>
+<p>The files for this seminar are in <code>~/case</code> (Linux) and <code>case/</code> (Python): <code>netbuilder.json</code>, <code>README.txt</code>.</p>
 <h2>1. Park and shut the unused ports</h2>
-<p>A live, empty wall port is an open door: anyone can plug in. On the switch:</p>
+<p>A live, empty wall port is an open door: anyone can plug in. Double-click <strong>sw1</strong> for its CLI:</p>
 <pre><code>enable
 configure terminal
 vlan 999
@@ -47,10 +47,10 @@ interface range fa0/1 - 12
  switchport port-security violation shutdown
 end
 </code></pre>
-<p>From staff-1, ping staff-2 (192.168.10.12), so the switch learns both computers' MAC addresses, then run <code>show port-security interface fa0/1</code>. (If staff-2 never sends anything, Fa0/2 learns whatever plugs in first, and step 3 won't be blocked.)</p>
+<p>From staff-1's Command Prompt, ping staff-2 (192.168.10.12), so both staff ports hear from their computers, then run <code>show port-security</code> on the switch. (On a real switch, a port that has never heard from its computer learns whatever plugs in first.)</p>
 <ul>
 <li>&#9744; Port security on ports 1-12</li>
-<li>&#9744; staff-1's MAC learned (sticky)</li>
+<li>&#9744; Fa0/1 and Fa0/2 each show 1 current address</li>
 <li>&#9744; show port-security checked</li>
 </ul>
 <blockquote>
@@ -58,15 +58,15 @@ end
 </blockquote>
 <p><strong>Question:</strong> How many MAC addresses may each staff port learn?</p>
 <h2>3. Plug in an unknown laptop</h2>
-<p>Unplug staff-2 from Fa0/2 and plug a new <strong>Laptop</strong> into Fa0/2 instead. Give it 192.168.10.50 and ping staff-1. Look at the link light, then run <code>show interfaces status</code> and <code>show port-security interface fa0/2</code>.</p>
-<p>The port has shut itself down. To bring it back after a check, plug staff-2 back in and run <code>shutdown</code> then <code>no shutdown</code> on the port.</p>
+<p>Click the cable between staff-2 and the switch and press <strong>Unplug it</strong>. Add a <strong>Laptop</strong> from the bar, give it 192.168.10.50 in its panel, and cable it to <strong>Fa0/2</strong> with <strong>Copper Straight-Through</strong>. Ping staff-1 from the laptop. Look at the link light, then run <code>show interfaces status</code> and <code>show port-security</code> on the switch.</p>
+<p>The port has shut itself down. To bring it back after a check, unplug the laptop, plug staff-2 back into Fa0/2, and on that port run <code>shutdown</code> then <code>no shutdown</code> (on a real switch the port stays err-disabled until you do).</p>
 <ul>
 <li>&#9744; Unknown laptop blocked</li>
 <li>&#9744; Port state read in show interfaces status</li>
-<li>&#9744; Port brought back with shutdown / no shutdown</li>
+<li>&#9744; staff-2 back on Fa0/2 and connected</li>
 </ul>
 <blockquote>
-<p>Hint: In Packet Tracer the light turns red and the status says err-disabled.</p>
+<p>Hint: The link light turns red and the status says err-disabled.</p>
 </blockquote>
 <p><strong>Question:</strong> Which status does show interfaces status give the blocked port?</p>
 <h2>4. Protect the management access</h2>
@@ -78,12 +78,13 @@ line console 0
  login
 end
 copy running-config startup-config
+show running-config
 </code></pre>
-<p>Test it: open a console from a PC (<strong>Console</strong> cable to the switch's console port, then <strong>Desktop → Terminal</strong>).</p>
+<p>Read the top of <code>show running-config</code>: the enable secret is stored as a hash (<code>enable secret 5 ...</code>), never as the word you typed.</p>
 <ul>
 <li>&#9744; enable secret set</li>
 <li>&#9744; Console password with login</li>
-<li>&#9744; Configuration saved</li>
+<li>&#9744; Configuration saved ([OK])</li>
 </ul>
 <blockquote>
 <p>Hint: <code>enable secret</code> is stored as a hash; the old <code>enable password</code> isn't. Always use secret.</p>

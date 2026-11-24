@@ -288,7 +288,7 @@ def playground_page():
     path = SITE / "playground.html"
     body = ('<h1>Simulator playground</h1>\n<p class="aa-sub">Every analyst program on its own: a guided tour and three quick challenges each, on real sample data.</p>\n'
             '<div id="pg"><p class="aa-sub">Loading the simulators…</p></div>\n'
-            + theme_assets(path.parent, ["tools.css", "playground.css"], ["tools.js", *TS.TOOL_FILES, "playground.js"]))
+            + theme_assets(path.parent, ["tools.css", "playground.css"], ["tools.js", *TS.TOOL_FILES, "workstation-net.js", "playground.js"]))
     emit(path, N.shell(path, "", body, cls="aa-wide"))
 
 
@@ -503,12 +503,12 @@ def labs_page():
              f'<li><a href="{r(SITE / "sqli.html")}"><b>Your first attack: the SQL injection lab</b><span>Get past a login, then fix it. About 30 minutes.</span></a></li>'
              f'<li><a id="lv-firstcase" href="{r(SITE / "notebook.html")}#nb-cases-h"><b>Your first incident runbook</b><span>A guided case with a briefing, hints and answer checks. About an hour.</span></a></li>'
              '</ol></section>')
-    def prog(name, url, d, more):
-        return (f'<a class="lv-card" href="{url}" target="_blank" rel="noopener"><span class="lv-ck">Free program</span><b>{esc(name)}</b>'
+    def prog(name, case, tool, d, more):
+        return (f'<a class="lv-card" href="{r(SITE / "workstation.html")}?case=sem-{case}&amp;open=tool-{tool}"><span class="lv-ck">In the Hacker Room</span><b>{esc(name)}</b>'
                 f'<span class="lv-cs">{esc(d)}</span><span class="lv-cp">{esc(more)} &rarr;</span></a>')
-    netprogs = (prog("Filius", "https://www.lernsoftware-filius.de", "A free network simulator made for schools: cable computers, switches and routers, then ping, DNS and a web server. Windows, macOS, Linux.", "Labs 1 to 3 · download")
-                + prog("Cisco Packet Tracer", "https://www.netacad.com", "The classroom standard for switch and router commands: VLANs, trunks, port security, access lists. Free with a Networking Academy account.", "Labs 4 to 7 · sign up and download")
-                + prog("GNS3", "https://www.gns3.com", "A free network emulator for real equipment. Its built-in computers and switch need no images, and any link can be captured in Wireshark.", "Lab 8 · download"))
+    netprogs = (prog("Network Starter", "n01-filius-your-first-network", "netstarter", "A first network, made simple: cable computers, switches and routers, then ping, DNS and a web server, and read every packet a computer sends.", "Labs 1 to 3 · open")
+                + prog("Network Simulator", "n04-pt-vlans-staff-and-guest", "netsim", "Real switch and router commands: VLANs, trunks, port security and access lists, with link lights and a step-by-step simulation mode.", "Labs 4 to 7 · open")
+                + prog("Network Emulator", "n08-gns3-capture-a-link", "netemu", "Nodes that start and stop like real virtual machines, a console for each, and a capture on any link, read layer by layer.", "Lab 8 · open"))
     jump = ('<nav class="lv-jump" aria-label="Kinds of lab"><a href="#lv-guided">Guided labs</a><a href="#lv-sims">Simulations</a><a href="#lv-network">Network lab</a><a href="#lv-runbooks">Incident runbooks</a>'
             '<a href="#lv-attack">Attack the app</a><a href="#lv-ctf">CTF</a><a href="#lv-tools">Tools</a></nav>')
     skills = "".join(f'<li><span class="aa-id">{a["id"]}</span><a href="{r(N.lab_page(a))}">{esc(N.window_name(a, "lab"))}</a></li>'
@@ -522,8 +522,8 @@ def labs_page():
             '<h2 id="lv-sims">Simulations</h2>\n<p class="lv-gd">A whole working day in the Hacker Room: a story, people who message you, email that arrives while you work, and objectives you meet with the real programs. '
             'Walkthrough, Practice or Solo, then a scored debrief for your hand-in. New to the programs? Try each one first in the <a href="playground.html">simulator playground</a>.</p>\n'
             '<div id="lv-sims"><p class="sx-empty">Loading simulations…</p></div>\n'
-            '<h2 id="lv-network">Network lab</h2>\n<p class="lv-gd">Build and secure real networks in three free programs on your own computer: cabling, addresses and routing in Filius, '
-            'VLANs, switch hardening and access lists in Packet Tracer, and packet capture in GNS3. Each lab has step-by-step instructions, three levels and answer checks here. Lab 1 is free.</p>\n'
+            '<h2 id="lv-network">Network lab</h2>\n<p class="lv-gd">Build and secure networks in three network programs in the Hacker Room, with nothing to install: cabling, addresses and routing in Network Starter, '
+            'VLANs, switch hardening and access lists in Network Simulator, and packet capture in Network Emulator. Each lab has step-by-step instructions, goals that tick as you work, three levels and answer checks here. Lab 1 is free.</p>\n'
             f'<div class="lv-grid">{netprogs}</div>\n<div id="lv-netlabs"><p class="sx-empty">Loading network labs…</p></div>\n'
             '<h2 id="lv-runbooks">Incident runbooks</h2>\n<p class="lv-gd">Work a real case in the Notebook: real Linux, Python and network tools on the case evidence, '
             'with a briefing, a step tracker, hints and answer checks.</p>\n<div id="lv-cases"><p class="sx-empty">Loading cases…</p></div>\n'
@@ -599,7 +599,7 @@ def notebook_page():
             'Write <code>- [ ] step</code> in notes for a checklist, <code>&gt; Hint: text</code> for a hidden hint, and '
             '<code>?&gt; Question :: sha256:&lt;hash&gt;</code> for a question with a checked answer. Double-click a note to edit it.</p>\n'
             '</section>\n</div>\n'
-            + theme_assets(path.parent, ["runbook.css", "playbook.css", "tools.css"], ["linux-vm.js", "labkit.js", "tools.js", *TS.TOOL_FILES, "playbook.js", "notebook.js"]))
+            + theme_assets(path.parent, ["runbook.css", "playbook.css", "tools.css"], ["linux-vm.js", "labkit.js", "tools.js", *TS.TOOL_FILES, "workstation-net.js", "playbook.js", "notebook.js"]))
     emit(path, N.shell(path, "", body))
 
 

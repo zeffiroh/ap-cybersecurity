@@ -1,6 +1,6 @@
 ## 3. Test, and notice the new risk
 
-From guest-1, ping staff-1 (192.168.10.11). It works now, because the router joins the VLANs. Good for printing; bad for security: guests can reach staff computers again.
+From guest-1's Command Prompt, ping staff-1 (192.168.10.11). It works now, because the router joins the VLANs. Good for printing; bad for security: guests can reach staff computers again.
 
 Write down which traffic guests should be allowed (the internet) and which they shouldn't (staff computers and the file server). Lab 7 enforces that with an access list.
 

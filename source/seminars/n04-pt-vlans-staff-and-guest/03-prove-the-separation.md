@@ -1,8 +1,8 @@
 ## 3. Prove the separation
 
-From staff-1's **Command Prompt**, ping staff-2 (192.168.10.12): it answers. Ping guest-1 (192.168.20.31): it fails.
+Double-click **staff-1** for its **Command Prompt**. Ping staff-2 (192.168.10.12): it answers. Ping guest-1 (192.168.20.31): it fails.
 
-Now the real test: change guest-1's address to 192.168.10.99, as if a visitor guessed the staff range. Ping staff-1 again. It still fails, because the switch never forwards VLAN 20 frames to VLAN 10 ports. Put the address back.
+Now the real test: click guest-1 and change its address to 192.168.10.99, as if a visitor guessed the staff range. From guest-1's Command Prompt, ping staff-1. It still fails, because the switch never forwards VLAN 20 frames to VLAN 10 ports. Put the address back.
 
 - [ ] Staff to staff works
 - [ ] Staff to guest fails

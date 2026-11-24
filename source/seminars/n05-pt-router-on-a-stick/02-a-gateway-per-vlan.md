@@ -1,6 +1,6 @@
 ## 2. A gateway per VLAN
 
-On the router CLI:
+Double-click the router for its CLI:
 
 ```
 enable
@@ -17,7 +17,7 @@ end
 show ip interface brief
 ```
 
-Then set each PC's gateway: staff 192.168.10.1, guests 192.168.20.1.
+Then click each PC and set its **Default gateway**: staff 192.168.10.1, guests 192.168.20.1.
 
 - [ ] Main interface up
 - [ ] Two subinterfaces with dot1Q tags and addresses

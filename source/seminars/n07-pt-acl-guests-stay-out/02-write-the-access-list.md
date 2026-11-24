@@ -18,7 +18,7 @@ Rules are read top to bottom and the first match wins, so the deny for the staff
 
 - [ ] Access list 120 written in the right order
 - [ ] Applied inbound on the guest subinterface
-- [ ] show access-lists checked
+- [ ] show access-lists checked: lines 10 to 40 in order
 
 > Hint: A wildcard mask is the opposite of a netmask: 0.0.0.255 means "any value in the last number".
 

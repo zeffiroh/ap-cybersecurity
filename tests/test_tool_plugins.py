@@ -48,9 +48,12 @@ class ToolFiles(unittest.TestCase):
         ids = set()
         for name in T.TOOL_FILES:
             text = (THEME / name).read_text(encoding="utf-8")
-            self.assertIn("AayatTools.register", text)
             self.assertIsNone(re.search(r"^\s*//|/\*", text, re.M), f"{name} has a comment")
-            self.assertIsNone(re.search(r"wireshark|burp|portswigger|microsoft", text, re.I), f"{name} names another company's product")
+            self.assertIsNone(re.search(r"wireshark|burp|portswigger|microsoft|cisco|filius|packet tracer|gns3", text, re.I), f"{name} names another company's product")
+            if name in T.KITS:
+                self.assertNotIn("AayatTools.register", text, f"{name} is a shared kit, not a program")
+                continue
+            self.assertIn("AayatTools.register", text)
             m = re.search(r'register\(\{\s*id:\s*"([a-z0-9-]+)"', text)
             self.assertTrue(m, f"{name} registers a tool with an id")
             self.assertNotIn(m.group(1), ids)

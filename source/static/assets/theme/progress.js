@@ -101,7 +101,7 @@
       if (who && who2 && who2 !== who) return;
       if (s.session_type === "hw") {
         hw[s.topic_id] = Math.max(hw[s.topic_id] || 0, s.accuracy_pct || 0);
-      } else if (s.done && s.overall && s.unit) {
+      } else if (s.session_type !== "practice" && s.done && s.overall && s.unit) {
         tests[s.unit] = Math.max(tests[s.unit] == null ? -9 : tests[s.unit], s.overall.theta);
       }
     });

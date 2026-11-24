@@ -10,13 +10,14 @@ line console 0
  login
 end
 copy running-config startup-config
+show running-config
 ```
 
-Test it: open a console from a PC (**Console** cable to the switch's console port, then **Desktop → Terminal**).
+Read the top of `show running-config`: the enable secret is stored as a hash (`enable secret 5 ...`), never as the word you typed.
 
 - [ ] enable secret set
 - [ ] Console password with login
-- [ ] Configuration saved
+- [ ] Configuration saved ([OK])
 
 > Hint: `enable secret` is stored as a hash; the old `enable password` isn't. Always use secret.
 

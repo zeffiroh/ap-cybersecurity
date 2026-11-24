@@ -1,6 +1,6 @@
 ## 2. Make the VLANs
 
-Click the switch, open the **CLI** tab, and type:
+Double-click **sw1** (or open the **CLI and Desktop** tab and pick sw1), and type:
 
 ```
 enable

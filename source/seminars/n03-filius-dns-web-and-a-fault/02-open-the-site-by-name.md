@@ -1,6 +1,6 @@
 ## 2. Open the site by name
 
-Set every computer's **DNS server** to 192.168.2.53. On till-1, install **Web browser** and open `http://www.banyan.lan`. Then open **Show data exchange** on till-1 and find the DNS question before the web request.
+Press **Design** and set every computer's **DNS server** to 192.168.2.53, the servers too. Press **Simulation**, click till-1, open **Web browser** and go to `http://www.banyan.lan`. Then open the **Data exchange** tab for till-1 and find the DNS question before the web request.
 
 - [ ] Every computer uses 192.168.2.53 for DNS
 - [ ] till-1 opens the site by name

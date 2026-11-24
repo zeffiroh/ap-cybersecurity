@@ -1,6 +1,6 @@
 ## 1. Park and shut the unused ports
 
-A live, empty wall port is an open door: anyone can plug in. On the switch:
+A live, empty wall port is an open door: anyone can plug in. Double-click **sw1** for its CLI:
 
 ```
 enable

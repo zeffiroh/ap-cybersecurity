@@ -1,4 +1,4 @@
-# Lecture script: Network lab 6: Lock down the switch (Packet Tracer)
+# Lecture script: Network lab 6: Lock down the switch (Network Simulator)
 
 Network lab · about 45 minutes of lab work · about 5 minutes of narration
 
@@ -8,11 +8,11 @@ This is what `python tools/teach.py demo n06-pt-lock-down-the-switch` plays and 
 
 ## Opening
 
-Welcome to network lab six. Think of Tulsi Travels' switch as a building. Right now every door is unlocked, even in the empty rooms, and the key to the building manager's office hangs on the front door. Today we fix that with the short checklist network teams run on every new switch: shut the unused ports, allow one known device per staff desk, and lock the management access. Then we try to get in with an unknown laptop. Open your lab five file and save a copy.
+Welcome to network lab six. Think of Tulsi Travels' switch as a building. Right now every door is unlocked, even in the empty rooms, and the key to the building manager's office hangs on the front door. Today we fix that with the short checklist network teams run on every new switch: shut the unused ports, allow one known device per staff desk, and lock the management access. Then we try to get in with an unknown laptop. Lab five's network is already built for you.
 
 ## 1. Park and shut the unused ports
 
-Step one: park and shut the unused ports. On the switch, create VLAN 999 and name it PARKING. Then take ports 21 to 24, make them access ports in VLAN 999, and shut them down. End, then show interfaces status.
+Step one: park and shut the unused ports. Double-click the switch for its CLI. Create VLAN 999 and name it PARKING. Then take ports 21 to 24, make them access ports in VLAN 999, and shut them down. End, then show interfaces status.
 
 *After it runs:*
 
@@ -22,31 +22,31 @@ On screen: the step text.
 
 ## 2. One known device per staff port
 
-Step two: one known device per staff port. On ports 1 to 12, turn on port security, set the maximum to one MAC address, make it sticky, and set the violation action to shutdown. Then, on staff-1, ping staff-2 at 192.168.10.12, so the switch hears from both computers. Finally, run show port-security interface fa0/1.
+Step two: one known device per staff port. On ports 1 to 12, turn on port security, set the maximum to one MAC address, make it sticky, and set the violation action to shutdown. Then, from staff-1's Command Prompt, ping staff-2 at 192.168.10.12, so both ports hear from their computers. Finally, run show port-security on the switch.
 
 *After it runs:*
 
-The output says port security is enabled, the port is secure-up, the maximum is one, and the sticky MAC count is one. Sticky means the switch learned the first MAC address it saw on the port, staff-1's, and wrote it into the running configuration, so it stays. staff-2 had to answer the ping, so Fa0/2 has learned staff-2 the same way. That matters in the next step: a port that has never heard from its computer would simply learn whoever plugs in first. From now on each staff port accepts its own computer and nothing else. Each staff port may learn one MAC address.
+show port-security lists Fa0/1 to Fa0/12, each with a maximum of one secure address and the action Shutdown. Fa0/1 and Fa0/2 show one current address each: staff-1 and staff-2. Sticky means the switch keeps the first MAC address it saw on the port and writes it into the running configuration, so it stays. That's why the ping matters on a real switch: a port that has never heard from its computer would simply learn whoever plugs in first. From now on each staff port accepts its own computer and nothing else. Each staff port may learn one MAC address.
 
 On screen: the step text.
 
 ## 3. Plug in an unknown laptop
 
-Step three: plug in an unknown laptop. Unplug staff-2 from Fa0/2 and plug a new laptop into that port instead. Give it 192.168.10.50 and ping staff-1. Watch the link light. Then, on the switch, run show interfaces status and show port-security interface fa0/2.
+Step three: plug in an unknown laptop. Click the cable between staff-2 and the switch and press Unplug it. Add a laptop from the bar, give it 192.168.10.50, and cable it to Fa0/2 with Copper Straight-Through. Ping staff-1 from the laptop, and watch the link light. Then, on the switch, run show interfaces status and show port-security.
 
 *After it runs:*
 
-The ping fails, and the light on Fa0/2 turns red. show interfaces status says err-disabled. show port-security shows a violation count of one, and the last source address is the laptop's MAC. The switch saw an unknown device on a port that allows one known one, and shut the port, exactly as we told it to. In real life, that's someone unplugging the office PC to plug in their own machine, and the network saying no. To bring the port back once you've checked who it was, plug staff-2 back in, then on interface fa0/2 type shutdown, and then no shutdown. The blocked port's status is err-disabled.
+The ping fails, and the light on Fa0/2 turns red. show interfaces status says err-disabled. show port-security shows a security violation count of one on Fa0/2. The switch saw an unknown device on a port that allows one known one, and shut the port, exactly as we told it to. In real life, that's someone unplugging the office PC to plug in their own machine, and the network saying no. To bring the port back once you've checked who it was, unplug the laptop, plug staff-2 back in, then on interface fa0/2 type shutdown, and then no shutdown. On a real switch, the port stays err-disabled until you do. The blocked port's status is err-disabled.
 
 On screen: the step text.
 
 ## 4. Protect the management access
 
-Step four: protect the management access. Anyone with a console cable could undo everything we just did. So in configuration mode, set an enable secret. Then go to line console 0, set a password, and type login, so the password is actually asked for. End, and save with copy running-config startup-config. Then test it: join a PC's RS 232 port to the switch's console port with a Console cable, and open Desktop, then Terminal.
+Step four: protect the management access. Anyone with a console cable could undo everything we just did. So in configuration mode, set an enable secret. Then go to line console 0, set a password, and type login, so the password is actually asked for. End, save with copy running-config startup-config, and then look at show running-config.
 
 *After it runs:*
 
-The terminal asks for the console password, and enable asks for the secret. Two details matter. Use enable secret, never the older enable password: the secret is stored as a one-way hash, while enable password sits in the configuration in plain text, or behind a weak scramble that's easy to reverse. And save. The running configuration lives in memory; if the switch restarts before you copy it to the startup configuration, today's work is gone. The save command is copy running-config startup-config. Choose your own passwords, and write them in your notes, not in the lab files.
+The save prints Building configuration, then OK. At the top of the running configuration you'll see enable secret 5, followed by a scrambled string, not the word you typed. Two details matter. Use enable secret, never the older enable password: the secret is stored as a one-way hash, while enable password sits in the configuration in plain text, or behind a weak scramble that's easy to reverse. And save. The running configuration lives in memory; if the switch restarts before you copy it to the startup configuration, today's work is gone. The save command is copy running-config startup-config. Choose your own passwords, and write them in your notes, not in the lab files.
 
 On screen: the step text.
 
@@ -65,9 +65,9 @@ Hardening isn't clever. It's a short checklist done every time: shut what you do
 ```
 0:00 Opening
 0:45 1. Park and shut the unused ports
-1:37 2. One known device per staff port
+1:38 2. One known device per staff port
 2:41 3. Plug in an unknown laptop
-3:41 4. Protect the management access
-4:49 5. Where next
-5:01 Wrap-up
+3:49 4. Protect the management access
+4:57 5. Where next
+5:09 Wrap-up
 ```

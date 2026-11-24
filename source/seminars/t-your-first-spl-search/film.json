@@ -1,0 +1,272 @@
+{
+ "host": "chandni-soc",
+ "setup": [
+  "nohup python3 -m http.server 8099 -d /opt/site >/dev/null 2>&1 &"
+ ],
+ "files": {},
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. Today you'll run your first searches in SPL, the search language of Splunk, one of the most common tools in a security operations centre. Two moves are all you need to start: count, then pivot. Let's go."
+  },
+  {
+   "chapter": "1. The setting"
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "The setting first. Chandni Textiles, a fabric and saree business in Surat, with two shops and an online store. Monday the ninth of November 2026. All times are UTC, and India is five and a half hours ahead, so seven in the evening UTC is half past midnight in Surat. The evidence is in the case folder. We'll search auth.log, the SSH and sudo log from shop01, the online shop. shop01 has SSH open to the internet so the photo studio can upload product pictures, which means strangers try to guess its passwords all day. The question is whether anyone succeeded, and what they did next."
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "head -3 auth.log | cut -c1-150",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. SPL: count, then pivot"
+  },
+  {
+   "say": "SPL reads from left to right. First a search that picks events, then a pipe, the vertical bar, then a command that works on those results. Our first search picks failed logins, action equals failure. Then stats count by src_ip groups them by the address they came from, and sort minus count puts the biggest at the top. That's counting. Watch the table it builds."
+  },
+  {
+   "open": [
+    "firefox-esr",
+    "--new-window",
+    "http://localhost:8099/playground.html?tool=siem&notour=1"
+   ],
+   "window": "Mozilla Firefox|Playground|playground",
+   "as": "web",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ],
+   "timeout": 60,
+   "settle": 5
+  },
+  {
+   "wait": 30
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.5
+   ],
+   "keys": [
+    "Home"
+   ],
+   "wait": 1.5
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "sourcetype=syslog action=failure | stats count by src_ip | sort - count",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "Look at the top row. One address, 203.0.113.45, failed eleven times, far more than anyone else. That's what password guessing looks like: one source, many failures."
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "Accepted src_ip=203.0.113.45 | table _time user auth_method",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "Now the second move, the pivot. Take what you found, the address, and search for it again, this time for a success. The second search looks for Accepted logins from 203.0.113.45 and shows the time, the user and the authentication method. One result. At 19:20 UTC it logged in as catalog, with a password. catalog is the account the photo studio uses to upload pictures."
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "process=sshd user=catalog | table _time src_ip action",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "Now pivot again, this time on the account. The third search shows every SSH event for catalog. At 05:10 in the morning it logged in from 10.30.0.30, the photo studio PC on the office network. That's normal. Then three failures and one success from 203.0.113.45 at night. That's not."
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "process=sudo | table _time user run_as command",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "The last search asks what the account did with sudo, where every line is a command run as root. At 05:10 catalog ran resize-photos, its normal job. At 19:21 the same account ran mysqldump with all-databases, which copies every database on the server into one file, and at 19:23 it compressed that file with gzip. That's somebody packing the shop's data to take away. So in four searches you've told the whole story: guessing, a successful login as catalog from somewhere it never logs in from, and a copy of every database. A tip for when you try it yourself: click any field name in the results to add it to your search. Answer the four questions: 203.0.113.45, catalog, 10.30.0.30, and mysqldump."
+  },
+  {
+   "close": "web",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Where next"
+  },
+  {
+   "say": "That was one step from Seminar 2, Log search and detection as code. The full seminar has a longer video, every step at three levels, walkthrough, practice and solo, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen. If you want to try the Hacker Room, the analyst desktop where all these programs live together, the free trial is linked there too."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. Count first, to find what stands out. Then pivot: take the address, the user or the host you found, and search again for the next step. Every investigation is a chain of small, simple searches like these. Thank you for watching, and try the same hunt in KQL next. It's the other big search language."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

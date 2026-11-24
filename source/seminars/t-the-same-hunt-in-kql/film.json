@@ -1,0 +1,230 @@
+{
+ "host": "chandni-soc",
+ "setup": [
+  "nohup python3 -m http.server 8099 -d /opt/site >/dev/null 2>&1 &"
+ ],
+ "files": {},
+ "scenes": [
+  {
+   "chapter": "Opening"
+  },
+  {
+   "open": "thunar /case",
+   "window": "Thunar",
+   "as": "files",
+   "geometry": [
+    260,
+    120,
+    1400,
+    820
+   ],
+   "settle": 1.5
+  },
+  {
+   "say": "Hello, and welcome. You've counted and pivoted in SPL. Now let's ask the very same question in KQL, the Kusto Query Language used by Microsoft Sentinel and Defender. If two languages give two different answers, one of the searches is wrong, so this is also a lesson in checking your work."
+  },
+  {
+   "chapter": "1. The setting"
+  },
+  {
+   "point": [
+    0.45,
+    0.3
+   ],
+   "in": "files",
+   "secs": 1.0
+  },
+  {
+   "say": "Same company, same evidence. Chandni Textiles in Surat, Monday the ninth of November 2026, all times in UTC. We'll search auth.log from shop01, the online shop with SSH open to the internet. The question: did someone guess a password and get in?"
+  },
+  {
+   "close": "files",
+   "wait": 0.8
+  },
+  {
+   "open": "xfce4-terminal --working-directory=/case --title=Terminal --zoom=1.5 --hide-menubar",
+   "window": "Terminal",
+   "as": "term",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ]
+  },
+  {
+   "use": "term",
+   "at": [
+    0.5,
+    0.45
+   ],
+   "keys": [
+    "ctrl+u"
+   ],
+   "type": "head -3 auth.log | cut -c1-150",
+   "wait": 3,
+   "cps": 16
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "2. The same hunt in KQL"
+  },
+  {
+   "say": "KQL reads differently from SPL. It starts with a table. The table is named after the file, so auth.log becomes auth. Then each pipe passes the rows to an operator. where filters rows. summarize count by groups them. project picks the columns you want to see, and sort by orders them. Strings go in double quotes, and you compare with two equals signs. Here's the failure count, written in KQL."
+  },
+  {
+   "open": [
+    "firefox-esr",
+    "--new-window",
+    "http://localhost:8099/playground.html?tool=siem&notour=1"
+   ],
+   "window": "Mozilla Firefox|Playground|playground",
+   "as": "web",
+   "geometry": [
+    60,
+    50,
+    1800,
+    960
+   ],
+   "timeout": 60,
+   "settle": 5
+  },
+  {
+   "wait": 30
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.35
+   ],
+   "keys": [
+    "ctrl+minus"
+   ],
+   "wait": 1.5
+  },
+  {
+   "use": "web",
+   "at": [
+    0.5,
+    0.5
+   ],
+   "keys": [
+    "Home"
+   ],
+   "wait": 1.5
+  },
+  {
+   "point": [
+    0.052,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true,
+   "wait": 1.5
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "auth | where action == \"failure\" | summarize count() by src_ip | sort by count_ desc",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "Same answer as SPL: 203.0.113.45 is at the top, with eleven failed logins. Notice the count column is called count_ with an underscore at the end. That's KQL's default name, and you sort by it."
+  },
+  {
+   "point": [
+    0.411,
+    0.375
+   ],
+   "in": "web",
+   "secs": 0.7,
+   "click": true
+  },
+  {
+   "use": "web",
+   "at": [
+    0.411,
+    0.375
+   ],
+   "keys": [
+    "ctrl+a"
+   ],
+   "type": "auth | where src_ip == \"203.0.113.45\" and action == \"success\" | project _time, user, auth_method",
+   "enter": true,
+   "cps": 22,
+   "wait": 4
+  },
+  {
+   "after": "Now the pivot. The second search filters for that address and a success, and projects the time, the user and the authentication method. One row: catalog, with a password, at 19:20. So both languages agree, and that's what you want. If they didn't, one of the searches would be wrong. Now a small exercise for you: write down one thing that's easier in each language. Many analysts find SPL quicker to type for a fast count, and KQL easier to read back a week later because every step names what it does. There's no wrong answer; you'll meet both at work. If you want to practise full KQL, the free KC7 game and the free Azure Data Explorer help cluster both run it. Answer the question: eleven failed logins from that address."
+  },
+  {
+   "close": "web",
+   "wait": 0.8
+  },
+  {
+   "keys": [
+    "ctrl+l"
+   ]
+  },
+  {
+   "chapter": "3. Where next"
+  },
+  {
+   "say": "That was one step from Seminar 2, Log search and detection as code. The full seminar has a longer video, every step at three levels, walkthrough, practice and solo, a graded hand-in that I mark myself, and a certificate at the end. The links are on your screen. If you want to try the Hacker Room, the analyst desktop where all these programs live together, the free trial is linked there too."
+  },
+  {
+   "chapter": "Wrap-up"
+  },
+  {
+   "say": "To recap. KQL starts with a table and pipes it through where, summarize, project and sort. The answer must match your SPL. When it doesn't, slow down and find out why. Knowing both languages makes you useful in almost any security team. Thank you for watching."
+  },
+  {
+   "wait": 2
+  }
+ ]
+}

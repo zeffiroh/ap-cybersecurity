@@ -595,7 +595,7 @@ html, body {
     <img class="logo" src="../assets/theme/icon.svg"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
     <div class="logo-fallback" style="display:none">AP</div>
-    <span class="title-text">Unit test</span>
+    <span class="title-text" id="app-title">Unit test</span>
   </div>
 
   <div class="app-content">
@@ -629,9 +629,22 @@ html, body {
             <input id="inp-id" type="text" placeholder="e.g. S12345">
           </div>
           <div class="field">
+            <label>What to do:</label>
+            <select id="inp-mode" onchange="setMode(this.value)">
+              <option value="test">Unit test (8 to 24 questions, counts towards your grade)</option>
+              <option value="practice">Topic practice (6 to 10 questions, repeat as often as you like)</option>
+            </select>
+          </div>
+          <div class="field" id="row-unit">
             <label>Unit:</label>
             <select id="inp-unit">
               <option value="">Loading units…</option>
+            </select>
+          </div>
+          <div class="field hidden" id="row-topic">
+            <label>Topic:</label>
+            <select id="inp-topic">
+              <option value="">Loading topics…</option>
             </select>
           </div>
 
@@ -648,7 +661,7 @@ html, body {
     <div id="screen-quiz" class="hidden">
 
       <div class="quiz-ribbon">
-        <span class="item-counter">Item <span id="q-num">1</span> of 24</span>
+        <span class="item-counter">Item <span id="q-num">1</span> of <span id="q-max">24</span></span>
         <div class="progress-track">
           <div class="progress-fill" id="progress-fill"></div>
         </div>
@@ -785,32 +798,61 @@ const SKILL_NAMES = {
   '3.A':'Evaluate Posture','3.B':'Analyze Incidents'
 };
 
+let TOPICS = [];
+
+function setMode(mode) {
+  const practice = mode === 'practice';
+  document.getElementById('inp-mode').value = practice ? 'practice' : 'test';
+  document.getElementById('row-unit').classList.toggle('hidden', practice);
+  document.getElementById('row-topic').classList.toggle('hidden', !practice);
+  document.getElementById('app-title').textContent = practice ? 'Topic practice' : 'Unit test';
+}
+
 (async () => {
+  const params = new URLSearchParams(location.search);
   try {
     const units = await Engine.units();
     const sel   = document.getElementById('inp-unit');
     sel.innerHTML = units.map(u =>
       `<option value="${u.id||u.unit_id}">${u.id||u.unit_id} — ${u.title} (${u.count} items)</option>`
     ).join('');
-    const want = new URLSearchParams(location.search).get('unit');
+    const want = params.get('unit');
     if (want && units.some(u => (u.id||u.unit_id) === want)) sel.value = want;
-    setStatus('Ready, select a unit and enter your name to begin.');
+    setStatus('Ready, choose a unit test or a topic to practise, and enter your name to begin.');
   } catch(e) { setStatus('Error loading units: ' + e.message); }
+  try {
+    TOPICS = (await Engine.topics()).topics || [];
+    const tsel = document.getElementById('inp-topic');
+    tsel.innerHTML = TOPICS.map(t => `<option value="${t.id}">${t.id} — ${t.title} (${t.count} questions)</option>`).join('');
+    const wantTopic = params.get('topic');
+    if (wantTopic && TOPICS.some(t => t.id === wantTopic)) { tsel.value = wantTopic; setMode('practice'); }
+  } catch(e) { setStatus('Error loading topics: ' + e.message); }
 })();
 
 async function startSession() {
   const name = document.getElementById('inp-name').value.trim();
   const sid  = document.getElementById('inp-id').value.trim();
-  const unit = document.getElementById('inp-unit').value;
-  if (!name) { alert('Please enter your name.'); return; }
+  const practice = document.getElementById('inp-mode').value === 'practice';
+  const topic = practice ? document.getElementById('inp-topic').value : '';
+  const tinfo = TOPICS.find(t => t.id === topic);
+  const unit = practice ? (tinfo ? tinfo.unit : '') : document.getElementById('inp-unit').value;
+  if (!name) { setStatus('Please enter your name first.'); document.getElementById('inp-name').focus(); return; }
+  if (practice && !tinfo) { setStatus('Choose a topic to practise.'); return; }
   Identity.ensureEmail(email => {
-    SESSION = Engine.start({ student_name: name, student_id: sid, student_email: email, unit });
+    SESSION = Engine.start({ student_name: name, student_id: sid, student_email: email, unit, topic });
     SESSION_START = Date.now();
     SESSION_DONE = false;
-    show('quiz'); hide('start');
-    setStatus(`Session ${SESSION.id} active, Unit ${unit}`);
+    document.getElementById('q-max').textContent = Engine.limits(SESSION).max;
+    show('quiz'); hide('start'); hide('report');
+    setStatus(practice ? `Practice ${SESSION.id} active, Topic ${topic}, round ${SESSION.attempt}` : `Session ${SESSION.id} active, Unit ${unit}`);
     loadNext();
   });
+}
+
+function practiseAgain() {
+  setMode('practice');
+  hide('report'); show('start');
+  startSession();
 }
 
 async function loadNext(skip) {
@@ -830,7 +872,7 @@ async function loadNext(skip) {
 
   const skill = data.primary_skill || '1.A';
   const sb = document.getElementById('skill-badge');
-  sb.textContent = `${skill} · ${SKILL_NAMES[skill] || skill}`;
+  sb.textContent = `${skill} · ${data.skill_name || SKILL_NAMES[skill] || skill}`;
 
   document.getElementById('q-stem').textContent = data.stem || '';
 
@@ -844,7 +886,7 @@ async function loadNext(skip) {
     cc.appendChild(btn);
   }
 
-  const pct = Math.min(100, ((data.item_number - 1) / Engine.MAX_ITEMS) * 100);
+  const pct = Math.min(100, ((data.item_number - 1) / (data.max_items || Engine.MAX_ITEMS)) * 100);
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('q-num').textContent = data.item_number;
 
@@ -1010,20 +1052,27 @@ function setView(mode) {
 
 function renderReport(d, view) {
   if (!d) return;
-  document.getElementById('rpt-subtitle').textContent =
-    `${d.student_name||''}${d.student_id ? ' · '+d.student_id : ''} · Unit ${d.unit||''} · ${(d.summary||{}).elapsed_fmt||''}`;
+  const practice = d.session_type === 'practice';
+  document.getElementById('rpt-subtitle').textContent = practice
+    ? `${d.student_name||''} · Topic ${d.topic||''} ${d.topic_title||''} · round ${d.attempt||1} · ${(d.summary||{}).elapsed_fmt||''}`
+    : `${d.student_name||''}${d.student_id ? ' · '+d.student_id : ''} · Unit ${d.unit||''} · ${(d.summary||{}).elapsed_fmt||''}`;
 
   const body = document.getElementById('report-body');
   const s    = d.summary || {};
   const accCol = (s.accuracy_pct||0) >= 75 ? '#006400' : (s.accuracy_pct||0) >= 50 ? '#8B6914' : '#8B0000';
 
   const o = d.overall || {};
+  const verdict = practice
+    ? (d.mastered_all ? '✓ Every skill in this topic is mastered.' : 'Practice round finished. It doesn\'t count towards your grade.')
+    : (d.done ? (o.meets_gate ? '✓ Meets the unit gate (Proficient or above).' : '✗ Below the unit gate (Proficient, θ ≥ 0.50). Book a tutoring session before moving on.') : 'Test in progress.');
   let html = `
   <div class="report-section">
-    <div class="rpt-ribbon">Overall Result</div>
+    <div class="rpt-ribbon">${practice ? 'Practice Result' : 'Overall Result'}</div>
     <div class="rpt-section-body">
       <div style="font-size:15px;font-weight:bold;color:${o.level_color||'#000'}">${o.level||'—'} · θ = ${(o.theta||0).toFixed(2)} <span style="font-size:11px;color:#808080">± ${(o.se||0).toFixed(2)}</span></div>
-      <div style="font-size:12px;margin-top:4px">${d.done ? (o.meets_gate ? '✓ Meets the unit gate (Proficient or above).' : '✗ Below the unit gate (Proficient, θ ≥ 0.50). Book a tutoring session before moving on.') : 'Test in progress.'}</div>
+      <div style="font-size:12px;margin-top:4px">${verdict}</div>
+      ${practice ? `<div style="font-size:12px;margin-top:4px">${(d.recommendations||[]).map(r => r.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')).join('<br>')}</div>
+      <div style="margin-top:8px"><button class="btn95 primary" onclick="practiseAgain()">Practise again →</button></div>` : ''}
     </div>
   </div>
   <div class="report-grid">
@@ -1041,8 +1090,8 @@ function renderReport(d, view) {
       <div class="skill-row-name">${sk.name||skill}<br><span style="font-size:10px;color:#808080">${skill}</span></div>
       <div class="skill-row-bar"><div class="skill-row-fill" style="width:${sk.pct||0}%;background:${sk.color||'#8B0000'}"></div></div>
       <div class="skill-row-pct">${(sk.theta||0).toFixed(2)}</div>
-      <div class="skill-row-level">${sk.level||'—'}</div>
-      <span style="font-size:10px;color:#006400">${sk.mastered ? '✓' : ''}</span>
+      <div class="skill-row-level">${sk.level||'—'}${practice && sk.before != null ? `<br><span style="font-size:10px;color:#808080">was ${sk.before.toFixed(2)}</span>` : ''}</div>
+      <span style="font-size:10px;color:#006400">${sk.mastered ? (practice ? '✓ mastered' : '✓') : ''}</span>
     </div>`;
   }
   html += `<div class="chart-wrap"><canvas id="rpt-chart" height="160"></canvas></div>`;
